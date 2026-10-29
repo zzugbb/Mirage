@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "1.0.0",
+  "id": "mirage-room-01-v1",
+  "unit": "m",
+  "description": "原创示意机房与通用服务器，非真实现场或厂商结构",
+  "room": { "size": [8, 3.2, 6], "wallThickness": 0.16 },
+  "rack": { "id": "rack-a01", "position": [0, 0, 0], "size": [0.6, 2.1, 1.1], "units": 42 },
+  "server": { "id": "srv-01", "position": [0, 1.18, 0], "size": [0.46, 0.089, 0.78], "slot": "U23–U24" },
+  "facilities": [
+    { "id": "cooling-01", "name": "制冷单元", "position": [-2.7, 0.95, -2.22], "size": [1.05, 1.9, 0.65], "color": "#8faeb9" },
+    { "id": "power-01", "name": "配电柜", "position": [2.8, 0.9, -2.32], "size": [0.85, 1.8, 0.5], "color": "#b5bfc2" }
+  ],
+  "palette": { "floor": "#d6e1e3", "wall": "#f4f7f7", "rack": "#23353e", "accent": "#147d75" }
+}

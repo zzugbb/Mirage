@@ -1,5 +1,17 @@
 {
   "schemaVersion": "1.0.0",
   "defaultOriginalAssetLicense": "CC-BY-NC-4.0",
-  "assets": []
+  "assets": [
+    {
+      "id": "mirage-room-01-v1",
+      "path": "assets/public/scenes/room-01.json",
+      "kind": "scene",
+      "rightsHolder": "zzugbb",
+      "source": "本项目独立设计并自主参数化制作的示意机房、机柜和服务器场景",
+      "license": "CC-BY-NC-4.0",
+      "licenseFile": "LICENSES/CC-BY-NC-4.0.txt",
+      "sha256": "c3eb4718e1ab3935b74c66027c8359d98128b17a192e9302d494c8b84a918c9c",
+      "publicationApproved": true
+    }
+  ]
 }
