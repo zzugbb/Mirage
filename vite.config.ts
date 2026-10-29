@@ -53,5 +53,16 @@ export default defineConfig({
     },
   ],
   resolve: { dedupe: ["three"] },
-  build: { rollupOptions: { output: { manualChunks: { three: ["three"] } } } },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          three: ["three"],
+          "area-light-data": [
+            "three/addons/lights/RectAreaLightTexturesLib.js",
+          ],
+        },
+      },
+    },
+  },
 });

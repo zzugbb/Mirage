@@ -26,6 +26,9 @@ export function Viewport({
     state.level === "room" ? "interior" : "iso",
   );
   const anchors = useRef<HTMLDivElement>(null);
+  const axes = useRef<HTMLDivElement>(null);
+  const [detailShadows, setDetailShadows] = useState(true);
+  const [shadowSupport, setShadowSupport] = useState(false);
   const [orbiting, setOrbiting] = useState(
     () => !matchMedia("(prefers-reduced-motion: reduce)").matches,
   );
@@ -45,7 +48,10 @@ export function Viewport({
       engine.current = active;
       active.autoOrbit = orbiting;
       active.onAssets = setAssetStatus;
+      active.pipeline.enabled = detailShadows;
+      setShadowSupport(active.pipeline.available);
       if (anchors.current) active.bindAnchors(anchors.current);
+      if (axes.current) active.bindAxes(axes.current);
     } catch {
       setError(
         "三维场景启动失败。请确认浏览器支持 WebGL 2，并已开启硬件加速。",
@@ -79,7 +85,7 @@ export function Viewport({
           ["rack-a01", "A01"],
           ["cooling-01", "制冷单元"],
           ["power-01", "配电柜"],
-          ["cpu-01", "处理器"],
+          ["cpu-01", "散热器"],
           ["memory-01", "内存模组"],
           ["fans-01", "风扇模组"],
           ["psu-02", "电源"],
@@ -106,11 +112,11 @@ export function Viewport({
         </h1>
         <p>
           {state.level === "room"
-            ? "从空间，深入每一个细节。"
+            ? "8 × 6 m · 机柜与设施"
             : state.level === "rack"
               ? "42U · 一台代表性设备"
               : phase === "device-ready"
-                ? "2U 服务器 · 授权结构模型"
+                ? "2U 服务器 · 模组结构"
                 : phaseLabels[phase]}
         </p>
       </div>
@@ -155,13 +161,24 @@ export function Viewport({
               : "设备结构"}
         </small>
       </div>
-      <div className="axis" aria-hidden="true">
-        <i className="axis-y">Y</i>
-        <i className="axis-x">X</i>
-        <i className="axis-z">Z</i>
+      <div className="axis" aria-hidden="true" ref={axes}>
+        <i className="axis-y" data-axis="y">
+          <span>Y</span>
+        </i>
+        <i className="axis-x" data-axis="x">
+          <span>X</span>
+        </i>
+        <i className="axis-z" data-axis="z">
+          <span>Z</span>
+        </i>
       </div>
       <div className="canvas-toolbar">
-        <button onClick={() => engine.current?.view("iso", true)}>
+        <button
+          onClick={() => {
+            setView("iso");
+            engine.current?.view("iso", true);
+          }}
+        >
           <span className="tool-symbol">⌖</span>聚焦选择
         </button>
         <span className="divider" />
@@ -178,6 +195,23 @@ export function Viewport({
           <span className="tool-symbol">↺</span>复位视角
         </button>
       </div>
+      <button
+        className="quality-button"
+        aria-pressed={detailShadows && shadowSupport}
+        disabled={!shadowSupport}
+        title={
+          shadowSupport
+            ? "增强缝隙与接触处的阴影；可关闭以使用标准画质"
+            : "当前浏览器使用标准阴影"
+        }
+        onClick={() => {
+          const next = !detailShadows;
+          setDetailShadows(next);
+          if (engine.current) engine.current.pipeline.enabled = next;
+        }}
+      >
+        细节阴影
+      </button>
       <button
         className="orbit-button"
         aria-pressed={orbiting}

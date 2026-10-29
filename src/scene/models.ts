@@ -2,6 +2,7 @@ import * as THREE from "three";
 import definition from "../../assets/public/scenes/room-01.json" with { type: "json" };
 import { buildParts } from "./parts";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
+import { createFloorMaterial } from "./rendering";
 
 export type SceneModel = ReturnType<typeof buildModels>;
 const materials = new Map<string, THREE.MeshStandardMaterial>();
@@ -104,18 +105,32 @@ export function buildModels() {
   root.add(room);
   const [width, height, depth] = definition.room.size;
   box(room, [width + 0.15, 0.22, depth + 0.15], [0, -0.12, 0], "#555b60", 0.5);
+  const floorMaterial = createFloorMaterial();
   for (let x = -3.75; x < 4; x += 0.5)
     for (let z = -2.75; z < 3; z += 0.5) {
-      box(
+      const tile = box(
         room,
-        [0.493, 0.055, 0.493],
+        [
+          0.5 - definition.rendering.floor.gap,
+          0.055,
+          0.5 - definition.rendering.floor.gap,
+        ],
         [x, 0.025, z],
         Math.round(x * 2 + z * 2) % 3 === 0 ? "#777b7e" : "#7a7e81",
         0.35,
       );
+      tile.geometry.dispose();
+      tile.geometry = new RoundedBoxGeometry(
+        0.5 - definition.rendering.floor.gap,
+        0.055,
+        0.5 - definition.rendering.floor.gap,
+        1,
+        0.0008,
+      );
+      tile.material = floorMaterial;
     }
   for (const x of [-4, 4])
-    glow(room, [0.025, 0.012, 6], [x, 0.065, 0], "#555d64");
+    box(room, [0.025, 0.012, 6], [x, 0.065, 0], "#72777c", 0.7);
   // 左侧实体墙与真实窗洞；后侧门洞采用分段墙体，不用贴图冒充开口。
   box(room, [0.14, 0.9, depth], [-4, 0.45, 0], "#a9a8a3");
   box(room, [0.14, 0.75, depth], [-4, height - 0.375, 0], "#a9a8a3");
@@ -144,7 +159,7 @@ export function buildModels() {
   door.position.set(1.4, 0, -2.98);
   door.rotation.y = -Math.PI / 3;
   room.add(door);
-  box(door, [1.16, 2.36, 0.055], [0.58, 1.18, 0], "#354e5a", 0.45);
+  box(door, [1.16, 2.36, 0.055], [0.58, 1.18, 0], "#4b5058", 0.45);
   box(door, [0.1, 0.25, 0.06], [1, 1.1, 0.05], "#bdd3d9", 0.8);
   glow(room, [0.45, 0.07, 0.04], [2, 2.6, -2.91]);
   for (const x of [-3.9, 3.9])
@@ -245,6 +260,24 @@ export function buildModels() {
   root.add(rack);
   const [rw, rh, rd] = definition.rack.size;
   box(rack, [rw, 0.1, rd], [0, 0.12, 0], "#23272c", 0.7);
+  const rubber = new THREE.MeshStandardMaterial({
+    color: "#202227",
+    roughness: 0.94,
+    metalness: 0,
+  });
+  for (const x of [-0.25, 0.25])
+    for (const z of [-0.45, 0.45]) {
+      const foot = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.024, 0.025, 0.026, 16),
+        rubber,
+      );
+      foot.position.set(x, 0.0655, z);
+      foot.castShadow = true;
+      foot.receiveShadow = true;
+      rack.add(foot);
+      box(rack, [0.016, 0.035, 0.016], [x, 0.09, z], "#8b939c", 0.8);
+    }
+
   box(rack, [rw, 0.065, rd], [0, rh, 0], "#3f454c", 0.7);
   for (const x of [-rw / 2 + 0.025, rw / 2 - 0.025])
     for (const z of [-rd / 2 + 0.025, rd / 2 - 0.025])
@@ -389,6 +422,12 @@ export function disposeModels(root: THREE.Object3D, shared = true) {
   const mats = new Set<THREE.Material>();
   const textures = new Set<THREE.Texture>();
   root.traverse((object) => {
+    if (
+      object instanceof THREE.DirectionalLight ||
+      object instanceof THREE.PointLight ||
+      object instanceof THREE.SpotLight
+    )
+      object.shadow.dispose();
     if (
       object instanceof THREE.Mesh ||
       object instanceof THREE.Line ||

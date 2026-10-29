@@ -36,7 +36,7 @@ export const entities: Entity[] = [
     name: "SRV-01 服务器",
     kind: "device",
     parent: "rack-a01",
-    description: "使用已授权的无品牌结构模型，含十六条内存。非真实设备实例。",
+    description: "双处理器散热结构、十六条内存与八个前置盘位的 2U 服务器示意。",
   },
   {
     id: "cooling-01",

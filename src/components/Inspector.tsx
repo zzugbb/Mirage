@@ -52,7 +52,7 @@ export function Inspector({
             ? [
                 ["所属设备", "SRV-01"],
                 ["槽位标识", part.slot],
-                ["模型节点", part.node],
+                ["结构精度", "模组级示意"],
               ]
             : [
                 ["对象类型", "基础设施"],

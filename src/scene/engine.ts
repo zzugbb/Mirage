@@ -7,6 +7,8 @@ import { entityById, partPosition, parts } from "../domain";
 import type { AppState, Level } from "../domain";
 import { frameDistance } from "../camera";
 import { StructurePresentation } from "./presentation";
+import { createBackdrop, createRoomLights, RenderPipeline } from "./rendering";
+import definition from "../../assets/public/scenes/room-01.json" with { type: "json" };
 import type { PresentationPhase } from "../mechanics";
 import {
   hardwareUrls,
@@ -18,6 +20,8 @@ import {
 export type View = "iso" | "top" | "front" | "right" | "interior";
 export class SceneEngine {
   renderer: THREE.WebGLRenderer;
+  pipeline: RenderPipeline;
+  roomLights: THREE.RectAreaLight[];
   scene = new THREE.Scene();
   camera = new THREE.PerspectiveCamera(40, 1, 0.01, 150);
   controls: OrbitControls;
@@ -56,6 +60,9 @@ export class SceneEngine {
   anchorElements: HTMLElement[] = [];
   anchorPosition = new THREE.Vector3();
   anchorBounds = new THREE.Box3();
+  axesElements: HTMLElement[] = [];
+  axesQuaternion = new THREE.Quaternion();
+  axesVector = new THREE.Vector3();
   guides: THREE.LineSegments;
   guidePositions = new Float32Array(parts.length * 6);
   partBases = new Map<string, THREE.Vector3>();
@@ -84,15 +91,16 @@ export class SceneEngine {
     });
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, 1.75));
     this.renderer.setClearColor("#181b1f");
+    this.scene.background = createBackdrop();
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.05;
+    this.renderer.toneMappingExposure = 0.95;
     const environmentScene = new RoomEnvironment();
     const pmrem = new THREE.PMREMGenerator(this.renderer);
     this.environment = pmrem.fromScene(environmentScene, 0.04);
     this.scene.environment = this.environment.texture;
-    this.scene.environmentIntensity = 0.8;
+    this.scene.environmentIntensity = 0.65;
     environmentScene.dispose();
     pmrem.dispose();
     this.renderer.domElement.setAttribute(
@@ -106,8 +114,8 @@ export class SceneEngine {
     );
     host.append(this.renderer.domElement);
     this.scene.fog = new THREE.FogExp2("#181b1f", 0.012);
-    this.scene.add(new THREE.HemisphereLight("#faf9f5", "#343333", 0.7));
-    const key = new THREE.DirectionalLight("#fff9f0", 2.6);
+    this.scene.add(new THREE.HemisphereLight("#faf9f5", "#343333", 0.45));
+    const key = new THREE.DirectionalLight("#fff9f0", 1.9);
     key.position.set(0, 9, 4);
     key.castShadow = true;
     key.shadow.mapSize.set(2048, 2048);
@@ -120,9 +128,10 @@ export class SceneEngine {
     const fill = new THREE.DirectionalLight("#e4e8ef", 0.5);
     fill.position.set(-4, 4, -2);
     this.scene.add(fill);
-    const rim = new THREE.DirectionalLight("#ffead2", 0.7);
+    const rim = new THREE.DirectionalLight("#ffead2", 0.85);
     rim.position.set(4, 2, 3);
     this.scene.add(rim);
+    this.roomLights = createRoomLights(this.models.room);
     const ground = new THREE.Mesh(
       new THREE.PlaneGeometry(200, 200),
       new THREE.ShadowMaterial({ opacity: 0.25 }),
@@ -197,6 +206,7 @@ export class SceneEngine {
     this.controls.addEventListener("start", this.cancelFlight);
     this.camera.position.set(13, 11, 16);
     this.controls.target.set(0, 0.8, 0);
+    this.pipeline = new RenderPipeline(this.renderer, this.scene, this.camera);
     this.observer = new ResizeObserver(() => this.resize());
     this.observer.observe(host);
     this.resize();
@@ -252,6 +262,11 @@ export class SceneEngine {
           return;
         }
         const normalized = normalizeModel(scene, "height", height);
+        normalized.rotation.y =
+          ((definition.facilities.find((facility) => facility.id === id)
+            ?.modelRotationYDegrees ?? 0) *
+            Math.PI) /
+          180;
         if (id === "power-01") {
           const size = new THREE.Box3()
             .setFromObject(normalized)
@@ -359,6 +374,7 @@ export class SceneEngine {
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height);
+    this.pipeline.resize(width, height);
     if (
       this.lastTime > 0 &&
       Math.abs(previousAspect - this.camera.aspect) > 0.1
@@ -565,6 +581,11 @@ export class SceneEngine {
       ...element.querySelectorAll<HTMLElement>("[data-anchor]"),
     ];
   }
+  bindAxes(element: HTMLElement) {
+    this.axesElements = [
+      ...element.querySelectorAll<HTMLElement>("[data-axis]"),
+    ];
+  }
   poseParts() {
     for (const [index, part] of parts.entries()) {
       const base = this.partBases.get(part.id)?.toArray() ?? part.position;
@@ -620,6 +641,8 @@ export class SceneEngine {
         : THREE.MathUtils.damp(fade.opacity, target, 9, delta);
       if (Math.abs(fade.opacity - target) < 0.005) fade.opacity = target;
       fade.group.visible = fade.opacity > 0;
+      if (fade.group === this.models.room)
+        for (const light of this.roomLights) light.intensity = 3 * fade.opacity;
       for (const item of fade.materials) {
         const transparent = item.transparent || fade.opacity < 1;
         if (item.material.transparent !== transparent) {
@@ -695,11 +718,28 @@ export class SceneEngine {
           this.anchorPosition.z > 1 ||
           x < 10 ||
           x > this.host.clientWidth - 70 ||
-          y < 100 ||
+          y < 22 ||
           y > this.host.clientHeight - 65;
       }
     }
-    this.renderer.render(this.scene, this.camera);
+    this.axesQuaternion.copy(this.camera.quaternion).invert();
+    for (const element of this.axesElements) {
+      this.axesVector
+        .set(
+          element.dataset.axis === "x" ? 1 : 0,
+          element.dataset.axis === "y" ? 1 : 0,
+          element.dataset.axis === "z" ? 1 : 0,
+        )
+        .applyQuaternion(this.axesQuaternion);
+      const x = this.axesVector.x * 24;
+      const y = -this.axesVector.y * 24;
+      element.style.setProperty("--axis-x", `${x + 3}px`);
+      element.style.setProperty("--axis-y", `${y - 5}px`);
+      element.style.setProperty("--axis-angle", `${Math.atan2(y, x)}rad`);
+      element.style.setProperty("--axis-length", `${Math.hypot(x, y)}px`);
+      element.style.opacity = this.axesVector.z > 0 ? "1" : "0.55";
+    }
+    this.pipeline.render(delta, frame.relocation, frame.busy);
     this.frame = requestAnimationFrame(this.animate);
   };
   dispose() {
@@ -707,6 +747,7 @@ export class SceneEngine {
     cancelAnimationFrame(this.frame);
     this.observer.disconnect();
     this.controls.dispose();
+    this.pipeline.dispose();
     const canvas = this.renderer.domElement;
     canvas.removeEventListener("pointerdown", this.pointerDown);
     canvas.removeEventListener("pointerup", this.pointerUp);
@@ -717,6 +758,7 @@ export class SceneEngine {
     for (const fade of this.fades)
       for (const item of fade.materials) item.material.dispose();
     this.environment.dispose();
+    (this.scene.background as THREE.Texture).dispose();
     this.renderer.dispose();
     canvas.remove();
   }

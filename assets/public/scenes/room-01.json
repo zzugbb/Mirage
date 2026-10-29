@@ -64,7 +64,8 @@
         1.9,
         0.65
       ],
-      "color": "#8faeb9"
+      "color": "#8faeb9",
+      "modelRotationYDegrees": 180
     },
     {
       "id": "power-01",
@@ -79,7 +80,8 @@
         1.8,
         0.5
       ],
-      "color": "#b5bfc2"
+      "color": "#b5bfc2",
+      "modelRotationYDegrees": 0
     }
   ],
   "palette": {
@@ -143,7 +145,7 @@
     },
     {
       "id": "cpu-01",
-      "name": "处理器 01",
+      "name": "处理器散热器 01",
       "node": "processor",
       "slot": "CPU-01",
       "position": [
@@ -162,14 +164,14 @@
         -0.03
       ],
       "color": "#9eb3bb",
-      "description": "处理器与散热片结构示意，不表示真实规格。",
+      "description": "CPU-01 对应的散热总成；本轮不单独拆出处理器芯片封装。",
       "modelNodes": [
         "part_cpu_01"
       ]
     },
     {
       "id": "cpu-02",
-      "name": "处理器 02",
+      "name": "处理器散热器 02",
       "node": "processor",
       "slot": "CPU-02",
       "position": [
@@ -188,7 +190,7 @@
         -0.08
       ],
       "color": "#9eb3bb",
-      "description": "第二处理器槽位示意，与主板保留稳定映射。",
+      "description": "CPU-02 对应的散热总成；本轮不单独拆出处理器芯片封装。",
       "modelNodes": [
         "part_cpu_02"
       ]
@@ -328,5 +330,22 @@
     "server": "mirage-server-2u-v1",
     "cooling": "mirage-cooling-unit-v1",
     "power": "mirage-power-cabinet-v1"
+  },
+  "rendering": {
+    "contactShadows": {
+      "roomRadius": 0.18,
+      "deviceRadius": 0.032,
+      "intensity": 0.5,
+      "resolutionScale": 0.5,
+      "samples": 8
+    },
+    "floor": {
+      "color": "#85898e",
+      "gap": 0.0015,
+      "roughness": 1,
+      "metalness": 0.06,
+      "bumpScale": 0.00012,
+      "grainRepeat": 8
+    }
   }
 }
