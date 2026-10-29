@@ -25,7 +25,14 @@
     ],
     "units": 42,
     "unitPitch": 0.04445,
-    "unitOrigin": 0.2
+    "unitOrigin": 0.2,
+    "motion": {
+      "doorAngleDegrees": 105,
+      "trayTravel": 0.58,
+      "doorDuration": 0.7,
+      "trayDuration": 0.85,
+      "inspectionDuration": 0.7
+    }
   },
   "server": {
     "id": "srv-01",

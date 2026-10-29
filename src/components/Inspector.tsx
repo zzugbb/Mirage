@@ -1,6 +1,9 @@
 import { useEffect, useRef } from "react";
 import { entityById, simulate, parts } from "../domain";
 import { AssemblyControls } from "./AssemblyControls";
+import { RackControls } from "./RackControls";
+import { phaseLabels } from "../mechanics";
+import type { PresentationPhase } from "../mechanics";
 import type { Action, AppState } from "../domain";
 
 const kindNames = {
@@ -13,9 +16,11 @@ const kindNames = {
 export function Inspector({
   state,
   dispatch,
+  phase,
 }: {
   state: AppState;
   dispatch: React.Dispatch<Action>;
+  phase: PresentationPhase;
 }) {
   const entity = entityById(state.selected)!;
   const simulation = simulate(state.time);
@@ -61,7 +66,19 @@ export function Inspector({
       <h2>{entity.name}</h2>
       <p className="description">{entity.description}</p>
       {state.level === "device" && (
-        <AssemblyControls state={state} dispatch={dispatch} />
+        <>
+          <p className="mechanism-status" role="status">
+            {phaseLabels[phase]}
+          </p>
+          <AssemblyControls
+            state={state}
+            ready={phase === "device-ready"}
+            dispatch={dispatch}
+          />
+        </>
+      )}
+      {state.level === "rack" && (
+        <RackControls state={state} phase={phase} dispatch={dispatch} />
       )}
       <dl className="facts">
         {fields.map(([label, value]) => (
@@ -90,7 +107,7 @@ export function Inspector({
           <span>→</span>
         </button>
       )}
-      {state.level !== "device" && (
+      {state.level === "room" && (
         <section className="explore-path">
           <h3>探索路径</h3>
           {(["room", "rack", "device"] as const).map((level, index) => (

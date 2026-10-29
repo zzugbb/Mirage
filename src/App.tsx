@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useReducer } from "react";
+import { useCallback, useEffect, useReducer, useState } from "react";
+import type { PresentationPhase } from "./mechanics";
 import { createState, entityById, getPath, transition } from "./domain";
 import type { Level } from "./domain";
 import { Viewport } from "./components/Viewport";
@@ -7,6 +8,7 @@ import { Inspector } from "./components/Inspector";
 
 export function App() {
   const [state, dispatch] = useReducer(transition, undefined, createState);
+  const [phase, setPhase] = useState<PresentationPhase>("closed");
   useEffect(() => {
     if (!state.playing) return;
     const timer = window.setInterval(() => dispatch({ type: "tick" }), 1000);
@@ -100,8 +102,13 @@ export function App() {
       </div>
       <main>
         <ObjectTree state={state} onSelect={select} />
-        <Viewport state={state} onSelect={select} />
-        <Inspector state={state} dispatch={dispatch} />
+        <Viewport
+          state={state}
+          phase={phase}
+          onPhase={setPhase}
+          onSelect={select}
+        />
+        <Inspector state={state} phase={phase} dispatch={dispatch} />
       </main>
       <footer className="app-footer">
         <span>

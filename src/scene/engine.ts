@@ -6,6 +6,8 @@ import { box, buildModels, disposeModels } from "./models";
 import { entityById, partPosition, parts } from "../domain";
 import type { AppState, Level } from "../domain";
 import { frameDistance } from "../camera";
+import { StructurePresentation } from "./presentation";
+import type { PresentationPhase } from "../mechanics";
 import {
   hardwareUrls,
   loadHardware,
@@ -20,7 +22,10 @@ export class SceneEngine {
   camera = new THREE.PerspectiveCamera(40, 1, 0.01, 150);
   controls: OrbitControls;
   models = buildModels();
-  assembledServerPosition = this.models.server.position.clone();
+  presentation = new StructurePresentation(this.models);
+  pendingDeviceView = false;
+  lastPhase: PresentationPhase | null = null;
+  onPhase: (phase: PresentationPhase) => void;
   state: AppState;
   observer: ResizeObserver;
   frame = 0;
@@ -65,11 +70,13 @@ export class SceneEngine {
     state: AppState,
     onSelect: (id: string, enter?: boolean) => void,
     onError: (message: string) => void,
+    onPhase: (phase: PresentationPhase) => void = () => {},
   ) {
     this.host = host;
     this.state = state;
     this.onSelect = onSelect;
     this.onError = onError;
+    this.onPhase = onPhase;
     this.renderer = new THREE.WebGLRenderer({
       antialias: true,
       alpha: false,
@@ -132,6 +139,8 @@ export class SceneEngine {
     for (const group of [
       this.models.room,
       this.models.rack,
+      this.models.rackDoor,
+      this.models.rackSlide,
       this.models.server,
       ...this.models.facilities.values(),
       ...this.models.parts.values(),
@@ -379,8 +388,7 @@ export class SceneEngine {
     const focusChanged = state.focusRevision !== this.state.focusRevision;
     const changed = levelChanged || focusChanged;
     this.state = state;
-    this.models.server.position.y =
-      state.level === "device" ? 0.65 : this.assembledServerPosition.y;
+    if (levelChanged) this.pendingDeviceView = state.level === "device";
     if (changed || this.lastTime === 0)
       this.view(
         state.level === "room" && (levelChanged || this.lastTime === 0)
@@ -388,10 +396,6 @@ export class SceneEngine {
           : "iso",
         focusChanged && !levelChanged,
       );
-    if (state.level !== "device") {
-      this.explosion = 0;
-      this.poseParts();
-    }
     if (state.level === "device" && explosionChanged)
       this.view(this.currentView);
   }
@@ -427,7 +431,12 @@ export class SceneEngine {
   }
   view(view: View, focus = false) {
     this.currentView = view;
-    const level: Level = this.state.level;
+    const level: Level =
+      this.state.level === "device" &&
+      this.presentation.pose.inspection < 1 &&
+      !focus
+        ? "rack"
+        : this.state.level;
     this.interior = view === "interior" && level === "room";
     this.controls.minAzimuthAngle = this.interior ? -0.65 : -Infinity;
     this.controls.maxAzimuthAngle = this.interior ? 0.65 : Infinity;
@@ -578,6 +587,20 @@ export class SceneEngine {
     if (this.destroyed) return;
     const delta = Math.min((time - this.lastTime) / 1000 || 0.016, 0.05);
     this.lastTime = time;
+    const frame = this.presentation.step(
+      this.state,
+      delta,
+      this.reducedMotion,
+      this.explosion,
+    );
+    if (frame.phase !== this.lastPhase) {
+      this.lastPhase = frame.phase;
+      this.onPhase(frame.phase);
+    }
+    if (frame.ready && this.pendingDeviceView) {
+      this.pendingDeviceView = false;
+      this.view(this.currentView);
+    }
     if (this.moving) {
       const alpha = this.reducedMotion ? 1 : 1 - Math.exp(-delta * 4.5);
       this.camera.position.lerp(this.targetPosition, alpha);
@@ -588,12 +611,10 @@ export class SceneEngine {
     for (const fade of this.fades) {
       const target =
         fade.group === this.models.room
-          ? this.state.level === "room"
+          ? this.state.level === "room" && frame.relocation === 0
             ? 1
             : 0
-          : this.state.level === "device"
-            ? 0
-            : 1;
+          : frame.rackOpacity;
       fade.opacity = this.reducedMotion
         ? target
         : THREE.MathUtils.damp(fade.opacity, target, 9, delta);
@@ -609,30 +630,32 @@ export class SceneEngine {
         item.material.depthWrite = item.depthWrite && fade.opacity === 1;
       }
     }
-    if (this.state.level === "device") {
-      this.explosion = this.reducedMotion
-        ? this.state.explosion
-        : THREE.MathUtils.damp(this.explosion, this.state.explosion, 5, delta);
-      if (Math.abs(this.explosion - this.state.explosion) < 0.0001)
-        this.explosion = this.state.explosion;
-      this.poseParts();
-      if (!this.reducedMotion)
-        for (const rotor of this.models.rotors) rotor.rotation.z += delta * 2.4;
-    }
+    const explosionTarget =
+      this.state.level === "device" && frame.ready ? this.state.explosion : 0;
+    this.explosion = this.reducedMotion
+      ? explosionTarget
+      : THREE.MathUtils.damp(this.explosion, explosionTarget, 5, delta);
+    if (Math.abs(this.explosion - explosionTarget) < 0.0001)
+      this.explosion = explosionTarget;
+    this.poseParts();
+    if (!this.reducedMotion && frame.ready)
+      for (const rotor of this.models.rotors) rotor.rotation.z += delta * 2.4;
     if (!this.reducedMotion && this.models.room.visible)
       for (const fan of this.models.fans) fan.rotation.y += delta * 1.5;
-    if (this.interior) {
+    if (this.interior || this.state.level === "rack") {
       const angle = this.controls.getAzimuthalAngle();
-      if (angle < -0.64)
+      const limit = this.interior ? 0.64 : 0.85;
+      if (angle < -limit)
         this.controls.autoRotateSpeed = -Math.abs(
           this.controls.autoRotateSpeed,
         );
-      if (angle > 0.64)
+      if (angle > limit)
         this.controls.autoRotateSpeed = Math.abs(this.controls.autoRotateSpeed);
     }
     this.controls.autoRotate =
       this.autoOrbit &&
       !this.moving &&
+      !frame.busy &&
       !this.reducedMotion &&
       time - this.lastManualInteraction > 4000;
     this.controls.update();
@@ -641,6 +664,7 @@ export class SceneEngine {
     this.models.selection.visible =
       !!object &&
       this.state.selected !== "room-01" &&
+      this.state.selected !== "rack-a01" &&
       !(this.state.level === "device" && this.state.selected === "srv-01") &&
       this.visible(object);
     if (object && this.models.selection.visible) {

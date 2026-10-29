@@ -1515,3 +1515,91 @@ h3 {
     top: 110px;
   }
 }
+
+/* 结构时序与操作共用一种状态表达。 */
+.rack-controls {
+  border-top: 1px solid var(--line);
+  padding: 20px 0 22px;
+}
+.rack-controls .section-heading {
+  margin-bottom: 14px;
+}
+.rack-controls p {
+  font-size: 9px;
+  line-height: 1.8;
+  color: #86909b;
+  margin: 12px 0 0;
+}
+.mechanism-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+  color: #a9b7c8;
+  min-height: 17px;
+  margin: 0 0 16px;
+}
+.mechanism-status i {
+  height: 5px;
+  width: 5px;
+  border-radius: 50%;
+  background: #95b59d;
+}
+.mechanism-status.busy i {
+  background: #aabed9;
+  animation: mechanism-pulse 1.2s ease infinite;
+}
+.mechanism-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.mechanism-actions button {
+  font-size: 10px;
+  min-height: 38px;
+  border: 1px solid #48525e;
+  border-radius: 3px;
+  text-align: left;
+  padding: 10px;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: space-between;
+}
+.mechanism-actions button[aria-pressed="true"] {
+  background: #303b49;
+  border-color: #788da7;
+  color: #dae7f4;
+}
+.mechanism-actions button:hover {
+  background: #394656;
+}
+.assembly-controls fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.assembly-controls fieldset:disabled {
+  opacity: 0.45;
+}
+.assembly-controls input:disabled {
+  cursor: wait;
+}
+@keyframes mechanism-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+@media (max-width: 580px) {
+  .rack-controls p {
+    font-size: 10px;
+  }
+  .mechanism-actions button {
+    font-size: 12px;
+    min-height: 44px;
+  }
+  .mechanism-status {
+    font-size: 11px;
+  }
+}

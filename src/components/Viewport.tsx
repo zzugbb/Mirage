@@ -2,13 +2,19 @@ import { useEffect, useRef, useState } from "react";
 import { SceneEngine } from "../scene/engine";
 import type { AppState } from "../domain";
 import type { View } from "../scene/engine";
+import { phaseLabels } from "../mechanics";
+import type { PresentationPhase } from "../mechanics";
 
 export function Viewport({
   state,
   onSelect,
+  phase,
+  onPhase,
 }: {
   state: AppState;
   onSelect: (id: string, enter?: boolean) => void;
+  phase: PresentationPhase;
+  onPhase: (phase: PresentationPhase) => void;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const engine = useRef<SceneEngine | null>(null);
@@ -34,6 +40,7 @@ export function Viewport({
         initial.current,
         (id, enter) => latestSelect.current(id, enter),
         setError,
+        onPhase,
       );
       engine.current = active;
       active.autoOrbit = orbiting;
@@ -102,7 +109,9 @@ export function Viewport({
             ? "从空间，深入每一个细节。"
             : state.level === "rack"
               ? "42U · 一台代表性设备"
-              : "2U 服务器 · 授权结构模型"}
+              : phase === "device-ready"
+                ? "2U 服务器 · 授权结构模型"
+                : phaseLabels[phase]}
         </p>
       </div>
       <div className="view-switch" aria-label="标准视角">
@@ -126,7 +135,11 @@ export function Viewport({
           </button>
         ))}
       </div>
-      <div className="model-status" role="status">
+      <div
+        className="model-status"
+        role="status"
+        hidden={assetStatus === "贡献模型 · 已载入"}
+      >
         {assetStatus}
       </div>
       <div className="scene-index">

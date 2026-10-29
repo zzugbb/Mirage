@@ -69,11 +69,15 @@ export type AppState = {
   time: number;
   playing: boolean;
   explosion: number;
+  doorOpen: boolean;
+  trayExtended: boolean;
 };
 export type Action =
   | { type: "select"; id: string }
   | { type: "navigate"; level: Level }
   | { type: "explode"; amount: number }
+  | { type: "door"; open: boolean }
+  | { type: "tray"; extended: boolean }
   | { type: "enter" | "back" | "focus" | "reset" | "play" | "tick" };
 export const createState = (): AppState => ({
   level: "room",
@@ -82,6 +86,8 @@ export const createState = (): AppState => ({
   time: 0,
   playing: true,
   explosion: 0,
+  doorOpen: false,
+  trayExtended: false,
 });
 const ids: Record<Level, string> = {
   room: "room-01",
@@ -113,11 +119,29 @@ export function transition(state: AppState, action: Action): AppState {
         level: action.level,
         selected: ids[action.level],
         explosion: action.level === "device" ? state.explosion : 0,
+        doorOpen: action.level !== "room",
+        trayExtended: action.level === "device",
         focusRevision: state.focusRevision + 1,
       };
     case "explode":
       return state.level === "device" && Number.isFinite(action.amount)
         ? { ...state, explosion: Math.max(0, Math.min(1, action.amount)) }
+        : state;
+    case "door":
+      return state.level === "rack"
+        ? {
+            ...state,
+            doorOpen: action.open,
+            trayExtended: action.open ? state.trayExtended : false,
+          }
+        : state;
+    case "tray":
+      return state.level === "rack"
+        ? {
+            ...state,
+            trayExtended: action.extended,
+            doorOpen: action.extended || state.doorOpen,
+          }
         : state;
     case "enter":
       return transition(state, {

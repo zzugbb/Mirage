@@ -244,18 +244,19 @@ export function buildModels() {
   const rack = identify(new THREE.Group(), definition.rack.id);
   root.add(rack);
   const [rw, rh, rd] = definition.rack.size;
-  box(rack, [rw, 0.1, rd], [0, 0.12, 0], "#172a34", 0.7);
-  box(rack, [rw, 0.065, rd], [0, rh, 0], "#263e4a", 0.7);
+  box(rack, [rw, 0.1, rd], [0, 0.12, 0], "#23272c", 0.7);
+  box(rack, [rw, 0.065, rd], [0, rh, 0], "#3f454c", 0.7);
   for (const x of [-rw / 2 + 0.025, rw / 2 - 0.025])
     for (const z of [-rd / 2 + 0.025, rd / 2 - 0.025])
       box(rack, [0.045, rh, 0.045], [x, rh / 2 + 0.05, z], "#5d6369", 0.8);
-  box(
-    rack,
-    [0.025, rh - 0.1, rd - 0.05],
-    [rw / 2, rh / 2 + 0.05, 0],
-    "#24272b",
-    0.65,
-  );
+  for (const x of [-rw / 2, rw / 2])
+    box(
+      rack,
+      [0.025, rh - 0.1, rd - 0.05],
+      [x, rh / 2 + 0.05, 0],
+      "#24272b",
+      0.45,
+    );
   box(
     rack,
     [rw - 0.06, rh - 0.1, 0.025],
@@ -266,7 +267,7 @@ export function buildModels() {
   for (let u = 1; u <= 42; u++) {
     const y = definition.rack.unitOrigin + u * definition.rack.unitPitch;
     for (const x of [-0.25, 0.25])
-      box(rack, [0.015, 0.012, 0.025], [x, y, 0.52], "#819aa2", 0.7);
+      box(rack, [0.015, 0.012, 0.025], [x, y, 0.52], "#70767d", 0.7);
     if (
       u < definition.server.startUnit ||
       u >= definition.server.startUnit + definition.server.unitSpan
@@ -313,18 +314,45 @@ export function buildModels() {
       side: THREE.DoubleSide,
     }),
   );
-  steelDoor.position.set(0, 1.1, 0.57);
+  const rackDoor = new THREE.Group();
+  rackDoor.position.set(-0.285, 0, 0.57);
+  rack.add(rackDoor);
+  steelDoor.position.set(0.285, 1.1, 0);
   steelDoor.castShadow = true;
-  rack.add(steelDoor);
+  rackDoor.add(steelDoor);
   for (const x of [-0.277, 0.277])
-    box(rack, [0.025, 1.99, 0.025], [x, 1.1, 0.575], "#282c31", 0.65);
+    box(
+      rackDoor,
+      [0.025, 1.99, 0.025],
+      [x + 0.285, 1.1, 0.005],
+      "#282c31",
+      0.65,
+    );
   for (const y of [0.115, 2.085])
-    box(rack, [0.57, 0.034, 0.025], [0, y, 0.575], "#282c31", 0.65);
-  box(rack, [0.018, 0.22, 0.035], [0.227, 1.1, 0.607], "#72777e", 0.85);
+    box(rackDoor, [0.57, 0.034, 0.025], [0.285, y, 0.005], "#282c31", 0.65);
+  box(rackDoor, [0.018, 0.22, 0.035], [0.512, 1.1, 0.037], "#72777e", 0.85);
   for (const y of [0.45, 1.72])
     box(rack, [0.025, 0.065, 0.035], [-0.28, y, 0.59], "#777b80", 0.8);
   for (let z = -0.43; z < 0.4; z += 0.032)
     box(rack, [0.35, 0.002, 0.006], [0, 2.135, z], "#15171b");
+  const rackSlide = new THREE.Group();
+  rack.add(rackSlide);
+  for (const x of [-0.251, 0.251]) {
+    box(
+      rack,
+      [0.014, 0.024, 0.83],
+      [x, definition.server.position[1] - 0.024, 0.07],
+      "#8e969f",
+      0.8,
+    );
+    box(
+      rackSlide,
+      [0.008, 0.014, 0.67],
+      [x, definition.server.position[1] - 0.018, 0.08],
+      "#a8afb5",
+      0.85,
+    );
+  }
   const server = identify(new THREE.Group(), definition.server.id);
   server.position.fromArray(definition.server.position);
   root.add(server);
@@ -345,6 +373,8 @@ export function buildModels() {
     root,
     room,
     rack,
+    rackDoor,
+    rackSlide,
     server,
     facilities,
     fans,
