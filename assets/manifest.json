@@ -10,7 +10,40 @@
       "source": "本项目独立设计并自主参数化制作的示意机房、机柜和服务器场景",
       "license": "CC-BY-NC-4.0",
       "licenseFile": "LICENSES/CC-BY-NC-4.0.txt",
-      "sha256": "c3eb4718e1ab3935b74c66027c8359d98128b17a192e9302d494c8b84a918c9c",
+      "sha256": "30df99cfbffe75df4d308bd81447c6a37734c71a8d07469d7c8a1c0f8fac2bb3",
+      "publicationApproved": true
+    },
+    {
+      "id": "mirage-server-2u-v1",
+      "path": "assets/public/models/server-2u.glb",
+      "kind": "model",
+      "rightsHolder": "原创模型贡献者（维护者确认授权）",
+      "source": "维护者授权纳入本项目的原创贡献模型；已清理导出元数据，移除品牌与标签贴图。",
+      "license": "CC-BY-NC-4.0",
+      "licenseFile": "LICENSES/CC-BY-NC-4.0.txt",
+      "sha256": "bdb55362a74efa6f55446de5a2b7b47e795a5b88e2390cc5a25fb687a882ef46",
+      "publicationApproved": true
+    },
+    {
+      "id": "mirage-cooling-unit-v1",
+      "path": "assets/public/models/cooling-unit.glb",
+      "kind": "model",
+      "rightsHolder": "原创模型贡献者（维护者确认授权）",
+      "source": "维护者授权纳入本项目的原创贡献模型；已清理导出元数据，移除品牌与标签贴图。",
+      "license": "CC-BY-NC-4.0",
+      "licenseFile": "LICENSES/CC-BY-NC-4.0.txt",
+      "sha256": "5010413c01b82d265378d952c97d94bbb2d48b477c6d99ff98eac049ef501b5c",
+      "publicationApproved": true
+    },
+    {
+      "id": "mirage-power-cabinet-v1",
+      "path": "assets/public/models/power-cabinet.glb",
+      "kind": "model",
+      "rightsHolder": "原创模型贡献者（维护者确认授权）",
+      "source": "维护者授权纳入本项目的原创贡献模型；已清理导出元数据，移除品牌与标签贴图。",
+      "license": "CC-BY-NC-4.0",
+      "licenseFile": "LICENSES/CC-BY-NC-4.0.txt",
+      "sha256": "f6d1092d9d374dcd53ffa94a722c68c439a82b19bc7f375e09f8710ae1878a91",
       "publicationApproved": true
     }
   ]
