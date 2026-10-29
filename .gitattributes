@@ -1,0 +1,13 @@
+* text=auto
+*.md text eol=lf
+*.mjs text eol=lf
+*.json text eol=lf
+LICENSE text eol=lf
+NOTICE text eol=lf
+*.glb binary
+*.blend binary
+*.fbx binary
+*.png binary
+*.jpg binary
+*.webp binary
+*.mp4 binary
