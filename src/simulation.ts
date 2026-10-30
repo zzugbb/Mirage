@@ -1,3 +1,4 @@
+import { modelForDevice } from "./catalog.ts";
 import { devices, deviceById } from "./installation.ts";
 /** 纯模拟：固定 1 秒采样的一阶响应；参数与阈值用于演示，不是现场设定建议。 */
 export const scenario = {
@@ -38,11 +39,32 @@ export type SimulationAlarm = {
 };
 type PendingCondition = { label: string; elapsed: number; required: number };
 export type PowerAllocation = { id: string; name: string; watts: number };
-export function powerAllocation(temperature: number): PowerAllocation[] {
+export function powerAllocation(
+  temperature: number,
+  deviceId = "srv-01",
+): PowerAllocation[] {
   const fanWatts =
     Math.round(
       (12 + 12 * Math.max(0, Math.min(1, (temperature - 27) / 12))) * 10,
     ) / 10;
+  const model = modelForDevice(deviceId);
+  if (model.category === "switch")
+    return [
+      { id: "asic", name: "交换芯片", watts: 80 },
+      { id: "board", name: "控制主板", watts: 20 },
+      { id: "ports", name: "端口与光模块", watts: 40 },
+      { id: "fans", name: "风扇", watts: fanWatts * 0.6 },
+      { id: "conversion", name: "转换损耗", watts: 8 },
+    ];
+  if (model.category === "storage")
+    return [
+      { id: "controller", name: "双控制器", watts: 120 },
+      { id: "board", name: "中板", watts: 30 },
+      { id: "storage", name: "硬盘组", watts: 120 },
+      { id: "fans", name: "风扇", watts: fanWatts },
+      { id: "conversion", name: "转换损耗", watts: 16 },
+    ];
+  const scale = model.id === "server-1u" ? 0.75 : 1;
   return [
     { id: "processor", name: "处理器（假设双路）", watts: 132 },
     { id: "board", name: "主板与控制逻辑", watts: 40 },
@@ -50,7 +72,7 @@ export function powerAllocation(temperature: number): PowerAllocation[] {
     { id: "storage", name: "存储模组", watts: 12 },
     { id: "fans", name: "风扇模组", watts: fanWatts },
     { id: "conversion", name: "电源转换损耗", watts: 12 },
-  ];
+  ].map((item) => ({ ...item, watts: item.watts * scale }));
 }
 type Sample = {
   source: "simulation";
@@ -108,7 +130,7 @@ function generateTrace(deviceId = "srv-01"): readonly Sample[] {
       thermal += (equilibrium - thermal) / scenario.timeConstant;
     }
     const temperature = Math.round(thermal * 10) / 10;
-    const allocation = powerAllocation(temperature).map((item) => ({
+    const allocation = powerAllocation(temperature, deviceId).map((item) => ({
       ...item,
       watts:
         Math.round(

@@ -1,3 +1,9 @@
+import {
+  partsForDevice,
+  subpartsForDevice,
+  modelForDevice,
+  categoryNames,
+} from "./catalog.ts";
 import { racks, devices, deviceById, rackForDevice } from "./installation.ts";
 import sceneDefinition from "../assets/public/scenes/room-01.json" with { type: "json" };
 import { normalizeTime, scenario } from "./simulation.ts";
@@ -35,7 +41,7 @@ export const entities: Entity[] = [
     name: "A01 机柜",
     kind: "rack",
     parent: "room-01",
-    description: "42U 标准尺度示意机柜，包含八台演示服务器。",
+    description: "42U 计算机柜，顶置双交换机与后置 A/B PDU。",
   },
   {
     id: "srv-01",
@@ -65,24 +71,22 @@ export const entities: Entity[] = [
       name: rack.name,
       kind: "rack" as const,
       parent: "room-01",
-      description: "42U 通用演示机柜，包含八台示意设备。",
+      description: "42U 混合设备机柜，按实际 U 位安装，顶置交换机、后置 PDU。",
     })),
   ...devices
     .filter((device) => device.id !== "srv-01")
     .map((device) => ({
       id: device.id,
-      name: `${device.name} 服务器`,
+      name: `${device.name} ${categoryNames[modelForDevice(device.id).category as keyof typeof categoryNames]}`,
       kind: "device" as const,
       parent: device.rackId,
-      description:
-        "通用 2U 结构复用，独立演示负载与冷却参数；不是实际设备配置。",
+      description: modelForDevice(device.id).description,
     })),
   ...subparts.map((part) => ({ ...part, kind: "part" as const })),
   ...parts.map((part) => ({
     id: part.id,
     name: part.name,
     kind: "part" as const,
-    parent: "srv-01",
     description: part.description,
   })),
 ];
@@ -163,7 +167,12 @@ export function transition(state: AppState, action: Action): AppState {
   switch (action.type) {
     case "select":
       return entityById(action.id) &&
-        (entityById(action.id)?.kind !== "part" || state.level === "device")
+        (entityById(action.id)?.kind !== "part" ||
+          (state.level === "device" &&
+            [
+              ...partsForDevice(state.deviceId),
+              ...subpartsForDevice(state.deviceId),
+            ].some((part) => part.id === action.id)))
         ? {
             ...state,
             selected: action.id,
@@ -264,6 +273,14 @@ export function transition(state: AppState, action: Action): AppState {
     case "locate": {
       const entity = entityById(action.id);
       if (!entity) return state;
+      if (
+        entity.kind === "part" &&
+        ![
+          ...partsForDevice(state.deviceId),
+          ...subpartsForDevice(state.deviceId),
+        ].some((part) => part.id === entity.id)
+      )
+        return state;
       const level =
         entity.kind === "facility" || entity.kind === "room"
           ? "room"

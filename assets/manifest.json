@@ -7,10 +7,10 @@
       "path": "assets/public/scenes/room-01.json",
       "kind": "scene",
       "rightsHolder": "zzugbb",
-      "source": "本项目独立设计并自主参数化制作的示意机房、机柜和服务器场景",
+      "source": "本项目独立设计并自主参数化制作的机房、混合设备配置与补充部件；通用结构示意，不对应真实现场。",
       "license": "CC-BY-NC-4.0",
       "licenseFile": "LICENSES/CC-BY-NC-4.0.txt",
-      "sha256": "b791c18fddfb7c86b8d659229ddf06d99c1d768ae5643a687af82c2763e43ad6",
+      "sha256": "22586059b305720cc755530a51ed4b0e281391424252fcf5b94c5b2d3f3c7a8e",
       "publicationApproved": true
     },
     {

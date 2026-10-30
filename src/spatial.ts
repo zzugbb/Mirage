@@ -1,7 +1,7 @@
 import { deviceObservation } from "./device-data.ts";
 import type { Lifecycle, DataQuality } from "./status.ts";
 import { racks, devices, deviceById } from "./installation.ts";
-import { parts, subparts } from "./domain.ts";
+import { partsForDevice, subpartsForDevice } from "./catalog.ts";
 import type { AppState } from "./domain.ts";
 import type { SimulationSnapshot } from "./simulation.ts";
 export type SpatialReading = {
@@ -31,12 +31,12 @@ const componentRules: Record<
   { rise: number; watts: string | null; share: number; budget: number | null }
 > = {
   "lid-01": { rise: 5, watts: null, share: 0, budget: null },
-  "board-01": { rise: 9, watts: "board", share: 1, budget: 60 },
+  "board-01": { rise: 9, watts: "board", share: 0.48, budget: 60 },
   "cpu-01": { rise: 28, watts: null, share: 0, budget: null },
   "cpu-02": { rise: 31, watts: null, share: 0, budget: null },
   "memory-01": { rise: 13, watts: "memory", share: 1, budget: 64 },
   "fans-01": { rise: 2, watts: "fans", share: 1, budget: 32 },
-  "storage-01": { rise: 7, watts: "storage", share: 1, budget: 20 },
+  "storage-01": { rise: 7, watts: null, share: 0, budget: 20 },
   "psu-01": { rise: 14, watts: "conversion", share: 0.5, budget: 10 },
   "psu-02": { rise: 12, watts: "conversion", share: 0.5, budget: 10 },
 };
@@ -46,18 +46,48 @@ export function componentReading(
   id: string,
   currentTime = sample.observedAt,
 ): SpatialReading {
+  const parts = partsForDevice(deviceId),
+    subparts = subpartsForDevice(deviceId);
   const child = subparts.find((part) => part.id === id);
   const parent = child?.parent ?? id;
-  const rule = componentRules[parent];
-  const part = parts.find((part) => part.id === parent)!;
-  const count =
-    parent === "memory-01"
-      ? 16
-      : parent === "fans-01"
-        ? 4
-        : parent === "storage-01"
-          ? 8
-          : 1;
+  const part = parts.find((part) => part.id === parent);
+  if (!part) throw new RangeError("部件不属于当前机型");
+  const rules: Record<
+    string,
+    { rise: number; watts: string | null; share: number; budget: number | null }
+  > = {
+    "net-board": { rise: 9, watts: "board", share: 1, budget: 40 },
+    "net-asic": { rise: 25, watts: "asic", share: 1, budget: 120 },
+    "net-ports": { rise: 7, watts: "ports", share: 1, budget: 80 },
+    "net-fans": { rise: 2, watts: "fans", share: 1, budget: 24 },
+    "net-psu-a": { rise: 12, watts: "conversion", share: 0.5, budget: 12 },
+    "net-psu-b": { rise: 12, watts: "conversion", share: 0.5, budget: 12 },
+    "sto-controller-a": {
+      rise: 18,
+      watts: "controller",
+      share: 0.5,
+      budget: 200,
+    },
+    "sto-controller-b": {
+      rise: 18,
+      watts: "controller",
+      share: 0.5,
+      budget: 200,
+    },
+    "sto-midplane": { rise: 8, watts: "board", share: 1, budget: 60 },
+    "sto-drives": { rise: 9, watts: "storage", share: 1, budget: 180 },
+    "sto-fans": { rise: 2, watts: "fans", share: 1, budget: 30 },
+    "sto-psu-a": { rise: 12, watts: "conversion", share: 0.5, budget: 20 },
+    "sto-psu-b": { rise: 12, watts: "conversion", share: 0.5, budget: 20 },
+  };
+  const rule = componentRules[parent] ??
+    rules[parent] ?? {
+      rise: part.rise ?? 5,
+      watts: part.watts ?? null,
+      share: part.share ?? 0,
+      budget: part.watts ? 60 : null,
+    };
+  const count = subparts.filter((part) => part.parent === parent).length || 1;
   const index = child
     ? subparts
         .filter((part) => part.parent === parent)
@@ -66,9 +96,10 @@ export function componentReading(
   // 散热器与上盖是被动构件，零耗电与未定义盘位耗电分开。
   const power =
     child?.parent === "storage-01"
-      ? null
+      ? 0
       : rule.watts
-        ? (sample.allocation.find((item) => item.id === rule.watts)!.watts *
+        ? ((sample.allocation.find((item) => item.id === rule.watts)?.watts ??
+            0) *
             rule.share) /
           (child ? count : 1)
         : 0;
@@ -85,7 +116,7 @@ export function componentReading(
       ? "valid"
       : (profile.telemetry as DataQuality);
   const lifecycle = profile.lifecycle as Lifecycle;
-  let observedPower = power;
+  let observedPower: number | null = power;
   if (quality === "offline" || quality === "missing") {
     temperature = null;
     observedPower = null;
@@ -94,15 +125,20 @@ export function componentReading(
     temperature = null;
     observedPower = power === null ? null : 0;
   }
-  const limits = parent.startsWith("cpu")
-    ? [65, 76]
-    : parent === "memory-01"
-      ? [52, 64]
-      : parent === "fans-01"
-        ? [38, 47]
-        : parent.startsWith("psu")
-          ? [50, 62]
-          : [44, 56];
+  const limits =
+    parent.startsWith("processor-") || parent === "net-asic"
+      ? [70, 85]
+      : parent.startsWith("sto-controller-")
+        ? [60, 75]
+        : parent.startsWith("cpu")
+          ? [65, 76]
+          : parent === "memory-01"
+            ? [56, 64]
+            : parent === "fans-01"
+              ? [44, 52]
+              : parent.startsWith("psu")
+                ? [50, 62]
+                : [44, 56];
   // 只评估演示温升模型，和设备测点告警严格分开。
   if (child?.id === "dimm-07" && quality === "valid" && temperature !== null)
     temperature += Math.max(0, sample.temperature - profile.baseline) * 1.1;
@@ -288,7 +324,10 @@ export function spatialSnapshot(time: number, cycle = 0, deviceId = "srv-01") {
       racks.map((rack) => readings.get(rack.id)!),
     ),
   );
-  for (const part of [...parts, ...subparts])
+  for (const part of [
+    ...partsForDevice(deviceId),
+    ...subpartsForDevice(deviceId),
+  ])
     readings.set(
       part.id,
       componentReading(samples.get(deviceId)!, deviceId, part.id, time),

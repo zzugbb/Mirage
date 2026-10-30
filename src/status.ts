@@ -2,10 +2,10 @@ import type { SpatialReading } from "./spatial.ts";
 export type Lifecycle = "running" | "maintenance" | "offline" | "stopped";
 export type DataQuality = "valid" | "missing" | "stale" | "offline";
 export const signalStyles = {
-  normal: { label: "正常", icon: "●", color: "#31d6a2" },
-  warning: { label: "预警", icon: "▲", color: "#ffb547" },
-  critical: { label: "严重", icon: "◆", color: "#ff536b" },
-  maintenance: { label: "维护", icon: "◇", color: "#a496ff" },
+  normal: { label: "正常", icon: "●", color: "#6ed9bc" },
+  warning: { label: "预警", icon: "▲", color: "#f4c46c" },
+  critical: { label: "严重", icon: "◆", color: "#ff685d" },
+  maintenance: { label: "维护", icon: "◇", color: "#8c9ee8" },
   offline: { label: "离线", icon: "⊘", color: "#869db5" },
   missing: { label: "未配置", icon: "○", color: "#677789" },
   stale: { label: "数据过期", icon: "◷", color: "#bea86c" },

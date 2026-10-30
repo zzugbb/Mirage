@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { completeServerAssembly } from "./equipment-model";
 import { mapSubparts } from "./component-map";
 import { parts } from "../domain";
 import definition from "../../assets/public/scenes/room-01.json" with { type: "json" };
@@ -15,7 +16,9 @@ export const hardwareUrls = {
 export const loadHardware = async (url: string) =>
   (await new GLTFLoader().loadAsync(url)).scene;
 export const partNodes: Record<string, string[]> = Object.fromEntries(
-  parts.map((part) => [part.id, part.modelNodes]),
+  parts
+    .filter((part) => part.modelNodes.length)
+    .map((part) => [part.id, part.modelNodes]),
 );
 
 export function normalizeModel(
@@ -98,6 +101,7 @@ export function mapServerParts(scene: THREE.Group) {
     positions.set(id, group.position.clone());
   }
   mapSubparts(root, groups);
+  completeServerAssembly(root, groups, positions);
   root.traverse((object) => {
     if (!(object instanceof THREE.Mesh)) return;
     const materials = Array.isArray(object.material)

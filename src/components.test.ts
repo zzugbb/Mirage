@@ -1,7 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as THREE from "three";
-import { parts, subparts, createState, transition } from "./domain.ts";
+import {
+  parts,
+  subparts as allSubparts,
+  createState,
+  transition,
+} from "./domain.ts";
+const subparts = allSubparts.filter((part) => !part.procedural);
 import { mapSubparts } from "./scene/component-map.ts";
 
 test("子部件保留原装配矩阵，跟随父模组展开与复原，不重复偏移", () => {

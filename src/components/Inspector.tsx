@@ -1,4 +1,5 @@
-import { rackForDevice, deviceById } from "../installation";
+import { modelForDevice, unitLabel, categoryNames } from "../catalog";
+import { devices, rackForDevice } from "../installation";
 import { useEffect, useRef } from "react";
 import { entityById, componentById, subparts } from "../domain";
 import { AssemblyControls } from "./AssemblyControls";
@@ -48,22 +49,27 @@ export function Inspector({
       ? [
           ["场景类型", "示意机房"],
           ["空间尺寸", "14 × 12 × 4.2 m"],
-          ["机柜 / 设备", "8 / 64"],
+          ["机柜 / 设备", `8 / ${devices.length}`],
         ]
       : entity.kind === "rack"
         ? [
             ["机柜容量", "42 U"],
             ["外形尺寸", "600 × 1100 mm"],
-            ["演示设备", "8 台"],
+            [
+              "设备数量",
+              `${devices.filter((device) => device.rackId === state.selected).length} 台`,
+            ],
           ]
         : entity.kind === "device"
           ? [
-              ["设备形态", "通用 2U 服务器"],
+              [
+                "设备形态",
+                `${modelForDevice(state.deviceId).units}U ${categoryNames[modelForDevice(state.deviceId).category as keyof typeof categoryNames]}`,
+              ],
               [
                 "安装位置",
-                `${rackForDevice(state.deviceId).name} · U${deviceById(state.deviceId)!.startUnit}–U${deviceById(state.deviceId)!.startUnit + 1}`,
+                `${rackForDevice(state.deviceId).name} · ${unitLabel(state.deviceId)}`,
               ],
-              ["结构精度", "示意级"],
             ]
           : part
             ? [
@@ -74,12 +80,6 @@ export function Inspector({
                     : "槽位标识",
                   part.slot,
                 ],
-                [
-                  "结构精度",
-                  subparts.some((item) => item.id === entity.id)
-                    ? "独立构件 · 示意编号"
-                    : "模组级示意",
-                ],
               ]
             : [
                 ["对象类型", "基础设施"],
@@ -89,7 +89,7 @@ export function Inspector({
     <aside className="inspector" aria-label="对象与运行概览">
       <div className="inspector-heading">
         <strong>{view === "object" ? "对象详情" : "运行概览"}</strong>
-        <span>{view === "object" ? kindNames[entity.kind] : "模拟"}</span>
+        <span>{view === "object" ? kindNames[entity.kind] : ""}</span>
       </div>
       <div className="inspector-scroll" ref={panel}>
         {view !== "object" ? (
@@ -110,15 +110,30 @@ export function Inspector({
             <p className="description">{entity.description}</p>
             {state.level === "device" && (
               <>
-                <p className="mechanism-status" role="status">
-                  {phaseLabels[phase]}
+                <p
+                  className="mechanism-status"
+                  role="status"
+                  hidden={[
+                    "closed",
+                    "open",
+                    "extended",
+                    "device-ready",
+                  ].includes(phase)}
+                >
+                  {modelForDevice(state.deviceId).category === "switch" &&
+                  ["extracting", "retracting"].includes(phase)
+                    ? "正在切换结构展示台"
+                    : phaseLabels[phase]}
                 </p>
                 <AssemblyControls
                   state={state}
                   ready={phase === "device-ready"}
                   dispatch={dispatch}
                 />
-                <ComponentCoverage dispatch={dispatch} />
+                <ComponentCoverage
+                  deviceId={state.deviceId}
+                  dispatch={dispatch}
+                />
               </>
             )}
             {state.level === "rack" && (

@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import definition from "../../assets/public/scenes/room-01.json" with { type: "json" };
-import { buildParts } from "./parts";
+import { createEquipmentAssembly } from "./equipment-model";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 import { buildRoomShell } from "./room";
 
@@ -188,9 +188,12 @@ export function buildModels() {
     for (const x of [-0.25, 0.25])
       box(rack, [0.015, 0.012, 0.025], [x, y, 0.52], "#70767d", 0.7);
     if (
-      ![3, 7, 11, 15, 19, 23, 29, 34].some(
-        (start) => u === start || u === start + 1,
-      )
+      !definition.installation.devices.some((device) => {
+        const span = definition.equipmentModels.find(
+          (model) => model.id === device.modelId,
+        )!.units;
+        return u >= device.startUnit && u < device.startUnit + span;
+      })
     ) {
       box(rack, [0.465, 0.04, 0.025], [0, y, 0.5], "#282c31", 0.65);
       for (const x of [-0.14, -0.06, 0.02, 0.1])
@@ -286,7 +289,38 @@ export function buildModels() {
     box(server, [0.46, 0.019, 0.008], [0, -0.028, z], "#78929f", 0.7);
   for (const x of [-0.248, 0.248])
     box(server, [0.028, 0.085, 0.018], [x, 0, 0.396], "#355c6d", 0.8);
-  const assembly = buildParts(server, box, glow);
+  for (const [index, x] of [-0.28, 0.28].entries()) {
+    const pdu = new THREE.Group();
+    rack.add(pdu);
+    pdu.position.set(x, 1.14, -0.46);
+    box(pdu, [0.028, 1.65, 0.036], [0, 0, 0], "#1b242c", 0.5);
+    for (let i = 0; i < 24; i++) {
+      box(
+        pdu,
+        [0.021, 0.035, 0.004],
+        [0, (i - 11.5) * 0.061, -0.021],
+        "#394149",
+        0.3,
+      );
+      for (const dx of [-0.005, 0.005])
+        box(
+          pdu,
+          [0.003, 0.014, 0.002],
+          [dx, (i - 11.5) * 0.061, -0.024],
+          "#10171b",
+          0.1,
+        );
+    }
+    box(
+      pdu,
+      [0.027, 0.045, 0.004],
+      [0, 0.76, -0.022],
+      index ? "#849dba" : "#bd895d",
+      0.2,
+    );
+  }
+  const assembly = createEquipmentAssembly("server-2u");
+  server.add(assembly.root);
   for (const x of [-0.232, 0.232])
     glow(server, [0.002, 0.002, 0.77], [x, 0.041, 0], "#757c84");
   const selection = new THREE.Box3Helper(new THREE.Box3(), "#b5c9e2");
@@ -304,7 +338,7 @@ export function buildModels() {
     fans,
     selection,
     parts: assembly.groups,
-    rotors: assembly.rotors,
+    rotors: [] as THREE.Group[],
   };
 }
 

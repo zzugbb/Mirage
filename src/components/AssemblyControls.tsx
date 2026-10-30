@@ -1,4 +1,4 @@
-import { parts, subparts } from "../domain";
+import { partsForDevice, subpartsForDevice } from "../catalog";
 import type { Action, AppState } from "../domain";
 
 export function AssemblyControls({
@@ -10,6 +10,8 @@ export function AssemblyControls({
   dispatch: React.Dispatch<Action>;
   ready: boolean;
 }) {
+  const parts = partsForDevice(state.deviceId),
+    subparts = subpartsForDevice(state.deviceId);
   return (
     <section className="assembly-controls" aria-label="设备结构控制">
       <div className="section-heading">
@@ -56,7 +58,10 @@ export function AssemblyControls({
           </button>
         </div>
         <label className="part-select-label" htmlFor="part-select">
-          选择部件 <span>9 模组 · 28 子件</span>
+          选择部件{" "}
+          <span>
+            {parts.length} 模组 · {subparts.length} 子件
+          </span>
         </label>
         <select
           id="part-select"
@@ -66,7 +71,10 @@ export function AssemblyControls({
               : ""
           }
           onChange={(event) => {
-            dispatch({ type: "select", id: event.target.value || "srv-01" });
+            dispatch({
+              type: "select",
+              id: event.target.value || state.deviceId,
+            });
             if (
               subparts.some((part) => part.id === event.target.value) &&
               state.explosion === 0
@@ -80,20 +88,24 @@ export function AssemblyControls({
               {part.name} · {part.slot}
             </option>
           ))}
-          {["memory-01", "fans-01", "storage-01"].map((parent) => (
-            <optgroup
-              key={parent}
-              label={parts.find((part) => part.id === parent)!.name}
-            >
-              {subparts
-                .filter((part) => part.parent === parent)
-                .map((part) => (
-                  <option key={part.id} value={part.id}>
-                    {part.name} · {part.slot}
-                  </option>
-                ))}
-            </optgroup>
-          ))}
+          {parts
+            .filter((part) =>
+              subparts.some((child) => child.parent === part.id),
+            )
+            .map(({ id: parent }) => (
+              <optgroup
+                key={parent}
+                label={parts.find((part) => part.id === parent)!.name}
+              >
+                {subparts
+                  .filter((part) => part.parent === parent)
+                  .map((part) => (
+                    <option key={part.id} value={part.id}>
+                      {part.name} · {part.slot}
+                    </option>
+                  ))}
+              </optgroup>
+            ))}
         </select>
         <button
           className="component-focus"
@@ -101,9 +113,6 @@ export function AssemblyControls({
         >
           聚焦当前部件 ↗
         </button>
-        <p className="assembly-hint">
-          展开后可直接点击部件。示意装配，不代表实际维修步骤。
-        </p>
       </fieldset>
     </section>
   );

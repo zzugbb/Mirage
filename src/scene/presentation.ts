@@ -1,3 +1,4 @@
+import { modelForDevice } from "../catalog";
 import * as THREE from "three";
 import {
   advanceMechanism,
@@ -36,9 +37,11 @@ export class StructurePresentation {
     const transform = mechanismTransform(this.pose);
     const stage = inspectionStaging(transform.inspection);
     this.models.rackDoor.rotation.y = transform.doorAngle;
-    this.models.rackSlide.position.z = transform.trayOffset;
+    const fixed = modelForDevice(state.deviceId).category === "switch";
+    this.models.rackSlide.visible = this.models.railMount.visible = !fixed;
+    this.models.rackSlide.position.z = fixed ? 0 : transform.trayOffset;
     this.models.server.position.copy(this.mounted);
-    this.models.server.position.z += transform.trayOffset;
+    this.models.server.position.z += fixed ? 0 : transform.trayOffset;
     this.models.server.position.lerp(this.workbench, stage.relocation);
     const phase: PresentationPhase = assembling
       ? "assembling"

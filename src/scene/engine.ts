@@ -1,3 +1,5 @@
+import { modelForDevice, partsForDevice } from "../catalog";
+import { createEquipmentAssembly } from "./equipment-model";
 import { SpatialSignals } from "./signals";
 import { SurfaceObservation } from "./surface";
 import { InstallationScene } from "./installation";
@@ -51,6 +53,8 @@ export class SceneEngine {
   onFeedback: (feedback: SceneFeedback) => void;
   lastFeedback = "";
   assetsLoaded = false;
+  assemblyModel = "server-2u";
+  assemblies = new Map<string, ReturnType<typeof createEquipmentAssembly>>();
   paused = false;
   contextAvailable = true;
   state: AppState;
@@ -143,7 +147,7 @@ export class SceneEngine {
       this.contextLost,
     );
     host.append(this.renderer.domElement);
-    this.scene.fog = new THREE.FogExp2("#111822", 0.008);
+    this.scene.fog = new THREE.FogExp2("#0b0e10", 0.008);
     this.scene.add(new THREE.HemisphereLight("#faf9f5", "#343333", 0.45));
     const key = (this.keyLight = new THREE.DirectionalLight("#fff9f0", 1.6));
     key.position.set(0, 9, 4);
@@ -275,39 +279,9 @@ export class SceneEngine {
           disposeModels(scene, false);
           throw error;
         }
-        // 释放被增强模型替代的几何；共享材质在引擎退出时统一释放。
-        this.models.server.traverse((object) => {
-          if (object instanceof THREE.Mesh) object.geometry.dispose();
-        });
-        this.models.server.clear();
-        this.models.server.add(result.root, this.guides);
-        this.models.parts.clear();
-        for (const [id, group] of result.groups)
-          this.models.parts.set(id, group);
-        this.surface.dispose();
-        this.installation.detach();
-        this.installation = new InstallationScene(this.models);
-        this.models.root.add(this.installation.root);
-        this.surface = new SurfaceObservation(
-          this.models,
-          this.installation,
-          () => this.state,
-        );
-        this.partBases = result.positions;
-        result.root.traverse((object) => {
-          if (!(object instanceof THREE.Mesh)) return;
-          const materials = Array.isArray(object.material)
-            ? object.material
-            : [object.material];
-          for (const material of materials)
-            if (material instanceof THREE.MeshStandardMaterial && material.map)
-              material.map.anisotropy = Math.min(
-                8,
-                this.renderer.capabilities.getMaxAnisotropy(),
-              );
-        });
-        this.models.rotors.length = 0;
-        this.poseParts();
+        this.assemblies.set("server-2u", result);
+        this.assemblyModel = "";
+        this.activateAssembly(this.state);
         completed++;
       })(),
       ...(
@@ -453,6 +427,35 @@ export class SceneEngine {
     this.moving = false;
     this.lastManualInteraction = performance.now();
   };
+  activateAssembly(state: AppState) {
+    const model = modelForDevice(state.deviceId);
+    if (model.id === this.assemblyModel) return;
+    let assembly = this.assemblies.get(model.id);
+    if (!assembly) {
+      assembly = createEquipmentAssembly(model.id);
+      this.assemblies.set(model.id, assembly);
+    }
+    this.surface?.dispose();
+    const cachedRoots = new Set(
+      [...this.assemblies.values()].map((value) => value.root),
+    );
+    for (const child of this.models.server.children)
+      if (child !== this.guides && !cachedRoots.has(child as THREE.Group))
+        disposeModels(child, false);
+    this.models.server.clear();
+    this.models.server.add(assembly.root, this.guides);
+    this.models.parts.clear();
+    for (const [id, group] of assembly.groups) this.models.parts.set(id, group);
+    this.partBases = assembly.positions;
+    this.assemblyModel = model.id;
+    this.models.rotors.length = 0;
+    this.surface = new SurfaceObservation(
+      this.models,
+      this.installation,
+      () => this.state,
+    );
+    this.poseParts();
+  }
   installDevice(state: AppState) {
     const rack = rackForDevice(state.deviceId);
     this.models.rack.position.fromArray(rack.position);
@@ -476,7 +479,7 @@ export class SceneEngine {
     this.presentation.mounted.set(
       rack.position[0],
       deviceHeight(state.deviceId),
-      rack.position[2] + definition.server.position[2],
+      rack.position[2] + 0.555 - modelForDevice(state.deviceId).depth / 2,
     );
   }
   objectFor(id: string) {
@@ -496,13 +499,20 @@ export class SceneEngine {
   }
   update(state: AppState) {
     const deviceChanged = state.deviceId !== this.state.deviceId;
-    if (deviceChanged) this.installDevice(state);
+    if (deviceChanged) {
+      this.installDevice(state);
+      this.activateAssembly(state);
+    }
     const levelChanged = state.level !== this.state.level;
     if (levelChanged || state.selected !== this.state.selected)
       this.pendingComponentFocus = false;
     const explosionChanged = state.explosion !== this.state.explosion;
     const focusChanged = state.focusRevision !== this.state.focusRevision;
-    const changed = levelChanged || focusChanged || deviceChanged;
+    // 机房 / 机柜内单击只切换选择，保留镜头，避免双击期间标签被镜头带走。
+    const changed =
+      levelChanged ||
+      focusChanged ||
+      (deviceChanged && state.level === "device");
     this.state = state;
     this.sample = simulate(state.time, state.replayCycle, state.deviceId);
     if (levelChanged) this.pendingDeviceView = state.level === "device";
@@ -754,7 +764,8 @@ export class SceneEngine {
     ];
   }
   poseParts() {
-    for (const [index, part] of parts.entries()) {
+    this.guidePositions.fill(0);
+    for (const [index, part] of partsForDevice(this.state.deviceId).entries()) {
       const base = this.partBases.get(part.id)?.toArray() ?? part.position;
       const position = partPosition(
         { ...part, position: base },
@@ -982,7 +993,7 @@ export class SceneEngine {
         }
         if (deviceAnchor) {
           target.getWorldPosition(this.anchorPosition);
-          this.anchorPosition.z += 0.49;
+          this.anchorPosition.z += modelForDevice(id).depth / 2;
         }
         this.anchorPosition.project(this.camera);
         const x =
@@ -1046,6 +1057,8 @@ export class SceneEngine {
     this.controls.dispose();
     this.pipeline.dispose();
     this.surface.dispose();
+    for (const assembly of this.assemblies.values())
+      if (!assembly.root.parent) disposeModels(assembly.root, false);
     const canvas = this.renderer.domElement;
     canvas.removeEventListener("pointerdown", this.pointerDown);
     canvas.removeEventListener("pointerup", this.pointerUp);

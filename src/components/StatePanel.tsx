@@ -1,3 +1,4 @@
+import { modelForDevice, unitLabel } from "../catalog";
 import { useMemo } from "react";
 import type { Action, AppState } from "../domain";
 import { entityById } from "../domain";
@@ -68,7 +69,7 @@ export function StatePanel({
             .map((device) => ({
               id: device.id,
               label: device.name,
-              detail: `U${device.startUnit}–${device.startUnit + 1}`,
+              detail: `${unitLabel(device.id)} · ${modelForDevice(device.id).name}`,
             }))
         : [];
   const scope =
@@ -88,11 +89,18 @@ export function StatePanel({
   const source = reading?.quality;
   return (
     <section className="state-panel" aria-label="运行态势">
-      <div className="overline">运行态势 · 模拟</div>
+      <div className="overline">
+        {kind === "device" ? modelForDevice(state.deviceId).name : "运行态势"}
+      </div>
       <h2>{reading?.name ?? entityById(state.selected)?.name}</h2>
+      {kind === "device" && (
+        <p className="equipment-brief">
+          {modelForDevice(state.deviceId).description}
+        </p>
+      )}
       <div className="state-primary">
         <SignalBadge reading={reading} />
-        <span>t + {state.time} s</span>
+        <span>{kind === "rack" ? "42U" : ""}</span>
       </div>
       {reading && reading.count > 1 ? (
         <>
@@ -157,13 +165,6 @@ export function StatePanel({
                 </div>
               )}
             </dl>
-          )}
-          {isPart && (
-            <p className="component-source-note">
-              部件颜色为温升模型分级，不是传感器告警。
-              {reading?.temperatureLimits &&
-                `示意预警 ${reading.temperatureLimits[0]}°C，严重 ${reading.temperatureLimits[1]}°C。`}
-            </p>
           )}
         </>
       )}
@@ -246,30 +247,6 @@ export function StatePanel({
         <p>
           运行状态、告警级别与数据质量独立记录。灰色不代表正常；离线不按零功耗处理，过期值不进入当前功耗合计。部件分级来自演示温升模型。
         </p>
-      </details>
-      <details className="replay-options">
-        <summary>回放节点</summary>
-        <div className="replay-jumps">
-          {[
-            [0, "初始"],
-            [35, "告警出现"],
-            [60, "混合状态"],
-            [95, "恢复"],
-            [120, "结束"],
-          ].map(([time, label]) => (
-            <button
-              key={time}
-              onClick={(event) => {
-                dispatch({ type: "seek", time: Number(time) });
-                event.currentTarget.closest("details")!.open = false;
-                const panel = event.currentTarget.closest(".inspector-scroll");
-                requestAnimationFrame(() => panel?.scrollTo({ top: 0 }));
-              }}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
       </details>
     </section>
   );

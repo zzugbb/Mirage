@@ -1,3 +1,4 @@
+import { modelForDevice } from "../catalog";
 import type { Action, AppState } from "../domain";
 import { phaseLabels } from "../mechanics";
 import type { PresentationPhase } from "../mechanics";
@@ -31,16 +32,16 @@ export function RackControls({
           <span>{state.doorOpen ? "↙" : "↗"}</span>
         </button>
         <button
+          disabled={modelForDevice(state.deviceId).category === "switch"}
           aria-pressed={state.trayExtended}
           onClick={() =>
             dispatch({ type: "tray", extended: !state.trayExtended })
           }
         >
-          {state.trayExtended ? "推回服务器" : "抽出服务器"}
+          {state.trayExtended ? "推回设备" : "抽出设备"}
           <span>{state.trayExtended ? "↤" : "↦"}</span>
         </button>
       </div>
-      <p>抽出前开门，关门前回位。仅改变三维模型姿态。</p>
     </section>
   );
 }

@@ -16,7 +16,7 @@ test("贡献服务器的部件映射完整，节点不能重复归属或依赖�
   const model = readGLB("../assets/public/models/server-2u.glb");
   const names = new Set(model.nodes.map((node) => node.name));
   const mapped = new Set();
-  for (const part of scene.parts) {
+  for (const part of scene.parts.filter(part=>!part.procedural)) {
     assert.ok(part.modelNodes.length > 0);
     for (const name of part.modelNodes) {
       assert.ok(names.has(name), name);
@@ -54,9 +54,9 @@ test("二十八个子件显式映射到原模组后代，每个节点只有一�
   const model = readGLB("../assets/public/models/server-2u.glb");
   const byName = new Map(model.nodes.map((node, index) => [node.name, index]));
   const descendants = (index) => [index, ...(model.nodes[index].children ?? []).flatMap(descendants)];
-  assert.equal(scene.subparts.length,28);
+  assert.equal(scene.subparts.filter(part=>!part.procedural).length,28);
   const mapped = new Set();
-  for (const child of scene.subparts) {
+  for (const child of scene.subparts.filter(part=>!part.procedural)) {
     const parent = scene.parts.find(part => part.id === child.parent);
     assert.ok(parent);
     const index = byName.get(child.modelNode);

@@ -1,8 +1,9 @@
 import { signalFor, signalStyles } from "../status";
 import { racks, devices, rackForDevice } from "../installation";
 import { spatialSnapshot } from "../spatial";
-import { useEffect, useMemo, useState } from "react";
-import { entities, parts, subparts } from "../domain";
+import { useEffect, useMemo, useState, useRef } from "react";
+import { partsForDevice, subpartsForDevice } from "../catalog";
+import { entities } from "../domain";
 import type { AppState, Part } from "../domain";
 import type { SimulationSnapshot } from "../simulation";
 
@@ -11,13 +12,17 @@ function PartGroup({
   selected,
   query,
   onSelect,
+  deviceId,
 }: {
+  deviceId: string;
   part: Part;
   selected: string;
   query: string;
   onSelect: (id: string) => void;
 }) {
-  const children = subparts.filter((child) => child.parent === part.id);
+  const children = subpartsForDevice(deviceId).filter(
+    (child) => child.parent === part.id,
+  );
   const [expanded, setExpanded] = useState(false);
   useEffect(() => {
     if (children.some((child) => child.id === selected)) setExpanded(true);
@@ -167,10 +172,57 @@ export function ObjectTree({
     );
   };
 
+  const navigation = useRef<HTMLElement>(null);
+  useEffect(() => {
+    navigation.current?.scrollTo({ top: 0 });
+  }, [state.level]);
+  const sceneTree = (
+    <>
+      {" "}
+      <div className="tree-section-label">空间与设施</div>
+      {(!normalized || "01号机房".includes(normalized)) && (
+        <button
+          className="tree-row"
+          aria-pressed={state.selected === "room-01"}
+          onClick={() => onSelect("room-01")}
+          onDoubleClick={() => onSelect("room-01", true)}
+        >
+          <span className="entity-icon room" />
+          01号机房{alarm("room-01")}
+        </button>
+      )}
+      {racks.map((rack) => (
+        <RackBranch
+          key={rack.id}
+          rack={rack}
+          state={state}
+          query={normalized}
+          onSelect={onSelect}
+          alarm={alarm}
+        />
+      ))}
+      {entities
+        .filter(
+          (entity) =>
+            entity.kind === "facility" && entity.name.includes(normalized),
+        )
+        .map((entity) => (
+          <button
+            key={entity.id}
+            className="tree-row depth-1"
+            aria-pressed={state.selected === entity.id}
+            onClick={() => onSelect(entity.id)}
+          >
+            <span className="entity-icon facility" />
+            {entity.name}
+          </button>
+        ))}
+    </>
+  );
   return (
     <aside className="object-panel" aria-label="对象导航">
       <div className="panel-title">
-        对象导航
+        {state.level === "device" ? "部件导航" : "对象导航"}
         <span>
           {racks.length} 柜 · {devices.length} 设备
         </span>
@@ -189,54 +241,36 @@ export function ObjectTree({
           </button>
         )}
       </label>
-      <nav className="object-scroll" aria-label="场景对象">
-        <div className="tree-section-label">空间与设施</div>
-        {(!normalized || "01号机房".includes(normalized)) && (
-          <button
-            className="tree-row"
-            aria-pressed={state.selected === "room-01"}
-            onClick={() => onSelect("room-01")}
-            onDoubleClick={() => onSelect("room-01", true)}
-          >
-            <span className="entity-icon room" />
-            01号机房{alarm("room-01")}
-          </button>
-        )}
-        {racks.map((rack) => (
-          <RackBranch
-            key={rack.id}
-            rack={rack}
-            state={state}
-            query={normalized}
-            onSelect={onSelect}
-            alarm={alarm}
-          />
-        ))}
-        {entities
-          .filter(
-            (entity) =>
-              entity.kind === "facility" && entity.name.includes(normalized),
-          )
-          .map((entity) => (
+      <nav className="object-scroll" aria-label="场景对象" ref={navigation}>
+        {state.level === "device" && !normalized ? (
+          <>
             <button
-              key={entity.id}
-              className="tree-row depth-1"
-              aria-pressed={state.selected === entity.id}
-              onClick={() => onSelect(entity.id)}
+              className="context-back"
+              onClick={() => onSelect(rackForDevice(state.deviceId).id, true)}
             >
-              <span className="entity-icon facility" />
-              {entity.name}
+              ← {rackForDevice(state.deviceId).name}
             </button>
-          ))}
+            <details className="context-navigation">
+              <summary>切换空间与设备</summary>
+              {sceneTree}
+            </details>
+          </>
+        ) : (
+          sceneTree
+        )}
         {state.level === "device" && (
           <div className="part-tree">
             <div className="part-tree-title">
               {state.deviceId.toUpperCase()} 部件
-              <span>{parts.length + subparts.length}</span>
+              <span>
+                {partsForDevice(state.deviceId).length +
+                  subpartsForDevice(state.deviceId).length}
+              </span>
             </div>
-            {parts.map((part) => (
+            {partsForDevice(state.deviceId).map((part) => (
               <PartGroup
                 key={part.id}
+                deviceId={state.deviceId}
                 part={part}
                 query={normalized}
                 selected={state.selected}

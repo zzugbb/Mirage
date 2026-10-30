@@ -1,45 +1,47 @@
-import { componentCoverage } from "../equipment";
+import { modelForDevice, partsForDevice, subpartsForDevice } from "../catalog";
 import type { Action } from "../domain";
-
 export function ComponentCoverage({
+  deviceId,
   dispatch,
 }: {
+  deviceId: string;
   dispatch: React.Dispatch<Action>;
 }) {
+  const model = modelForDevice(deviceId),
+    parts = partsForDevice(deviceId),
+    children = subpartsForDevice(deviceId);
   return (
     <details className="component-coverage">
       <summary>
-        部件覆盖清单 <span>9 个模组 · 28 个子件</span>
+        配置与部件 <span>{parts.length + children.length} 项</span>
       </summary>
-      <p>
-        三维模组数不等于实际部件数。左侧导航可选择各子件，未登记条目不会生成独立模型、传感器或告警。
-      </p>
       <ul>
-        {componentCoverage.map((item) => (
-          <li key={item.name}>
-            <div>
-              <strong>{item.name}</strong>
-              <span>{item.quantity}</span>
-            </div>
-            <small>{item.coverage}</small>
-            <p>{item.note}</p>
-            {item.partIds.length > 0 && (
-              <div className="coverage-select">
-                {item.partIds
-                  .slice(0, item.partIds.length > 2 ? 1 : 2)
-                  .map((id, index) => (
-                    <button
-                      key={id}
-                      onClick={() => dispatch({ type: "select", id })}
-                    >
-                      选择{item.partIds.length > 1 ? ` ${index + 1}` : "模组"}
-                    </button>
-                  ))}
-              </div>
-            )}
+        {parts.map((part) => (
+          <li key={part.id}>
+            <button
+              className="bom-row"
+              onClick={() => dispatch({ type: "select", id: part.id })}
+            >
+              <strong>{part.name}</strong>
+              <span>
+                {children.filter((child) => child.parent === part.id).length ||
+                  1}
+              </span>
+            </button>
           </li>
         ))}
       </ul>
+      <p>未安装：{model.uninstalled.join("、")}</p>
+      <dl className="spatial-facts">
+        <div>
+          <dt>网络</dt>
+          <dd>{model.network}</dd>
+        </div>
+        <div>
+          <dt>存储</dt>
+          <dd>{model.storage}</dd>
+        </div>
+      </dl>
     </details>
   );
 }

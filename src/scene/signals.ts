@@ -1,3 +1,4 @@
+import { modelForDevice } from "../catalog";
 import * as THREE from "three";
 import { observationColor } from "./metric-color";
 import { racks, devices, rackForDevice, deviceHeight } from "../installation";
@@ -66,7 +67,7 @@ export class SpatialSignals {
           new THREE.Vector3(
             rack.position[0],
             deviceHeight(device.id),
-            rack.position[2] + 0.105,
+            rack.position[2] + 0.555 - modelForDevice(device.id).depth / 2,
           ),
           false,
         ),
@@ -105,6 +106,11 @@ export class SpatialSignals {
         inspection === 0 &&
         state.level === "rack" &&
         rackForDevice(mark.id).id === activeRack;
+      const model = modelForDevice(mark.id);
+      for (const child of mark.root.children) {
+        child.position.z = model.depth / 2 + 0.031;
+        child.position.y = model.units * 0.04445 * 0.32;
+      }
       const reading = readings.get(mark.id)!;
       mark.material.color.copy(observationColor(reading, mode));
       mark.material.opacity = 0.95;
@@ -115,9 +121,13 @@ export class SpatialSignals {
         mark.root.position.set(
           rack.position[0],
           deviceHeight(mark.id),
-          rack.position[2] + 0.105,
+          rack.position[2] + 0.555 - modelForDevice(mark.id).depth / 2,
         );
       }
+    }
+    for (const mark of this.partMarks.values()) {
+      mark.box.visible = false;
+      mark.dot.visible = false;
     }
     // 模型分级只显示异常部件的细轮廓，和设备级告警分开。
     for (const [id, group] of models.parts) {

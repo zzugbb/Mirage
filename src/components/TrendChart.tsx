@@ -116,7 +116,6 @@ export function TrendChart({
           : observation.quality === "stale"
             ? `最后观测 ${observation.observedAt}s · 已过期`
             : caption}{" "}
-        · 模拟
       </p>
     </div>
   );

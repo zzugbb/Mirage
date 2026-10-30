@@ -1,3 +1,4 @@
+import { modelForDevice } from "../catalog";
 import { qualityNames } from "../status";
 import { observationColor } from "../scene/metric-color";
 import { racks, devices, rackForDevice } from "../installation";
@@ -204,7 +205,7 @@ export function Viewport({
             <small>
               {currentReading.quality === "stale"
                 ? `过期 · t+${currentReading.observedAt}s`
-                : "模拟"}
+                : ""}
             </small>
           </button>
           {racks.map((rack) => {
@@ -317,25 +318,25 @@ export function Viewport({
           state.level === "room" && (
             <div className="relation-legend">
               <i />
-              预设冷却关系 · {sample.coolingCapacity}% · 模拟
+              冷却关联 · {sample.coolingCapacity}%
             </div>
           )}
         {inspectionView === "status" && (
           <div className="scene-overview">
-            <span className="scene-overview-kicker">MIRAGE / 运行态势</span>
+            <span className="scene-overview-kicker">MIRAGE / 浮城</span>
             <strong>
               {state.level === "room"
-                ? `${racks.length} 机柜 · 64 设备`
+                ? `${racks.length} 机柜 · ${devices.length} 设备`
                 : state.level === "rack"
-                  ? "42U · 8 台设备"
-                  : state.deviceId.toUpperCase()}
+                  ? `42U · ${devices.filter((device) => device.rackId === rackForDevice(state.deviceId).id).length} 台设备`
+                  : `${modelForDevice(state.deviceId).name} / ${state.deviceId.toUpperCase()}`}
             </strong>
             <p>
               <i style={{ background: signalStyles.normal.color }} />
               正常 <i style={{ background: signalStyles.warning.color }} />
               预警 <i style={{ background: signalStyles.critical.color }} />
               严重 <i style={{ background: signalStyles.offline.color }} />
-              离线 / 未配置<span>模拟</span>
+              离线 / 未配置
             </p>
           </div>
         )}
@@ -477,16 +478,16 @@ export function Viewport({
           </div>
         </details>
       </div>
-      {inspectionView !== "object" && (
+      {
         <ObservationDock
           state={state}
           sample={sample}
-          view={inspectionView}
+          view={inspectionView === "object" ? "status" : inspectionView}
           dispatch={dispatch}
           expanded={chartExpanded}
           onExpanded={setChartExpanded}
         />
-      )}
+      }
       {error && (
         <div className="scene-error" role="alert">
           <h2>场景暂不可用</h2>

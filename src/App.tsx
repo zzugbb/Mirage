@@ -164,6 +164,12 @@ export function App() {
             Mirage <span>浮城</span>
           </b>
         </a>
+        <TourControls
+          experience={experience}
+          feedback={feedback}
+          hidden={hidden}
+          dispatch={control}
+        />
         <span className="header-divider" />
         <span className="header-current">空间探索</span>
         <button
@@ -172,13 +178,25 @@ export function App() {
           aria-label={`运行态势，${signalText(scope)}，模拟告警 ${scope.alarmCount} 台设备`}
         >
           <i className="status-dot" />
-          模拟 · {signalText(scope)}{" "}
-          {scope.alarmCount ? `${scope.alarmCount} 台` : ""}
-          <span>运行回放 ↗</span>
+          {signalText(scope)} {scope.alarmCount ? `${scope.alarmCount} 台` : ""}
+          <span>运行概览 ↗</span>
         </button>
+        <details className="source-info">
+          <summary aria-label="关于场景">ⓘ</summary>
+          <div>
+            <strong>关于浮城</strong>
+            <p>
+              原创演示空间与通用设备配置。运行数据由确定性脚本生成，部件温度与分项功耗来自模型分配；没有真实管理接口、部件传感器或
+              CFD 结果。
+            </p>
+            <p>
+              结构以维护部件为粒度。未安装的选配件不占用槽位。资产来源与许可见项目说明。
+            </p>
+          </div>
+        </details>
       </header>
       <div className="breadcrumb">
-        <button onClick={() => dispatch({ type: "reset" })}>示意园区</button>
+        <button onClick={() => dispatch({ type: "reset" })}>园区</button>
         {getPath(state).map((id, index) => (
           <span key={id}>
             {" "}
@@ -210,12 +228,6 @@ export function App() {
           </button>
         )}
       </div>
-      <TourControls
-        experience={experience}
-        feedback={feedback}
-        hidden={hidden}
-        dispatch={control}
-      />
       <main
         className={inspectionView !== "object" ? "has-telemetry" : undefined}
       >
@@ -249,13 +261,13 @@ export function App() {
       <footer className="app-footer">
         <span>
           <i className="status-dot" />
-          原创场景 · 授权模型 <span className="footer-muted">· 单位 m</span>
+          单位 m
         </span>
         <span className="interaction-hint">
           拖动旋转 <b>·</b> 滚轮缩放 <b>·</b> 双击进入 <b>·</b> F 聚焦 / Esc
           返回
         </span>
-        <span className="prototype-label">原型 0.1</span>
+        <span className="prototype-label">MIRAGE · 浮城</span>
       </footer>
     </div>
   );

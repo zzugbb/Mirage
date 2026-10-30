@@ -1,3 +1,4 @@
+import { modelForDevice } from "./catalog.ts";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { devices, racks, deviceHeight, rackForDevice } from "./installation.ts";
@@ -11,10 +12,10 @@ import { simulate } from "./simulation.ts";
 import { signalFor, signalStyles } from "./status.ts";
 import { deviceObservation, observedHistory } from "./device-data.ts";
 
-test("八机柜六十四设备有独立输入、合法安装位置与可重演的共享时钟", () => {
+test("八机柜混合设备有独立输入、合法安装位置与可重演的共享时钟", () => {
   const first = spatialSnapshot(60);
   assert.equal(racks.length, 8);
-  assert.equal(devices.length, 64);
+  assert.equal(devices.length, 84);
   assert.ok(
     new Set(devices.map((device) => simulate(0, 0, device.id).temperature))
       .size > 10,
@@ -27,10 +28,16 @@ test("八机柜六十四设备有独立输入、合法安装位置与可重演�
   assert.throws(() => simulate(60, 0, "unknown-device"), /未登记/);
   for (const rack of racks) {
     const children = devices.filter((device) => device.rackId === rack.id);
-    assert.equal(children.length, 8);
+    assert.equal(
+      children.length,
+      rack.name.startsWith("B03") || rack.name.startsWith("B04") ? 12 : 10,
+    );
     const units = new Set<number>();
     for (const child of children) {
-      for (const unit of [child.startUnit, child.startUnit + 1]) {
+      for (const unit of Array.from(
+        { length: modelForDevice(child.id).units },
+        (_, i) => child.startUnit + i,
+      )) {
         assert.ok(unit >= 1 && unit <= 42);
         assert.ok(!units.has(unit));
         units.add(unit);
@@ -50,7 +57,7 @@ test("汇总只计有效观测，保留零值并单独报告功耗和温度覆�
       .filter((device) => device.rackId === rack.id)
       .map((device) => readings.get(device.id)!);
     const parent = readings.get(rack.id)!;
-    assert.equal(parent.count, 8);
+    assert.equal(parent.count, children.length);
     const thermal = children.filter(
         (child) => child.quality === "valid" && child.temperature !== null,
       ),
@@ -74,9 +81,9 @@ test("汇总只计有效观测，保留零值并单独报告功耗和温度覆�
     );
   }
   const room = readings.get("room-01")!;
-  assert.equal(room.count, 64);
-  assert.equal(room.coveragePower, 61);
-  assert.equal(room.coverageTemperature, 60);
+  assert.equal(room.count, 84);
+  assert.equal(room.coveragePower, 81);
+  assert.equal(room.coverageTemperature, 80);
   assert.equal(room.lifecycleCounts.offline, 1);
   assert.equal(room.lifecycleCounts.maintenance, 2);
   assert.equal(room.lifecycleCounts.stopped, 1);
@@ -132,7 +139,7 @@ test("部件分级是明确的模型评估，不能冒充设备测点告警；�
     bay = componentReading(sample, "srv-01", "bay-01");
   assert.equal(lid.power, 0);
   assert.equal(heatSink.power, 0);
-  assert.equal(bay.power, null);
+  assert.equal(bay.power, 0);
   assert.ok(heatSink.temperature! > lid.temperature!);
   assert.equal(heatSink.alarm, 0);
   const snapshot = spatialSnapshot(60);

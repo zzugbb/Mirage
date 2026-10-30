@@ -3,26 +3,25 @@ import assert from "node:assert/strict";
 import { simulate, scenario, temperatureHistory } from "./simulation.ts";
 import { createState, presentationKey, transition } from "./domain.ts";
 import { createExperience, experienceTransition } from "./tour.ts";
-import { componentCoverage } from "./equipment.ts";
-import { parts, subparts } from "./domain.ts";
+import { componentCoverageFor } from "./equipment.ts";
+import { partsForDevice, subpartsForDevice } from "./catalog.ts";
 
-test("部件覆盖清单准确对应现有模组与独立子件，逻辑及未知条目不伪造模型映射", () => {
-  const mapped = componentCoverage.flatMap((item) => [...item.partIds]);
+test("服务器维护部件清单包括处理器、磁盘和扩展卡，未把未安装 GPU 计入", () => {
+  const mapped = componentCoverageFor("srv-01").flatMap((item) => item.partIds);
   assert.deepEqual(
     mapped.toSorted(),
-    [...parts, ...subparts].map((part) => part.id).toSorted(),
+    [...partsForDevice("srv-01"), ...subpartsForDevice("srv-01")]
+      .map((part) => part.id)
+      .toSorted(),
   );
-  assert.equal(new Set(mapped).size, 37);
-  assert.equal(
-    componentCoverage.find((item) => item.name === "处理器芯片")?.partIds
-      .length,
-    0,
+  assert.equal(new Set(mapped).size, 57);
+  assert.ok(
+    mapped.includes("processor-01") &&
+      mapped.includes("disk-08") &&
+      mapped.includes("nic-01") &&
+      mapped.includes("raid-01"),
   );
-  assert.equal(
-    componentCoverage.find((item) => item.name === "网卡 / RAID / GPU")
-      ?.quantity,
-    "配置未定义",
-  );
+  assert.ok(!mapped.some((id) => id.includes("gpu")));
 });
 
 test("固定冷却输入先变化，温度滞后响应，恢复输入不立即清除告警", () => {

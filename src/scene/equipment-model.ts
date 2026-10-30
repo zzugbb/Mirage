@@ -1,0 +1,490 @@
+import * as THREE from "three";
+import definition from "../../assets/public/scenes/room-01.json" with { type: "json" };
+import { modelById, partsForDevice } from "../catalog.ts";
+import { devices } from "../installation.ts";
+type Assembly = {
+  root: THREE.Group;
+  groups: Map<string, THREE.Group>;
+  positions: Map<string, THREE.Vector3>;
+};
+function maker() {
+  const materials = new Map<string, THREE.MeshStandardMaterial>();
+  return (
+    root: THREE.Object3D,
+    size: number[],
+    position: number[],
+    color: string,
+    metalness = 0.55,
+  ) => {
+    const key = color + metalness;
+    let material = materials.get(key);
+    if (!material) {
+      material = new THREE.MeshStandardMaterial({
+        color,
+        roughness: 0.4,
+        metalness,
+      });
+      materials.set(key, material);
+    }
+    const mesh = new THREE.Mesh(
+      new THREE.BoxGeometry(...(size as [number, number, number])),
+      material,
+    );
+    mesh.position.fromArray(position);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    root.add(mesh);
+    return mesh;
+  };
+}
+type Box = ReturnType<typeof maker>;
+function board(root: THREE.Group, size: number[], box: Box) {
+  box(root, size, [0, 0, 0], "#234e3d", 0.2);
+  for (let i = 0; i < 10; i++) {
+    const x = ((i - 4.5) * size[0]) / 11;
+    box(
+      root,
+      [0.012, 0.005, 0.014],
+      [x, size[1] / 2 + 0.003, -size[2] * 0.29],
+      "#171b1e",
+      0.1,
+    );
+    box(
+      root,
+      [0.0005, 0.0003, size[2] * 0.6],
+      [x, size[1] / 2 + 0.0003, 0],
+      "#8b9b66",
+      0.6,
+    );
+  }
+  for (const x of [-0.38, 0.38])
+    for (const z of [-0.38, 0.38])
+      box(
+        root,
+        [0.005, 0.004, 0.005],
+        [x * size[0], 0, z * size[2]],
+        "#aab1b7",
+        0.8,
+      );
+}
+function detail(root: THREE.Group, node: string, size: number[], box: Box) {
+  const [w, h, d] = size;
+  if (node === "board") board(root, size, box);
+  else if (node === "chip") {
+    box(root, [w, 0.002, d], [0, -0.002, 0], "#1a4c3a", 0.2);
+    box(root, [w * 0.85, 0.004, d * 0.85], [0, 0.001, 0], "#aeb5b9", 0.8);
+    for (const x of [-1, 1])
+      box(root, [0.002, 0.003, d * 0.7], [x * w * 0.48, 0, 0], "#c7a260", 0.8);
+  } else if (node === "processor" || node === "heatsink") {
+    box(root, [w, 0.003, d], [0, -h / 2, 0], "#a0a9b2", 0.85);
+    for (let i = 0; i < 15; i++)
+      box(
+        root,
+        [w / 40, h, d],
+        [-w / 2 + (w * (i + 0.5)) / 15, 0, 0],
+        "#939fa9",
+        0.8,
+      );
+  } else if (node === "psu") {
+    box(root, size, [0, 0, 0], "#7f8a93", 0.8);
+    for (let i = 0; i < 7; i++)
+      box(
+        root,
+        [w * 0.8, 0.002, 0.002],
+        [0, ((i - 3) * h) / 9, -d / 2 - 0.001],
+        "#21282e",
+        0.1,
+      );
+    box(
+      root,
+      [w * 0.6, h * 0.6, 0.005],
+      [0, 0, -d / 2 - 0.005],
+      "#14191e",
+      0.2,
+    );
+    box(root, [0.005, h * 0.65, 0.012], [w * 0.48, 0, -d / 2], "#919d76", 0.5);
+  } else if (node === "adapter" || node === "controller") {
+    board(root, [w, 0.003, d], box);
+    box(root, [w * 0.42, 0.008, d * 0.3], [0, 0.007, 0], "#939ea9", 0.8);
+    for (let i = 0; i < 2; i++)
+      box(
+        root,
+        [0.013, 0.014, 0.012],
+        [(i - 0.5) * 0.025, 0, -d / 2],
+        "#a4b1bb",
+        0.8,
+      );
+    box(root, [w * 0.8, 0.002, 0.005], [0, -0.002, d * 0.48], "#b49b58", 0.8);
+  } else if (node === "riser") {
+    box(root, [w, 0.003, d], [0, -h / 2, 0], "#355346", 0.2);
+    for (const x of [-w / 2, w / 2])
+      box(root, [0.003, h, d], [x, 0, 0], "#77828b", 0.7);
+    box(root, [w * 0.8, 0.006, 0.012], [0, -h / 2 + 0.005, 0], "#242b30", 0.3);
+  } else if (node === "duct") {
+    const mat = new THREE.MeshPhysicalMaterial({
+      color: "#586069",
+      transparent: true,
+      opacity: 0.28,
+      roughness: 0.2,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    });
+    for (const x of [-w / 2, w / 2]) {
+      const m = box(root, [0.001, h, d], [x, 0, 0], "#555f68");
+      m.material = mat;
+    }
+    const m = box(root, [w, 0.001, d], [0, h / 2, 0], "#555f68");
+    m.material = mat;
+  } else if (node === "battery") {
+    const m = new THREE.Mesh(
+      new THREE.CylinderGeometry(w / 2, w / 2, h, 24),
+      new THREE.MeshStandardMaterial({
+        color: "#b1bbc1",
+        metalness: 0.85,
+        roughness: 0.25,
+      }),
+    );
+    root.add(m);
+  } else if (node === "cable") {
+    for (let i = 0; i < 4; i++)
+      box(
+        root,
+        [w / 7, h * 0.6, d],
+        [((i - 1.5) * w) / 4, 0, 0],
+        i % 2 ? "#3d4147" : "#242930",
+        0.1,
+      );
+    for (const z of [-d / 2, d / 2])
+      box(root, [w * 1.3, h * 1.4, 0.012], [0, 0, z], "#161b20", 0.1);
+  } else if (node === "io") {
+    box(root, size, [0, 0, 0], "#919da5", 0.8);
+    for (let i = 0; i < 3; i++)
+      box(
+        root,
+        [w / 5, h * 0.55, 0.003],
+        [((i - 1) * w) / 3, 0, -d / 2 - 0.002],
+        "#151d23",
+        0.1,
+      );
+  } else if (node === "ports") {
+    for (let i = 0; i < 54; i++) {
+      const up = i >= 48,
+        x = up ? 0.145 + ((i - 48) % 3) * 0.024 : -0.18 + (i % 24) * 0.0125,
+        y = (Math.floor((up ? i - 48 : i) / (up ? 3 : 24)) - 0.5) * 0.013;
+      box(root, [up ? 0.02 : 0.01, 0.011, 0.014], [x, y, 0], "#a1adb6", 0.8);
+      box(
+        root,
+        [up ? 0.016 : 0.007, 0.007, 0.003],
+        [x, y, 0.009],
+        "#10181e",
+        0.1,
+      );
+    }
+  } else
+    box(root, size, [0, 0, 0], node === "lid" ? "#9aa5ae" : "#4e5a64", 0.75);
+}
+function children(
+  root: THREE.Group,
+  id: string,
+  count: number,
+  node: string,
+  box: Box,
+  groups: Map<string, THREE.Group>,
+  size: number[],
+) {
+  const ids = definition.subparts
+    .filter((p) => p.parent === id)
+    .slice(0, count);
+  for (let i = 0; i < ids.length; i++) {
+    const child = new THREE.Group();
+    child.userData.entityId = ids[i].id;
+    root.add(child);
+    groups.set(ids[i].id, child);
+    if (node === "memory") {
+      const perBank = count / 2,
+        bank = i < perBank ? -1 : 1,
+        x = bank * 0.16 + ((i % perBank) - (perBank - 1) / 2) * 0.0075;
+      child.position.set(x, 0, 0);
+      box(child, [0.003, 0.03125, 0.13335], [0, 0, 0], "#28523f", 0.2);
+      for (let k = 0; k < 8; k++)
+        box(
+          child,
+          [0.004, 0.012, 0.011],
+          [0.003, 0, (k - 3.5) * 0.014],
+          "#151a1c",
+          0.1,
+        );
+      box(child, [0.004, 0.003, 0.125], [0, -0.014, 0], "#ae9154", 0.6);
+    } else if (node === "fans") {
+      const w = (size[0] / count) * 0.9;
+      child.position.x = ((i - (count - 1) / 2) * size[0]) / count;
+      box(child, [w, size[1], size[2]], [0, 0, 0], "#252d34", 0.3);
+      for (let k = 0; k < 7; k++)
+        box(
+          child,
+          [w * 0.8, 0.0015, 0.002],
+          [0, ((k - 3) * size[1]) / 9, size[2] / 2 + 0.001],
+          "#77838e",
+          0.6,
+        );
+      const fan = new THREE.Mesh(
+        new THREE.CylinderGeometry(
+          Math.min(w, size[1]) * 0.37,
+          Math.min(w, size[1]) * 0.37,
+          0.003,
+          16,
+        ),
+        new THREE.MeshStandardMaterial({ color: "#12181d" }),
+      );
+      fan.rotation.x = Math.PI / 2;
+      fan.position.z = size[2] / 2 + 0.002;
+      child.add(fan);
+    } else if (node === "storage") {
+      const w = (size[0] / count) * 0.95;
+      child.position.x = ((i - (count - 1) / 2) * size[0]) / count;
+      for (const x of [-w / 2, w / 2])
+        box(child, [0.002, size[1], size[2]], [x, 0, 0], "#8e9aa3", 0.75);
+      for (const y of [-size[1] / 2, size[1] / 2])
+        box(child, [w, 0.002, size[2]], [0, y, 0], "#8e9aa3", 0.75);
+      box(
+        child,
+        [w * 0.6, 0.003, 0.005],
+        [0, -size[1] * 0.2, size[2] / 2],
+        "#9da8ae",
+        0.8,
+      );
+    } else {
+      const vertical = count >= 8,
+        w = vertical ? Math.min(0.015, (size[0] / count) * 0.85) : 0.06985;
+      child.position.x = ((i - (count - 1) / 2) * size[0]) / count;
+      box(
+        child,
+        [
+          w,
+          vertical ? 0.06985 : Math.min(0.015, size[1] * 0.85),
+          size[2] * 0.85,
+        ],
+        [0, 0, 0],
+        "#9aa4ac",
+        0.75,
+      );
+      box(
+        child,
+        [w * 0.9, size[1] * 0.8, 0.008],
+        [0, 0, size[2] / 2],
+        "#28333d",
+        0.4,
+      );
+      box(
+        child,
+        [w * 0.6, 0.003, 0.003],
+        [0, -size[1] * 0.2, size[2] / 2 + 0.005],
+        "#b3bec4",
+        0.8,
+      );
+      const led = box(
+        child,
+        [0.002, 0.003, 0.002],
+        [-w * 0.3, size[1] * 0.25, size[2] / 2 + 0.006],
+        "#71a6a5",
+        0.1,
+      );
+      (led.material as THREE.MeshStandardMaterial).emissive.set("#33635f");
+    }
+  }
+}
+/** 原创配置结构，各机型独立建模，绝不通过拉伸 2U 模型伪装成其他设备。 */
+export function createEquipmentAssembly(modelId: string): Assembly {
+  const model = modelById(modelId),
+    device = devices.find((d) => d.modelId === modelId)!;
+  const root = new THREE.Group(),
+    groups = new Map<string, THREE.Group>(),
+    positions = new Map<string, THREE.Vector3>(),
+    box = maker();
+  const h = model.units * 0.04445 - 0.003,
+    depth = model.depth;
+  box(root, [0.44, 0.002, depth], [0, -h / 2, 0], "#78838b", 0.75);
+  for (const x of [-0.222, 0.222])
+    box(root, [0.003, h, depth], [x, 0, 0], "#86919a", 0.8);
+  for (const x of [-0.237, 0.237]) {
+    box(root, [0.025, h, 0.012], [x, 0, depth / 2], "#9da8af", 0.8);
+    box(
+      root,
+      [0.008, h * 0.65, 0.016],
+      [x, 0, depth / 2 + 0.008],
+      "#303b44",
+      0.5,
+    );
+  }
+  const ps = partsForDevice(device.id);
+  for (const p of ps) {
+    const group = new THREE.Group();
+    group.userData.entityId = p.id;
+    const pos = [...p.position],
+      size = [...p.size];
+    if (p.node === "lid") {
+      pos[1] = h / 2;
+      size[1] = 0.002;
+      size[2] = depth;
+    }
+    if (model.category === "server") {
+      if (p.id === "lid-01") {
+        pos.splice(0, 3, 0, h / 2, 0);
+        size.splice(0, 3, 0.44, 0.002, depth);
+      } else {
+        pos[2] *= depth / 0.9;
+        pos[1] *= model.units / 2;
+        size[1] *= model.units / 2;
+        size[2] *= depth / 0.9;
+      }
+      if (p.id === "board-01") {
+        pos.splice(0, 3, 0, -h / 2 + 0.005, -0.09);
+        size.splice(0, 3, 0.4, 0.004, 0.22);
+      }
+      if (p.id === "memory-01") {
+        pos.splice(0, 3, 0, 0.002, -0.09);
+        size.splice(0, 3, 0.39, 0.03125, 0.13335);
+      }
+      if (p.id.startsWith("psu-")) {
+        pos.splice(
+          0,
+          3,
+          p.id.endsWith("01") ? -0.185 : 0.185,
+          0,
+          -depth / 2 + 0.075,
+        );
+        size.splice(0, 3, 0.065, h * 0.8, 0.14);
+      }
+      if (p.id === "nic-01" || p.id === "riser-01") {
+        pos.splice(0, 3, 0.04, 0.003, -depth / 2 + 0.065);
+        size[0] = 0.065;
+        size[2] = 0.1;
+      }
+      if (p.id === "io-01") pos[0] = -0.06;
+      if (p.id === "fans-01") {
+        pos.splice(0, 3, 0, 0, 0.1);
+        size.splice(0, 3, 0.39, h * 0.8, 0.055);
+      }
+      if (p.id === "drives-01") {
+        pos.splice(0, 3, 0, 0, depth / 2 - 0.065);
+        size.splice(0, 3, model.units === 2 ? 0.137 : 0.41, h * 0.85, 0.1);
+      }
+      if (p.id === "storage-01") {
+        pos.splice(0, 3, 0, 0, depth / 2 - 0.02);
+        size.splice(0, 3, model.units === 2 ? 0.137 : 0.42, h * 0.85, 0.03);
+      }
+      if (p.id === "backplane-01") {
+        pos.splice(0, 3, 0, 0, depth / 2 - 0.135);
+        size.splice(0, 3, 0.4, h * 0.75, 0.005);
+      }
+      if (p.id === "cpu-01" || p.id === "cpu-02") {
+        pos[0] = p.id === "cpu-01" ? -0.09 : 0.09;
+        pos[2] = -0.09;
+        size[0] = 0.07;
+        size[2] = 0.07;
+      }
+      if (p.id.startsWith("processor-")) {
+        pos[0] = p.id.endsWith("01") ? -0.09 : 0.09;
+        pos[2] = -0.09;
+      }
+      if (p.id === "duct-01") {
+        size[1] = h * 0.25;
+        pos[1] = h * 0.25;
+      }
+    }
+    group.position.fromArray(pos);
+    root.add(group);
+    groups.set(p.id, group);
+    positions.set(p.id, group.position.clone());
+    if (
+      p.node === "memory" ||
+      p.node === "fans" ||
+      p.node === "drives" ||
+      p.node === "storage"
+    ) {
+      if (p.node === "storage") {
+        children(group, p.id, model.drives, "storage", box, groups, size);
+      } else
+        children(
+          group,
+          p.id,
+          p.node === "memory"
+            ? model.dimms
+            : p.node === "fans"
+              ? model.fans
+              : model.drives,
+          p.node,
+          box,
+          groups,
+          size,
+        );
+    } else {
+      detail(group, p.node, size, box);
+      if (p.id === "board-01") {
+        const tail = new THREE.Group();
+        tail.position.z = -0.18;
+        group.add(tail);
+        board(tail, [0.28, 0.004, 0.14], box);
+      }
+    }
+  }
+  root.updateMatrixWorld(true);
+  return { root, groups, positions };
+}
+/** 给已获准的 2U 贡献结构补充独立原创 FRU；位置参照该模型的实际包围盒。 */
+export function completeServerAssembly(
+  root: THREE.Group,
+  groups: Map<string, THREE.Group>,
+  positions: Map<string, THREE.Vector3>,
+) {
+  const box = maker();
+  root.updateMatrixWorld(true);
+  for (const part of definition.parts.filter(
+    (p) => p.procedural && modelById("server-2u").parts.includes(p.id),
+  )) {
+    const group = new THREE.Group();
+    group.userData.entityId = part.id;
+    group.position.fromArray(part.position);
+    if (part.id.startsWith("processor-")) {
+      const sink = groups.get(part.id.endsWith("01") ? "cpu-01" : "cpu-02")!;
+      const b = new THREE.Box3().setFromObject(sink);
+      b.getCenter(group.position);
+      group.position.y = b.min.y + 0.002;
+    }
+    if (part.id === "drives-01") {
+      group.position.set(0, 0, 0);
+      for (let i = 1; i <= 8; i++) {
+        const tray = groups.get(`bay-${String(i).padStart(2, "0")}`)!;
+        const b = new THREE.Box3().setFromObject(tray),
+          size = b.getSize(new THREE.Vector3()),
+          child = new THREE.Group();
+        b.getCenter(child.position);
+        child.userData.entityId = `disk-${String(i).padStart(2, "0")}`;
+        group.add(child);
+        groups.set(child.userData.entityId, child);
+        box(
+          child,
+          [
+            Math.min(0.007, size.x * 0.55),
+            Math.min(0.06985, size.y * 0.95),
+            Math.min(0.10045, size.z * 0.9),
+          ],
+          [0, 0, 0],
+          "#a2aab0",
+          0.75,
+        );
+        box(
+          child,
+          [size.x * 0.6, size.y * 0.3, 0.002],
+          [0, 0, size.z * 0.25],
+          "#35493f",
+          0.2,
+        );
+      }
+    } else detail(group, part.node, part.size, box);
+    root.add(group);
+    groups.set(part.id, group);
+    positions.set(part.id, group.position.clone());
+  }
+  root.updateMatrixWorld(true);
+}

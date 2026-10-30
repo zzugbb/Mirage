@@ -8,7 +8,7 @@ import definition from "../../assets/public/scenes/room-01.json" with { type: "j
 
 /** 线性纹理背景与模型经过同一色调映射，标准和后处理画质保持一致。 */
 export function createBackdrop() {
-  const backdrop = new THREE.DataTexture(new Uint8Array([4, 6, 9, 255]), 1, 1);
+  const backdrop = new THREE.DataTexture(new Uint8Array([3, 4, 5, 255]), 1, 1);
   backdrop.colorSpace = THREE.LinearSRGBColorSpace;
   backdrop.needsUpdate = true;
   return backdrop;

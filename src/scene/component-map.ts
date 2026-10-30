@@ -6,15 +6,17 @@ export function mapSubparts(
   root: THREE.Group,
   groups: Map<string, THREE.Group>,
 ) {
-  const nodes = subparts.map((part) => {
-    const node = root.getObjectByName(part.modelNode);
-    const parent = groups.get(part.parent);
-    if (!node || !parent) throw Error("模型缺少已登记的子部件节点");
-    let ancestor = node.parent;
-    while (ancestor && ancestor !== parent) ancestor = ancestor.parent;
-    if (!ancestor) throw Error("子部件不属于已登记的父模组");
-    return { part, node, parent };
-  });
+  const nodes = subparts
+    .filter((part) => !part.procedural)
+    .map((part) => {
+      const node = root.getObjectByName(part.modelNode);
+      const parent = groups.get(part.parent);
+      if (!node || !parent) throw Error("模型缺少已登记的子部件节点");
+      let ancestor = node.parent;
+      while (ancestor && ancestor !== parent) ancestor = ancestor.parent;
+      if (!ancestor) throw Error("子部件不属于已登记的父模组");
+      return { part, node, parent };
+    });
   for (const { part, node, parent } of nodes) {
     const group = new THREE.Group();
     parent.add(group);

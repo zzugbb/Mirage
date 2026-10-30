@@ -2,7 +2,7 @@ import { StatePanel } from "./StatePanel";
 import { qualityNames } from "../status";
 import { deviceObservation } from "../device-data";
 import { useMemo } from "react";
-import { scenario, severityNames } from "../simulation";
+import { severityNames } from "../simulation";
 import type { SimulationSnapshot } from "../simulation";
 import type { Action, AppState } from "../domain";
 import { entityById } from "../domain";
@@ -61,11 +61,9 @@ export function ReplayPanel({
     return <StatePanel state={state} dispatch={dispatch} />;
   return (
     <section className="replay-panel" aria-label={title}>
-      <div className="overline">空间观察 · 模拟</div>
+      <div className="overline">空间观察</div>
       <h2>{title}</h2>
-      <p className="overview-target">
-        {reading?.name ?? "未配置数据"} · t + {state.time} s
-      </p>
+      <p className="overview-target">{reading?.name ?? "未配置数据"}</p>
       {reading && reading.quality !== "valid" && (
         <p className="data-quality-note">
           数据质量：{qualityNames[reading.quality]}
@@ -180,7 +178,7 @@ export function ReplayPanel({
               </div>
             </dl>
           )}
-          {view === "temperature" && (
+          {view === "temperature" && state.level === "room" && (
             <>
               <div className="cooling-capacity">
                 <span>
@@ -219,17 +217,10 @@ export function ReplayPanel({
                   ))}
                 </div>
                 <p className="replay-note">
-                  处理器功耗为逻辑分配，尚无独立芯片模型。散热器与上盖为被动构件，耗电为零；盘位构件没有独立耗电数据。分配总和等于整机输入，不把被动散热器当作处理器耗电。
+                  按当前配置分配整机输入；被动结构为零功耗。
                 </p>
               </details>
             )}
-          {isPart && (
-            <p className="component-source-note">
-              {view === "temperature"
-                ? "温度来自演示温升模型，没有该部件的独立传感器或告警。"
-                : "功耗来自模型分配，没有独立电表。盘位耗电未定义，散热器与上盖为被动件，耗电为零。"}
-            </p>
-          )}
         </>
       ) : (
         <>
@@ -256,7 +247,7 @@ export function ReplayPanel({
           </div>
           {isPart && (
             <p className="component-source-note">
-              当前告警属于设备进风测点，未归因到此部件；部件保持中性色。
+              设备进风告警，未归因到当前部件。
             </p>
           )}
           <div className="spatial-alarm-list">
@@ -330,54 +321,6 @@ export function ReplayPanel({
           </button>
         </div>
       )}
-      <details className="replay-options">
-        <summary>脚本跳转</summary>
-        <div className="replay-jumps">
-          {[
-            [0, "初始"],
-            [20, "减弱"],
-            [60, "高温"],
-            [78, "恢复输入"],
-            [120, "结束"],
-          ].map(([time, label]) => (
-            <button
-              key={time}
-              onClick={(event) => {
-                const panel = event.currentTarget.closest(".inspector-scroll");
-                const details = event.currentTarget.closest("details");
-                dispatch({ type: "seek", time: Number(time) });
-                if (details) details.open = false;
-                event.currentTarget.blur();
-                requestAnimationFrame(() => panel?.scrollTo({ top: 0 }));
-              }}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </details>
-      <details className="simulation-rules">
-        <summary>数据来源与模拟规则</summary>
-        <p>
-          {reading?.source ??
-            "该设施没有定义运行测点；灰色表示未定义，不是零值。"}
-        </p>
-        <p>
-          八机柜、六十四设备均为演示配置。各设备有独立的进风基线、冷却响应和负载系数，共用
-          120
-          秒时钟。机柜温度取子设备最高值，功耗仅汇总有效观测，告警取最高级别；只覆盖已展示设备。
-        </p>
-        <p>
-          设备进风温度按一阶模型响应。≥33°C持续5秒预警，≥38°C持续5秒严重，≤36°C持续5秒降级，≤31°C持续8秒恢复。阈值只用于演示。
-        </p>
-        <p>
-          部件温度 = 设备进风温度 +
-          预设温升，再在表面做前后方向插值。没有真实部件传感器、空间测温或
-          CFD；色块不是测量结果。功耗是预算分配，没有设施能耗或
-          PUE。展开与巡游不随数据回看倒放。
-        </p>
-        <code>{scenario.id}</code>
-      </details>
     </section>
   );
 }

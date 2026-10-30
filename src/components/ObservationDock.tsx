@@ -1,12 +1,10 @@
+import { useState } from "react";
 import { deviceObservation } from "../device-data";
 import { qualityNames } from "../status";
-import { trendScale } from "../chart";
 import type { Action, AppState } from "../domain";
 import type { SimulationSnapshot } from "../simulation";
-import { severityNames } from "../simulation";
 import type { InspectionView } from "./ReplayPanel";
 import { TrendChart } from "./TrendChart";
-
 export function ObservationDock({
   state,
   sample,
@@ -22,47 +20,79 @@ export function ObservationDock({
   onExpanded: (expanded: boolean) => void;
   expanded: boolean;
 }) {
+  const [selection, setSelection] = useState<{
+    view: string;
+    metric: "temperature" | "power" | "alarms";
+  }>({ view, metric: "temperature" });
+  const active =
+    selection.view === view
+      ? selection.metric
+      : view === "power" || view === "alarms"
+        ? view
+        : "temperature";
   const observation = deviceObservation(
-    state.time,
-    state.deviceId,
-    state.replayCycle,
-  );
-  const current = observation.quality === "valid";
-  const events = current ? sample.events : [];
+      state.time,
+      state.deviceId,
+      state.replayCycle,
+    ),
+    events = observation.quality === "valid" ? sample.events : [];
   return (
-    <div
-      className={`observation-dock ${view} ${expanded ? "expanded" : "collapsed"}`}
-    >
-      {expanded && (
+    <div className={`observation-dock ${expanded ? "expanded" : "collapsed"}`}>
+      {!expanded ? (
+        <button
+          className="observation-toggle"
+          aria-label="打开趋势与时间"
+          onClick={() => onExpanded(true)}
+        >
+          <svg
+            width="16"
+            height="12"
+            viewBox="0 0 16 12"
+            fill="none"
+            aria-hidden="true"
+          >
+            <path
+              d="M1 10 5 7 8 9 11 2 15 4"
+              stroke="currentColor"
+              strokeWidth="1.2"
+            />
+          </svg>
+          趋势
+        </button>
+      ) : (
         <>
           <div className="dock-heading">
-            <strong>
-              {view === "temperature"
-                ? "设备进风温度"
-                : view === "power"
-                  ? "整机输入功耗"
-                  : "告警事件回放"}
-            </strong>
-            <span>{state.deviceId.toUpperCase()} · 模拟</span>
-            <small>
-              {view === "power"
-                ? `${trendScale("power", state.deviceId).caption} · 模拟`
-                : view === "temperature"
-                  ? "单点测温 · 非空间热场"
-                  : !current
-                    ? qualityNames[observation.quality]
-                    : sample.alarm?.active
-                      ? `当前${severityNames[sample.alarm.severity]}`
-                      : sample.alarm
-                        ? "已恢复"
-                        : "当前无告警"}
-            </small>
+            <strong>{state.deviceId.toUpperCase()}</strong>
+            <div className="trend-tabs">
+              {(
+                [
+                  ["temperature", "温度"],
+                  ["power", "功耗"],
+                  ["alarms", "事件"],
+                ] as const
+              ).map(([id, label]) => (
+                <button
+                  key={id}
+                  aria-pressed={active === id}
+                  onClick={() => setSelection({ view, metric: id })}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <button
+              className="dock-close"
+              aria-label="关闭趋势与时间"
+              onClick={() => onExpanded(false)}
+            >
+              ×
+            </button>
           </div>
-          {view !== "alarms" && view !== "status" ? (
+          {active !== "alarms" ? (
             <TrendChart
               compact
               time={state.time}
-              metric={view}
+              metric={active}
               deviceId={state.deviceId}
             />
           ) : (
@@ -71,91 +101,71 @@ export function ObservationDock({
                 <li key={event.id} className={`event-${event.kind}`}>
                   <button
                     onClick={() => dispatch({ type: "seek", time: event.time })}
-                    title={event.detail}
                   >
-                    <time>{String(event.time).padStart(3, "0")} s</time>
+                    <time>{event.time}s</time>
                     <strong>{event.title}</strong>
-                    <span>回看此刻 ↗</span>
                   </button>
                 </li>
               ))}
               {!events.length && (
                 <li className="scene-event-empty">
-                  {current
-                    ? "当前时刻没有事件 · 20 秒开始注入冷却变化"
-                    : "没有当前有效观测，事件记录不可用"}
+                  {observation.quality === "valid"
+                    ? "当前没有事件"
+                    : "没有有效观测"}
                 </li>
               )}
             </ol>
           )}
+          <details className="time-controls">
+            <summary>
+              时间控制{" "}
+              <small>
+                {state.time}s / 120s · {qualityNames[observation.quality]}
+              </small>
+            </summary>
+            <div className="scene-playback">
+              <button
+                aria-label={state.playing ? "暂停运行回放" : "播放运行回放"}
+                onClick={() => dispatch({ type: "play" })}
+              >
+                {state.playing ? "Ⅱ" : "▷"}
+              </button>
+              <input
+                aria-label="运行回放时间"
+                type="range"
+                min="0"
+                max="120"
+                value={state.time}
+                onChange={(e) =>
+                  dispatch({ type: "seek", time: Number(e.target.value) })
+                }
+              />
+              <select
+                aria-label="回放倍速"
+                value={state.playbackRate}
+                onChange={(e) =>
+                  dispatch({
+                    type: "rate",
+                    rate: Number(e.target.value) as 1 | 2 | 4,
+                  })
+                }
+              >
+                {[1, 2, 4].map((rate) => (
+                  <option key={rate} value={rate}>
+                    {rate}×
+                  </option>
+                ))}
+              </select>
+              <button
+                aria-label="重新播放场景"
+                onClick={() => dispatch({ type: "replay" })}
+              >
+                ↺
+              </button>
+            </div>
+          </details>
         </>
       )}
-      <div className="scene-playback">
-        <button
-          className="dock-expand"
-          aria-label={expanded ? "收起趋势与事件" : "展开趋势与事件"}
-          aria-expanded={expanded}
-          onClick={() => {
-            onExpanded(!expanded);
-          }}
-        >
-          {expanded ? "收起" : "趋势"}
-        </button>
-        <button
-          aria-label={state.playing ? "暂停运行回放" : "播放运行回放"}
-          onClick={() => dispatch({ type: "play" })}
-        >
-          {state.playing ? "Ⅱ" : "▷"}
-        </button>
-        <output htmlFor="scene-replay-time">
-          {String(state.time).padStart(3, "0")}
-          <small> /120 s</small>
-        </output>
-        <input
-          id="scene-replay-time"
-          aria-label="运行回放时间"
-          aria-valuetext={`${state.time} 秒，${qualityNames[observation.quality]}`}
-          type="range"
-          min="0"
-          max="120"
-          step="1"
-          value={state.time}
-          onChange={(e) =>
-            dispatch({ type: "seek", time: Number(e.target.value) })
-          }
-        />
-        <select
-          aria-label="回放倍速"
-          value={state.playbackRate}
-          onChange={(e) =>
-            dispatch({
-              type: "rate",
-              rate: Number(e.target.value) as 1 | 2 | 4,
-            })
-          }
-        >
-          {[1, 2, 4].map((rate) => (
-            <option key={rate} value={rate}>
-              {rate}×
-            </option>
-          ))}
-        </select>
-        <button
-          className="loop-control"
-          aria-label="循环运行回放"
-          aria-pressed={state.loop}
-          onClick={() => dispatch({ type: "loop" })}
-        >
-          循环
-        </button>
-        <button
-          aria-label="重新播放模拟"
-          title="重新播放模拟"
-          onClick={() => dispatch({ type: "replay" })}
-        >
-          ↺
-        </button>
-      </div>
     </div>
   );
 }

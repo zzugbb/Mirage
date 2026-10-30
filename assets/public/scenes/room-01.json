@@ -2,7 +2,7 @@
   "schemaVersion": "1.0.0",
   "id": "mirage-room-01-v1",
   "unit": "m",
-  "description": "原创示意机房与通用服务器，非真实现场或厂商结构",
+  "description": "原创机房与计算、网络、存储及配电附件的通用配置，非真实现场或厂商精确结构",
   "room": {
     "size": [
       14,
@@ -133,15 +133,16 @@
         0.78
       ],
       "explode": [
-        0,
-        0.48,
+        -0.46,
+        0.36,
         -0.18
       ],
       "color": "#809ba7",
       "description": "可拆卸金属上盖，保留装配姿态与展开偏移。",
       "modelNodes": [
         "part_lid_01"
-      ]
+      ],
+      "procedural": false
     },
     {
       "id": "board-01",
@@ -167,13 +168,14 @@
       "description": "通用主板示意，电路布局不对应真实产品。",
       "modelNodes": [
         "part_board_01"
-      ]
+      ],
+      "procedural": false
     },
     {
       "id": "cpu-01",
       "name": "处理器散热器 01",
       "node": "processor",
-      "slot": "CPU-01",
+      "slot": "HS-01",
       "position": [
         -0.085,
         0.005,
@@ -190,16 +192,17 @@
         -0.03
       ],
       "color": "#9eb3bb",
-      "description": "CPU-01 对应的散热总成；本轮不单独拆出处理器芯片封装。",
+      "description": "处理器散热总成，处理器封装在其下方独立建模。",
       "modelNodes": [
         "part_cpu_01"
-      ]
+      ],
+      "procedural": false
     },
     {
       "id": "cpu-02",
       "name": "处理器散热器 02",
       "node": "processor",
-      "slot": "CPU-02",
+      "slot": "HS-02",
       "position": [
         0.035,
         0.005,
@@ -216,10 +219,11 @@
         -0.08
       ],
       "color": "#9eb3bb",
-      "description": "CPU-02 对应的散热总成；本轮不单独拆出处理器芯片封装。",
+      "description": "处理器散热总成，处理器封装在其下方独立建模。",
       "modelNodes": [
         "part_cpu_02"
-      ]
+      ],
+      "procedural": false
     },
     {
       "id": "memory-01",
@@ -245,7 +249,8 @@
       "description": "十六条内存的模组级结构展示，本轮选择粒度为整组。",
       "modelNodes": [
         "part_memory_01"
-      ]
+      ],
+      "procedural": false
     },
     {
       "id": "fans-01",
@@ -271,11 +276,12 @@
       "description": "四风扇模组。转动仅为装饰动效，不代表实测转速。",
       "modelNodes": [
         "part_fans_01"
-      ]
+      ],
+      "procedural": false
     },
     {
       "id": "storage-01",
-      "name": "存储模组",
+      "name": "磁盘托架组",
       "node": "storage",
       "slot": "BAY-01",
       "position": [
@@ -294,10 +300,11 @@
         0.3
       ],
       "color": "#526d7b",
-      "description": "八盘位模组示意，本轮未实现磁盘独立拆卸。",
+      "description": "八个前置托架，硬盘与背板分别建模。",
       "modelNodes": [
         "part_storage_01"
-      ]
+      ],
+      "procedural": false
     },
     {
       "id": "psu-01",
@@ -323,7 +330,8 @@
       "description": "热插拔电源结构示意，无实际供电关系或控制功能。",
       "modelNodes": [
         "part_psu_01"
-      ]
+      ],
+      "procedural": false
     },
     {
       "id": "psu-02",
@@ -349,7 +357,764 @@
       "description": "第二电源槽位示意，不据此推断真实冗余能力。",
       "modelNodes": [
         "part_psu_02"
-      ]
+      ],
+      "procedural": false
+    },
+    {
+      "id": "processor-01",
+      "name": "处理器封装 01",
+      "node": "chip",
+      "slot": "CPU-01",
+      "position": [
+        -0.08,
+        -0.018,
+        -0.12
+      ],
+      "size": [
+        0.055,
+        0.006,
+        0.055
+      ],
+      "explode": [
+        -0.13,
+        0.1,
+        -0.04
+      ],
+      "color": "#7e8991",
+      "description": "处理器封装 01，按当前机型配置制作的可维护部件。",
+      "modelNodes": [],
+      "procedural": true,
+      "rise": 33,
+      "watts": "processor",
+      "share": 0.5
+    },
+    {
+      "id": "processor-02",
+      "name": "处理器封装 02",
+      "node": "chip",
+      "slot": "CPU-02",
+      "position": [
+        0.04,
+        -0.018,
+        -0.12
+      ],
+      "size": [
+        0.055,
+        0.006,
+        0.055
+      ],
+      "explode": [
+        0.1,
+        0.14,
+        -0.04
+      ],
+      "color": "#7e8991",
+      "description": "处理器封装 02，按当前机型配置制作的可维护部件。",
+      "modelNodes": [],
+      "procedural": true,
+      "rise": 35,
+      "watts": "processor",
+      "share": 0.5
+    },
+    {
+      "id": "drives-01",
+      "name": "固态硬盘组",
+      "node": "drives",
+      "slot": "SSD",
+      "position": [
+        0,
+        -0.005,
+        0.29
+      ],
+      "size": [
+        0.39,
+        0.025,
+        0.1
+      ],
+      "explode": [
+        0,
+        0.1,
+        0.42
+      ],
+      "color": "#7e8991",
+      "description": "固态硬盘组，按当前机型配置制作的可维护部件。",
+      "modelNodes": [],
+      "procedural": true,
+      "rise": 8,
+      "watts": "storage",
+      "share": 1
+    },
+    {
+      "id": "backplane-01",
+      "name": "磁盘背板",
+      "node": "board",
+      "slot": "BP",
+      "position": [
+        0,
+        -0.005,
+        0.205
+      ],
+      "size": [
+        0.4,
+        0.045,
+        0.008
+      ],
+      "explode": [
+        0,
+        0.2,
+        0.18
+      ],
+      "color": "#204e40",
+      "description": "磁盘背板，按当前机型配置制作的可维护部件。",
+      "modelNodes": [],
+      "procedural": true,
+      "rise": 9,
+      "watts": "board",
+      "share": 0.08
+    },
+    {
+      "id": "nic-01",
+      "name": "双口网络适配器",
+      "node": "adapter",
+      "slot": "NIC",
+      "position": [
+        0.19,
+        0.005,
+        -0.3
+      ],
+      "size": [
+        0.045,
+        0.022,
+        0.1
+      ],
+      "explode": [
+        0.2,
+        0.12,
+        -0.24
+      ],
+      "color": "#7e8991",
+      "description": "双口网络适配器，按当前机型配置制作的可维护部件。",
+      "modelNodes": [],
+      "procedural": true,
+      "rise": 15,
+      "watts": "board",
+      "share": 0.2
+    },
+    {
+      "id": "raid-01",
+      "name": "存储控制卡",
+      "node": "adapter",
+      "slot": "RAID",
+      "position": [
+        -0.04,
+        -0.006,
+        -0.24
+      ],
+      "size": [
+        0.06,
+        0.015,
+        0.09
+      ],
+      "explode": [
+        -0.16,
+        0.1,
+        -0.1
+      ],
+      "color": "#7e8991",
+      "description": "存储控制卡，按当前机型配置制作的可维护部件。",
+      "modelNodes": [],
+      "procedural": true,
+      "rise": 15,
+      "watts": "board",
+      "share": 0.18
+    },
+    {
+      "id": "riser-01",
+      "name": "PCIe 转接架 01",
+      "node": "riser",
+      "slot": "PCIe-01",
+      "position": [
+        0.19,
+        0.005,
+        -0.3
+      ],
+      "size": [
+        0.06,
+        0.04,
+        0.14
+      ],
+      "explode": [
+        0.24,
+        0.22,
+        -0.14
+      ],
+      "color": "#7e8991",
+      "description": "PCIe 转接架 01，按当前机型配置制作的可维护部件。",
+      "modelNodes": [],
+      "procedural": true,
+      "rise": 7,
+      "watts": null,
+      "share": 0
+    },
+    {
+      "id": "riser-02",
+      "name": "PCIe 转接架 02",
+      "node": "riser",
+      "slot": "PCIe-02",
+      "position": [
+        -0.19,
+        0.005,
+        -0.3
+      ],
+      "size": [
+        0.055,
+        0.04,
+        0.14
+      ],
+      "explode": [
+        -0.15,
+        0.24,
+        -0.14
+      ],
+      "color": "#7e8991",
+      "description": "PCIe 转接架 02，按当前机型配置制作的可维护部件。",
+      "modelNodes": [],
+      "procedural": true,
+      "rise": 7,
+      "watts": null,
+      "share": 0
+    },
+    {
+      "id": "battery-01",
+      "name": "时钟电池",
+      "node": "battery",
+      "slot": "RTC",
+      "position": [
+        -0.18,
+        -0.015,
+        -0.1
+      ],
+      "size": [
+        0.02,
+        0.004,
+        0.02
+      ],
+      "explode": [
+        -0.14,
+        0.06,
+        0.02
+      ],
+      "color": "#7e8991",
+      "description": "时钟电池，按当前机型配置制作的可维护部件。",
+      "modelNodes": [],
+      "procedural": true,
+      "rise": 5,
+      "watts": null,
+      "share": 0
+    },
+    {
+      "id": "duct-01",
+      "name": "导风罩",
+      "node": "duct",
+      "slot": "AIR",
+      "position": [
+        0,
+        0.025,
+        -0.053
+      ],
+      "size": [
+        0.34,
+        0.025,
+        0.22
+      ],
+      "explode": [
+        0,
+        0.36,
+        -0.12
+      ],
+      "color": "#454c53",
+      "description": "导风罩，按当前机型配置制作的可维护部件。",
+      "modelNodes": [],
+      "procedural": true,
+      "rise": 4,
+      "watts": null,
+      "share": 0
+    },
+    {
+      "id": "cables-01",
+      "name": "背板线束",
+      "node": "cable",
+      "slot": "SAS",
+      "position": [
+        -0.17,
+        -0.01,
+        0.09
+      ],
+      "size": [
+        0.012,
+        0.01,
+        0.22
+      ],
+      "explode": [
+        -0.1,
+        0.14,
+        0.14
+      ],
+      "color": "#252a2d",
+      "description": "背板线束，按当前机型配置制作的可维护部件。",
+      "modelNodes": [],
+      "procedural": true,
+      "rise": 5,
+      "watts": null,
+      "share": 0
+    },
+    {
+      "id": "io-01",
+      "name": "后置管理接口",
+      "node": "io",
+      "slot": "MGMT",
+      "position": [
+        0.02,
+        0.002,
+        -0.44
+      ],
+      "size": [
+        0.09,
+        0.03,
+        0.012
+      ],
+      "explode": [
+        0,
+        0.08,
+        -0.2
+      ],
+      "color": "#7e8991",
+      "description": "后置管理接口，按当前机型配置制作的可维护部件。",
+      "modelNodes": [],
+      "procedural": true,
+      "rise": 6,
+      "watts": "board",
+      "share": 0.06
+    },
+    {
+      "id": "net-lid",
+      "name": "交换机上盖",
+      "node": "lid",
+      "slot": "COVER",
+      "position": [
+        0,
+        0.026,
+        0
+      ],
+      "size": [
+        0.435,
+        0.003,
+        0.43
+      ],
+      "explode": [
+        -0.48,
+        0.26,
+        -0.15
+      ],
+      "color": "#7e8991",
+      "description": "交换机上盖，按当前机型配置制作的可维护部件。",
+      "modelNodes": [],
+      "procedural": true,
+      "rise": 8,
+      "watts": null,
+      "share": 0
+    },
+    {
+      "id": "net-board",
+      "name": "交换控制主板",
+      "node": "board",
+      "slot": "CTRL",
+      "position": [
+        0,
+        -0.01,
+        0
+      ],
+      "size": [
+        0.4,
+        0.004,
+        0.36
+      ],
+      "explode": [
+        0,
+        0.04,
+        0
+      ],
+      "color": "#7e8991",
+      "description": "交换控制主板，按当前机型配置制作的可维护部件。",
+      "modelNodes": [],
+      "procedural": true,
+      "rise": 8,
+      "watts": null,
+      "share": 0
+    },
+    {
+      "id": "net-asic",
+      "name": "交换芯片与散热器",
+      "node": "heatsink",
+      "slot": "ASIC",
+      "position": [
+        0,
+        0.005,
+        0
+      ],
+      "size": [
+        0.1,
+        0.025,
+        0.1
+      ],
+      "explode": [
+        0,
+        0.13,
+        0
+      ],
+      "color": "#7e8991",
+      "description": "交换芯片与散热器，按当前机型配置制作的可维护部件。",
+      "modelNodes": [],
+      "procedural": true,
+      "rise": 8,
+      "watts": null,
+      "share": 0
+    },
+    {
+      "id": "net-ports",
+      "name": "端口笼与导光组件",
+      "node": "ports",
+      "slot": "PORT",
+      "position": [
+        0,
+        0,
+        0.215
+      ],
+      "size": [
+        0.4,
+        0.032,
+        0.014
+      ],
+      "explode": [
+        0,
+        0.04,
+        0.18
+      ],
+      "color": "#7e8991",
+      "description": "端口笼与导光组件，按当前机型配置制作的可维护部件。",
+      "modelNodes": [],
+      "procedural": true,
+      "rise": 8,
+      "watts": null,
+      "share": 0
+    },
+    {
+      "id": "net-fans",
+      "name": "热插拔风扇组",
+      "node": "fans",
+      "slot": "FAN",
+      "position": [
+        0,
+        0,
+        -0.12
+      ],
+      "size": [
+        0.24,
+        0.03,
+        0.06
+      ],
+      "explode": [
+        0,
+        0.06,
+        -0.25
+      ],
+      "color": "#7e8991",
+      "description": "热插拔风扇组，按当前机型配置制作的可维护部件。",
+      "modelNodes": [],
+      "procedural": true,
+      "rise": 8,
+      "watts": null,
+      "share": 0
+    },
+    {
+      "id": "net-psu-a",
+      "name": "电源 A",
+      "node": "psu",
+      "slot": "PSU-A",
+      "position": [
+        -0.15,
+        0,
+        -0.16
+      ],
+      "size": [
+        0.07,
+        0.035,
+        0.1
+      ],
+      "explode": [
+        -0.14,
+        0.04,
+        -0.2
+      ],
+      "color": "#7e8991",
+      "description": "电源 A，按当前机型配置制作的可维护部件。",
+      "modelNodes": [],
+      "procedural": true,
+      "rise": 8,
+      "watts": null,
+      "share": 0
+    },
+    {
+      "id": "net-psu-b",
+      "name": "电源 B",
+      "node": "psu",
+      "slot": "PSU-B",
+      "position": [
+        0.15,
+        0,
+        -0.16
+      ],
+      "size": [
+        0.07,
+        0.035,
+        0.1
+      ],
+      "explode": [
+        0.14,
+        0.04,
+        -0.2
+      ],
+      "color": "#7e8991",
+      "description": "电源 B，按当前机型配置制作的可维护部件。",
+      "modelNodes": [],
+      "procedural": true,
+      "rise": 8,
+      "watts": null,
+      "share": 0
+    },
+    {
+      "id": "sto-lid",
+      "name": "存储上盖",
+      "node": "lid",
+      "slot": "COVER",
+      "position": [
+        0,
+        0.046,
+        0
+      ],
+      "size": [
+        0.44,
+        0.003,
+        0.64
+      ],
+      "explode": [
+        -0.48,
+        0.26,
+        -0.15
+      ],
+      "color": "#7e8991",
+      "description": "存储上盖，按当前机型配置制作的可维护部件。",
+      "modelNodes": [],
+      "procedural": true,
+      "rise": 8,
+      "watts": null,
+      "share": 0
+    },
+    {
+      "id": "sto-midplane",
+      "name": "双路径存储中板",
+      "node": "board",
+      "slot": "BP",
+      "position": [
+        0,
+        0,
+        0.08
+      ],
+      "size": [
+        0.41,
+        0.075,
+        0.008
+      ],
+      "explode": [
+        0,
+        0.13,
+        0.1
+      ],
+      "color": "#7e8991",
+      "description": "双路径存储中板，按当前机型配置制作的可维护部件。",
+      "modelNodes": [],
+      "procedural": true,
+      "rise": 8,
+      "watts": null,
+      "share": 0
+    },
+    {
+      "id": "sto-drives",
+      "name": "前置硬盘组",
+      "node": "drives",
+      "slot": "HDD",
+      "position": [
+        0,
+        0,
+        0.2
+      ],
+      "size": [
+        0.41,
+        0.07,
+        0.22
+      ],
+      "explode": [
+        0,
+        0.05,
+        0.34
+      ],
+      "color": "#7e8991",
+      "description": "前置硬盘组，按当前机型配置制作的可维护部件。",
+      "modelNodes": [],
+      "procedural": true,
+      "rise": 8,
+      "watts": null,
+      "share": 0
+    },
+    {
+      "id": "sto-controller-a",
+      "name": "控制器 A",
+      "node": "controller",
+      "slot": "CTRL-A",
+      "position": [
+        -0.075,
+        0,
+        -0.105
+      ],
+      "size": [
+        0.13,
+        0.065,
+        0.22
+      ],
+      "explode": [
+        -0.19,
+        0.1,
+        -0.25
+      ],
+      "color": "#7e8991",
+      "description": "控制器 A，按当前机型配置制作的可维护部件。",
+      "modelNodes": [],
+      "procedural": true,
+      "rise": 8,
+      "watts": null,
+      "share": 0
+    },
+    {
+      "id": "sto-controller-b",
+      "name": "控制器 B",
+      "node": "controller",
+      "slot": "CTRL-B",
+      "position": [
+        0.075,
+        0,
+        -0.105
+      ],
+      "size": [
+        0.13,
+        0.065,
+        0.22
+      ],
+      "explode": [
+        0.19,
+        0.1,
+        -0.25
+      ],
+      "color": "#7e8991",
+      "description": "控制器 B，按当前机型配置制作的可维护部件。",
+      "modelNodes": [],
+      "procedural": true,
+      "rise": 8,
+      "watts": null,
+      "share": 0
+    },
+    {
+      "id": "sto-psu-a",
+      "name": "电源 A",
+      "node": "psu",
+      "slot": "PSU-A",
+      "position": [
+        -0.17,
+        0,
+        -0.29
+      ],
+      "size": [
+        0.07,
+        0.07,
+        0.1
+      ],
+      "explode": [
+        -0.14,
+        0.05,
+        -0.28
+      ],
+      "color": "#7e8991",
+      "description": "电源 A，按当前机型配置制作的可维护部件。",
+      "modelNodes": [],
+      "procedural": true,
+      "rise": 8,
+      "watts": null,
+      "share": 0
+    },
+    {
+      "id": "sto-psu-b",
+      "name": "电源 B",
+      "node": "psu",
+      "slot": "PSU-B",
+      "position": [
+        0.17,
+        0,
+        -0.29
+      ],
+      "size": [
+        0.07,
+        0.07,
+        0.1
+      ],
+      "explode": [
+        0.14,
+        0.05,
+        -0.28
+      ],
+      "color": "#7e8991",
+      "description": "电源 B，按当前机型配置制作的可维护部件。",
+      "modelNodes": [],
+      "procedural": true,
+      "rise": 8,
+      "watts": null,
+      "share": 0
+    },
+    {
+      "id": "sto-fans",
+      "name": "散热风扇组",
+      "node": "fans",
+      "slot": "FAN",
+      "position": [
+        0,
+        0,
+        -0.255
+      ],
+      "size": [
+        0.18,
+        0.065,
+        0.06
+      ],
+      "explode": [
+        0,
+        0.14,
+        -0.25
+      ],
+      "color": "#7e8991",
+      "description": "散热风扇组，按当前机型配置制作的可维护部件。",
+      "modelNodes": [],
+      "procedural": true,
+      "rise": 8,
+      "watts": null,
+      "share": 0
     }
   ],
   "models": {
@@ -381,7 +1146,8 @@
       "name": "内存条 01",
       "slot": "DIMM-01",
       "modelNode": "object_64",
-      "description": "演示编号 01，显式映射到现有模型中的独立内存条。编号不是实际设备槽位，未定义独立遥测。"
+      "description": "演示编号 01，显式映射到现有模型中的独立内存条。编号不是实际设备槽位，未定义独立遥测。",
+      "procedural": false
     },
     {
       "id": "dimm-02",
@@ -389,7 +1155,8 @@
       "name": "内存条 02",
       "slot": "DIMM-02",
       "modelNode": "object_65",
-      "description": "演示编号 02，显式映射到现有模型中的独立内存条。编号不是实际设备槽位，未定义独立遥测。"
+      "description": "演示编号 02，显式映射到现有模型中的独立内存条。编号不是实际设备槽位，未定义独立遥测。",
+      "procedural": false
     },
     {
       "id": "dimm-03",
@@ -397,7 +1164,8 @@
       "name": "内存条 03",
       "slot": "DIMM-03",
       "modelNode": "object_66",
-      "description": "演示编号 03，显式映射到现有模型中的独立内存条。编号不是实际设备槽位，未定义独立遥测。"
+      "description": "演示编号 03，显式映射到现有模型中的独立内存条。编号不是实际设备槽位，未定义独立遥测。",
+      "procedural": false
     },
     {
       "id": "dimm-04",
@@ -405,7 +1173,8 @@
       "name": "内存条 04",
       "slot": "DIMM-04",
       "modelNode": "object_67",
-      "description": "演示编号 04，显式映射到现有模型中的独立内存条。编号不是实际设备槽位，未定义独立遥测。"
+      "description": "演示编号 04，显式映射到现有模型中的独立内存条。编号不是实际设备槽位，未定义独立遥测。",
+      "procedural": false
     },
     {
       "id": "dimm-05",
@@ -413,7 +1182,8 @@
       "name": "内存条 05",
       "slot": "DIMM-05",
       "modelNode": "object_68",
-      "description": "演示编号 05，显式映射到现有模型中的独立内存条。编号不是实际设备槽位，未定义独立遥测。"
+      "description": "演示编号 05，显式映射到现有模型中的独立内存条。编号不是实际设备槽位，未定义独立遥测。",
+      "procedural": false
     },
     {
       "id": "dimm-06",
@@ -421,7 +1191,8 @@
       "name": "内存条 06",
       "slot": "DIMM-06",
       "modelNode": "object_69",
-      "description": "演示编号 06，显式映射到现有模型中的独立内存条。编号不是实际设备槽位，未定义独立遥测。"
+      "description": "演示编号 06，显式映射到现有模型中的独立内存条。编号不是实际设备槽位，未定义独立遥测。",
+      "procedural": false
     },
     {
       "id": "dimm-07",
@@ -429,7 +1200,8 @@
       "name": "内存条 07",
       "slot": "DIMM-07",
       "modelNode": "object_70",
-      "description": "演示编号 07，显式映射到现有模型中的独立内存条。编号不是实际设备槽位，未定义独立遥测。"
+      "description": "演示编号 07，显式映射到现有模型中的独立内存条。编号不是实际设备槽位，未定义独立遥测。",
+      "procedural": false
     },
     {
       "id": "dimm-08",
@@ -437,7 +1209,8 @@
       "name": "内存条 08",
       "slot": "DIMM-08",
       "modelNode": "object_71",
-      "description": "演示编号 08，显式映射到现有模型中的独立内存条。编号不是实际设备槽位，未定义独立遥测。"
+      "description": "演示编号 08，显式映射到现有模型中的独立内存条。编号不是实际设备槽位，未定义独立遥测。",
+      "procedural": false
     },
     {
       "id": "dimm-09",
@@ -445,7 +1218,8 @@
       "name": "内存条 09",
       "slot": "DIMM-09",
       "modelNode": "object_72",
-      "description": "演示编号 09，显式映射到现有模型中的独立内存条。编号不是实际设备槽位，未定义独立遥测。"
+      "description": "演示编号 09，显式映射到现有模型中的独立内存条。编号不是实际设备槽位，未定义独立遥测。",
+      "procedural": false
     },
     {
       "id": "dimm-10",
@@ -453,7 +1227,8 @@
       "name": "内存条 10",
       "slot": "DIMM-10",
       "modelNode": "object_73",
-      "description": "演示编号 10，显式映射到现有模型中的独立内存条。编号不是实际设备槽位，未定义独立遥测。"
+      "description": "演示编号 10，显式映射到现有模型中的独立内存条。编号不是实际设备槽位，未定义独立遥测。",
+      "procedural": false
     },
     {
       "id": "dimm-11",
@@ -461,7 +1236,8 @@
       "name": "内存条 11",
       "slot": "DIMM-11",
       "modelNode": "object_74",
-      "description": "演示编号 11，显式映射到现有模型中的独立内存条。编号不是实际设备槽位，未定义独立遥测。"
+      "description": "演示编号 11，显式映射到现有模型中的独立内存条。编号不是实际设备槽位，未定义独立遥测。",
+      "procedural": false
     },
     {
       "id": "dimm-12",
@@ -469,7 +1245,8 @@
       "name": "内存条 12",
       "slot": "DIMM-12",
       "modelNode": "object_75",
-      "description": "演示编号 12，显式映射到现有模型中的独立内存条。编号不是实际设备槽位，未定义独立遥测。"
+      "description": "演示编号 12，显式映射到现有模型中的独立内存条。编号不是实际设备槽位，未定义独立遥测。",
+      "procedural": false
     },
     {
       "id": "dimm-13",
@@ -477,7 +1254,8 @@
       "name": "内存条 13",
       "slot": "DIMM-13",
       "modelNode": "object_76",
-      "description": "演示编号 13，显式映射到现有模型中的独立内存条。编号不是实际设备槽位，未定义独立遥测。"
+      "description": "演示编号 13，显式映射到现有模型中的独立内存条。编号不是实际设备槽位，未定义独立遥测。",
+      "procedural": false
     },
     {
       "id": "dimm-14",
@@ -485,7 +1263,8 @@
       "name": "内存条 14",
       "slot": "DIMM-14",
       "modelNode": "object_77",
-      "description": "演示编号 14，显式映射到现有模型中的独立内存条。编号不是实际设备槽位，未定义独立遥测。"
+      "description": "演示编号 14，显式映射到现有模型中的独立内存条。编号不是实际设备槽位，未定义独立遥测。",
+      "procedural": false
     },
     {
       "id": "dimm-15",
@@ -493,7 +1272,8 @@
       "name": "内存条 15",
       "slot": "DIMM-15",
       "modelNode": "object_78",
-      "description": "演示编号 15，显式映射到现有模型中的独立内存条。编号不是实际设备槽位，未定义独立遥测。"
+      "description": "演示编号 15，显式映射到现有模型中的独立内存条。编号不是实际设备槽位，未定义独立遥测。",
+      "procedural": false
     },
     {
       "id": "dimm-16",
@@ -501,7 +1281,8 @@
       "name": "内存条 16",
       "slot": "DIMM-16",
       "modelNode": "object_79",
-      "description": "演示编号 16，显式映射到现有模型中的独立内存条。编号不是实际设备槽位，未定义独立遥测。"
+      "description": "演示编号 16，显式映射到现有模型中的独立内存条。编号不是实际设备槽位，未定义独立遥测。",
+      "procedural": false
     },
     {
       "id": "fan-01",
@@ -509,7 +1290,8 @@
       "name": "风扇 01",
       "slot": "FAN-01",
       "modelNode": "object_38",
-      "description": "演示编号 01，显式映射到现有模型中的独立风扇。编号不是实际设备槽位，未定义独立遥测。"
+      "description": "演示编号 01，显式映射到现有模型中的独立风扇。编号不是实际设备槽位，未定义独立遥测。",
+      "procedural": false
     },
     {
       "id": "fan-02",
@@ -517,7 +1299,8 @@
       "name": "风扇 02",
       "slot": "FAN-02",
       "modelNode": "object_39",
-      "description": "演示编号 02，显式映射到现有模型中的独立风扇。编号不是实际设备槽位，未定义独立遥测。"
+      "description": "演示编号 02，显式映射到现有模型中的独立风扇。编号不是实际设备槽位，未定义独立遥测。",
+      "procedural": false
     },
     {
       "id": "fan-03",
@@ -525,7 +1308,8 @@
       "name": "风扇 03",
       "slot": "FAN-03",
       "modelNode": "object_41",
-      "description": "演示编号 03，显式映射到现有模型中的独立风扇。编号不是实际设备槽位，未定义独立遥测。"
+      "description": "演示编号 03，显式映射到现有模型中的独立风扇。编号不是实际设备槽位，未定义独立遥测。",
+      "procedural": false
     },
     {
       "id": "fan-04",
@@ -533,7 +1317,8 @@
       "name": "风扇 04",
       "slot": "FAN-04",
       "modelNode": "object_42",
-      "description": "演示编号 04，显式映射到现有模型中的独立风扇。编号不是实际设备槽位，未定义独立遥测。"
+      "description": "演示编号 04，显式映射到现有模型中的独立风扇。编号不是实际设备槽位，未定义独立遥测。",
+      "procedural": false
     },
     {
       "id": "bay-01",
@@ -541,7 +1326,8 @@
       "name": "盘位构件 01",
       "slot": "BAY-01",
       "modelNode": "object_25",
-      "description": "演示编号 01，显式映射到现有模型中的独立盘位构件。编号不是实际设备槽位，未定义独立遥测。"
+      "description": "演示编号 01，显式映射到现有模型中的独立盘位构件。编号不是实际设备槽位，未定义独立遥测。",
+      "procedural": false
     },
     {
       "id": "bay-02",
@@ -549,7 +1335,8 @@
       "name": "盘位构件 02",
       "slot": "BAY-02",
       "modelNode": "object_26",
-      "description": "演示编号 02，显式映射到现有模型中的独立盘位构件。编号不是实际设备槽位，未定义独立遥测。"
+      "description": "演示编号 02，显式映射到现有模型中的独立盘位构件。编号不是实际设备槽位，未定义独立遥测。",
+      "procedural": false
     },
     {
       "id": "bay-03",
@@ -557,7 +1344,8 @@
       "name": "盘位构件 03",
       "slot": "BAY-03",
       "modelNode": "object_27",
-      "description": "演示编号 03，显式映射到现有模型中的独立盘位构件。编号不是实际设备槽位，未定义独立遥测。"
+      "description": "演示编号 03，显式映射到现有模型中的独立盘位构件。编号不是实际设备槽位，未定义独立遥测。",
+      "procedural": false
     },
     {
       "id": "bay-04",
@@ -565,7 +1353,8 @@
       "name": "盘位构件 04",
       "slot": "BAY-04",
       "modelNode": "object_28",
-      "description": "演示编号 04，显式映射到现有模型中的独立盘位构件。编号不是实际设备槽位，未定义独立遥测。"
+      "description": "演示编号 04，显式映射到现有模型中的独立盘位构件。编号不是实际设备槽位，未定义独立遥测。",
+      "procedural": false
     },
     {
       "id": "bay-05",
@@ -573,7 +1362,8 @@
       "name": "盘位构件 05",
       "slot": "BAY-05",
       "modelNode": "object_30",
-      "description": "演示编号 05，显式映射到现有模型中的独立盘位构件。编号不是实际设备槽位，未定义独立遥测。"
+      "description": "演示编号 05，显式映射到现有模型中的独立盘位构件。编号不是实际设备槽位，未定义独立遥测。",
+      "procedural": false
     },
     {
       "id": "bay-06",
@@ -581,7 +1371,8 @@
       "name": "盘位构件 06",
       "slot": "BAY-06",
       "modelNode": "object_31",
-      "description": "演示编号 06，显式映射到现有模型中的独立盘位构件。编号不是实际设备槽位，未定义独立遥测。"
+      "description": "演示编号 06，显式映射到现有模型中的独立盘位构件。编号不是实际设备槽位，未定义独立遥测。",
+      "procedural": false
     },
     {
       "id": "bay-07",
@@ -589,7 +1380,8 @@
       "name": "盘位构件 07",
       "slot": "BAY-07",
       "modelNode": "object_32",
-      "description": "演示编号 07，显式映射到现有模型中的独立盘位构件。编号不是实际设备槽位，未定义独立遥测。"
+      "description": "演示编号 07，显式映射到现有模型中的独立盘位构件。编号不是实际设备槽位，未定义独立遥测。",
+      "procedural": false
     },
     {
       "id": "bay-08",
@@ -597,7 +1389,350 @@
       "name": "盘位构件 08",
       "slot": "BAY-08",
       "modelNode": "object_33",
-      "description": "演示编号 08，显式映射到现有模型中的独立盘位构件。编号不是实际设备槽位，未定义独立遥测。"
+      "description": "演示编号 08，显式映射到现有模型中的独立盘位构件。编号不是实际设备槽位，未定义独立遥测。",
+      "procedural": false
+    },
+    {
+      "id": "disk-01",
+      "parent": "drives-01",
+      "name": "固态硬盘 01",
+      "slot": "SSD-01",
+      "modelNode": "",
+      "procedural": true,
+      "description": "2.5 英寸 SAS 固态盘，容量为场景配置值。"
+    },
+    {
+      "id": "disk-02",
+      "parent": "drives-01",
+      "name": "固态硬盘 02",
+      "slot": "SSD-02",
+      "modelNode": "",
+      "procedural": true,
+      "description": "2.5 英寸 SAS 固态盘，容量为场景配置值。"
+    },
+    {
+      "id": "disk-03",
+      "parent": "drives-01",
+      "name": "固态硬盘 03",
+      "slot": "SSD-03",
+      "modelNode": "",
+      "procedural": true,
+      "description": "2.5 英寸 SAS 固态盘，容量为场景配置值。"
+    },
+    {
+      "id": "disk-04",
+      "parent": "drives-01",
+      "name": "固态硬盘 04",
+      "slot": "SSD-04",
+      "modelNode": "",
+      "procedural": true,
+      "description": "2.5 英寸 SAS 固态盘，容量为场景配置值。"
+    },
+    {
+      "id": "disk-05",
+      "parent": "drives-01",
+      "name": "固态硬盘 05",
+      "slot": "SSD-05",
+      "modelNode": "",
+      "procedural": true,
+      "description": "2.5 英寸 SAS 固态盘，容量为场景配置值。"
+    },
+    {
+      "id": "disk-06",
+      "parent": "drives-01",
+      "name": "固态硬盘 06",
+      "slot": "SSD-06",
+      "modelNode": "",
+      "procedural": true,
+      "description": "2.5 英寸 SAS 固态盘，容量为场景配置值。"
+    },
+    {
+      "id": "disk-07",
+      "parent": "drives-01",
+      "name": "固态硬盘 07",
+      "slot": "SSD-07",
+      "modelNode": "",
+      "procedural": true,
+      "description": "2.5 英寸 SAS 固态盘，容量为场景配置值。"
+    },
+    {
+      "id": "disk-08",
+      "parent": "drives-01",
+      "name": "固态硬盘 08",
+      "slot": "SSD-08",
+      "modelNode": "",
+      "procedural": true,
+      "description": "2.5 英寸 SAS 固态盘，容量为场景配置值。"
+    },
+    {
+      "id": "net-fan-01",
+      "parent": "net-fans",
+      "name": "交换机风扇 01",
+      "slot": "FAN-01",
+      "modelNode": "",
+      "procedural": true,
+      "description": "交换机风扇，独立可维护部件。"
+    },
+    {
+      "id": "net-fan-02",
+      "parent": "net-fans",
+      "name": "交换机风扇 02",
+      "slot": "FAN-02",
+      "modelNode": "",
+      "procedural": true,
+      "description": "交换机风扇，独立可维护部件。"
+    },
+    {
+      "id": "net-fan-03",
+      "parent": "net-fans",
+      "name": "交换机风扇 03",
+      "slot": "FAN-03",
+      "modelNode": "",
+      "procedural": true,
+      "description": "交换机风扇，独立可维护部件。"
+    },
+    {
+      "id": "net-fan-04",
+      "parent": "net-fans",
+      "name": "交换机风扇 04",
+      "slot": "FAN-04",
+      "modelNode": "",
+      "procedural": true,
+      "description": "交换机风扇，独立可维护部件。"
+    },
+    {
+      "id": "sto-disk-01",
+      "parent": "sto-drives",
+      "name": "存储硬盘 01",
+      "slot": "HDD-01",
+      "modelNode": "",
+      "procedural": true,
+      "description": "存储硬盘，独立可维护部件。"
+    },
+    {
+      "id": "sto-disk-02",
+      "parent": "sto-drives",
+      "name": "存储硬盘 02",
+      "slot": "HDD-02",
+      "modelNode": "",
+      "procedural": true,
+      "description": "存储硬盘，独立可维护部件。"
+    },
+    {
+      "id": "sto-disk-03",
+      "parent": "sto-drives",
+      "name": "存储硬盘 03",
+      "slot": "HDD-03",
+      "modelNode": "",
+      "procedural": true,
+      "description": "存储硬盘，独立可维护部件。"
+    },
+    {
+      "id": "sto-disk-04",
+      "parent": "sto-drives",
+      "name": "存储硬盘 04",
+      "slot": "HDD-04",
+      "modelNode": "",
+      "procedural": true,
+      "description": "存储硬盘，独立可维护部件。"
+    },
+    {
+      "id": "sto-disk-05",
+      "parent": "sto-drives",
+      "name": "存储硬盘 05",
+      "slot": "HDD-05",
+      "modelNode": "",
+      "procedural": true,
+      "description": "存储硬盘，独立可维护部件。"
+    },
+    {
+      "id": "sto-disk-06",
+      "parent": "sto-drives",
+      "name": "存储硬盘 06",
+      "slot": "HDD-06",
+      "modelNode": "",
+      "procedural": true,
+      "description": "存储硬盘，独立可维护部件。"
+    },
+    {
+      "id": "sto-disk-07",
+      "parent": "sto-drives",
+      "name": "存储硬盘 07",
+      "slot": "HDD-07",
+      "modelNode": "",
+      "procedural": true,
+      "description": "存储硬盘，独立可维护部件。"
+    },
+    {
+      "id": "sto-disk-08",
+      "parent": "sto-drives",
+      "name": "存储硬盘 08",
+      "slot": "HDD-08",
+      "modelNode": "",
+      "procedural": true,
+      "description": "存储硬盘，独立可维护部件。"
+    },
+    {
+      "id": "sto-disk-09",
+      "parent": "sto-drives",
+      "name": "存储硬盘 09",
+      "slot": "HDD-09",
+      "modelNode": "",
+      "procedural": true,
+      "description": "存储硬盘，独立可维护部件。"
+    },
+    {
+      "id": "sto-disk-10",
+      "parent": "sto-drives",
+      "name": "存储硬盘 10",
+      "slot": "HDD-10",
+      "modelNode": "",
+      "procedural": true,
+      "description": "存储硬盘，独立可维护部件。"
+    },
+    {
+      "id": "sto-disk-11",
+      "parent": "sto-drives",
+      "name": "存储硬盘 11",
+      "slot": "HDD-11",
+      "modelNode": "",
+      "procedural": true,
+      "description": "存储硬盘，独立可维护部件。"
+    },
+    {
+      "id": "sto-disk-12",
+      "parent": "sto-drives",
+      "name": "存储硬盘 12",
+      "slot": "HDD-12",
+      "modelNode": "",
+      "procedural": true,
+      "description": "存储硬盘，独立可维护部件。"
+    },
+    {
+      "id": "sto-disk-13",
+      "parent": "sto-drives",
+      "name": "存储硬盘 13",
+      "slot": "HDD-13",
+      "modelNode": "",
+      "procedural": true,
+      "description": "存储硬盘，独立可维护部件。"
+    },
+    {
+      "id": "sto-disk-14",
+      "parent": "sto-drives",
+      "name": "存储硬盘 14",
+      "slot": "HDD-14",
+      "modelNode": "",
+      "procedural": true,
+      "description": "存储硬盘，独立可维护部件。"
+    },
+    {
+      "id": "sto-disk-15",
+      "parent": "sto-drives",
+      "name": "存储硬盘 15",
+      "slot": "HDD-15",
+      "modelNode": "",
+      "procedural": true,
+      "description": "存储硬盘，独立可维护部件。"
+    },
+    {
+      "id": "sto-disk-16",
+      "parent": "sto-drives",
+      "name": "存储硬盘 16",
+      "slot": "HDD-16",
+      "modelNode": "",
+      "procedural": true,
+      "description": "存储硬盘，独立可维护部件。"
+    },
+    {
+      "id": "sto-disk-17",
+      "parent": "sto-drives",
+      "name": "存储硬盘 17",
+      "slot": "HDD-17",
+      "modelNode": "",
+      "procedural": true,
+      "description": "存储硬盘，独立可维护部件。"
+    },
+    {
+      "id": "sto-disk-18",
+      "parent": "sto-drives",
+      "name": "存储硬盘 18",
+      "slot": "HDD-18",
+      "modelNode": "",
+      "procedural": true,
+      "description": "存储硬盘，独立可维护部件。"
+    },
+    {
+      "id": "sto-disk-19",
+      "parent": "sto-drives",
+      "name": "存储硬盘 19",
+      "slot": "HDD-19",
+      "modelNode": "",
+      "procedural": true,
+      "description": "存储硬盘，独立可维护部件。"
+    },
+    {
+      "id": "sto-disk-20",
+      "parent": "sto-drives",
+      "name": "存储硬盘 20",
+      "slot": "HDD-20",
+      "modelNode": "",
+      "procedural": true,
+      "description": "存储硬盘，独立可维护部件。"
+    },
+    {
+      "id": "sto-disk-21",
+      "parent": "sto-drives",
+      "name": "存储硬盘 21",
+      "slot": "HDD-21",
+      "modelNode": "",
+      "procedural": true,
+      "description": "存储硬盘，独立可维护部件。"
+    },
+    {
+      "id": "sto-disk-22",
+      "parent": "sto-drives",
+      "name": "存储硬盘 22",
+      "slot": "HDD-22",
+      "modelNode": "",
+      "procedural": true,
+      "description": "存储硬盘，独立可维护部件。"
+    },
+    {
+      "id": "sto-disk-23",
+      "parent": "sto-drives",
+      "name": "存储硬盘 23",
+      "slot": "HDD-23",
+      "modelNode": "",
+      "procedural": true,
+      "description": "存储硬盘，独立可维护部件。"
+    },
+    {
+      "id": "sto-disk-24",
+      "parent": "sto-drives",
+      "name": "存储硬盘 24",
+      "slot": "HDD-24",
+      "modelNode": "",
+      "procedural": true,
+      "description": "存储硬盘，独立可维护部件。"
+    },
+    {
+      "id": "sto-fan-01",
+      "parent": "sto-fans",
+      "name": "存储风扇 01",
+      "slot": "FAN-01",
+      "modelNode": "",
+      "procedural": true,
+      "description": "存储风扇，独立可维护部件。"
+    },
+    {
+      "id": "sto-fan-02",
+      "parent": "sto-fans",
+      "name": "存储风扇 02",
+      "slot": "FAN-02",
+      "modelNode": "",
+      "procedural": true,
+      "description": "存储风扇，独立可维护部件。"
     }
   ],
   "installation": {
@@ -610,7 +1745,8 @@
           -3.15,
           0,
           1.8
-        ]
+        ],
+        "role": "计算"
       },
       {
         "id": "rack-a02",
@@ -619,7 +1755,8 @@
           -1.0499999999999998,
           0,
           1.8
-        ]
+        ],
+        "role": "计算"
       },
       {
         "id": "rack-a03",
@@ -628,7 +1765,8 @@
           1.0500000000000003,
           0,
           1.8
-        ]
+        ],
+        "role": "计算"
       },
       {
         "id": "rack-a04",
@@ -637,7 +1775,8 @@
           3.150000000000001,
           0,
           1.8
-        ]
+        ],
+        "role": "计算"
       },
       {
         "id": "rack-a05",
@@ -646,7 +1785,8 @@
           -3.15,
           0,
           -1.8
-        ]
+        ],
+        "role": "计算"
       },
       {
         "id": "rack-a06",
@@ -655,7 +1795,8 @@
           -1.0499999999999998,
           0,
           -1.8
-        ]
+        ],
+        "role": "计算"
       },
       {
         "id": "rack-a07",
@@ -664,7 +1805,8 @@
           1.0500000000000003,
           0,
           -1.8
-        ]
+        ],
+        "role": "计算 / 存储"
       },
       {
         "id": "rack-a08",
@@ -673,7 +1815,8 @@
           3.150000000000001,
           0,
           -1.8
-        ]
+        ],
+        "role": "计算 / 存储"
       }
     ],
     "devices": [
@@ -687,7 +1830,8 @@
         "loadFactor": 1,
         "budgetWatts": 350,
         "lifecycle": "running",
-        "telemetry": "valid"
+        "telemetry": "valid",
+        "modelId": "server-2u"
       },
       {
         "id": "srv-02",
@@ -699,7 +1843,8 @@
         "loadFactor": 0.9,
         "budgetWatts": 350,
         "lifecycle": "running",
-        "telemetry": "valid"
+        "telemetry": "valid",
+        "modelId": "server-2u"
       },
       {
         "id": "srv-03",
@@ -711,7 +1856,8 @@
         "loadFactor": 0.82,
         "budgetWatts": 350,
         "lifecycle": "running",
-        "telemetry": "valid"
+        "telemetry": "valid",
+        "modelId": "server-2u"
       },
       {
         "id": "srv-04",
@@ -723,7 +1869,8 @@
         "loadFactor": 0.7,
         "budgetWatts": 350,
         "lifecycle": "running",
-        "telemetry": "valid"
+        "telemetry": "valid",
+        "modelId": "server-2u"
       },
       {
         "id": "srv-05",
@@ -735,7 +1882,8 @@
         "loadFactor": 0.62,
         "budgetWatts": 350,
         "lifecycle": "running",
-        "telemetry": "valid"
+        "telemetry": "valid",
+        "modelId": "server-1u"
       },
       {
         "id": "srv-06",
@@ -747,7 +1895,8 @@
         "loadFactor": 0.75,
         "budgetWatts": 350,
         "lifecycle": "running",
-        "telemetry": "valid"
+        "telemetry": "valid",
+        "modelId": "server-2u"
       },
       {
         "id": "srv-07",
@@ -759,7 +1908,8 @@
         "loadFactor": 0.48,
         "budgetWatts": 350,
         "lifecycle": "running",
-        "telemetry": "valid"
+        "telemetry": "valid",
+        "modelId": "server-2u"
       },
       {
         "id": "srv-08",
@@ -771,7 +1921,8 @@
         "loadFactor": 0.609,
         "budgetWatts": 350,
         "lifecycle": "running",
-        "telemetry": "valid"
+        "telemetry": "valid",
+        "modelId": "server-1u"
       },
       {
         "id": "srv-09",
@@ -783,7 +1934,8 @@
         "loadFactor": 0.738,
         "budgetWatts": 350,
         "lifecycle": "running",
-        "telemetry": "valid"
+        "telemetry": "valid",
+        "modelId": "server-2u"
       },
       {
         "id": "srv-10",
@@ -795,7 +1947,8 @@
         "loadFactor": 0.867,
         "budgetWatts": 350,
         "lifecycle": "running",
-        "telemetry": "valid"
+        "telemetry": "valid",
+        "modelId": "server-2u"
       },
       {
         "id": "srv-11",
@@ -807,7 +1960,8 @@
         "loadFactor": 0.996,
         "budgetWatts": 350,
         "lifecycle": "running",
-        "telemetry": "valid"
+        "telemetry": "valid",
+        "modelId": "server-1u"
       },
       {
         "id": "srv-12",
@@ -819,7 +1973,8 @@
         "loadFactor": 0.566,
         "budgetWatts": 350,
         "lifecycle": "running",
-        "telemetry": "valid"
+        "telemetry": "valid",
+        "modelId": "server-2u"
       },
       {
         "id": "srv-13",
@@ -831,7 +1986,8 @@
         "loadFactor": 0.695,
         "budgetWatts": 350,
         "lifecycle": "running",
-        "telemetry": "valid"
+        "telemetry": "valid",
+        "modelId": "server-2u"
       },
       {
         "id": "srv-14",
@@ -843,7 +1999,8 @@
         "loadFactor": 0.824,
         "budgetWatts": 350,
         "lifecycle": "running",
-        "telemetry": "valid"
+        "telemetry": "valid",
+        "modelId": "server-1u"
       },
       {
         "id": "srv-15",
@@ -855,7 +2012,8 @@
         "loadFactor": 0.953,
         "budgetWatts": 350,
         "lifecycle": "running",
-        "telemetry": "valid"
+        "telemetry": "valid",
+        "modelId": "server-2u"
       },
       {
         "id": "srv-16",
@@ -867,7 +2025,8 @@
         "loadFactor": 0.523,
         "budgetWatts": 350,
         "lifecycle": "running",
-        "telemetry": "valid"
+        "telemetry": "valid",
+        "modelId": "server-2u"
       },
       {
         "id": "srv-17",
@@ -879,7 +2038,8 @@
         "loadFactor": 0.652,
         "budgetWatts": 350,
         "lifecycle": "running",
-        "telemetry": "valid"
+        "telemetry": "valid",
+        "modelId": "server-1u"
       },
       {
         "id": "srv-18",
@@ -891,7 +2051,8 @@
         "loadFactor": 0.781,
         "budgetWatts": 350,
         "lifecycle": "running",
-        "telemetry": "valid"
+        "telemetry": "valid",
+        "modelId": "server-2u"
       },
       {
         "id": "srv-19",
@@ -903,7 +2064,8 @@
         "loadFactor": 0.91,
         "budgetWatts": 350,
         "lifecycle": "running",
-        "telemetry": "valid"
+        "telemetry": "valid",
+        "modelId": "server-2u"
       },
       {
         "id": "srv-20",
@@ -915,7 +2077,8 @@
         "loadFactor": 0.48,
         "budgetWatts": 350,
         "lifecycle": "running",
-        "telemetry": "valid"
+        "telemetry": "valid",
+        "modelId": "server-1u"
       },
       {
         "id": "srv-21",
@@ -927,7 +2090,8 @@
         "loadFactor": 0.609,
         "budgetWatts": 350,
         "lifecycle": "running",
-        "telemetry": "valid"
+        "telemetry": "valid",
+        "modelId": "server-2u"
       },
       {
         "id": "srv-22",
@@ -939,7 +2103,8 @@
         "loadFactor": 0.738,
         "budgetWatts": 350,
         "lifecycle": "running",
-        "telemetry": "valid"
+        "telemetry": "valid",
+        "modelId": "server-2u"
       },
       {
         "id": "srv-23",
@@ -951,7 +2116,8 @@
         "loadFactor": 0.867,
         "budgetWatts": 350,
         "lifecycle": "running",
-        "telemetry": "valid"
+        "telemetry": "valid",
+        "modelId": "server-1u"
       },
       {
         "id": "srv-24",
@@ -963,7 +2129,8 @@
         "loadFactor": 0.996,
         "budgetWatts": 350,
         "lifecycle": "running",
-        "telemetry": "valid"
+        "telemetry": "valid",
+        "modelId": "server-2u"
       },
       {
         "id": "srv-25",
@@ -975,7 +2142,8 @@
         "loadFactor": 0.566,
         "budgetWatts": 350,
         "lifecycle": "offline",
-        "telemetry": "offline"
+        "telemetry": "offline",
+        "modelId": "server-2u"
       },
       {
         "id": "srv-26",
@@ -987,7 +2155,8 @@
         "loadFactor": 0.695,
         "budgetWatts": 350,
         "lifecycle": "running",
-        "telemetry": "valid"
+        "telemetry": "valid",
+        "modelId": "server-1u"
       },
       {
         "id": "srv-27",
@@ -999,7 +2168,8 @@
         "loadFactor": 0.824,
         "budgetWatts": 350,
         "lifecycle": "running",
-        "telemetry": "valid"
+        "telemetry": "valid",
+        "modelId": "server-2u"
       },
       {
         "id": "srv-28",
@@ -1011,7 +2181,8 @@
         "loadFactor": 0.953,
         "budgetWatts": 350,
         "lifecycle": "running",
-        "telemetry": "valid"
+        "telemetry": "valid",
+        "modelId": "server-2u"
       },
       {
         "id": "srv-29",
@@ -1023,7 +2194,8 @@
         "loadFactor": 0.523,
         "budgetWatts": 350,
         "lifecycle": "running",
-        "telemetry": "valid"
+        "telemetry": "valid",
+        "modelId": "server-1u"
       },
       {
         "id": "srv-30",
@@ -1035,7 +2207,8 @@
         "loadFactor": 0.652,
         "budgetWatts": 350,
         "lifecycle": "running",
-        "telemetry": "valid"
+        "telemetry": "valid",
+        "modelId": "server-2u"
       },
       {
         "id": "srv-31",
@@ -1047,7 +2220,8 @@
         "loadFactor": 0.781,
         "budgetWatts": 350,
         "lifecycle": "running",
-        "telemetry": "valid"
+        "telemetry": "valid",
+        "modelId": "server-2u"
       },
       {
         "id": "srv-32",
@@ -1059,7 +2233,8 @@
         "loadFactor": 0.91,
         "budgetWatts": 350,
         "lifecycle": "running",
-        "telemetry": "valid"
+        "telemetry": "valid",
+        "modelId": "server-1u"
       },
       {
         "id": "srv-33",
@@ -1071,7 +2246,8 @@
         "loadFactor": 0.781,
         "budgetWatts": 350,
         "lifecycle": "running",
-        "telemetry": "valid"
+        "telemetry": "valid",
+        "modelId": "server-2u"
       },
       {
         "id": "srv-34",
@@ -1083,7 +2259,8 @@
         "loadFactor": 0.91,
         "budgetWatts": 350,
         "lifecycle": "running",
-        "telemetry": "valid"
+        "telemetry": "valid",
+        "modelId": "server-2u"
       },
       {
         "id": "srv-35",
@@ -1095,7 +2272,8 @@
         "loadFactor": 0.48,
         "budgetWatts": 350,
         "lifecycle": "running",
-        "telemetry": "valid"
+        "telemetry": "valid",
+        "modelId": "server-1u"
       },
       {
         "id": "srv-36",
@@ -1107,7 +2285,8 @@
         "loadFactor": 0.609,
         "budgetWatts": 350,
         "lifecycle": "running",
-        "telemetry": "valid"
+        "telemetry": "valid",
+        "modelId": "server-2u"
       },
       {
         "id": "srv-37",
@@ -1119,7 +2298,8 @@
         "loadFactor": 0.738,
         "budgetWatts": 350,
         "lifecycle": "running",
-        "telemetry": "valid"
+        "telemetry": "valid",
+        "modelId": "server-2u"
       },
       {
         "id": "srv-38",
@@ -1131,7 +2311,8 @@
         "loadFactor": 0.867,
         "budgetWatts": 350,
         "lifecycle": "running",
-        "telemetry": "valid"
+        "telemetry": "valid",
+        "modelId": "server-1u"
       },
       {
         "id": "srv-39",
@@ -1143,7 +2324,8 @@
         "loadFactor": 0.996,
         "budgetWatts": 350,
         "lifecycle": "running",
-        "telemetry": "valid"
+        "telemetry": "valid",
+        "modelId": "server-2u"
       },
       {
         "id": "srv-40",
@@ -1155,7 +2337,8 @@
         "loadFactor": 0.566,
         "budgetWatts": 350,
         "lifecycle": "running",
-        "telemetry": "valid"
+        "telemetry": "valid",
+        "modelId": "server-2u"
       },
       {
         "id": "srv-41",
@@ -1167,7 +2350,8 @@
         "loadFactor": 0.996,
         "budgetWatts": 350,
         "lifecycle": "running",
-        "telemetry": "valid"
+        "telemetry": "valid",
+        "modelId": "server-1u"
       },
       {
         "id": "srv-42",
@@ -1179,7 +2363,8 @@
         "loadFactor": 0.566,
         "budgetWatts": 350,
         "lifecycle": "running",
-        "telemetry": "valid"
+        "telemetry": "valid",
+        "modelId": "server-2u"
       },
       {
         "id": "srv-43",
@@ -1191,7 +2376,8 @@
         "loadFactor": 0.695,
         "budgetWatts": 350,
         "lifecycle": "maintenance",
-        "telemetry": "valid"
+        "telemetry": "valid",
+        "modelId": "server-2u"
       },
       {
         "id": "srv-44",
@@ -1203,7 +2389,8 @@
         "loadFactor": 0.824,
         "budgetWatts": 350,
         "lifecycle": "running",
-        "telemetry": "valid"
+        "telemetry": "valid",
+        "modelId": "server-1u"
       },
       {
         "id": "srv-45",
@@ -1215,7 +2402,8 @@
         "loadFactor": 0.953,
         "budgetWatts": 350,
         "lifecycle": "running",
-        "telemetry": "valid"
+        "telemetry": "valid",
+        "modelId": "server-2u"
       },
       {
         "id": "srv-46",
@@ -1227,7 +2415,8 @@
         "loadFactor": 0.523,
         "budgetWatts": 350,
         "lifecycle": "running",
-        "telemetry": "valid"
+        "telemetry": "valid",
+        "modelId": "server-2u"
       },
       {
         "id": "srv-47",
@@ -1239,7 +2428,8 @@
         "loadFactor": 0.652,
         "budgetWatts": 350,
         "lifecycle": "running",
-        "telemetry": "valid"
+        "telemetry": "valid",
+        "modelId": "server-1u"
       },
       {
         "id": "srv-48",
@@ -1251,7 +2441,8 @@
         "loadFactor": 0.781,
         "budgetWatts": 350,
         "lifecycle": "running",
-        "telemetry": "valid"
+        "telemetry": "valid",
+        "modelId": "server-2u"
       },
       {
         "id": "srv-49",
@@ -1263,7 +2454,8 @@
         "loadFactor": 0.652,
         "budgetWatts": 350,
         "lifecycle": "maintenance",
-        "telemetry": "valid"
+        "telemetry": "valid",
+        "modelId": "server-2u"
       },
       {
         "id": "srv-50",
@@ -1275,7 +2467,8 @@
         "loadFactor": 0.781,
         "budgetWatts": 350,
         "lifecycle": "running",
-        "telemetry": "valid"
+        "telemetry": "valid",
+        "modelId": "server-1u"
       },
       {
         "id": "srv-51",
@@ -1287,7 +2480,8 @@
         "loadFactor": 0.91,
         "budgetWatts": 350,
         "lifecycle": "running",
-        "telemetry": "valid"
+        "telemetry": "valid",
+        "modelId": "server-2u"
       },
       {
         "id": "srv-52",
@@ -1299,7 +2493,8 @@
         "loadFactor": 0.48,
         "budgetWatts": 350,
         "lifecycle": "running",
-        "telemetry": "valid"
+        "telemetry": "valid",
+        "modelId": "server-2u"
       },
       {
         "id": "srv-53",
@@ -1311,7 +2506,8 @@
         "loadFactor": 0.609,
         "budgetWatts": 350,
         "lifecycle": "running",
-        "telemetry": "valid"
+        "telemetry": "valid",
+        "modelId": "server-1u"
       },
       {
         "id": "srv-54",
@@ -1323,7 +2519,8 @@
         "loadFactor": 0.738,
         "budgetWatts": 350,
         "lifecycle": "running",
-        "telemetry": "valid"
+        "telemetry": "valid",
+        "modelId": "server-2u"
       },
       {
         "id": "srv-55",
@@ -1335,7 +2532,8 @@
         "loadFactor": 0.867,
         "budgetWatts": 350,
         "lifecycle": "running",
-        "telemetry": "valid"
+        "telemetry": "valid",
+        "modelId": "server-2u"
       },
       {
         "id": "srv-56",
@@ -1347,7 +2545,8 @@
         "loadFactor": 0.996,
         "budgetWatts": 350,
         "lifecycle": "running",
-        "telemetry": "missing"
+        "telemetry": "missing",
+        "modelId": "server-1u"
       },
       {
         "id": "srv-57",
@@ -1359,7 +2558,8 @@
         "loadFactor": 0.867,
         "budgetWatts": 350,
         "lifecycle": "running",
-        "telemetry": "valid"
+        "telemetry": "valid",
+        "modelId": "server-2u"
       },
       {
         "id": "srv-58",
@@ -1371,7 +2571,8 @@
         "loadFactor": 0.996,
         "budgetWatts": 350,
         "lifecycle": "running",
-        "telemetry": "valid"
+        "telemetry": "valid",
+        "modelId": "server-2u"
       },
       {
         "id": "srv-59",
@@ -1383,7 +2584,8 @@
         "loadFactor": 0.566,
         "budgetWatts": 350,
         "lifecycle": "running",
-        "telemetry": "stale"
+        "telemetry": "stale",
+        "modelId": "server-1u"
       },
       {
         "id": "srv-60",
@@ -1395,7 +2597,8 @@
         "loadFactor": 0.695,
         "budgetWatts": 350,
         "lifecycle": "running",
-        "telemetry": "valid"
+        "telemetry": "valid",
+        "modelId": "server-2u"
       },
       {
         "id": "srv-61",
@@ -1407,7 +2610,8 @@
         "loadFactor": 0.824,
         "budgetWatts": 350,
         "lifecycle": "running",
-        "telemetry": "valid"
+        "telemetry": "valid",
+        "modelId": "server-2u"
       },
       {
         "id": "srv-62",
@@ -1419,7 +2623,8 @@
         "loadFactor": 0.953,
         "budgetWatts": 350,
         "lifecycle": "running",
-        "telemetry": "valid"
+        "telemetry": "valid",
+        "modelId": "server-1u"
       },
       {
         "id": "srv-63",
@@ -1431,7 +2636,8 @@
         "loadFactor": 0.523,
         "budgetWatts": 350,
         "lifecycle": "stopped",
-        "telemetry": "valid"
+        "telemetry": "valid",
+        "modelId": "server-2u"
       },
       {
         "id": "srv-64",
@@ -1443,458 +2649,2091 @@
         "loadFactor": 0.652,
         "budgetWatts": 350,
         "lifecycle": "running",
-        "telemetry": "valid"
+        "telemetry": "valid",
+        "modelId": "server-2u"
+      },
+      {
+        "id": "sw-01",
+        "name": "SW-01",
+        "rackId": "rack-a01",
+        "startUnit": 39,
+        "baseline": 25.0,
+        "thermalFactor": 0.28,
+        "loadFactor": 0.55,
+        "budgetWatts": 250,
+        "lifecycle": "running",
+        "telemetry": "valid",
+        "modelId": "switch-1u"
+      },
+      {
+        "id": "sw-02",
+        "name": "SW-02",
+        "rackId": "rack-a01",
+        "startUnit": 41,
+        "baseline": 25.0,
+        "thermalFactor": 0.28,
+        "loadFactor": 0.55,
+        "budgetWatts": 250,
+        "lifecycle": "running",
+        "telemetry": "valid",
+        "modelId": "switch-1u"
+      },
+      {
+        "id": "sw-03",
+        "name": "SW-03",
+        "rackId": "rack-a02",
+        "startUnit": 39,
+        "baseline": 25.2,
+        "thermalFactor": 0.28,
+        "loadFactor": 0.55,
+        "budgetWatts": 250,
+        "lifecycle": "running",
+        "telemetry": "valid",
+        "modelId": "switch-1u"
+      },
+      {
+        "id": "sw-04",
+        "name": "SW-04",
+        "rackId": "rack-a02",
+        "startUnit": 41,
+        "baseline": 25.2,
+        "thermalFactor": 0.28,
+        "loadFactor": 0.55,
+        "budgetWatts": 250,
+        "lifecycle": "running",
+        "telemetry": "valid",
+        "modelId": "switch-1u"
+      },
+      {
+        "id": "sw-05",
+        "name": "SW-05",
+        "rackId": "rack-a03",
+        "startUnit": 39,
+        "baseline": 25.4,
+        "thermalFactor": 0.28,
+        "loadFactor": 0.55,
+        "budgetWatts": 250,
+        "lifecycle": "running",
+        "telemetry": "valid",
+        "modelId": "switch-1u"
+      },
+      {
+        "id": "sw-06",
+        "name": "SW-06",
+        "rackId": "rack-a03",
+        "startUnit": 41,
+        "baseline": 25.4,
+        "thermalFactor": 0.28,
+        "loadFactor": 0.55,
+        "budgetWatts": 250,
+        "lifecycle": "running",
+        "telemetry": "valid",
+        "modelId": "switch-1u"
+      },
+      {
+        "id": "sw-07",
+        "name": "SW-07",
+        "rackId": "rack-a04",
+        "startUnit": 39,
+        "baseline": 25.6,
+        "thermalFactor": 0.28,
+        "loadFactor": 0.55,
+        "budgetWatts": 250,
+        "lifecycle": "running",
+        "telemetry": "valid",
+        "modelId": "switch-1u"
+      },
+      {
+        "id": "sw-08",
+        "name": "SW-08",
+        "rackId": "rack-a04",
+        "startUnit": 41,
+        "baseline": 25.6,
+        "thermalFactor": 0.28,
+        "loadFactor": 0.55,
+        "budgetWatts": 250,
+        "lifecycle": "running",
+        "telemetry": "valid",
+        "modelId": "switch-1u"
+      },
+      {
+        "id": "sw-09",
+        "name": "SW-09",
+        "rackId": "rack-a05",
+        "startUnit": 39,
+        "baseline": 25.8,
+        "thermalFactor": 0.28,
+        "loadFactor": 0.55,
+        "budgetWatts": 250,
+        "lifecycle": "running",
+        "telemetry": "valid",
+        "modelId": "switch-1u"
+      },
+      {
+        "id": "sw-10",
+        "name": "SW-10",
+        "rackId": "rack-a05",
+        "startUnit": 41,
+        "baseline": 25.8,
+        "thermalFactor": 0.28,
+        "loadFactor": 0.55,
+        "budgetWatts": 250,
+        "lifecycle": "running",
+        "telemetry": "valid",
+        "modelId": "switch-1u"
+      },
+      {
+        "id": "sw-11",
+        "name": "SW-11",
+        "rackId": "rack-a06",
+        "startUnit": 39,
+        "baseline": 26.0,
+        "thermalFactor": 0.28,
+        "loadFactor": 0.55,
+        "budgetWatts": 250,
+        "lifecycle": "running",
+        "telemetry": "valid",
+        "modelId": "switch-1u"
+      },
+      {
+        "id": "sw-12",
+        "name": "SW-12",
+        "rackId": "rack-a06",
+        "startUnit": 41,
+        "baseline": 26.0,
+        "thermalFactor": 0.28,
+        "loadFactor": 0.55,
+        "budgetWatts": 250,
+        "lifecycle": "running",
+        "telemetry": "valid",
+        "modelId": "switch-1u"
+      },
+      {
+        "id": "sw-13",
+        "name": "SW-13",
+        "rackId": "rack-a07",
+        "startUnit": 39,
+        "baseline": 26.2,
+        "thermalFactor": 0.28,
+        "loadFactor": 0.55,
+        "budgetWatts": 250,
+        "lifecycle": "running",
+        "telemetry": "valid",
+        "modelId": "switch-1u"
+      },
+      {
+        "id": "sw-14",
+        "name": "SW-14",
+        "rackId": "rack-a07",
+        "startUnit": 41,
+        "baseline": 26.2,
+        "thermalFactor": 0.28,
+        "loadFactor": 0.55,
+        "budgetWatts": 250,
+        "lifecycle": "running",
+        "telemetry": "valid",
+        "modelId": "switch-1u"
+      },
+      {
+        "id": "sto-01",
+        "name": "STO-01",
+        "rackId": "rack-a07",
+        "startUnit": 25,
+        "baseline": 25,
+        "thermalFactor": 0.45,
+        "loadFactor": 1.3,
+        "budgetWatts": 650,
+        "lifecycle": "running",
+        "telemetry": "valid",
+        "modelId": "storage-2u"
+      },
+      {
+        "id": "sto-02",
+        "name": "STO-02",
+        "rackId": "rack-a07",
+        "startUnit": 36,
+        "baseline": 26,
+        "thermalFactor": 0.45,
+        "loadFactor": 1.3,
+        "budgetWatts": 650,
+        "lifecycle": "running",
+        "telemetry": "valid",
+        "modelId": "storage-2u"
+      },
+      {
+        "id": "sw-15",
+        "name": "SW-15",
+        "rackId": "rack-a08",
+        "startUnit": 39,
+        "baseline": 26.4,
+        "thermalFactor": 0.28,
+        "loadFactor": 0.55,
+        "budgetWatts": 250,
+        "lifecycle": "running",
+        "telemetry": "valid",
+        "modelId": "switch-1u"
+      },
+      {
+        "id": "sw-16",
+        "name": "SW-16",
+        "rackId": "rack-a08",
+        "startUnit": 41,
+        "baseline": 26.4,
+        "thermalFactor": 0.28,
+        "loadFactor": 0.55,
+        "budgetWatts": 250,
+        "lifecycle": "running",
+        "telemetry": "valid",
+        "modelId": "switch-1u"
+      },
+      {
+        "id": "sto-03",
+        "name": "STO-03",
+        "rackId": "rack-a08",
+        "startUnit": 25,
+        "baseline": 25,
+        "thermalFactor": 0.45,
+        "loadFactor": 1.3,
+        "budgetWatts": 650,
+        "lifecycle": "running",
+        "telemetry": "valid",
+        "modelId": "storage-2u"
+      },
+      {
+        "id": "sto-04",
+        "name": "STO-04",
+        "rackId": "rack-a08",
+        "startUnit": 36,
+        "baseline": 26,
+        "thermalFactor": 0.45,
+        "loadFactor": 1.3,
+        "budgetWatts": 650,
+        "lifecycle": "running",
+        "telemetry": "valid",
+        "modelId": "storage-2u"
       }
     ],
     "relations": [
       {
-        "id": "cooling-to-srv-01",
+        "id": "cooling-srv-01",
+        "kind": "cooling",
         "source": "cooling-01",
         "target": "srv-01",
-        "kind": "cooling",
         "sourceType": "simulation"
       },
       {
-        "id": "cooling-to-srv-02",
+        "id": "cooling-srv-02",
+        "kind": "cooling",
         "source": "cooling-01",
         "target": "srv-02",
-        "kind": "cooling",
         "sourceType": "simulation"
       },
       {
-        "id": "cooling-to-srv-03",
+        "id": "cooling-srv-03",
+        "kind": "cooling",
         "source": "cooling-01",
         "target": "srv-03",
-        "kind": "cooling",
         "sourceType": "simulation"
       },
       {
-        "id": "cooling-to-srv-04",
+        "id": "cooling-srv-04",
+        "kind": "cooling",
         "source": "cooling-01",
         "target": "srv-04",
-        "kind": "cooling",
         "sourceType": "simulation"
       },
       {
-        "id": "cooling-to-srv-05",
+        "id": "cooling-srv-05",
+        "kind": "cooling",
         "source": "cooling-01",
         "target": "srv-05",
-        "kind": "cooling",
         "sourceType": "simulation"
       },
       {
-        "id": "cooling-to-srv-06",
+        "id": "cooling-srv-06",
+        "kind": "cooling",
         "source": "cooling-01",
         "target": "srv-06",
-        "kind": "cooling",
         "sourceType": "simulation"
       },
       {
-        "id": "cooling-to-srv-07",
+        "id": "cooling-srv-07",
+        "kind": "cooling",
         "source": "cooling-01",
         "target": "srv-07",
-        "kind": "cooling",
         "sourceType": "simulation"
       },
       {
-        "id": "cooling-to-srv-08",
+        "id": "cooling-srv-08",
+        "kind": "cooling",
         "source": "cooling-01",
         "target": "srv-08",
-        "kind": "cooling",
         "sourceType": "simulation"
       },
       {
-        "id": "cooling-to-srv-09",
+        "id": "cooling-srv-09",
+        "kind": "cooling",
         "source": "cooling-01",
         "target": "srv-09",
-        "kind": "cooling",
         "sourceType": "simulation"
       },
       {
-        "id": "cooling-to-srv-10",
+        "id": "cooling-srv-10",
+        "kind": "cooling",
         "source": "cooling-01",
         "target": "srv-10",
-        "kind": "cooling",
         "sourceType": "simulation"
       },
       {
-        "id": "cooling-to-srv-11",
+        "id": "cooling-srv-11",
+        "kind": "cooling",
         "source": "cooling-01",
         "target": "srv-11",
-        "kind": "cooling",
         "sourceType": "simulation"
       },
       {
-        "id": "cooling-to-srv-12",
+        "id": "cooling-srv-12",
+        "kind": "cooling",
         "source": "cooling-01",
         "target": "srv-12",
-        "kind": "cooling",
         "sourceType": "simulation"
       },
       {
-        "id": "cooling-to-srv-13",
+        "id": "cooling-srv-13",
+        "kind": "cooling",
         "source": "cooling-01",
         "target": "srv-13",
-        "kind": "cooling",
         "sourceType": "simulation"
       },
       {
-        "id": "cooling-to-srv-14",
+        "id": "cooling-srv-14",
+        "kind": "cooling",
         "source": "cooling-01",
         "target": "srv-14",
-        "kind": "cooling",
         "sourceType": "simulation"
       },
       {
-        "id": "cooling-to-srv-15",
+        "id": "cooling-srv-15",
+        "kind": "cooling",
         "source": "cooling-01",
         "target": "srv-15",
-        "kind": "cooling",
         "sourceType": "simulation"
       },
       {
-        "id": "cooling-to-srv-16",
+        "id": "cooling-srv-16",
+        "kind": "cooling",
         "source": "cooling-01",
         "target": "srv-16",
-        "kind": "cooling",
         "sourceType": "simulation"
       },
       {
-        "id": "cooling-to-srv-17",
+        "id": "cooling-srv-17",
+        "kind": "cooling",
         "source": "cooling-01",
         "target": "srv-17",
-        "kind": "cooling",
         "sourceType": "simulation"
       },
       {
-        "id": "cooling-to-srv-18",
+        "id": "cooling-srv-18",
+        "kind": "cooling",
         "source": "cooling-01",
         "target": "srv-18",
-        "kind": "cooling",
         "sourceType": "simulation"
       },
       {
-        "id": "cooling-to-srv-19",
+        "id": "cooling-srv-19",
+        "kind": "cooling",
         "source": "cooling-01",
         "target": "srv-19",
-        "kind": "cooling",
         "sourceType": "simulation"
       },
       {
-        "id": "cooling-to-srv-20",
+        "id": "cooling-srv-20",
+        "kind": "cooling",
         "source": "cooling-01",
         "target": "srv-20",
-        "kind": "cooling",
         "sourceType": "simulation"
       },
       {
-        "id": "cooling-to-srv-21",
+        "id": "cooling-srv-21",
+        "kind": "cooling",
         "source": "cooling-01",
         "target": "srv-21",
-        "kind": "cooling",
         "sourceType": "simulation"
       },
       {
-        "id": "cooling-to-srv-22",
+        "id": "cooling-srv-22",
+        "kind": "cooling",
         "source": "cooling-01",
         "target": "srv-22",
-        "kind": "cooling",
         "sourceType": "simulation"
       },
       {
-        "id": "cooling-to-srv-23",
+        "id": "cooling-srv-23",
+        "kind": "cooling",
         "source": "cooling-01",
         "target": "srv-23",
-        "kind": "cooling",
         "sourceType": "simulation"
       },
       {
-        "id": "cooling-to-srv-24",
+        "id": "cooling-srv-24",
+        "kind": "cooling",
         "source": "cooling-01",
         "target": "srv-24",
-        "kind": "cooling",
         "sourceType": "simulation"
       },
       {
-        "id": "cooling-to-srv-25",
+        "id": "cooling-srv-25",
+        "kind": "cooling",
         "source": "cooling-01",
         "target": "srv-25",
-        "kind": "cooling",
         "sourceType": "simulation"
       },
       {
-        "id": "cooling-to-srv-26",
+        "id": "cooling-srv-26",
+        "kind": "cooling",
         "source": "cooling-01",
         "target": "srv-26",
-        "kind": "cooling",
         "sourceType": "simulation"
       },
       {
-        "id": "cooling-to-srv-27",
+        "id": "cooling-srv-27",
+        "kind": "cooling",
         "source": "cooling-01",
         "target": "srv-27",
-        "kind": "cooling",
         "sourceType": "simulation"
       },
       {
-        "id": "cooling-to-srv-28",
+        "id": "cooling-srv-28",
+        "kind": "cooling",
         "source": "cooling-01",
         "target": "srv-28",
-        "kind": "cooling",
         "sourceType": "simulation"
       },
       {
-        "id": "cooling-to-srv-29",
+        "id": "cooling-srv-29",
+        "kind": "cooling",
         "source": "cooling-01",
         "target": "srv-29",
-        "kind": "cooling",
         "sourceType": "simulation"
       },
       {
-        "id": "cooling-to-srv-30",
+        "id": "cooling-srv-30",
+        "kind": "cooling",
         "source": "cooling-01",
         "target": "srv-30",
-        "kind": "cooling",
         "sourceType": "simulation"
       },
       {
-        "id": "cooling-to-srv-31",
+        "id": "cooling-srv-31",
+        "kind": "cooling",
         "source": "cooling-01",
         "target": "srv-31",
-        "kind": "cooling",
         "sourceType": "simulation"
       },
       {
-        "id": "cooling-to-srv-32",
+        "id": "cooling-srv-32",
+        "kind": "cooling",
         "source": "cooling-01",
         "target": "srv-32",
-        "kind": "cooling",
         "sourceType": "simulation"
       },
       {
-        "id": "cooling-to-srv-33",
+        "id": "cooling-srv-33",
+        "kind": "cooling",
         "source": "cooling-01",
         "target": "srv-33",
-        "kind": "cooling",
         "sourceType": "simulation"
       },
       {
-        "id": "cooling-to-srv-34",
+        "id": "cooling-srv-34",
+        "kind": "cooling",
         "source": "cooling-01",
         "target": "srv-34",
-        "kind": "cooling",
         "sourceType": "simulation"
       },
       {
-        "id": "cooling-to-srv-35",
+        "id": "cooling-srv-35",
+        "kind": "cooling",
         "source": "cooling-01",
         "target": "srv-35",
-        "kind": "cooling",
         "sourceType": "simulation"
       },
       {
-        "id": "cooling-to-srv-36",
+        "id": "cooling-srv-36",
+        "kind": "cooling",
         "source": "cooling-01",
         "target": "srv-36",
-        "kind": "cooling",
         "sourceType": "simulation"
       },
       {
-        "id": "cooling-to-srv-37",
+        "id": "cooling-srv-37",
+        "kind": "cooling",
         "source": "cooling-01",
         "target": "srv-37",
-        "kind": "cooling",
         "sourceType": "simulation"
       },
       {
-        "id": "cooling-to-srv-38",
+        "id": "cooling-srv-38",
+        "kind": "cooling",
         "source": "cooling-01",
         "target": "srv-38",
-        "kind": "cooling",
         "sourceType": "simulation"
       },
       {
-        "id": "cooling-to-srv-39",
+        "id": "cooling-srv-39",
+        "kind": "cooling",
         "source": "cooling-01",
         "target": "srv-39",
-        "kind": "cooling",
         "sourceType": "simulation"
       },
       {
-        "id": "cooling-to-srv-40",
+        "id": "cooling-srv-40",
+        "kind": "cooling",
         "source": "cooling-01",
         "target": "srv-40",
-        "kind": "cooling",
         "sourceType": "simulation"
       },
       {
-        "id": "cooling-to-srv-41",
+        "id": "cooling-srv-41",
+        "kind": "cooling",
         "source": "cooling-01",
         "target": "srv-41",
-        "kind": "cooling",
         "sourceType": "simulation"
       },
       {
-        "id": "cooling-to-srv-42",
+        "id": "cooling-srv-42",
+        "kind": "cooling",
         "source": "cooling-01",
         "target": "srv-42",
-        "kind": "cooling",
         "sourceType": "simulation"
       },
       {
-        "id": "cooling-to-srv-43",
+        "id": "cooling-srv-43",
+        "kind": "cooling",
         "source": "cooling-01",
         "target": "srv-43",
-        "kind": "cooling",
         "sourceType": "simulation"
       },
       {
-        "id": "cooling-to-srv-44",
+        "id": "cooling-srv-44",
+        "kind": "cooling",
         "source": "cooling-01",
         "target": "srv-44",
-        "kind": "cooling",
         "sourceType": "simulation"
       },
       {
-        "id": "cooling-to-srv-45",
+        "id": "cooling-srv-45",
+        "kind": "cooling",
         "source": "cooling-01",
         "target": "srv-45",
-        "kind": "cooling",
         "sourceType": "simulation"
       },
       {
-        "id": "cooling-to-srv-46",
+        "id": "cooling-srv-46",
+        "kind": "cooling",
         "source": "cooling-01",
         "target": "srv-46",
-        "kind": "cooling",
         "sourceType": "simulation"
       },
       {
-        "id": "cooling-to-srv-47",
+        "id": "cooling-srv-47",
+        "kind": "cooling",
         "source": "cooling-01",
         "target": "srv-47",
-        "kind": "cooling",
         "sourceType": "simulation"
       },
       {
-        "id": "cooling-to-srv-48",
+        "id": "cooling-srv-48",
+        "kind": "cooling",
         "source": "cooling-01",
         "target": "srv-48",
-        "kind": "cooling",
         "sourceType": "simulation"
       },
       {
-        "id": "cooling-to-srv-49",
+        "id": "cooling-srv-49",
+        "kind": "cooling",
         "source": "cooling-01",
         "target": "srv-49",
-        "kind": "cooling",
         "sourceType": "simulation"
       },
       {
-        "id": "cooling-to-srv-50",
+        "id": "cooling-srv-50",
+        "kind": "cooling",
         "source": "cooling-01",
         "target": "srv-50",
-        "kind": "cooling",
         "sourceType": "simulation"
       },
       {
-        "id": "cooling-to-srv-51",
+        "id": "cooling-srv-51",
+        "kind": "cooling",
         "source": "cooling-01",
         "target": "srv-51",
-        "kind": "cooling",
         "sourceType": "simulation"
       },
       {
-        "id": "cooling-to-srv-52",
+        "id": "cooling-srv-52",
+        "kind": "cooling",
         "source": "cooling-01",
         "target": "srv-52",
-        "kind": "cooling",
         "sourceType": "simulation"
       },
       {
-        "id": "cooling-to-srv-53",
+        "id": "cooling-srv-53",
+        "kind": "cooling",
         "source": "cooling-01",
         "target": "srv-53",
-        "kind": "cooling",
         "sourceType": "simulation"
       },
       {
-        "id": "cooling-to-srv-54",
+        "id": "cooling-srv-54",
+        "kind": "cooling",
         "source": "cooling-01",
         "target": "srv-54",
-        "kind": "cooling",
         "sourceType": "simulation"
       },
       {
-        "id": "cooling-to-srv-55",
+        "id": "cooling-srv-55",
+        "kind": "cooling",
         "source": "cooling-01",
         "target": "srv-55",
-        "kind": "cooling",
         "sourceType": "simulation"
       },
       {
-        "id": "cooling-to-srv-56",
+        "id": "cooling-srv-56",
+        "kind": "cooling",
         "source": "cooling-01",
         "target": "srv-56",
-        "kind": "cooling",
         "sourceType": "simulation"
       },
       {
-        "id": "cooling-to-srv-57",
+        "id": "cooling-srv-57",
+        "kind": "cooling",
         "source": "cooling-01",
         "target": "srv-57",
-        "kind": "cooling",
         "sourceType": "simulation"
       },
       {
-        "id": "cooling-to-srv-58",
+        "id": "cooling-srv-58",
+        "kind": "cooling",
         "source": "cooling-01",
         "target": "srv-58",
-        "kind": "cooling",
         "sourceType": "simulation"
       },
       {
-        "id": "cooling-to-srv-59",
+        "id": "cooling-srv-59",
+        "kind": "cooling",
         "source": "cooling-01",
         "target": "srv-59",
-        "kind": "cooling",
         "sourceType": "simulation"
       },
       {
-        "id": "cooling-to-srv-60",
+        "id": "cooling-srv-60",
+        "kind": "cooling",
         "source": "cooling-01",
         "target": "srv-60",
-        "kind": "cooling",
         "sourceType": "simulation"
       },
       {
-        "id": "cooling-to-srv-61",
+        "id": "cooling-srv-61",
+        "kind": "cooling",
         "source": "cooling-01",
         "target": "srv-61",
-        "kind": "cooling",
         "sourceType": "simulation"
       },
       {
-        "id": "cooling-to-srv-62",
+        "id": "cooling-srv-62",
+        "kind": "cooling",
         "source": "cooling-01",
         "target": "srv-62",
-        "kind": "cooling",
         "sourceType": "simulation"
       },
       {
-        "id": "cooling-to-srv-63",
+        "id": "cooling-srv-63",
+        "kind": "cooling",
         "source": "cooling-01",
         "target": "srv-63",
-        "kind": "cooling",
         "sourceType": "simulation"
       },
       {
-        "id": "cooling-to-srv-64",
+        "id": "cooling-srv-64",
+        "kind": "cooling",
         "source": "cooling-01",
         "target": "srv-64",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-sw-01",
         "kind": "cooling",
+        "source": "cooling-01",
+        "target": "sw-01",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-sw-02",
+        "kind": "cooling",
+        "source": "cooling-01",
+        "target": "sw-02",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-sw-03",
+        "kind": "cooling",
+        "source": "cooling-01",
+        "target": "sw-03",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-sw-04",
+        "kind": "cooling",
+        "source": "cooling-01",
+        "target": "sw-04",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-sw-05",
+        "kind": "cooling",
+        "source": "cooling-01",
+        "target": "sw-05",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-sw-06",
+        "kind": "cooling",
+        "source": "cooling-01",
+        "target": "sw-06",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-sw-07",
+        "kind": "cooling",
+        "source": "cooling-01",
+        "target": "sw-07",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-sw-08",
+        "kind": "cooling",
+        "source": "cooling-01",
+        "target": "sw-08",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-sw-09",
+        "kind": "cooling",
+        "source": "cooling-01",
+        "target": "sw-09",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-sw-10",
+        "kind": "cooling",
+        "source": "cooling-01",
+        "target": "sw-10",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-sw-11",
+        "kind": "cooling",
+        "source": "cooling-01",
+        "target": "sw-11",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-sw-12",
+        "kind": "cooling",
+        "source": "cooling-01",
+        "target": "sw-12",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-sw-13",
+        "kind": "cooling",
+        "source": "cooling-01",
+        "target": "sw-13",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-sw-14",
+        "kind": "cooling",
+        "source": "cooling-01",
+        "target": "sw-14",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-sto-01",
+        "kind": "cooling",
+        "source": "cooling-01",
+        "target": "sto-01",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-sto-02",
+        "kind": "cooling",
+        "source": "cooling-01",
+        "target": "sto-02",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-sw-15",
+        "kind": "cooling",
+        "source": "cooling-01",
+        "target": "sw-15",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-sw-16",
+        "kind": "cooling",
+        "source": "cooling-01",
+        "target": "sw-16",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-sto-03",
+        "kind": "cooling",
+        "source": "cooling-01",
+        "target": "sto-03",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-sto-04",
+        "kind": "cooling",
+        "source": "cooling-01",
+        "target": "sto-04",
         "sourceType": "simulation"
       }
+    ],
+    "powerDistribution": {
+      "mount": "rear-0u",
+      "perRack": 2,
+      "outletsPerPdu": 24,
+      "description": "后置 A/B 两路 PDU；电源入口按 A/B 接入，未声明上游电源独立性，不参与设备功耗重复求和。"
+    },
+    "networkLinks": [
+      {
+        "id": "link-srv-01-0",
+        "source": "srv-01",
+        "sourcePort": 1,
+        "target": "sw-01",
+        "targetPort": 1,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-01-1",
+        "source": "srv-01",
+        "sourcePort": 2,
+        "target": "sw-02",
+        "targetPort": 1,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-02-0",
+        "source": "srv-02",
+        "sourcePort": 1,
+        "target": "sw-01",
+        "targetPort": 2,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-02-1",
+        "source": "srv-02",
+        "sourcePort": 2,
+        "target": "sw-02",
+        "targetPort": 2,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-07-0",
+        "source": "srv-07",
+        "sourcePort": 1,
+        "target": "sw-01",
+        "targetPort": 3,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-07-1",
+        "source": "srv-07",
+        "sourcePort": 2,
+        "target": "sw-02",
+        "targetPort": 3,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-08-0",
+        "source": "srv-08",
+        "sourcePort": 1,
+        "target": "sw-01",
+        "targetPort": 4,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-08-1",
+        "source": "srv-08",
+        "sourcePort": 2,
+        "target": "sw-02",
+        "targetPort": 4,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-09-0",
+        "source": "srv-09",
+        "sourcePort": 1,
+        "target": "sw-01",
+        "targetPort": 5,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-09-1",
+        "source": "srv-09",
+        "sourcePort": 2,
+        "target": "sw-02",
+        "targetPort": 5,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-10-0",
+        "source": "srv-10",
+        "sourcePort": 1,
+        "target": "sw-01",
+        "targetPort": 6,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-10-1",
+        "source": "srv-10",
+        "sourcePort": 2,
+        "target": "sw-02",
+        "targetPort": 6,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-11-0",
+        "source": "srv-11",
+        "sourcePort": 1,
+        "target": "sw-01",
+        "targetPort": 7,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-11-1",
+        "source": "srv-11",
+        "sourcePort": 2,
+        "target": "sw-02",
+        "targetPort": 7,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-12-0",
+        "source": "srv-12",
+        "sourcePort": 1,
+        "target": "sw-01",
+        "targetPort": 8,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-12-1",
+        "source": "srv-12",
+        "sourcePort": 2,
+        "target": "sw-02",
+        "targetPort": 8,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-03-0",
+        "source": "srv-03",
+        "sourcePort": 1,
+        "target": "sw-03",
+        "targetPort": 1,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-03-1",
+        "source": "srv-03",
+        "sourcePort": 2,
+        "target": "sw-04",
+        "targetPort": 1,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-04-0",
+        "source": "srv-04",
+        "sourcePort": 1,
+        "target": "sw-03",
+        "targetPort": 2,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-04-1",
+        "source": "srv-04",
+        "sourcePort": 2,
+        "target": "sw-04",
+        "targetPort": 2,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-13-0",
+        "source": "srv-13",
+        "sourcePort": 1,
+        "target": "sw-03",
+        "targetPort": 3,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-13-1",
+        "source": "srv-13",
+        "sourcePort": 2,
+        "target": "sw-04",
+        "targetPort": 3,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-14-0",
+        "source": "srv-14",
+        "sourcePort": 1,
+        "target": "sw-03",
+        "targetPort": 4,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-14-1",
+        "source": "srv-14",
+        "sourcePort": 2,
+        "target": "sw-04",
+        "targetPort": 4,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-15-0",
+        "source": "srv-15",
+        "sourcePort": 1,
+        "target": "sw-03",
+        "targetPort": 5,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-15-1",
+        "source": "srv-15",
+        "sourcePort": 2,
+        "target": "sw-04",
+        "targetPort": 5,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-16-0",
+        "source": "srv-16",
+        "sourcePort": 1,
+        "target": "sw-03",
+        "targetPort": 6,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-16-1",
+        "source": "srv-16",
+        "sourcePort": 2,
+        "target": "sw-04",
+        "targetPort": 6,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-17-0",
+        "source": "srv-17",
+        "sourcePort": 1,
+        "target": "sw-03",
+        "targetPort": 7,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-17-1",
+        "source": "srv-17",
+        "sourcePort": 2,
+        "target": "sw-04",
+        "targetPort": 7,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-18-0",
+        "source": "srv-18",
+        "sourcePort": 1,
+        "target": "sw-03",
+        "targetPort": 8,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-18-1",
+        "source": "srv-18",
+        "sourcePort": 2,
+        "target": "sw-04",
+        "targetPort": 8,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-05-0",
+        "source": "srv-05",
+        "sourcePort": 1,
+        "target": "sw-05",
+        "targetPort": 1,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-05-1",
+        "source": "srv-05",
+        "sourcePort": 2,
+        "target": "sw-06",
+        "targetPort": 1,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-06-0",
+        "source": "srv-06",
+        "sourcePort": 1,
+        "target": "sw-05",
+        "targetPort": 2,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-06-1",
+        "source": "srv-06",
+        "sourcePort": 2,
+        "target": "sw-06",
+        "targetPort": 2,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-19-0",
+        "source": "srv-19",
+        "sourcePort": 1,
+        "target": "sw-05",
+        "targetPort": 3,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-19-1",
+        "source": "srv-19",
+        "sourcePort": 2,
+        "target": "sw-06",
+        "targetPort": 3,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-20-0",
+        "source": "srv-20",
+        "sourcePort": 1,
+        "target": "sw-05",
+        "targetPort": 4,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-20-1",
+        "source": "srv-20",
+        "sourcePort": 2,
+        "target": "sw-06",
+        "targetPort": 4,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-21-0",
+        "source": "srv-21",
+        "sourcePort": 1,
+        "target": "sw-05",
+        "targetPort": 5,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-21-1",
+        "source": "srv-21",
+        "sourcePort": 2,
+        "target": "sw-06",
+        "targetPort": 5,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-22-0",
+        "source": "srv-22",
+        "sourcePort": 1,
+        "target": "sw-05",
+        "targetPort": 6,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-22-1",
+        "source": "srv-22",
+        "sourcePort": 2,
+        "target": "sw-06",
+        "targetPort": 6,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-23-0",
+        "source": "srv-23",
+        "sourcePort": 1,
+        "target": "sw-05",
+        "targetPort": 7,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-23-1",
+        "source": "srv-23",
+        "sourcePort": 2,
+        "target": "sw-06",
+        "targetPort": 7,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-24-0",
+        "source": "srv-24",
+        "sourcePort": 1,
+        "target": "sw-05",
+        "targetPort": 8,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-24-1",
+        "source": "srv-24",
+        "sourcePort": 2,
+        "target": "sw-06",
+        "targetPort": 8,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-25-0",
+        "source": "srv-25",
+        "sourcePort": 1,
+        "target": "sw-07",
+        "targetPort": 1,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-25-1",
+        "source": "srv-25",
+        "sourcePort": 2,
+        "target": "sw-08",
+        "targetPort": 1,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-26-0",
+        "source": "srv-26",
+        "sourcePort": 1,
+        "target": "sw-07",
+        "targetPort": 2,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-26-1",
+        "source": "srv-26",
+        "sourcePort": 2,
+        "target": "sw-08",
+        "targetPort": 2,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-27-0",
+        "source": "srv-27",
+        "sourcePort": 1,
+        "target": "sw-07",
+        "targetPort": 3,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-27-1",
+        "source": "srv-27",
+        "sourcePort": 2,
+        "target": "sw-08",
+        "targetPort": 3,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-28-0",
+        "source": "srv-28",
+        "sourcePort": 1,
+        "target": "sw-07",
+        "targetPort": 4,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-28-1",
+        "source": "srv-28",
+        "sourcePort": 2,
+        "target": "sw-08",
+        "targetPort": 4,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-29-0",
+        "source": "srv-29",
+        "sourcePort": 1,
+        "target": "sw-07",
+        "targetPort": 5,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-29-1",
+        "source": "srv-29",
+        "sourcePort": 2,
+        "target": "sw-08",
+        "targetPort": 5,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-30-0",
+        "source": "srv-30",
+        "sourcePort": 1,
+        "target": "sw-07",
+        "targetPort": 6,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-30-1",
+        "source": "srv-30",
+        "sourcePort": 2,
+        "target": "sw-08",
+        "targetPort": 6,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-31-0",
+        "source": "srv-31",
+        "sourcePort": 1,
+        "target": "sw-07",
+        "targetPort": 7,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-31-1",
+        "source": "srv-31",
+        "sourcePort": 2,
+        "target": "sw-08",
+        "targetPort": 7,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-32-0",
+        "source": "srv-32",
+        "sourcePort": 1,
+        "target": "sw-07",
+        "targetPort": 8,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-32-1",
+        "source": "srv-32",
+        "sourcePort": 2,
+        "target": "sw-08",
+        "targetPort": 8,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-33-0",
+        "source": "srv-33",
+        "sourcePort": 1,
+        "target": "sw-09",
+        "targetPort": 1,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-33-1",
+        "source": "srv-33",
+        "sourcePort": 2,
+        "target": "sw-10",
+        "targetPort": 1,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-34-0",
+        "source": "srv-34",
+        "sourcePort": 1,
+        "target": "sw-09",
+        "targetPort": 2,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-34-1",
+        "source": "srv-34",
+        "sourcePort": 2,
+        "target": "sw-10",
+        "targetPort": 2,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-35-0",
+        "source": "srv-35",
+        "sourcePort": 1,
+        "target": "sw-09",
+        "targetPort": 3,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-35-1",
+        "source": "srv-35",
+        "sourcePort": 2,
+        "target": "sw-10",
+        "targetPort": 3,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-36-0",
+        "source": "srv-36",
+        "sourcePort": 1,
+        "target": "sw-09",
+        "targetPort": 4,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-36-1",
+        "source": "srv-36",
+        "sourcePort": 2,
+        "target": "sw-10",
+        "targetPort": 4,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-37-0",
+        "source": "srv-37",
+        "sourcePort": 1,
+        "target": "sw-09",
+        "targetPort": 5,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-37-1",
+        "source": "srv-37",
+        "sourcePort": 2,
+        "target": "sw-10",
+        "targetPort": 5,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-38-0",
+        "source": "srv-38",
+        "sourcePort": 1,
+        "target": "sw-09",
+        "targetPort": 6,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-38-1",
+        "source": "srv-38",
+        "sourcePort": 2,
+        "target": "sw-10",
+        "targetPort": 6,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-39-0",
+        "source": "srv-39",
+        "sourcePort": 1,
+        "target": "sw-09",
+        "targetPort": 7,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-39-1",
+        "source": "srv-39",
+        "sourcePort": 2,
+        "target": "sw-10",
+        "targetPort": 7,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-40-0",
+        "source": "srv-40",
+        "sourcePort": 1,
+        "target": "sw-09",
+        "targetPort": 8,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-40-1",
+        "source": "srv-40",
+        "sourcePort": 2,
+        "target": "sw-10",
+        "targetPort": 8,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-41-0",
+        "source": "srv-41",
+        "sourcePort": 1,
+        "target": "sw-11",
+        "targetPort": 1,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-41-1",
+        "source": "srv-41",
+        "sourcePort": 2,
+        "target": "sw-12",
+        "targetPort": 1,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-42-0",
+        "source": "srv-42",
+        "sourcePort": 1,
+        "target": "sw-11",
+        "targetPort": 2,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-42-1",
+        "source": "srv-42",
+        "sourcePort": 2,
+        "target": "sw-12",
+        "targetPort": 2,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-43-0",
+        "source": "srv-43",
+        "sourcePort": 1,
+        "target": "sw-11",
+        "targetPort": 3,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-43-1",
+        "source": "srv-43",
+        "sourcePort": 2,
+        "target": "sw-12",
+        "targetPort": 3,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-44-0",
+        "source": "srv-44",
+        "sourcePort": 1,
+        "target": "sw-11",
+        "targetPort": 4,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-44-1",
+        "source": "srv-44",
+        "sourcePort": 2,
+        "target": "sw-12",
+        "targetPort": 4,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-45-0",
+        "source": "srv-45",
+        "sourcePort": 1,
+        "target": "sw-11",
+        "targetPort": 5,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-45-1",
+        "source": "srv-45",
+        "sourcePort": 2,
+        "target": "sw-12",
+        "targetPort": 5,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-46-0",
+        "source": "srv-46",
+        "sourcePort": 1,
+        "target": "sw-11",
+        "targetPort": 6,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-46-1",
+        "source": "srv-46",
+        "sourcePort": 2,
+        "target": "sw-12",
+        "targetPort": 6,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-47-0",
+        "source": "srv-47",
+        "sourcePort": 1,
+        "target": "sw-11",
+        "targetPort": 7,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-47-1",
+        "source": "srv-47",
+        "sourcePort": 2,
+        "target": "sw-12",
+        "targetPort": 7,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-48-0",
+        "source": "srv-48",
+        "sourcePort": 1,
+        "target": "sw-11",
+        "targetPort": 8,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-48-1",
+        "source": "srv-48",
+        "sourcePort": 2,
+        "target": "sw-12",
+        "targetPort": 8,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-49-0",
+        "source": "srv-49",
+        "sourcePort": 1,
+        "target": "sw-13",
+        "targetPort": 1,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-49-1",
+        "source": "srv-49",
+        "sourcePort": 2,
+        "target": "sw-14",
+        "targetPort": 1,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-50-0",
+        "source": "srv-50",
+        "sourcePort": 1,
+        "target": "sw-13",
+        "targetPort": 2,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-50-1",
+        "source": "srv-50",
+        "sourcePort": 2,
+        "target": "sw-14",
+        "targetPort": 2,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-51-0",
+        "source": "srv-51",
+        "sourcePort": 1,
+        "target": "sw-13",
+        "targetPort": 3,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-51-1",
+        "source": "srv-51",
+        "sourcePort": 2,
+        "target": "sw-14",
+        "targetPort": 3,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-52-0",
+        "source": "srv-52",
+        "sourcePort": 1,
+        "target": "sw-13",
+        "targetPort": 4,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-52-1",
+        "source": "srv-52",
+        "sourcePort": 2,
+        "target": "sw-14",
+        "targetPort": 4,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-53-0",
+        "source": "srv-53",
+        "sourcePort": 1,
+        "target": "sw-13",
+        "targetPort": 5,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-53-1",
+        "source": "srv-53",
+        "sourcePort": 2,
+        "target": "sw-14",
+        "targetPort": 5,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-54-0",
+        "source": "srv-54",
+        "sourcePort": 1,
+        "target": "sw-13",
+        "targetPort": 6,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-54-1",
+        "source": "srv-54",
+        "sourcePort": 2,
+        "target": "sw-14",
+        "targetPort": 6,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-55-0",
+        "source": "srv-55",
+        "sourcePort": 1,
+        "target": "sw-13",
+        "targetPort": 7,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-55-1",
+        "source": "srv-55",
+        "sourcePort": 2,
+        "target": "sw-14",
+        "targetPort": 7,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-56-0",
+        "source": "srv-56",
+        "sourcePort": 1,
+        "target": "sw-13",
+        "targetPort": 8,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-56-1",
+        "source": "srv-56",
+        "sourcePort": 2,
+        "target": "sw-14",
+        "targetPort": 8,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-sto-01-0",
+        "source": "sto-01",
+        "sourcePort": 1,
+        "target": "sw-13",
+        "targetPort": 9,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-sto-01-1",
+        "source": "sto-01",
+        "sourcePort": 2,
+        "target": "sw-14",
+        "targetPort": 9,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-sto-02-0",
+        "source": "sto-02",
+        "sourcePort": 1,
+        "target": "sw-13",
+        "targetPort": 10,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-sto-02-1",
+        "source": "sto-02",
+        "sourcePort": 2,
+        "target": "sw-14",
+        "targetPort": 10,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-57-0",
+        "source": "srv-57",
+        "sourcePort": 1,
+        "target": "sw-15",
+        "targetPort": 1,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-57-1",
+        "source": "srv-57",
+        "sourcePort": 2,
+        "target": "sw-16",
+        "targetPort": 1,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-58-0",
+        "source": "srv-58",
+        "sourcePort": 1,
+        "target": "sw-15",
+        "targetPort": 2,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-58-1",
+        "source": "srv-58",
+        "sourcePort": 2,
+        "target": "sw-16",
+        "targetPort": 2,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-59-0",
+        "source": "srv-59",
+        "sourcePort": 1,
+        "target": "sw-15",
+        "targetPort": 3,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-59-1",
+        "source": "srv-59",
+        "sourcePort": 2,
+        "target": "sw-16",
+        "targetPort": 3,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-60-0",
+        "source": "srv-60",
+        "sourcePort": 1,
+        "target": "sw-15",
+        "targetPort": 4,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-60-1",
+        "source": "srv-60",
+        "sourcePort": 2,
+        "target": "sw-16",
+        "targetPort": 4,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-61-0",
+        "source": "srv-61",
+        "sourcePort": 1,
+        "target": "sw-15",
+        "targetPort": 5,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-61-1",
+        "source": "srv-61",
+        "sourcePort": 2,
+        "target": "sw-16",
+        "targetPort": 5,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-62-0",
+        "source": "srv-62",
+        "sourcePort": 1,
+        "target": "sw-15",
+        "targetPort": 6,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-62-1",
+        "source": "srv-62",
+        "sourcePort": 2,
+        "target": "sw-16",
+        "targetPort": 6,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-63-0",
+        "source": "srv-63",
+        "sourcePort": 1,
+        "target": "sw-15",
+        "targetPort": 7,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-63-1",
+        "source": "srv-63",
+        "sourcePort": 2,
+        "target": "sw-16",
+        "targetPort": 7,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-64-0",
+        "source": "srv-64",
+        "sourcePort": 1,
+        "target": "sw-15",
+        "targetPort": 8,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-srv-64-1",
+        "source": "srv-64",
+        "sourcePort": 2,
+        "target": "sw-16",
+        "targetPort": 8,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-sto-03-0",
+        "source": "sto-03",
+        "sourcePort": 1,
+        "target": "sw-15",
+        "targetPort": 9,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-sto-03-1",
+        "source": "sto-03",
+        "sourcePort": 2,
+        "target": "sw-16",
+        "targetPort": 9,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-sto-04-0",
+        "source": "sto-04",
+        "sourcePort": 1,
+        "target": "sw-15",
+        "targetPort": 10,
+        "speedGbps": 25
+      },
+      {
+        "id": "link-sto-04-1",
+        "source": "sto-04",
+        "sourcePort": 2,
+        "target": "sw-16",
+        "targetPort": 10,
+        "speedGbps": 25
+      }
     ]
-  }
+  },
+  "equipmentModels": [
+    {
+      "id": "server-2u",
+      "name": "M2 · 通用计算",
+      "category": "server",
+      "units": 2,
+      "depth": 0.9,
+      "parts": [
+        "lid-01",
+        "board-01",
+        "cpu-01",
+        "cpu-02",
+        "memory-01",
+        "fans-01",
+        "storage-01",
+        "psu-01",
+        "psu-02",
+        "processor-01",
+        "processor-02",
+        "drives-01",
+        "backplane-01",
+        "nic-01",
+        "raid-01",
+        "riser-01",
+        "riser-02",
+        "battery-01",
+        "duct-01",
+        "cables-01",
+        "io-01"
+      ],
+      "dimms": 16,
+      "drives": 8,
+      "fans": 4,
+      "cpu": 2,
+      "description": "双路 · 16 DIMM · 8×2.5英寸 SAS SSD · 双电源",
+      "uninstalled": [
+        "GPU",
+        "第二块扩展网卡"
+      ],
+      "network": "双口 25G",
+      "storage": "8 × 1.92 TB SAS SSD"
+    },
+    {
+      "id": "server-1u",
+      "name": "M1 · 紧凑计算",
+      "category": "server",
+      "units": 1,
+      "depth": 0.72,
+      "parts": [
+        "lid-01",
+        "board-01",
+        "cpu-01",
+        "cpu-02",
+        "memory-01",
+        "fans-01",
+        "storage-01",
+        "psu-01",
+        "psu-02",
+        "processor-01",
+        "processor-02",
+        "drives-01",
+        "backplane-01",
+        "nic-01",
+        "raid-01",
+        "riser-01",
+        "battery-01",
+        "duct-01",
+        "cables-01",
+        "io-01"
+      ],
+      "dimms": 8,
+      "drives": 4,
+      "fans": 4,
+      "cpu": 2,
+      "description": "双路 · 8 DIMM · 4×2.5英寸 SAS SSD · 双电源",
+      "uninstalled": [
+        "GPU",
+        "第二转接架"
+      ],
+      "network": "双口 25G",
+      "storage": "4 × 1.92 TB SAS SSD"
+    },
+    {
+      "id": "switch-1u",
+      "name": "N1 · 机柜接入",
+      "category": "switch",
+      "units": 1,
+      "depth": 0.45,
+      "parts": [
+        "net-lid",
+        "net-board",
+        "net-asic",
+        "net-ports",
+        "net-fans",
+        "net-psu-a",
+        "net-psu-b"
+      ],
+      "dimms": 0,
+      "drives": 0,
+      "fans": 4,
+      "cpu": 0,
+      "description": "48×25G SFP28 · 6×100G QSFP28 · 双电源",
+      "uninstalled": [
+        "未使用光模块"
+      ],
+      "network": "48 × 25G / 6 × 100G",
+      "storage": "无磁盘"
+    },
+    {
+      "id": "storage-2u",
+      "name": "S2 · 双控存储",
+      "category": "storage",
+      "units": 2,
+      "depth": 0.66,
+      "parts": [
+        "sto-lid",
+        "sto-midplane",
+        "sto-drives",
+        "sto-controller-a",
+        "sto-controller-b",
+        "sto-psu-a",
+        "sto-psu-b",
+        "sto-fans"
+      ],
+      "dimms": 0,
+      "drives": 24,
+      "fans": 2,
+      "cpu": 0,
+      "description": "双控制器 · 24×2.5英寸 SAS HDD · 双电源",
+      "uninstalled": [
+        "扩展盘柜"
+      ],
+      "network": "双控制器各双口 25G",
+      "storage": "24 × 2.4 TB SAS HDD"
+    }
+  ]
 }
