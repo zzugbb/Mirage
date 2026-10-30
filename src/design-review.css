@@ -521,13 +521,13 @@
   white-space: normal;
   line-height: 1.6;
 }
-.review-status-key span:nth-of-type(1) {
+.review-status-key .legend-normal {
   color: #6ed9bc;
 }
-.review-status-key span:nth-of-type(2) {
+.review-status-key .legend-warning {
   color: #f4c46c;
 }
-.review-status-key span:nth-of-type(3) {
+.review-status-key .legend-critical {
   color: #ff8878;
 }
 .review-error {

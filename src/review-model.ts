@@ -1,41 +1,220 @@
-import { createState, transition } from "./domain.ts";
+import {
+  createState,
+  transition,
+  entityById,
+  presentationKey,
+} from "./domain.ts";
 import type { Action, AppState } from "./domain.ts";
 import { spatialSnapshot } from "./spatial.ts";
+import { canSelectInScene } from "./review-resources.ts";
+import { rackForDevice } from "./installation.ts";
 
-export type ReviewLayer = "overview" | "environment" | "power";
+export type ReviewLayer = "overview" | "environment" | "power" | "alarms";
 export type ReviewShot = "overview" | "environment" | "assembly" | "time";
 export type ReviewState = {
   scene: AppState;
   layer: ReviewLayer;
   analysis: boolean;
+  selectedId: string;
+  pendingId: string | null;
 };
 export const reviewLayers = [
-  { id: "overview", name: "总览", description: "原始材质与运行状态" },
+  { id: "overview", name: "空间", description: "查看机房、机柜与设备结构" },
   {
     id: "environment",
-    name: "环境",
+    name: "温度",
     description: "设备进风温度；部件为模型温度",
   },
-  { id: "power", name: "电力", description: "设备输入功耗与预算占比" },
+  { id: "power", name: "功耗", description: "设备输入功耗与预算占比" },
+  {
+    id: "alarms",
+    name: "告警",
+    description: "查找异常设备、查看事件与空间位置",
+  },
 ] as const;
 export function createReview(): ReviewState {
   return {
     scene: { ...createState(), time: 60, playing: false },
     layer: "overview",
     analysis: false,
+    selectedId: "room-01",
+    pendingId: null,
   };
 }
 export type ReviewAction =
   | { type: "scene"; action: Action }
   | { type: "layer"; layer: ReviewLayer }
   | { type: "shot"; shot: ReviewShot }
-  | { type: "analysis"; value: boolean };
+  | { type: "analysis"; value: boolean }
+  | { type: "navigation-ready"; key: string };
+export type ResourceAction = {
+  type: "pick" | "open-resource" | "focus-resource" | "extract-resource";
+  id: string;
+};
 export function reviewTransition(
   state: ReviewState,
-  action: ReviewAction,
+  action: ReviewAction | ResourceAction,
 ): ReviewState {
-  if (action.type === "scene")
-    return { ...state, scene: transition(state.scene, action.action) };
+  if (action.type === "pick")
+    return entityById(action.id)
+      ? {
+          ...state,
+          selectedId: action.id,
+          pendingId: null,
+          scene: canSelectInScene(state.scene, action.id)
+            ? { ...state.scene, selected: action.id }
+            : state.scene,
+        }
+      : state;
+  if (action.type === "navigation-ready") {
+    if (!state.pendingId || action.key !== presentationKey(state.scene))
+      return state;
+    if (entityById(state.pendingId)?.kind === "device")
+      return {
+        ...state,
+        selectedId: state.pendingId,
+        pendingId: null,
+        scene: {
+          ...transition(state.scene, {
+            type: "navigate",
+            level: "rack",
+            id: state.pendingId,
+          }),
+          selected: state.pendingId,
+          doorOpen: false,
+          trayExtended: false,
+          explosion: 0,
+        },
+      };
+    return reviewTransition(
+      { ...state, pendingId: null },
+      { type: "open-resource", id: state.pendingId },
+    );
+  }
+  if (action.type === "extract-resource") {
+    if (
+      entityById(action.id)?.kind !== "device" ||
+      state.scene.level !== "rack" ||
+      rackForDevice(action.id).id !== rackForDevice(state.scene.deviceId).id ||
+      (state.scene.trayExtended && action.id !== state.scene.deviceId)
+    )
+      return state;
+    const selected = transition(state.scene, { type: "select", id: action.id });
+    return {
+      ...state,
+      selectedId: action.id,
+      scene: transition(selected, {
+        type: "tray",
+        extended: !selected.trayExtended,
+      }),
+    };
+  }
+  if (action.type === "open-resource" || action.type === "focus-resource") {
+    const target = entityById(action.id);
+    if (!target) return state;
+    const current = state.scene;
+    let scene = current;
+    const elsewhere =
+      (target.kind === "device" && target.id !== current.deviceId) ||
+      (target.kind === "rack" &&
+        target.id !== rackForDevice(current.deviceId).id) ||
+      target.kind === "room" ||
+      target.kind === "facility";
+    // 先复原并回到原机柜，再切换实例，避免运动中替换几何。
+    if (
+      elsewhere &&
+      (current.level === "device" ||
+        (current.level === "rack" && current.trayExtended))
+    ) {
+      scene =
+        current.level === "device"
+          ? transition(current, { type: "back" })
+          : { ...current, trayExtended: false, doorOpen: false };
+      return { ...state, scene, selectedId: action.id, pendingId: action.id };
+    }
+    if (target.kind === "part") {
+      if (!canSelectInScene(current, target.id)) return state;
+      scene = transition(
+        transition(
+          { ...current, selected: target.id },
+          { type: "explode", amount: 1 },
+        ),
+        { type: "focus" },
+      );
+    } else if (
+      action.type === "focus-resource" &&
+      target.kind === "device" &&
+      current.level === "rack" &&
+      rackForDevice(target.id).id === rackForDevice(current.deviceId).id
+    ) {
+      scene = { ...current, selected: target.id };
+    } else if (
+      action.type === "focus-resource" &&
+      canSelectInScene(current, action.id) &&
+      target.kind !== "device"
+    ) {
+      scene = transition(
+        { ...current, selected: target.id },
+        { type: "focus" },
+      );
+    } else if (target.kind === "device") {
+      if (current.level === "device" && target.id === current.deviceId)
+        scene = transition(current, { type: "focus" });
+      else if (
+        current.level === "rack" &&
+        rackForDevice(current.deviceId).id === rackForDevice(target.id).id &&
+        (!current.trayExtended || target.id === current.deviceId)
+      )
+        scene = transition(current, {
+          type: "navigate",
+          level: "device",
+          id: target.id,
+        });
+      else
+        scene = {
+          ...transition(current, {
+            type: "navigate",
+            level: "rack",
+            id: target.id,
+          }),
+          selected: target.id,
+          doorOpen: false,
+          trayExtended: false,
+          explosion: 0,
+        };
+    } else {
+      scene = transition(current, {
+        type: "navigate",
+        level: target.kind === "rack" ? "rack" : "room",
+        id: target.id,
+      });
+      if (target.kind === "rack" && current.level !== "device")
+        scene = { ...scene, doorOpen: false, trayExtended: false };
+      if (target.kind === "facility")
+        scene = transition(
+          { ...scene, selected: target.id },
+          { type: "focus" },
+        );
+    }
+    return { ...state, scene, selectedId: action.id, pendingId: null };
+  }
+  if (action.type === "scene") {
+    const scene = transition(state.scene, action.action);
+    const changesSelection = [
+      "select",
+      "navigate",
+      "locate",
+      "back",
+      "reset",
+      "enter",
+    ].includes(action.action.type);
+    return {
+      ...state,
+      scene,
+      selectedId: changesSelection ? scene.selected : state.selectedId,
+      pendingId: changesSelection ? null : state.pendingId,
+    };
+  }
   if (action.type === "layer") return { ...state, layer: action.layer };
   if (action.type === "shot") {
     // 只有明确进入评审画面才装载预设；普通图层、时间操作不改镜头与姿态。
@@ -61,9 +240,11 @@ export function reviewTransition(
       initial.scene.time = 90;
       initial.analysis = true;
     }
+    initial.selectedId = initial.scene.selected;
     return initial;
   }
-  return { ...state, [action.type]: action.value };
+  if (action.type === "analysis") return { ...state, analysis: action.value };
+  return state;
 }
 export type ReviewMetric = "temperature" | "power";
 /** 视图直接决定显示内容，不再通过额外开关隐藏当前指标。 */
@@ -72,6 +253,12 @@ export function reviewPresentation(
   level: AppState["level"],
 ) {
   const detail = level === "device";
+  if (layer === "alarms")
+    return {
+      mode: "alarms" as const,
+      title: "告警定位",
+      description: "在下方列表选择设备，再定位到空间；不会自动抽出或拆开设备。",
+    };
   if (layer === "environment")
     return {
       mode: "temperature" as const,
@@ -90,10 +277,10 @@ export function reviewPresentation(
     };
   return {
     mode: "status" as const,
-    title: "原始材质 · 运行状态",
+    title: detail ? "设备结构" : "空间与设备",
     description: detail
       ? "保留模型材质；部件状态来自模型评估，非独立告警。"
-      : "标记表示对象状态；告警详情从右上角“告警”查看。",
+      : "单击选中对象；通过“查看”逐层进入机柜和设备。",
   };
 }
 export type ReviewPoint = {

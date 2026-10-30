@@ -1,11 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useReducer,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
 import {
   createReview,
   reviewTransition,
@@ -14,9 +7,9 @@ import {
 } from "./review-model";
 import type { ReviewMetric, ReviewShot } from "./review-model";
 import type { Action, Level } from "./domain";
-import { entityById, getPath } from "./domain";
+import { entityById, getPath, presentationKey } from "./domain";
 import { spatialSnapshot, selectedReading } from "./spatial";
-import { devices, deviceById, rackForDevice } from "./installation";
+import { devices, deviceById } from "./installation";
 import {
   partsForDevice,
   subpartsForDevice,
@@ -30,18 +23,21 @@ import {
   signalStyles,
   signalText,
 } from "./status";
-import { phaseLabels } from "./mechanics";
-import type { PresentationPhase } from "./mechanics";
-import { ObjectTree } from "./components/ObjectTree";
+import type { PresentationPhase, SceneFeedback } from "./mechanics";
+import { ResourceNavigator } from "./components/ResourceNavigator";
+import { ResourceActions } from "./components/ResourceActions";
+import { ReviewAlerts } from "./components/ReviewAlerts";
+import { resourceCatalog, resourceOpenLabel } from "./review-resources";
 import { ReviewScene } from "./components/ReviewScene";
 import { ReviewTrend } from "./components/ReviewTrend";
 import "./design-review.css";
+import "./resource-navigation.css";
 
 const shots: { id: ReviewShot; name: string; note: string }[] = [
-  { id: "overview", name: "总览", note: "材质、定位与状态的主次关系" },
-  { id: "environment", name: "环境", note: "同一空间，切换温度观察" },
-  { id: "assembly", name: "设备展开", note: "结构操作与数据图层共存" },
-  { id: "time", name: "时间分析", note: "曲线、事件与三维共用时间" },
+  { id: "overview", name: "机房浏览", note: "材质、定位与状态的主次关系" },
+  { id: "environment", name: "温度分布", note: "同一空间，切换温度观察" },
+  { id: "assembly", name: "部件展开", note: "结构操作与数据图层共存" },
+  { id: "time", name: "运行回看", note: "曲线、事件与三维共用时间" },
 ];
 const temperatureText = (value: number | null | undefined) =>
   value == null ? "—" : value.toFixed(1);
@@ -63,25 +59,33 @@ export function DesignReview() {
   const [shotRevision, setShotRevision] = useState(0);
   const [phase, setPhase] = useState<PresentationPhase>("closed");
   const [navigation, setNavigation] = useState(false);
-  const [alarmPanel, setAlarmPanel] = useState(false);
-  const alarmEntry = useRef<HTMLButtonElement>(null);
-  const alarmClose = useRef<HTMLButtonElement>(null);
-  const wasAlarmOpen = useRef(false);
+  const [feedback, setFeedback] = useState<SceneFeedback | null>(null);
+  const ready =
+    !review.pendingId &&
+    !!feedback?.settled &&
+    feedback.key === presentationKey(state);
   useEffect(() => {
-    if (alarmPanel) alarmClose.current?.focus();
-    else if (wasAlarmOpen.current) alarmEntry.current?.focus();
-    wasAlarmOpen.current = alarmPanel;
-  }, [alarmPanel]);
-  const [alarmFilter, setAlarmFilter] = useState("all");
+    if (
+      review.pendingId &&
+      feedback?.settled &&
+      feedback.key === presentationKey(state)
+    )
+      control({ type: "navigation-ready", key: feedback.key });
+  }, [review.pendingId, feedback, state]);
+  const selectedId = review.selectedId ?? state.selected;
+  const inspected = { ...state, selected: selectedId };
+  const resource = resourceCatalog(state.deviceId).find(
+    (item) => item.id === selectedId,
+  );
+  const preview = selectedId !== state.selected;
   const [metricChoice, setMetricChoice] = useState<ReviewMetric>("temperature");
   const spatial = useMemo(
     () => spatialSnapshot(state.time, state.replayCycle, state.deviceId),
     [state.time, state.replayCycle, state.deviceId],
   );
-  const reading = selectedReading(state, spatial.readings);
+  const reading = selectedReading(inspected, spatial.readings);
   const room = spatial.readings.get("room-01")!;
-  const sample = spatial.samples.get(state.deviceId)!;
-  const entity = entityById(state.selected)!;
+  const entity = entityById(selectedId)!;
   const component = entity.kind === "part";
   const signal = signalStyles[signalFor(reading)];
   const readingStatus =
@@ -97,8 +101,8 @@ export function DesignReview() {
         ? "temperature"
         : metricChoice;
   const series = useMemo(
-    () => reviewHistory(state.selected, state.deviceId, metric),
-    [state.selected, state.deviceId, metric],
+    () => reviewHistory(selectedId, state.deviceId, metric),
+    [selectedId, state.deviceId, metric],
   );
   const dispatch = useCallback((action: Action) => {
     control({ type: "scene", action });
@@ -112,28 +116,27 @@ export function DesignReview() {
       document.title = previous;
     };
   }, []);
+  const pick = useCallback((id: string) => control({ type: "pick", id }), []);
+  const openResource = useCallback((id: string) => {
+    control({ type: "open-resource", id });
+    setNavigation(false);
+    requestAnimationFrame(() => {
+      const center = document.querySelector<HTMLElement>(".review-center");
+      center?.focus({ preventScroll: true });
+      if (matchMedia("(max-width: 600px)").matches)
+        center?.scrollIntoView({ block: "start" });
+    });
+  }, []);
+  const focusResource = useCallback(
+    (id: string) => control({ type: "focus-resource", id }),
+    [],
+  );
   const select = useCallback(
     (id: string, enter = false) => {
-      const target = entityById(id);
-      if (!target) return;
-      if (target.kind === "part") {
-        dispatch({ type: "select", id });
-        if (
-          subpartsForDevice(state.deviceId).some((part) => part.id === id) &&
-          state.explosion === 0
-        )
-          dispatch({ type: "explode", amount: 1 });
-      } else if (enter && ["room", "rack", "device"].includes(target.kind))
-        dispatch({ type: "navigate", level: target.kind as Level, id });
-      else if (
-        (state.level === "device" && target.kind !== "device") ||
-        (state.level === "rack" && target.kind === "facility")
-      )
-        dispatch({ type: "locate", id });
-      else dispatch({ type: "select", id });
-      if (enter) setNavigation(false);
+      if (enter) openResource(id);
+      else pick(id);
     },
-    [dispatch, state.deviceId, state.explosion, state.level],
+    [openResource, pick],
   );
   useEffect(() => {
     if (!state.playing) return;
@@ -144,10 +147,9 @@ export function DesignReview() {
   }, [state.playing, dispatch]);
   useEffect(() => {
     const key = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && (alarmPanel || navigation)) {
+      if (event.key === "Escape" && navigation) {
         event.preventDefault();
-        if (alarmPanel) setAlarmPanel(false);
-        else setNavigation(false);
+        setNavigation(false);
         return;
       }
       if (
@@ -157,26 +159,19 @@ export function DesignReview() {
       )
         return;
       if (event.key === "Escape") {
-        if (alarmPanel) setAlarmPanel(false);
-        else if (navigation) setNavigation(false);
-        else dispatch({ type: "back" });
+        dispatch({ type: "back" });
       }
-      if (event.key.toLowerCase() === "f") dispatch({ type: "focus" });
+      if (event.key.toLowerCase() === "f") focusResource(selectedId);
     };
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
-  }, [alarmPanel, navigation, dispatch]);
+  }, [navigation, dispatch, focusResource, selectedId]);
   const loadShot = (next: ReviewShot) => {
     setShot(next);
     setShotRevision((value) => value + 1);
     control({ type: "shot", shot: next });
-    setAlarmPanel(false);
     setNavigation(false);
   };
-  const alarms = devices
-    .map((d) => spatial.readings.get(d.id)!)
-    .filter((r) => r.alarm > 0)
-    .sort((a, b) => b.alarm - a.alarm || a.name.localeCompare(b.name));
   const parts = [
     ...partsForDevice(state.deviceId),
     ...subpartsForDevice(state.deviceId),
@@ -214,7 +209,10 @@ export function DesignReview() {
     <div
       className="design-review"
       data-time={state.time}
-      data-selection={state.selected}
+      data-selection={selectedId}
+      data-scene-level={state.level}
+      data-scene-device={state.deviceId}
+      data-focus-revision={state.focusRevision}
       data-explosion={state.explosion}
       data-layer={layer}
     >
@@ -231,14 +229,6 @@ export function DesignReview() {
         </span>
         <div className="review-header-actions">
           <span className="review-simulation">确定性模拟 · 120s</span>
-          <button
-            className="review-alarm-entry"
-            ref={alarmEntry}
-            aria-expanded={alarmPanel}
-            onClick={() => setAlarmPanel((v) => !v)}
-          >
-            ◆ 告警 <b>{room.alarmCount}</b>
-          </button>
           <details className="review-about">
             <summary>关于</summary>
             <div>
@@ -262,7 +252,7 @@ export function DesignReview() {
           aria-expanded={navigation}
           onClick={() => setNavigation((v) => !v)}
         >
-          对象导航 {navigation ? "−" : "+"}
+          资源导航 {navigation ? "−" : "+"}
         </button>
         <nav aria-label="空间路径">
           {getPath(state).map((id, i) => (
@@ -299,10 +289,23 @@ export function DesignReview() {
         role="main"
         aria-label="设计评审工作区"
       >
-        <ObjectTree state={state} sample={sample} onSelect={select} />
-        <section className="review-center" aria-label="连续工作区">
+        <ResourceNavigator
+          state={state}
+          selected={selectedId}
+          readings={spatial.readings}
+          ready={ready}
+          onPick={pick}
+          onOpen={openResource}
+          onFocus={focusResource}
+          onBack={() => dispatch({ type: "back" })}
+        />
+        <section
+          className="review-center"
+          aria-label="连续工作区"
+          tabIndex={-1}
+        >
           <div className="review-layerbar">
-            <div className="review-layers" aria-label="数据图层">
+            <div className="review-layers" aria-label="观察视图">
               {reviewLayers.map((l) => (
                 <button
                   key={l.id}
@@ -311,6 +314,11 @@ export function DesignReview() {
                   onClick={() => control({ type: "layer", layer: l.id })}
                 >
                   {l.name}
+                  {l.id === "alarms" && (
+                    <small className="review-view-count">
+                      {room.alarmCount}
+                    </small>
+                  )}
                 </button>
               ))}
             </div>
@@ -323,106 +331,26 @@ export function DesignReview() {
             dispatch={dispatch}
             onSelect={select}
             onPhase={setPhase}
+            onFeedback={setFeedback}
           />
-          <div className="review-object-actions" aria-label="对象操作">
-            <span>对象操作</span>
-            {state.level === "room" ? (
-              <>
-                <strong>{entity.name}</strong>
-                <button
-                  onClick={() =>
-                    dispatch(
-                      entity.kind === "facility"
-                        ? { type: "focus" }
-                        : {
-                            type: "locate",
-                            id:
-                              entity.kind === "rack" || entity.kind === "device"
-                                ? entity.id
-                                : "rack-a01",
-                          },
-                    )
-                  }
-                >
-                  {entity.kind === "facility"
-                    ? "聚焦设施"
-                    : entity.kind === "device"
-                      ? "进入设备"
-                      : entity.kind === "room"
-                        ? "进入 A01 机柜"
-                        : "进入机柜"}{" "}
-                  ↗
-                </button>
-              </>
-            ) : state.level === "rack" ? (
-              <>
-                <button
-                  aria-pressed={state.doorOpen}
-                  onClick={() =>
-                    dispatch({ type: "door", open: !state.doorOpen })
-                  }
-                >
-                  {state.doorOpen ? "关闭柜门" : "打开柜门"}
-                </button>
-                <button
-                  disabled={
-                    modelForDevice(state.deviceId).category === "switch"
-                  }
-                  aria-pressed={state.trayExtended}
-                  onClick={() =>
-                    dispatch({ type: "tray", extended: !state.trayExtended })
-                  }
-                >
-                  {state.trayExtended ? "推回设备" : "抽出设备"}
-                </button>
-                <button
-                  onClick={() =>
-                    dispatch({
-                      type: "navigate",
-                      level: "device",
-                      id: state.deviceId,
-                    })
-                  }
-                >
-                  探索设备 ↗
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  aria-pressed={state.explosion > 0}
-                  onClick={() => dispatch({ type: "explode", amount: 1 })}
-                >
-                  展开部件
-                </button>
-                <button
-                  onClick={() => dispatch({ type: "explode", amount: 0 })}
-                >
-                  复原装配
-                </button>
-                <label className="review-explode-label">
-                  展开{" "}
-                  <input
-                    aria-label="评审部件展开进度"
-                    type="range"
-                    min="0"
-                    max="100"
-                    value={state.explosion * 100}
-                    onChange={(e) =>
-                      dispatch({
-                        type: "explode",
-                        amount: Number(e.target.value) / 100,
-                      })
-                    }
-                  />
-                  <output>{Math.round(state.explosion * 100)}%</output>
-                </label>
-              </>
-            )}
-            {state.level !== "room" && (
-              <small role="status">{phaseLabels[phase]}</small>
-            )}
-          </div>
+          {layer === "alarms" && (
+            <ReviewAlerts
+              readings={spatial.readings}
+              selected={selectedId}
+              time={state.time}
+              onPick={pick}
+              onLocate={focusResource}
+            />
+          )}
+          <ResourceActions
+            state={state}
+            selected={selectedId}
+            ready={ready}
+            phase={phase}
+            dispatch={dispatch}
+            onOpen={openResource}
+            onExtract={(id) => control({ type: "extract-resource", id })}
+          />
           <div className="review-clock">
             <button
               onClick={() => dispatch({ type: "play" })}
@@ -547,11 +475,27 @@ export function DesignReview() {
           </div>
           <div className="review-identity">
             <small>
-              {state.level === "device"
-                ? `${rackForDevice(state.deviceId).name} / ${state.deviceId.toUpperCase()}`
-                : "MIRAGE / 浮城"}
+              {entity.kind === "device"
+                ? modelForDevice(selectedId).name
+                : component
+                  ? `${state.deviceId.toUpperCase()} / 部件模型`
+                  : "MIRAGE / 浮城"}
             </small>
-            <h1>{entity.name}</h1>
+            <h1>{resource?.name ?? entity.name}</h1>
+            {resource && (
+              <p className="review-resource-location">{resource.location}</p>
+            )}
+            {preview && (
+              <div className="review-resource-preview">
+                <p>正在预览其他位置的资源</p>
+                <button
+                  disabled={!ready}
+                  onClick={() => openResource(selectedId)}
+                >
+                  {resourceOpenLabel(state, selectedId)} ↗
+                </button>
+              </div>
+            )}
             <span className="review-signal" style={{ color: signal.color }}>
               {signal.icon} {readingStatus}
             </span>
@@ -621,7 +565,9 @@ export function DesignReview() {
                 </div>
                 <div>
                   <span>{component ? "整机告警" : "告警设备"}</span>
-                  <button onClick={() => setAlarmPanel(true)}>
+                  <button
+                    onClick={() => control({ type: "layer", layer: "alarms" })}
+                  >
                     {component
                       ? spatial.readings.get(state.deviceId)!.alarmCount
                       : reading.alarmCount}
@@ -679,14 +625,10 @@ export function DesignReview() {
           )}
           {state.level === "device" && (
             <label className="review-part-select">
-              定位部件
+              选择部件
               <select
                 aria-label="评审选择部件"
-                value={
-                  parts.some((p) => p.id === state.selected)
-                    ? state.selected
-                    : ""
-                }
+                value={parts.some((p) => p.id === selectedId) ? selectedId : ""}
                 onChange={(e) => select(e.target.value || state.deviceId)}
               >
                 <option value="">整台设备</option>
@@ -701,10 +643,9 @@ export function DesignReview() {
           <details className="review-detail">
             <summary>配置与数据详情</summary>
             <p>{entity.description}</p>
-            {deviceById(state.selected) && (
+            {deviceById(selectedId) && (
               <p>
-                {unitLabel(state.selected)} ·{" "}
-                {modelForDevice(state.selected).name}
+                {unitLabel(selectedId)} · {modelForDevice(selectedId).name}
               </p>
             )}
             {component && (
@@ -724,81 +665,9 @@ export function DesignReview() {
             )}
           </details>
         </aside>
-        {alarmPanel && (
-          <aside
-            className="review-alarm-panel"
-            role="dialog"
-            aria-modal="false"
-            aria-labelledby="review-alarm-title"
-          >
-            <div>
-              <h2 id="review-alarm-title">
-                告警视窗 <small>{alarms.length} 台设备</small>
-              </h2>
-              <button
-                ref={alarmClose}
-                aria-label="关闭告警列表"
-                onClick={() => setAlarmPanel(false)}
-              >
-                ×
-              </button>
-            </div>
-            <p>温度告警 · t+{state.time}s · 全机房</p>
-            <p className="review-alarm-help">
-              选择告警可定位设备，当前指标视图与时间保持不变。
-            </p>
-            <div className="review-alarm-filter">
-              {[
-                ["all", "全部"],
-                ["2", "◆ 严重"],
-                ["1", "▲ 预警"],
-              ].map(([id, name]) => (
-                <button
-                  key={id}
-                  aria-pressed={alarmFilter === id}
-                  onClick={() => setAlarmFilter(id)}
-                >
-                  {name}
-                </button>
-              ))}
-            </div>
-            <div className="review-alarm-list">
-              {alarms
-                .filter(
-                  (a) =>
-                    alarmFilter === "all" || a.alarm === Number(alarmFilter),
-                )
-                .map((a) => (
-                  <button
-                    key={a.id}
-                    onClick={() => {
-                      dispatch({ type: "locate", id: a.id });
-                      setAlarmPanel(false);
-                    }}
-                  >
-                    <span style={{ color: signalStyles[signalFor(a)].color }}>
-                      {signalStyles[signalFor(a)].icon}{" "}
-                      {signalStyles[signalFor(a)].label}
-                    </span>
-                    <span>
-                      <b>{a.name}</b>
-                      <small>
-                        {rackForDevice(a.id).name} · {a.temperature?.toFixed(1)}{" "}
-                        °C
-                      </small>
-                    </span>
-                    <span>定位 ↗</span>
-                  </button>
-                ))}
-              {!alarms.filter(
-                (a) => alarmFilter === "all" || a.alarm === Number(alarmFilter),
-              ).length && <p>当前筛选下没有告警</p>}
-            </div>
-          </aside>
-        )}
       </div>
       <footer className="review-rail">
-        <span>设计评审</span>
+        <span>评审示例</span>
         <nav aria-label="载入评审画面">
           {shots.map((s, i) => (
             <button
@@ -820,13 +689,13 @@ export function DesignReview() {
               左侧定位，中间观察与操作，右侧只服务所选对象。结构操作独立于图层；时间分析按需展开。评审画面按钮载入固定预设，会重置对象和时间。
             </p>
             <p>
-              建议主入口顺序：总览 → 环境 → 电力 → 空间容量 →
-              连接。“空间容量”明确为可安装 U
+              当前入口：空间 → 温度 → 功耗 →
+              告警。后续扩展空间容量与连接。“空间容量”明确为可安装 U
               位；“连接”只呈现已定义端点。后两项尚未实现，不占用主导航。
             </p>
             <p>
               温度色阶表示读数，电力色阶表示功耗/预算；严重与预警使用 ◆ / ▲
-              和文字。各视图直接显示对应数据；告警通过独立视窗筛选和定位。
+              和文字。各视图直接显示对应数据；告警与温度、功耗同级，在场景下方筛选和定位。单击资源只预览，查看内部需先进入所在机柜。
             </p>
             <p>
               本轮未增加切片、气流、湿度或连接视图。独立开盖动作、粒子和时间曲线对比待后续实现。

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { Action, AppState } from "../domain";
-import type { PresentationPhase } from "../mechanics";
+import type { PresentationPhase, SceneFeedback } from "../mechanics";
 import { SceneEngine } from "../scene/engine";
 import type { View } from "../scene/engine";
 import { devices, racks, rackForDevice } from "../installation";
@@ -16,6 +16,7 @@ export function ReviewScene({
   dispatch,
   onSelect,
   onPhase,
+  onFeedback,
   shotRevision,
 }: {
   state: AppState;
@@ -24,16 +25,18 @@ export function ReviewScene({
   dispatch: (action: Action) => void;
   onSelect: (id: string, enter?: boolean) => void;
   onPhase: (phase: PresentationPhase) => void;
+  onFeedback: (feedback: SceneFeedback) => void;
   shotRevision: number;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const anchors = useRef<HTMLDivElement>(null);
   const engine = useRef<SceneEngine | null>(null);
   const initial = useRef(state);
+  const previousScene = useRef(state);
   const currentState = useRef(state);
   currentState.current = state;
-  const callbacks = useRef({ onSelect, onPhase });
-  callbacks.current = { onSelect, onPhase };
+  const callbacks = useRef({ onSelect, onPhase, onFeedback });
+  callbacks.current = { onSelect, onPhase, onFeedback };
   const [error, setError] = useState("");
   const [retry, setRetry] = useState(0);
   const [assets, setAssets] = useState("loading");
@@ -52,6 +55,7 @@ export function ReviewScene({
         (id, enter) => callbacks.current.onSelect(id, enter),
         setError,
         (phase) => callbacks.current.onPhase(phase),
+        (feedback) => callbacks.current.onFeedback(feedback),
       );
       active.autoOrbit = false;
       active.onAssets = setAssets;
@@ -73,7 +77,33 @@ export function ReviewScene({
     };
   }, [retry]);
   useEffect(() => {
-    engine.current?.update(state);
+    const active = engine.current;
+    active?.update(state);
+    const rackLabel = active?.models.rack.getObjectByName("rack-label");
+    if (rackLabel) rackLabel.visible = state.level === "room";
+    if (
+      active &&
+      state.level === "rack" &&
+      state.focusRevision !== previousScene.current.focusRevision
+    ) {
+      // 资源定位保留机柜上下文，避免自动贴到封闭设备内部。
+      active.view("iso", false);
+      if (
+        previousScene.current.level === "rack" &&
+        previousScene.current.deviceId !== state.deviceId
+      ) {
+        active.camera.position.copy(active.targetPosition);
+        active.controls.target.copy(active.targetLook);
+        active.controls.update();
+        active.moving = false;
+        if (!matchMedia("(prefers-reduced-motion: reduce)").matches)
+          host.current?.animate([{ opacity: 0 }, { opacity: 1 }], {
+            duration: 220,
+            easing: "ease-out",
+          });
+      }
+    }
+    previousScene.current = state;
   }, [state, retry]);
   useEffect(() => {
     // 评审预设使用相同的空间构图，便于直接比较图层；普通操作不触发。
@@ -106,10 +136,13 @@ export function ReviewScene({
         ? devices.filter((d) => d.rackId === rackForDevice(state.deviceId).id)
         : [];
   const labels = [...candidates]
+    .filter(
+      (item) => layer !== "alarms" || (readings.get(item.id)?.alarm ?? 0) > 0,
+    )
     .sort(
       (a, b) =>
         Number(b.id === state.selected) - Number(a.id === state.selected) ||
-        (layer === "overview"
+        (layer === "overview" || layer === "alarms"
           ? (readings.get(b.id)?.alarm ?? 0) - (readings.get(a.id)?.alarm ?? 0)
           : layer === "environment"
             ? (readings.get(b.id)?.temperature ?? -Infinity) -
@@ -124,6 +157,7 @@ export function ReviewScene({
     // 投影先由引擎完成；按选择和异常优先级移除碰撞标签。
     let frame = 0;
     const declutter = () => {
+      const sceneRect = host.current?.parentElement?.getBoundingClientRect();
       const accepted = [
         ...(host.current?.parentElement?.querySelectorAll<HTMLElement>(
           ".review-scene-caption, .review-camera, .review-legend, .review-scene-tools, .review-loading",
@@ -136,6 +170,11 @@ export function ReviewScene({
         if (label.hidden) continue;
         const rect = label.getBoundingClientRect();
         if (
+          (sceneRect &&
+            (rect.left < sceneRect.left + 8 ||
+              rect.right > sceneRect.right - 8 ||
+              rect.top < sceneRect.top + 8 ||
+              rect.bottom > sceneRect.bottom - 8)) ||
           accepted.some(
             (r) =>
               rect.left < r.right + 8 &&
@@ -179,7 +218,7 @@ export function ReviewScene({
       <div className="review-camera" aria-label="评审标准视角">
         {(
           [
-            ["interior", "总览"],
+            ["interior", "全景"],
             ["iso", "等轴"],
             ["top", "俯视"],
             ["front", "前视"],
@@ -211,7 +250,7 @@ export function ReviewScene({
               onDoubleClick={() => onSelect(item.id, true)}
             >
               <b>{item.name.split(" ")[0]}</b>
-              {layer !== "overview" && (
+              {layer !== "overview" && layer !== "alarms" && (
                 <span>
                   {reading.quality !== "valid"
                     ? reading.quality === "stale"
@@ -228,7 +267,7 @@ export function ReviewScene({
                           : `${reading.power.toFixed(0)} W`}
                 </span>
               )}
-              {layer === "overview" && (
+              {(layer === "overview" || layer === "alarms") && (
                 <em style={{ color: signal.color }}>
                   {reading.alarmCount > 0
                     ? `${signal.icon} 告警 ${reading.alarmCount}台`
@@ -274,15 +313,17 @@ export function ReviewScene({
         </details>
       </div>
       <div className="review-legend" aria-label="当前图层图例">
-        {layer === "overview" ? (
+        {layer === "overview" || layer === "alarms" ? (
           <div className="review-status-key">
             {state.level === "device" && (
               <small>部件模型评估 · 非独立告警</small>
             )}
-            <span>● 正常</span>
-            <span>▲ 预警</span>
-            <span>◆ 严重</span>
-            <span>⊘ 离线</span>
+            {layer !== "alarms" && (
+              <span className="legend-normal">● 正常</span>
+            )}
+            <span className="legend-warning">▲ 预警</span>
+            <span className="legend-critical">◆ 严重</span>
+            {layer !== "alarms" && <span>⊘ 离线</span>}
           </div>
         ) : (
           <>
