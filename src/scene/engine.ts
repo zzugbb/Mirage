@@ -101,7 +101,7 @@ export class SceneEngine {
   interior = false;
   currentView: View = "iso";
   currentFocus = false;
-  onAssets: (status: string) => void = () => {};
+  onAssets: (status: "ready" | "degraded") => void = () => {};
 
   constructor(
     host: HTMLElement,
@@ -368,11 +368,7 @@ export class SceneEngine {
     ]);
     if (!this.destroyed) {
       this.assetsLoaded = true;
-      this.onAssets(
-        completed === 3
-          ? "贡献模型 · 已载入"
-          : "部分模型不可用 · 已使用简化结构",
-      );
+      this.onAssets(completed === 3 ? "ready" : "degraded");
       this.view(this.currentView, this.currentFocus);
     }
   }

@@ -1432,15 +1432,7 @@ h3 {
   background: #dae5f2;
   border-color: #24292f;
 }
-.model-status {
-  position: absolute;
-  bottom: 90px;
-  left: 27px;
-  font-size: 8px;
-  color: #7e8792;
-  letter-spacing: 1px;
-  pointer-events: none;
-}
+
 .scene-index {
   bottom: 27px;
 }
@@ -1457,13 +1449,6 @@ h3 {
 }
 .scene-error {
   background: #191d23f5;
-}
-@media (max-width: 580px) {
-  .model-status {
-    bottom: 82px;
-    left: 20px;
-    font-size: 7px;
-  }
 }
 
 .scene-heading {

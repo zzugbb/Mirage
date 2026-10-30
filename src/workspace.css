@@ -388,13 +388,7 @@ main.has-telemetry {
   background: #34465b;
   border-color: #91aac8;
 }
-.model-status {
-  top: 56px;
-  left: 16px;
-  bottom: auto;
-  max-width: calc(100% - 32px);
-  font-size: 9px;
-}
+
 .relation-legend {
   top: 51px;
   left: 16px;

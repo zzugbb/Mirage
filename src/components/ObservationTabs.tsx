@@ -1,10 +1,10 @@
 import type { InspectionView } from "./ReplayPanel";
 const views = [
-  ["status", "态势"],
-  ["object", "结构"],
-  ["temperature", "温度"],
-  ["power", "功耗"],
-  ["alarms", "告警"],
+  ["status", "运行状态", "查看设备状态标记与运行概览"],
+  ["object", "结构拆解", "查看原始材质、部件清单与展开复原"],
+  ["temperature", "温度", "查看设备进风与部件模型温度"],
+  ["power", "功耗", "查看设备输入功耗与分配"],
+  ["alarms", "告警", "查看并定位设备告警"],
 ] as const;
 export function ObservationTabs({
   view,
@@ -38,10 +38,11 @@ export function ObservationTabs({
           ?.focus();
       }}
     >
-      {views.map(([key, label]) => (
+      {views.map(([key, label, description]) => (
         <button
           key={key}
           role="tab"
+          title={description}
           id={`inspection-${key}`}
           data-view={key}
           aria-selected={key === view}

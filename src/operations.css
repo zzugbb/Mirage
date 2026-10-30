@@ -245,7 +245,7 @@
   justify-content: space-between;
   align-items: center;
   width: 100%;
-  padding: 11px 0;
+  padding: 12px;
   border-bottom: 1px solid #304157;
   gap: 8px;
   text-align: left;
@@ -254,6 +254,7 @@
   background: #25364a;
 }
 .state-object-name {
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -618,11 +619,85 @@
 .object-panel-title {
   color: #d9dfd8;
 }
-.object-panel input {
+.object-search {
   background: #171e21;
-  border: 1px solid #35403f;
-  color: #dce3d8;
+  border-color: #35403f;
+  min-height: 36px;
 }
+.object-search:focus-within {
+  border-color: #dca774;
+  box-shadow: inset 0 0 0 1px #dca774;
+}
+.object-search input {
+  color: #dce3d8;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+.object-search input:focus-visible {
+  outline: none;
+}
+.object-search button:focus-visible {
+  outline: 1px solid #dca774;
+  outline-offset: 2px;
+}
+.state-object-list .signal-badge {
+  flex-shrink: 0;
+}
+.state-object-name small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.workspace-title {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+}
+.workspace-title h1 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.workspace-title .model-status {
+  position: static;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 9px;
+  line-height: 12px;
+  letter-spacing: 0;
+  color: #c8b69c;
+  white-space: nowrap;
+}
+.load-indicator {
+  width: 7px;
+  height: 7px;
+  flex-shrink: 0;
+}
+.model-status.loading .load-indicator {
+  border: 1px solid #59655b;
+  border-top-color: #dca774;
+  border-radius: 50%;
+  animation: model-load-spin 0.9s linear infinite;
+}
+.model-status.degraded .load-indicator:before {
+  content: "!";
+  font-weight: 600;
+}
+@keyframes model-load-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .model-status.loading .load-indicator {
+    animation: none;
+  }
+}
+
 .tree-row {
   color: #9eaaa5;
   border-radius: 0;
@@ -693,9 +768,6 @@
 .state-object-name strong {
   color: #d8e1d4;
   font-size: 11px;
-}
-.state-object-list button {
-  padding-block: 12px;
 }
 .state-object-list button:hover {
   background: #242e29;

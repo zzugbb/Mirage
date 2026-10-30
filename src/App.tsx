@@ -175,7 +175,7 @@ export function App() {
         <button
           className={`data-source replay-entry status-${scope.alarm === 2 ? "critical" : scope.alarm === 1 ? "warning" : "normal"}`}
           onClick={() => inspect("status")}
-          aria-label={`运行态势，${signalText(scope)}，模拟告警 ${scope.alarmCount} 台设备`}
+          aria-label={`运行状态，${signalText(scope)}，模拟告警 ${scope.alarmCount} 台设备`}
         >
           <i className="status-dot" />
           {signalText(scope)} {scope.alarmCount ? `${scope.alarmCount} 台` : ""}

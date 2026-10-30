@@ -88,9 +88,9 @@ export function StatePanel({
   );
   const source = reading?.quality;
   return (
-    <section className="state-panel" aria-label="运行态势">
+    <section className="state-panel" aria-label="运行状态">
       <div className="overline">
-        {kind === "device" ? modelForDevice(state.deviceId).name : "运行态势"}
+        {kind === "device" ? modelForDevice(state.deviceId).name : "运行状态"}
       </div>
       <h2>{reading?.name ?? entityById(state.selected)?.name}</h2>
       {kind === "device" && (

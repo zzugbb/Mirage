@@ -66,7 +66,9 @@ export function Viewport({
   );
   const [chartExpanded, setChartExpanded] = useState(false);
   const [labels, setLabels] = useState(false);
-  const [assetStatus, setAssetStatus] = useState("增强模型载入中…");
+  const [assetStatus, setAssetStatus] = useState<
+    "loading" | "ready" | "degraded"
+  >("loading");
   const initial = useRef(state);
   const previousLevel = useRef<string | null>(null);
   const runtime = useRef({
@@ -79,6 +81,7 @@ export function Viewport({
   runtime.current = { onError, onPhase, onFeedback, orbiting, detailShadows };
   // 引擎仅在挂载或重试时创建；事件读取最新回调，模拟时钟更新不重建 WebGL。
   useEffect(() => {
+    setAssetStatus("loading");
     let active: SceneEngine | null = null;
     try {
       active = new SceneEngine(
@@ -160,13 +163,29 @@ export function Viewport({
       aria-label="三维工作区"
     >
       <div className="workspace-bar">
-        <h1>
-          {state.level === "room"
-            ? "01号机房"
-            : state.level === "rack"
-              ? rackForDevice(state.deviceId).name
-              : state.deviceId.toUpperCase()}
-        </h1>
+        <div className="workspace-title">
+          <h1>
+            {state.level === "room"
+              ? "01号机房"
+              : state.level === "rack"
+                ? rackForDevice(state.deviceId).name
+                : state.deviceId.toUpperCase()}
+          </h1>
+          {!error && assetStatus !== "ready" && (
+            <div
+              className={`model-status ${assetStatus}`}
+              role="status"
+              title={
+                assetStatus === "loading"
+                  ? "正在加载详细模型，场景可继续浏览"
+                  : "部分详细模型不可用，已使用简化结构"
+              }
+            >
+              <span className="load-indicator" aria-hidden="true" />
+              {assetStatus === "loading" ? "模型加载中…" : "已用简化结构"}
+            </div>
+          )}
+        </div>
         <ObservationTabs view={inspectionView} onChange={onViewChange} />
       </div>
       <div
@@ -360,13 +379,6 @@ export function Viewport({
               {label}
             </button>
           ))}
-        </div>
-        <div
-          className="model-status"
-          role="status"
-          hidden={assetStatus === "贡献模型 · 已载入"}
-        >
-          {assetStatus}
         </div>
         <div className="scene-index">
           <span>
