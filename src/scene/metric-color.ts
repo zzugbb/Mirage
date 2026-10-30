@@ -14,7 +14,9 @@ export function observationColor(reading: SpatialReading, mode: string) {
       .set(stops[index])
       .lerp(new THREE.Color(stops[index + 1]), position - index);
   }
-  if (mode === "power" && reading.power !== null && reading.budget) {
+  if (mode === "power") {
+    if (reading.power === null || !reading.budget)
+      return color.set(signalStyles.missing.color);
     const load = THREE.MathUtils.clamp(reading.power / reading.budget, 0, 1);
     return load < 0.5
       ? color.set("#1a386e").lerp(new THREE.Color("#21abd4"), load * 2)

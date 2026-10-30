@@ -84,6 +84,12 @@ export function DesignReview() {
   const entity = entityById(state.selected)!;
   const component = entity.kind === "part";
   const signal = signalStyles[signalFor(reading)];
+  const readingStatus =
+    !component && reading?.alarm
+      ? `温度告警 · ${signal.label}`
+      : component && reading?.quality === "valid"
+        ? `模型评估 · ${signal.label}`
+        : signalText(reading);
   const metric: ReviewMetric =
     layer === "power"
       ? "power"
@@ -308,35 +314,11 @@ export function DesignReview() {
                 </button>
               ))}
             </div>
-            <div className="review-layer-options">
-              <label title="关闭数据着色以查看原始模型">
-                <input
-                  type="checkbox"
-                  checked={review.data}
-                  onChange={(e) =>
-                    control({ type: "data", value: e.target.checked })
-                  }
-                />
-                数据
-              </label>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={review.alarms}
-                  onChange={(e) =>
-                    control({ type: "alarms", value: e.target.checked })
-                  }
-                />
-                告警叠加
-              </label>
-            </div>
           </div>
           <ReviewScene
             shotRevision={shotRevision}
             state={state}
             layer={layer}
-            data={review.data}
-            alarms={review.alarms}
             readings={spatial.readings}
             dispatch={dispatch}
             onSelect={select}
@@ -571,7 +553,7 @@ export function DesignReview() {
             </small>
             <h1>{entity.name}</h1>
             <span className="review-signal" style={{ color: signal.color }}>
-              {signal.icon} {signalText(reading)}
+              {signal.icon} {readingStatus}
             </span>
             {component && (
               <p className="review-model-note">
@@ -601,6 +583,15 @@ export function DesignReview() {
                       : `t+${reading.observedAt}s`}
                   </time>
                 </div>
+                {layer === "power" && (
+                  <p className="review-budget">
+                    {reading.budget !== null &&
+                    reading.budget > 0 &&
+                    reading.power !== null
+                      ? `预算 ${powerText(reading.budget)} ${reading.budget >= 1000 ? "kW" : "W"} · 当前占比 ${((reading.power / reading.budget) * 100).toFixed(1)}%`
+                      : "未定义有效预算 · 不计算占比"}
+                  </p>
+                )}
               </div>
               <div className="review-secondary-metrics">
                 <div>
@@ -734,10 +725,15 @@ export function DesignReview() {
           </details>
         </aside>
         {alarmPanel && (
-          <aside className="review-alarm-panel" aria-label="独立告警列表">
+          <aside
+            className="review-alarm-panel"
+            role="dialog"
+            aria-modal="false"
+            aria-labelledby="review-alarm-title"
+          >
             <div>
-              <h2>
-                当前告警 <small>{alarms.length} 台设备</small>
+              <h2 id="review-alarm-title">
+                告警视窗 <small>{alarms.length} 台设备</small>
               </h2>
               <button
                 ref={alarmClose}
@@ -748,6 +744,9 @@ export function DesignReview() {
               </button>
             </div>
             <p>温度告警 · t+{state.time}s · 全机房</p>
+            <p className="review-alarm-help">
+              选择告警可定位设备，当前指标视图与时间保持不变。
+            </p>
             <div className="review-alarm-filter">
               {[
                 ["all", "全部"],
@@ -763,16 +762,6 @@ export function DesignReview() {
                 </button>
               ))}
             </div>
-            <label className="review-alarm-overlay">
-              <input
-                type="checkbox"
-                checked={review.alarms}
-                onChange={(e) =>
-                  control({ type: "alarms", value: e.target.checked })
-                }
-              />
-              在当前图层叠加告警标记
-            </label>
             <div className="review-alarm-list">
               {alarms
                 .filter(
@@ -788,7 +777,8 @@ export function DesignReview() {
                     }}
                   >
                     <span style={{ color: signalStyles[signalFor(a)].color }}>
-                      {signalStyles[signalFor(a)].icon}
+                      {signalStyles[signalFor(a)].icon}{" "}
+                      {signalStyles[signalFor(a)].label}
                     </span>
                     <span>
                       <b>{a.name}</b>
@@ -836,7 +826,7 @@ export function DesignReview() {
             </p>
             <p>
               温度色阶表示读数，电力色阶表示功耗/预算；严重与预警使用 ◆ / ▲
-              和文字。数据关闭仅关闭三维着色。告警可独立定位或叠加。
+              和文字。各视图直接显示对应数据；告警通过独立视窗筛选和定位。
             </p>
             <p>
               本轮未增加切片、气流、湿度或连接视图。独立开盖动作、粒子和时间曲线对比待后续实现。

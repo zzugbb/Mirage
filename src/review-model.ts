@@ -8,8 +8,6 @@ export type ReviewState = {
   scene: AppState;
   layer: ReviewLayer;
   analysis: boolean;
-  data: boolean;
-  alarms: boolean;
 };
 export const reviewLayers = [
   { id: "overview", name: "总览", description: "原始材质与运行状态" },
@@ -25,15 +23,13 @@ export function createReview(): ReviewState {
     scene: { ...createState(), time: 60, playing: false },
     layer: "overview",
     analysis: false,
-    data: true,
-    alarms: true,
   };
 }
 export type ReviewAction =
   | { type: "scene"; action: Action }
   | { type: "layer"; layer: ReviewLayer }
   | { type: "shot"; shot: ReviewShot }
-  | { type: "analysis" | "data" | "alarms"; value: boolean };
+  | { type: "analysis"; value: boolean };
 export function reviewTransition(
   state: ReviewState,
   action: ReviewAction,
@@ -70,6 +66,36 @@ export function reviewTransition(
   return { ...state, [action.type]: action.value };
 }
 export type ReviewMetric = "temperature" | "power";
+/** 视图直接决定显示内容，不再通过额外开关隐藏当前指标。 */
+export function reviewPresentation(
+  layer: ReviewLayer,
+  level: AppState["level"],
+) {
+  const detail = level === "device";
+  if (layer === "environment")
+    return {
+      mode: "temperature" as const,
+      title: detail ? "设备与部件温度 · °C" : "设备进风温度 · °C",
+      description: detail
+        ? "部件为模型表面温度，机箱采用整机进风温度。"
+        : "颜色表示温度高低；机柜标签取有效设备最高进风值。",
+    };
+  if (layer === "power")
+    return {
+      mode: "power" as const,
+      title: "功耗 / 预算占比 · %",
+      description: detail
+        ? "机箱按整机输入、部件按分配功耗着色；右侧显示所选对象的 W 值。"
+        : "颜色表示功耗占预算的比例；标签显示实际 W / kW。",
+    };
+  return {
+    mode: "status" as const,
+    title: "原始材质 · 运行状态",
+    description: detail
+      ? "保留模型材质；部件状态来自模型评估，非独立告警。"
+      : "标记表示对象状态；告警详情从右上角“告警”查看。",
+  };
+}
 export type ReviewPoint = {
   time: number;
   value: number | null;

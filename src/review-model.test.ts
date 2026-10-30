@@ -4,13 +4,11 @@ import {
   createReview,
   reviewTransition,
   reviewHistory,
+  reviewPresentation,
 } from "./review-model.ts";
 import { spatialSnapshot } from "./spatial.ts";
-import * as THREE from "three";
-import { SpatialSignals } from "./scene/signals.ts";
-import type { SceneModel } from "./scene/models.ts";
 
-test("评审中图层、数据与告警独立，回看保留选择、聚焦版本与结构姿态", () => {
+test("切换指标视图和回看保留选择、聚焦版本与结构姿态", () => {
   let state = reviewTransition(createReview(), {
     type: "shot",
     shot: "assembly",
@@ -24,16 +22,13 @@ test("评审中图层、数据与告警独立，回看保留选择、聚焦版�
     state = reviewTransition(state, { type: "layer", layer });
     assert.equal(state.scene, before);
   }
-  state = reviewTransition(state, { type: "alarms", value: false });
-  state = reviewTransition(state, { type: "data", value: false });
   state = reviewTransition(state, { type: "analysis", value: true });
   state = reviewTransition(state, {
     type: "scene",
     action: { type: "seek", time: 20 },
   });
   assert.deepEqual(state.scene, { ...before, time: 20, playing: false });
-  assert.equal(state.alarms, false);
-  assert.equal(state.data, false);
+  assert.equal(state.analysis, true);
 });
 
 test("对象趋势使用所选层级同口径，过期中断、离线留空、停机零值有效", () => {
@@ -59,28 +54,18 @@ test("对象趋势使用所选层级同口径，过期中断、离线留空、�
   );
 });
 
-test("关闭告警叠加会移除状态告警轮廓，但保留温度和功耗的数值标记", () => {
-  const state = createReview().scene;
-  const signals = new SpatialSignals();
-  const readings = spatialSnapshot(60).readings;
-  const models = {
-    server: new THREE.Group(),
-    parts: new Map(),
-  } as unknown as SceneModel;
-  const mark = signals.rackMarks.find((mark) => mark.id === "rack-a01")!;
-  signals.update(state, "status", readings, models, 0, 0, 0, true);
-  assert.equal(mark.root.visible, true);
-  signals.alarmsVisible = false;
-  signals.update(state, "status", readings, models, 0, 0, 0, true);
-  assert.equal(mark.root.visible, false);
-  for (const mode of ["temperature", "power"]) {
-    signals.update(state, mode, readings, models, 0, 0, 0, true);
-    assert.equal(mark.root.visible, true);
+test("各视图直接确定展示内容和单位，不依赖数据或告警开关", () => {
+  for (const level of ["room", "rack", "device"] as const) {
+    assert.equal(reviewPresentation("overview", level).mode, "status");
+    const environment = reviewPresentation("environment", level);
+    assert.equal(environment.mode, "temperature");
+    assert.match(environment.title, /°C/);
+    assert.match(
+      environment.description,
+      level === "device" ? /模型表面温度/ : /最高进风值/,
+    );
+    const power = reviewPresentation("power", level);
+    assert.equal(power.mode, "power");
+    assert.match(power.title, /预算占比.*%/);
   }
-  signals.root.traverse((object) => {
-    if (object instanceof THREE.Mesh) {
-      object.geometry.dispose();
-      (object.material as THREE.Material).dispose();
-    }
-  });
 });

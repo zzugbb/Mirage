@@ -167,7 +167,7 @@ export class SurfaceObservation {
                 ? 4
                 : 1
               : mode === "power"
-                ? reading.power === null
+                ? reading.power === null || !reading.budget
                   ? 4
                   : 2
                 : 3;

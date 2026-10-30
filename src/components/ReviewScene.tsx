@@ -6,13 +6,12 @@ import type { View } from "../scene/engine";
 import { devices, racks, rackForDevice } from "../installation";
 import type { SpatialReading } from "../spatial";
 import type { ReviewLayer } from "../review-model";
+import { reviewPresentation } from "../review-model";
 import { signalFor, signalStyles } from "../status";
 
 export function ReviewScene({
   state,
   layer,
-  data,
-  alarms,
   readings,
   dispatch,
   onSelect,
@@ -21,8 +20,6 @@ export function ReviewScene({
 }: {
   state: AppState;
   layer: ReviewLayer;
-  data: boolean;
-  alarms: boolean;
   readings: Map<string, SpatialReading>;
   dispatch: (action: Action) => void;
   onSelect: (id: string, enter?: boolean) => void;
@@ -44,6 +41,7 @@ export function ReviewScene({
   const [quality, setQuality] = useState(true);
   const [supported, setSupported] = useState(false);
   const [orbit, setOrbit] = useState(false);
+  const presentation = reviewPresentation(layer, state.level);
   useEffect(() => {
     let active: SceneEngine | null = null;
     setAssets("loading");
@@ -85,20 +83,13 @@ export function ReviewScene({
   }, [shotRevision, retry]);
   useEffect(() => {
     if (engine.current) {
-      engine.current.telemetry.mode = !data
-        ? "object"
-        : layer === "environment"
-          ? "temperature"
-          : layer === "power"
-            ? "power"
-            : "status";
+      engine.current.telemetry.mode = presentation.mode;
       // 评审只展示已有设备测点，不把预设冷却关系冒充气流。
       engine.current.telemetry.enabled = false;
+      engine.current.telemetry.root.visible = false;
       engine.current.showLabels = true;
-      engine.current.objectDeviceLabels = true;
-      engine.current.signals.alarmsVisible = alarms;
     }
-  }, [layer, data, alarms, retry]);
+  }, [presentation.mode, retry]);
   useEffect(() => {
     if (engine.current) engine.current.pipeline.enabled = quality;
   }, [quality, retry]);
@@ -118,7 +109,13 @@ export function ReviewScene({
     .sort(
       (a, b) =>
         Number(b.id === state.selected) - Number(a.id === state.selected) ||
-        (readings.get(b.id)?.alarm ?? 0) - (readings.get(a.id)?.alarm ?? 0),
+        (layer === "overview"
+          ? (readings.get(b.id)?.alarm ?? 0) - (readings.get(a.id)?.alarm ?? 0)
+          : layer === "environment"
+            ? (readings.get(b.id)?.temperature ?? -Infinity) -
+              (readings.get(a.id)?.temperature ?? -Infinity)
+            : (readings.get(b.id)?.power ?? -Infinity) -
+              (readings.get(a.id)?.power ?? -Infinity)),
     )
     .slice(0, state.level === "room" ? 4 : 3);
   const labelKey = labels.map((r) => r.id).join(":");
@@ -127,7 +124,11 @@ export function ReviewScene({
     // 投影先由引擎完成；按选择和异常优先级移除碰撞标签。
     let frame = 0;
     const declutter = () => {
-      const accepted: DOMRect[] = [];
+      const accepted = [
+        ...(host.current?.parentElement?.querySelectorAll<HTMLElement>(
+          ".review-scene-caption, .review-camera, .review-legend, .review-scene-tools, .review-loading",
+        ) ?? []),
+      ].map((element) => element.getBoundingClientRect());
       for (const label of anchors.current?.querySelectorAll<HTMLElement>(
         "button",
       ) ?? []) {
@@ -172,17 +173,8 @@ export function ReviewScene({
               ? "机柜 / 42U"
               : "设备 / 结构工作台"}
         </span>
-        <strong>
-          {state.level === "room"
-            ? !data || layer === "overview"
-              ? "双排机柜 · 原始材质"
-              : layer === "environment"
-                ? "设备进风 · 温度着色"
-                : "设备功耗 · 预算占比"
-            : state.level === "rack"
-              ? rackForDevice(state.deviceId).name
-              : state.deviceId.toUpperCase()}
-        </strong>
+        <strong>{presentation.title}</strong>
+        <p>{presentation.description}</p>
       </div>
       <div className="review-camera" aria-label="评审标准视角">
         {(
@@ -219,7 +211,7 @@ export function ReviewScene({
               onDoubleClick={() => onSelect(item.id, true)}
             >
               <b>{item.name.split(" ")[0]}</b>
-              {data && layer !== "overview" && (
+              {layer !== "overview" && (
                 <span>
                   {reading.quality !== "valid"
                     ? reading.quality === "stale"
@@ -228,7 +220,7 @@ export function ReviewScene({
                     : layer === "environment"
                       ? reading.temperature === null
                         ? "—"
-                        : `${reading.temperature.toFixed(1)}°`
+                        : `${reading.count > 1 ? "最高 " : ""}${reading.temperature.toFixed(1)} °C`
                       : reading.power === null
                         ? "—"
                         : reading.power >= 1000
@@ -236,9 +228,11 @@ export function ReviewScene({
                           : `${reading.power.toFixed(0)} W`}
                 </span>
               )}
-              {alarms && reading.alarm > 0 && (
+              {layer === "overview" && (
                 <em style={{ color: signal.color }}>
-                  {signal.icon} {reading.alarmCount}
+                  {reading.alarmCount > 0
+                    ? `${signal.icon} 告警 ${reading.alarmCount}台`
+                    : `${signal.icon} ${signal.label}`}
                 </em>
               )}
             </button>
@@ -280,9 +274,7 @@ export function ReviewScene({
         </details>
       </div>
       <div className="review-legend" aria-label="当前图层图例">
-        {!data ? (
-          <span>原始材质 · 数据着色已关闭</span>
-        ) : layer === "overview" ? (
+        {layer === "overview" ? (
           <div className="review-status-key">
             {state.level === "device" && (
               <small>部件模型评估 · 非独立告警</small>
@@ -299,20 +291,25 @@ export function ReviewScene({
                 ? state.level === "device"
                   ? "表面温度 · °C · 模型推导"
                   : "设备进风 · °C"
-                : "输入功耗 / 预算"}
+                : "颜色：功耗 / 预算占比"}
             </span>
             <i className={`review-scale ${layer}`} />
             <div>
-              <span>{layer === "environment" ? "20" : "0%"}</span>
+              <span>{layer === "environment" ? "20 °C" : "0%"}</span>
               <span>
                 {layer === "environment"
                   ? state.level === "device"
-                    ? "80"
-                    : "45"
+                    ? "80 °C"
+                    : "45 °C"
                   : "100%"}
               </span>
             </div>
-            <small>色阶表示数值，告警另以 ▲ ◆ 标记</small>
+            <small>
+              {layer === "environment"
+                ? "蓝色低温 → 暖色高温"
+                : "蓝色低占比 → 暖色高占比"}
+            </small>
+            {layer === "power" && <small>灰色：数据或预算未定义</small>}
           </>
         )}
       </div>

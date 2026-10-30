@@ -85,7 +85,6 @@ export class SceneEngine {
   }[] = [];
   keyLight: THREE.DirectionalLight;
   showLabels = false;
-  objectDeviceLabels = false;
   pendingComponentFocus = false;
   anchors: HTMLElement | null = null;
   anchorElements: HTMLElement[] = [];
@@ -943,7 +942,7 @@ export class SceneEngine {
         : deviceAnchor
           ? this.state.level === "rack" &&
             this.presentation.pose.inspection === 0 &&
-            (this.telemetry.mode !== "object" || this.objectDeviceLabels) &&
+            this.telemetry.mode !== "object" &&
             deviceById(id)?.rackId === rackForDevice(this.state.deviceId).id
           : id === "srv-01"
             ? this.state.level !== "rack" &&

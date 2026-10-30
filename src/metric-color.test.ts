@@ -32,6 +32,11 @@ test("温度和功耗采用独立连续色阶；未知、过期和离线保持�
     observationColor({ ...device, power: 0 }, "power").getHexString(),
     "1a386e",
   );
+  assert.equal(
+    observationColor({ ...device, budget: null }, "power").getHexString(),
+    signalStyles.missing.color.slice(1),
+    "没有预算的对象不能伪装成零占比",
+  );
   for (const [id, signal] of [
     ["srv-25", "offline"],
     ["srv-56", "missing"],

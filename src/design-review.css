@@ -320,26 +320,6 @@
   height: 2px;
   background: #b6d7cf;
 }
-.review-layer-options {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  color: #a4b3ae;
-  font-size: 10px;
-}
-.review-layer-options label,
-.review-alarm-overlay {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  cursor: pointer;
-  white-space: nowrap;
-}
-.review-layer-options input {
-  margin: 0;
-  width: 12px;
-  height: 12px;
-}
 .review-scene {
   flex: 1;
   min-height: 200px;
@@ -361,7 +341,8 @@
   top: 21px;
   pointer-events: none;
   display: grid;
-  gap: 7px;
+  gap: 5px;
+  max-width: calc(100% - 220px);
 }
 .review-scene-caption > span {
   font-size: 9px;
@@ -369,9 +350,16 @@
   letter-spacing: 2px;
 }
 .review-scene-caption strong {
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 450;
   color: #c6d2ce;
+}
+.review-scene-caption p {
+  font-size: 11px;
+  line-height: 1.65;
+  color: #a4b9b4;
+  margin: 0;
+  max-width: 480px;
 }
 .review-camera {
   position: absolute;
@@ -484,16 +472,20 @@
   position: absolute;
   bottom: 20px;
   left: 22px;
-  width: 180px;
-  font-size: 9px;
+  width: 225px;
+  font-size: 11px;
   color: #b3c4c3;
   pointer-events: none;
+  padding: 9px 10px;
+  background: #142022ed;
+  border: 1px solid #3e4e4d;
+  border-radius: 3px;
 }
 .review-scale {
   display: block;
   margin: 8px 0 5px;
-  width: 145px;
-  height: 4px;
+  width: 175px;
+  height: 5px;
   background: linear-gradient(
     to right,
     #0a3d7a,
@@ -507,13 +499,13 @@
   background: linear-gradient(to right, #1a386e, #21abd4, #fcad3b);
 }
 .review-legend > div:not(.review-status-key) {
-  width: 145px;
+  width: 175px;
   display: flex;
   justify-content: space-between;
 }
 .review-legend small {
   display: block;
-  font-size: 8px;
+  font-size: 10px;
   color: #8fa3a5;
   margin-top: 7px;
   white-space: nowrap;
@@ -529,13 +521,13 @@
   white-space: normal;
   line-height: 1.6;
 }
-.review-status-key span:first-child {
+.review-status-key span:nth-of-type(1) {
   color: #6ed9bc;
 }
-.review-status-key span:nth-child(2) {
+.review-status-key span:nth-of-type(2) {
   color: #f4c46c;
 }
-.review-status-key span:nth-child(3) {
+.review-status-key span:nth-of-type(3) {
   color: #ff8878;
 }
 .review-error {
@@ -728,6 +720,12 @@
   justify-content: space-between;
   font-size: 10px;
   color: #849e92;
+}
+.review-budget {
+  margin: 12px 0 0;
+  color: #b4c6bd;
+  font-size: 11px;
+  line-height: 1.6;
 }
 .review-secondary-metrics {
   display: grid;
@@ -1025,10 +1023,9 @@
   background: #465043;
   color: #eeeadb;
 }
-.review-alarm-overlay {
-  font-size: 10px;
-  margin-bottom: 15px;
-  color: #b8c3b1;
+.review-alarm-help {
+  line-height: 1.7;
+  margin: 0 0 10px;
 }
 .review-alarm-list {
   overflow-y: auto;
@@ -1147,6 +1144,10 @@
   }
 }
 @media (min-width: 601px) and (max-height: 780px) {
+  .review-legend {
+    bottom: 12px;
+    padding: 6px 8px;
+  }
   .review-analysis-body {
     padding-block: 0 6px;
   }
@@ -1292,32 +1293,29 @@
     min-height: 54px;
     font-size: 12px;
   }
-  .review-layer-options {
-    font-size: 10px;
-    gap: 10px;
-  }
-  .review-layer-options label {
-    min-height: 44px;
-    gap: 4px;
-  }
   .review-scene {
-    height: 365px;
+    height: 441px;
     flex: auto;
-    min-height: 365px;
+    min-height: 441px;
+  }
+  .review-canvas,
+  .review-anchors {
+    bottom: 76px;
   }
   .review-scene-caption {
     left: 16px;
     top: 18px;
+    max-width: calc(100% - 32px);
   }
   .review-scene-caption strong {
-    font-size: 12px;
+    font-size: 14px;
   }
   .review-scene-caption > span {
     font-size: 9px;
   }
   .review-camera {
     right: 14px;
-    top: 70px;
+    top: 115px;
   }
   .review-camera button {
     min-width: 40px;
@@ -1325,12 +1323,12 @@
     padding: 7px;
   }
   .review-loading {
-    top: 114px;
+    top: 158px;
     left: 16px;
     max-width: calc(100% - 32px);
   }
   .review-scene-tools {
-    bottom: 18px;
+    bottom: 94px;
     right: 14px;
     gap: 7px;
   }
@@ -1342,8 +1340,53 @@
     padding: 8px;
   }
   .review-legend {
-    left: 16px;
-    bottom: 70px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    height: 76px;
+    padding: 10px 16px;
+    border: 0;
+    border-top: 1px solid #3e4e4d;
+    border-radius: 0;
+    display: grid;
+    grid-template-columns: 175px minmax(0, 1fr);
+    grid-template-rows: auto auto auto;
+    column-gap: 14px;
+  }
+  .review-legend > span {
+    grid-column: 1;
+    grid-row: 1;
+    font-size: 10px;
+  }
+  .review-legend > i {
+    grid-column: 1;
+    grid-row: 2;
+    margin: 5px 0;
+  }
+  .review-legend > div:not(.review-status-key) {
+    grid-column: 1;
+    grid-row: 3;
+    font-size: 10px;
+  }
+  .review-legend > small {
+    grid-column: 2;
+    grid-row: 1 / 3;
+    white-space: normal;
+    margin: 0;
+    font-size: 10px;
+    line-height: 1.5;
+    align-self: center;
+  }
+  .review-legend > small + small {
+    grid-row: 3;
+    font-size: 9px;
+  }
+  .review-legend .review-status-key {
+    grid-column: 1 / -1;
+    grid-row: 1 / -1;
+    width: auto;
+    align-content: center;
   }
   .review-object-actions {
     min-height: 58px;
@@ -1508,10 +1551,6 @@
   .review-alarm-panel > div:first-child > button {
     min-width: 44px;
     min-height: 44px;
-  }
-  .review-alarm-overlay {
-    min-height: 40px;
-    font-size: 12px;
   }
   .review-rail {
     flex-wrap: wrap;

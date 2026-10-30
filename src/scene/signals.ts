@@ -19,7 +19,6 @@ type Mark = {
 };
 /** 小面积状态灯和地面轮廓保留实物材质；仅异常标记轻微呼吸，不用整柜闪烁。 */
 export class SpatialSignals {
-  alarmsVisible = true;
   root = new THREE.Group();
   rackMarks: Mark[] = [];
   deviceMarks: Mark[] = [];
@@ -98,8 +97,6 @@ export class SpatialSignals {
         (state.level === "room" ||
           (state.level === "rack" && mark.id === activeRack));
       const reading = readings.get(mark.id)!;
-      if (mode === "status" && !this.alarmsVisible && reading.alarm > 0)
-        mark.root.visible = false;
       const signal = signalFor(reading);
       mark.material.color.copy(observationColor(reading, mode));
       mark.material.opacity =
@@ -120,8 +117,6 @@ export class SpatialSignals {
         child.position.y = model.units * 0.04445 * 0.32;
       }
       const reading = readings.get(mark.id)!;
-      if (mode === "status" && !this.alarmsVisible && reading.alarm > 0)
-        mark.root.visible = false;
       mark.material.color.copy(observationColor(reading, mode));
       mark.material.opacity = 0.95;
       if (mark.id === state.deviceId) {
