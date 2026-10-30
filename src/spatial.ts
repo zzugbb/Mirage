@@ -1,9 +1,19 @@
+import { deviceObservation } from "./device-data.ts";
+import type { Lifecycle, DataQuality } from "./status.ts";
 import { racks, devices, deviceById } from "./installation.ts";
 import { parts, subparts } from "./domain.ts";
 import type { AppState } from "./domain.ts";
-import { simulate } from "./simulation.ts";
 import type { SimulationSnapshot } from "./simulation.ts";
 export type SpatialReading = {
+  temperatureLimits?: number[];
+  lifecycle: Lifecycle;
+  quality: DataQuality;
+  observedAt: number | null;
+  evaluation: 0 | 1 | 2;
+  coverageTemperature: number;
+  coveragePower: number;
+  lifecycleCounts: Record<Lifecycle, number>;
+  qualityCounts: Record<DataQuality, number>;
   id: string;
   name: string;
   temperature: number | null;
@@ -34,6 +44,7 @@ export function componentReading(
   sample: SimulationSnapshot,
   deviceId: string,
   id: string,
+  currentTime = sample.observedAt,
 ): SpatialReading {
   const child = subparts.find((part) => part.id === id);
   const parent = child?.parent ?? id;
@@ -61,18 +72,69 @@ export function componentReading(
             rule.share) /
           (child ? count : 1)
         : 0;
-  const temperature =
+  let temperature: number | null =
     Math.round(
       (sample.temperature +
         rule.rise * (0.7 + 0.3 * deviceById(deviceId)!.loadFactor) +
         (child ? ((index % 4) - 1.5) * 0.6 : 0)) *
         10,
     ) / 10;
+  const profile = deviceById(deviceId)!;
+  const quality =
+    profile.telemetry === "stale" && currentTime < 45
+      ? "valid"
+      : (profile.telemetry as DataQuality);
+  const lifecycle = profile.lifecycle as Lifecycle;
+  let observedPower = power;
+  if (quality === "offline" || quality === "missing") {
+    temperature = null;
+    observedPower = null;
+  }
+  if (lifecycle === "stopped") {
+    temperature = null;
+    observedPower = power === null ? null : 0;
+  }
+  const limits = parent.startsWith("cpu")
+    ? [65, 76]
+    : parent === "memory-01"
+      ? [52, 64]
+      : parent === "fans-01"
+        ? [38, 47]
+        : parent.startsWith("psu")
+          ? [50, 62]
+          : [44, 56];
+  // 只评估演示温升模型，和设备测点告警严格分开。
+  if (child?.id === "dimm-07" && quality === "valid" && temperature !== null)
+    temperature += Math.max(0, sample.temperature - profile.baseline) * 1.1;
+  const evaluation =
+    temperature === null
+      ? 0
+      : temperature >= limits[1]
+        ? 2
+        : temperature >= limits[0]
+          ? 1
+          : 0;
   return {
     id: `${deviceId}/${id}`,
+    temperatureLimits: limits,
     name: child?.name ?? part.name,
     temperature,
-    power,
+    power: observedPower,
+    lifecycle,
+    quality,
+    observedAt:
+      quality === "missing" || quality === "offline" ? null : sample.observedAt,
+    evaluation,
+    coverageTemperature: temperature !== null && quality === "valid" ? 1 : 0,
+    coveragePower: observedPower !== null && quality === "valid" ? 1 : 0,
+    lifecycleCounts: {
+      running: 0,
+      maintenance: 0,
+      offline: 0,
+      stopped: 0,
+      [lifecycle]: 1,
+    },
+    qualityCounts: { valid: 0, missing: 0, stale: 0, offline: 0, [quality]: 1 },
     budget:
       power === null
         ? null
@@ -86,7 +148,8 @@ export function componentReading(
     powerLabel: parent.startsWith("psu")
       ? "转换损耗分配 · 假设"
       : "部件功耗分配 · 假设",
-    source: "进风温度 + 显式温升假设；模组内部插值。无独立传感器或部件告警。",
+    source:
+      "进风温度 + 显式温升假设；模型分级仅供演示，无独立传感器或部件告警。离线、过期与未配置分别显示。",
   };
 }
 function aggregate(
@@ -94,43 +157,116 @@ function aggregate(
   name: string,
   children: SpatialReading[],
 ): SpatialReading {
+  const freshTemperature = children.filter(
+    (item) => item.quality === "valid" && item.temperature !== null,
+  );
+  const freshPower = children.filter(
+    (item) => item.quality === "valid" && item.power !== null,
+  );
+  const lifecycleCounts = {
+    running: 0,
+    maintenance: 0,
+    offline: 0,
+    stopped: 0,
+  };
+  const qualityCounts = { valid: 0, missing: 0, stale: 0, offline: 0 };
+  for (const child of children) {
+    for (const key of Object.keys(lifecycleCounts) as Lifecycle[])
+      lifecycleCounts[key] += child.lifecycleCounts[key];
+    for (const key of Object.keys(qualityCounts) as DataQuality[])
+      qualityCounts[key] += child.qualityCounts[key];
+  }
+  const count = children.reduce((sum, item) => sum + item.count, 0);
+  const coverageTemperature = children.reduce(
+    (sum, item) => sum + item.coverageTemperature,
+    0,
+  );
+  const coveragePower = children.reduce(
+    (sum, item) => sum + item.coveragePower,
+    0,
+  );
   return {
     id,
     name,
-    temperature: Math.max(...children.map((item) => item.temperature!)),
-    power: children.reduce((sum, item) => sum + item.power!, 0),
-    budget: children.reduce((sum, item) => sum + item.budget!, 0),
+    lifecycle: "running",
+    quality: freshTemperature.length || freshPower.length ? "valid" : "missing",
+    observedAt: children.reduce(
+      (latest, item) => Math.max(latest, item.observedAt ?? 0),
+      0,
+    ),
+    evaluation: 0,
+    lifecycleCounts,
+    qualityCounts,
+    coverageTemperature,
+    coveragePower,
+    temperature: freshTemperature.length
+      ? Math.max(...freshTemperature.map((item) => item.temperature!))
+      : null,
+    power: freshPower.length
+      ? freshPower.reduce((sum, item) => sum + item.power!, 0)
+      : null,
+    budget: freshPower.reduce((sum, item) => sum + (item.budget ?? 0), 0),
     alarm: Math.max(...children.map((item) => item.alarm)) as 0 | 1 | 2,
     alarmCount: children.reduce((sum, item) => sum + item.alarmCount, 0),
-    count: children.reduce((sum, item) => sum + item.count, 0),
-    temperatureLabel: "设备最高进风温度",
-    powerLabel: "已展示设备输入合计",
-    source: "仅汇总本演示设备；温度取最高值，功耗相加，告警取子设备最高级别。",
+    count,
+    temperatureLabel: "已知设备最高进风温度",
+    powerLabel: coveragePower < count ? "已知输入功耗小计" : "设备输入功耗合计",
+    source:
+      "只汇总当前有效数据。过期、离线、未配置不按零值计入，温度取有效最高值，功耗求和，告警取最高级别；覆盖范围单独标注。",
   };
 }
 export function spatialSnapshot(time: number, cycle = 0, deviceId = "srv-01") {
   const readings = new Map<string, SpatialReading>();
+  const observations = new Map(
+    devices.map((device) => [
+      device.id,
+      deviceObservation(time, device.id, cycle),
+    ]),
+  );
   const samples = new Map(
-    devices.map((device) => [device.id, simulate(time, cycle, device.id)]),
+    [...observations].map(([id, observation]) => [id, observation.sample]),
   );
   for (const device of devices) {
-    const sample = samples.get(device.id)!;
+    const { sample, lifecycle, quality, observedAt, temperature, power } =
+      observations.get(device.id)!;
     readings.set(device.id, {
       id: device.id,
       name: device.name,
-      temperature: sample.temperature,
-      power: sample.power,
+      temperature,
+      power,
       budget: device.budgetWatts,
-      alarm: sample.alarm?.active
-        ? sample.alarm.severity === "critical"
-          ? 2
-          : 1
-        : 0,
-      alarmCount: sample.alarm?.active ? 1 : 0,
+      lifecycle,
+      quality,
+      observedAt,
+      evaluation: 0,
+      coverageTemperature: temperature !== null && quality === "valid" ? 1 : 0,
+      coveragePower: power !== null && quality === "valid" ? 1 : 0,
+      lifecycleCounts: {
+        running: 0,
+        maintenance: 0,
+        offline: 0,
+        stopped: 0,
+        [lifecycle]: 1,
+      },
+      qualityCounts: {
+        valid: 0,
+        missing: 0,
+        stale: 0,
+        offline: 0,
+        [quality]: 1,
+      },
+      alarm:
+        quality === "valid" && sample.alarm?.active
+          ? sample.alarm.severity === "critical"
+            ? 2
+            : 1
+          : 0,
+      alarmCount: quality === "valid" && sample.alarm?.active ? 1 : 0,
       count: 1,
       temperatureLabel: "设备进风温度",
       powerLabel: "整机输入功耗",
-      source: "独立演示负载与冷却响应；无真实设备接入。",
+      source:
+        "独立演示负载、生命周期与数据质量配置；无真实设备接入。停机零功耗是有效模拟值，离线数据不等于零。",
     });
   }
   for (const rack of racks)
@@ -155,7 +291,7 @@ export function spatialSnapshot(time: number, cycle = 0, deviceId = "srv-01") {
   for (const part of [...parts, ...subparts])
     readings.set(
       part.id,
-      componentReading(samples.get(deviceId)!, deviceId, part.id),
+      componentReading(samples.get(deviceId)!, deviceId, part.id, time),
     );
   return { readings, samples };
 }

@@ -1,3 +1,4 @@
+import { signalText } from "./status";
 import { spatialSnapshot } from "./spatial";
 import { rackForDevice } from "./installation";
 import {
@@ -23,8 +24,13 @@ export function App() {
   const [experience, control] = useReducer(
     experienceTransition,
     undefined,
-    () =>
-      createExperience(!matchMedia("(prefers-reduced-motion: reduce)").matches),
+    () => {
+      const initial = createExperience(
+        !matchMedia("(prefers-reduced-motion: reduce)").matches,
+      );
+      initial.scene.time = 60;
+      return initial;
+    },
   );
   const { scene: state, tour } = experience;
   const sample = useMemo(
@@ -47,7 +53,7 @@ export function App() {
     [state.time, state.replayCycle, state.deviceId, state.level],
   );
   const [inspectionView, setInspectionView] =
-    useState<InspectionView>("object");
+    useState<InspectionView>("status");
   const [showCooling, setShowCooling] = useState(true);
   const dispatch = useCallback((action: Action) => {
     control({ type: "scene", action });
@@ -162,12 +168,12 @@ export function App() {
         <span className="header-current">空间探索</span>
         <button
           className={`data-source replay-entry status-${scope.alarm === 2 ? "critical" : scope.alarm === 1 ? "warning" : "normal"}`}
-          onClick={() => inspect(scope.alarmCount ? "alarms" : "temperature")}
-          aria-label={`运行观察，模拟进风告警 ${scope.alarmCount} 台设备`}
+          onClick={() => inspect("status")}
+          aria-label={`运行态势，${signalText(scope)}，模拟告警 ${scope.alarmCount} 台设备`}
         >
           <i className="status-dot" />
-          模拟 ·{" "}
-          {scope.alarmCount ? `进风告警 ${scope.alarmCount} 台` : "进风无告警"}
+          模拟 · {signalText(scope)}{" "}
+          {scope.alarmCount ? `${scope.alarmCount} 台` : ""}
           <span>运行回放 ↗</span>
         </button>
       </header>

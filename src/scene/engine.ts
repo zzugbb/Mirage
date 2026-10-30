@@ -1,6 +1,7 @@
+import { SpatialSignals } from "./signals";
 import { SurfaceObservation } from "./surface";
 import { InstallationScene } from "./installation";
-import { rackForDevice, deviceHeight } from "../installation";
+import { rackForDevice, deviceById, deviceHeight } from "../installation";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
@@ -38,6 +39,7 @@ export class SceneEngine {
   controls: OrbitControls;
   models = buildModels();
   telemetry = new TelemetryOverlay();
+  signals = new SpatialSignals();
   installation: InstallationScene;
   surface: SurfaceObservation;
   sample: SimulationSnapshot;
@@ -141,7 +143,7 @@ export class SceneEngine {
       this.contextLost,
     );
     host.append(this.renderer.domElement);
-    this.scene.fog = new THREE.FogExp2("#181b1f", 0.012);
+    this.scene.fog = new THREE.FogExp2("#111822", 0.008);
     this.scene.add(new THREE.HemisphereLight("#faf9f5", "#343333", 0.45));
     const key = (this.keyLight = new THREE.DirectionalLight("#fff9f0", 1.6));
     key.position.set(0, 9, 4);
@@ -208,7 +210,7 @@ export class SceneEngine {
       });
     }
     this.scene.add(this.models.root);
-    this.scene.add(this.telemetry.root);
+    this.scene.add(this.telemetry.root, this.signals.root);
     this.installation = new InstallationScene(this.models);
     this.models.root.add(this.installation.root);
     this.installDevice(state);
@@ -474,7 +476,7 @@ export class SceneEngine {
     this.presentation.mounted.set(
       rack.position[0],
       deviceHeight(state.deviceId),
-      definition.server.position[2],
+      rack.position[2] + definition.server.position[2],
     );
   }
   objectFor(id: string) {
@@ -591,11 +593,11 @@ export class SceneEngine {
     this.controls.minAzimuthAngle = this.interior ? -0.65 : -Infinity;
     this.controls.maxAzimuthAngle = this.interior ? 0.65 : Infinity;
     if (this.interior) {
-      this.targetLook.set(0, 1.05, 0);
-      const fit = Math.max(1, 1.25 / Math.max(0.4, this.camera.aspect));
-      this.targetPosition.set(1.25 * fit, 1.6 + 0.4 * (fit - 1), 4.4 * fit);
+      this.targetLook.set(0, 0.85, 0);
+      const fit = Math.max(1, 1.4 / Math.max(0.4, this.camera.aspect));
+      this.targetPosition.set(8.8 * fit, 8.5 * fit, 12 * fit);
       this.controls.minDistance = 0.8;
-      this.controls.maxDistance = 20;
+      this.controls.maxDistance = 45;
       this.moving = true;
       return;
     }
@@ -654,8 +656,10 @@ export class SceneEngine {
             this.camera.aspect,
             level === "device" ? 0.35 : level === "rack" ? 1 : 3,
           );
-    if (!bounds && level === "rack")
+    if (!bounds && level === "rack") {
       center.x = rackForDevice(this.state.deviceId).position[0];
+      center.z = rackForDevice(this.state.deviceId).position[2];
+    }
     this.targetLook.copy(center);
     this.targetPosition.copy(center).addScaledVector(direction, distance);
     this.controls.minDistance =
@@ -691,6 +695,17 @@ export class SceneEngine {
     for (const hit of this.raycaster.intersectObject(this.models.root, true)) {
       if (!(hit.object instanceof THREE.Mesh) || !this.visible(hit.object))
         continue;
+      if (
+        hit.object instanceof THREE.InstancedMesh &&
+        hit.instanceId !== undefined &&
+        hit.object.userData.instanceEntityIds
+      ) {
+        if (hit.object.userData.instanceVisible[hit.instanceId])
+          return hit.object.userData.instanceEntityIds[
+            hit.instanceId
+          ] as string;
+        continue;
+      }
       let object: THREE.Object3D | null = hit.object;
       while (object) {
         if (object.userData.entityId) {
@@ -804,7 +819,8 @@ export class SceneEngine {
       if (Math.abs(fade.opacity - target) < 0.005) fade.opacity = target;
       fade.group.visible = fade.opacity > 0;
       if (fade.group === this.models.room)
-        for (const light of this.roomLights) light.intensity = 3 * fade.opacity;
+        for (const light of this.roomLights)
+          light.intensity = 2.4 * fade.opacity;
       for (const item of fade.materials) {
         const transparent = item.transparent || fade.opacity < 1;
         if (item.material.transparent !== transparent) {
@@ -907,23 +923,43 @@ export class SceneEngine {
     }
     for (const element of this.anchorElements) {
       const id = element.dataset.anchor!;
-      const target = this.objectFor(id === "srv-01" ? this.state.deviceId : id);
-      const show =
-        id === "srv-01"
-          ? this.telemetry.mode !== "object" &&
-            (this.telemetry.mode !== "alarms" || !!this.sample.alarm?.active) &&
-            !(this.state.level === "device" && this.explosion > 0.1) &&
-            (this.presentation.pose.inspection === 0 ||
-              this.presentation.pose.inspection === 1)
-          : this.showLabels &&
-            (this.state.level === "room"
-              ? ["rack-a01", "cooling-01", "power-01"].includes(id)
-              : this.state.level === "device" &&
-                this.explosion > 0.45 &&
-                ["cpu-01", "memory-01", "fans-01", "psu-02"].includes(id));
+      const rackAnchor = element.dataset.anchorKind === "rack";
+      const deviceAnchor = element.dataset.anchorKind === "device";
+      const target = this.objectFor(
+        id === "srv-01" && !deviceAnchor ? this.state.deviceId : id,
+      );
+      const show = rackAnchor
+        ? this.state.level === "room" &&
+          this.presentation.pose.inspection === 0 &&
+          (this.showLabels || this.telemetry.mode !== "object")
+        : deviceAnchor
+          ? this.state.level === "rack" &&
+            this.presentation.pose.inspection === 0 &&
+            this.telemetry.mode !== "object" &&
+            deviceById(id)?.rackId === rackForDevice(this.state.deviceId).id
+          : id === "srv-01"
+            ? this.state.level !== "rack" &&
+              this.telemetry.mode !== "object" &&
+              this.telemetry.mode !== "status" &&
+              (this.telemetry.mode !== "alarms" ||
+                !!this.sample.alarm?.active) &&
+              !(this.state.level === "device" && this.explosion > 0.1) &&
+              (this.presentation.pose.inspection === 0 ||
+                this.presentation.pose.inspection === 1)
+            : this.showLabels &&
+              (this.state.level === "room"
+                ? ["cooling-01", "power-01"].includes(id)
+                : this.state.level === "device" &&
+                  this.explosion > 0.45 &&
+                  ["cpu-01", "memory-01", "fans-01", "psu-02"].includes(id));
       element.hidden = !show || !target;
       if (target && show) {
-        this.anchorBounds.setFromObject(target).getCenter(this.anchorPosition);
+        if (rackAnchor || deviceAnchor)
+          target.getWorldPosition(this.anchorPosition);
+        else
+          this.anchorBounds
+            .setFromObject(target)
+            .getCenter(this.anchorPosition);
         if (
           id === "srv-01" &&
           this.telemetry.mode === "temperature" &&
@@ -940,8 +976,18 @@ export class SceneEngine {
               : this.state.level === "room"
                 ? 1.05
                 : 0.035;
+        if (rackAnchor) {
+          target.getWorldPosition(this.anchorPosition);
+          this.anchorPosition.y += 2.38;
+        }
+        if (deviceAnchor) {
+          target.getWorldPosition(this.anchorPosition);
+          this.anchorPosition.z += 0.49;
+        }
         this.anchorPosition.project(this.camera);
-        const x = (this.anchorPosition.x * 0.5 + 0.5) * this.host.clientWidth;
+        const x =
+          (this.anchorPosition.x * 0.5 + 0.5) * this.host.clientWidth +
+          (deviceAnchor ? 80 : 0);
         const y = (-this.anchorPosition.y * 0.5 + 0.5) * this.host.clientHeight;
         element.style.transform = `translate(${x}px,${y}px)`;
         element.hidden =
@@ -970,6 +1016,21 @@ export class SceneEngine {
       element.style.opacity = this.axesVector.z > 0 ? "1" : "0.55";
     }
     this.surface.update(this.state, this.telemetry.mode);
+    this.signals.update(
+      this.state,
+      this.telemetry.mode,
+      this.surface.snapshot.readings,
+      this.models,
+      this.presentation.pose.inspection,
+      this.explosion,
+      time,
+      this.reducedMotion,
+    );
+    this.installation.updateAppearance(
+      this.state,
+      this.telemetry.mode,
+      this.surface.snapshot.readings,
+    );
     this.pipeline.render(
       delta,
       frame.relocation,

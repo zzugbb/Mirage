@@ -1,3 +1,4 @@
+import { signalFor, signalStyles } from "../status";
 import { racks, devices, rackForDevice } from "../installation";
 import { spatialSnapshot } from "../spatial";
 import { useEffect, useMemo, useState } from "react";
@@ -84,8 +85,14 @@ function RackBranch({
   alarm: (id: string) => React.ReactNode;
 }) {
   const active = rackForDevice(state.deviceId).id === rack.id;
-  const [expanded, setExpanded] = useState(active);
-  useEffect(() => setExpanded(active), [active]);
+  const [expanded, setExpanded] = useState(active && state.level !== "room");
+  useEffect(() => {
+    // 选择其他机柜时保留已展开分支，避免双击的两次点击之间行位置跳动。
+    if (active && state.level !== "room") setExpanded(true);
+  }, [active, state.level]);
+  useEffect(() => {
+    if (state.level === "room") setExpanded(false);
+  }, [state.level]);
   const matches = rack.name.toLowerCase().includes(query);
   const children = devices.filter(
     (device) =>
@@ -148,17 +155,25 @@ export function ObjectTree({
   );
   const alarm = (id: string) => {
     const reading = spatial.readings.get(id);
-    return reading?.alarm ? (
-      <i
-        className={`tree-alarm status-${reading.alarm === 2 ? "critical" : "warning"}`}
-        aria-label={`模拟告警 ${reading.alarmCount} 台`}
-      />
-    ) : null;
+    const signal = signalFor(reading);
+    return (
+      <span
+        className="tree-signal"
+        style={{ color: signalStyles[signal].color }}
+        aria-label={`${signalStyles[signal].label}${reading?.alarmCount ? `，${reading.alarmCount} 台告警` : ""}`}
+      >
+        {signalStyles[signal].icon}
+      </span>
+    );
   };
+
   return (
     <aside className="object-panel" aria-label="对象导航">
       <div className="panel-title">
-        对象导航<span>3 柜 · 6 设备</span>
+        对象导航
+        <span>
+          {racks.length} 柜 · {devices.length} 设备
+        </span>
       </div>
       <label className="object-search">
         <span aria-hidden="true">⌕</span>
@@ -213,21 +228,23 @@ export function ObjectTree({
               {entity.name}
             </button>
           ))}
-        <div className="part-tree">
-          <div className="part-tree-title">
-            {state.deviceId.toUpperCase()} 部件
-            <span>{parts.length + subparts.length}</span>
+        {state.level === "device" && (
+          <div className="part-tree">
+            <div className="part-tree-title">
+              {state.deviceId.toUpperCase()} 部件
+              <span>{parts.length + subparts.length}</span>
+            </div>
+            {parts.map((part) => (
+              <PartGroup
+                key={part.id}
+                part={part}
+                query={normalized}
+                selected={state.selected}
+                onSelect={onSelect}
+              />
+            ))}
           </div>
-          {parts.map((part) => (
-            <PartGroup
-              key={part.id}
-              part={part}
-              query={normalized}
-              selected={state.selected}
-              onSelect={onSelect}
-            />
-          ))}
-        </div>
+        )}
         {normalized &&
           !entities.some((entity) =>
             `${entity.name} ${"slot" in entity ? entity.slot : ""}`

@@ -1,6 +1,7 @@
+import { observedHistory, deviceObservation } from "../device-data";
 import { trendScale } from "../chart";
 import { useEffect, useId, useRef, useState } from "react";
-import { scenario, temperatureHistory } from "../simulation";
+import { scenario } from "../simulation";
 
 export function TrendChart({
   time,
@@ -33,14 +34,15 @@ export function TrendChart({
   const x = (t: number) => left + (t / scenario.duration) * (right - left);
   const y = (value: number) =>
     bottom - ((value - domain[0]) / (domain[1] - domain[0])) * (bottom - top);
-  const history = temperatureHistory(time, deviceId);
-  const current = history.at(-1)!;
+  const observation = deviceObservation(time, deviceId);
+  const history = observedHistory(time, deviceId, metric);
+  const current = history.at(-1);
   const unit = temperature ? "°C" : "W";
   const name = temperature ? "设备进风温度" : "整机输入功耗";
   const path = history
     .map(
       (sample, index) =>
-        `${index ? "L" : "M"}${x(sample.observedAt).toFixed(2)},${y(sample[metric]).toFixed(2)}`,
+        `${index ? "L" : "M"}${x(sample.observedAt).toFixed(2)},${y(sample.value).toFixed(2)}`,
     )
     .join(" ");
   return (
@@ -52,9 +54,11 @@ export function TrendChart({
         role="img"
         aria-labelledby={id}
       >
-        <title
-          id={id}
-        >{`模拟${name}，0 至 ${current.observedAt} 秒，当前 ${current[metric]} ${unit}；曲线不显示未来结果。`}</title>
+        <title id={id}>
+          {current
+            ? `模拟${name}，最后观测 ${current.observedAt} 秒，数值 ${current.value} ${unit}；曲线不显示未来结果。`
+            : `模拟${name}，当前没有有效观测数据。`}
+        </title>
         {ticks.map((tick) => (
           <g
             key={tick}
@@ -86,8 +90,8 @@ export function TrendChart({
         ))}
         <line
           className="chart-cursor"
-          x1={x(current.observedAt)}
-          x2={x(current.observedAt)}
+          x1={x(time)}
+          x2={x(time)}
           y1={top}
           y2={bottom}
         />
@@ -97,14 +101,23 @@ export function TrendChart({
           fill="none"
           vectorEffect="non-scaling-stroke"
         />
-        <circle
-          className="chart-current"
-          cx={x(current.observedAt)}
-          cy={y(current[metric])}
-          r={3}
-        />
+        {current && (
+          <circle
+            className="chart-current"
+            cx={x(current.observedAt)}
+            cy={y(current?.value ?? domain[0])}
+            r={3}
+          />
+        )}
       </svg>
-      <p className="chart-caption">{caption} · 模拟</p>
+      <p className="chart-caption">
+        {!current
+          ? "当前没有有效观测"
+          : observation.quality === "stale"
+            ? `最后观测 ${observation.observedAt}s · 已过期`
+            : caption}{" "}
+        · 模拟
+      </p>
     </div>
   );
 }

@@ -1,3 +1,6 @@
+import { StatePanel } from "./StatePanel";
+import { qualityNames } from "../status";
+import { deviceObservation } from "../device-data";
 import { useMemo } from "react";
 import { scenario, severityNames } from "../simulation";
 import type { SimulationSnapshot } from "../simulation";
@@ -5,7 +8,8 @@ import type { Action, AppState } from "../domain";
 import { entityById } from "../domain";
 import { deviceById, devices, rackForDevice } from "../installation";
 import { spatialSnapshot, selectedReading } from "../spatial";
-export type InspectionView = "object" | "temperature" | "power" | "alarms";
+export type InspectionView =
+  "object" | "status" | "temperature" | "power" | "alarms";
 export function ReplayPanel({
   state,
   sample,
@@ -27,21 +31,34 @@ export function ReplayPanel({
   );
   const reading = selectedReading(state, spatial.readings);
   const isPart = reading?.id.includes("/");
+  const currentObservation = deviceObservation(state.time, state.deviceId);
+  const currentPowerAvailable =
+    currentObservation.quality === "valid" &&
+    currentObservation.lifecycle !== "stopped";
   const visibleDevices = devices.filter(
     (device) =>
       state.selected === "room-01" ||
       device.rackId === state.selected ||
       device.id === (deviceById(state.selected)?.id ?? state.deviceId),
   );
+  const coveredEnergy = visibleDevices
+    .map((device) => deviceObservation(state.time, device.id).energyWh)
+    .filter((value): value is number => value !== null);
   const alarms = visibleDevices
     .map((device) => ({ device, sample: spatial.samples.get(device.id)! }))
-    .filter((item) => item.sample.alarm);
+    .filter(
+      (item) =>
+        spatial.readings.get(item.device.id)?.quality === "valid" &&
+        item.sample.alarm,
+    );
   const title =
     view === "temperature"
       ? "温度云图"
       : view === "power"
         ? "功耗分布"
         : "告警定位";
+  if (view === "status")
+    return <StatePanel state={state} dispatch={dispatch} />;
   return (
     <section className="replay-panel" aria-label={title}>
       <div className="overline">空间观察 · 模拟</div>
@@ -49,6 +66,15 @@ export function ReplayPanel({
       <p className="overview-target">
         {reading?.name ?? "未配置数据"} · t + {state.time} s
       </p>
+      {reading && reading.quality !== "valid" && (
+        <p className="data-quality-note">
+          数据质量：{qualityNames[reading.quality]}
+          {reading.observedAt !== null
+            ? ` · 观测于 t+${reading.observedAt}s`
+            : ""}
+          ；不按当前有效值汇总。
+        </p>
+      )}
       {view !== "alarms" ? (
         <>
           <div className="replay-value">
@@ -110,7 +136,7 @@ export function ReplayPanel({
                 <dd>{reading.budget.toFixed(1)} W</dd>
               </div>
               <div>
-                <dt>预算占比</dt>
+                <dt>已覆盖预算占比</dt>
                 <dd>
                   {reading.power === null
                     ? "未定义"
@@ -122,16 +148,14 @@ export function ReplayPanel({
           {view === "power" && reading && !isPart && (
             <dl className="spatial-facts">
               <div>
-                <dt>0–{state.time}s 累计电量</dt>
+                <dt>
+                  0–{state.time}s 累计电量 · 覆盖 {coveredEnergy.length}/
+                  {visibleDevices.length} 台
+                </dt>
                 <dd>
-                  {visibleDevices
-                    .reduce(
-                      (sum, device) =>
-                        sum + spatial.samples.get(device.id)!.energyWh,
-                      0,
-                    )
-                    .toFixed(2)}{" "}
-                  Wh
+                  {coveredEnergy.length
+                    ? `${coveredEnergy.reduce((sum, value) => sum + value, 0).toFixed(2)} Wh`
+                    : "没有有效观测"}
                 </dd>
               </div>
             </dl>
@@ -139,8 +163,16 @@ export function ReplayPanel({
           {reading && reading.count > 1 && (
             <dl className="spatial-facts">
               <div>
-                <dt>汇总覆盖</dt>
-                <dd>{reading.count} 台演示设备</dd>
+                <dt>温度有效覆盖</dt>
+                <dd>
+                  {reading.coverageTemperature} / {reading.count} 台设备
+                </dd>
+              </div>
+              <div>
+                <dt>功耗有效覆盖</dt>
+                <dd>
+                  {reading.coveragePower} / {reading.count} 台设备
+                </dd>
               </div>
               <div>
                 <dt>活动告警</dt>
@@ -168,25 +200,29 @@ export function ReplayPanel({
               </label>
             </>
           )}
-          {view === "power" && state.level === "device" && (
-            <details className="spatial-allocation">
-              <summary>整机功耗分配 · 假设</summary>
-              <div className="power-allocation">
-                {sample.allocation.map((item) => (
-                  <div key={item.id}>
-                    <span>{item.name}</span>
-                    <b>{item.watts.toFixed(1)} W</b>
-                    <i
-                      style={{ width: `${(item.watts / sample.power) * 100}%` }}
-                    />
-                  </div>
-                ))}
-              </div>
-              <p className="replay-note">
-                处理器功耗为逻辑分配，尚无独立芯片模型。散热器与上盖为被动构件，耗电为零；盘位构件没有独立耗电数据。分配总和等于整机输入，不把被动散热器当作处理器耗电。
-              </p>
-            </details>
-          )}
+          {view === "power" &&
+            state.level === "device" &&
+            currentPowerAvailable && (
+              <details className="spatial-allocation">
+                <summary>整机功耗分配 · 假设</summary>
+                <div className="power-allocation">
+                  {sample.allocation.map((item) => (
+                    <div key={item.id}>
+                      <span>{item.name}</span>
+                      <b>{item.watts.toFixed(1)} W</b>
+                      <i
+                        style={{
+                          width: `${(item.watts / sample.power) * 100}%`,
+                        }}
+                      />
+                    </div>
+                  ))}
+                </div>
+                <p className="replay-note">
+                  处理器功耗为逻辑分配，尚无独立芯片模型。散热器与上盖为被动构件，耗电为零；盘位构件没有独立耗电数据。分配总和等于整机输入，不把被动散热器当作处理器耗电。
+                </p>
+              </details>
+            )}
           {isPart && (
             <p className="component-source-note">
               {view === "temperature"
@@ -327,9 +363,9 @@ export function ReplayPanel({
             "该设施没有定义运行测点；灰色表示未定义，不是零值。"}
         </p>
         <p>
-          三机柜、六设备均为演示配置。各设备有独立的进风基线、冷却响应和负载系数，共用
+          八机柜、六十四设备均为演示配置。各设备有独立的进风基线、冷却响应和负载系数，共用
           120
-          秒时钟。机柜温度取子设备最高值，功耗求和，告警取最高级别；只覆盖已展示设备。
+          秒时钟。机柜温度取子设备最高值，功耗仅汇总有效观测，告警取最高级别；只覆盖已展示设备。
         </p>
         <p>
           设备进风温度按一阶模型响应。≥33°C持续5秒预警，≥38°C持续5秒严重，≤36°C持续5秒降级，≤31°C持续8秒恢复。阈值只用于演示。

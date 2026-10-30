@@ -5,11 +5,37 @@
   "description": "原创示意机房与通用服务器，非真实现场或厂商结构",
   "room": {
     "size": [
-      8,
-      3.2,
-      6
+      14,
+      4.2,
+      12
     ],
-    "wallThickness": 0.16
+    "wallThickness": 0.16,
+    "lights": [
+      {
+        "position": [
+          -4.5,
+          3.75,
+          0
+        ],
+        "length": 8.2
+      },
+      {
+        "position": [
+          0,
+          3.75,
+          0
+        ],
+        "length": 8.2
+      },
+      {
+        "position": [
+          4.5,
+          3.75,
+          0
+        ],
+        "length": 8.2
+      }
+    ]
   },
   "rack": {
     "id": "rack-a01",
@@ -55,9 +81,9 @@
       "id": "cooling-01",
       "name": "制冷单元",
       "position": [
-        -2.7,
+        -5.6,
         0.95,
-        -2.22
+        -4.8
       ],
       "size": [
         1.05,
@@ -71,9 +97,9 @@
       "id": "power-01",
       "name": "配电柜",
       "position": [
-        3.2,
+        5.7,
         0.9,
-        -2.32
+        -4.9
       ],
       "size": [
         0.85,
@@ -340,10 +366,10 @@
       "samples": 8
     },
     "floor": {
-      "color": "#85898e",
+      "color": "#505965",
       "gap": 0.0015,
       "roughness": 1,
-      "metalness": 0.06,
+      "metalness": 0.1,
       "bumpScale": 0.00012,
       "grainRepeat": 8
     }
@@ -575,33 +601,78 @@
     }
   ],
   "installation": {
-    "description": "三机柜六设备的原创演示配置，不对应真实现场",
+    "description": "两排八机柜、六十四台设备的原创演示配置，不对应真实现场",
     "racks": [
       {
         "id": "rack-a01",
         "name": "A01 机柜",
         "position": [
+          -3.15,
           0,
-          0,
-          0
+          1.8
         ]
       },
       {
         "id": "rack-a02",
         "name": "A02 机柜",
         "position": [
-          -1.45,
+          -1.0499999999999998,
           0,
-          0
+          1.8
         ]
       },
       {
         "id": "rack-a03",
         "name": "A03 机柜",
         "position": [
-          1.45,
+          1.0500000000000003,
           0,
-          0
+          1.8
+        ]
+      },
+      {
+        "id": "rack-a04",
+        "name": "A04 机柜",
+        "position": [
+          3.150000000000001,
+          0,
+          1.8
+        ]
+      },
+      {
+        "id": "rack-a05",
+        "name": "B01 机柜",
+        "position": [
+          -3.15,
+          0,
+          -1.8
+        ]
+      },
+      {
+        "id": "rack-a06",
+        "name": "B02 机柜",
+        "position": [
+          -1.0499999999999998,
+          0,
+          -1.8
+        ]
+      },
+      {
+        "id": "rack-a07",
+        "name": "B03 机柜",
+        "position": [
+          1.0500000000000003,
+          0,
+          -1.8
+        ]
+      },
+      {
+        "id": "rack-a08",
+        "name": "B04 机柜",
+        "position": [
+          3.150000000000001,
+          0,
+          -1.8
         ]
       }
     ],
@@ -614,7 +685,9 @@
         "baseline": 27,
         "thermalFactor": 1,
         "loadFactor": 1,
-        "budgetWatts": 350
+        "budgetWatts": 350,
+        "lifecycle": "running",
+        "telemetry": "valid"
       },
       {
         "id": "srv-02",
@@ -624,7 +697,9 @@
         "baseline": 26,
         "thermalFactor": 0.75,
         "loadFactor": 0.9,
-        "budgetWatts": 350
+        "budgetWatts": 350,
+        "lifecycle": "running",
+        "telemetry": "valid"
       },
       {
         "id": "srv-03",
@@ -634,7 +709,9 @@
         "baseline": 24,
         "thermalFactor": 0.55,
         "loadFactor": 0.82,
-        "budgetWatts": 350
+        "budgetWatts": 350,
+        "lifecycle": "running",
+        "telemetry": "valid"
       },
       {
         "id": "srv-04",
@@ -644,7 +721,9 @@
         "baseline": 25,
         "thermalFactor": 0.45,
         "loadFactor": 0.7,
-        "budgetWatts": 350
+        "budgetWatts": 350,
+        "lifecycle": "running",
+        "telemetry": "valid"
       },
       {
         "id": "srv-05",
@@ -654,7 +733,9 @@
         "baseline": 23,
         "thermalFactor": 0.15,
         "loadFactor": 0.62,
-        "budgetWatts": 350
+        "budgetWatts": 350,
+        "lifecycle": "running",
+        "telemetry": "valid"
       },
       {
         "id": "srv-06",
@@ -664,7 +745,705 @@
         "baseline": 24,
         "thermalFactor": 0.3,
         "loadFactor": 0.75,
-        "budgetWatts": 350
+        "budgetWatts": 350,
+        "lifecycle": "running",
+        "telemetry": "valid"
+      },
+      {
+        "id": "srv-07",
+        "name": "SRV-07",
+        "rackId": "rack-a01",
+        "startUnit": 3,
+        "baseline": 27.6,
+        "thermalFactor": 1.08,
+        "loadFactor": 0.48,
+        "budgetWatts": 350,
+        "lifecycle": "running",
+        "telemetry": "valid"
+      },
+      {
+        "id": "srv-08",
+        "name": "SRV-08",
+        "rackId": "rack-a01",
+        "startUnit": 7,
+        "baseline": 26.7,
+        "thermalFactor": 0.7,
+        "loadFactor": 0.609,
+        "budgetWatts": 350,
+        "lifecycle": "running",
+        "telemetry": "valid"
+      },
+      {
+        "id": "srv-09",
+        "name": "SRV-09",
+        "rackId": "rack-a01",
+        "startUnit": 11,
+        "baseline": 24.52,
+        "thermalFactor": 0.44,
+        "loadFactor": 0.738,
+        "budgetWatts": 350,
+        "lifecycle": "running",
+        "telemetry": "valid"
+      },
+      {
+        "id": "srv-10",
+        "name": "SRV-10",
+        "rackId": "rack-a01",
+        "startUnit": 15,
+        "baseline": 25.18,
+        "thermalFactor": 0.55,
+        "loadFactor": 0.867,
+        "budgetWatts": 350,
+        "lifecycle": "running",
+        "telemetry": "valid"
+      },
+      {
+        "id": "srv-11",
+        "name": "SRV-11",
+        "rackId": "rack-a01",
+        "startUnit": 19,
+        "baseline": 25.84,
+        "thermalFactor": 0.275,
+        "loadFactor": 0.996,
+        "budgetWatts": 350,
+        "lifecycle": "running",
+        "telemetry": "valid"
+      },
+      {
+        "id": "srv-12",
+        "name": "SRV-12",
+        "rackId": "rack-a01",
+        "startUnit": 29,
+        "baseline": 23.42,
+        "thermalFactor": 0.385,
+        "loadFactor": 0.566,
+        "budgetWatts": 350,
+        "lifecycle": "running",
+        "telemetry": "valid"
+      },
+      {
+        "id": "srv-13",
+        "name": "SRV-13",
+        "rackId": "rack-a02",
+        "startUnit": 3,
+        "baseline": 26.5,
+        "thermalFactor": 0.78,
+        "loadFactor": 0.695,
+        "budgetWatts": 350,
+        "lifecycle": "running",
+        "telemetry": "valid"
+      },
+      {
+        "id": "srv-14",
+        "name": "SRV-14",
+        "rackId": "rack-a02",
+        "startUnit": 7,
+        "baseline": 26.7,
+        "thermalFactor": 0.7,
+        "loadFactor": 0.824,
+        "budgetWatts": 350,
+        "lifecycle": "running",
+        "telemetry": "valid"
+      },
+      {
+        "id": "srv-15",
+        "name": "SRV-15",
+        "rackId": "rack-a02",
+        "startUnit": 11,
+        "baseline": 26.06,
+        "thermalFactor": 0.495,
+        "loadFactor": 0.953,
+        "budgetWatts": 350,
+        "lifecycle": "running",
+        "telemetry": "valid"
+      },
+      {
+        "id": "srv-16",
+        "name": "SRV-16",
+        "rackId": "rack-a02",
+        "startUnit": 15,
+        "baseline": 23.64,
+        "thermalFactor": 0.22,
+        "loadFactor": 0.523,
+        "budgetWatts": 350,
+        "lifecycle": "running",
+        "telemetry": "valid"
+      },
+      {
+        "id": "srv-17",
+        "name": "SRV-17",
+        "rackId": "rack-a02",
+        "startUnit": 19,
+        "baseline": 24.3,
+        "thermalFactor": 0.33,
+        "loadFactor": 0.652,
+        "budgetWatts": 350,
+        "lifecycle": "running",
+        "telemetry": "valid"
+      },
+      {
+        "id": "srv-18",
+        "name": "SRV-18",
+        "rackId": "rack-a02",
+        "startUnit": 29,
+        "baseline": 24.96,
+        "thermalFactor": 0.44,
+        "loadFactor": 0.781,
+        "budgetWatts": 350,
+        "lifecycle": "running",
+        "telemetry": "valid"
+      },
+      {
+        "id": "srv-19",
+        "name": "SRV-19",
+        "rackId": "rack-a03",
+        "startUnit": 3,
+        "baseline": 23.2,
+        "thermalFactor": 0.33,
+        "loadFactor": 0.91,
+        "budgetWatts": 350,
+        "lifecycle": "running",
+        "telemetry": "valid"
+      },
+      {
+        "id": "srv-20",
+        "name": "SRV-20",
+        "rackId": "rack-a03",
+        "startUnit": 7,
+        "baseline": 23.86,
+        "thermalFactor": 0.44,
+        "loadFactor": 0.48,
+        "budgetWatts": 350,
+        "lifecycle": "running",
+        "telemetry": "valid"
+      },
+      {
+        "id": "srv-21",
+        "name": "SRV-21",
+        "rackId": "rack-a03",
+        "startUnit": 11,
+        "baseline": 24.52,
+        "thermalFactor": 0.55,
+        "loadFactor": 0.609,
+        "budgetWatts": 350,
+        "lifecycle": "running",
+        "telemetry": "valid"
+      },
+      {
+        "id": "srv-22",
+        "name": "SRV-22",
+        "rackId": "rack-a03",
+        "startUnit": 15,
+        "baseline": 25.18,
+        "thermalFactor": 0.275,
+        "loadFactor": 0.738,
+        "budgetWatts": 350,
+        "lifecycle": "running",
+        "telemetry": "valid"
+      },
+      {
+        "id": "srv-23",
+        "name": "SRV-23",
+        "rackId": "rack-a03",
+        "startUnit": 19,
+        "baseline": 25.84,
+        "thermalFactor": 0.385,
+        "loadFactor": 0.867,
+        "budgetWatts": 350,
+        "lifecycle": "running",
+        "telemetry": "valid"
+      },
+      {
+        "id": "srv-24",
+        "name": "SRV-24",
+        "rackId": "rack-a03",
+        "startUnit": 29,
+        "baseline": 23.42,
+        "thermalFactor": 0.495,
+        "loadFactor": 0.996,
+        "budgetWatts": 350,
+        "lifecycle": "running",
+        "telemetry": "valid"
+      },
+      {
+        "id": "srv-25",
+        "name": "SRV-25",
+        "rackId": "rack-a04",
+        "startUnit": 3,
+        "baseline": 24,
+        "thermalFactor": 0.2,
+        "loadFactor": 0.566,
+        "budgetWatts": 350,
+        "lifecycle": "offline",
+        "telemetry": "offline"
+      },
+      {
+        "id": "srv-26",
+        "name": "SRV-26",
+        "rackId": "rack-a04",
+        "startUnit": 7,
+        "baseline": 26.7,
+        "thermalFactor": 0.7,
+        "loadFactor": 0.695,
+        "budgetWatts": 350,
+        "lifecycle": "running",
+        "telemetry": "valid"
+      },
+      {
+        "id": "srv-27",
+        "name": "SRV-27",
+        "rackId": "rack-a04",
+        "startUnit": 11,
+        "baseline": 28,
+        "thermalFactor": 1.05,
+        "loadFactor": 0.824,
+        "budgetWatts": 350,
+        "lifecycle": "running",
+        "telemetry": "valid"
+      },
+      {
+        "id": "srv-28",
+        "name": "SRV-28",
+        "rackId": "rack-a04",
+        "startUnit": 15,
+        "baseline": 23.64,
+        "thermalFactor": 0.33,
+        "loadFactor": 0.953,
+        "budgetWatts": 350,
+        "lifecycle": "running",
+        "telemetry": "valid"
+      },
+      {
+        "id": "srv-29",
+        "name": "SRV-29",
+        "rackId": "rack-a04",
+        "startUnit": 19,
+        "baseline": 24.3,
+        "thermalFactor": 0.44,
+        "loadFactor": 0.523,
+        "budgetWatts": 350,
+        "lifecycle": "running",
+        "telemetry": "valid"
+      },
+      {
+        "id": "srv-30",
+        "name": "SRV-30",
+        "rackId": "rack-a04",
+        "startUnit": 23,
+        "baseline": 24.96,
+        "thermalFactor": 0.55,
+        "loadFactor": 0.652,
+        "budgetWatts": 350,
+        "lifecycle": "running",
+        "telemetry": "valid"
+      },
+      {
+        "id": "srv-31",
+        "name": "SRV-31",
+        "rackId": "rack-a04",
+        "startUnit": 29,
+        "baseline": 25.62,
+        "thermalFactor": 0.275,
+        "loadFactor": 0.781,
+        "budgetWatts": 350,
+        "lifecycle": "running",
+        "telemetry": "valid"
+      },
+      {
+        "id": "srv-32",
+        "name": "SRV-32",
+        "rackId": "rack-a04",
+        "startUnit": 34,
+        "baseline": 23.2,
+        "thermalFactor": 0.385,
+        "loadFactor": 0.91,
+        "budgetWatts": 350,
+        "lifecycle": "running",
+        "telemetry": "valid"
+      },
+      {
+        "id": "srv-33",
+        "name": "SRV-33",
+        "rackId": "rack-a05",
+        "startUnit": 3,
+        "baseline": 26.5,
+        "thermalFactor": 0.78,
+        "loadFactor": 0.781,
+        "budgetWatts": 350,
+        "lifecycle": "running",
+        "telemetry": "valid"
+      },
+      {
+        "id": "srv-34",
+        "name": "SRV-34",
+        "rackId": "rack-a05",
+        "startUnit": 7,
+        "baseline": 26.7,
+        "thermalFactor": 0.7,
+        "loadFactor": 0.91,
+        "budgetWatts": 350,
+        "lifecycle": "running",
+        "telemetry": "valid"
+      },
+      {
+        "id": "srv-35",
+        "name": "SRV-35",
+        "rackId": "rack-a05",
+        "startUnit": 11,
+        "baseline": 24.52,
+        "thermalFactor": 0.275,
+        "loadFactor": 0.48,
+        "budgetWatts": 350,
+        "lifecycle": "running",
+        "telemetry": "valid"
+      },
+      {
+        "id": "srv-36",
+        "name": "SRV-36",
+        "rackId": "rack-a05",
+        "startUnit": 15,
+        "baseline": 25.18,
+        "thermalFactor": 0.385,
+        "loadFactor": 0.609,
+        "budgetWatts": 350,
+        "lifecycle": "running",
+        "telemetry": "valid"
+      },
+      {
+        "id": "srv-37",
+        "name": "SRV-37",
+        "rackId": "rack-a05",
+        "startUnit": 19,
+        "baseline": 25.84,
+        "thermalFactor": 0.495,
+        "loadFactor": 0.738,
+        "budgetWatts": 350,
+        "lifecycle": "running",
+        "telemetry": "valid"
+      },
+      {
+        "id": "srv-38",
+        "name": "SRV-38",
+        "rackId": "rack-a05",
+        "startUnit": 23,
+        "baseline": 23.42,
+        "thermalFactor": 0.22,
+        "loadFactor": 0.867,
+        "budgetWatts": 350,
+        "lifecycle": "running",
+        "telemetry": "valid"
+      },
+      {
+        "id": "srv-39",
+        "name": "SRV-39",
+        "rackId": "rack-a05",
+        "startUnit": 29,
+        "baseline": 24.08,
+        "thermalFactor": 0.33,
+        "loadFactor": 0.996,
+        "budgetWatts": 350,
+        "lifecycle": "running",
+        "telemetry": "valid"
+      },
+      {
+        "id": "srv-40",
+        "name": "SRV-40",
+        "rackId": "rack-a05",
+        "startUnit": 34,
+        "baseline": 24.74,
+        "thermalFactor": 0.44,
+        "loadFactor": 0.566,
+        "budgetWatts": 350,
+        "lifecycle": "running",
+        "telemetry": "valid"
+      },
+      {
+        "id": "srv-41",
+        "name": "SRV-41",
+        "rackId": "rack-a06",
+        "startUnit": 3,
+        "baseline": 24.74,
+        "thermalFactor": 0.495,
+        "loadFactor": 0.996,
+        "budgetWatts": 350,
+        "lifecycle": "running",
+        "telemetry": "valid"
+      },
+      {
+        "id": "srv-42",
+        "name": "SRV-42",
+        "rackId": "rack-a06",
+        "startUnit": 7,
+        "baseline": 25.4,
+        "thermalFactor": 0.22,
+        "loadFactor": 0.566,
+        "budgetWatts": 350,
+        "lifecycle": "running",
+        "telemetry": "valid"
+      },
+      {
+        "id": "srv-43",
+        "name": "SRV-43",
+        "rackId": "rack-a06",
+        "startUnit": 11,
+        "baseline": 24,
+        "thermalFactor": 0.2,
+        "loadFactor": 0.695,
+        "budgetWatts": 350,
+        "lifecycle": "maintenance",
+        "telemetry": "valid"
+      },
+      {
+        "id": "srv-44",
+        "name": "SRV-44",
+        "rackId": "rack-a06",
+        "startUnit": 15,
+        "baseline": 23.64,
+        "thermalFactor": 0.44,
+        "loadFactor": 0.824,
+        "budgetWatts": 350,
+        "lifecycle": "running",
+        "telemetry": "valid"
+      },
+      {
+        "id": "srv-45",
+        "name": "SRV-45",
+        "rackId": "rack-a06",
+        "startUnit": 19,
+        "baseline": 24.3,
+        "thermalFactor": 0.55,
+        "loadFactor": 0.953,
+        "budgetWatts": 350,
+        "lifecycle": "running",
+        "telemetry": "valid"
+      },
+      {
+        "id": "srv-46",
+        "name": "SRV-46",
+        "rackId": "rack-a06",
+        "startUnit": 23,
+        "baseline": 24.96,
+        "thermalFactor": 0.275,
+        "loadFactor": 0.523,
+        "budgetWatts": 350,
+        "lifecycle": "running",
+        "telemetry": "valid"
+      },
+      {
+        "id": "srv-47",
+        "name": "SRV-47",
+        "rackId": "rack-a06",
+        "startUnit": 29,
+        "baseline": 25.62,
+        "thermalFactor": 0.385,
+        "loadFactor": 0.652,
+        "budgetWatts": 350,
+        "lifecycle": "running",
+        "telemetry": "valid"
+      },
+      {
+        "id": "srv-48",
+        "name": "SRV-48",
+        "rackId": "rack-a06",
+        "startUnit": 34,
+        "baseline": 23.2,
+        "thermalFactor": 0.495,
+        "loadFactor": 0.781,
+        "budgetWatts": 350,
+        "lifecycle": "running",
+        "telemetry": "valid"
+      },
+      {
+        "id": "srv-49",
+        "name": "SRV-49",
+        "rackId": "rack-a07",
+        "startUnit": 3,
+        "baseline": 24,
+        "thermalFactor": 0.2,
+        "loadFactor": 0.652,
+        "budgetWatts": 350,
+        "lifecycle": "maintenance",
+        "telemetry": "valid"
+      },
+      {
+        "id": "srv-50",
+        "name": "SRV-50",
+        "rackId": "rack-a07",
+        "startUnit": 7,
+        "baseline": 26.7,
+        "thermalFactor": 0.7,
+        "loadFactor": 0.781,
+        "budgetWatts": 350,
+        "lifecycle": "running",
+        "telemetry": "valid"
+      },
+      {
+        "id": "srv-51",
+        "name": "SRV-51",
+        "rackId": "rack-a07",
+        "startUnit": 11,
+        "baseline": 24.52,
+        "thermalFactor": 0.385,
+        "loadFactor": 0.91,
+        "budgetWatts": 350,
+        "lifecycle": "running",
+        "telemetry": "valid"
+      },
+      {
+        "id": "srv-52",
+        "name": "SRV-52",
+        "rackId": "rack-a07",
+        "startUnit": 15,
+        "baseline": 25.18,
+        "thermalFactor": 0.495,
+        "loadFactor": 0.48,
+        "budgetWatts": 350,
+        "lifecycle": "running",
+        "telemetry": "valid"
+      },
+      {
+        "id": "srv-53",
+        "name": "SRV-53",
+        "rackId": "rack-a07",
+        "startUnit": 19,
+        "baseline": 25.84,
+        "thermalFactor": 0.22,
+        "loadFactor": 0.609,
+        "budgetWatts": 350,
+        "lifecycle": "running",
+        "telemetry": "valid"
+      },
+      {
+        "id": "srv-54",
+        "name": "SRV-54",
+        "rackId": "rack-a07",
+        "startUnit": 23,
+        "baseline": 23.42,
+        "thermalFactor": 0.33,
+        "loadFactor": 0.738,
+        "budgetWatts": 350,
+        "lifecycle": "running",
+        "telemetry": "valid"
+      },
+      {
+        "id": "srv-55",
+        "name": "SRV-55",
+        "rackId": "rack-a07",
+        "startUnit": 29,
+        "baseline": 24.08,
+        "thermalFactor": 0.44,
+        "loadFactor": 0.867,
+        "budgetWatts": 350,
+        "lifecycle": "running",
+        "telemetry": "valid"
+      },
+      {
+        "id": "srv-56",
+        "name": "SRV-56",
+        "rackId": "rack-a07",
+        "startUnit": 34,
+        "baseline": 24,
+        "thermalFactor": 0.2,
+        "loadFactor": 0.996,
+        "budgetWatts": 350,
+        "lifecycle": "running",
+        "telemetry": "missing"
+      },
+      {
+        "id": "srv-57",
+        "name": "SRV-57",
+        "rackId": "rack-a08",
+        "startUnit": 3,
+        "baseline": 24.74,
+        "thermalFactor": 0.22,
+        "loadFactor": 0.867,
+        "budgetWatts": 350,
+        "lifecycle": "running",
+        "telemetry": "valid"
+      },
+      {
+        "id": "srv-58",
+        "name": "SRV-58",
+        "rackId": "rack-a08",
+        "startUnit": 7,
+        "baseline": 25.4,
+        "thermalFactor": 0.33,
+        "loadFactor": 0.996,
+        "budgetWatts": 350,
+        "lifecycle": "running",
+        "telemetry": "valid"
+      },
+      {
+        "id": "srv-59",
+        "name": "SRV-59",
+        "rackId": "rack-a08",
+        "startUnit": 11,
+        "baseline": 24,
+        "thermalFactor": 0.2,
+        "loadFactor": 0.566,
+        "budgetWatts": 350,
+        "lifecycle": "running",
+        "telemetry": "stale"
+      },
+      {
+        "id": "srv-60",
+        "name": "SRV-60",
+        "rackId": "rack-a08",
+        "startUnit": 15,
+        "baseline": 23.64,
+        "thermalFactor": 0.55,
+        "loadFactor": 0.695,
+        "budgetWatts": 350,
+        "lifecycle": "running",
+        "telemetry": "valid"
+      },
+      {
+        "id": "srv-61",
+        "name": "SRV-61",
+        "rackId": "rack-a08",
+        "startUnit": 19,
+        "baseline": 24.3,
+        "thermalFactor": 0.275,
+        "loadFactor": 0.824,
+        "budgetWatts": 350,
+        "lifecycle": "running",
+        "telemetry": "valid"
+      },
+      {
+        "id": "srv-62",
+        "name": "SRV-62",
+        "rackId": "rack-a08",
+        "startUnit": 23,
+        "baseline": 24.96,
+        "thermalFactor": 0.385,
+        "loadFactor": 0.953,
+        "budgetWatts": 350,
+        "lifecycle": "running",
+        "telemetry": "valid"
+      },
+      {
+        "id": "srv-63",
+        "name": "SRV-63",
+        "rackId": "rack-a08",
+        "startUnit": 29,
+        "baseline": 24,
+        "thermalFactor": 0.2,
+        "loadFactor": 0.523,
+        "budgetWatts": 350,
+        "lifecycle": "stopped",
+        "telemetry": "valid"
+      },
+      {
+        "id": "srv-64",
+        "name": "SRV-64",
+        "rackId": "rack-a08",
+        "startUnit": 34,
+        "baseline": 23.2,
+        "thermalFactor": 0.22,
+        "loadFactor": 0.652,
+        "budgetWatts": 350,
+        "lifecycle": "running",
+        "telemetry": "valid"
       }
     ],
     "relations": [
@@ -707,6 +1486,412 @@
         "id": "cooling-to-srv-06",
         "source": "cooling-01",
         "target": "srv-06",
+        "kind": "cooling",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-to-srv-07",
+        "source": "cooling-01",
+        "target": "srv-07",
+        "kind": "cooling",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-to-srv-08",
+        "source": "cooling-01",
+        "target": "srv-08",
+        "kind": "cooling",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-to-srv-09",
+        "source": "cooling-01",
+        "target": "srv-09",
+        "kind": "cooling",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-to-srv-10",
+        "source": "cooling-01",
+        "target": "srv-10",
+        "kind": "cooling",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-to-srv-11",
+        "source": "cooling-01",
+        "target": "srv-11",
+        "kind": "cooling",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-to-srv-12",
+        "source": "cooling-01",
+        "target": "srv-12",
+        "kind": "cooling",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-to-srv-13",
+        "source": "cooling-01",
+        "target": "srv-13",
+        "kind": "cooling",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-to-srv-14",
+        "source": "cooling-01",
+        "target": "srv-14",
+        "kind": "cooling",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-to-srv-15",
+        "source": "cooling-01",
+        "target": "srv-15",
+        "kind": "cooling",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-to-srv-16",
+        "source": "cooling-01",
+        "target": "srv-16",
+        "kind": "cooling",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-to-srv-17",
+        "source": "cooling-01",
+        "target": "srv-17",
+        "kind": "cooling",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-to-srv-18",
+        "source": "cooling-01",
+        "target": "srv-18",
+        "kind": "cooling",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-to-srv-19",
+        "source": "cooling-01",
+        "target": "srv-19",
+        "kind": "cooling",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-to-srv-20",
+        "source": "cooling-01",
+        "target": "srv-20",
+        "kind": "cooling",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-to-srv-21",
+        "source": "cooling-01",
+        "target": "srv-21",
+        "kind": "cooling",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-to-srv-22",
+        "source": "cooling-01",
+        "target": "srv-22",
+        "kind": "cooling",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-to-srv-23",
+        "source": "cooling-01",
+        "target": "srv-23",
+        "kind": "cooling",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-to-srv-24",
+        "source": "cooling-01",
+        "target": "srv-24",
+        "kind": "cooling",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-to-srv-25",
+        "source": "cooling-01",
+        "target": "srv-25",
+        "kind": "cooling",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-to-srv-26",
+        "source": "cooling-01",
+        "target": "srv-26",
+        "kind": "cooling",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-to-srv-27",
+        "source": "cooling-01",
+        "target": "srv-27",
+        "kind": "cooling",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-to-srv-28",
+        "source": "cooling-01",
+        "target": "srv-28",
+        "kind": "cooling",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-to-srv-29",
+        "source": "cooling-01",
+        "target": "srv-29",
+        "kind": "cooling",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-to-srv-30",
+        "source": "cooling-01",
+        "target": "srv-30",
+        "kind": "cooling",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-to-srv-31",
+        "source": "cooling-01",
+        "target": "srv-31",
+        "kind": "cooling",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-to-srv-32",
+        "source": "cooling-01",
+        "target": "srv-32",
+        "kind": "cooling",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-to-srv-33",
+        "source": "cooling-01",
+        "target": "srv-33",
+        "kind": "cooling",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-to-srv-34",
+        "source": "cooling-01",
+        "target": "srv-34",
+        "kind": "cooling",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-to-srv-35",
+        "source": "cooling-01",
+        "target": "srv-35",
+        "kind": "cooling",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-to-srv-36",
+        "source": "cooling-01",
+        "target": "srv-36",
+        "kind": "cooling",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-to-srv-37",
+        "source": "cooling-01",
+        "target": "srv-37",
+        "kind": "cooling",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-to-srv-38",
+        "source": "cooling-01",
+        "target": "srv-38",
+        "kind": "cooling",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-to-srv-39",
+        "source": "cooling-01",
+        "target": "srv-39",
+        "kind": "cooling",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-to-srv-40",
+        "source": "cooling-01",
+        "target": "srv-40",
+        "kind": "cooling",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-to-srv-41",
+        "source": "cooling-01",
+        "target": "srv-41",
+        "kind": "cooling",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-to-srv-42",
+        "source": "cooling-01",
+        "target": "srv-42",
+        "kind": "cooling",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-to-srv-43",
+        "source": "cooling-01",
+        "target": "srv-43",
+        "kind": "cooling",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-to-srv-44",
+        "source": "cooling-01",
+        "target": "srv-44",
+        "kind": "cooling",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-to-srv-45",
+        "source": "cooling-01",
+        "target": "srv-45",
+        "kind": "cooling",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-to-srv-46",
+        "source": "cooling-01",
+        "target": "srv-46",
+        "kind": "cooling",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-to-srv-47",
+        "source": "cooling-01",
+        "target": "srv-47",
+        "kind": "cooling",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-to-srv-48",
+        "source": "cooling-01",
+        "target": "srv-48",
+        "kind": "cooling",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-to-srv-49",
+        "source": "cooling-01",
+        "target": "srv-49",
+        "kind": "cooling",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-to-srv-50",
+        "source": "cooling-01",
+        "target": "srv-50",
+        "kind": "cooling",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-to-srv-51",
+        "source": "cooling-01",
+        "target": "srv-51",
+        "kind": "cooling",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-to-srv-52",
+        "source": "cooling-01",
+        "target": "srv-52",
+        "kind": "cooling",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-to-srv-53",
+        "source": "cooling-01",
+        "target": "srv-53",
+        "kind": "cooling",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-to-srv-54",
+        "source": "cooling-01",
+        "target": "srv-54",
+        "kind": "cooling",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-to-srv-55",
+        "source": "cooling-01",
+        "target": "srv-55",
+        "kind": "cooling",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-to-srv-56",
+        "source": "cooling-01",
+        "target": "srv-56",
+        "kind": "cooling",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-to-srv-57",
+        "source": "cooling-01",
+        "target": "srv-57",
+        "kind": "cooling",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-to-srv-58",
+        "source": "cooling-01",
+        "target": "srv-58",
+        "kind": "cooling",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-to-srv-59",
+        "source": "cooling-01",
+        "target": "srv-59",
+        "kind": "cooling",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-to-srv-60",
+        "source": "cooling-01",
+        "target": "srv-60",
+        "kind": "cooling",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-to-srv-61",
+        "source": "cooling-01",
+        "target": "srv-61",
+        "kind": "cooling",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-to-srv-62",
+        "source": "cooling-01",
+        "target": "srv-62",
+        "kind": "cooling",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-to-srv-63",
+        "source": "cooling-01",
+        "target": "srv-63",
+        "kind": "cooling",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-to-srv-64",
+        "source": "cooling-01",
+        "target": "srv-64",
         "kind": "cooling",
         "sourceType": "simulation"
       }

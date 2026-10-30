@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { deviceObservation } from "../device-data";
 import type { AppState } from "../domain";
 import { coolingRelationFor } from "../installation";
 import type { SimulationSnapshot } from "../simulation";
@@ -9,7 +10,7 @@ export class TelemetryOverlay {
   root = new THREE.Group();
   relation = new THREE.Group();
   enabled = true;
-  mode: "object" | "temperature" | "power" | "alarms" = "object";
+  mode: "object" | "status" | "temperature" | "power" | "alarms" = "object";
   sensor = new THREE.Group();
   line: THREE.Line;
   arrows: THREE.LineSegments;
@@ -70,6 +71,12 @@ export class TelemetryOverlay {
     explosion: number,
     roomOpacity: number,
   ) {
+    const observation = deviceObservation(
+      state.time,
+      state.deviceId,
+      state.replayCycle,
+    );
+    const current = observation.quality === "valid";
     this.relation.visible =
       this.mode === "temperature" &&
       this.enabled &&
@@ -77,6 +84,7 @@ export class TelemetryOverlay {
       roomOpacity === 1 &&
       inspection === 0;
     this.alarmBox.visible =
+      current &&
       ((this.mode === "alarms" && !!sample.alarm?.active) ||
         (this.mode === "power" && explosion === 0)) &&
       (inspection === 0 || inspection === 1);
@@ -105,6 +113,8 @@ export class TelemetryOverlay {
     }
     this.sensor.visible =
       this.mode === "temperature" &&
+      current &&
+      observation.temperature !== null &&
       (inspection === 0 || inspection === 1) &&
       explosion === 0;
     if (this.sensor.visible) {

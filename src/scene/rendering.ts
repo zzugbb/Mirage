@@ -8,7 +8,7 @@ import definition from "../../assets/public/scenes/room-01.json" with { type: "j
 
 /** 线性纹理背景与模型经过同一色调映射，标准和后处理画质保持一致。 */
 export function createBackdrop() {
-  const backdrop = new THREE.DataTexture(new Uint8Array([7, 8, 10, 255]), 1, 1);
+  const backdrop = new THREE.DataTexture(new Uint8Array([4, 6, 9, 255]), 1, 1);
   backdrop.colorSpace = THREE.LinearSRGBColorSpace;
   backdrop.needsUpdate = true;
   return backdrop;
@@ -129,10 +129,14 @@ export function createFloorMaterial() {
 export function createRoomLights(room: THREE.Group) {
   RectAreaLightUniformsLib.init();
   const lights: THREE.RectAreaLight[] = [];
-  for (const x of [-2.4, 1.7]) {
-    const light = new THREE.RectAreaLight("#fff8ed", 3, 0.095, 3.05);
-    light.position.set(x, 2.825, -0.55);
-    light.lookAt(x, 0, -0.55);
+  for (const lamp of definition.room.lights) {
+    const light = new THREE.RectAreaLight("#eff5ff", 2.4, 0.105, lamp.length);
+    light.position.set(
+      lamp.position[0],
+      lamp.position[1] - 0.03,
+      lamp.position[2],
+    );
+    light.lookAt(lamp.position[0], 0, lamp.position[2]);
     room.add(light);
     lights.push(light);
   }

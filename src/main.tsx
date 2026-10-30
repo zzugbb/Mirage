@@ -3,5 +3,6 @@ import { App } from "./App";
 import "./styles.css";
 import "./telemetry.css";
 import "./workspace.css";
+import "./operations.css";
 
 createRoot(document.getElementById("root")!).render(<App />);

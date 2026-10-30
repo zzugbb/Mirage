@@ -1,4 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { qualityNames } from "../status";
+import { observationColor } from "../scene/metric-color";
+import { racks, devices, rackForDevice } from "../installation";
+import { spatialSnapshot } from "../spatial";
+import { signalStyles, signalFor } from "../status";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { SceneEngine } from "../scene/engine";
 import type { Action, AppState } from "../domain";
 import type { View } from "../scene/engine";
@@ -37,6 +42,11 @@ export function Viewport({
   onViewChange: (view: InspectionView) => void;
   dispatch: React.Dispatch<Action>;
 }) {
+  const spatial = useMemo(
+    () => spatialSnapshot(state.time, state.replayCycle, state.deviceId),
+    [state.time, state.replayCycle, state.deviceId],
+  );
+  const currentReading = spatial.readings.get(state.deviceId)!;
   const host = useRef<HTMLDivElement>(null);
   const engine = useRef<SceneEngine | null>(null);
   const latestSelect = useRef(onSelect);
@@ -134,6 +144,8 @@ export function Viewport({
   const takeControl = () => {
     // 原生 OrbitControls 在当前指针事件内响应；同步解除定格再交给它。
     if (engine.current) engine.current.paused = false;
+    if (engine.current) engine.current.autoOrbit = false;
+    setOrbiting(false);
     onManualControl();
   };
   const setCamera = (next: View) => {
@@ -151,11 +163,7 @@ export function Viewport({
           {state.level === "room"
             ? "01号机房"
             : state.level === "rack"
-              ? state.deviceId === "srv-01" || state.deviceId === "srv-02"
-                ? "A01 机柜"
-                : state.deviceId === "srv-03" || state.deviceId === "srv-04"
-                  ? "A02 机柜"
-                  : "A03 机柜"
+              ? rackForDevice(state.deviceId).name
               : state.deviceId.toUpperCase()}
         </h1>
         <ObservationTabs view={inspectionView} onChange={onViewChange} />
@@ -172,23 +180,120 @@ export function Viewport({
           onPointerDownCapture={takeControl}
           onWheelCapture={takeControl}
         />
-        <div className="scene-anchors" ref={anchors}>
+        <div
+          className="scene-anchors"
+          ref={anchors}
+          onPointerDown={takeControl}
+        >
           <button
             hidden
             data-anchor="srv-01"
-            className={`scene-anchor metric-anchor status-${sample.alarm?.active ? sample.alarm.severity : "normal"}`}
+            className={`scene-anchor metric-anchor status-${currentReading.alarm === 2 ? "critical" : currentReading.alarm === 1 ? "warning" : "normal"}`}
             onClick={() => dispatch({ type: "locate", id: state.deviceId })}
             title="定位运行观察设备（模拟）"
           >
             {inspectionView === "power"
-              ? `${sample.power.toFixed(1)} W · 整机输入`
+              ? currentReading.power === null
+                ? `数据${qualityNames[currentReading.quality]}`
+                : `${currentReading.power.toFixed(1)} W · 整机输入`
               : inspectionView === "alarms"
                 ? `温度${sample.temperatureStatus} · ${sample.temperature.toFixed(1)} °C`
-                : `进风 ${sample.temperature.toFixed(1)} °C`}{" "}
-            <small>模拟</small>
+                : currentReading.temperature === null
+                  ? `数据${qualityNames[currentReading.quality]}`
+                  : `进风 ${currentReading.temperature.toFixed(1)} °C`}{" "}
+            <small>
+              {currentReading.quality === "stale"
+                ? `过期 · t+${currentReading.observedAt}s`
+                : "模拟"}
+            </small>
           </button>
+          {racks.map((rack) => {
+            const reading = spatial.readings.get(rack.id)!;
+            const signal = signalFor(reading);
+            return (
+              <button
+                hidden
+                key={rack.id}
+                data-anchor={rack.id}
+                data-anchor-kind="rack"
+                className={`scene-anchor signal-anchor ${state.selected === rack.id ? "selected" : ""}`}
+                style={
+                  {
+                    "--marker": observationColor(
+                      reading,
+                      inspectionView,
+                    ).getStyle(),
+                  } as React.CSSProperties
+                }
+                onClick={() => onSelect(rack.id)}
+                onDoubleClick={() => onSelect(rack.id, true)}
+                title={`${rack.name} · ${signalStyles[signal].label} · ${reading.alarmCount} 台告警（模拟）`}
+              >
+                <b>{rack.name.slice(0, 3)}</b>
+                <span>
+                  {inspectionView === "temperature" ? (
+                    reading.temperature === null ? (
+                      "—"
+                    ) : (
+                      `${reading.temperature.toFixed(1)}°`
+                    )
+                  ) : inspectionView === "power" ? (
+                    reading.power === null ? (
+                      "—"
+                    ) : (
+                      `${(reading.power / 1000).toFixed(1)}kW`
+                    )
+                  ) : (
+                    <>
+                      {signalStyles[signal].icon}
+                      {reading.alarmCount || ""}
+                    </>
+                  )}
+                </span>
+              </button>
+            );
+          })}
+          {devices.map((device) => {
+            const reading = spatial.readings.get(device.id)!;
+            const signal = signalFor(reading);
+            const metric =
+              reading.quality !== "valid"
+                ? qualityNames[reading.quality]
+                : inspectionView === "temperature"
+                  ? reading.temperature === null
+                    ? "—"
+                    : `${reading.temperature.toFixed(1)}°C`
+                  : inspectionView === "power"
+                    ? reading.power === null
+                      ? "—"
+                      : `${reading.power.toFixed(0)}W`
+                    : signalStyles[signal].label;
+            return (
+              <button
+                hidden
+                key={device.id}
+                data-anchor={device.id}
+                data-anchor-kind="device"
+                className="scene-anchor device-signal-anchor"
+                style={
+                  {
+                    "--marker": observationColor(
+                      reading,
+                      inspectionView,
+                    ).getStyle(),
+                  } as React.CSSProperties
+                }
+                onPointerDown={takeControl}
+                onClick={() => onSelect(device.id)}
+                onDoubleClick={() => onSelect(device.id, true)}
+                title={`${device.name} · ${signalStyles[signal].label} · 模拟`}
+              >
+                <b>{device.id.toUpperCase()}</b>
+                <span>{metric}</span>
+              </button>
+            );
+          })}
           {[
-            ["rack-a01", "A01"],
             ["cooling-01", "制冷单元"],
             ["power-01", "配电柜"],
             ["cpu-01", "散热器"],
@@ -215,11 +320,30 @@ export function Viewport({
               预设冷却关系 · {sample.coolingCapacity}% · 模拟
             </div>
           )}
+        {inspectionView === "status" && (
+          <div className="scene-overview">
+            <span className="scene-overview-kicker">MIRAGE / 运行态势</span>
+            <strong>
+              {state.level === "room"
+                ? `${racks.length} 机柜 · 64 设备`
+                : state.level === "rack"
+                  ? "42U · 8 台设备"
+                  : state.deviceId.toUpperCase()}
+            </strong>
+            <p>
+              <i style={{ background: signalStyles.normal.color }} />
+              正常 <i style={{ background: signalStyles.warning.color }} />
+              预警 <i style={{ background: signalStyles.critical.color }} />
+              严重 <i style={{ background: signalStyles.offline.color }} />
+              离线 / 未配置<span>模拟</span>
+            </p>
+          </div>
+        )}
         <div className="view-switch" aria-label="标准视角">
           {(
             [
               ...(state.level === "room"
-                ? ([["interior", "室内"]] as const)
+                ? ([["interior", "总览"]] as const)
                 : []),
               ["iso", "等轴"],
               ["top", "俯视"],
@@ -317,7 +441,7 @@ export function Viewport({
               aria-pressed={labels}
               onClick={() => setLabels((value) => !value)}
             >
-              标签
+              结构标签
             </button>
             <button
               className="quality-button"

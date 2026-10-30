@@ -1,3 +1,4 @@
+import { spatialSnapshot } from "./spatial.ts";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as THREE from "three";
@@ -41,10 +42,13 @@ test("原材质与实例着色互不串值，增强模型载入后重绑仍能�
     (contextRack.children[0] as THREE.Mesh).material as THREE.Material,
   );
   first.update(state, "temperature");
-  assert.equal(rackShader.uniforms.mTemperature.value, 39.5);
+  assert.equal(
+    rackShader.uniforms.mTemperature.value,
+    spatialSnapshot(60).readings.get("rack-a01")!.temperature,
+  );
   assert.ok(
     contextShader.uniforms.mTemperature.value <
-      rackShader.uniforms.mTemperature.value,
+      rackShader.uniforms.mTemperature.value!,
   );
   assert.equal(rackShader.uniforms.mGradient.value, 0);
   first.update(state, "object");
@@ -57,6 +61,22 @@ test("原材质与实例着色互不串值，增强模型载入后重绑仍能�
   const rebound = capture(material);
   state = transition(state, { type: "seek", time: 0 });
   second.update(state, "temperature");
-  assert.equal(rebound.uniforms.mTemperature.value, 27);
+  assert.equal(
+    rebound.uniforms.mTemperature.value,
+    spatialSnapshot(0).readings.get("rack-a01")!.temperature,
+  );
+  const serverShader = capture(
+    (server.children[0] as THREE.Mesh).material as THREE.Material,
+  );
+  state = transition(state, { type: "select", id: "srv-59" });
+  state = transition(state, { type: "seek", time: 60 });
+  second.update(state, "temperature");
+  assert.equal(
+    serverShader.uniforms.mMode.value,
+    4,
+    "过期值不能按当前温度着色",
+  );
+  second.update(state, "status");
+  assert.equal(serverShader.uniforms.mMode.value, 0, "态势模式保留原材质");
   second.dispose();
 });

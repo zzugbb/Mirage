@@ -1,3 +1,5 @@
+import { deviceObservation } from "../device-data";
+import { qualityNames } from "../status";
 import { trendScale } from "../chart";
 import type { Action, AppState } from "../domain";
 import type { SimulationSnapshot } from "../simulation";
@@ -20,6 +22,13 @@ export function ObservationDock({
   onExpanded: (expanded: boolean) => void;
   expanded: boolean;
 }) {
+  const observation = deviceObservation(
+    state.time,
+    state.deviceId,
+    state.replayCycle,
+  );
+  const current = observation.quality === "valid";
+  const events = current ? sample.events : [];
   return (
     <div
       className={`observation-dock ${view} ${expanded ? "expanded" : "collapsed"}`}
@@ -40,14 +49,16 @@ export function ObservationDock({
                 ? `${trendScale("power", state.deviceId).caption} · 模拟`
                 : view === "temperature"
                   ? "单点测温 · 非空间热场"
-                  : sample.alarm?.active
-                    ? `当前${severityNames[sample.alarm.severity]}`
-                    : sample.alarm
-                      ? "已恢复"
-                      : "当前无告警"}
+                  : !current
+                    ? qualityNames[observation.quality]
+                    : sample.alarm?.active
+                      ? `当前${severityNames[sample.alarm.severity]}`
+                      : sample.alarm
+                        ? "已恢复"
+                        : "当前无告警"}
             </small>
           </div>
-          {view !== "alarms" ? (
+          {view !== "alarms" && view !== "status" ? (
             <TrendChart
               compact
               time={state.time}
@@ -56,7 +67,7 @@ export function ObservationDock({
             />
           ) : (
             <ol className="scene-events" aria-label="已发生事件">
-              {sample.events.map((event) => (
+              {events.map((event) => (
                 <li key={event.id} className={`event-${event.kind}`}>
                   <button
                     onClick={() => dispatch({ type: "seek", time: event.time })}
@@ -68,9 +79,11 @@ export function ObservationDock({
                   </button>
                 </li>
               ))}
-              {!sample.events.length && (
+              {!events.length && (
                 <li className="scene-event-empty">
-                  当前时刻没有事件 · 20 秒开始注入冷却变化
+                  {current
+                    ? "当前时刻没有事件 · 20 秒开始注入冷却变化"
+                    : "没有当前有效观测，事件记录不可用"}
                 </li>
               )}
             </ol>
@@ -101,7 +114,7 @@ export function ObservationDock({
         <input
           id="scene-replay-time"
           aria-label="运行回放时间"
-          aria-valuetext={`${state.time} 秒，${sample.temperature} 摄氏度，${sample.power} 瓦`}
+          aria-valuetext={`${state.time} 秒，${qualityNames[observation.quality]}`}
           type="range"
           min="0"
           max="120"

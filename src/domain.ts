@@ -28,14 +28,14 @@ export const entities: Entity[] = [
     id: "room-01",
     name: "01号机房",
     kind: "room",
-    description: "8 × 6 m 原创示意空间，采用剖切展示。",
+    description: "14 × 12 m 原创示意空间，采用剖切展示。",
   },
   {
     id: "rack-a01",
     name: "A01 机柜",
     kind: "rack",
     parent: "room-01",
-    description: "42U 标准尺度示意机柜，包含两台演示服务器。",
+    description: "42U 标准尺度示意机柜，包含八台演示服务器。",
   },
   {
     id: "srv-01",
@@ -65,7 +65,7 @@ export const entities: Entity[] = [
       name: rack.name,
       kind: "rack" as const,
       parent: "room-01",
-      description: "42U 通用演示机柜，包含两台示意设备。",
+      description: "42U 通用演示机柜，包含八台示意设备。",
     })),
   ...devices
     .filter((device) => device.id !== "srv-01")

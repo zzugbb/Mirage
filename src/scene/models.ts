@@ -2,7 +2,7 @@ import * as THREE from "three";
 import definition from "../../assets/public/scenes/room-01.json" with { type: "json" };
 import { buildParts } from "./parts";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
-import { createFloorMaterial } from "./rendering";
+import { buildRoomShell } from "./room";
 
 export type SceneModel = ReturnType<typeof buildModels>;
 const materials = new Map<string, THREE.MeshStandardMaterial>();
@@ -43,16 +43,6 @@ export function box(
 function identify(group: THREE.Group, id: string) {
   group.userData.entityId = id;
   return group;
-}
-function line(parent: THREE.Object3D, points: number[][], color: string) {
-  const geometry = new THREE.BufferGeometry().setFromPoints(
-    points.map((p) => new THREE.Vector3().fromArray(p)),
-  );
-  const object = new THREE.Line(
-    geometry,
-    new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.65 }),
-  );
-  parent.add(object);
 }
 function glow(
   parent: THREE.Object3D,
@@ -103,111 +93,7 @@ export function buildModels() {
   const root = new THREE.Group();
   const room = identify(new THREE.Group(), "room-01");
   root.add(room);
-  const [width, height, depth] = definition.room.size;
-  box(room, [width + 0.15, 0.22, depth + 0.15], [0, -0.12, 0], "#555b60", 0.5);
-  const floorMaterial = createFloorMaterial();
-  for (let x = -3.75; x < 4; x += 0.5)
-    for (let z = -2.75; z < 3; z += 0.5) {
-      const tile = box(
-        room,
-        [
-          0.5 - definition.rendering.floor.gap,
-          0.055,
-          0.5 - definition.rendering.floor.gap,
-        ],
-        [x, 0.025, z],
-        Math.round(x * 2 + z * 2) % 3 === 0 ? "#777b7e" : "#7a7e81",
-        0.35,
-      );
-      tile.geometry.dispose();
-      tile.geometry = new RoundedBoxGeometry(
-        0.5 - definition.rendering.floor.gap,
-        0.055,
-        0.5 - definition.rendering.floor.gap,
-        1,
-        0.0008,
-      );
-      tile.material = floorMaterial;
-    }
-  for (const x of [-4, 4])
-    box(room, [0.025, 0.012, 6], [x, 0.065, 0], "#72777c", 0.7);
-  // 左侧实体墙与真实窗洞；后侧门洞采用分段墙体，不用贴图冒充开口。
-  box(room, [0.14, 0.9, depth], [-4, 0.45, 0], "#a9a8a3");
-  box(room, [0.14, 0.75, depth], [-4, height - 0.375, 0], "#a9a8a3");
-  for (const z of [-2.9, 0, 2.9])
-    box(room, [0.14, 1.55, 0.18], [-4, 1.675, z], "#a9a8a3");
-  for (const z of [-1.45, 1.45]) {
-    const glass = box(room, [0.05, 1.48, 2.65], [-4, 1.675, z], "#c0c7c9", 0.4);
-    glass.material = new THREE.MeshPhysicalMaterial({
-      color: "#b3bec5",
-      transparent: true,
-      opacity: 0.24,
-      roughness: 0.15,
-      metalness: 0.25,
-      side: THREE.DoubleSide,
-      depthWrite: false,
-    });
-    for (const y of [0.94, 2.42])
-      box(room, [0.18, 0.055, 2.78], [-3.98, y, z], "#6c7074");
-    for (const dz of [-1.37, 0, 1.37])
-      box(room, [0.18, 1.55, 0.055], [-3.98, 1.675, z + dz], "#6c7074");
-  }
-  box(room, [5.4, height, 0.14], [-1.3, height / 2, -3], "#a9a8a3");
-  box(room, [1.4, height, 0.14], [3.3, height / 2, -3], "#a9a8a3");
-  box(room, [1.2, 0.8, 0.14], [2, 2.8, -3], "#a9a8a3");
-  const door = new THREE.Group();
-  door.position.set(1.4, 0, -2.98);
-  door.rotation.y = -Math.PI / 3;
-  room.add(door);
-  box(door, [1.16, 2.36, 0.055], [0.58, 1.18, 0], "#4b5058", 0.45);
-  box(door, [0.1, 0.25, 0.06], [1, 1.1, 0.05], "#bdd3d9", 0.8);
-  glow(room, [0.45, 0.07, 0.04], [2, 2.6, -2.91]);
-  for (const x of [-3.9, 3.9])
-    box(
-      room,
-      [0.12, height + 0.03, 0.2],
-      [x, height / 2, -2.9],
-      "#777b7e",
-      0.5,
-    );
-  glow(room, [5.8, 0.026, 0.03], [-0.9, 2.9, -2.9], "#f0eee6");
-  text(room, "MIRAGE / 01", [-1.5, 2.55, -2.85], 0.18);
-  // 冷通道与导流格栅。
-  for (const x of [-0.5, 0, 0.5])
-    for (let z = 0.75; z <= 1.75; z += 0.5) {
-      for (let k = 0; k < 9; k++)
-        box(
-          room,
-          [0.42, 0.007, 0.014],
-          [x, 0.058, z - 0.2 + k * 0.05],
-          "#203b47",
-        );
-    }
-  line(
-    room,
-    [
-      [-0.75, 0.063, 0.6],
-      [-0.75, 0.063, 2.1],
-      [0.75, 0.063, 2.1],
-      [0.75, 0.063, 0.6],
-    ],
-    "#42b2ac",
-  );
-  // 墙板分缝、架空线槽与悬吊灯具，补足空间尺度和设施层次。
-  for (let x = -3.7; x < 1.3; x += 1.25)
-    box(room, [0.012, 3, 0.006], [x, 1.55, -2.923], "#696d70");
-  for (const y of [0.3, 2.5])
-    box(room, [5.2, 0.012, 0.006], [-1.3, y, -2.923], "#7b7e7f");
-  for (const z of [-1.1, -0.75])
-    box(room, [5.5, 0.055, 0.025], [-0.5, 2.85, z], "#5d6268", 0.7);
-  for (let x = -3.15; x < 2.2; x += 0.22)
-    box(room, [0.023, 0.026, 0.35], [x, 2.83, -0.925], "#7b8084", 0.65);
-  for (const x of [-2.4, 1.7]) {
-    for (const z of [-1.9, 0.8])
-      box(room, [0.012, 0.27, 0.012], [x, 3, z], "#8b8e8f", 0.7);
-    box(room, [0.14, 0.055, 3.2], [x, 2.87, -0.55], "#888d91", 0.5);
-    glow(room, [0.095, 0.008, 3.05], [x, 2.836, -0.55], "#e1ddd1");
-  }
+  buildRoomShell(room, box, glow, text);
   const facilities = new Map<string, THREE.Group>();
   const fans: THREE.Group[] = [];
   for (const config of definition.facilities) {
@@ -301,7 +187,11 @@ export function buildModels() {
     const y = definition.rack.unitOrigin + u * definition.rack.unitPitch;
     for (const x of [-0.25, 0.25])
       box(rack, [0.015, 0.012, 0.025], [x, y, 0.52], "#70767d", 0.7);
-    if (![23, 24, 34, 35].includes(u)) {
+    if (
+      ![3, 7, 11, 15, 19, 23, 29, 34].some(
+        (start) => u === start || u === start + 1,
+      )
+    ) {
       box(rack, [0.465, 0.04, 0.025], [0, y, 0.5], "#282c31", 0.65);
       for (const x of [-0.14, -0.06, 0.02, 0.1])
         box(rack, [0.045, 0.008, 0.006], [x, y, 0.517], "#5d6369");

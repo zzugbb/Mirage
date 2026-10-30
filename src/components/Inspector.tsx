@@ -41,23 +41,20 @@ export function Inspector({
   const panel = useRef<HTMLDivElement>(null);
   useEffect(() => {
     panel.current?.scrollTo({ top: 0 });
-  }, [state.selected, view]);
-  useEffect(() => {
-    panel.current?.scrollTo({ top: 0 });
-  }, [view]);
+  }, [state.selected, state.level, view]);
   const part = componentById(entity.id);
   const fields =
     entity.kind === "room"
       ? [
           ["场景类型", "示意机房"],
-          ["空间尺寸", "8 × 6 × 3.2 m"],
-          ["机柜 / 设备", "3 / 6"],
+          ["空间尺寸", "14 × 12 × 4.2 m"],
+          ["机柜 / 设备", "8 / 64"],
         ]
       : entity.kind === "rack"
         ? [
             ["机柜容量", "42 U"],
             ["外形尺寸", "600 × 1100 mm"],
-            ["演示设备", "2 台"],
+            ["演示设备", "8 台"],
           ]
         : entity.kind === "device"
           ? [

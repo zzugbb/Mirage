@@ -1,5 +1,6 @@
 import type { InspectionView } from "./ReplayPanel";
 const views = [
+  ["status", "态势"],
   ["object", "结构"],
   ["temperature", "温度"],
   ["power", "功耗"],

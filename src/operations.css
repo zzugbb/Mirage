@@ -1,0 +1,473 @@
+/* 实物材质保持中性；小面积颜色用于状态，交互与状态分别编码。 */
+:root {
+  --bg: #111822;
+  --panel: #1a2330;
+  --line: #303e50;
+  --text: #e1e9f3;
+  --muted: #90a3bb;
+  background: var(--bg);
+}
+.app-header,
+.breadcrumb,
+.app-footer {
+  background: #121922;
+  border-color: #2c3848;
+}
+.object-panel {
+  background: #17202b;
+}
+.inspector,
+.inspector-heading {
+  background: #1a2431;
+}
+.workspace-bar {
+  background: #151e29;
+  border-color: #303e50;
+}
+.app-header {
+  height: 54px;
+}
+.brand-mark {
+  filter: none;
+}
+.header-current {
+  color: #a6b6cb;
+  font-size: 11px;
+  letter-spacing: 0.8px;
+}
+.tour-bar {
+  background: #151e28;
+  border-color: #2e3e52;
+}
+.tour-bar.is-manual .tour-chapter p {
+  color: #7e92ac;
+}
+.observation-tabs button {
+  padding-inline: 12px;
+}
+.observation-tabs button[aria-selected="true"] {
+  background: #25384d;
+  color: #e4f0ff;
+  border-color: #83b7ed;
+}
+.scene-overview {
+  position: absolute;
+  top: 17px;
+  left: 19px;
+  pointer-events: none;
+  max-width: calc(100% - 215px);
+  color: #dce8f6;
+}
+.scene-overview-kicker {
+  display: block;
+  font:
+    10px ui-monospace,
+    monospace;
+  letter-spacing: 1.5px;
+  color: #8aabc9;
+}
+.scene-overview > strong {
+  display: block;
+  font-size: 17px;
+  letter-spacing: 0.7px;
+  font-weight: 500;
+  margin: 8px 0;
+}
+.scene-overview p {
+  font-size: 10px;
+  color: #9bb0c9;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.scene-overview i {
+  width: 4px;
+  height: 4px;
+  display: inline-block;
+  flex-shrink: 0;
+}
+.scene-overview p > span {
+  border-left: 1px solid #516176;
+  padding-left: 7px;
+  color: #90a3bb;
+}
+.signal-anchor {
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 7px;
+  background: #132030f0;
+  border: 1px solid #4b6078;
+  border-bottom: 2px solid var(--marker);
+  border-radius: 3px;
+  box-shadow: 0 3px 10px #0005;
+}
+.signal-anchor[hidden] {
+  display: none;
+}
+.signal-anchor b {
+  font:
+    11px ui-monospace,
+    monospace;
+  letter-spacing: 0.6px;
+  color: #e1edf9;
+}
+.signal-anchor > span {
+  color: var(--marker);
+  font-size: 10px;
+}
+.signal-anchor:before,
+.signal-anchor:after {
+  display: none;
+}
+.signal-anchor.selected {
+  border-color: #a6ccf6;
+}
+.tree-signal {
+  font:
+    10px ui-monospace,
+    monospace;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.tree-row[aria-pressed="true"] {
+  background: #283d55;
+  color: #e4edfa;
+}
+.signal-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  color: var(--signal-color);
+  font-size: 10px;
+  line-height: 1.4;
+}
+.signal-badge i {
+  font-style: normal;
+  font-size: 10px;
+}
+.signal-partial,
+.signal-missing,
+.signal-offline {
+  letter-spacing: 0.2px;
+}
+.state-panel h2 {
+  font-size: 22px;
+  margin: 10px 0 15px;
+}
+.state-primary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.state-primary > .signal-badge {
+  font-size: 12px;
+}
+.state-primary > span:last-child {
+  font:
+    10px ui-monospace,
+    monospace;
+  color: #8da5c1;
+}
+.lifecycle-totals {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin: 24px 0 18px;
+}
+.lifecycle-totals dt {
+  font-size: 10px;
+  color: #91a5be;
+}
+.lifecycle-totals dd {
+  font:
+    24px ui-monospace,
+    monospace;
+  color: #dce9f8;
+  margin: 6px 0 0;
+  letter-spacing: -1px;
+}
+.severity-totals {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  border-block: 1px solid #35465c;
+  padding: 13px 0;
+  color: #acbdd2;
+  font-size: 10px;
+}
+.severity-totals span {
+  white-space: nowrap;
+}
+.severity-totals b {
+  font:
+    12px ui-monospace,
+    monospace;
+  color: #e0ebf7;
+}
+.severity-totals i {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin-right: 5px;
+}
+.severity-critical {
+  background: #ff536b;
+}
+.severity-warning {
+  background: #ffb547;
+}
+.severity-totals span:last-child {
+  color: #7f95af;
+  font-size: 10px;
+  margin-left: auto;
+}
+.coverage-line {
+  color: #94acc7;
+  font-size: 10px;
+  line-height: 1.8;
+  margin: 13px 0 20px;
+}
+.coverage-line > span {
+  display: block;
+  color: #7e94ad;
+}
+.state-object-list {
+  margin: 15px 0 20px;
+}
+.state-object-list button {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 11px 0;
+  border-bottom: 1px solid #304157;
+  gap: 8px;
+  text-align: left;
+}
+.state-object-list button:hover {
+  background: #25364a;
+}
+.state-object-name {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.state-object-name strong {
+  font-size: 11px;
+  font-weight: 500;
+  color: #d4e2f3;
+}
+.state-object-name small {
+  color: #7c95b2;
+  font:
+    10px ui-monospace,
+    monospace;
+}
+.state-metrics {
+  display: grid;
+  gap: 15px;
+  margin: 24px 0;
+}
+.state-metrics dt {
+  font-size: 10px;
+  color: #91a9c4;
+  margin-bottom: 5px;
+}
+.state-metrics dd {
+  font:
+    25px ui-monospace,
+    monospace;
+  color: #deebfa;
+  margin: 0;
+}
+.status-key {
+  border-top: 1px solid #394b63;
+  margin-top: 22px;
+  padding-top: 14px;
+  color: #9fb4ce;
+  font-size: 10px;
+}
+.status-key summary {
+  cursor: pointer;
+}
+.status-key > div {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 13px;
+  margin: 18px 0;
+}
+.status-key i {
+  font-style: normal;
+  margin-right: 7px;
+}
+.status-key p {
+  font-size: 10px;
+  line-height: 1.9;
+  color: #8ca3be;
+}
+.data-quality-note {
+  font-size: 10px;
+  color: #b9a874;
+  line-height: 1.8;
+  padding-block: 10px;
+  border-block: 1px solid #47516a;
+}
+.surface-legend.temperature > div {
+  background: linear-gradient(
+    90deg,
+    #0a3d7a,
+    #0f82ab,
+    #2ebdc7,
+    #faa330,
+    #fa3348
+  );
+}
+.observation-dock {
+  background: #182433;
+  border-color: #364a63;
+}
+.scene-playback {
+  border-color: #34475e;
+}
+.scene-settings summary {
+  background: #182a3beb;
+}
+@media (min-width: 1151px) {
+  main,
+  main.has-telemetry {
+    grid-template-columns: 182px minmax(0, 1fr) 292px;
+  }
+}
+@media (min-width: 1650px) {
+  main,
+  main.has-telemetry {
+    grid-template-columns: 202px minmax(0, 1fr) 315px;
+  }
+}
+@media (max-width: 850px) {
+  .observation-tabs button {
+    min-width: 35px;
+    padding-inline: 5px;
+    font-size: 10px;
+  }
+  .scene-overview {
+    max-width: calc(100% - 150px);
+  }
+  .scene-overview > strong {
+    font-size: 13px;
+  }
+  .scene-overview p {
+    white-space: normal;
+    flex-wrap: wrap;
+    max-width: 155px;
+    line-height: 1.6;
+  }
+  .scene-overview p > span {
+    display: none;
+  }
+  .view-switch button {
+    padding-inline: 6px;
+  }
+}
+@media (max-width: 580px) {
+  .workspace-bar {
+    padding-inline: 12px;
+  }
+  .workspace-bar h1 {
+    font-size: 11px;
+  }
+  .observation-tabs button {
+    min-width: 39px;
+    padding-inline: 5px;
+    min-height: 44px;
+    font-size: 10px;
+  }
+  .scene-overview {
+    top: 13px;
+    left: 15px;
+    max-width: calc(100% - 30px);
+  }
+  .scene-overview > strong {
+    font-size: 15px;
+    margin: 5px 0;
+  }
+  .scene-overview p {
+    max-width: none;
+  }
+  .observation-status .view-switch {
+    top: 83px;
+  }
+  .signal-anchor {
+    font-size: 10px;
+    padding: 4px 5px;
+  }
+  .signal-anchor[hidden] {
+    display: none;
+  }
+  .signal-anchor b {
+    font-size: 10px;
+  }
+  .state-object-list button {
+    min-height: 52px;
+  }
+  .state-object-name strong {
+    font-size: 12px;
+  }
+  .signal-badge {
+    font-size: 11px;
+  }
+  .status-key p {
+    font-size: 10px;
+  }
+  .lifecycle-totals dd {
+    font-size: 27px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .signal-anchor,
+  .tree-row {
+    transition: none;
+  }
+}
+.device-signal-anchor {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  border: 0;
+  border-left: 2px solid var(--marker);
+  padding: 3px 7px;
+  background: #14202feb;
+  font-size: 10px;
+  white-space: nowrap;
+}
+.device-signal-anchor[hidden] {
+  display: none;
+}
+.device-signal-anchor b {
+  font:
+    10px ui-monospace,
+    monospace;
+  color: #deebf8;
+}
+.device-signal-anchor > span {
+  color: var(--marker);
+  font-size: 10px;
+}
+.device-signal-anchor:before {
+  width: 45px;
+  height: 1px;
+  background: var(--marker);
+  left: -47px;
+  top: 50%;
+  transform: none;
+  opacity: 0.5;
+}
+.device-signal-anchor:after {
+  display: none;
+}
