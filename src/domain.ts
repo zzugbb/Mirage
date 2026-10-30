@@ -72,6 +72,16 @@ export type AppState = {
   doorOpen: boolean;
   trayExtended: boolean;
 };
+// 只包含影响镜头与结构的输入，模拟时钟不会使展示就绪信号失效。
+export const presentationKey = (state: AppState) =>
+  [
+    state.level,
+    state.selected,
+    state.focusRevision,
+    state.explosion,
+    state.doorOpen,
+    state.trayExtended,
+  ].join(":");
 export type Action =
   | { type: "select"; id: string }
   | { type: "navigate"; level: Level }

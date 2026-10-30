@@ -1745,3 +1745,199 @@ h3 {
   box-shadow: 0 4px 14px #0002;
   backdrop-filter: blur(6px);
 }
+
+/* 巡游编排与模拟时钟独立；进度只表示当前章节的就绪停留。 */
+.tour-bar {
+  position: relative;
+  display: grid;
+  grid-template-columns: 164px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 22px;
+  min-height: 76px;
+  padding: 13px 24px 16px;
+  flex-shrink: 0;
+  background: #1c2026;
+  border-bottom: 1px solid #343c47;
+}
+.tour-identity {
+  display: grid;
+  grid-template-columns: 8px 1fr;
+  gap: 6px 10px;
+  align-items: center;
+  font-size: 11px;
+  color: #c8d3df;
+}
+.tour-identity small {
+  grid-column: 2;
+  color: #8e99a8;
+  font-size: 9px;
+}
+.tour-signal {
+  width: 6px;
+  height: 6px;
+  border: 1px solid #8994a1;
+  border-radius: 50%;
+}
+.tour-signal.running {
+  background: #c2d1e6;
+  border-color: #c2d1e6;
+  box-shadow: 0 0 9px #9eb4d136;
+}
+.tour-chapter {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 21px;
+}
+.tour-number {
+  white-space: nowrap;
+  color: #c3cede;
+  font:
+    23px ui-monospace,
+    "SFMono-Regular",
+    Consolas,
+    monospace;
+  letter-spacing: -1px;
+}
+.tour-number small {
+  font-size: 10px;
+  letter-spacing: 0;
+  color: #768392;
+}
+.tour-chapter strong {
+  display: block;
+  color: #e1e7ef;
+  font-size: 13px;
+  font-weight: 500;
+}
+.tour-chapter p {
+  color: #96a2b1;
+  font-size: 10px;
+  line-height: 1.6;
+  margin: 5px 0 0;
+}
+.tour-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.tour-actions button {
+  padding: 9px 12px;
+  font-size: 10px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+.tour-actions .tour-play {
+  background: #2c3542;
+  border-color: #5c6d84;
+  color: #d4deeb;
+}
+.tour-play span {
+  margin-right: 8px;
+}
+.tour-actions .tour-takeover {
+  color: #9daab9;
+}
+.tour-actions .tour-restart {
+  color: #9daab9;
+  font-size: 17px;
+  padding: 5px 9px;
+}
+.tour-actions button:hover {
+  background: #354154;
+  color: #e6edf5;
+}
+.tour-track {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: grid;
+  grid-template-columns: repeat(9, minmax(0, 1fr));
+  gap: 3px;
+  height: 2px;
+}
+.tour-track > span {
+  background: #303844;
+}
+.tour-track i {
+  display: block;
+  width: var(--tour-fill);
+  height: 100%;
+  background: #a9bed9;
+  transition: width 0.1s linear;
+}
+.tour-track .current {
+  background: #506075;
+}
+.tour-track.manual {
+  opacity: 0.25;
+}
+@media (max-width: 1000px) {
+  .tour-bar {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 9px 16px;
+    padding-inline: 20px;
+  }
+  .tour-identity {
+    display: flex;
+    grid-column: 1 / -1;
+    gap: 8px;
+    font-size: 9px;
+  }
+  .tour-identity small {
+    font-size: 8px;
+  }
+  .tour-chapter {
+    gap: 14px;
+  }
+  .tour-number {
+    font-size: 20px;
+  }
+}
+@media (max-width: 580px) {
+  .tour-bar {
+    padding: 12px 16px 15px;
+    grid-template-columns: 1fr auto;
+    min-height: 113px;
+    gap: 10px;
+  }
+  .tour-identity {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .tour-chapter {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    gap: 14px;
+  }
+  .tour-actions {
+    grid-column: 2;
+    grid-row: 1;
+    gap: 3px;
+  }
+  .tour-actions button {
+    padding: 6px 8px;
+    min-height: 44px;
+    font-size: 9px;
+  }
+  .tour-actions .tour-takeover {
+    display: none;
+  }
+  .tour-actions .tour-restart {
+    min-width: 44px;
+  }
+  .tour-chapter p {
+    font-size: 9px;
+    margin-top: 3px;
+  }
+  .tour-chapter strong {
+    font-size: 12px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tour-track i {
+    transition: none;
+  }
+}

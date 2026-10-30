@@ -1,17 +1,74 @@
-import { useCallback, useEffect, useReducer, useState } from "react";
-import type { PresentationPhase } from "./mechanics";
-import { createState, entityById, getPath, transition } from "./domain";
-import type { Level } from "./domain";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from "react";
+import type { PresentationPhase, SceneFeedback } from "./mechanics";
+import { entityById, getPath } from "./domain";
+import type { Action, Level } from "./domain";
+import { createExperience, experienceTransition, tourSteps } from "./tour";
 import { Viewport } from "./components/Viewport";
 import { ObjectTree } from "./components/ObjectTree";
 import { Inspector } from "./components/Inspector";
+import { TourControls } from "./components/TourControls";
 
 export function App() {
-  const [state, dispatch] = useReducer(transition, undefined, createState);
+  const [experience, control] = useReducer(
+    experienceTransition,
+    undefined,
+    () =>
+      createExperience(!matchMedia("(prefers-reduced-motion: reduce)").matches),
+  );
+  const { scene: state, tour } = experience;
+  const dispatch = useCallback(
+    (action: Action) => control({ type: "scene", action }),
+    [],
+  );
   const [phase, setPhase] = useState<PresentationPhase>("closed");
+  const [feedback, setFeedback] = useState<SceneFeedback | null>(null);
+  const latestFeedback = useRef(feedback);
+  latestFeedback.current = feedback;
+  const [hidden, setHidden] = useState(() => document.hidden);
+  const takeover = useCallback(() => control({ type: "takeover" }), []);
+  const pauseTour = useCallback(() => control({ type: "tour-pause" }), []);
+  const manual = tour.mode === "manual";
+  const tourShot = useMemo(
+    () =>
+      manual
+        ? null
+        : {
+            revision: tour.revision,
+            view: tourSteps[tour.step].view,
+            focus: !!tourSteps[tour.step].focus,
+          },
+    [manual, tour.revision, tour.step],
+  );
+  useEffect(() => {
+    const visibility = () => setHidden(document.hidden);
+    document.addEventListener("visibilitychange", visibility);
+    return () => document.removeEventListener("visibilitychange", visibility);
+  }, []);
+  useEffect(() => {
+    if (tour.mode !== "playing" || hidden) return;
+    let previous = performance.now();
+    const timer = window.setInterval(() => {
+      const now = performance.now();
+      const delta = (now - previous) / 1000;
+      previous = now;
+      if (!document.hidden)
+        control({ type: "tour-tick", delta, feedback: latestFeedback.current });
+    }, 100);
+    return () => clearInterval(timer);
+  }, [tour.mode, hidden]);
   useEffect(() => {
     if (!state.playing) return;
-    const timer = window.setInterval(() => dispatch({ type: "tick" }), 1000);
+    const timer = window.setInterval(
+      () => control({ type: "simulation-tick" }),
+      1000,
+    );
     return () => clearInterval(timer);
   }, [state.playing]);
   const select = useCallback(
@@ -33,7 +90,7 @@ export function App() {
         dispatch({ type: "select", id });
       } else dispatch({ type: "select", id });
     },
-    [state.level],
+    [state.level, dispatch],
   );
   useEffect(() => {
     const key = (event: KeyboardEvent) => {
@@ -51,7 +108,7 @@ export function App() {
     };
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
-  }, []);
+  }, [dispatch]);
   return (
     <div className="app-shell">
       <header className="app-header">
@@ -100,6 +157,12 @@ export function App() {
           </button>
         )}
       </div>
+      <TourControls
+        experience={experience}
+        feedback={feedback}
+        hidden={hidden}
+        dispatch={control}
+      />
       <main>
         <ObjectTree state={state} onSelect={select} />
         <Viewport
@@ -107,6 +170,11 @@ export function App() {
           phase={phase}
           onPhase={setPhase}
           onSelect={select}
+          onFeedback={setFeedback}
+          onManualControl={takeover}
+          onError={pauseTour}
+          paused={tour.mode === "paused" || hidden}
+          tourShot={tourShot}
         />
         <Inspector state={state} phase={phase} dispatch={dispatch} />
       </main>

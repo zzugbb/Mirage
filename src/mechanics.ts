@@ -17,6 +17,11 @@ export type PresentationPhase =
   | "to-rack"
   | "retracting"
   | "closing";
+export type SceneFeedback = {
+  key: string;
+  phase: PresentationPhase;
+  settled: boolean;
+};
 export const phaseLabels: Record<PresentationPhase, string> = {
   assembling: "正在复原部件",
   closed: "柜门已关闭",

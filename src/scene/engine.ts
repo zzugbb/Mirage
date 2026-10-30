@@ -3,13 +3,14 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { box, buildModels, disposeModels } from "./models";
-import { entityById, partPosition, parts } from "../domain";
+import { entityById, partPosition, parts, presentationKey } from "../domain";
 import type { AppState, Level } from "../domain";
 import { frameDistance } from "../camera";
+import type { CameraView } from "../camera";
 import { StructurePresentation } from "./presentation";
 import { createBackdrop, createRoomLights, RenderPipeline } from "./rendering";
 import definition from "../../assets/public/scenes/room-01.json" with { type: "json" };
-import type { PresentationPhase } from "../mechanics";
+import type { PresentationPhase, SceneFeedback } from "../mechanics";
 import {
   hardwareUrls,
   loadHardware,
@@ -17,7 +18,7 @@ import {
   normalizeModel,
 } from "./hardware";
 
-export type View = "iso" | "top" | "front" | "right" | "interior";
+export type View = CameraView;
 export class SceneEngine {
   renderer: THREE.WebGLRenderer;
   pipeline: RenderPipeline;
@@ -28,8 +29,14 @@ export class SceneEngine {
   models = buildModels();
   presentation = new StructurePresentation(this.models);
   pendingDeviceView = false;
+  pendingDeviceFocus = false;
   lastPhase: PresentationPhase | null = null;
   onPhase: (phase: PresentationPhase) => void;
+  onFeedback: (feedback: SceneFeedback) => void;
+  lastFeedback = "";
+  assetsLoaded = false;
+  paused = false;
+  contextAvailable = true;
   state: AppState;
   observer: ResizeObserver;
   frame = 0;
@@ -70,6 +77,7 @@ export class SceneEngine {
   lastManualInteraction = 0;
   interior = false;
   currentView: View = "iso";
+  currentFocus = false;
   onAssets: (status: string) => void = () => {};
 
   constructor(
@@ -78,12 +86,14 @@ export class SceneEngine {
     onSelect: (id: string, enter?: boolean) => void,
     onError: (message: string) => void,
     onPhase: (phase: PresentationPhase) => void = () => {},
+    onFeedback: (feedback: SceneFeedback) => void = () => {},
   ) {
     this.host = host;
     this.state = state;
     this.onSelect = onSelect;
     this.onError = onError;
     this.onPhase = onPhase;
+    this.onFeedback = onFeedback;
     this.renderer = new THREE.WebGLRenderer({
       antialias: true,
       alpha: false,
@@ -332,12 +342,15 @@ export class SceneEngine {
         completed++;
       }),
     ]);
-    if (!this.destroyed)
+    if (!this.destroyed) {
+      this.assetsLoaded = true;
       this.onAssets(
         completed === 3
           ? "贡献模型 · 已载入"
           : "部分模型不可用 · 已使用简化结构",
       );
+      this.view(this.currentView, this.currentFocus);
+    }
   }
 
   batch(group: THREE.Group) {
@@ -379,10 +392,11 @@ export class SceneEngine {
       this.lastTime > 0 &&
       Math.abs(previousAspect - this.camera.aspect) > 0.1
     )
-      this.view(this.currentView);
+      this.view(this.currentView, this.currentFocus);
   }
   contextLost = (event: Event) => {
     event.preventDefault();
+    this.contextAvailable = false;
     this.onError("三维图形上下文已丢失，请重新加载场景。");
   };
   cancelFlight = () => {
@@ -447,12 +461,15 @@ export class SceneEngine {
   }
   view(view: View, focus = false) {
     this.currentView = view;
-    const level: Level =
-      this.state.level === "device" &&
-      this.presentation.pose.inspection < 1 &&
-      !focus
-        ? "rack"
-        : this.state.level;
+    this.currentFocus = focus;
+    const deferDevice =
+      this.state.level === "device" && this.presentation.pose.inspection < 1;
+    if (deferDevice) {
+      this.pendingDeviceView = true;
+      this.pendingDeviceFocus = focus;
+    }
+    const level: Level = deferDevice ? "rack" : this.state.level;
+    if (deferDevice) focus = false;
     this.interior = view === "interior" && level === "room";
     this.controls.minAzimuthAngle = this.interior ? -0.65 : -Infinity;
     this.controls.maxAzimuthAngle = this.interior ? 0.65 : Infinity;
@@ -606,12 +623,15 @@ export class SceneEngine {
   }
   animate = (time: number) => {
     if (this.destroyed) return;
-    const delta = Math.min((time - this.lastTime) / 1000 || 0.016, 0.05);
+    const delta = this.paused
+      ? 0
+      : Math.min((time - this.lastTime) / 1000 || 0.016, 0.05);
+    const instant = this.reducedMotion && !this.paused;
     this.lastTime = time;
     const frame = this.presentation.step(
       this.state,
       delta,
-      this.reducedMotion,
+      instant,
       this.explosion,
     );
     if (frame.phase !== this.lastPhase) {
@@ -620,14 +640,21 @@ export class SceneEngine {
     }
     if (frame.ready && this.pendingDeviceView) {
       this.pendingDeviceView = false;
-      this.view(this.currentView);
+      this.view(this.currentView, this.pendingDeviceFocus);
+      this.pendingDeviceFocus = false;
     }
-    if (this.moving) {
-      const alpha = this.reducedMotion ? 1 : 1 - Math.exp(-delta * 4.5);
+    if (this.moving && !this.paused) {
+      const alpha = instant ? 1 : 1 - Math.exp(-delta * 4.5);
       this.camera.position.lerp(this.targetPosition, alpha);
       this.controls.target.lerp(this.targetLook, alpha);
-      if (this.camera.position.distanceTo(this.targetPosition) < 0.001)
+      if (
+        this.camera.position.distanceTo(this.targetPosition) < 0.001 &&
+        this.controls.target.distanceTo(this.targetLook) < 0.001
+      ) {
         this.moving = false;
+        this.camera.position.copy(this.targetPosition);
+        this.controls.target.copy(this.targetLook);
+      }
     }
     for (const fade of this.fades) {
       const target =
@@ -636,7 +663,7 @@ export class SceneEngine {
             ? 1
             : 0
           : frame.rackOpacity;
-      fade.opacity = this.reducedMotion
+      fade.opacity = instant
         ? target
         : THREE.MathUtils.damp(fade.opacity, target, 9, delta);
       if (Math.abs(fade.opacity - target) < 0.005) fade.opacity = target;
@@ -655,7 +682,7 @@ export class SceneEngine {
     }
     const explosionTarget =
       this.state.level === "device" && frame.ready ? this.state.explosion : 0;
-    this.explosion = this.reducedMotion
+    this.explosion = instant
       ? explosionTarget
       : THREE.MathUtils.damp(this.explosion, explosionTarget, 5, delta);
     if (Math.abs(this.explosion - explosionTarget) < 0.0001)
@@ -677,11 +704,33 @@ export class SceneEngine {
     }
     this.controls.autoRotate =
       this.autoOrbit &&
+      !this.paused &&
       !this.moving &&
       !frame.busy &&
       !this.reducedMotion &&
       time - this.lastManualInteraction > 4000;
-    this.controls.update();
+    if (!this.paused) this.controls.update();
+    const feedback: SceneFeedback = {
+      key: presentationKey(this.state),
+      phase: frame.phase,
+      settled:
+        this.assetsLoaded &&
+        this.contextAvailable &&
+        !this.moving &&
+        !frame.busy &&
+        this.explosion === explosionTarget &&
+        this.fades.every((fade) =>
+          fade.group === this.models.room
+            ? fade.opacity ===
+              (this.state.level === "room" && frame.relocation === 0 ? 1 : 0)
+            : fade.opacity === frame.rackOpacity,
+        ),
+    };
+    const feedbackKey = `${feedback.key}:${feedback.phase}:${feedback.settled}`;
+    if (feedbackKey !== this.lastFeedback) {
+      this.lastFeedback = feedbackKey;
+      this.onFeedback(feedback);
+    }
     this.models.root.updateMatrixWorld(true);
     const object = this.objectFor(this.state.selected);
     this.models.selection.visible =
@@ -739,7 +788,12 @@ export class SceneEngine {
       element.style.setProperty("--axis-length", `${Math.hypot(x, y)}px`);
       element.style.opacity = this.axesVector.z > 0 ? "1" : "0.55";
     }
-    this.pipeline.render(delta, frame.relocation, frame.busy);
+    this.pipeline.render(
+      delta,
+      frame.relocation,
+      frame.busy ||
+        this.fades.some((fade) => fade.opacity > 0 && fade.opacity < 1),
+    );
     this.frame = requestAnimationFrame(this.animate);
   };
   dispose() {

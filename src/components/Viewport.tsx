@@ -3,18 +3,28 @@ import { SceneEngine } from "../scene/engine";
 import type { AppState } from "../domain";
 import type { View } from "../scene/engine";
 import { phaseLabels } from "../mechanics";
-import type { PresentationPhase } from "../mechanics";
+import type { PresentationPhase, SceneFeedback } from "../mechanics";
 
 export function Viewport({
   state,
   onSelect,
   phase,
   onPhase,
+  onFeedback,
+  onManualControl,
+  onError,
+  paused,
+  tourShot,
 }: {
   state: AppState;
   onSelect: (id: string, enter?: boolean) => void;
   phase: PresentationPhase;
   onPhase: (phase: PresentationPhase) => void;
+  onFeedback: (feedback: SceneFeedback) => void;
+  onManualControl: () => void;
+  onError: () => void;
+  paused: boolean;
+  tourShot: { revision: number; view: View; focus: boolean } | null;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const engine = useRef<SceneEngine | null>(null);
@@ -35,6 +45,15 @@ export function Viewport({
   const [assetStatus, setAssetStatus] = useState("增强模型载入中…");
   const initial = useRef(state);
   const previousLevel = useRef<string | null>(null);
+  const runtime = useRef({
+    onError,
+    onPhase,
+    onFeedback,
+    orbiting,
+    detailShadows,
+  });
+  runtime.current = { onError, onPhase, onFeedback, orbiting, detailShadows };
+  // 引擎仅在挂载或重试时创建；事件读取最新回调，模拟时钟更新不重建 WebGL。
   useEffect(() => {
     let active: SceneEngine | null = null;
     try {
@@ -42,17 +61,22 @@ export function Viewport({
         host.current!,
         initial.current,
         (id, enter) => latestSelect.current(id, enter),
-        setError,
-        onPhase,
+        (message) => {
+          setError(message);
+          runtime.current.onError();
+        },
+        (nextPhase) => runtime.current.onPhase(nextPhase),
+        (nextFeedback) => runtime.current.onFeedback(nextFeedback),
       );
       engine.current = active;
-      active.autoOrbit = orbiting;
+      active.autoOrbit = runtime.current.orbiting;
       active.onAssets = setAssetStatus;
-      active.pipeline.enabled = detailShadows;
+      active.pipeline.enabled = runtime.current.detailShadows;
       setShadowSupport(active.pipeline.available);
       if (anchors.current) active.bindAnchors(anchors.current);
       if (axes.current) active.bindAxes(axes.current);
     } catch {
+      runtime.current.onError();
       setError(
         "三维场景启动失败。请确认浏览器支持 WebGL 2，并已开启硬件加速。",
       );
@@ -66,6 +90,9 @@ export function Viewport({
     engine.current?.update(state);
   }, [state]);
   useEffect(() => {
+    if (engine.current) engine.current.paused = paused;
+  }, [paused, revision]);
+  useEffect(() => {
     setView(
       state.level === "room" && previousLevel.current !== state.level
         ? "interior"
@@ -73,13 +100,35 @@ export function Viewport({
     );
     previousLevel.current = state.level;
   }, [state.level, state.focusRevision]);
+  useEffect(() => {
+    const active = engine.current;
+    if (!active) return;
+    if (tourShot) {
+      setView(tourShot.view);
+      active.view(tourShot.view, tourShot.focus);
+    }
+  }, [tourShot, revision]);
+  useEffect(() => {
+    if (engine.current) engine.current.autoOrbit = orbiting && !tourShot?.focus;
+  }, [orbiting, tourShot?.focus, revision]);
+  const takeControl = () => {
+    // 原生 OrbitControls 在当前指针事件内响应；同步解除定格再交给它。
+    if (engine.current) engine.current.paused = false;
+    onManualControl();
+  };
   const setCamera = (next: View) => {
+    takeControl();
     setView(next);
     engine.current?.view(next);
   };
   return (
     <section className="viewport" aria-label="三维工作区">
-      <div className="canvas-host" ref={host} />
+      <div
+        className="canvas-host"
+        ref={host}
+        onPointerDownCapture={takeControl}
+        onWheelCapture={takeControl}
+      />
       <div className="scene-anchors" ref={anchors}>
         {[
           ["rack-a01", "A01"],
@@ -175,6 +224,7 @@ export function Viewport({
       <div className="canvas-toolbar">
         <button
           onClick={() => {
+            takeControl();
             setView("iso");
             engine.current?.view("iso", true);
           }}
@@ -182,10 +232,22 @@ export function Viewport({
           <span className="tool-symbol">⌖</span>聚焦选择
         </button>
         <span className="divider" />
-        <button onClick={() => engine.current?.zoom(0.8)} aria-label="放大">
+        <button
+          onClick={() => {
+            takeControl();
+            engine.current?.zoom(0.8);
+          }}
+          aria-label="放大"
+        >
           ＋
         </button>
-        <button onClick={() => engine.current?.zoom(1.25)} aria-label="缩小">
+        <button
+          onClick={() => {
+            takeControl();
+            engine.current?.zoom(1.25);
+          }}
+          aria-label="缩小"
+        >
           −
         </button>
         <span className="divider" />
@@ -219,7 +281,7 @@ export function Viewport({
           const next = !orbiting;
           setOrbiting(next);
           if (engine.current) {
-            engine.current.autoOrbit = next;
+            engine.current.autoOrbit = next && !tourShot?.focus;
             engine.current.controls.autoRotateSpeed = 0.35;
           }
         }}
