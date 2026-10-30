@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { parts } from "../domain";
+import { parts, subparts } from "../domain";
 
 type BoxFactory = (
   parent: THREE.Object3D,
@@ -15,6 +15,13 @@ export function buildParts(
 ) {
   const groups = new Map<string, THREE.Group>();
   const rotors: THREE.Group[] = [];
+  const addChild = (parent: THREE.Group, id: string) => {
+    const child = new THREE.Group();
+    child.userData.entityId = id;
+    parent.add(child);
+    groups.set(id, child);
+    return child;
+  };
   for (const part of parts) {
     const group = new THREE.Group();
     group.userData.entityId = part.id;
@@ -24,11 +31,15 @@ export function buildParts(
     const [w, h, d] = part.size;
     if (part.node === "fans") {
       for (let i = 0; i < 4; i++) {
+        const child = addChild(
+          group,
+          subparts.filter((p) => p.parent === part.id)[i].id,
+        );
         const x = -0.15 + i * 0.1;
-        box(group, [0.087, h, d], [x, 0, 0], "#182f3b", 0.4);
+        box(child, [0.087, h, d], [x, 0, 0], "#182f3b", 0.4);
         const rotor = new THREE.Group();
         rotor.position.set(x, 0, d / 2 + 0.001);
-        group.add(rotor);
+        child.add(rotor);
         rotors.push(rotor);
         const ring = new THREE.Mesh(
           new THREE.TorusGeometry(0.024, 0.003, 6, 24),
@@ -51,7 +62,7 @@ export function buildParts(
           blade.rotation.z = -angle;
         }
         glow(
-          group,
+          child,
           [0.008, 0.008, 0.004],
           [x + 0.033, 0.02, d / 2 + 0.003],
           "#6ed7c2",
@@ -70,20 +81,25 @@ export function buildParts(
       for (const x of [-w / 2 + 0.01, w / 2 - 0.01])
         box(group, [0.005, 0.006, d], [x, h / 2, 0], "#82aab9", 0.8);
     } else if (part.node === "memory") {
-      for (let i = 0; i < 4; i++) {
-        const x = -0.03 + i * 0.02;
-        box(group, [0.004, h, d], [x, 0, 0], "#2e8169");
-        box(group, [0.007, 0.009, d + 0.012], [x, -h / 2, 0], "#152e39");
-        for (let j = 0; j < 7; j++)
+      for (let i = 0; i < 16; i++) {
+        const child = addChild(
+          group,
+          subparts.filter((p) => p.parent === part.id)[i].id,
+        );
+        const x = -0.03 + (i % 4) * 0.02;
+        child.position.z = (Math.floor(i / 4) - 1.5) * 0.042;
+        box(child, [0.004, h, 0.034], [x, 0, 0], "#2e8169");
+        box(child, [0.007, 0.009, 0.04], [x, -h / 2, 0], "#152e39");
+        for (let j = 0; j < 2; j++)
           box(
-            group,
+            child,
             [0.005, 0.024, 0.017],
-            [x + 0.004, 0.003, -0.073 + j * 0.024],
+            [x + 0.004, 0.003, -0.01 + j * 0.02],
             "#192f38",
           );
-        box(group, [0.005, 0.004, d - 0.02], [x, -0.017, 0], "#b79856", 0.65);
-        for (const z of [-d / 2 - 0.004, d / 2 + 0.004])
-          box(group, [0.01, 0.015, 0.008], [x, -0.017, z], "#87acaa");
+        box(child, [0.005, 0.004, 0.03], [x, -0.017, 0], "#b79856", 0.65);
+        for (const z of [-0.023, 0.023])
+          box(child, [0.01, 0.015, 0.008], [x, -0.017, z], "#87acaa");
       }
     } else if (part.node === "board") {
       box(group, part.size, [0, 0, 0], part.color);
@@ -104,18 +120,22 @@ export function buildParts(
     } else if (part.node === "storage") {
       box(group, part.size, [0, 0, 0], "#2a4654", 0.65);
       for (let i = 0; i < 8; i++) {
-        const x = -0.174 + i * 0.0495;
-        box(group, [0.044, h - 0.009, d - 0.015], [x, 0, 0], "#728e99", 0.65);
-        box(group, [0.04, 0.046, 0.012], [x, 0, d / 2 + 0.008], "#1b3542");
-        box(
+        const child = addChild(
           group,
+          subparts.filter((p) => p.parent === part.id)[i].id,
+        );
+        const x = -0.174 + i * 0.0495;
+        box(child, [0.044, h - 0.009, d - 0.015], [x, 0, 0], "#728e99", 0.65);
+        box(child, [0.04, 0.046, 0.012], [x, 0, d / 2 + 0.008], "#1b3542");
+        box(
+          child,
           [0.021, 0.006, 0.003],
           [x, 0, d / 2 + 0.016],
           "#8fa6ad",
           0.8,
         );
         glow(
-          group,
+          child,
           [0.003, 0.012, 0.004],
           [x - 0.015, 0, d / 2 + 0.016],
           "#79dec9",

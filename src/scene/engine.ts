@@ -1,3 +1,6 @@
+import { SurfaceObservation } from "./surface";
+import { InstallationScene } from "./installation";
+import { rackForDevice, deviceHeight } from "../installation";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
@@ -5,7 +8,11 @@ import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { box, buildModels, disposeModels } from "./models";
 import { entityById, partPosition, parts, presentationKey } from "../domain";
 import type { AppState, Level } from "../domain";
-import { frameDistance } from "../camera";
+import {
+  frameDistance,
+  boundsFrameDistance,
+  pointsFrameDistance,
+} from "../camera";
 import type { CameraView } from "../camera";
 import { StructurePresentation } from "./presentation";
 import { createBackdrop, createRoomLights, RenderPipeline } from "./rendering";
@@ -31,6 +38,8 @@ export class SceneEngine {
   controls: OrbitControls;
   models = buildModels();
   telemetry = new TelemetryOverlay();
+  installation: InstallationScene;
+  surface: SurfaceObservation;
   sample: SimulationSnapshot;
   presentation = new StructurePresentation(this.models);
   pendingDeviceView = false;
@@ -68,6 +77,9 @@ export class SceneEngine {
       depthWrite: boolean;
     }[];
   }[] = [];
+  keyLight: THREE.DirectionalLight;
+  showLabels = false;
+  pendingComponentFocus = false;
   anchors: HTMLElement | null = null;
   anchorElements: HTMLElement[] = [];
   anchorPosition = new THREE.Vector3();
@@ -95,7 +107,7 @@ export class SceneEngine {
   ) {
     this.host = host;
     this.state = state;
-    this.sample = simulate(state.time, state.replayCycle);
+    this.sample = simulate(state.time, state.replayCycle, state.deviceId);
     this.onSelect = onSelect;
     this.onError = onError;
     this.onPhase = onPhase;
@@ -105,18 +117,18 @@ export class SceneEngine {
       alpha: false,
       powerPreference: "high-performance",
     });
-    this.renderer.setPixelRatio(Math.min(devicePixelRatio, 1.75));
+    this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
     this.renderer.setClearColor("#181b1f");
     this.scene.background = createBackdrop();
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 0.95;
+    this.renderer.toneMappingExposure = 0.87;
     const environmentScene = new RoomEnvironment();
     const pmrem = new THREE.PMREMGenerator(this.renderer);
     this.environment = pmrem.fromScene(environmentScene, 0.04);
     this.scene.environment = this.environment.texture;
-    this.scene.environmentIntensity = 0.65;
+    this.scene.environmentIntensity = 0.55;
     environmentScene.dispose();
     pmrem.dispose();
     this.renderer.domElement.setAttribute(
@@ -131,7 +143,7 @@ export class SceneEngine {
     host.append(this.renderer.domElement);
     this.scene.fog = new THREE.FogExp2("#181b1f", 0.012);
     this.scene.add(new THREE.HemisphereLight("#faf9f5", "#343333", 0.45));
-    const key = new THREE.DirectionalLight("#fff9f0", 1.9);
+    const key = (this.keyLight = new THREE.DirectionalLight("#fff9f0", 1.6));
     key.position.set(0, 9, 4);
     key.castShadow = true;
     key.shadow.mapSize.set(2048, 2048);
@@ -197,6 +209,14 @@ export class SceneEngine {
     }
     this.scene.add(this.models.root);
     this.scene.add(this.telemetry.root);
+    this.installation = new InstallationScene(this.models);
+    this.models.root.add(this.installation.root);
+    this.installDevice(state);
+    this.surface = new SurfaceObservation(
+      this.models,
+      this.installation,
+      () => this.state,
+    );
     const guideGeometry = new THREE.BufferGeometry();
     guideGeometry.setAttribute(
       "position",
@@ -262,7 +282,28 @@ export class SceneEngine {
         this.models.parts.clear();
         for (const [id, group] of result.groups)
           this.models.parts.set(id, group);
+        this.surface.dispose();
+        this.installation.detach();
+        this.installation = new InstallationScene(this.models);
+        this.models.root.add(this.installation.root);
+        this.surface = new SurfaceObservation(
+          this.models,
+          this.installation,
+          () => this.state,
+        );
         this.partBases = result.positions;
+        result.root.traverse((object) => {
+          if (!(object instanceof THREE.Mesh)) return;
+          const materials = Array.isArray(object.material)
+            ? object.material
+            : [object.material];
+          for (const material of materials)
+            if (material instanceof THREE.MeshStandardMaterial && material.map)
+              material.map.anisotropy = Math.min(
+                8,
+                this.renderer.capabilities.getMaxAnisotropy(),
+              );
+        });
         this.models.rotors.length = 0;
         this.poseParts();
         completed++;
@@ -410,7 +451,39 @@ export class SceneEngine {
     this.moving = false;
     this.lastManualInteraction = performance.now();
   };
+  installDevice(state: AppState) {
+    const rack = rackForDevice(state.deviceId);
+    this.models.rack.position.fromArray(rack.position);
+    this.models.rack.userData.entityId = rack.id;
+    const label = this.models.rack.getObjectByName("rack-label") as
+      THREE.Sprite | undefined;
+    if (label) {
+      const texture = (label.material as THREE.SpriteMaterial).map!;
+      const canvas = texture.image as HTMLCanvasElement;
+      const ctx = canvas.getContext("2d")!;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "#bac1c9";
+      ctx.font = "500 52px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText(rack.name.slice(0, 3), 256, 82);
+      texture.needsUpdate = true;
+    }
+    this.models.server.userData.entityId = state.deviceId;
+    this.models.railMount.position.y = this.models.rackSlide.position.y =
+      deviceHeight(state.deviceId) - definition.server.position[1];
+    this.presentation.mounted.set(
+      rack.position[0],
+      deviceHeight(state.deviceId),
+      definition.server.position[2],
+    );
+  }
   objectFor(id: string) {
+    if (id === rackForDevice(this.state.deviceId).id) return this.models.rack;
+    if (id === this.state.deviceId) return this.models.server;
+    if (this.installation?.racks.has(id))
+      return this.installation.racks.get(id);
+    if (this.installation?.devices.has(id))
+      return this.installation.devices.get(id);
     return id === "room-01"
       ? this.models.room
       : id === "rack-a01"
@@ -420,19 +493,26 @@ export class SceneEngine {
           : (this.models.facilities.get(id) ?? this.models.parts.get(id));
   }
   update(state: AppState) {
+    const deviceChanged = state.deviceId !== this.state.deviceId;
+    if (deviceChanged) this.installDevice(state);
     const levelChanged = state.level !== this.state.level;
+    if (levelChanged || state.selected !== this.state.selected)
+      this.pendingComponentFocus = false;
     const explosionChanged = state.explosion !== this.state.explosion;
     const focusChanged = state.focusRevision !== this.state.focusRevision;
-    const changed = levelChanged || focusChanged;
+    const changed = levelChanged || focusChanged || deviceChanged;
     this.state = state;
-    this.sample = simulate(state.time, state.replayCycle);
+    this.sample = simulate(state.time, state.replayCycle, state.deviceId);
     if (levelChanged) this.pendingDeviceView = state.level === "device";
+    if (focusChanged && entityById(state.selected)?.kind === "part")
+      this.pendingComponentFocus = true;
     if (changed || this.lastTime === 0)
       this.view(
         state.level === "room" && (levelChanged || this.lastTime === 0)
           ? "interior"
           : "iso",
         focusChanged &&
+          !this.pendingComponentFocus &&
           (!levelChanged ||
             ["facility", "part"].includes(
               entityById(state.selected)?.kind ?? "",
@@ -441,7 +521,16 @@ export class SceneEngine {
     if (state.level === "device" && explosionChanged)
       this.view(this.currentView);
   }
-  deviceBounds() {
+  deviceBounds(points?: THREE.Vector3[]) {
+    const include = (box: THREE.Box3) => {
+      if (box.isEmpty()) return;
+      if (points)
+        for (const x of [box.min.x, box.max.x])
+          for (const y of [box.min.y, box.max.y])
+            for (const z of [box.min.z, box.max.z])
+              points.push(new THREE.Vector3(x, y, z));
+      bounds.union(box);
+    };
     this.models.server.updateWorldMatrix(true, true);
     const bounds = new THREE.Box3();
     this.models.server.traverse((object) => {
@@ -451,7 +540,7 @@ export class SceneEngine {
         if (this.models.parts.has(parent.userData.entityId)) return;
         parent = parent.parent;
       }
-      bounds.union(new THREE.Box3().setFromObject(object));
+      include(new THREE.Box3().setFromObject(object));
     });
     for (const part of parts) {
       const group = this.models.parts.get(part.id);
@@ -460,7 +549,7 @@ export class SceneEngine {
       const target = new THREE.Vector3().fromArray(
         partPosition({ ...part, position: base }, this.state.explosion),
       );
-      bounds.union(
+      include(
         new THREE.Box3()
           .setFromObject(group)
           .translate(target.sub(group.position)),
@@ -472,7 +561,23 @@ export class SceneEngine {
     return object.visible && (!object.parent || this.visible(object.parent));
   }
   view(view: View, focus = false) {
+    const shadowExtent = this.state.level === "device" ? 1.6 : 7;
+    const shadowCamera = this.keyLight.shadow.camera;
+    if (shadowCamera.right !== shadowExtent) {
+      shadowCamera.left = shadowCamera.bottom = -shadowExtent;
+      shadowCamera.right = shadowCamera.top = shadowExtent;
+      shadowCamera.updateProjectionMatrix();
+    }
     this.currentView = view;
+    const pixelRatio = Math.min(
+      devicePixelRatio,
+      this.state.level === "device" ? 2.5 : 2,
+    );
+    if (this.renderer.getPixelRatio() !== pixelRatio) {
+      this.renderer.setPixelRatio(pixelRatio);
+      this.pipeline.setPixelRatio(pixelRatio);
+      this.pipeline.resize(this.host.clientWidth, this.host.clientHeight);
+    }
     this.currentFocus = focus;
     const deferDevice =
       this.state.level === "device" && this.presentation.pose.inspection < 1;
@@ -487,18 +592,20 @@ export class SceneEngine {
     this.controls.maxAzimuthAngle = this.interior ? 0.65 : Infinity;
     if (this.interior) {
       this.targetLook.set(0, 1.05, 0);
-      this.targetPosition.set(1.25, 1.6, 4.4);
+      const fit = Math.max(1, 1.25 / Math.max(0.4, this.camera.aspect));
+      this.targetPosition.set(1.25 * fit, 1.6 + 0.4 * (fit - 1), 4.4 * fit);
       this.controls.minDistance = 0.8;
       this.controls.maxDistance = 20;
       this.moving = true;
       return;
     }
     const object = this.objectFor(this.state.selected);
+    const framingPoints: THREE.Vector3[] = [];
     const bounds =
       object && focus
         ? new THREE.Box3().setFromObject(object)
         : level === "device"
-          ? this.deviceBounds()
+          ? this.deviceBounds(framingPoints)
           : null;
     const center = bounds
       ? bounds.getCenter(new THREE.Vector3())
@@ -517,11 +624,6 @@ export class SceneEngine {
         : level === "rack"
           ? 2.4
           : 1.3;
-    const distance = frameDistance(
-      size,
-      this.camera.aspect,
-      level === "device" ? 0.35 : level === "rack" ? 1 : 3,
-    );
     const direction = new THREE.Vector3(
       ...((view === "top"
         ? [0.001, 1, 0.001]
@@ -533,6 +635,27 @@ export class SceneEngine {
               ? [0.45, 0.42, 1.5]
               : [0.85, 0.85, 1.05]) as [number, number, number]),
     ).normalize();
+    const distance = framingPoints.length
+      ? pointsFrameDistance(
+          framingPoints.map((point) => point.sub(center).toArray()),
+          direction.toArray(),
+          this.camera.aspect,
+          0.35,
+        )
+      : bounds
+        ? boundsFrameDistance(
+            bounds.getSize(new THREE.Vector3()).toArray(),
+            direction.toArray(),
+            this.camera.aspect,
+            level === "device" ? 0.27 : 1,
+          )
+        : frameDistance(
+            size,
+            this.camera.aspect,
+            level === "device" ? 0.35 : level === "rack" ? 1 : 3,
+          );
+    if (!bounds && level === "rack")
+      center.x = rackForDevice(this.state.deviceId).position[0];
     this.targetLook.copy(center);
     this.targetPosition.copy(center).addScaledVector(direction, distance);
     this.controls.minDistance =
@@ -574,7 +697,7 @@ export class SceneEngine {
           const id = object.userData.entityId as string;
           return entityById(id)?.kind === "part" &&
             this.state.level !== "device"
-            ? "srv-01"
+            ? this.state.deviceId
             : id;
         }
         object = object.parent;
@@ -700,6 +823,14 @@ export class SceneEngine {
     if (Math.abs(this.explosion - explosionTarget) < 0.0001)
       this.explosion = explosionTarget;
     this.poseParts();
+    if (
+      this.pendingComponentFocus &&
+      frame.ready &&
+      this.explosion === explosionTarget
+    ) {
+      this.pendingComponentFocus = false;
+      this.view(this.currentView, true);
+    }
     if (!this.reducedMotion && frame.ready)
       for (const rotor of this.models.rotors) rotor.rotation.z += delta * 2.4;
     if (!this.reducedMotion && this.models.room.visible)
@@ -743,6 +874,7 @@ export class SceneEngine {
       this.lastFeedback = feedbackKey;
       this.onFeedback(feedback);
     }
+    this.installation.update(this.state, this.presentation.pose.inspection);
     this.models.root.updateMatrixWorld(true);
     this.telemetry.update(
       this.state,
@@ -756,10 +888,16 @@ export class SceneEngine {
     this.models.selection.visible =
       !!object &&
       this.state.selected !== "room-01" &&
-      this.state.selected !== "rack-a01" &&
-      !(this.state.level === "device" && this.state.selected === "srv-01") &&
+      entityById(this.state.selected)?.kind !== "rack" &&
+      !(
+        this.state.level === "device" &&
+        this.state.selected === this.state.deviceId
+      ) &&
       this.visible(object);
-    if (this.telemetry.alarmBox.visible && this.state.selected === "srv-01")
+    if (
+      this.telemetry.alarmBox.visible &&
+      this.state.selected === this.state.deviceId
+    )
       this.models.selection.visible = false;
     if (object && this.models.selection.visible) {
       this.models.selection.box.setFromObject(object);
@@ -769,20 +907,31 @@ export class SceneEngine {
     }
     for (const element of this.anchorElements) {
       const id = element.dataset.anchor!;
-      const target = this.objectFor(id);
+      const target = this.objectFor(id === "srv-01" ? this.state.deviceId : id);
       const show =
         id === "srv-01"
-          ? !!this.sample.alarm?.active &&
-            this.state.level !== "device" &&
-            this.presentation.pose.inspection === 0
-          : this.state.level === "room"
-            ? ["rack-a01", "cooling-01", "power-01"].includes(id)
-            : this.state.level === "device" &&
-              this.explosion > 0.45 &&
-              ["cpu-01", "memory-01", "fans-01", "psu-02"].includes(id);
+          ? this.telemetry.mode !== "object" &&
+            (this.telemetry.mode !== "alarms" || !!this.sample.alarm?.active) &&
+            !(this.state.level === "device" && this.explosion > 0.1) &&
+            (this.presentation.pose.inspection === 0 ||
+              this.presentation.pose.inspection === 1)
+          : this.showLabels &&
+            (this.state.level === "room"
+              ? ["rack-a01", "cooling-01", "power-01"].includes(id)
+              : this.state.level === "device" &&
+                this.explosion > 0.45 &&
+                ["cpu-01", "memory-01", "fans-01", "psu-02"].includes(id));
       element.hidden = !show || !target;
       if (target && show) {
         this.anchorBounds.setFromObject(target).getCenter(this.anchorPosition);
+        if (
+          id === "srv-01" &&
+          this.telemetry.mode === "temperature" &&
+          this.explosion === 0
+        ) {
+          this.models.server.getWorldPosition(this.anchorPosition);
+          this.anchorPosition.z += 0.46;
+        }
         this.anchorPosition.y +=
           id === "srv-01"
             ? 0.16
@@ -820,6 +969,7 @@ export class SceneEngine {
       element.style.setProperty("--axis-length", `${Math.hypot(x, y)}px`);
       element.style.opacity = this.axesVector.z > 0 ? "1" : "0.55";
     }
+    this.surface.update(this.state, this.telemetry.mode);
     this.pipeline.render(
       delta,
       frame.relocation,
@@ -834,6 +984,7 @@ export class SceneEngine {
     this.observer.disconnect();
     this.controls.dispose();
     this.pipeline.dispose();
+    this.surface.dispose();
     const canvas = this.renderer.domElement;
     canvas.removeEventListener("pointerdown", this.pointerDown);
     canvas.removeEventListener("pointerup", this.pointerUp);

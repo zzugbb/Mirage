@@ -1,9 +1,13 @@
+import { racks, devices, deviceById, rackForDevice } from "./installation.ts";
 import sceneDefinition from "../assets/public/scenes/room-01.json" with { type: "json" };
 import { normalizeTime, scenario } from "./simulation.ts";
 export { simulate } from "./simulation.ts";
 
 export type Level = "room" | "rack" | "device";
 export const parts = sceneDefinition.parts;
+export const subparts = sceneDefinition.subparts;
+export const componentById = (id: string) =>
+  parts.find((p) => p.id === id) ?? subparts.find((p) => p.id === id);
 export type Part = (typeof parts)[number];
 export const partPosition = (part: Part, amount: number) =>
   part.position.map(
@@ -31,7 +35,7 @@ export const entities: Entity[] = [
     name: "A01 机柜",
     kind: "rack",
     parent: "room-01",
-    description: "42U 标准尺度示意机柜，含一台代表性服务器。",
+    description: "42U 标准尺度示意机柜，包含两台演示服务器。",
   },
   {
     id: "srv-01",
@@ -54,6 +58,26 @@ export const entities: Entity[] = [
     parent: "room-01",
     description: "配电设施示意，尚未建立供电连接关系。",
   },
+  ...racks
+    .filter((rack) => rack.id !== "rack-a01")
+    .map((rack) => ({
+      id: rack.id,
+      name: rack.name,
+      kind: "rack" as const,
+      parent: "room-01",
+      description: "42U 通用演示机柜，包含两台示意设备。",
+    })),
+  ...devices
+    .filter((device) => device.id !== "srv-01")
+    .map((device) => ({
+      id: device.id,
+      name: `${device.name} 服务器`,
+      kind: "device" as const,
+      parent: device.rackId,
+      description:
+        "通用 2U 结构复用，独立演示负载与冷却参数；不是实际设备配置。",
+    })),
+  ...subparts.map((part) => ({ ...part, kind: "part" as const })),
   ...parts.map((part) => ({
     id: part.id,
     name: part.name,
@@ -66,6 +90,7 @@ export const entityById = (id: string) =>
   entities.find((entity) => entity.id === id);
 export type AppState = {
   level: Level;
+  deviceId: string;
   selected: string;
   focusRevision: number;
   time: number;
@@ -81,6 +106,7 @@ export type AppState = {
 export const presentationKey = (state: AppState) =>
   [
     state.level,
+    state.deviceId,
     state.selected,
     state.focusRevision,
     state.explosion,
@@ -89,7 +115,7 @@ export const presentationKey = (state: AppState) =>
   ].join(":");
 export type Action =
   | { type: "select"; id: string }
-  | { type: "navigate"; level: Level }
+  | { type: "navigate"; level: Level; id?: string }
   | { type: "explode"; amount: number }
   | { type: "door"; open: boolean }
   | { type: "tray"; extended: boolean }
@@ -109,6 +135,7 @@ export type Action =
     };
 export const createState = (): AppState => ({
   level: "room",
+  deviceId: "srv-01",
   selected: "room-01",
   focusRevision: 0,
   time: 0,
@@ -120,17 +147,12 @@ export const createState = (): AppState => ({
   doorOpen: false,
   trayExtended: false,
 });
-const ids: Record<Level, string> = {
-  room: "room-01",
-  rack: "rack-a01",
-  device: "srv-01",
-};
 export const getPath = (state: AppState) => [
   "room-01",
-  ...(state.level !== "room" ? ["rack-a01"] : []),
+  ...(state.level !== "room" ? [rackForDevice(state.deviceId).id] : []),
   ...(state.level === "device"
     ? [
-        "srv-01",
+        state.deviceId,
         ...(entityById(state.selected)?.kind === "part"
           ? [state.selected]
           : []),
@@ -142,18 +164,43 @@ export function transition(state: AppState, action: Action): AppState {
     case "select":
       return entityById(action.id) &&
         (entityById(action.id)?.kind !== "part" || state.level === "device")
-        ? { ...state, selected: action.id }
+        ? {
+            ...state,
+            selected: action.id,
+            deviceId:
+              deviceById(action.id)?.id ??
+              (racks.some((rack) => rack.id === action.id)
+                ? rackForDevice(state.deviceId).id === action.id
+                  ? state.deviceId
+                  : devices.find((device) => device.rackId === action.id)!.id
+                : state.deviceId),
+          }
         : state;
-    case "navigate":
+    case "navigate": {
+      const target = action.id ?? state.selected;
+      const deviceId =
+        deviceById(target)?.id ??
+        (racks.some((rack) => rack.id === target)
+          ? rackForDevice(state.deviceId).id === target
+            ? state.deviceId
+            : devices.find((device) => device.rackId === target)!.id
+          : state.deviceId);
       return {
         ...state,
+        deviceId,
         level: action.level,
-        selected: ids[action.level],
+        selected:
+          action.level === "room"
+            ? "room-01"
+            : action.level === "rack"
+              ? rackForDevice(deviceId).id
+              : deviceId,
         explosion: action.level === "device" ? state.explosion : 0,
         doorOpen: action.level !== "room",
         trayExtended: action.level === "device",
         focusRevision: state.focusRevision + 1,
       };
+    }
     case "explode":
       return state.level === "device" && Number.isFinite(action.amount)
         ? { ...state, explosion: Math.max(0, Math.min(1, action.amount)) }
@@ -224,7 +271,7 @@ export function transition(state: AppState, action: Action): AppState {
             ? "rack"
             : "device";
       return {
-        ...transition(state, { type: "navigate", level }),
+        ...transition(state, { type: "navigate", level, id: entity.id }),
         selected: entity.id,
       };
     }

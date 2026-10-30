@@ -33,7 +33,7 @@ export class RenderPipeline {
     this.renderer = renderer;
     this.scene = scene;
     this.camera = camera;
-    this.ratio = Math.min(renderer.getPixelRatio(), 1.5);
+    this.ratio = renderer.getPixelRatio();
     this.available = renderer.extensions.has("EXT_color_buffer_float");
     if (!this.available) return;
     const target = new THREE.WebGLRenderTarget(1, 1, {
@@ -55,6 +55,10 @@ export class RenderPipeline {
     this.composer.addPass(this.ao);
     this.output = new OutputPass();
     this.composer.addPass(this.output);
+  }
+  setPixelRatio(ratio: number) {
+    this.ratio = ratio;
+    this.composer?.setPixelRatio(ratio);
   }
   resize(width: number, height: number) {
     this.composer?.setSize(width, height);

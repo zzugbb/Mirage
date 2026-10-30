@@ -4,12 +4,15 @@ import { simulate, scenario, temperatureHistory } from "./simulation.ts";
 import { createState, presentationKey, transition } from "./domain.ts";
 import { createExperience, experienceTransition } from "./tour.ts";
 import { componentCoverage } from "./equipment.ts";
-import { parts } from "./domain.ts";
+import { parts, subparts } from "./domain.ts";
 
-test("部件覆盖清单准确对应现有九个三维模组，逻辑及未知条目不伪造模型映射", () => {
+test("部件覆盖清单准确对应现有模组与独立子件，逻辑及未知条目不伪造模型映射", () => {
   const mapped = componentCoverage.flatMap((item) => [...item.partIds]);
-  assert.deepEqual(mapped.toSorted(), parts.map((part) => part.id).toSorted());
-  assert.equal(new Set(mapped).size, 9);
+  assert.deepEqual(
+    mapped.toSorted(),
+    [...parts, ...subparts].map((part) => part.id).toSorted(),
+  );
+  assert.equal(new Set(mapped).size, 37);
   assert.equal(
     componentCoverage.find((item) => item.name === "处理器芯片")?.partIds
       .length,

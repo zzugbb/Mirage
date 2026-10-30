@@ -1,10 +1,15 @@
+import { trendScale } from "../chart";
 import { useEffect, useId, useRef, useState } from "react";
 import { scenario, temperatureHistory } from "../simulation";
 
 export function TrendChart({
   time,
   metric,
+  compact = false,
+  deviceId = "srv-01",
 }: {
+  compact?: boolean;
+  deviceId?: string;
   time: number;
   metric: "temperature" | "power";
 }) {
@@ -18,18 +23,17 @@ export function TrendChart({
     observer.observe(host.current!);
     return () => observer.disconnect();
   }, []);
-  const height = width < 240 ? 145 : width > 320 ? 165 : 150;
+  const height = compact ? 100 : width < 240 ? 145 : width > 320 ? 165 : 150;
   const left = 31,
     right = width - 13,
     top = 15,
     bottom = height - 24;
   const temperature = metric === "temperature";
-  const domain = temperature ? [26, 41] : [244, 264];
-  const ticks = temperature ? [27, 33, 38] : [248, 254, 260];
+  const { domain, ticks, caption } = trendScale(metric, deviceId);
   const x = (t: number) => left + (t / scenario.duration) * (right - left);
   const y = (value: number) =>
     bottom - ((value - domain[0]) / (domain[1] - domain[0])) * (bottom - top);
-  const history = temperatureHistory(time);
+  const history = temperatureHistory(time, deviceId);
   const current = history.at(-1)!;
   const unit = temperature ? "°C" : "W";
   const name = temperature ? "设备进风温度" : "整机输入功耗";
@@ -100,12 +104,7 @@ export function TrendChart({
           r={3}
         />
       </svg>
-      <p className="chart-caption">
-        {temperature
-          ? "虚线：33 °C 预警 / 38 °C 严重"
-          : "整机输入功耗；纵轴 244–264 W"}{" "}
-        · 模拟
-      </p>
+      <p className="chart-caption">{caption} · 模拟</p>
     </div>
   );
 }

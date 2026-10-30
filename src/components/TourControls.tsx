@@ -32,7 +32,10 @@ export function TourControls({
           : "自动巡游"
         : "巡游已暂停";
   return (
-    <section className="tour-bar" aria-label="演示巡游">
+    <section
+      className={`tour-bar ${manual ? "is-manual" : ""}`}
+      aria-label="演示巡游"
+    >
       <div className="tour-identity">
         <span
           className={`tour-signal ${running && !hidden ? "running" : ""}`}

@@ -1,3 +1,5 @@
+import { subparts } from "./domain.ts";
+
 /** 覆盖清单表达本原型的已知边界，不代表某台真实服务器的实际配置。 */
 export const componentCoverage = [
   {
@@ -31,23 +33,32 @@ export const componentCoverage = [
   {
     name: "内存",
     quantity: "16 条",
-    coverage: "整组模型",
-    partIds: ["memory-01"],
-    note: "只能选择整个模组，未登记单条槽位。",
+    coverage: "模组与独立子件",
+    partIds: [
+      "memory-01",
+      ...subparts.filter((p) => p.parent === "memory-01").map((p) => p.id),
+    ],
+    note: "16 条内存可独立选择；演示编号不代表真实槽位，无独立测温。",
   },
   {
     name: "风扇",
     quantity: "4 个",
-    coverage: "整组模型",
-    partIds: ["fans-01"],
-    note: "四风扇总成，未拆分单风扇。",
+    coverage: "模组与独立子件",
+    partIds: [
+      "fans-01",
+      ...subparts.filter((p) => p.parent === "fans-01").map((p) => p.id),
+    ],
+    note: "4 个风扇可独立选择；无独立转速或告警数据。",
   },
   {
     name: "存储盘位",
     quantity: "8 盘位",
-    coverage: "整组模型",
-    partIds: ["storage-01"],
-    note: "盘位结构不等于已安装八块磁盘。",
+    coverage: "模组与独立子件",
+    partIds: [
+      "storage-01",
+      ...subparts.filter((p) => p.parent === "storage-01").map((p) => p.id),
+    ],
+    note: "8 个盘位构件可独立选择，不推定已安装八块磁盘。",
   },
   {
     name: "磁盘与背板",

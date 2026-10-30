@@ -1,3 +1,5 @@
+import { spatialSnapshot } from "./spatial";
+import { rackForDevice } from "./installation";
 import {
   useCallback,
   useEffect,
@@ -7,7 +9,7 @@ import {
   useState,
 } from "react";
 import type { PresentationPhase, SceneFeedback } from "./mechanics";
-import { entityById, getPath } from "./domain";
+import { entityById, getPath, subparts } from "./domain";
 import type { Action, Level } from "./domain";
 import { createExperience, experienceTransition, tourSteps } from "./tour";
 import { Viewport } from "./components/Viewport";
@@ -26,8 +28,23 @@ export function App() {
   );
   const { scene: state, tour } = experience;
   const sample = useMemo(
-    () => simulate(state.time, state.replayCycle),
-    [state.time, state.replayCycle],
+    () => simulate(state.time, state.replayCycle, state.deviceId),
+    [state.time, state.replayCycle, state.deviceId],
+  );
+  const scope = useMemo(
+    () =>
+      spatialSnapshot(
+        state.time,
+        state.replayCycle,
+        state.deviceId,
+      ).readings.get(
+        state.level === "room"
+          ? "room-01"
+          : state.level === "rack"
+            ? rackForDevice(state.deviceId).id
+            : state.deviceId,
+      )!,
+    [state.time, state.replayCycle, state.deviceId, state.level],
   );
   const [inspectionView, setInspectionView] =
     useState<InspectionView>("object");
@@ -91,9 +108,11 @@ export function App() {
     (id: string, enter = false) => {
       const entity = entityById(id);
       if (!entity) return;
-      setInspectionView("object");
-      if (enter && ["room", "rack", "device"].includes(entity.kind))
-        dispatch({ type: "navigate", level: entity.kind as Level });
+      if (entity.kind === "part" && state.level !== "device") {
+        dispatch({ type: "locate", id });
+        dispatch({ type: "explode", amount: 1 });
+      } else if (enter && ["room", "rack", "device"].includes(entity.kind))
+        dispatch({ type: "navigate", level: entity.kind as Level, id });
       else if (
         (state.level === "device" &&
           entity.kind !== "device" &&
@@ -105,9 +124,13 @@ export function App() {
           level: entity.kind === "rack" ? "rack" : "room",
         });
         dispatch({ type: "select", id });
-      } else dispatch({ type: "select", id });
+      } else {
+        dispatch({ type: "select", id });
+        if (subparts.some((part) => part.id === id) && state.explosion === 0)
+          dispatch({ type: "explode", amount: 1 });
+      }
     },
-    [state.level, dispatch],
+    [state.level, state.explosion, dispatch],
   );
   useEffect(() => {
     const key = (event: KeyboardEvent) => {
@@ -138,14 +161,13 @@ export function App() {
         <span className="header-divider" />
         <span className="header-current">空间探索</span>
         <button
-          className={`data-source replay-entry status-${sample.alarm?.active ? sample.alarm.severity : "normal"}`}
-          onClick={() =>
-            inspect(sample.alarm?.active ? "alarms" : "temperature")
-          }
-          aria-label={`运行回放，模拟进风温度${sample.temperatureStatus}`}
+          className={`data-source replay-entry status-${scope.alarm === 2 ? "critical" : scope.alarm === 1 ? "warning" : "normal"}`}
+          onClick={() => inspect(scope.alarmCount ? "alarms" : "temperature")}
+          aria-label={`运行观察，模拟进风告警 ${scope.alarmCount} 台设备`}
         >
           <i className="status-dot" />
-          模拟 · 温度{sample.temperatureStatus}
+          模拟 ·{" "}
+          {scope.alarmCount ? `进风告警 ${scope.alarmCount} 台` : "进风无告警"}
           <span>运行回放 ↗</span>
         </button>
       </header>
@@ -165,6 +187,7 @@ export function App() {
                   : dispatch({
                       type: "navigate",
                       level: entityById(id)!.kind as Level,
+                      id,
                     })
               }
             >
@@ -193,7 +216,6 @@ export function App() {
         <ObjectTree state={state} onSelect={select} sample={sample} />
         <Viewport
           state={state}
-          phase={phase}
           onPhase={setPhase}
           onSelect={select}
           onFeedback={setFeedback}
@@ -203,6 +225,9 @@ export function App() {
           tourShot={tourShot}
           sample={sample}
           showCooling={showCooling}
+          inspectionView={inspectionView}
+          onViewChange={inspect}
+          dispatch={dispatch}
         />
         <Inspector
           state={state}

@@ -69,7 +69,7 @@ function glow(
   });
   return object;
 }
-function text(
+export function text(
   parent: THREE.Object3D,
   label: string,
   position: number[],
@@ -301,10 +301,7 @@ export function buildModels() {
     const y = definition.rack.unitOrigin + u * definition.rack.unitPitch;
     for (const x of [-0.25, 0.25])
       box(rack, [0.015, 0.012, 0.025], [x, y, 0.52], "#70767d", 0.7);
-    if (
-      u < definition.server.startUnit ||
-      u >= definition.server.startUnit + definition.server.unitSpan
-    ) {
+    if (![23, 24, 34, 35].includes(u)) {
       box(rack, [0.465, 0.04, 0.025], [0, y, 0.5], "#282c31", 0.65);
       for (const x of [-0.14, -0.06, 0.02, 0.1])
         box(rack, [0.045, 0.008, 0.006], [x, y, 0.517], "#5d6369");
@@ -312,7 +309,7 @@ export function buildModels() {
   }
   for (const x of [-0.3, 0.3])
     glow(rack, [0.008, 2, 0.012], [x, 1.1, 0.55], "#4f565e");
-  text(rack, "A01", [0, 2.36, 0], 0.1);
+  text(rack, "A01", [0, 2.36, 0], 0.1).name = "rack-label";
   // 可透视的冲孔钢网门；孔洞通过规则透明度图实现，尺寸仍为真实米制。
   const perforation = document.createElement("canvas");
   perforation.width = 64;
@@ -348,6 +345,7 @@ export function buildModels() {
     }),
   );
   const rackDoor = new THREE.Group();
+  rackDoor.name = "rack-door";
   rackDoor.position.set(-0.285, 0, 0.57);
   rack.add(rackDoor);
   steelDoor.position.set(0.285, 1.1, 0);
@@ -370,9 +368,11 @@ export function buildModels() {
     box(rack, [0.35, 0.002, 0.006], [0, 2.135, z], "#15171b");
   const rackSlide = new THREE.Group();
   rack.add(rackSlide);
+  const railMount = new THREE.Group();
+  rack.add(railMount);
   for (const x of [-0.251, 0.251]) {
     box(
-      rack,
+      railMount,
       [0.014, 0.024, 0.83],
       [x, definition.server.position[1] - 0.024, 0.07],
       "#8e969f",
@@ -408,6 +408,7 @@ export function buildModels() {
     rack,
     rackDoor,
     rackSlide,
+    railMount,
     server,
     facilities,
     fans,

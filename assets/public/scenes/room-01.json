@@ -347,5 +347,369 @@
       "bumpScale": 0.00012,
       "grainRepeat": 8
     }
+  },
+  "subparts": [
+    {
+      "id": "dimm-01",
+      "parent": "memory-01",
+      "name": "内存条 01",
+      "slot": "DIMM-01",
+      "modelNode": "object_64",
+      "description": "演示编号 01，显式映射到现有模型中的独立内存条。编号不是实际设备槽位，未定义独立遥测。"
+    },
+    {
+      "id": "dimm-02",
+      "parent": "memory-01",
+      "name": "内存条 02",
+      "slot": "DIMM-02",
+      "modelNode": "object_65",
+      "description": "演示编号 02，显式映射到现有模型中的独立内存条。编号不是实际设备槽位，未定义独立遥测。"
+    },
+    {
+      "id": "dimm-03",
+      "parent": "memory-01",
+      "name": "内存条 03",
+      "slot": "DIMM-03",
+      "modelNode": "object_66",
+      "description": "演示编号 03，显式映射到现有模型中的独立内存条。编号不是实际设备槽位，未定义独立遥测。"
+    },
+    {
+      "id": "dimm-04",
+      "parent": "memory-01",
+      "name": "内存条 04",
+      "slot": "DIMM-04",
+      "modelNode": "object_67",
+      "description": "演示编号 04，显式映射到现有模型中的独立内存条。编号不是实际设备槽位，未定义独立遥测。"
+    },
+    {
+      "id": "dimm-05",
+      "parent": "memory-01",
+      "name": "内存条 05",
+      "slot": "DIMM-05",
+      "modelNode": "object_68",
+      "description": "演示编号 05，显式映射到现有模型中的独立内存条。编号不是实际设备槽位，未定义独立遥测。"
+    },
+    {
+      "id": "dimm-06",
+      "parent": "memory-01",
+      "name": "内存条 06",
+      "slot": "DIMM-06",
+      "modelNode": "object_69",
+      "description": "演示编号 06，显式映射到现有模型中的独立内存条。编号不是实际设备槽位，未定义独立遥测。"
+    },
+    {
+      "id": "dimm-07",
+      "parent": "memory-01",
+      "name": "内存条 07",
+      "slot": "DIMM-07",
+      "modelNode": "object_70",
+      "description": "演示编号 07，显式映射到现有模型中的独立内存条。编号不是实际设备槽位，未定义独立遥测。"
+    },
+    {
+      "id": "dimm-08",
+      "parent": "memory-01",
+      "name": "内存条 08",
+      "slot": "DIMM-08",
+      "modelNode": "object_71",
+      "description": "演示编号 08，显式映射到现有模型中的独立内存条。编号不是实际设备槽位，未定义独立遥测。"
+    },
+    {
+      "id": "dimm-09",
+      "parent": "memory-01",
+      "name": "内存条 09",
+      "slot": "DIMM-09",
+      "modelNode": "object_72",
+      "description": "演示编号 09，显式映射到现有模型中的独立内存条。编号不是实际设备槽位，未定义独立遥测。"
+    },
+    {
+      "id": "dimm-10",
+      "parent": "memory-01",
+      "name": "内存条 10",
+      "slot": "DIMM-10",
+      "modelNode": "object_73",
+      "description": "演示编号 10，显式映射到现有模型中的独立内存条。编号不是实际设备槽位，未定义独立遥测。"
+    },
+    {
+      "id": "dimm-11",
+      "parent": "memory-01",
+      "name": "内存条 11",
+      "slot": "DIMM-11",
+      "modelNode": "object_74",
+      "description": "演示编号 11，显式映射到现有模型中的独立内存条。编号不是实际设备槽位，未定义独立遥测。"
+    },
+    {
+      "id": "dimm-12",
+      "parent": "memory-01",
+      "name": "内存条 12",
+      "slot": "DIMM-12",
+      "modelNode": "object_75",
+      "description": "演示编号 12，显式映射到现有模型中的独立内存条。编号不是实际设备槽位，未定义独立遥测。"
+    },
+    {
+      "id": "dimm-13",
+      "parent": "memory-01",
+      "name": "内存条 13",
+      "slot": "DIMM-13",
+      "modelNode": "object_76",
+      "description": "演示编号 13，显式映射到现有模型中的独立内存条。编号不是实际设备槽位，未定义独立遥测。"
+    },
+    {
+      "id": "dimm-14",
+      "parent": "memory-01",
+      "name": "内存条 14",
+      "slot": "DIMM-14",
+      "modelNode": "object_77",
+      "description": "演示编号 14，显式映射到现有模型中的独立内存条。编号不是实际设备槽位，未定义独立遥测。"
+    },
+    {
+      "id": "dimm-15",
+      "parent": "memory-01",
+      "name": "内存条 15",
+      "slot": "DIMM-15",
+      "modelNode": "object_78",
+      "description": "演示编号 15，显式映射到现有模型中的独立内存条。编号不是实际设备槽位，未定义独立遥测。"
+    },
+    {
+      "id": "dimm-16",
+      "parent": "memory-01",
+      "name": "内存条 16",
+      "slot": "DIMM-16",
+      "modelNode": "object_79",
+      "description": "演示编号 16，显式映射到现有模型中的独立内存条。编号不是实际设备槽位，未定义独立遥测。"
+    },
+    {
+      "id": "fan-01",
+      "parent": "fans-01",
+      "name": "风扇 01",
+      "slot": "FAN-01",
+      "modelNode": "object_38",
+      "description": "演示编号 01，显式映射到现有模型中的独立风扇。编号不是实际设备槽位，未定义独立遥测。"
+    },
+    {
+      "id": "fan-02",
+      "parent": "fans-01",
+      "name": "风扇 02",
+      "slot": "FAN-02",
+      "modelNode": "object_39",
+      "description": "演示编号 02，显式映射到现有模型中的独立风扇。编号不是实际设备槽位，未定义独立遥测。"
+    },
+    {
+      "id": "fan-03",
+      "parent": "fans-01",
+      "name": "风扇 03",
+      "slot": "FAN-03",
+      "modelNode": "object_41",
+      "description": "演示编号 03，显式映射到现有模型中的独立风扇。编号不是实际设备槽位，未定义独立遥测。"
+    },
+    {
+      "id": "fan-04",
+      "parent": "fans-01",
+      "name": "风扇 04",
+      "slot": "FAN-04",
+      "modelNode": "object_42",
+      "description": "演示编号 04，显式映射到现有模型中的独立风扇。编号不是实际设备槽位，未定义独立遥测。"
+    },
+    {
+      "id": "bay-01",
+      "parent": "storage-01",
+      "name": "盘位构件 01",
+      "slot": "BAY-01",
+      "modelNode": "object_25",
+      "description": "演示编号 01，显式映射到现有模型中的独立盘位构件。编号不是实际设备槽位，未定义独立遥测。"
+    },
+    {
+      "id": "bay-02",
+      "parent": "storage-01",
+      "name": "盘位构件 02",
+      "slot": "BAY-02",
+      "modelNode": "object_26",
+      "description": "演示编号 02，显式映射到现有模型中的独立盘位构件。编号不是实际设备槽位，未定义独立遥测。"
+    },
+    {
+      "id": "bay-03",
+      "parent": "storage-01",
+      "name": "盘位构件 03",
+      "slot": "BAY-03",
+      "modelNode": "object_27",
+      "description": "演示编号 03，显式映射到现有模型中的独立盘位构件。编号不是实际设备槽位，未定义独立遥测。"
+    },
+    {
+      "id": "bay-04",
+      "parent": "storage-01",
+      "name": "盘位构件 04",
+      "slot": "BAY-04",
+      "modelNode": "object_28",
+      "description": "演示编号 04，显式映射到现有模型中的独立盘位构件。编号不是实际设备槽位，未定义独立遥测。"
+    },
+    {
+      "id": "bay-05",
+      "parent": "storage-01",
+      "name": "盘位构件 05",
+      "slot": "BAY-05",
+      "modelNode": "object_30",
+      "description": "演示编号 05，显式映射到现有模型中的独立盘位构件。编号不是实际设备槽位，未定义独立遥测。"
+    },
+    {
+      "id": "bay-06",
+      "parent": "storage-01",
+      "name": "盘位构件 06",
+      "slot": "BAY-06",
+      "modelNode": "object_31",
+      "description": "演示编号 06，显式映射到现有模型中的独立盘位构件。编号不是实际设备槽位，未定义独立遥测。"
+    },
+    {
+      "id": "bay-07",
+      "parent": "storage-01",
+      "name": "盘位构件 07",
+      "slot": "BAY-07",
+      "modelNode": "object_32",
+      "description": "演示编号 07，显式映射到现有模型中的独立盘位构件。编号不是实际设备槽位，未定义独立遥测。"
+    },
+    {
+      "id": "bay-08",
+      "parent": "storage-01",
+      "name": "盘位构件 08",
+      "slot": "BAY-08",
+      "modelNode": "object_33",
+      "description": "演示编号 08，显式映射到现有模型中的独立盘位构件。编号不是实际设备槽位，未定义独立遥测。"
+    }
+  ],
+  "installation": {
+    "description": "三机柜六设备的原创演示配置，不对应真实现场",
+    "racks": [
+      {
+        "id": "rack-a01",
+        "name": "A01 机柜",
+        "position": [
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "id": "rack-a02",
+        "name": "A02 机柜",
+        "position": [
+          -1.45,
+          0,
+          0
+        ]
+      },
+      {
+        "id": "rack-a03",
+        "name": "A03 机柜",
+        "position": [
+          1.45,
+          0,
+          0
+        ]
+      }
+    ],
+    "devices": [
+      {
+        "id": "srv-01",
+        "name": "SRV-01",
+        "rackId": "rack-a01",
+        "startUnit": 23,
+        "baseline": 27,
+        "thermalFactor": 1,
+        "loadFactor": 1,
+        "budgetWatts": 350
+      },
+      {
+        "id": "srv-02",
+        "name": "SRV-02",
+        "rackId": "rack-a01",
+        "startUnit": 34,
+        "baseline": 26,
+        "thermalFactor": 0.75,
+        "loadFactor": 0.9,
+        "budgetWatts": 350
+      },
+      {
+        "id": "srv-03",
+        "name": "SRV-03",
+        "rackId": "rack-a02",
+        "startUnit": 23,
+        "baseline": 24,
+        "thermalFactor": 0.55,
+        "loadFactor": 0.82,
+        "budgetWatts": 350
+      },
+      {
+        "id": "srv-04",
+        "name": "SRV-04",
+        "rackId": "rack-a02",
+        "startUnit": 34,
+        "baseline": 25,
+        "thermalFactor": 0.45,
+        "loadFactor": 0.7,
+        "budgetWatts": 350
+      },
+      {
+        "id": "srv-05",
+        "name": "SRV-05",
+        "rackId": "rack-a03",
+        "startUnit": 23,
+        "baseline": 23,
+        "thermalFactor": 0.15,
+        "loadFactor": 0.62,
+        "budgetWatts": 350
+      },
+      {
+        "id": "srv-06",
+        "name": "SRV-06",
+        "rackId": "rack-a03",
+        "startUnit": 34,
+        "baseline": 24,
+        "thermalFactor": 0.3,
+        "loadFactor": 0.75,
+        "budgetWatts": 350
+      }
+    ],
+    "relations": [
+      {
+        "id": "cooling-to-srv-01",
+        "source": "cooling-01",
+        "target": "srv-01",
+        "kind": "cooling",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-to-srv-02",
+        "source": "cooling-01",
+        "target": "srv-02",
+        "kind": "cooling",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-to-srv-03",
+        "source": "cooling-01",
+        "target": "srv-03",
+        "kind": "cooling",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-to-srv-04",
+        "source": "cooling-01",
+        "target": "srv-04",
+        "kind": "cooling",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-to-srv-05",
+        "source": "cooling-01",
+        "target": "srv-05",
+        "kind": "cooling",
+        "sourceType": "simulation"
+      },
+      {
+        "id": "cooling-to-srv-06",
+        "source": "cooling-01",
+        "target": "srv-06",
+        "kind": "cooling",
+        "sourceType": "simulation"
+      }
+    ]
   }
 }

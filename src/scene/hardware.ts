@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { mapSubparts } from "./component-map";
 import { parts } from "../domain";
 import definition from "../../assets/public/scenes/room-01.json" with { type: "json" };
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
@@ -96,6 +97,19 @@ export function mapServerParts(scene: THREE.Group) {
     groups.set(id, group);
     positions.set(id, group.position.clone());
   }
+  mapSubparts(root, groups);
+  root.traverse((object) => {
+    if (!(object instanceof THREE.Mesh)) return;
+    const materials = Array.isArray(object.material)
+      ? object.material
+      : [object.material];
+    for (const material of materials) {
+      if (material instanceof THREE.MeshStandardMaterial && material.map) {
+        material.map.anisotropy = 8;
+        material.map.needsUpdate = true;
+      }
+    }
+  });
   root.updateMatrixWorld(true);
   return { root, groups, positions };
 }

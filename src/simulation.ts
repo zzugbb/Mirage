@@ -1,3 +1,4 @@
+import { devices, deviceById } from "./installation.ts";
 /** 纯模拟：固定 1 秒采样的一阶响应；参数与阈值用于演示，不是现场设定建议。 */
 export const scenario = {
   id: "cooling-response-v1",
@@ -87,8 +88,9 @@ export function coolingCapacityAt(time: number) {
   return 100;
 }
 
-function generateTrace(): readonly Sample[] {
-  let thermal = scenario.baseline as number;
+function generateTrace(deviceId = "srv-01"): readonly Sample[] {
+  const profile = deviceById(deviceId)!;
+  let thermal = profile.baseline;
   let warningSince: number | null = null;
   let criticalSince: number | null = null;
   let recoverySince: number | null = null;
@@ -101,11 +103,18 @@ function generateTrace(): readonly Sample[] {
     const capacity = coolingCapacityAt(t);
     if (t > 0) {
       const equilibrium =
-        scenario.baseline + (1 - capacity / 100) * scenario.thermalGain;
+        profile.baseline +
+        (1 - capacity / 100) * scenario.thermalGain * profile.thermalFactor;
       thermal += (equilibrium - thermal) / scenario.timeConstant;
     }
     const temperature = Math.round(thermal * 10) / 10;
-    const allocation = powerAllocation(temperature);
+    const allocation = powerAllocation(temperature).map((item) => ({
+      ...item,
+      watts:
+        Math.round(
+          item.watts * (item.id === "fans" ? 1 : profile.loadFactor) * 10,
+        ) / 10,
+    }));
     const power =
       Math.round(allocation.reduce((sum, item) => sum + item.watts, 0) * 10) /
       10;
@@ -114,11 +123,11 @@ function generateTrace(): readonly Sample[] {
       kind: SimulationEvent["kind"],
       title: string,
       detail: string,
-      entityId: string = scenario.relation.target,
+      entityId: string = deviceId,
     ) =>
       events.push(
         Object.freeze({
-          id: `${scenario.id}:${kind}:${t}`,
+          id: `${scenario.id}:${deviceId}:${kind}:${t}`,
           time: t,
           entityId,
           kind,
@@ -166,8 +175,8 @@ function generateTrace(): readonly Sample[] {
       since !== null && t - since >= seconds;
     if (!alarm?.active && held(warningSince, scenario.warning.hold)) {
       alarm = {
-        id: `${scenario.id}:inlet-temperature`,
-        entityId: scenario.relation.target,
+        id: `${scenario.id}:${deviceId}:inlet-temperature`,
+        entityId: deviceId,
         severity: "warning",
         peakSeverity: "warning",
         active: true,
@@ -262,10 +271,17 @@ function generateTrace(): readonly Sample[] {
   }
   return Object.freeze(trace);
 }
-const trace = generateTrace();
+const traces = new Map(
+  devices.map((device) => [device.id, generateTrace(device.id)]),
+);
 
-export function simulate(time: number, cycle = 0): Sample {
-  const sample = trace[normalizeTime(time)];
+function traceFor(deviceId: string) {
+  const trace = traces.get(deviceId);
+  if (!trace) throw new RangeError("未登记的演示设备");
+  return trace;
+}
+export function simulate(time: number, cycle = 0, deviceId = "srv-01"): Sample {
+  const sample = traceFor(deviceId)[normalizeTime(time)];
   const occurrence = Math.max(
     0,
     Math.floor(Number.isFinite(cycle) ? cycle : 0),
@@ -281,6 +297,6 @@ export function simulate(time: number, cycle = 0): Sample {
     })),
   };
 }
-export const temperatureHistory = (time: number) =>
-  trace.slice(0, normalizeTime(time) + 1);
+export const temperatureHistory = (time: number, deviceId = "srv-01") =>
+  traceFor(deviceId).slice(0, normalizeTime(time) + 1);
 export type SimulationSnapshot = ReturnType<typeof simulate>;

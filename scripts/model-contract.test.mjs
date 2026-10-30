@@ -49,3 +49,20 @@ test("公开贡献模型不包含外部依赖、原始节点名或导出附加�
     visit(model);
   }
 });
+
+test("二十八个子件显式映射到原模组后代，每个节点只有一个独立子件身份", () => {
+  const model = readGLB("../assets/public/models/server-2u.glb");
+  const byName = new Map(model.nodes.map((node, index) => [node.name, index]));
+  const descendants = (index) => [index, ...(model.nodes[index].children ?? []).flatMap(descendants)];
+  assert.equal(scene.subparts.length,28);
+  const mapped = new Set();
+  for (const child of scene.subparts) {
+    const parent = scene.parts.find(part => part.id === child.parent);
+    assert.ok(parent);
+    const index = byName.get(child.modelNode);
+    assert.ok(index !== undefined);
+    assert.ok(parent.modelNodes.flatMap(name => descendants(byName.get(name))).includes(index));
+    assert.ok(!mapped.has(child.modelNode)); mapped.add(child.modelNode);
+    assert.ok(model.nodes[index].mesh !== undefined);
+  }
+});

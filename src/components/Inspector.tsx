@@ -1,5 +1,6 @@
+import { rackForDevice, deviceById } from "../installation";
 import { useEffect, useRef } from "react";
-import { entityById, parts } from "../domain";
+import { entityById, componentById, subparts } from "../domain";
 import { AssemblyControls } from "./AssemblyControls";
 import { RackControls } from "./RackControls";
 import { phaseLabels } from "../mechanics";
@@ -37,97 +38,63 @@ export function Inspector({
   onCoolingChange: (show: boolean) => void;
 }) {
   const entity = entityById(state.selected)!;
-  const panel = useRef<HTMLElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (view === "object") panel.current?.scrollTo({ top: 0 });
+    panel.current?.scrollTo({ top: 0 });
   }, [state.selected, view]);
   useEffect(() => {
     panel.current?.scrollTo({ top: 0 });
-    if (view !== "object" && matchMedia("(max-width: 580px)").matches)
-      panel.current?.scrollIntoView({ block: "start" });
   }, [view]);
-  const views = [
-    ["object", "对象"],
-    ["temperature", "温度"],
-    ["power", "功耗"],
-    ["alarms", "告警"],
-  ] as const;
-  const part = parts.find((part) => part.id === entity.id);
+  const part = componentById(entity.id);
   const fields =
     entity.kind === "room"
       ? [
           ["场景类型", "示意机房"],
           ["空间尺寸", "8 × 6 × 3.2 m"],
-          ["机柜 / 设备", "1 / 1"],
+          ["机柜 / 设备", "3 / 6"],
         ]
       : entity.kind === "rack"
         ? [
             ["机柜容量", "42 U"],
             ["外形尺寸", "600 × 1100 mm"],
-            ["代表设备", "1 台"],
+            ["演示设备", "2 台"],
           ]
         : entity.kind === "device"
           ? [
               ["设备形态", "通用 2U 服务器"],
-              ["安装位置", "A01 · U23–U24"],
+              [
+                "安装位置",
+                `${rackForDevice(state.deviceId).name} · U${deviceById(state.deviceId)!.startUnit}–U${deviceById(state.deviceId)!.startUnit + 1}`,
+              ],
               ["结构精度", "示意级"],
             ]
           : part
             ? [
-                ["所属设备", "SRV-01"],
-                ["槽位标识", part.slot],
-                ["结构精度", "模组级示意"],
+                ["所属设备", state.deviceId.toUpperCase()],
+                [
+                  subparts.some((item) => item.id === entity.id)
+                    ? "演示编号"
+                    : "槽位标识",
+                  part.slot,
+                ],
+                [
+                  "结构精度",
+                  subparts.some((item) => item.id === entity.id)
+                    ? "独立构件 · 示意编号"
+                    : "模组级示意",
+                ],
               ]
             : [
                 ["对象类型", "基础设施"],
                 ["数据接入", "未接入"],
               ];
   return (
-    <aside className="inspector" ref={panel}>
-      <div
-        className="inspector-tabs"
-        role="tablist"
-        aria-label="观察视图"
-        onKeyDown={(event) => {
-          const index = views.findIndex(([key]) => key === view);
-          const next =
-            event.key === "ArrowRight"
-              ? (index + 1) % views.length
-              : event.key === "ArrowLeft"
-                ? (index + views.length - 1) % views.length
-                : event.key === "Home"
-                  ? 0
-                  : event.key === "End"
-                    ? views.length - 1
-                    : -1;
-          if (next < 0) return;
-          event.preventDefault();
-          onViewChange(views[next][0]);
-          event.currentTarget
-            .querySelector<HTMLButtonElement>(`[data-view="${views[next][0]}"]`)
-            ?.focus();
-        }}
-      >
-        {views.map(([key, label]) => (
-          <button
-            key={key}
-            id={`inspection-${key}`}
-            data-view={key}
-            role="tab"
-            aria-selected={view === key}
-            aria-controls="inspection-content"
-            tabIndex={view === key ? 0 : -1}
-            onClick={() => onViewChange(key)}
-          >
-            {label}
-          </button>
-        ))}
+    <aside className="inspector" aria-label="对象与运行概览">
+      <div className="inspector-heading">
+        <strong>{view === "object" ? "对象详情" : "运行概览"}</strong>
+        <span>{view === "object" ? kindNames[entity.kind] : "模拟"}</span>
       </div>
-      <div
-        role="tabpanel"
-        id="inspection-content"
-        aria-labelledby={`inspection-${view}`}
-      >
+      <div className="inspector-scroll" ref={panel}>
         {view !== "object" ? (
           <ReplayPanel
             state={state}
@@ -187,75 +154,13 @@ export function Inspector({
                 <span>→</span>
               </button>
             )}
-            {state.level === "room" && (
-              <section className="explore-path">
-                <h3>探索路径</h3>
-                {(["room", "rack", "device"] as const).map((level, index) => (
-                  <button
-                    className={state.level === level ? "active" : ""}
-                    key={level}
-                    onClick={() => dispatch({ type: "navigate", level })}
-                  >
-                    <i />
-                    <span>{["机房", "机柜", "设备"][index]}</span>
-                    <small>0{index + 1}</small>
-                  </button>
-                ))}
-                <div className="path-future">
-                  <i />
-                  部件<small>04</small>
-                </div>
-              </section>
-            )}
-            <section className="simulation">
-              <div className="section-heading">
-                <h3>模拟状态</h3>
-                <span className="tag">模拟</span>
-              </div>
-              <div className="sim-values">
-                <div>
-                  <strong>
-                    {simulation.temperature}
-                    <small> °C</small>
-                  </strong>
-                  <span>设备进风温度</span>
-                </div>
-                <div>
-                  <strong>
-                    {simulation.power}
-                    <small> W</small>
-                  </strong>
-                  <span>设备功耗</span>
-                </div>
-              </div>
-              <div className="simulation-footer">
-                <span>
-                  <i className="status-dot" />
-                  温度{simulation.temperatureStatus}
-                </span>
-                <span>t + {String(state.time).padStart(3, "0")} s</span>
-              </div>
-              <button
-                className="text-button"
-                onClick={() => dispatch({ type: "play" })}
-              >
-                {state.playing ? "Ⅱ 暂停模拟" : "▷ 播放模拟"}
+            <div className="metric-links">
+              <button onClick={() => onViewChange("temperature")}>
+                温度云图 ↗
               </button>
-              <div className="metric-links">
-                <button onClick={() => onViewChange("temperature")}>
-                  温度趋势 ↗
-                </button>
-                <button onClick={() => onViewChange("power")}>
-                  功耗分析 ↗
-                </button>
-                <button onClick={() => onViewChange("alarms")}>
-                  告警记录 ↗
-                </button>
-              </div>
-              <p>
-                模拟数据，当前为冷却扰动回放。整机输入功耗含假设转换损耗，非真实采集。
-              </p>
-            </section>
+              <button onClick={() => onViewChange("power")}>功耗分布 ↗</button>
+              <button onClick={() => onViewChange("alarms")}>告警定位 ↗</button>
+            </div>
           </>
         )}
       </div>

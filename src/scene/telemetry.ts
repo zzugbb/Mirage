@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import type { AppState } from "../domain";
-import { scenario } from "../simulation";
+import { coolingRelationFor } from "../installation";
 import type { SimulationSnapshot } from "../simulation";
 import type { SceneModel } from "./models";
 
@@ -9,6 +9,8 @@ export class TelemetryOverlay {
   root = new THREE.Group();
   relation = new THREE.Group();
   enabled = true;
+  mode: "object" | "temperature" | "power" | "alarms" = "object";
+  sensor = new THREE.Group();
   line: THREE.Line;
   arrows: THREE.LineSegments;
   alarmBox = new THREE.Box3Helper(new THREE.Box3(), "#d9a66b");
@@ -41,7 +43,24 @@ export class TelemetryOverlay {
     alarmMaterial.transparent = true;
     alarmMaterial.opacity = 0.8;
     alarmMaterial.depthWrite = false;
-    this.root.add(this.relation, this.alarmBox);
+    alarmMaterial.depthTest = false;
+    alarmMaterial.toneMapped = false;
+    this.alarmBox.renderOrder = 10;
+    const sensorMaterial = new THREE.MeshBasicMaterial({
+      color: "#91c5d0",
+      transparent: true,
+      opacity: 0.9,
+      depthWrite: false,
+      toneMapped: false,
+    });
+    this.sensor.add(
+      new THREE.Mesh(
+        new THREE.TorusGeometry(0.058, 0.002, 6, 64),
+        sensorMaterial,
+      ),
+      new THREE.Mesh(new THREE.SphereGeometry(0.009, 12, 8), sensorMaterial),
+    );
+    this.root.add(this.relation, this.alarmBox, this.sensor);
   }
   update(
     state: AppState,
@@ -52,23 +71,61 @@ export class TelemetryOverlay {
     roomOpacity: number,
   ) {
     this.relation.visible =
+      this.mode === "temperature" &&
       this.enabled &&
       state.level === "room" &&
       roomOpacity === 1 &&
       inspection === 0;
     this.alarmBox.visible =
-      !!sample.alarm?.active &&
-      state.level !== "device" &&
-      inspection === 0 &&
-      explosion === 0;
+      ((this.mode === "alarms" && !!sample.alarm?.active) ||
+        (this.mode === "power" && explosion === 0)) &&
+      (inspection === 0 || inspection === 1);
     if (this.alarmBox.visible) {
-      this.alarmBox.box.setFromObject(models.server).expandByScalar(0.008);
+      if (explosion > 0) {
+        this.alarmBox.box.makeEmpty();
+        models.server.traverse((object) => {
+          if (!(object instanceof THREE.Mesh)) return;
+          let parent = object.parent;
+          while (parent && parent !== models.server) {
+            if (models.parts.has(parent.userData.entityId)) return;
+            parent = parent.parent;
+          }
+          this.alarmBox.box.union(new THREE.Box3().setFromObject(object));
+        });
+        this.alarmBox.box.expandByScalar(0.008);
+      } else
+        this.alarmBox.box.setFromObject(models.server).expandByScalar(0.008);
       (this.alarmBox.material as THREE.LineBasicMaterial).color.set(
-        sample.alarm!.severity === "critical" ? "#d98e7e" : "#d9ac70",
+        this.mode === "power"
+          ? "#8ebae6"
+          : sample.alarm?.severity === "critical"
+            ? "#e99d89"
+            : "#dfb276",
       );
     }
+    this.sensor.visible =
+      this.mode === "temperature" &&
+      (inspection === 0 || inspection === 1) &&
+      explosion === 0;
+    if (this.sensor.visible) {
+      models.server.getWorldPosition(this.sensor.position);
+      this.sensor.position.z += 0.46;
+      const color = sample.alarm?.active
+        ? sample.alarm.severity === "critical"
+          ? "#e99d89"
+          : "#dfb276"
+        : "#8ec5d0";
+      (
+        this.sensor.children[0] as THREE.Mesh<
+          THREE.TorusGeometry,
+          THREE.MeshBasicMaterial
+        >
+      ).material.color.set(color);
+    }
     if (!this.relation.visible) return;
-    const sourceObject = models.facilities.get(scenario.relation.source);
+    const sourceObject = models.facilities.get(
+      coolingRelationFor(state.deviceId).source,
+    );
     if (!sourceObject) {
       this.relation.visible = false;
       return;
