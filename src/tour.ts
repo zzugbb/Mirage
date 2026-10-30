@@ -158,10 +158,11 @@ export function experienceTransition(
       const scene = transition(state.scene, action.action);
       return {
         scene,
-        tour:
-          action.action.type === "play" || action.action.type === "tick"
-            ? tour
-            : { ...tour, mode: "manual" },
+        tour: ["play", "tick", "rate", "replay", "loop"].includes(
+          action.action.type,
+        )
+          ? tour
+          : { ...tour, mode: "manual" },
       };
     }
     case "simulation-tick":

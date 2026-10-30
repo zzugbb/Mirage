@@ -14,6 +14,8 @@ import { Viewport } from "./components/Viewport";
 import { ObjectTree } from "./components/ObjectTree";
 import { Inspector } from "./components/Inspector";
 import { TourControls } from "./components/TourControls";
+import { simulate } from "./simulation";
+import type { InspectionView } from "./components/ReplayPanel";
 
 export function App() {
   const [experience, control] = useReducer(
@@ -23,10 +25,20 @@ export function App() {
       createExperience(!matchMedia("(prefers-reduced-motion: reduce)").matches),
   );
   const { scene: state, tour } = experience;
-  const dispatch = useCallback(
-    (action: Action) => control({ type: "scene", action }),
-    [],
+  const sample = useMemo(
+    () => simulate(state.time, state.replayCycle),
+    [state.time, state.replayCycle],
   );
+  const [inspectionView, setInspectionView] =
+    useState<InspectionView>("object");
+  const [showCooling, setShowCooling] = useState(true);
+  const dispatch = useCallback((action: Action) => {
+    control({ type: "scene", action });
+    if (action.type === "locate" && matchMedia("(max-width: 580px)").matches)
+      requestAnimationFrame(() =>
+        document.querySelector(".viewport")?.scrollIntoView({ block: "start" }),
+      );
+  }, []);
   const [phase, setPhase] = useState<PresentationPhase>("closed");
   const [feedback, setFeedback] = useState<SceneFeedback | null>(null);
   const latestFeedback = useRef(feedback);
@@ -34,6 +46,10 @@ export function App() {
   const [hidden, setHidden] = useState(() => document.hidden);
   const takeover = useCallback(() => control({ type: "takeover" }), []);
   const pauseTour = useCallback(() => control({ type: "tour-pause" }), []);
+  const inspect = useCallback((view: InspectionView) => {
+    control({ type: "takeover" });
+    setInspectionView(view);
+  }, []);
   const manual = tour.mode === "manual";
   const tourShot = useMemo(
     () =>
@@ -75,6 +91,7 @@ export function App() {
     (id: string, enter = false) => {
       const entity = entityById(id);
       if (!entity) return;
+      setInspectionView("object");
       if (enter && ["room", "rack", "device"].includes(entity.kind))
         dispatch({ type: "navigate", level: entity.kind as Level });
       else if (
@@ -120,10 +137,17 @@ export function App() {
         </a>
         <span className="header-divider" />
         <span className="header-current">空间探索</span>
-        <div className="data-source">
+        <button
+          className={`data-source replay-entry status-${sample.alarm?.active ? sample.alarm.severity : "normal"}`}
+          onClick={() =>
+            inspect(sample.alarm?.active ? "alarms" : "temperature")
+          }
+          aria-label={`运行回放，模拟进风温度${sample.temperatureStatus}`}
+        >
           <i className="status-dot" />
-          模拟数据<span>未连接真实设备</span>
-        </div>
+          模拟 · 温度{sample.temperatureStatus}
+          <span>运行回放 ↗</span>
+        </button>
       </header>
       <div className="breadcrumb">
         <button onClick={() => dispatch({ type: "reset" })}>示意园区</button>
@@ -163,8 +187,10 @@ export function App() {
         hidden={hidden}
         dispatch={control}
       />
-      <main>
-        <ObjectTree state={state} onSelect={select} />
+      <main
+        className={inspectionView !== "object" ? "has-telemetry" : undefined}
+      >
+        <ObjectTree state={state} onSelect={select} sample={sample} />
         <Viewport
           state={state}
           phase={phase}
@@ -175,8 +201,19 @@ export function App() {
           onError={pauseTour}
           paused={tour.mode === "paused" || hidden}
           tourShot={tourShot}
+          sample={sample}
+          showCooling={showCooling}
         />
-        <Inspector state={state} phase={phase} dispatch={dispatch} />
+        <Inspector
+          state={state}
+          phase={phase}
+          dispatch={dispatch}
+          sample={sample}
+          view={inspectionView}
+          onViewChange={inspect}
+          showCooling={showCooling}
+          onCoolingChange={setShowCooling}
+        />
       </main>
       <footer className="app-footer">
         <span>

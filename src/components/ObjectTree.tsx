@@ -1,12 +1,15 @@
 import { entities, parts } from "../domain";
 import type { AppState } from "../domain";
+import type { SimulationSnapshot } from "../simulation";
 
 export function ObjectTree({
   state,
   onSelect,
+  sample,
 }: {
   state: AppState;
   onSelect: (id: string, enter?: boolean) => void;
+  sample: SimulationSnapshot;
 }) {
   return (
     <aside className="object-panel">
@@ -30,6 +33,13 @@ export function ObjectTree({
                 aria-hidden="true"
               />
               {entity.name}
+              {entity.id === "srv-01" && sample.alarm?.active && (
+                <i
+                  className={`tree-alarm status-${sample.alarm.severity}`}
+                  title={`设备进风温度${sample.temperatureStatus}（模拟）`}
+                  aria-label={`模拟温度${sample.temperatureStatus}`}
+                />
+              )}
               {entity.kind === "rack" && <small>42U</small>}
             </button>
           ))}

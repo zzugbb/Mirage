@@ -4,6 +4,7 @@ import type { AppState } from "../domain";
 import type { View } from "../scene/engine";
 import { phaseLabels } from "../mechanics";
 import type { PresentationPhase, SceneFeedback } from "../mechanics";
+import type { SimulationSnapshot } from "../simulation";
 
 export function Viewport({
   state,
@@ -15,6 +16,8 @@ export function Viewport({
   onError,
   paused,
   tourShot,
+  sample,
+  showCooling,
 }: {
   state: AppState;
   onSelect: (id: string, enter?: boolean) => void;
@@ -25,6 +28,8 @@ export function Viewport({
   onError: () => void;
   paused: boolean;
   tourShot: { revision: number; view: View; focus: boolean } | null;
+  sample: SimulationSnapshot;
+  showCooling: boolean;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const engine = useRef<SceneEngine | null>(null);
@@ -93,6 +98,9 @@ export function Viewport({
     if (engine.current) engine.current.paused = paused;
   }, [paused, revision]);
   useEffect(() => {
+    if (engine.current) engine.current.telemetry.enabled = showCooling;
+  }, [showCooling, revision]);
+  useEffect(() => {
     setView(
       state.level === "room" && previousLevel.current !== state.level
         ? "interior"
@@ -130,6 +138,15 @@ export function Viewport({
         onWheelCapture={takeControl}
       />
       <div className="scene-anchors" ref={anchors}>
+        <button
+          hidden
+          data-anchor="srv-01"
+          className={`scene-anchor alert-anchor status-${sample.alarm?.severity ?? "warning"}`}
+          onClick={() => onSelect("srv-01", true)}
+          title="定位温度告警设备（模拟）"
+        >
+          {sample.temperature.toFixed(1)} °C · {sample.temperatureStatus} · 模拟
+        </button>
         {[
           ["rack-a01", "A01"],
           ["cooling-01", "制冷单元"],
@@ -150,6 +167,12 @@ export function Viewport({
           </button>
         ))}
       </div>
+      {showCooling && state.level === "room" && (
+        <div className="relation-legend">
+          <i />
+          预设冷却关系 · {sample.coolingCapacity}% · 模拟
+        </div>
+      )}
       <div className="scene-heading">
         <span className="overline">空间与结构探索</span>
         <h1>

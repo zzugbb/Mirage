@@ -1,4 +1,6 @@
 import sceneDefinition from "../assets/public/scenes/room-01.json" with { type: "json" };
+import { normalizeTime, scenario } from "./simulation.ts";
+export { simulate } from "./simulation.ts";
 
 export type Level = "room" | "rack" | "device";
 export const parts = sceneDefinition.parts;
@@ -68,6 +70,9 @@ export type AppState = {
   focusRevision: number;
   time: number;
   playing: boolean;
+  playbackRate: 1 | 2 | 4;
+  loop: boolean;
+  replayCycle: number;
   explosion: number;
   doorOpen: boolean;
   trayExtended: boolean;
@@ -88,13 +93,29 @@ export type Action =
   | { type: "explode"; amount: number }
   | { type: "door"; open: boolean }
   | { type: "tray"; extended: boolean }
-  | { type: "enter" | "back" | "focus" | "reset" | "play" | "tick" };
+  | { type: "seek"; time: number }
+  | { type: "rate"; rate: 1 | 2 | 4 }
+  | { type: "locate"; id: string }
+  | {
+      type:
+        | "enter"
+        | "back"
+        | "focus"
+        | "reset"
+        | "play"
+        | "tick"
+        | "replay"
+        | "loop";
+    };
 export const createState = (): AppState => ({
   level: "room",
   selected: "room-01",
   focusRevision: 0,
   time: 0,
   playing: true,
+  playbackRate: 1,
+  loop: true,
+  replayCycle: 0,
   explosion: 0,
   doorOpen: false,
   trayExtended: false,
@@ -168,9 +189,57 @@ export function transition(state: AppState, action: Action): AppState {
     case "reset":
       return { ...createState(), focusRevision: state.focusRevision + 1 };
     case "play":
-      return { ...state, playing: !state.playing };
+      return state.time === scenario.duration && !state.playing
+        ? {
+            ...state,
+            time: 0,
+            playing: true,
+            replayCycle: state.replayCycle + 1,
+          }
+        : { ...state, playing: !state.playing };
+    case "seek":
+      return Number.isFinite(action.time)
+        ? { ...state, time: normalizeTime(action.time), playing: false }
+        : state;
+    case "rate":
+      return [1, 2, 4].includes(action.rate)
+        ? { ...state, playbackRate: action.rate }
+        : state;
+    case "loop":
+      return { ...state, loop: !state.loop };
+    case "replay":
+      return {
+        ...state,
+        time: 0,
+        playing: true,
+        replayCycle: state.replayCycle + 1,
+      };
+    case "locate": {
+      const entity = entityById(action.id);
+      if (!entity) return state;
+      const level =
+        entity.kind === "facility" || entity.kind === "room"
+          ? "room"
+          : entity.kind === "rack"
+            ? "rack"
+            : "device";
+      return {
+        ...transition(state, { type: "navigate", level }),
+        selected: entity.id,
+      };
+    }
     case "tick":
-      return state.playing ? { ...state, time: (state.time + 1) % 121 } : state;
+      if (!state.playing) return state;
+      if (state.time === scenario.duration)
+        return state.loop
+          ? { ...state, time: 0, replayCycle: state.replayCycle + 1 }
+          : { ...state, playing: false };
+      return {
+        ...state,
+        time: Math.min(scenario.duration, state.time + state.playbackRate),
+        playing:
+          state.loop || state.time + state.playbackRate < scenario.duration,
+      };
   }
 }
 export type Metric = {
@@ -186,14 +255,3 @@ export const metricText = (metric: Metric) =>
       : metric.value === null || metric.quality === "missing"
         ? "未采集"
         : `${metric.value} ${metric.unit}`;
-export function simulate(time: number) {
-  const t = Math.max(0, Math.min(120, time));
-  const temperature = Math.round((32 + 2 * Math.sin(t / 15)) * 10) / 10;
-  return {
-    source: "simulation" as const,
-    observedAt: t,
-    temperature,
-    power: Math.round(248 + 12 * Math.sin(t / 9)),
-    health: "正常",
-  };
-}

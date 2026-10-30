@@ -11,6 +11,9 @@ import { StructurePresentation } from "./presentation";
 import { createBackdrop, createRoomLights, RenderPipeline } from "./rendering";
 import definition from "../../assets/public/scenes/room-01.json" with { type: "json" };
 import type { PresentationPhase, SceneFeedback } from "../mechanics";
+import { simulate } from "../simulation";
+import type { SimulationSnapshot } from "../simulation";
+import { TelemetryOverlay } from "./telemetry";
 import {
   hardwareUrls,
   loadHardware,
@@ -27,6 +30,8 @@ export class SceneEngine {
   camera = new THREE.PerspectiveCamera(40, 1, 0.01, 150);
   controls: OrbitControls;
   models = buildModels();
+  telemetry = new TelemetryOverlay();
+  sample: SimulationSnapshot;
   presentation = new StructurePresentation(this.models);
   pendingDeviceView = false;
   pendingDeviceFocus = false;
@@ -90,6 +95,7 @@ export class SceneEngine {
   ) {
     this.host = host;
     this.state = state;
+    this.sample = simulate(state.time, state.replayCycle);
     this.onSelect = onSelect;
     this.onError = onError;
     this.onPhase = onPhase;
@@ -190,6 +196,7 @@ export class SceneEngine {
       });
     }
     this.scene.add(this.models.root);
+    this.scene.add(this.telemetry.root);
     const guideGeometry = new THREE.BufferGeometry();
     guideGeometry.setAttribute(
       "position",
@@ -418,13 +425,18 @@ export class SceneEngine {
     const focusChanged = state.focusRevision !== this.state.focusRevision;
     const changed = levelChanged || focusChanged;
     this.state = state;
+    this.sample = simulate(state.time, state.replayCycle);
     if (levelChanged) this.pendingDeviceView = state.level === "device";
     if (changed || this.lastTime === 0)
       this.view(
         state.level === "room" && (levelChanged || this.lastTime === 0)
           ? "interior"
           : "iso",
-        focusChanged && !levelChanged,
+        focusChanged &&
+          (!levelChanged ||
+            ["facility", "part"].includes(
+              entityById(state.selected)?.kind ?? "",
+            )),
       );
     if (state.level === "device" && explosionChanged)
       this.view(this.currentView);
@@ -732,6 +744,14 @@ export class SceneEngine {
       this.onFeedback(feedback);
     }
     this.models.root.updateMatrixWorld(true);
+    this.telemetry.update(
+      this.state,
+      this.sample,
+      this.models,
+      this.presentation.pose.inspection,
+      this.explosion,
+      this.fades.find((fade) => fade.group === this.models.room)!.opacity,
+    );
     const object = this.objectFor(this.state.selected);
     this.models.selection.visible =
       !!object &&
@@ -739,6 +759,8 @@ export class SceneEngine {
       this.state.selected !== "rack-a01" &&
       !(this.state.level === "device" && this.state.selected === "srv-01") &&
       this.visible(object);
+    if (this.telemetry.alarmBox.visible && this.state.selected === "srv-01")
+      this.models.selection.visible = false;
     if (object && this.models.selection.visible) {
       this.models.selection.box.setFromObject(object);
       this.models.selection.box.expandByScalar(
@@ -749,16 +771,26 @@ export class SceneEngine {
       const id = element.dataset.anchor!;
       const target = this.objectFor(id);
       const show =
-        this.state.level === "room"
-          ? ["rack-a01", "cooling-01", "power-01"].includes(id)
-          : this.state.level === "device" &&
-            this.explosion > 0.45 &&
-            ["cpu-01", "memory-01", "fans-01", "psu-02"].includes(id);
+        id === "srv-01"
+          ? !!this.sample.alarm?.active &&
+            this.state.level !== "device" &&
+            this.presentation.pose.inspection === 0
+          : this.state.level === "room"
+            ? ["rack-a01", "cooling-01", "power-01"].includes(id)
+            : this.state.level === "device" &&
+              this.explosion > 0.45 &&
+              ["cpu-01", "memory-01", "fans-01", "psu-02"].includes(id);
       element.hidden = !show || !target;
       if (target && show) {
         this.anchorBounds.setFromObject(target).getCenter(this.anchorPosition);
         this.anchorPosition.y +=
-          id === "rack-a01" ? 1.17 : this.state.level === "room" ? 1.05 : 0.035;
+          id === "srv-01"
+            ? 0.16
+            : id === "rack-a01"
+              ? 1.17
+              : this.state.level === "room"
+                ? 1.05
+                : 0.035;
         this.anchorPosition.project(this.camera);
         const x = (this.anchorPosition.x * 0.5 + 0.5) * this.host.clientWidth;
         const y = (-this.anchorPosition.y * 0.5 + 0.5) * this.host.clientHeight;
@@ -766,7 +798,7 @@ export class SceneEngine {
         element.hidden =
           this.anchorPosition.z > 1 ||
           x < 10 ||
-          x > this.host.clientWidth - 70 ||
+          x > this.host.clientWidth - element.offsetWidth - 23 ||
           y < 22 ||
           y > this.host.clientHeight - 65;
       }
