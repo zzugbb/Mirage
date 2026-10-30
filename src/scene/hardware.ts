@@ -4,12 +4,14 @@ import { mapSubparts } from "./component-map";
 import { parts } from "../domain";
 import definition from "../../assets/public/scenes/room-01.json" with { type: "json" };
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import compactUrl from "../../assets/public/models/server-1u.glb?url";
 import serverUrl from "../../assets/public/models/server-2u.glb?url";
 import coolingUrl from "../../assets/public/models/cooling-unit.glb?url";
 import powerUrl from "../../assets/public/models/power-cabinet.glb?url";
 
 export const hardwareUrls = {
   server: serverUrl,
+  compact: compactUrl,
   cooling: coolingUrl,
   power: powerUrl,
 };

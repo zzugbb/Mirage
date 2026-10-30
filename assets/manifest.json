@@ -45,6 +45,17 @@
       "licenseFile": "LICENSES/CC-BY-NC-4.0.txt",
       "sha256": "f6d1092d9d374dcd53ffa94a722c68c439a82b19bc7f375e09f8710ae1878a91",
       "publicationApproved": true
+    },
+    {
+      "id": "mirage-server-1u-v1",
+      "path": "assets/public/models/server-1u.glb",
+      "kind": "model",
+      "rightsHolder": "原创模型贡献者（维护者确认授权）",
+      "source": "维护者授权纳入的原创贡献几何；已移除全部贴图与原始元数据，按当前配置适配维护部件。",
+      "license": "CC-BY-NC-4.0",
+      "licenseFile": "LICENSES/CC-BY-NC-4.0.txt",
+      "sha256": "d2394f580ca7b3d9ccee290625415980ec10ae4b95ba44b844a50281715d615c",
+      "publicationApproved": true
     }
   ]
 }

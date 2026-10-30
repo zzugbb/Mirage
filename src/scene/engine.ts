@@ -1,5 +1,6 @@
 import { modelForDevice, partsForDevice } from "../catalog";
 import { createEquipmentAssembly } from "./equipment-model";
+import { mapCompactServer } from "./compact-server";
 import { SpatialSignals } from "./signals";
 import { SurfaceObservation } from "./surface";
 import { InstallationScene } from "./installation";
@@ -284,6 +285,30 @@ export class SceneEngine {
         this.activateAssembly(this.state);
         completed++;
       })(),
+      (async () => {
+        const scene = await loadHardware(hardwareUrls.compact);
+        if (this.destroyed) {
+          disposeModels(scene, false);
+          return;
+        }
+        const root = normalizeModel(scene, "width", definition.server.size[0]);
+        let result;
+        try {
+          result = mapCompactServer(root);
+        } catch (error) {
+          disposeModels(root, false);
+          throw error;
+        }
+        const old = this.assemblies.get("server-1u");
+        this.assemblies.set("server-1u", result);
+        if (modelForDevice(this.state.deviceId).id === "server-1u") {
+          this.assemblyModel = "";
+          this.activateAssembly(this.state);
+        }
+        if (old && modelForDevice(this.state.deviceId).id !== "server-1u")
+          disposeModels(old.root, false);
+        completed++;
+      })(),
       ...(
         [
           ["cooling-01", hardwareUrls.cooling, 1.9],
@@ -368,7 +393,7 @@ export class SceneEngine {
     ]);
     if (!this.destroyed) {
       this.assetsLoaded = true;
-      this.onAssets(completed === 3 ? "ready" : "degraded");
+      this.onAssets(completed === 4 ? "ready" : "degraded");
       this.view(this.currentView, this.currentFocus);
     }
   }
