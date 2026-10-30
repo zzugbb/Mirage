@@ -1,0 +1,336 @@
+import { useEffect, useRef, useState } from "react";
+import type { Action, AppState } from "../domain";
+import type { PresentationPhase } from "../mechanics";
+import { SceneEngine } from "../scene/engine";
+import type { View } from "../scene/engine";
+import { devices, racks, rackForDevice } from "../installation";
+import type { SpatialReading } from "../spatial";
+import type { ReviewLayer } from "../review-model";
+import { signalFor, signalStyles } from "../status";
+
+export function ReviewScene({
+  state,
+  layer,
+  data,
+  alarms,
+  readings,
+  dispatch,
+  onSelect,
+  onPhase,
+  shotRevision,
+}: {
+  state: AppState;
+  layer: ReviewLayer;
+  data: boolean;
+  alarms: boolean;
+  readings: Map<string, SpatialReading>;
+  dispatch: (action: Action) => void;
+  onSelect: (id: string, enter?: boolean) => void;
+  onPhase: (phase: PresentationPhase) => void;
+  shotRevision: number;
+}) {
+  const host = useRef<HTMLDivElement>(null);
+  const anchors = useRef<HTMLDivElement>(null);
+  const engine = useRef<SceneEngine | null>(null);
+  const initial = useRef(state);
+  const currentState = useRef(state);
+  currentState.current = state;
+  const callbacks = useRef({ onSelect, onPhase });
+  callbacks.current = { onSelect, onPhase };
+  const [error, setError] = useState("");
+  const [retry, setRetry] = useState(0);
+  const [assets, setAssets] = useState("loading");
+  const [view, setView] = useState<View>("interior");
+  const [quality, setQuality] = useState(true);
+  const [supported, setSupported] = useState(false);
+  const [orbit, setOrbit] = useState(false);
+  useEffect(() => {
+    let active: SceneEngine | null = null;
+    setAssets("loading");
+    try {
+      active = new SceneEngine(
+        host.current!,
+        initial.current,
+        (id, enter) => callbacks.current.onSelect(id, enter),
+        setError,
+        (phase) => callbacks.current.onPhase(phase),
+      );
+      active.autoOrbit = false;
+      active.onAssets = setAssets;
+      engine.current = active;
+      setSupported(active.pipeline.available);
+    } catch {
+      active?.dispose();
+      setError("三维场景启动失败，请检查 WebGL 2 与硬件加速。");
+    }
+    const visibility = () => {
+      if (active) active.paused = document.hidden;
+    };
+    visibility();
+    document.addEventListener("visibilitychange", visibility);
+    return () => {
+      document.removeEventListener("visibilitychange", visibility);
+      active?.dispose();
+      engine.current = null;
+    };
+  }, [retry]);
+  useEffect(() => {
+    engine.current?.update(state);
+  }, [state, retry]);
+  useEffect(() => {
+    // 评审预设使用相同的空间构图，便于直接比较图层；普通操作不触发。
+    const next = currentState.current.level === "room" ? "interior" : "iso";
+    engine.current?.view(next);
+    setView(next);
+  }, [shotRevision, retry]);
+  useEffect(() => {
+    if (engine.current) {
+      engine.current.telemetry.mode = !data
+        ? "object"
+        : layer === "environment"
+          ? "temperature"
+          : layer === "power"
+            ? "power"
+            : "status";
+      // 评审只展示已有设备测点，不把预设冷却关系冒充气流。
+      engine.current.telemetry.enabled = false;
+      engine.current.showLabels = true;
+      engine.current.objectDeviceLabels = true;
+      engine.current.signals.alarmsVisible = alarms;
+    }
+  }, [layer, data, alarms, retry]);
+  useEffect(() => {
+    if (engine.current) engine.current.pipeline.enabled = quality;
+  }, [quality, retry]);
+  useEffect(() => {
+    if (engine.current) engine.current.autoOrbit = orbit;
+  }, [orbit, retry]);
+  useEffect(() => {
+    setView(state.level === "room" ? "interior" : "iso");
+  }, [state.level]);
+  const candidates =
+    state.level === "room"
+      ? racks
+      : state.level === "rack"
+        ? devices.filter((d) => d.rackId === rackForDevice(state.deviceId).id)
+        : [];
+  const labels = [...candidates]
+    .sort(
+      (a, b) =>
+        Number(b.id === state.selected) - Number(a.id === state.selected) ||
+        (readings.get(b.id)?.alarm ?? 0) - (readings.get(a.id)?.alarm ?? 0),
+    )
+    .slice(0, state.level === "room" ? 4 : 3);
+  const labelKey = labels.map((r) => r.id).join(":");
+  useEffect(() => {
+    if (anchors.current) engine.current?.bindAnchors(anchors.current);
+    // 投影先由引擎完成；按选择和异常优先级移除碰撞标签。
+    let frame = 0;
+    const declutter = () => {
+      const accepted: DOMRect[] = [];
+      for (const label of anchors.current?.querySelectorAll<HTMLElement>(
+        "button",
+      ) ?? []) {
+        label.style.visibility = "";
+        if (label.hidden) continue;
+        const rect = label.getBoundingClientRect();
+        if (
+          accepted.some(
+            (r) =>
+              rect.left < r.right + 8 &&
+              rect.right > r.left - 8 &&
+              rect.top < r.bottom + 8 &&
+              rect.bottom > r.top - 8,
+          )
+        )
+          label.style.visibility = "hidden";
+        else accepted.push(rect);
+      }
+      frame = requestAnimationFrame(declutter);
+    };
+    frame = requestAnimationFrame(declutter);
+    return () => cancelAnimationFrame(frame);
+  }, [labelKey, retry]);
+  const camera = (next: View) => {
+    setOrbit(false);
+    setView(next);
+    engine.current?.view(next);
+  };
+  return (
+    <div className="review-scene" aria-label="评审三维场景">
+      <div
+        className="review-canvas"
+        ref={host}
+        onPointerDownCapture={() => setOrbit(false)}
+        onWheelCapture={() => setOrbit(false)}
+      />
+      <div className="review-scene-caption">
+        <span>
+          {state.level === "room"
+            ? "空间 / 01"
+            : state.level === "rack"
+              ? "机柜 / 42U"
+              : "设备 / 结构工作台"}
+        </span>
+        <strong>
+          {state.level === "room"
+            ? !data || layer === "overview"
+              ? "双排机柜 · 原始材质"
+              : layer === "environment"
+                ? "设备进风 · 温度着色"
+                : "设备功耗 · 预算占比"
+            : state.level === "rack"
+              ? rackForDevice(state.deviceId).name
+              : state.deviceId.toUpperCase()}
+        </strong>
+      </div>
+      <div className="review-camera" aria-label="评审标准视角">
+        {(
+          [
+            ["interior", "总览"],
+            ["iso", "等轴"],
+            ["top", "俯视"],
+            ["front", "前视"],
+          ] as const
+        )
+          .filter(([id]) => state.level === "room" || id !== "interior")
+          .map(([id, text]) => (
+            <button
+              key={id}
+              aria-pressed={view === id}
+              onClick={() => camera(id)}
+            >
+              {text}
+            </button>
+          ))}
+      </div>
+      <div className="review-anchors" ref={anchors}>
+        {labels.map((item) => {
+          const reading = readings.get(item.id)!;
+          const signal = signalStyles[signalFor(reading)];
+          return (
+            <button
+              hidden
+              key={item.id}
+              data-anchor={item.id}
+              data-anchor-kind={state.level === "room" ? "rack" : "device"}
+              className={`review-anchor ${item.id === state.selected ? "selected" : ""}`}
+              onClick={() => onSelect(item.id)}
+              onDoubleClick={() => onSelect(item.id, true)}
+            >
+              <b>{item.name.split(" ")[0]}</b>
+              {data && layer !== "overview" && (
+                <span>
+                  {reading.quality !== "valid"
+                    ? reading.quality === "stale"
+                      ? "数据过期"
+                      : "无有效数据"
+                    : layer === "environment"
+                      ? reading.temperature === null
+                        ? "—"
+                        : `${reading.temperature.toFixed(1)}°`
+                      : reading.power === null
+                        ? "—"
+                        : reading.power >= 1000
+                          ? `${(reading.power / 1000).toFixed(2)} kW`
+                          : `${reading.power.toFixed(0)} W`}
+                </span>
+              )}
+              {alarms && reading.alarm > 0 && (
+                <em style={{ color: signal.color }}>
+                  {signal.icon} {reading.alarmCount}
+                </em>
+              )}
+            </button>
+          );
+        })}
+      </div>
+      {assets !== "ready" && !error && (
+        <div className="review-loading" role="status">
+          {assets === "loading"
+            ? "详细模型加载中 · 可继续浏览"
+            : "部分模型不可用 · 已使用简化结构"}
+        </div>
+      )}
+      <div className="review-scene-tools">
+        <button onClick={() => dispatch({ type: "focus" })}>
+          聚焦选择 <kbd>F</kbd>
+        </button>
+        <details>
+          <summary>画面</summary>
+          <div>
+            <label>
+              <input
+                type="checkbox"
+                checked={orbit}
+                onChange={(e) => setOrbit(e.target.checked)}
+              />
+              镜头环绕
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={quality && supported}
+                disabled={!supported}
+                onChange={(e) => setQuality(e.target.checked)}
+              />
+              细节阴影
+            </label>
+          </div>
+        </details>
+      </div>
+      <div className="review-legend" aria-label="当前图层图例">
+        {!data ? (
+          <span>原始材质 · 数据着色已关闭</span>
+        ) : layer === "overview" ? (
+          <div className="review-status-key">
+            {state.level === "device" && (
+              <small>部件模型评估 · 非独立告警</small>
+            )}
+            <span>● 正常</span>
+            <span>▲ 预警</span>
+            <span>◆ 严重</span>
+            <span>⊘ 离线</span>
+          </div>
+        ) : (
+          <>
+            <span>
+              {layer === "environment"
+                ? state.level === "device"
+                  ? "表面温度 · °C · 模型推导"
+                  : "设备进风 · °C"
+                : "输入功耗 / 预算"}
+            </span>
+            <i className={`review-scale ${layer}`} />
+            <div>
+              <span>{layer === "environment" ? "20" : "0%"}</span>
+              <span>
+                {layer === "environment"
+                  ? state.level === "device"
+                    ? "80"
+                    : "45"
+                  : "100%"}
+              </span>
+            </div>
+            <small>色阶表示数值，告警另以 ▲ ◆ 标记</small>
+          </>
+        )}
+      </div>
+      {error && (
+        <div className="review-error" role="alert">
+          <h2>场景暂不可用</h2>
+          <p>{error}</p>
+          <button
+            onClick={() => {
+              setError("");
+              initial.current = state;
+              setRetry((r) => r + 1);
+            }}
+          >
+            重新加载场景
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
