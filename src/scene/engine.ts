@@ -1,5 +1,6 @@
 import { modelForDevice, partsForDevice } from "../catalog";
 import { createEquipmentAssembly } from "./equipment-model";
+import { advanceAssembly, assemblyPartPosition } from "../assembly-motion";
 import { createExteriorAssembly, poseExterior } from "./equipment-exterior";
 import { mapCompactServer } from "./compact-server";
 import { SpatialSignals } from "./signals";
@@ -11,7 +12,7 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { box, buildModels, disposeModels } from "./models";
-import { entityById, partPosition, parts, presentationKey } from "../domain";
+import { entityById, parts, presentationKey } from "../domain";
 import type { AppState, Level } from "../domain";
 import {
   frameDistance,
@@ -49,6 +50,7 @@ export class SceneEngine {
   sample: SimulationSnapshot;
   presentation = new StructurePresentation(this.models);
   pendingDeviceView = false;
+  pendingReturnView = false;
   pendingDeviceFocus = false;
   lastPhase: PresentationPhase | null = null;
   onPhase: (phase: PresentationPhase) => void;
@@ -74,6 +76,7 @@ export class SceneEngine {
   host: HTMLElement;
   lastTime = 0;
   explosion = 0;
+  cover = 0;
   environment: THREE.WebGLRenderTarget;
   fades: {
     group: THREE.Group;
@@ -556,6 +559,7 @@ export class SceneEngine {
     if (levelChanged || state.selected !== this.state.selected)
       this.pendingComponentFocus = false;
     const explosionChanged = state.explosion !== this.state.explosion;
+    const coverChanged = state.coverOpen !== this.state.coverOpen;
     const focusChanged = state.focusRevision !== this.state.focusRevision;
     // 机房 / 机柜内单击只切换选择，保留镜头，避免双击期间标签被镜头带走。
     const changed =
@@ -579,7 +583,7 @@ export class SceneEngine {
               entityById(state.selected)?.kind ?? "",
             )),
       );
-    if (state.level === "device" && explosionChanged)
+    if (state.level === "device" && (explosionChanged || coverChanged))
       this.view(this.currentView);
   }
   deviceBounds(points?: THREE.Vector3[]) {
@@ -613,7 +617,14 @@ export class SceneEngine {
       if (representations && this.state.explosion <= 0.015) continue;
       const base = this.partBases.get(part.id)?.toArray() ?? part.position;
       const target = new THREE.Vector3().fromArray(
-        partPosition({ ...part, position: base }, this.state.explosion),
+        assemblyPartPosition(
+          { ...part, position: base },
+          this.state.explosion,
+          modelForDevice(this.state.deviceId).category === "server" &&
+            (this.state.coverOpen || this.state.explosion > 0)
+            ? 1
+            : 0,
+        ),
       );
       include(
         new THREE.Box3()
@@ -627,6 +638,17 @@ export class SceneEngine {
     return object.visible && (!object.parent || this.visible(object.parent));
   }
   view(view: View, focus = false) {
+    // 先在当前镜头中完成复原与合盖，再随设备返回机柜。
+    if (
+      this.state.level !== "device" &&
+      (this.explosion > 0 || this.cover > 0)
+    ) {
+      this.currentView = view;
+      this.currentFocus = focus;
+      this.pendingReturnView = true;
+      return;
+    }
+    this.pendingReturnView = false;
     const shadowExtent = this.state.level === "device" ? 1.6 : 7;
     const shadowCamera = this.keyLight.shadow.camera;
     if (shadowCamera.right !== shadowExtent) {
@@ -823,9 +845,10 @@ export class SceneEngine {
     this.guidePositions.fill(0);
     for (const [index, part] of partsForDevice(this.state.deviceId).entries()) {
       const base = this.partBases.get(part.id)?.toArray() ?? part.position;
-      const position = partPosition(
+      const position = assemblyPartPosition(
         { ...part, position: base },
         this.explosion,
+        this.cover,
       );
       this.models.parts.get(part.id)?.position.fromArray(position);
       this.guidePositions.set(base, index * 6);
@@ -850,11 +873,8 @@ export class SceneEngine {
       delta,
       instant,
       this.explosion,
+      this.cover,
     );
-    if (frame.phase !== this.lastPhase) {
-      this.lastPhase = frame.phase;
-      this.onPhase(frame.phase);
-    }
     if (frame.ready && this.pendingDeviceView) {
       this.pendingDeviceView = false;
       this.view(this.currentView, this.pendingDeviceFocus);
@@ -900,16 +920,47 @@ export class SceneEngine {
     }
     const explosionTarget =
       this.state.level === "device" && frame.ready ? this.state.explosion : 0;
-    this.explosion = instant
-      ? explosionTarget
-      : THREE.MathUtils.damp(this.explosion, explosionTarget, 5, delta);
-    if (Math.abs(this.explosion - explosionTarget) < 0.0001)
-      this.explosion = explosionTarget;
+    const hasCover = modelForDevice(this.state.deviceId).category === "server";
+    const coverTarget =
+      hasCover &&
+      this.state.level === "device" &&
+      frame.ready &&
+      (this.state.coverOpen || explosionTarget > 0)
+        ? 1
+        : 0;
+    const nextAssembly = advanceAssembly(
+      { cover: this.cover, explosion: this.explosion },
+      { hasCover, coverOpen: coverTarget === 1, explosion: explosionTarget },
+      delta,
+      instant,
+    );
+    this.cover = nextAssembly.cover;
+    this.explosion = nextAssembly.explosion;
+    const assemblyBusy =
+      this.cover !== coverTarget || this.explosion !== explosionTarget;
+    const phase: PresentationPhase = !frame.ready
+      ? frame.phase
+      : this.cover < coverTarget
+        ? "opening-cover"
+        : this.explosion !== explosionTarget
+          ? this.explosion < explosionTarget
+            ? "expanding"
+            : "assembling"
+          : this.cover !== coverTarget
+            ? "closing-cover"
+            : frame.phase;
+    if (phase !== this.lastPhase) {
+      this.lastPhase = phase;
+      this.onPhase(phase);
+    }
     this.poseParts();
+    if (this.pendingReturnView && this.cover === 0 && this.explosion === 0)
+      this.view(this.currentView, this.currentFocus);
     if (
       this.pendingComponentFocus &&
       frame.ready &&
-      this.explosion === explosionTarget
+      this.explosion === explosionTarget &&
+      this.cover === coverTarget
     ) {
       this.pendingComponentFocus = false;
       this.view(this.currentView, true);
@@ -933,18 +984,20 @@ export class SceneEngine {
       !this.paused &&
       !this.moving &&
       !frame.busy &&
+      !assemblyBusy &&
       !this.reducedMotion &&
       time - this.lastManualInteraction > 4000;
     if (!this.paused) this.controls.update();
     const feedback: SceneFeedback = {
       key: presentationKey(this.state),
-      phase: frame.phase,
+      phase,
       settled:
         this.assetsLoaded &&
         this.contextAvailable &&
         !this.moving &&
         !frame.busy &&
         this.explosion === explosionTarget &&
+        this.cover === coverTarget &&
         this.fades.every((fade) =>
           fade.group === this.models.room
             ? fade.opacity ===
@@ -1113,6 +1166,7 @@ export class SceneEngine {
       delta,
       frame.relocation,
       frame.busy ||
+        assemblyBusy ||
         this.fades.some((fade) => fade.opacity > 0 && fade.opacity < 1),
     );
     this.frame = requestAnimationFrame(this.animate);

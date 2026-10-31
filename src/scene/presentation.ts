@@ -1,4 +1,4 @@
-import { modelForDevice } from "../catalog";
+import { modelForDevice } from "../catalog.ts";
 import * as THREE from "three";
 import {
   advanceMechanism,
@@ -6,7 +6,7 @@ import {
   inspectionStaging,
   mechanismPhase,
   mechanismTransform,
-} from "../mechanics";
+} from "../mechanics.ts";
 import type { PresentationPhase } from "../mechanics";
 import type { AppState } from "../domain";
 import type { SceneModel } from "./models";
@@ -26,8 +26,9 @@ export class StructurePresentation {
     delta: number,
     reducedMotion: boolean,
     explosion: number,
+    cover = 0,
   ) {
-    const assembling = state.level !== "device" && explosion > 0;
+    const assembling = state.level !== "device" && (explosion > 0 || cover > 0);
     const target = {
       doorOpen: state.doorOpen,
       trayExtended: state.trayExtended,
@@ -44,7 +45,9 @@ export class StructurePresentation {
     this.models.server.position.z += fixed ? 0 : transform.trayOffset;
     this.models.server.position.lerp(this.workbench, stage.relocation);
     const phase: PresentationPhase = assembling
-      ? "assembling"
+      ? explosion > 0
+        ? "assembling"
+        : "closing-cover"
       : mechanismPhase(this.pose, target);
     return {
       phase,

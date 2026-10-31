@@ -252,6 +252,7 @@ export function DesignReview() {
       data-scene-device={state.deviceId}
       data-focus-revision={state.focusRevision}
       data-explosion={state.explosion}
+      data-cover-open={state.coverOpen}
       data-layer={layer}
       data-analysis={review.analysis}
     >

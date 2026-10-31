@@ -75,6 +75,20 @@ export function ResourceActions({
         </>
       ) : (
         <>
+          {!exteriorOnly && (
+            <button
+              disabled={!ready}
+              aria-pressed={state.coverOpen || state.explosion > 0}
+              onClick={() =>
+                dispatch({
+                  type: "cover",
+                  open: !(state.coverOpen || state.explosion > 0),
+                })
+              }
+            >
+              {state.coverOpen || state.explosion > 0 ? "合上上盖" : "打开上盖"}
+            </button>
+          )}
           {entity.kind === "part" && (
             <button disabled={!ready} onClick={() => onOpen(selected)}>
               定位部件
@@ -88,10 +102,10 @@ export function ResourceActions({
             {exteriorOnly ? "展开配置示意" : "展开部件"}
           </button>
           <button
-            disabled={!ready}
+            disabled={!ready || state.explosion === 0}
             onClick={() => dispatch({ type: "explode", amount: 0 })}
           >
-            {exteriorOnly ? "复原外观" : "复原装配"}
+            {exteriorOnly ? "复原外观" : "复原部件"}
           </button>
           <label className="review-explode-label">
             展开{" "}
@@ -114,7 +128,15 @@ export function ResourceActions({
       )}
       {state.level !== "room" && (
         <small role="status">
-          {!ready ? "场景切换中…" : phaseLabels[phase]}
+          {!ready &&
+          ![
+            "opening-cover",
+            "closing-cover",
+            "assembling",
+            "expanding",
+          ].includes(phase)
+            ? "场景切换中…"
+            : phaseLabels[phase]}
         </small>
       )}
     </div>

@@ -103,6 +103,7 @@ export type AppState = {
   loop: boolean;
   replayCycle: number;
   explosion: number;
+  coverOpen: boolean;
   doorOpen: boolean;
   trayExtended: boolean;
 };
@@ -114,6 +115,7 @@ export const presentationKey = (state: AppState) =>
     state.selected,
     state.focusRevision,
     state.explosion,
+    state.coverOpen,
     state.doorOpen,
     state.trayExtended,
   ].join(":");
@@ -121,6 +123,7 @@ export type Action =
   | { type: "select"; id: string }
   | { type: "navigate"; level: Level; id?: string }
   | { type: "explode"; amount: number }
+  | { type: "cover"; open: boolean }
   | { type: "door"; open: boolean }
   | { type: "tray"; extended: boolean }
   | { type: "seek"; time: number }
@@ -148,6 +151,7 @@ export const createState = (): AppState => ({
   loop: true,
   replayCycle: 0,
   explosion: 0,
+  coverOpen: false,
   doorOpen: false,
   trayExtended: false,
 });
@@ -165,26 +169,31 @@ export const getPath = (state: AppState) => [
 ];
 export function transition(state: AppState, action: Action): AppState {
   switch (action.type) {
-    case "select":
-      return entityById(action.id) &&
-        (entityById(action.id)?.kind !== "part" ||
-          (state.level === "device" &&
-            [
+    case "select": {
+      if (
+        !entityById(action.id) ||
+        (entityById(action.id)?.kind === "part" &&
+          (state.level !== "device" ||
+            ![
               ...partsForDevice(state.deviceId),
               ...subpartsForDevice(state.deviceId),
             ].some((part) => part.id === action.id)))
-        ? {
-            ...state,
-            selected: action.id,
-            deviceId:
-              deviceById(action.id)?.id ??
-              (racks.some((rack) => rack.id === action.id)
-                ? rackForDevice(state.deviceId).id === action.id
-                  ? state.deviceId
-                  : devices.find((device) => device.rackId === action.id)!.id
-                : state.deviceId),
-          }
-        : state;
+      )
+        return state;
+      const deviceId =
+        deviceById(action.id)?.id ??
+        (racks.some((rack) => rack.id === action.id)
+          ? rackForDevice(state.deviceId).id === action.id
+            ? state.deviceId
+            : devices.find((device) => device.rackId === action.id)!.id
+          : state.deviceId);
+      return {
+        ...state,
+        selected: action.id,
+        deviceId,
+        coverOpen: deviceId === state.deviceId ? state.coverOpen : false,
+      };
+    }
     case "navigate": {
       const target = action.id ?? state.selected;
       const deviceId =
@@ -204,12 +213,28 @@ export function transition(state: AppState, action: Action): AppState {
             : action.level === "rack"
               ? rackForDevice(deviceId).id
               : deviceId,
-        explosion: action.level === "device" ? state.explosion : 0,
+        explosion:
+          action.level === "device" && deviceId === state.deviceId
+            ? state.explosion
+            : 0,
+        coverOpen:
+          action.level === "device" && deviceId === state.deviceId
+            ? state.coverOpen
+            : false,
         doorOpen: action.level !== "room",
         trayExtended: action.level === "device",
         focusRevision: state.focusRevision + 1,
       };
     }
+    case "cover":
+      return state.level === "device" &&
+        modelForDevice(state.deviceId).category === "server"
+        ? {
+            ...state,
+            coverOpen: action.open,
+            explosion: action.open ? state.explosion : 0,
+          }
+        : state;
     case "explode":
       return state.level === "device" && Number.isFinite(action.amount)
         ? { ...state, explosion: Math.max(0, Math.min(1, action.amount)) }

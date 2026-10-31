@@ -52,7 +52,11 @@ export function ReviewScene({
   const model = modelForDevice(state.deviceId);
   const representation =
     model.category === "server"
-      ? "设备内部"
+      ? state.explosion > 0
+        ? "部件展开"
+        : state.coverOpen
+          ? "内部装配 · 上盖已移开"
+          : "完整装配 · 可单独开盖"
       : assets !== "ready"
         ? "内部配置示意 · 外观模型尚未就绪"
         : state.explosion === 0

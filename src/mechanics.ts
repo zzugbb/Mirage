@@ -7,6 +7,9 @@ export type MechanismTarget = {
 };
 export type PresentationPhase =
   | "assembling"
+  | "expanding"
+  | "opening-cover"
+  | "closing-cover"
   | "closed"
   | "opening"
   | "open"
@@ -24,6 +27,9 @@ export type SceneFeedback = {
 };
 export const phaseLabels: Record<PresentationPhase, string> = {
   assembling: "正在复原部件",
+  expanding: "正在展开部件",
+  "opening-cover": "正在取下上盖",
+  "closing-cover": "正在合上上盖",
   closed: "柜门已关闭",
   opening: "正在打开柜门",
   open: "柜门已打开",

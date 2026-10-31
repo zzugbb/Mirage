@@ -23,6 +23,20 @@ export function AssemblyControls({
         </span>
       </div>
       <fieldset disabled={!ready} aria-label="部件展开与选择">
+        {!exteriorOnly && (
+          <button
+            className="component-focus"
+            aria-pressed={state.coverOpen || state.explosion > 0}
+            onClick={() =>
+              dispatch({
+                type: "cover",
+                open: !(state.coverOpen || state.explosion > 0),
+              })
+            }
+          >
+            {state.coverOpen || state.explosion > 0 ? "合上上盖" : "打开上盖"}
+          </button>
+        )}
         <label className="slider-label" htmlFor="explosion">
           爆炸展开进度
         </label>
@@ -55,7 +69,7 @@ export function AssemblyControls({
             {exteriorOnly ? "展开配置示意" : "爆炸展开"} <span>↗</span>
           </button>
           <button onClick={() => dispatch({ type: "explode", amount: 0 })}>
-            {exteriorOnly ? "复原外观" : "复原装配"} <span>↙</span>
+            {exteriorOnly ? "复原外观" : "复原部件"} <span>↙</span>
           </button>
         </div>
         <label className="part-select-label" htmlFor="part-select">
