@@ -1,20 +1,24 @@
 import { lazy, Suspense } from "react";
 import { createRoot } from "react-dom/client";
-import { App } from "./App";
+import { workspaceRoute } from "./workspace-route";
 import "./styles.css";
 import "./telemetry.css";
 import "./workspace.css";
 import "./operations.css";
 
-const DesignReview = lazy(() =>
-  import("./DesignReview").then((module) => ({ default: module.DesignReview })),
+const Workspace = lazy(() =>
+  import("./Workspace").then((module) => ({ default: module.Workspace })),
 );
+const OriginalPrototype = lazy(() =>
+  import("./App").then((module) => ({ default: module.App })),
+);
+const route = workspaceRoute(location.search);
 createRoot(document.getElementById("root")!).render(
-  new URLSearchParams(location.search).has("review") ? (
-    <Suspense fallback={<p role="status">正在载入设计评审…</p>}>
-      <DesignReview />
-    </Suspense>
-  ) : (
-    <App />
-  ),
+  <Suspense fallback={<p role="status">正在载入三维工作区…</p>}>
+    {route === "prototype" ? (
+      <OriginalPrototype />
+    ) : (
+      <Workspace reviewMode={route === "review"} />
+    )}
+  </Suspense>,
 );

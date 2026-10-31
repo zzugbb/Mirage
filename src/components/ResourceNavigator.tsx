@@ -61,6 +61,7 @@ export function ResourceNavigator({
   onOpen,
   onFocus,
   onBack,
+  onInteract,
 }: {
   state: AppState;
   selected: string;
@@ -70,6 +71,7 @@ export function ResourceNavigator({
   onOpen: (id: string) => void;
   onFocus: (id: string) => void;
   onBack: () => void;
+  onInteract?: () => void;
 }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<ResourceFilter>("all");
@@ -104,7 +106,13 @@ export function ResourceNavigator({
     />
   );
   return (
-    <aside className="object-panel resource-panel" aria-label="资源导航">
+    <aside
+      className="object-panel resource-panel"
+      aria-label="资源导航"
+      onPointerDownCapture={onInteract}
+      onKeyDownCapture={onInteract}
+      onFocusCapture={onInteract}
+    >
       <header className="resource-header">
         <span>资源导航</span>
         <small>

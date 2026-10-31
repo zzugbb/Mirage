@@ -21,6 +21,8 @@ export function ReviewScene({
   onPhase,
   onFeedback,
   shotRevision,
+  tourShot,
+  onTakeover,
 }: {
   state: AppState;
   layer: ReviewLayer;
@@ -30,6 +32,8 @@ export function ReviewScene({
   onPhase: (phase: PresentationPhase) => void;
   onFeedback: (feedback: SceneFeedback) => void;
   shotRevision: number;
+  tourShot: { revision: number; view: View; focus: boolean } | null;
+  onTakeover: () => void;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const anchors = useRef<HTMLDivElement>(null);
@@ -153,6 +157,11 @@ export function ReviewScene({
     setView(state.level === "room" ? "interior" : "iso");
   }, [state.level]);
   useEffect(() => {
+    if (!tourShot) return;
+    engine.current?.view(tourShot.view, tourShot.focus);
+    setView(tourShot.view);
+  }, [tourShot?.revision, retry]);
+  useEffect(() => {
     dataGeometry.current?.update(reviewSpatialMarks(state, layer, readings));
   }, [state, layer, readings, retry]);
   const scope = readings.get(
@@ -225,17 +234,24 @@ export function ReviewScene({
     return () => cancelAnimationFrame(frame);
   }, [labelKey, retry]);
   const camera = (next: View) => {
+    onTakeover();
     setOrbit(false);
     setView(next);
     engine.current?.view(next);
   };
   return (
-    <div className="review-scene" aria-label="评审三维场景">
+    <div className="review-scene" aria-label="三维场景">
       <div
         className="review-canvas"
         ref={host}
-        onPointerDownCapture={() => setOrbit(false)}
-        onWheelCapture={() => setOrbit(false)}
+        onPointerDownCapture={() => {
+          setOrbit(false);
+          onTakeover();
+        }}
+        onWheelCapture={() => {
+          setOrbit(false);
+          onTakeover();
+        }}
       />
       <div className="review-scene-caption">
         <span>
@@ -275,7 +291,7 @@ export function ReviewScene({
           <p>{presentation.description}</p>
         </details>
       </div>
-      <div className="review-camera" aria-label="评审标准视角">
+      <div className="review-camera" aria-label="标准视角">
         {(
           [
             ["interior", "全景"],
@@ -362,7 +378,11 @@ export function ReviewScene({
             : "部分模型不可用 · 已使用简化结构"}
         </div>
       )}
-      <div className="review-scene-tools">
+      <div
+        className="review-scene-tools"
+        onPointerDownCapture={onTakeover}
+        onKeyDownCapture={onTakeover}
+      >
         <button onClick={onFocus}>
           聚焦选择 <kbd>F</kbd>
         </button>

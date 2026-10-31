@@ -3,6 +3,11 @@ export function frameDistance(size: number, aspect: number, minimum: number) {
   return Math.max(minimum, (size * 1.55) / Math.min(1, Math.max(0.2, aspect)));
 }
 export type CameraView = "iso" | "top" | "front" | "right" | "interior";
+export const cameraMinimumDistance = {
+  room: 3,
+  rack: 1,
+  device: 0.35,
+} as const;
 
 /** 根据取景方向投影包围盒八角，保留 12% 边距；不以包围球对细长设备过度缩小。 */
 export function boundsFrameDistance(

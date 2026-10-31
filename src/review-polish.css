@@ -978,3 +978,30 @@
     font-size: 12px;
   }
 }
+
+.design-review .workspace-tour-toggle {
+  white-space: nowrap;
+  padding: 5px 8px;
+  border: 1px solid #3c5456;
+  font-size: 10px;
+  min-height: 28px;
+}
+.design-review .workspace-tour-toggle small {
+  margin-left: 8px;
+  color: #9db8b4;
+  font:
+    10px ui-monospace,
+    monospace;
+}
+.design-review[data-tour="playing"] .workspace-tour-toggle {
+  color: #b3d9cf;
+}
+@media (max-width: 600px) {
+  .design-review .workspace-tour-toggle {
+    padding: 5px 6px;
+    min-height: 32px;
+  }
+  .design-review .workspace-tour-toggle small {
+    display: none;
+  }
+}

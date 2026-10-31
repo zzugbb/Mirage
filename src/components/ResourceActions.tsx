@@ -110,7 +110,7 @@ export function ResourceActions({
           <label className="review-explode-label">
             展开{" "}
             <input
-              aria-label="评审部件展开进度"
+              aria-label="部件展开进度"
               type="range"
               min="0"
               max="100"

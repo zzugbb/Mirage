@@ -18,6 +18,7 @@ import {
   frameDistance,
   boundsFrameDistance,
   pointsFrameDistance,
+  cameraMinimumDistance,
 } from "../camera";
 import type { CameraView } from "../camera";
 import { StructurePresentation } from "./presentation";
@@ -723,33 +724,29 @@ export class SceneEngine {
               ? [0.45, 0.42, 1.5]
               : [0.85, 0.85, 1.05]) as [number, number, number]),
     ).normalize();
+    const minimum = cameraMinimumDistance[level];
     const distance = framingPoints.length
       ? pointsFrameDistance(
           framingPoints.map((point) => point.sub(center).toArray()),
           direction.toArray(),
           this.camera.aspect,
-          0.35,
+          minimum,
         )
       : bounds
         ? boundsFrameDistance(
             bounds.getSize(new THREE.Vector3()).toArray(),
             direction.toArray(),
             this.camera.aspect,
-            level === "device" ? 0.27 : 1,
+            minimum,
           )
-        : frameDistance(
-            size,
-            this.camera.aspect,
-            level === "device" ? 0.35 : level === "rack" ? 1 : 3,
-          );
+        : frameDistance(size, this.camera.aspect, minimum);
     if (!bounds && level === "rack") {
       center.x = rackForDevice(this.state.deviceId).position[0];
       center.z = rackForDevice(this.state.deviceId).position[2];
     }
     this.targetLook.copy(center);
     this.targetPosition.copy(center).addScaledVector(direction, distance);
-    this.controls.minDistance =
-      level === "device" ? 0.35 : level === "rack" ? 1 : 3;
+    this.controls.minDistance = minimum;
     this.controls.maxDistance = Math.max(
       distance * 1.1,
       level === "device" ? 5 : level === "rack" ? 9 : 24,

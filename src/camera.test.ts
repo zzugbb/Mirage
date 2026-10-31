@@ -1,6 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { frameDistance } from "./camera.ts";
+import {
+  frameDistance,
+  boundsFrameDistance,
+  cameraMinimumDistance,
+} from "./camera.ts";
+import { PerspectiveCamera, Vector3 } from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
 test("窄视口按水平视野重新取景，机房宽度不被裁切", () => {
   const width = 8.6;
@@ -52,5 +58,28 @@ test("设备包围盒按角点取景，窄屏和展开姿态仍有边距", async
             }
       }
     }
+  }
+});
+
+test("小部件聚焦遵循旋转控制器的最近距离，镜头能够收敛并恢复就绪", () => {
+  for (const aspect of [0.5, 1, 2.8]) {
+    const camera = new PerspectiveCamera(40, aspect, 0.01, 150);
+    camera.position.set(1, 1, 2);
+    const controls = new OrbitControls(camera, null);
+    controls.minDistance = cameraMinimumDistance.device;
+    controls.enableDamping = true;
+    const direction = new Vector3(0.85, 0.85, 1.05).normalize();
+    const distance = boundsFrameDistance(
+      [0.08, 0.04, 0.08],
+      direction.toArray(),
+      aspect,
+      controls.minDistance,
+    );
+    const target = direction.multiplyScalar(distance);
+    for (let frame = 0; frame < 300; frame++) {
+      camera.position.lerp(target, 1 - Math.exp(-4.5 / 60));
+      controls.update();
+    }
+    assert.ok(camera.position.distanceTo(target) < 0.001, `aspect=${aspect}`);
   }
 });

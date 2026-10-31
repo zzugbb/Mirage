@@ -39,6 +39,7 @@ export const tourSteps: TourStep[] = [
     view: "iso",
     actions: [
       { type: "navigate", level: "rack" },
+      { type: "select", id: "srv-01" },
       { type: "tray", extended: true },
     ],
   },
@@ -55,7 +56,7 @@ export const tourSteps: TourStep[] = [
   },
   {
     title: "结构展开",
-    description: "九个模组分层展开，连接线保留原装配位置。",
+    description: "维护模组分层展开，连接线保留原装配位置。",
     duration: 6,
     phase: "device-ready",
     view: "iso",

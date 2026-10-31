@@ -97,7 +97,7 @@ export function ReviewAnalysis({
             <label>
               速度{" "}
               <select
-                aria-label="评审播放速度"
+                aria-label="模拟播放速度"
                 value={playbackRate}
                 onChange={(e) => onRate(Number(e.target.value) as 1 | 2 | 4)}
               >

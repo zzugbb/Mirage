@@ -1,6 +1,14 @@
-import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from "react";
 import {
   createReview,
+  createWorkspace,
   reviewTransition,
   reviewLayers,
   reviewHistories,
@@ -32,6 +40,7 @@ import { resourceCatalog, resourceOpenLabel } from "./review-resources";
 import { ReviewScene } from "./components/ReviewScene";
 import { ReviewTrend } from "./components/ReviewTrend";
 import { ReviewAnalysis } from "./components/ReviewAnalysis";
+import { tourSteps } from "./tour";
 import "./design-review.css";
 import "./resource-navigation.css";
 import "./review-polish.css";
@@ -51,13 +60,18 @@ const powerText = (value: number | null | undefined) =>
       ? (value / 1000).toFixed(2)
       : value.toFixed(1);
 
-export function DesignReview() {
+export function Workspace({ reviewMode = false }: { reviewMode?: boolean }) {
   const [review, control] = useReducer(
     reviewTransition,
-    undefined,
-    createReview,
+    reviewMode,
+    (paused) =>
+      paused
+        ? createReview()
+        : createWorkspace(
+            matchMedia("(prefers-reduced-motion: reduce)").matches,
+          ),
   );
-  const { scene: state, layer } = review;
+  const { scene: state, layer, tour } = review;
   const [shot, setShot] = useState<ReviewShot>("overview");
   const [shotRevision, setShotRevision] = useState(0);
   const [phase, setPhase] = useState<PresentationPhase>("closed");
@@ -66,6 +80,41 @@ export function DesignReview() {
     "auto" | "open" | "closed"
   >("auto");
   const [feedback, setFeedback] = useState<SceneFeedback | null>(null);
+  const latestFeedback = useRef(feedback);
+  latestFeedback.current = feedback;
+  const [hidden, setHidden] = useState(() => document.hidden);
+  const takeover = useCallback(() => control({ type: "takeover" }), []);
+  const tourShot = useMemo(
+    () =>
+      tour.mode === "manual"
+        ? null
+        : {
+            revision: tour.revision,
+            view: tourSteps[tour.step].view,
+            focus: !!tourSteps[tour.step].focus,
+          },
+    [tour.mode, tour.revision, tour.step],
+  );
+  useEffect(() => {
+    const visibility = () => setHidden(document.hidden);
+    document.addEventListener("visibilitychange", visibility);
+    return () => document.removeEventListener("visibilitychange", visibility);
+  }, []);
+  useEffect(() => {
+    if (tour.mode !== "playing" || hidden) return;
+    let previous = performance.now();
+    const timer = setInterval(() => {
+      const now = performance.now();
+      if (!document.hidden)
+        control({
+          type: "tour-tick",
+          delta: (now - previous) / 1000,
+          feedback: latestFeedback.current,
+        });
+      previous = now;
+    }, 250);
+    return () => clearInterval(timer);
+  }, [tour.mode, hidden]);
   const ready =
     !review.pendingId &&
     !!feedback?.settled &&
@@ -121,11 +170,13 @@ export function DesignReview() {
   }, []);
   useEffect(() => {
     const previous = document.title;
-    document.title = "Mirage · 浮城 — 工作区设计评审";
+    document.title = reviewMode
+      ? "Mirage · 浮城 — 工作区设计评审"
+      : "Mirage · 浮城 — 三维工作区";
     return () => {
       document.title = previous;
     };
-  }, []);
+  }, [reviewMode]);
   const pick = useCallback((id: string) => control({ type: "pick", id }), []);
   const openResource = useCallback((id: string) => {
     control({ type: "open-resource", id });
@@ -195,6 +246,7 @@ export function DesignReview() {
     setNavigation(false);
   };
   const showInspector = (open: boolean) => {
+    takeover();
     setInspectorMode(open ? "open" : "closed");
     requestAnimationFrame(() => {
       if (!matchMedia("(max-width: 600px)").matches) return;
@@ -256,12 +308,15 @@ export function DesignReview() {
       data-cover-open={state.coverOpen}
       data-layer={layer}
       data-analysis={review.analysis}
+      data-tour={tour.mode}
+      data-tour-step={tour.step}
+      data-tour-pending={review.pendingTour}
     >
       <header className="review-header">
         <a
           className="review-brand"
-          href="?review"
-          aria-label="Mirage 浮城设计评审首页"
+          href={reviewMode ? "?review" : "./"}
+          aria-label="Mirage 浮城首页"
         >
           Mirage<span>浮城</span>
         </a>
@@ -269,7 +324,10 @@ export function DesignReview() {
           <button
             className="review-nav-toggle"
             aria-expanded={navigation}
-            onClick={() => setNavigation((v) => !v)}
+            onClick={() => {
+              takeover();
+              setNavigation((v) => !v);
+            }}
           >
             资源导航 {navigation ? "−" : "+"}
           </button>
@@ -302,9 +360,45 @@ export function DesignReview() {
         </div>
         <div className="review-header-actions">
           <span className="review-simulation">确定性模拟 · 120s</span>
+          <button
+            className="workspace-tour-toggle"
+            disabled={review.pendingTour || (tour.mode === "manual" && !ready)}
+            aria-label={
+              review.pendingTour
+                ? "正在准备巡游"
+                : tour.mode === "playing"
+                  ? "暂停巡游"
+                  : tour.mode === "paused"
+                    ? "继续巡游"
+                    : "开始巡游"
+            }
+            title={
+              tour.mode === "manual"
+                ? "从机房开始巡游，保留当前模拟时间"
+                : `${tourSteps[tour.step].title} · ${tour.step + 1}/${tourSteps.length}`
+            }
+            onClick={() =>
+              control({
+                type: tour.mode === "playing" ? "tour-pause" : "tour-resume",
+              })
+            }
+          >
+            {review.pendingTour
+              ? "准备巡游…"
+              : tour.mode === "playing"
+                ? "暂停巡游"
+                : tour.mode === "paused"
+                  ? "继续巡游"
+                  : "开始巡游"}
+            {tour.mode !== "manual" && (
+              <small>
+                {tour.step + 1}/{tourSteps.length}
+              </small>
+            )}
+          </button>
           <details className="review-presets">
             <summary>演示</summary>
-            <nav aria-label="载入评审画面">
+            <nav aria-label="载入演示画面">
               {shots.map((s, i) => (
                 <button
                   key={s.id}
@@ -332,10 +426,8 @@ export function DesignReview() {
                 秒确定性脚本生成。设备测点为模拟，部件温度与功耗为模型推导，无真实管理接口或
                 CFD。
               </p>
-              <p>
-                本入口是可交互设计稿，复用已有模型与逻辑。温度切片、气流、湿度/露点、空间容量和连接视图尚未实施。
-              </p>
-              <a href="./">打开当前原型 ↗</a>
+              <p>温度切片、气流、湿度/露点、空间容量和连接视图尚未实施。</p>
+              <a href="?prototype">打开原型对照 ↗</a>
             </div>
           </details>
         </div>
@@ -343,7 +435,7 @@ export function DesignReview() {
       <div
         className={`review-workspace ${navigation ? "navigation-open" : ""}`}
         role="main"
-        aria-label="设计评审工作区"
+        aria-label={reviewMode ? "交互评审工作区" : "三维工作区"}
       >
         <ResourceNavigator
           state={state}
@@ -354,6 +446,7 @@ export function DesignReview() {
           onOpen={openResource}
           onFocus={focusResource}
           onBack={() => dispatch({ type: "back" })}
+          onInteract={takeover}
         />
         <section
           className="review-center"
@@ -387,6 +480,8 @@ export function DesignReview() {
             </button>
           </div>
           <ReviewScene
+            tourShot={tourShot}
+            onTakeover={takeover}
             shotRevision={shotRevision}
             state={state}
             layer={layer}
@@ -470,6 +565,9 @@ export function DesignReview() {
           className="review-inspector"
           aria-label="所选对象概览"
           hidden={!inspectorOpen}
+          onPointerDownCapture={takeover}
+          onKeyDownCapture={takeover}
+          onFocusCapture={takeover}
         >
           <div className="review-inspector-title">
             <span>所选对象</span>
@@ -630,7 +728,7 @@ export function DesignReview() {
             <label className="review-part-select">
               选择部件
               <select
-                aria-label="评审选择部件"
+                aria-label="选择设备部件"
                 value={parts.some((p) => p.id === selectedId) ? selectedId : ""}
                 onChange={(e) => select(e.target.value || state.deviceId)}
               >

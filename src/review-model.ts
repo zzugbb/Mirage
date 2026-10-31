@@ -11,6 +11,8 @@ import { rackForDevice } from "./installation.ts";
 import { deviceObservation } from "./device-data.ts";
 import type { DataQuality } from "./status.ts";
 import type { SimulationEvent } from "./simulation.ts";
+import { createExperience, experienceTransition } from "./tour.ts";
+import type { ExperienceAction, TourState } from "./tour.ts";
 
 export type ReviewLayer = "overview" | "environment" | "power" | "alarms";
 export type ReviewShot = "overview" | "environment" | "assembly" | "time";
@@ -20,6 +22,8 @@ export type ReviewState = {
   analysis: boolean;
   selectedId: string;
   pendingId: string | null;
+  tour: TourState;
+  pendingTour: boolean;
 };
 export const reviewLayers = [
   { id: "overview", name: "总览", description: "查看机房、机柜与设备结构" },
@@ -42,6 +46,16 @@ export function createReview(): ReviewState {
     analysis: false,
     selectedId: "room-01",
     pendingId: null,
+    tour: createExperience(false).tour,
+    pendingTour: false,
+  };
+}
+export function createWorkspace(reducedMotion = false): ReviewState {
+  const state = createReview();
+  return {
+    ...state,
+    scene: { ...state.scene, playing: true },
+    tour: createExperience(!reducedMotion).tour,
   };
 }
 export type ReviewAction =
@@ -49,12 +63,106 @@ export type ReviewAction =
   | { type: "layer"; layer: ReviewLayer }
   | { type: "shot"; shot: ReviewShot }
   | { type: "analysis"; value: boolean }
-  | { type: "navigation-ready"; key: string };
+  | { type: "navigation-ready"; key: string }
+  | Exclude<ExperienceAction, { type: "scene" }>;
 export type ResourceAction = {
   type: "pick" | "open-resource" | "focus-resource" | "extract-resource";
   id: string;
 };
 export function reviewTransition(
+  state: ReviewState,
+  action: ReviewAction | ResourceAction,
+): ReviewState {
+  const startTour = (current: ReviewState) => {
+    const scene = {
+      ...current.scene,
+      deviceId: "srv-01",
+      selected: "room-01",
+      level: "room" as const,
+      coverOpen: false,
+      explosion: 0,
+      doorOpen: false,
+      trayExtended: false,
+    };
+    const experience = experienceTransition(
+      { scene, tour: current.tour },
+      { type: "tour-restart" },
+    );
+    return {
+      ...current,
+      ...experience,
+      selectedId: experience.scene.selected,
+      pendingId: null,
+      pendingTour: false,
+      layer: "overview" as const,
+      analysis: false,
+    };
+  };
+  if (action.type === "navigation-ready" && state.pendingTour) {
+    return action.key === presentationKey(state.scene)
+      ? startTour(state)
+      : state;
+  }
+  if (
+    action.type === "tour-restart" ||
+    (action.type === "tour-resume" && state.tour.mode === "manual")
+  ) {
+    if (
+      state.scene.level === "room" &&
+      !state.scene.trayExtended &&
+      !state.scene.doorOpen
+    )
+      return startTour(state);
+    const returning = reviewInteractionTransition(state, {
+      type: "open-resource",
+      id: "room-01",
+    });
+    return {
+      ...returning,
+      pendingId: "room-01",
+      pendingTour: true,
+      tour: { ...state.tour, mode: "manual" },
+    };
+  }
+  switch (action.type) {
+    case "takeover":
+    case "tour-pause":
+    case "tour-resume":
+    case "tour-tick":
+    case "simulation-tick": {
+      const next = experienceTransition(state, action);
+      if (action.type === "takeover" && state.pendingTour)
+        return { ...state, ...next, pendingId: null, pendingTour: false };
+      if (next.scene === state.scene && next.tour === state.tour) return state;
+      const chapter = next.tour.revision !== state.tour.revision;
+      return {
+        ...state,
+        ...next,
+        selectedId: chapter ? next.scene.selected : state.selectedId,
+        pendingId: chapter ? null : state.pendingId,
+        analysis: chapter ? false : state.analysis,
+        layer: chapter ? "overview" : state.layer,
+      };
+    }
+  }
+  const next = reviewInteractionTransition(state, action);
+  const clockOnly =
+    action.type === "scene" &&
+    ["play", "tick", "rate", "replay", "loop"].includes(action.action.type);
+  if (next === state || clockOnly || action.type === "navigation-ready")
+    return next;
+  return {
+    ...next,
+    tour: { ...next.tour, mode: "manual" },
+    pendingTour: false,
+    pendingId:
+      state.pendingTour && next.pendingId === state.pendingId
+        ? null
+        : next.pendingId,
+  };
+}
+
+function reviewInteractionTransition(
   state: ReviewState,
   action: ReviewAction | ResourceAction,
 ): ReviewState {
