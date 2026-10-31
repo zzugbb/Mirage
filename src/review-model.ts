@@ -8,6 +8,9 @@ import type { Action, AppState } from "./domain.ts";
 import { spatialSnapshot } from "./spatial.ts";
 import { canSelectInScene } from "./review-resources.ts";
 import { rackForDevice } from "./installation.ts";
+import { deviceObservation } from "./device-data.ts";
+import type { DataQuality } from "./status.ts";
+import type { SimulationEvent } from "./simulation.ts";
 
 export type ReviewLayer = "overview" | "environment" | "power" | "alarms";
 export type ReviewShot = "overview" | "environment" | "assembly" | "time";
@@ -288,6 +291,7 @@ export type ReviewPoint = {
   value: number | null;
   coverage: number;
   count: number;
+  quality: DataQuality;
 };
 /** 各层级使用同一汇总规则；无效测点保留空缺，有效零值保留为零。 */
 export function reviewHistory(
@@ -295,17 +299,62 @@ export function reviewHistory(
   deviceId: string,
   metric: ReviewMetric,
 ): ReviewPoint[] {
-  return Array.from({ length: 121 }, (_, time) => {
+  return reviewHistories(id, deviceId)[metric];
+}
+
+/** 同一时间快照同时派生两条曲线，避免指标切换改变汇总口径。 */
+export function reviewHistories(id: string, deviceId: string) {
+  const history: Record<ReviewMetric, ReviewPoint[]> = {
+    temperature: [],
+    power: [],
+  };
+  for (let time = 0; time <= 120; time++) {
     const reading = spatialSnapshot(time, 0, deviceId).readings.get(id);
-    return {
-      time,
-      value: reading?.quality === "valid" ? reading[metric] : null,
-      coverage: reading
-        ? metric === "temperature"
-          ? reading.coverageTemperature
-          : reading.coveragePower
-        : 0,
-      count: reading?.count ?? 0,
-    };
-  });
+    for (const metric of ["temperature", "power"] as const)
+      history[metric].push({
+        time,
+        value: reading?.quality === "valid" ? reading[metric] : null,
+        coverage: reading
+          ? metric === "temperature"
+            ? reading.coverageTemperature
+            : reading.coveragePower
+          : 0,
+        count: reading?.count ?? 0,
+        quality: reading?.quality ?? "missing",
+      });
+  }
+  return history;
+}
+
+export type ReviewEvent = SimulationEvent & { deviceIds: string[] };
+/** 已知历史不会因当前数据过期消失；公共冷却输入在当前范围只显示一次。 */
+export function reviewEvents(
+  deviceIds: string[],
+  time: number,
+  cycle = 0,
+): ReviewEvent[] {
+  const events = new Map<string, ReviewEvent>();
+  for (const id of deviceIds) {
+    const observation = deviceObservation(time, id, cycle);
+    if (observation.observedAt === null) continue;
+    for (const event of observation.sample.events) {
+      if (
+        event.time > time ||
+        event.time > observation.observedAt ||
+        (observation.lifecycle === "stopped" && event.kind !== "input")
+      )
+        continue;
+      const key =
+        event.kind === "input"
+          ? `${event.entityId}:${event.kind}:${event.time}`
+          : event.id;
+      const previous = events.get(key);
+      if (previous) {
+        if (!previous.deviceIds.includes(id)) previous.deviceIds.push(id);
+      } else events.set(key, { ...event, id: key, deviceIds: [id] });
+    }
+  }
+  return [...events.values()].sort(
+    (a, b) => b.time - a.time || a.id.localeCompare(b.id),
+  );
 }

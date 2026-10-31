@@ -1,0 +1,67 @@
+import type { ReviewMetric, ReviewPoint } from "./review-model.ts";
+export const trendLeft = 48,
+  trendRight = 14;
+export const trendTimeAtX = (pixel: number, width: number) =>
+  Math.round(
+    Math.max(
+      0,
+      Math.min(
+        120,
+        ((pixel - trendLeft) / Math.max(1, width - trendLeft - trendRight)) *
+          120,
+      ),
+    ),
+  );
+
+/** 只用当前已发生的观测定标，缺失值断线，未来点既不绘制也不参与量程。 */
+export function trendGeometry(
+  series: ReviewPoint[],
+  metric: ReviewMetric,
+  time: number,
+  width: number,
+  height: number,
+) {
+  const points = series.filter((point) => point.time <= time);
+  const values = points.flatMap((point) =>
+    point.value === null ? [] : [point.value],
+  );
+  const lo = values.length ? Math.min(...values) : 0,
+    hi = values.length ? Math.max(...values) : 1;
+  const padding = Math.max(
+    (hi - lo) * 0.2,
+    metric === "temperature" ? 2 : hi * 0.04,
+    1,
+  );
+  const min = Math.max(0, lo - padding),
+    max = hi + padding;
+  const top = 12,
+    bottom = height - 22;
+  const x = (t: number) =>
+    trendLeft + (t / 120) * (width - trendLeft - trendRight);
+  const y = (v: number) => bottom - ((v - min) / (max - min)) * (bottom - top);
+  let path = "",
+    connected = false;
+  for (const point of points) {
+    if (point.value === null) {
+      connected = false;
+      continue;
+    }
+    path += `${connected ? "L" : "M"}${x(point.time).toFixed(1)},${y(point.value).toFixed(1)} `;
+    connected = true;
+  }
+  const kilowatts = metric === "power" && hi >= 1000;
+  return {
+    path,
+    x,
+    y,
+    top,
+    bottom,
+    empty: !values.length,
+    ticks: [min, (min + max) / 2, max],
+    unit: metric === "temperature" ? "°C" : kilowatts ? "kW" : "W",
+    text: (value: number) =>
+      kilowatts
+        ? (value / 1000).toFixed(1)
+        : value.toFixed(metric === "temperature" || hi < 10 ? 1 : 0),
+  };
+}

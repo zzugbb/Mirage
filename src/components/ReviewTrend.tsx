@@ -1,120 +1,192 @@
 import { useEffect, useId, useRef, useState } from "react";
-import type { ReviewMetric, ReviewPoint } from "../review-model";
+import type { ReviewEvent, ReviewMetric, ReviewPoint } from "../review-model";
+import {
+  trendGeometry,
+  trendLeft,
+  trendRight,
+  trendTimeAtX,
+} from "../trend-geometry";
 
 export function ReviewTrend({
   series,
   metric,
   time,
   compact = false,
+  cursorTime = time,
+  events = [],
+  onInspect,
   onSeek,
 }: {
   series: ReviewPoint[];
   metric: ReviewMetric;
   time: number;
   compact?: boolean;
+  cursorTime?: number;
+  events?: ReviewEvent[];
+  onInspect?: (time: number | null) => void;
   onSeek?: (time: number) => void;
 }) {
-  const host = useRef<HTMLDivElement>(null);
-  const [width, setWidth] = useState(280);
-  const id = useId();
+  const host = useRef<HTMLDivElement>(null),
+    [width, setWidth] = useState(280),
+    [height, setHeight] = useState(compact ? 100 : 82),
+    id = useId();
   useEffect(() => {
-    const observer = new ResizeObserver(([entry]) =>
-      setWidth(Math.max(180, entry.contentRect.width)),
-    );
+    const observer = new ResizeObserver(([entry]) => {
+      setWidth(Math.max(180, entry.contentRect.width));
+      setHeight(
+        compact ? 100 : matchMedia("(max-width: 600px)").matches ? 110 : 82,
+      );
+    });
     observer.observe(host.current!);
     return () => observer.disconnect();
-  }, []);
-  const values = series.flatMap((p) => (p.value === null ? [] : [p.value]));
-  const lo = values.length ? Math.min(...values) : 0;
-  const hi = values.length ? Math.max(...values) : 1;
-  const padding = Math.max(
-    (hi - lo) * 0.2,
-    metric === "temperature" ? 2 : hi * 0.04,
-    1,
-  );
-  const min = Math.max(0, lo - padding),
-    max = hi + padding;
-  const height = compact ? 100 : 132;
-  const left = 40,
-    right = width - 12,
-    top = 16,
-    bottom = height - 22;
-  const x = (t: number) => left + (t / 120) * (right - left);
-  const y = (v: number) => bottom - ((v - min) / (max - min)) * (bottom - top);
-  let path = "",
-    connected = false;
-  for (const point of series) {
-    if (point.time > time) break;
-    if (point.value === null) {
-      connected = false;
-      continue;
-    }
-    path += `${connected ? "L" : "M"}${x(point.time).toFixed(1)},${y(point.value).toFixed(1)} `;
-    connected = true;
-  }
-  const text = (v: number) =>
-    metric === "power" && hi >= 1000
-      ? `${(v / 1000).toFixed(1)}k`
-      : v.toFixed(metric === "temperature" ? 1 : 0);
+  }, [compact]);
+  const chart = trendGeometry(series, metric, time, width, height);
+  const cursor = Math.max(0, Math.min(time, cursorTime));
+  const point = series[cursor];
+  const pointerTime = (e: {
+    clientX: number;
+    currentTarget: SVGSVGElement;
+  }) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    return trendTimeAtX(((e.clientX - rect.left) / rect.width) * width, width);
+  };
+  const markers = [
+    ...new Set(
+      events.filter((event) => event.time <= time).map((event) => event.time),
+    ),
+  ];
   return (
     <div ref={host} className={`review-trend ${metric}`}>
-      {values.length ? (
+      {chart.empty && !onSeek ? (
+        <div className="review-no-series" role="status" style={{ height }}>
+          暂无有效观测数据
+        </div>
+      ) : (
         <svg
           width="100%"
           height={height}
           viewBox={`0 0 ${width} ${height}`}
-          role="img"
-          aria-labelledby={id}
+          role={onSeek ? "slider" : "img"}
+          tabIndex={onSeek ? 0 : undefined}
+          aria-label={
+            onSeek
+              ? `${metric === "temperature" ? "温度" : "功耗"}曲线时间`
+              : undefined
+          }
+          aria-labelledby={onSeek ? undefined : id}
+          aria-describedby={onSeek ? id : undefined}
+          aria-valuemin={onSeek ? 0 : undefined}
+          aria-valuemax={onSeek ? 120 : undefined}
+          aria-valuenow={onSeek ? time : undefined}
+          aria-valuetext={onSeek ? `t+${time}秒` : undefined}
+          onPointerMove={
+            onInspect
+              ? (e) => {
+                  if (e.pointerType === "mouse")
+                    onInspect(Math.min(time, pointerTime(e)));
+                }
+              : undefined
+          }
+          onPointerLeave={onInspect ? () => onInspect(null) : undefined}
           onClick={
             onSeek
               ? (e) => {
-                  const rect = e.currentTarget.getBoundingClientRect();
-                  onSeek(
-                    Math.round(
-                      Math.max(
-                        0,
-                        Math.min(
-                          120,
-                          ((((e.clientX - rect.left) / rect.width) * width -
-                            left) /
-                            (right - left)) *
-                            120,
-                        ),
-                      ),
-                    ),
-                  );
+                  onInspect?.(null);
+                  onSeek(pointerTime(e));
+                }
+              : undefined
+          }
+          onKeyDown={
+            onSeek
+              ? (e) => {
+                  const next =
+                    e.key === "Home"
+                      ? 0
+                      : e.key === "End"
+                        ? 120
+                        : e.key === "ArrowLeft" || e.key === "ArrowDown"
+                          ? time - (e.shiftKey ? 5 : 1)
+                          : e.key === "ArrowRight" || e.key === "ArrowUp"
+                            ? time + (e.shiftKey ? 5 : 1)
+                            : null;
+                  if (next !== null) {
+                    e.preventDefault();
+                    onInspect?.(null);
+                    onSeek(Math.max(0, Math.min(120, next)));
+                  }
                 }
               : undefined
           }
         >
           <title
             id={id}
-          >{`所选对象${metric === "temperature" ? "温度" : "功耗"}趋势，显示至第 ${time} 秒；空缺不按零值连线。`}</title>
-          {[min, (min + max) / 2, max].map((t) => (
-            <g key={t}>
-              <line x1={left} x2={right} y1={y(t)} y2={y(t)} />
-              <text x={left - 6} y={y(t) + 3} textAnchor="end">
-                {text(t)}
+          >{`所选对象${metric === "temperature" ? "温度" : "功耗"}趋势，显示至第 ${time} 秒；空缺不按零值连线。${onSeek ? "点击回看；左右方向键逐秒移动，Shift 加速，Home/End 跳至起止。" : ""}`}</title>
+          {!chart.empty && (
+            <>
+              {chart.ticks.map((t) => (
+                <g key={t}>
+                  <line
+                    x1={trendLeft}
+                    x2={width - trendRight}
+                    y1={chart.y(t)}
+                    y2={chart.y(t)}
+                  />
+                  <text x={trendLeft - 7} y={chart.y(t) + 3} textAnchor="end">
+                    {chart.text(t)}
+                  </text>
+                </g>
+              ))}
+              <text x={trendLeft} y={9}>
+                {chart.unit}
               </text>
-            </g>
+            </>
+          )}
+          {markers.map((t) => (
+            <line
+              key={t}
+              className="review-event-guide"
+              x1={chart.x(t)}
+              x2={chart.x(t)}
+              y1={chart.top}
+              y2={chart.bottom}
+            />
           ))}
-          <text x={left} y={9}>
-            {metric === "temperature" ? "°C" : "W"}
-          </text>
           {[0, 60, 120].map((t) => (
-            <text key={t} x={x(t)} y={height - 4} textAnchor="middle">
+            <text key={t} x={chart.x(t)} y={height - 3} textAnchor="middle">
               {t}s
             </text>
           ))}
-          <path d={path} className="review-series" />
-          {series[time]?.value !== null && (
-            <circle cx={x(time)} cy={y(series[time]?.value ?? min)} r="3" />
+          <path d={chart.path} className="review-series" />
+          <line
+            className="review-cursor"
+            x1={chart.x(time)}
+            x2={chart.x(time)}
+            y1={chart.top}
+            y2={chart.bottom}
+          />
+          {cursor !== time && (
+            <line
+              className="review-hover-cursor"
+              x1={chart.x(cursor)}
+              x2={chart.x(cursor)}
+              y1={chart.top}
+              y2={chart.bottom}
+            />
+          )}
+          {point?.value != null && (
+            <circle cx={chart.x(cursor)} cy={chart.y(point.value)} r="3" />
+          )}
+          {chart.empty && (
+            <text
+              className="review-empty-chart"
+              x={(trendLeft + width - trendRight) / 2}
+              y={height / 2}
+              textAnchor="middle"
+            >
+              暂无有效观测数据
+            </text>
           )}
         </svg>
-      ) : (
-        <div className="review-no-series" role="status" style={{ height }}>
-          暂无有效观测数据
-        </div>
       )}
     </div>
   );

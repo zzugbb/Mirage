@@ -2,6 +2,7 @@
 .design-review {
   min-height: 600px;
   --review-accent: #a9d3d4;
+  --review-analysis-height: 300px;
 }
 .design-review .review-header {
   height: 54px;
@@ -460,15 +461,15 @@
   padding: 10px 0;
 }
 .design-review[data-analysis="true"] .review-analysis {
-  height: 242px;
-  max-height: 242px;
+  height: var(--review-analysis-height);
+  max-height: var(--review-analysis-height);
 }
 .design-review[data-analysis="true"] .review-object-actions {
-  bottom: 296px;
+  bottom: calc(var(--review-analysis-height) + 54px);
 }
 
 .design-review[data-analysis="true"] .review-inspector {
-  max-height: calc(100% - 350px);
+  max-height: calc(100% - var(--review-analysis-height) - 108px);
 }
 @media (max-width: 1200px) and (min-width: 601px) {
   .design-review .review-workspace {
@@ -855,4 +856,125 @@
   place-items: center;
   color: #a8bdc2;
   font-size: 11px;
+}
+
+/* 时间分析使用上下对齐的独立量纲，两条曲线共用场景时间。 */
+.design-review .review-analysis-head {
+  padding-block: 10px 5px;
+}
+.design-review .review-analysis-body {
+  gap: 16px;
+  grid-template-columns: minmax(0, 1fr) 204px;
+}
+.design-review .review-comparison {
+  min-width: 0;
+}
+.design-review .review-compare-reading {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-height: 20px;
+  font-size: 10px;
+}
+.design-review .review-compare-reading > span {
+  color: #a5bdc1;
+}
+.design-review .review-compare-reading strong {
+  margin-left: auto;
+  font:
+    13px ui-monospace,
+    monospace;
+  color: #b8ded4;
+}
+.design-review .review-compare-reading strong small {
+  font-size: 10px;
+  margin-left: 5px;
+}
+.design-review .review-compare-reading > small {
+  min-width: 62px;
+  text-align: right;
+  color: #9db0b7;
+  font-size: 10px;
+}
+.design-review .review-compare-metric.power .review-compare-reading strong {
+  color: #d7ba84;
+}
+.design-review .review-compare-metric + .review-compare-metric {
+  margin-top: 5px;
+}
+.design-review .review-comparison .review-trend text {
+  font-size: 10px;
+}
+.design-review .review-trend .review-event-guide {
+  stroke: #91a9ae;
+  stroke-opacity: 0.27;
+  stroke-dasharray: 1 4;
+}
+.design-review .review-trend .review-hover-cursor {
+  stroke: #edf4ed;
+  stroke-width: 1;
+}
+.design-review .review-trend .review-empty-chart {
+  fill: #b0bec1;
+  font-size: 11px;
+}
+.design-review .review-trend svg[role="slider"] {
+  cursor: crosshair;
+  border-radius: 2px;
+}
+.design-review .review-trend svg[role="slider"]:focus-visible {
+  outline: 2px solid #b6d7cf;
+  outline-offset: 2px;
+}
+.design-review .review-events {
+  max-height: 231px;
+}
+.design-review .review-events h3 {
+  font-size: 11px;
+}
+.design-review .review-events button {
+  border-left: 2px solid transparent;
+  padding-left: 6px;
+}
+.design-review .review-events button[aria-pressed="true"] {
+  background: #2b4147;
+  border-color: #a8cec5;
+}
+.design-review .review-events i {
+  font-size: 9px;
+  font-style: normal;
+  color: #a8bdc7;
+  margin-right: 6px;
+}
+.design-review .review-events [data-event-kind="raised"] i,
+.design-review .review-events [data-event-kind="downgraded"] i {
+  color: #dfbb75;
+}
+.design-review .review-events [data-event-kind="escalated"] i {
+  color: #e89685;
+}
+.design-review .review-events [data-event-kind="recovered"] i {
+  color: #9dcab5;
+}
+.design-review .review-playback small {
+  color: #9cb1b5;
+  font-size: 9px;
+}
+@media (max-width: 600px) {
+  .design-review .review-analysis-body {
+    display: block;
+    padding-top: 8px;
+  }
+  .design-review .review-compare-reading {
+    font-size: 11px;
+  }
+  .design-review .review-compare-reading strong {
+    font-size: 14px;
+  }
+  .design-review .review-events {
+    max-height: 220px;
+  }
+  .design-review .review-events h3 {
+    font-size: 12px;
+  }
 }

@@ -3,7 +3,8 @@ import {
   createReview,
   reviewTransition,
   reviewLayers,
-  reviewHistory,
+  reviewHistories,
+  reviewEvents,
 } from "./review-model";
 import type { ReviewMetric, ReviewShot } from "./review-model";
 import type { Action, Level } from "./domain";
@@ -30,6 +31,7 @@ import { ReviewAlerts } from "./components/ReviewAlerts";
 import { resourceCatalog, resourceOpenLabel } from "./review-resources";
 import { ReviewScene } from "./components/ReviewScene";
 import { ReviewTrend } from "./components/ReviewTrend";
+import { ReviewAnalysis } from "./components/ReviewAnalysis";
 import "./design-review.css";
 import "./resource-navigation.css";
 import "./review-polish.css";
@@ -107,10 +109,11 @@ export function DesignReview() {
       : layer === "environment"
         ? "temperature"
         : metricChoice;
-  const series = useMemo(
-    () => reviewHistory(selectedId, state.deviceId, metric),
-    [selectedId, state.deviceId, metric],
+  const histories = useMemo(
+    () => reviewHistories(selectedId, state.deviceId),
+    [selectedId, state.deviceId],
   );
+  const series = histories[metric];
   const dispatch = useCallback((action: Action) => {
     control({ type: "scene", action });
     if (action.type === "locate" || action.type === "navigate")
@@ -219,15 +222,13 @@ export function DesignReview() {
             ? entity.kind === "room" || d.rackId === entity.id
             : d.id === (entity.kind === "device" ? selectedId : state.deviceId),
         );
-  const events = scopeDevices
-    .flatMap((d) =>
-      spatial.readings.get(d.id)?.quality === "valid"
-        ? spatial.samples
-            .get(d.id)!
-            .events.map((e) => ({ ...e, deviceId: d.id }))
-        : [],
-    )
-    .sort((a, b) => b.time - a.time || a.deviceId.localeCompare(b.deviceId));
+  const events = review.analysis
+    ? reviewEvents(
+        scopeDevices.map((device) => device.id),
+        state.time,
+        state.replayCycle,
+      )
+    : [];
   const currentLayer = reviewLayers.find((l) => l.id === layer)!;
   const currentValue =
     metric === "temperature" ? reading?.temperature : reading?.power;
@@ -446,78 +447,23 @@ export function DesignReview() {
             </button>
           </div>
           {review.analysis && (
-            <section className="review-analysis" aria-label="时间分析">
-              <div className="review-analysis-head">
-                <strong>
-                  {entity.name} <small>{metricLabel}</small>
-                </strong>
-                <span>回看 t+{state.time}s</span>
-                <button
-                  aria-label="关闭时间分析"
-                  onClick={() => control({ type: "analysis", value: false })}
-                >
-                  ×
-                </button>
-              </div>
-              <div className="review-analysis-body">
-                <div>
-                  <ReviewTrend
-                    series={series}
-                    metric={metric}
-                    time={state.time}
-                    onSeek={(time) => dispatch({ type: "seek", time })}
-                  />
-                  <div className="review-playback">
-                    <button onClick={() => dispatch({ type: "replay" })}>
-                      重新播放
-                    </button>
-                    <label>
-                      速度{" "}
-                      <select
-                        aria-label="评审播放速度"
-                        value={state.playbackRate}
-                        onChange={(e) =>
-                          dispatch({
-                            type: "rate",
-                            rate: Number(e.target.value) as 1 | 2 | 4,
-                          })
-                        }
-                      >
-                        {[1, 2, 4].map((rate) => (
-                          <option key={rate} value={rate}>
-                            {rate}×
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <small>空缺保留 · 曲线仅显示至当前时间</small>
-                  </div>
-                </div>
-                <div className="review-events">
-                  <h3>
-                    已发生事件 <span>{events.length}</span>
-                  </h3>
-                  {events.length ? (
-                    events.map((event) => (
-                      <button
-                        key={`${event.deviceId}:${event.id}`}
-                        onClick={() =>
-                          dispatch({ type: "seek", time: event.time })
-                        }
-                      >
-                        <time>{event.time}s</time>
-                        <span>
-                          {event.title}
-                          <small>{event.deviceId.toUpperCase()}</small>
-                        </span>
-                      </button>
-                    ))
-                  ) : (
-                    <p>当前范围没有已发生事件</p>
-                  )}
-                </div>
-              </div>
-            </section>
+            <ReviewAnalysis
+              key={`${selectedId}:${state.deviceId}`}
+              title={resource?.name ?? entity.name}
+              labels={{
+                temperature: reading?.temperatureLabel ?? "温度",
+                power: reading?.powerLabel ?? "功耗",
+              }}
+              histories={histories}
+              events={events}
+              time={state.time}
+              playbackRate={state.playbackRate}
+              component={component}
+              onSeek={(time) => dispatch({ type: "seek", time })}
+              onReplay={() => dispatch({ type: "replay" })}
+              onRate={(rate) => dispatch({ type: "rate", rate })}
+              onClose={() => control({ type: "analysis", value: false })}
+            />
           )}
         </section>
         <aside
