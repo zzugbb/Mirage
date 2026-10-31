@@ -32,6 +32,11 @@ test("切换指标视图和回看保留选择、聚焦版本与结构姿态", ()
 });
 
 test("对象趋势使用所选层级同口径，过期中断、离线留空、停机零值有效", () => {
+  assert.ok(
+    reviewHistory("cooling-01", "srv-01", "temperature").every(
+      (p) => p.value === null,
+    ),
+  );
   const history = reviewHistory("room-01", "srv-01", "power");
   for (const t of [0, 44, 45, 60, 120]) {
     const current = spatialSnapshot(t).readings.get("room-01")!;

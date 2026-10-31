@@ -19,7 +19,7 @@ export type ReviewState = {
   pendingId: string | null;
 };
 export const reviewLayers = [
-  { id: "overview", name: "空间", description: "查看机房、机柜与设备结构" },
+  { id: "overview", name: "总览", description: "查看机房、机柜与设备结构" },
   {
     id: "environment",
     name: "温度",
@@ -265,7 +265,7 @@ export function reviewPresentation(
       title: detail ? "设备与部件温度 · °C" : "设备进风温度 · °C",
       description: detail
         ? "部件为模型表面温度，机箱采用整机进风温度。"
-        : "颜色表示温度高低；机柜标签取有效设备最高进风值。",
+        : "色条对应设备 U 位与进风温度；机柜标签取有效设备最高进风值。",
     };
   if (layer === "power")
     return {
@@ -273,11 +273,11 @@ export function reviewPresentation(
       title: "功耗 / 预算占比 · %",
       description: detail
         ? "机箱按整机输入、部件按分配功耗着色；右侧显示所选对象的 W 值。"
-        : "颜色表示功耗占预算的比例；标签显示实际 W / kW。",
+        : "标尺表示机柜功耗占预算的比例；标签显示实际 W / kW。",
     };
   return {
     mode: "status" as const,
-    title: detail ? "设备结构" : "空间与设备",
+    title: detail ? "设备结构" : "机房总览",
     description: detail
       ? "保留模型材质；部件状态来自模型评估，非独立告警。"
       : "单击选中对象；通过“查看”逐层进入机柜和设备。",

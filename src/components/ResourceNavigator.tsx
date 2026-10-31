@@ -28,6 +28,7 @@ function ResourceRow({
   return (
     <button
       className={`resource-row ${resource.kind === "part" ? "resource-part-row" : ""}`}
+      data-kind={resource.kind}
       aria-pressed={selected === resource.id}
       onClick={() => onPick(resource.id)}
     >
@@ -261,11 +262,7 @@ export function ResourceNavigator({
             {!ready && <span role="status">场景切换中…</span>}
           </>
         ) : (
-          <p>
-            单击查看信息
-            <br />
-            选择资源后，通过“查看”逐层进入。
-          </p>
+          <p>选中资源后，可查看详情或逐层进入。</p>
         )}
       </footer>
     </aside>

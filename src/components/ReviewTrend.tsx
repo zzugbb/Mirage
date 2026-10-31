@@ -58,65 +58,64 @@ export function ReviewTrend({
       : v.toFixed(metric === "temperature" ? 1 : 0);
   return (
     <div ref={host} className={`review-trend ${metric}`}>
-      <svg
-        width="100%"
-        height={height}
-        viewBox={`0 0 ${width} ${height}`}
-        role="img"
-        aria-labelledby={id}
-        onClick={
-          onSeek
-            ? (e) => {
-                const rect = e.currentTarget.getBoundingClientRect();
-                onSeek(
-                  Math.round(
-                    Math.max(
-                      0,
-                      Math.min(
-                        120,
-                        ((((e.clientX - rect.left) / rect.width) * width -
-                          left) /
-                          (right - left)) *
+      {values.length ? (
+        <svg
+          width="100%"
+          height={height}
+          viewBox={`0 0 ${width} ${height}`}
+          role="img"
+          aria-labelledby={id}
+          onClick={
+            onSeek
+              ? (e) => {
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  onSeek(
+                    Math.round(
+                      Math.max(
+                        0,
+                        Math.min(
                           120,
+                          ((((e.clientX - rect.left) / rect.width) * width -
+                            left) /
+                            (right - left)) *
+                            120,
+                        ),
                       ),
                     ),
-                  ),
-                );
-              }
-            : undefined
-        }
-      >
-        <title
-          id={id}
-        >{`所选对象${metric === "temperature" ? "温度" : "功耗"}趋势，显示至第 ${time} 秒；空缺不按零值连线。`}</title>
-        {[min, (min + max) / 2, max].map((t) => (
-          <g key={t}>
-            <line x1={left} x2={right} y1={y(t)} y2={y(t)} />
-            <text x={left - 6} y={y(t) + 3} textAnchor="end">
-              {text(t)}
-            </text>
-          </g>
-        ))}
-        <text x={left} y={9}>
-          {metric === "temperature" ? "°C" : "W"}
-        </text>
-        {[0, 60, 120].map((t) => (
-          <text key={t} x={x(t)} y={height - 4} textAnchor="middle">
-            {t}s
+                  );
+                }
+              : undefined
+          }
+        >
+          <title
+            id={id}
+          >{`所选对象${metric === "temperature" ? "温度" : "功耗"}趋势，显示至第 ${time} 秒；空缺不按零值连线。`}</title>
+          {[min, (min + max) / 2, max].map((t) => (
+            <g key={t}>
+              <line x1={left} x2={right} y1={y(t)} y2={y(t)} />
+              <text x={left - 6} y={y(t) + 3} textAnchor="end">
+                {text(t)}
+              </text>
+            </g>
+          ))}
+          <text x={left} y={9}>
+            {metric === "temperature" ? "°C" : "W"}
           </text>
-        ))}
-        <path d={path} className="review-series" />
-        <line
-          x1={x(time)}
-          x2={x(time)}
-          y1={top}
-          y2={bottom}
-          className="review-cursor"
-        />
-        {series[time]?.value !== null && (
-          <circle cx={x(time)} cy={y(series[time]?.value ?? min)} r="3" />
-        )}
-      </svg>
+          {[0, 60, 120].map((t) => (
+            <text key={t} x={x(t)} y={height - 4} textAnchor="middle">
+              {t}s
+            </text>
+          ))}
+          <path d={path} className="review-series" />
+          {series[time]?.value !== null && (
+            <circle cx={x(time)} cy={y(series[time]?.value ?? min)} r="3" />
+          )}
+        </svg>
+      ) : (
+        <div className="review-no-series" role="status" style={{ height }}>
+          暂无有效观测数据
+        </div>
+      )}
     </div>
   );
 }

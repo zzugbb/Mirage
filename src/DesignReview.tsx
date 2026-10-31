@@ -32,6 +32,7 @@ import { ReviewScene } from "./components/ReviewScene";
 import { ReviewTrend } from "./components/ReviewTrend";
 import "./design-review.css";
 import "./resource-navigation.css";
+import "./review-polish.css";
 
 const shots: { id: ReviewShot; name: string; note: string }[] = [
   { id: "overview", name: "机房浏览", note: "材质、定位与状态的主次关系" },
@@ -59,6 +60,9 @@ export function DesignReview() {
   const [shotRevision, setShotRevision] = useState(0);
   const [phase, setPhase] = useState<PresentationPhase>("closed");
   const [navigation, setNavigation] = useState(false);
+  const [inspectorMode, setInspectorMode] = useState<
+    "auto" | "open" | "closed"
+  >("auto");
   const [feedback, setFeedback] = useState<SceneFeedback | null>(null);
   const ready =
     !review.pendingId &&
@@ -73,6 +77,9 @@ export function DesignReview() {
       control({ type: "navigation-ready", key: feedback.key });
   }, [review.pendingId, feedback, state]);
   const selectedId = review.selectedId ?? state.selected;
+  const inspectorOpen =
+    inspectorMode === "open" ||
+    (inspectorMode === "auto" && selectedId !== "room-01");
   const inspected = { ...state, selected: selectedId };
   const resource = resourceCatalog(state.deviceId).find(
     (item) => item.id === selectedId,
@@ -147,6 +154,17 @@ export function DesignReview() {
   }, [state.playing, dispatch]);
   useEffect(() => {
     const key = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        const popup = document.querySelector<HTMLDetailsElement>(
+          ".review-presets[open], .review-about[open], .review-view-explanation[open], .review-scene-tools details[open]",
+        );
+        if (popup) {
+          event.preventDefault();
+          popup.open = false;
+          popup.querySelector("summary")?.focus();
+          return;
+        }
+      }
       if (event.key === "Escape" && navigation) {
         event.preventDefault();
         setNavigation(false);
@@ -167,20 +185,40 @@ export function DesignReview() {
     return () => window.removeEventListener("keydown", key);
   }, [navigation, dispatch, focusResource, selectedId]);
   const loadShot = (next: ReviewShot) => {
+    setInspectorMode("auto");
     setShot(next);
     setShotRevision((value) => value + 1);
     control({ type: "shot", shot: next });
     setNavigation(false);
   };
+  const showInspector = (open: boolean) => {
+    setInspectorMode(open ? "open" : "closed");
+    requestAnimationFrame(() => {
+      if (!matchMedia("(max-width: 600px)").matches) return;
+      document
+        .querySelector<HTMLElement>(
+          open ? ".review-inspector" : ".review-center",
+        )
+        ?.scrollIntoView({
+          block: "start",
+          behavior: matchMedia("(prefers-reduced-motion: reduce)").matches
+            ? "instant"
+            : "smooth",
+        });
+    });
+  };
   const parts = [
     ...partsForDevice(state.deviceId),
     ...subpartsForDevice(state.deviceId),
   ];
-  const scopeDevices = devices.filter((d) =>
-    entity.kind === "room" || entity.kind === "rack"
-      ? entity.kind === "room" || d.rackId === entity.id
-      : d.id === state.deviceId,
-  );
+  const scopeDevices =
+    entity.kind === "facility"
+      ? []
+      : devices.filter((d) =>
+          entity.kind === "room" || entity.kind === "rack"
+            ? entity.kind === "room" || d.rackId === entity.id
+            : d.id === (entity.kind === "device" ? selectedId : state.deviceId),
+        );
   const events = scopeDevices
     .flatMap((d) =>
       spatial.readings.get(d.id)?.quality === "valid"
@@ -215,6 +253,7 @@ export function DesignReview() {
       data-focus-revision={state.focusRevision}
       data-explosion={state.explosion}
       data-layer={layer}
+      data-analysis={review.analysis}
     >
       <header className="review-header">
         <a
@@ -224,11 +263,64 @@ export function DesignReview() {
         >
           Mirage<span>浮城</span>
         </a>
-        <span className="review-edition">
-          连续三维工作区 <i /> 交互评审 01
-        </span>
+        <div className="review-location">
+          <button
+            className="review-nav-toggle"
+            aria-expanded={navigation}
+            onClick={() => setNavigation((v) => !v)}
+          >
+            资源导航 {navigation ? "−" : "+"}
+          </button>
+          <nav aria-label="空间路径">
+            {getPath(state).map((id, i) => (
+              <span key={id}>
+                {i > 0 && <i>/</i>}
+                <button
+                  aria-current={id === state.selected ? "location" : undefined}
+                  onClick={() =>
+                    entityById(id)?.kind === "part"
+                      ? dispatch({ type: "select", id })
+                      : dispatch({
+                          type: "navigate",
+                          level: entityById(id)!.kind as Level,
+                          id,
+                        })
+                  }
+                >
+                  {entityById(id)!.name}
+                </button>
+              </span>
+            ))}
+          </nav>
+          {state.level !== "room" && (
+            <button onClick={() => dispatch({ type: "back" })}>
+              ← 返回上级
+            </button>
+          )}
+        </div>
         <div className="review-header-actions">
           <span className="review-simulation">确定性模拟 · 120s</span>
+          <details className="review-presets">
+            <summary>演示</summary>
+            <nav aria-label="载入评审画面">
+              {shots.map((s, i) => (
+                <button
+                  key={s.id}
+                  aria-label={`载入${s.name}`}
+                  aria-pressed={shot === s.id}
+                  title={`${s.note}；载入预设将重置选择与时间`}
+                  onClick={(e) => {
+                    loadShot(s.id);
+                    e.currentTarget.closest("details")?.removeAttribute("open");
+                  }}
+                >
+                  <small>0{i + 1}</small>
+                  {s.name}
+                </button>
+              ))}
+              <p>载入示例将重置对象、时间和结构。</p>
+            </nav>
+          </details>
           <details className="review-about">
             <summary>关于</summary>
             <div>
@@ -246,44 +338,6 @@ export function DesignReview() {
           </details>
         </div>
       </header>
-      <div className="review-location">
-        <button
-          className="review-nav-toggle"
-          aria-expanded={navigation}
-          onClick={() => setNavigation((v) => !v)}
-        >
-          资源导航 {navigation ? "−" : "+"}
-        </button>
-        <nav aria-label="空间路径">
-          {getPath(state).map((id, i) => (
-            <span key={id}>
-              {i > 0 && <i>/</i>}
-              <button
-                aria-current={id === state.selected ? "location" : undefined}
-                onClick={() =>
-                  entityById(id)?.kind === "part"
-                    ? dispatch({ type: "select", id })
-                    : dispatch({
-                        type: "navigate",
-                        level: entityById(id)!.kind as Level,
-                        id,
-                      })
-                }
-              >
-                {entityById(id)!.name}
-              </button>
-            </span>
-          ))}
-        </nav>
-        <span className="review-location-note">
-          {state.level === "room"
-            ? "14 × 12 m · 8 机柜"
-            : "结构姿态与运行时间独立"}
-        </span>
-        {state.level !== "room" && (
-          <button onClick={() => dispatch({ type: "back" })}>← 返回上级</button>
-        )}
-      </div>
       <div
         className={`review-workspace ${navigation ? "navigation-open" : ""}`}
         role="main"
@@ -322,18 +376,25 @@ export function DesignReview() {
                 </button>
               ))}
             </div>
+            <button
+              className="review-inspector-toggle"
+              aria-expanded={inspectorOpen}
+              onClick={() => showInspector(!inspectorOpen)}
+            >
+              {inspectorOpen ? "收起对象详情" : "对象详情"}
+            </button>
           </div>
           <ReviewScene
             shotRevision={shotRevision}
             state={state}
             layer={layer}
             readings={spatial.readings}
-            dispatch={dispatch}
             onSelect={select}
+            onFocus={() => focusResource(selectedId)}
             onPhase={setPhase}
             onFeedback={setFeedback}
           />
-          {layer === "alarms" && (
+          {layer === "alarms" && !review.analysis && (
             <ReviewAlerts
               readings={spatial.readings}
               selected={selectedId}
@@ -458,9 +519,19 @@ export function DesignReview() {
             </section>
           )}
         </section>
-        <aside className="review-inspector" aria-label="所选对象概览">
+        <aside
+          className="review-inspector"
+          aria-label="所选对象概览"
+          hidden={!inspectorOpen}
+        >
           <div className="review-inspector-title">
             <span>所选对象</span>
+            <button
+              aria-label="收起对象详情"
+              onClick={() => showInspector(false)}
+            >
+              ×
+            </button>
             <span>
               {entity.kind === "part"
                 ? "部件"
@@ -499,11 +570,6 @@ export function DesignReview() {
             <span className="review-signal" style={{ color: signal.color }}>
               {signal.icon} {readingStatus}
             </span>
-            {component && (
-              <p className="review-model-note">
-                模型推导 · 无独立测点与部件告警
-              </p>
-            )}
           </div>
           {reading ? (
             <>
@@ -519,7 +585,9 @@ export function DesignReview() {
                   <span>
                     {reading.quality !== "valid"
                       ? qualityNames[reading.quality]
-                      : `有效覆盖 ${coverage}/${reading.count}`}
+                      : component
+                        ? "模型推导 · 无独立测点"
+                        : `有效覆盖 ${coverage}/${reading.count}`}
                   </span>
                   <time>
                     {reading.observedAt == null
@@ -607,18 +675,6 @@ export function DesignReview() {
                   展开曲线与事件 <span>↗</span>
                 </button>
               </section>
-              <div className="review-quality">
-                <span>
-                  {reading.count > 1
-                    ? `${reading.lifecycleCounts.running} 运行 · ${reading.lifecycleCounts.maintenance} 维护 · ${reading.lifecycleCounts.stopped} 停机`
-                    : lifecycleNames[reading.lifecycle]}
-                </span>
-                <span>
-                  {reading.count > 1
-                    ? `${reading.qualityCounts.offline} 离线 · ${reading.qualityCounts.stale} 过期 · ${reading.qualityCounts.missing} 未配置`
-                    : `数据${qualityNames[reading.quality]}`}
-                </span>
-              </div>
             </>
           ) : (
             <p className="review-empty-data">该设施尚未定义遥测数据。</p>
@@ -642,10 +698,27 @@ export function DesignReview() {
           )}
           <details className="review-detail">
             <summary>配置与数据详情</summary>
+            {reading && (
+              <div className="review-quality">
+                <span>
+                  {reading.count > 1
+                    ? `${reading.lifecycleCounts.running} 运行 · ${reading.lifecycleCounts.maintenance} 维护 · ${reading.lifecycleCounts.stopped} 停机`
+                    : lifecycleNames[reading.lifecycle]}
+                </span>
+                <span>
+                  {reading.count > 1
+                    ? `${reading.qualityCounts.offline} 离线 · ${reading.qualityCounts.stale} 过期 · ${reading.qualityCounts.missing} 未配置`
+                    : `数据${qualityNames[reading.quality]}`}
+                </span>
+              </div>
+            )}
             <p>{entity.description}</p>
             {deviceById(selectedId) && (
               <p>
-                {unitLabel(selectedId)} · {modelForDevice(selectedId).name}
+                {unitLabel(selectedId)} · {modelForDevice(selectedId).name} ·{" "}
+                {modelForDevice(selectedId).category === "server"
+                  ? "贡献几何与适配部件"
+                  : "简化参数化结构，内部精度待补齐"}
               </p>
             )}
             {component && (
@@ -666,44 +739,6 @@ export function DesignReview() {
           </details>
         </aside>
       </div>
-      <footer className="review-rail">
-        <span>评审示例</span>
-        <nav aria-label="载入评审画面">
-          {shots.map((s, i) => (
-            <button
-              key={s.id}
-              aria-pressed={shot === s.id}
-              title={`${s.note}；载入预设将重置选择与时间`}
-              onClick={() => loadShot(s.id)}
-            >
-              <small>0{i + 1}</small>
-              {s.name}
-            </button>
-          ))}
-        </nav>
-        <details className="review-decisions">
-          <summary>设计取舍</summary>
-          <div>
-            <strong>对象 × 数据图层 × 时间</strong>
-            <p>
-              左侧定位，中间观察与操作，右侧只服务所选对象。结构操作独立于图层；时间分析按需展开。评审画面按钮载入固定预设，会重置对象和时间。
-            </p>
-            <p>
-              当前入口：空间 → 温度 → 功耗 →
-              告警。后续扩展空间容量与连接。“空间容量”明确为可安装 U
-              位；“连接”只呈现已定义端点。后两项尚未实现，不占用主导航。
-            </p>
-            <p>
-              温度色阶表示读数，电力色阶表示功耗/预算；严重与预警使用 ◆ / ▲
-              和文字。各视图直接显示对应数据；告警与温度、功耗同级，在场景下方筛选和定位。单击资源只预览，查看内部需先进入所在机柜。
-            </p>
-            <p>
-              本轮未增加切片、气流、湿度或连接视图。独立开盖动作、粒子和时间曲线对比待后续实现。
-            </p>
-            <a href="./">与当前原型对照 ↗</a>
-          </div>
-        </details>
-      </footer>
     </div>
   );
 }

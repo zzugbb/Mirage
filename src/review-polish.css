@@ -1,0 +1,858 @@
+/* 以场景为主工作面，减少固定横栏，所选对象按需停靠。 */
+.design-review {
+  min-height: 600px;
+  --review-accent: #a9d3d4;
+}
+.design-review .review-header {
+  height: 54px;
+  padding: 0 20px;
+  gap: 28px;
+  background: #111719;
+}
+.design-review .review-brand {
+  font-size: 23px;
+  gap: 10px;
+}
+.design-review .review-brand span {
+  font-size: 14px;
+}
+.design-review .review-location {
+  flex: 1;
+  height: auto;
+  min-width: 0;
+  padding: 0;
+  gap: 18px;
+  border: 0;
+  background: transparent;
+}
+.design-review .review-location nav {
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  white-space: nowrap;
+}
+.design-review .review-location nav button {
+  font-size: 11px;
+}
+.review-presets {
+  position: relative;
+}
+.review-presets summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 10px 2px;
+  color: #b1c0bd;
+  font-size: 11px;
+}
+.review-presets summary::-webkit-details-marker {
+  display: none;
+}
+.review-presets nav {
+  position: absolute;
+  z-index: 25;
+  top: 40px;
+  right: 0;
+  width: 210px;
+  padding: 8px;
+  background: #1b2528;
+  border: 1px solid #425359;
+  box-shadow: 0 16px 40px #0006;
+}
+.review-presets nav button {
+  width: 100%;
+  text-align: left;
+  display: flex;
+  gap: 16px;
+  padding: 12px;
+  font-size: 12px;
+}
+.review-presets nav button small {
+  color: #789a9e;
+}
+.review-presets nav p {
+  color: #8da3a4;
+  font-size: 10px;
+  line-height: 1.7;
+  padding: 7px 12px;
+  margin: 0;
+}
+.design-review .review-workspace {
+  position: relative;
+  grid-template-columns: 244px minmax(0, 1fr);
+  overflow: hidden;
+}
+.design-review .review-center {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+}
+.design-review .review-layerbar {
+  min-height: 48px;
+  padding: 0 22px;
+  justify-content: space-between;
+  background: #182023;
+}
+.design-review .review-layers {
+  gap: 28px;
+}
+.design-review .review-layers button {
+  min-height: 48px;
+  font-size: 12px;
+}
+.review-inspector-toggle {
+  color: #a8bfbd !important;
+  font-size: 11px !important;
+  padding: 8px 0 8px 12px;
+}
+.design-review .review-scene {
+  min-height: 220px;
+}
+.design-review .review-scene-caption {
+  top: 20px;
+  left: 24px;
+  max-width: 540px;
+}
+.design-review .review-scene-caption > span {
+  color: #8da4a9;
+  font-size: 10px;
+}
+.design-review .review-scene-caption strong {
+  font-size: 16px;
+  font-weight: 500;
+  margin: 7px 0 0;
+}
+.review-scene-readings {
+  display: flex;
+  gap: 24px;
+  margin-top: 17px;
+}
+.review-scene-readings > span {
+  display: grid;
+  gap: 5px;
+}
+.review-scene-readings b {
+  font-size: 23px;
+  font-weight: 450;
+  font-variant-numeric: tabular-nums;
+  color: #e0ece9;
+}
+.review-scene-readings b i {
+  font-size: 10px;
+  font-style: normal;
+  color: #90acae;
+  margin-left: 5px;
+}
+.review-scene-readings small {
+  font-size: 9px;
+  color: #8ba2a8;
+}
+.review-view-explanation {
+  position: relative;
+  width: max-content;
+  margin-top: 13px;
+}
+.review-view-explanation summary {
+  cursor: pointer;
+  list-style: none;
+  color: #8ba6ad;
+  font-size: 10px;
+}
+.review-view-explanation summary:after {
+  content: " ⓘ";
+}
+.design-review .review-view-explanation p {
+  position: absolute;
+  top: 16px;
+  left: 0;
+  width: 240px;
+  max-width: calc(100vw - 40px);
+  padding: 12px;
+  background: #172327f5;
+  border: 1px solid #42585e;
+  z-index: 8;
+  color: #bccdce;
+  font-size: 11px;
+  line-height: 1.8;
+}
+.design-review .review-camera {
+  right: 18px;
+  top: auto;
+  bottom: 70px;
+}
+.design-review .review-camera button {
+  font-size: 10px;
+  padding: 7px 10px;
+}
+.design-review .review-scene-tools {
+  right: 18px;
+  bottom: 20px;
+}
+.design-review .review-scene-tools > button,
+.design-review .review-scene-tools summary {
+  min-height: 32px;
+  font-size: 10px;
+  padding: 8px 10px;
+}
+.design-review .review-legend {
+  left: 20px;
+  bottom: 82px;
+  width: 212px;
+  padding: 10px 12px;
+  background: #152025eb;
+  border: 1px solid #3b525b;
+}
+.design-review .review-status-key {
+  font-size: 10px;
+  gap: 12px;
+}
+.design-review .review-anchor {
+  box-shadow: 0 3px 16px #0004;
+  border-color: #748e96;
+  background: #142127ed;
+  border-radius: 2px;
+  padding: 7px 9px;
+  font-size: 10px;
+}
+.design-review .review-anchor span {
+  font-size: 12px;
+  color: #d0e7e8;
+  font-variant-numeric: tabular-nums;
+}
+.design-review .review-anchor b {
+  color: #d0dedf;
+  font-size: 10px;
+}
+.design-review .review-anchor.selected {
+  border-color: #a4d9df;
+  background: #20404be8;
+}
+.design-review .review-inspector {
+  position: absolute;
+  z-index: 9;
+  right: 18px;
+  top: 66px;
+  width: 252px;
+  max-height: calc(100% - 162px);
+  border: 1px solid #3d5057;
+  padding: 14px 16px 17px;
+  background: #172126ef;
+  border-radius: 3px;
+  box-shadow: 0 10px 35px #0003;
+  backdrop-filter: blur(14px);
+}
+.design-review .review-inspector[hidden] {
+  display: none;
+}
+.design-review .review-inspector-title {
+  padding-bottom: 11px;
+  align-items: center;
+  gap: 8px;
+}
+.design-review .review-inspector-title > span:last-child {
+  margin-left: auto;
+}
+.design-review .review-inspector-title > button {
+  margin-left: auto;
+  font-size: 16px;
+  padding: 0 4px;
+  order: 2;
+}
+.design-review .review-identity {
+  padding: 16px 0 15px;
+}
+.design-review .review-identity h1 {
+  font-size: 18px;
+  line-height: 1.45;
+  margin: 8px 0 9px;
+}
+.design-review .review-identity > small {
+  font-size: 9px;
+}
+.design-review .review-resource-location {
+  font-size: 10px;
+  margin: 0 0 10px;
+}
+.design-review .review-signal {
+  font-size: 10px;
+}
+.design-review .review-primary-metric {
+  padding: 16px 0;
+}
+.design-review .review-primary-metric > span {
+  font-size: 10px;
+}
+.design-review .review-primary-metric > strong {
+  font-size: 34px;
+  margin: 10px 0 11px;
+}
+.design-review .review-primary-metric > strong small {
+  font-size: 12px;
+}
+.design-review .review-primary-metric > div {
+  font-size: 9px;
+}
+.design-review .review-secondary-metrics {
+  padding: 15px 0;
+}
+.design-review .review-secondary-metrics span {
+  font-size: 9px;
+}
+.design-review .review-secondary-metrics b,
+.design-review .review-secondary-metrics button {
+  font-size: 19px;
+  margin-top: 10px;
+}
+.design-review .review-mini-trend {
+  padding: 15px 0 12px;
+}
+.design-review .review-mini-trend h2 {
+  font-size: 10px;
+}
+.design-review .review-expand-trend {
+  font-size: 10px;
+  margin-top: 8px;
+}
+.design-review .review-quality {
+  padding: 13px 0;
+  font-size: 9px;
+}
+.design-review .review-detail {
+  padding-top: 13px;
+}
+.design-review .review-detail summary {
+  font-size: 10px;
+}
+.design-review .review-model-note {
+  font-size: 9px;
+  line-height: 1.7;
+  margin-bottom: 0;
+}
+.design-review .review-part-select {
+  display: none;
+}
+.design-review .review-object-actions {
+  position: absolute;
+  z-index: 8;
+  left: 18px;
+  bottom: 54px;
+  width: max-content;
+  max-width: calc(100% - 36px);
+  min-height: 38px;
+  padding: 7px 9px;
+  border: 1px solid #3c555e;
+  border-radius: 3px;
+  background: #18272cec;
+  box-shadow: 0 4px 20px #0003;
+}
+.design-review[data-scene-level="room"] .review-object-actions {
+  display: none;
+}
+.design-review .review-object-actions > span,
+.design-review .review-object-actions > strong {
+  display: none;
+}
+.design-review .review-object-actions button {
+  border-color: #4b646e;
+  font-size: 10px;
+  padding: 7px 9px;
+}
+.design-review .review-object-actions > small {
+  font-size: 9px;
+}
+.design-review .review-clock {
+  min-height: 42px;
+  background: #131d21;
+  padding: 0 20px;
+}
+.design-review .resource-header {
+  min-height: 48px;
+}
+.design-review .resource-search {
+  margin: 12px 12px 8px;
+}
+.design-review .resource-search input {
+  padding: 9px;
+  font-size: 11px;
+}
+.design-review .resource-filter {
+  margin: 0 12px 10px;
+  min-height: 32px;
+  padding: 7px;
+}
+.design-review .resource-context {
+  padding: 0 15px 10px;
+  gap: 5px;
+}
+.design-review .resource-results {
+  padding: 5px 8px 10px;
+}
+.design-review .resource-row {
+  min-height: 66px;
+  gap: 3px;
+  padding: 9px 7px;
+}
+.design-review .resource-row strong {
+  font-size: 11px;
+}
+.design-review .resource-row-meta {
+  font-size: 10px;
+}
+.design-review .resource-row-foot small {
+  font-size: 9px;
+}
+.design-review .resource-part-row {
+  min-height: 54px;
+}
+.design-review .resource-selection {
+  padding: 11px 13px;
+  min-height: 79px;
+  gap: 5px;
+  background: #1b2a2d;
+  border-color: #40585c;
+}
+.design-review .resource-selection .resource-open {
+  background: #28454c;
+  border-color: #6d9497;
+  color: #deedeb;
+}
+.design-review .resource-selection button {
+  border-color: #57777a;
+}
+.design-review .resource-row[aria-pressed="true"] {
+  background: #233d43;
+  border-color: #638a90;
+}
+.design-review .resource-filter {
+  background: #1c2c30;
+  border-color: #3c565d;
+}
+.design-review .resource-panel {
+  background: #151f23;
+}
+.design-review .resource-selection > strong,
+.design-review .resource-row strong {
+  color: #d0dfdf;
+}
+.design-review .resource-row-meta,
+.design-review .resource-row-foot small,
+.design-review .resource-context strong {
+  color: #91aab0;
+}
+.design-review .review-alerts-view {
+  height: 198px;
+  background: #19252a;
+  border-color: #4c6974;
+}
+.design-review[data-layer="alarms"] .review-object-actions {
+  bottom: 252px;
+}
+.design-review .review-alerts-heading {
+  padding: 10px 16px;
+}
+.design-review .review-alerts-heading h2 {
+  font-size: 12px;
+}
+.design-review .review-alert-row.selected {
+  background: #27424b;
+}
+.design-review .review-alert-select {
+  padding: 10px 0;
+}
+.design-review[data-analysis="true"] .review-analysis {
+  height: 242px;
+  max-height: 242px;
+}
+.design-review[data-analysis="true"] .review-object-actions {
+  bottom: 296px;
+}
+
+.design-review[data-analysis="true"] .review-inspector {
+  max-height: calc(100% - 350px);
+}
+@media (max-width: 1200px) and (min-width: 601px) {
+  .design-review .review-workspace {
+    grid-template-columns: 224px minmax(0, 1fr);
+  }
+  .design-review .review-inspector {
+    width: 236px;
+    right: 14px;
+  }
+  .design-review .review-scene-readings {
+    gap: 18px;
+  }
+  .design-review .review-header {
+    gap: 20px;
+  }
+  .design-review .review-simulation {
+    display: none;
+  }
+}
+@media (max-width: 1000px) and (min-width: 601px) {
+  .design-review .review-workspace {
+    display: block;
+  }
+  .design-review .review-center {
+    height: 100%;
+  }
+  .design-review .review-workspace.navigation-open .resource-panel {
+    top: 0;
+    height: 100%;
+    width: 260px;
+  }
+}
+@media (max-height: 780px) and (min-width: 601px) {
+  .design-review .review-alerts-view {
+    height: 174px;
+  }
+  .design-review[data-layer="alarms"] .review-object-actions {
+    bottom: 228px;
+  }
+  .design-review .review-scene-caption {
+    top: 17px;
+  }
+  .design-review .review-scene-readings {
+    margin-top: 12px;
+  }
+  .design-review .review-scene-readings b {
+    font-size: 21px;
+  }
+  .design-review .review-inspector {
+    max-height: calc(100% - 160px);
+  }
+}
+@media (max-width: 600px) {
+  .design-review {
+    min-height: 100svh;
+    height: auto;
+  }
+  .design-review .review-header {
+    height: auto;
+    min-height: 58px;
+    padding: 0 16px;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .design-review .review-brand {
+    height: 58px;
+    align-items: center;
+  }
+  .design-review .review-header-actions {
+    order: 0;
+    gap: 18px;
+  }
+  .design-review .review-location {
+    order: 1;
+    flex: 0 0 calc(100% + 32px);
+    min-height: 42px;
+    margin-inline: -16px;
+    padding: 0 16px;
+    border-top: 1px solid #2d4047;
+    gap: 10px;
+  }
+  .design-review .review-location nav button {
+    font-size: 10px;
+  }
+  .design-review .review-location .review-nav-toggle {
+    font-size: 10px;
+  }
+  .design-review .review-workspace {
+    display: flex;
+    overflow: visible;
+  }
+  .design-review .review-workspace.navigation-open .resource-panel {
+    height: 500px;
+  }
+  .design-review .review-center {
+    overflow: visible;
+  }
+  .design-review .review-layerbar {
+    min-height: 48px;
+    padding: 0 16px;
+  }
+  .design-review .review-layers {
+    gap: 20px;
+  }
+  .design-review .review-layers button {
+    font-size: 11px;
+    min-height: 48px;
+  }
+  .design-review .review-inspector-toggle {
+    font-size: 10px !important;
+    padding-left: 0;
+  }
+  .design-review .review-scene {
+    height: 580px;
+    min-height: 580px;
+  }
+  .design-review .review-canvas,
+  .design-review .review-anchors {
+    top: 148px;
+    bottom: 94px;
+  }
+  .design-review .review-scene-caption {
+    left: 16px;
+    top: 17px;
+    max-width: calc(100% - 32px);
+  }
+  .design-review .review-scene-caption > span {
+    font-size: 9px;
+  }
+  .design-review .review-scene-caption strong {
+    font-size: 14px;
+  }
+  .design-review .review-scene-readings {
+    margin-top: 12px;
+    gap: 24px;
+  }
+  .design-review .review-scene-readings b {
+    font-size: 20px;
+  }
+  .design-review .review-view-explanation {
+    position: absolute;
+    top: 0;
+    right: 0;
+    margin: 0;
+  }
+  .design-review .review-view-explanation summary {
+    font-size: 9px;
+  }
+  .design-review .review-view-explanation p {
+    left: auto;
+    right: 0;
+  }
+  .design-review .review-camera {
+    top: auto;
+    bottom: 104px;
+    right: 14px;
+  }
+  .design-review .review-camera button {
+    min-height: 36px;
+    min-width: 36px;
+    font-size: 10px;
+    padding: 6px 8px;
+  }
+  .design-review .review-scene-tools {
+    bottom: 154px;
+    right: 14px;
+  }
+  .design-review .review-legend {
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    height: 94px;
+    padding: 12px 16px;
+    border-inline: 0;
+    border-bottom: 0;
+    box-shadow: none;
+  }
+  .design-review .review-loading {
+    top: 155px;
+  }
+  .design-review .review-object-actions {
+    position: static;
+    width: 100%;
+    max-width: none;
+    flex-shrink: 0;
+    border-inline: 0;
+    border-radius: 0;
+    padding: 10px 14px;
+    flex-wrap: wrap;
+    min-height: 48px;
+  }
+  .design-review .review-object-actions button {
+    min-height: 38px;
+    font-size: 11px;
+  }
+  .design-review .review-clock {
+    min-height: 48px;
+    padding: 0 14px;
+    gap: 9px;
+  }
+  .design-review .review-clock time {
+    font-size: 11px;
+  }
+  .design-review .review-inspector {
+    position: static;
+    width: 100%;
+    max-height: none;
+    background: #18252b;
+    border-inline: 0;
+    border-bottom: 0;
+    border-radius: 0;
+    padding: 16px;
+    box-shadow: none;
+  }
+  .design-review .review-inspector-title {
+    display: flex;
+  }
+  .design-review .review-primary-metric > strong {
+    font-size: 38px;
+  }
+  .design-review .review-part-select {
+    display: grid;
+  }
+  .design-review .review-alerts-view {
+    height: 290px;
+  }
+  .design-review .review-alerts-heading {
+    padding: 14px 16px;
+  }
+  .design-review .review-alert-select {
+    padding: 12px 0;
+  }
+  .design-review[data-analysis="true"] .review-analysis {
+    height: auto;
+    max-height: none;
+  }
+  .design-review[data-analysis="true"] .review-inspector {
+    max-height: none;
+  }
+  .design-review .resource-search input {
+    min-height: 44px;
+    font-size: 12px;
+  }
+  .design-review .resource-filter {
+    min-height: 40px;
+  }
+}
+
+.design-review .review-detail .review-quality {
+  border: 0;
+  padding: 10px 0;
+}
+
+@media (min-width: 601px) {
+  .design-review:not([data-scene-level="room"])
+    .review-workspace:has(.review-inspector:not([hidden]))
+    .review-canvas,
+  .design-review:not([data-scene-level="room"])
+    .review-workspace:has(.review-inspector:not([hidden]))
+    .review-anchors {
+    right: 288px;
+  }
+  .design-review:not([data-scene-level="room"])
+    .review-workspace:has(.review-inspector:not([hidden]))
+    .review-camera,
+  .design-review:not([data-scene-level="room"])
+    .review-workspace:has(.review-inspector:not([hidden]))
+    .review-scene-tools {
+    right: 306px;
+  }
+  .design-review:not([data-scene-level="room"])
+    .review-workspace:has(.review-inspector:not([hidden]))
+    .review-scene-caption {
+    max-width: calc(100% - 330px);
+  }
+}
+
+.design-review[data-analysis="true"] .review-mini-trend {
+  display: none;
+}
+@media (min-width: 601px) {
+  .design-review[data-scene-level="device"] .review-legend {
+    top: 18px;
+    bottom: auto;
+    left: auto;
+    right: 20px;
+  }
+  .design-review[data-scene-level="device"]
+    .review-workspace:has(.review-inspector:not([hidden]))
+    .review-legend {
+    right: 306px;
+  }
+}
+
+.design-review .review-scene-caption {
+  z-index: 2;
+  text-shadow: 0 1px 4px #000;
+}
+.design-review .review-scene-caption::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: -14px -24px -14px -14px;
+  pointer-events: none;
+  background: linear-gradient(105deg, #081217ee, #081217b3 65%, transparent);
+}
+.design-review .review-view-explanation {
+  pointer-events: auto;
+}
+
+@media (min-width: 800px) {
+  .design-review .review-alert-select {
+    grid-template-columns: 62px minmax(0, 1fr) auto;
+    gap: 12px;
+  }
+  .design-review .review-alert-select > small {
+    grid-column: auto;
+  }
+}
+
+.design-review .resource-selection:has(> p) {
+  min-height: 44px;
+  padding-block: 10px;
+}
+.design-review
+  .resource-row:is(
+    [data-kind="server"],
+    [data-kind="switch"],
+    [data-kind="storage"]
+  ) {
+  position: relative;
+  min-height: 56px;
+}
+.design-review
+  .resource-row:is(
+    [data-kind="server"],
+    [data-kind="switch"],
+    [data-kind="storage"]
+  )
+  .resource-row-foot {
+  position: absolute;
+  right: 7px;
+  bottom: 9px;
+}
+.design-review
+  .resource-row:is(
+    [data-kind="server"],
+    [data-kind="switch"],
+    [data-kind="storage"]
+  )
+  .resource-row-foot
+  small {
+  display: none;
+}
+.design-review
+  .resource-row:is(
+    [data-kind="server"],
+    [data-kind="switch"],
+    [data-kind="storage"]
+  )
+  .resource-row-meta {
+  padding-right: 60px;
+}
+
+@media (max-width: 600px) {
+  .design-review .review-view-explanation {
+    position: relative;
+    top: auto;
+    right: auto;
+    margin-top: 6px;
+  }
+  .design-review .review-view-explanation p {
+    left: 0;
+    right: auto;
+  }
+  .design-review[data-scene-level="device"] .review-canvas,
+  .design-review[data-scene-level="device"] .review-anchors {
+    top: 96px;
+  }
+}
+
+.design-review .review-no-series {
+  display: grid;
+  place-items: center;
+  color: #a8bdc2;
+  font-size: 11px;
+}

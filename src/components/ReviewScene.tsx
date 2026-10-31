@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { Action, AppState } from "../domain";
+import type { AppState } from "../domain";
 import type { PresentationPhase, SceneFeedback } from "../mechanics";
 import { SceneEngine } from "../scene/engine";
 import type { View } from "../scene/engine";
@@ -7,14 +7,17 @@ import { devices, racks, rackForDevice } from "../installation";
 import type { SpatialReading } from "../spatial";
 import type { ReviewLayer } from "../review-model";
 import { reviewPresentation } from "../review-model";
+import { partsForDevice, modelForDevice } from "../catalog";
+import { reviewSpatialMarks } from "../review-spatial";
+import { ReviewDataGeometry } from "../scene/review-data";
 import { signalFor, signalStyles } from "../status";
 
 export function ReviewScene({
   state,
   layer,
   readings,
-  dispatch,
   onSelect,
+  onFocus,
   onPhase,
   onFeedback,
   shotRevision,
@@ -22,8 +25,8 @@ export function ReviewScene({
   state: AppState;
   layer: ReviewLayer;
   readings: Map<string, SpatialReading>;
-  dispatch: (action: Action) => void;
   onSelect: (id: string, enter?: boolean) => void;
+  onFocus: () => void;
   onPhase: (phase: PresentationPhase) => void;
   onFeedback: (feedback: SceneFeedback) => void;
   shotRevision: number;
@@ -32,6 +35,7 @@ export function ReviewScene({
   const anchors = useRef<HTMLDivElement>(null);
   const engine = useRef<SceneEngine | null>(null);
   const initial = useRef(state);
+  const dataGeometry = useRef<ReviewDataGeometry | null>(null);
   const previousScene = useRef(state);
   const currentState = useRef(state);
   currentState.current = state;
@@ -58,6 +62,10 @@ export function ReviewScene({
         (feedback) => callbacks.current.onFeedback(feedback),
       );
       active.autoOrbit = false;
+      active.retainMaterials = true;
+      const overlay = new ReviewDataGeometry();
+      active.models.root.add(overlay.root);
+      dataGeometry.current = overlay;
       active.onAssets = setAssets;
       engine.current = active;
       setSupported(active.pipeline.available);
@@ -72,6 +80,8 @@ export function ReviewScene({
     document.addEventListener("visibilitychange", visibility);
     return () => {
       document.removeEventListener("visibilitychange", visibility);
+      dataGeometry.current?.dispose();
+      dataGeometry.current = null;
       active?.dispose();
       engine.current = null;
     };
@@ -129,12 +139,20 @@ export function ReviewScene({
   useEffect(() => {
     setView(state.level === "room" ? "interior" : "iso");
   }, [state.level]);
+  useEffect(() => {
+    dataGeometry.current?.update(reviewSpatialMarks(state, layer, readings));
+  }, [state, layer, readings, retry]);
+  const scope = readings.get(
+    state.level === "room" ? "room-01" : rackForDevice(state.deviceId).id,
+  )!;
   const candidates =
     state.level === "room"
       ? racks
       : state.level === "rack"
         ? devices.filter((d) => d.rackId === rackForDevice(state.deviceId).id)
-        : [];
+        : partsForDevice(state.deviceId).filter(
+            (p) => !["lid", "duct", "cable"].includes(p.node),
+          );
   const labels = [...candidates]
     .filter(
       (item) => layer !== "alarms" || (readings.get(item.id)?.alarm ?? 0) > 0,
@@ -150,7 +168,7 @@ export function ReviewScene({
             : (readings.get(b.id)?.power ?? -Infinity) -
               (readings.get(a.id)?.power ?? -Infinity)),
     )
-    .slice(0, state.level === "room" ? 4 : 3);
+    .slice(0, state.level === "room" ? 6 : 3);
   const labelKey = labels.map((r) => r.id).join(":");
   useEffect(() => {
     if (anchors.current) engine.current?.bindAnchors(anchors.current);
@@ -159,9 +177,11 @@ export function ReviewScene({
     const declutter = () => {
       const sceneRect = host.current?.parentElement?.getBoundingClientRect();
       const accepted = [
-        ...(host.current?.parentElement?.querySelectorAll<HTMLElement>(
-          ".review-scene-caption, .review-camera, .review-legend, .review-scene-tools, .review-loading",
-        ) ?? []),
+        ...(host.current
+          ?.closest(".review-workspace")
+          ?.querySelectorAll<HTMLElement>(
+            ".review-scene-caption, .review-camera, .review-legend, .review-scene-tools, .review-loading, .review-inspector:not([hidden]), .review-object-actions",
+          ) ?? []),
       ].map((element) => element.getBoundingClientRect());
       for (const label of anchors.current?.querySelectorAll<HTMLElement>(
         "button",
@@ -207,13 +227,40 @@ export function ReviewScene({
       <div className="review-scene-caption">
         <span>
           {state.level === "room"
-            ? "空间 / 01"
+            ? "01 号机房 / 8 机柜 · 84 设备"
             : state.level === "rack"
-              ? "机柜 / 42U"
-              : "设备 / 结构工作台"}
+              ? `${rackForDevice(state.deviceId).name} / 42U`
+              : `${modelForDevice(state.deviceId).name} / ${modelForDevice(state.deviceId).category === "server" ? "设备内部" : "简化结构示意"}`}
         </span>
         <strong>{presentation.title}</strong>
-        <p>{presentation.description}</p>
+        {state.level !== "device" && (
+          <div className="review-scene-readings" aria-label="场景运行读数">
+            <span>
+              <b>{scope.lifecycleCounts.running}</b>
+              <small>运行设备</small>
+            </span>
+            <span>
+              <b>
+                {scope.power === null ? "—" : (scope.power / 1000).toFixed(2)}
+                <i>kW</i>
+              </b>
+              <small>已知输入功耗</small>
+            </span>
+            <span>
+              <b>
+                {scope.temperature?.toFixed(1) ?? "—"}
+                <i>°C</i>
+              </b>
+              <small>
+                最高进风 · {scope.coverageTemperature}/{scope.count}
+              </small>
+            </span>
+          </div>
+        )}
+        <details className="review-view-explanation">
+          <summary>读图说明</summary>
+          <p>{presentation.description}</p>
+        </details>
       </div>
       <div className="review-camera" aria-label="评审标准视角">
         {(
@@ -244,12 +291,20 @@ export function ReviewScene({
               hidden
               key={item.id}
               data-anchor={item.id}
-              data-anchor-kind={state.level === "room" ? "rack" : "device"}
+              data-anchor-kind={
+                state.level === "room"
+                  ? "rack"
+                  : state.level === "rack"
+                    ? "device"
+                    : "part"
+              }
               className={`review-anchor ${item.id === state.selected ? "selected" : ""}`}
               onClick={() => onSelect(item.id)}
               onDoubleClick={() => onSelect(item.id, true)}
             >
-              <b>{item.name.split(" ")[0]}</b>
+              <b>
+                {state.level === "device" ? item.name : item.name.split(" ")[0]}
+              </b>
               {layer !== "overview" && layer !== "alarms" && (
                 <span>
                   {reading.quality !== "valid"
@@ -267,11 +322,20 @@ export function ReviewScene({
                           : `${reading.power.toFixed(0)} W`}
                 </span>
               )}
+              {layer === "power" &&
+                reading.quality === "valid" &&
+                reading.power !== null &&
+                reading.budget !== null &&
+                reading.budget > 0 && (
+                  <em>
+                    {((reading.power / reading.budget) * 100).toFixed(0)}% 预算
+                  </em>
+                )}
               {(layer === "overview" || layer === "alarms") && (
                 <em style={{ color: signal.color }}>
                   {reading.alarmCount > 0
                     ? `${signal.icon} 告警 ${reading.alarmCount}台`
-                    : `${signal.icon} ${signal.label}`}
+                    : `${signal.icon} ${state.level === "device" ? "模型" : ""}${signal.label}`}
                 </em>
               )}
             </button>
@@ -286,7 +350,7 @@ export function ReviewScene({
         </div>
       )}
       <div className="review-scene-tools">
-        <button onClick={() => dispatch({ type: "focus" })}>
+        <button onClick={onFocus}>
           聚焦选择 <kbd>F</kbd>
         </button>
         <details>
@@ -331,8 +395,8 @@ export function ReviewScene({
               {layer === "environment"
                 ? state.level === "device"
                   ? "表面温度 · °C · 模型推导"
-                  : "设备进风 · °C"
-                : "颜色：功耗 / 预算占比"}
+                  : "U 位色条 · 设备进风温度"
+                : "机柜标尺 · 功耗 / 预算占比"}
             </span>
             <i className={`review-scale ${layer}`} />
             <div>

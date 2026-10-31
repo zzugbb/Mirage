@@ -86,6 +86,7 @@ export class SceneEngine {
   }[] = [];
   keyLight: THREE.DirectionalLight;
   showLabels = false;
+  retainMaterials = false;
   pendingComponentFocus = false;
   anchors: HTMLElement | null = null;
   anchorElements: HTMLElement[] = [];
@@ -957,6 +958,7 @@ export class SceneEngine {
       const id = element.dataset.anchor!;
       const rackAnchor = element.dataset.anchorKind === "rack";
       const deviceAnchor = element.dataset.anchorKind === "device";
+      const partAnchor = element.dataset.anchorKind === "part";
       const target = this.objectFor(
         id === "srv-01" && !deviceAnchor ? this.state.deviceId : id,
       );
@@ -969,21 +971,25 @@ export class SceneEngine {
             this.presentation.pose.inspection === 0 &&
             this.telemetry.mode !== "object" &&
             deviceById(id)?.rackId === rackForDevice(this.state.deviceId).id
-          : id === "srv-01"
-            ? this.state.level !== "rack" &&
-              this.telemetry.mode !== "object" &&
-              this.telemetry.mode !== "status" &&
-              (this.telemetry.mode !== "alarms" ||
-                !!this.sample.alarm?.active) &&
-              !(this.state.level === "device" && this.explosion > 0.1) &&
-              (this.presentation.pose.inspection === 0 ||
-                this.presentation.pose.inspection === 1)
-            : this.showLabels &&
-              (this.state.level === "room"
-                ? ["cooling-01", "power-01"].includes(id)
-                : this.state.level === "device" &&
-                  this.explosion > 0.45 &&
-                  ["cpu-01", "memory-01", "fans-01", "psu-02"].includes(id));
+          : partAnchor
+            ? this.state.level === "device" &&
+              this.explosion > 0.25 &&
+              this.showLabels
+            : id === "srv-01"
+              ? this.state.level !== "rack" &&
+                this.telemetry.mode !== "object" &&
+                this.telemetry.mode !== "status" &&
+                (this.telemetry.mode !== "alarms" ||
+                  !!this.sample.alarm?.active) &&
+                !(this.state.level === "device" && this.explosion > 0.1) &&
+                (this.presentation.pose.inspection === 0 ||
+                  this.presentation.pose.inspection === 1)
+              : this.showLabels &&
+                (this.state.level === "room"
+                  ? ["cooling-01", "power-01"].includes(id)
+                  : this.state.level === "device" &&
+                    this.explosion > 0.45 &&
+                    ["cpu-01", "memory-01", "fans-01", "psu-02"].includes(id));
       element.hidden = !show || !target;
       if (target && show) {
         if (rackAnchor || deviceAnchor)
@@ -1047,7 +1053,13 @@ export class SceneEngine {
       element.style.setProperty("--axis-length", `${Math.hypot(x, y)}px`);
       element.style.opacity = this.axesVector.z > 0 ? "1" : "0.55";
     }
-    this.surface.update(this.state, this.telemetry.mode);
+    const surfaceMode =
+      this.retainMaterials &&
+      this.state.level !== "device" &&
+      (this.telemetry.mode === "temperature" || this.telemetry.mode === "power")
+        ? "object"
+        : this.telemetry.mode;
+    this.surface.update(this.state, surfaceMode);
     this.signals.update(
       this.state,
       this.telemetry.mode,
@@ -1060,7 +1072,7 @@ export class SceneEngine {
     );
     this.installation.updateAppearance(
       this.state,
-      this.telemetry.mode,
+      surfaceMode,
       this.surface.snapshot.readings,
     );
     this.pipeline.render(
