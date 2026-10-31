@@ -10,7 +10,7 @@
       "source": "本项目独立设计并自主参数化制作的机房、混合设备配置与补充部件；通用结构示意，不对应真实现场。",
       "license": "CC-BY-NC-4.0",
       "licenseFile": "LICENSES/CC-BY-NC-4.0.txt",
-      "sha256": "22586059b305720cc755530a51ed4b0e281391424252fcf5b94c5b2d3f3c7a8e",
+      "sha256": "b811396c89695e4f36f55901faf1f8fbb7c3898fed3c7c691abee4122206a9f9",
       "publicationApproved": true
     },
     {
@@ -55,6 +55,28 @@
       "license": "CC-BY-NC-4.0",
       "licenseFile": "LICENSES/CC-BY-NC-4.0.txt",
       "sha256": "11ef9e97055b1c63957c44f3a676a9901b233b688b0b9d1b42f622430e595318",
+      "publicationApproved": true
+    },
+    {
+      "id": "mirage-switch-1u-v1",
+      "path": "assets/public/models/switch-1u.glb",
+      "kind": "model",
+      "rightsHolder": "原创模型贡献者（维护者确认授权）",
+      "source": "维护者授权纳入的原创贡献外观模型；保留原始贴图与标识，仅清理导出元数据。内部配置示意由本项目独立制作，不是此资产的精确内部结构。",
+      "license": "CC-BY-NC-4.0",
+      "licenseFile": "LICENSES/CC-BY-NC-4.0.txt",
+      "sha256": "208ba900172aab232baafafdce57cc65304b41b4f658c5fad9fcd3ea6a997c8d",
+      "publicationApproved": true
+    },
+    {
+      "id": "mirage-storage-4u-v1",
+      "path": "assets/public/models/storage-4u.glb",
+      "kind": "model",
+      "rightsHolder": "原创模型贡献者（维护者确认授权）",
+      "source": "维护者授权纳入的原创贡献外观模型；保留原始贴图与标识，仅清理导出元数据。内部配置示意由本项目独立制作，不是此资产的精确内部结构。",
+      "license": "CC-BY-NC-4.0",
+      "licenseFile": "LICENSES/CC-BY-NC-4.0.txt",
+      "sha256": "ae51fde0629e9e643fd5032b8f31aac21ed937b9edc85c9fd9be3bac92b491b6",
       "publicationApproved": true
     }
   ]

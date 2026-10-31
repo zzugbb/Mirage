@@ -1,5 +1,6 @@
 import { modelForDevice, partsForDevice } from "../catalog";
 import { createEquipmentAssembly } from "./equipment-model";
+import { createExteriorAssembly, poseExterior } from "./equipment-exterior";
 import { mapCompactServer } from "./compact-server";
 import { SpatialSignals } from "./signals";
 import { SurfaceObservation } from "./surface";
@@ -312,6 +313,32 @@ export class SceneEngine {
       })(),
       ...(
         [
+          ["switch-1u", hardwareUrls.switch],
+          ["storage-4u", hardwareUrls.storage],
+        ] as const
+      ).map(async ([modelId, url]) => {
+        const scene = await loadHardware(url);
+        if (this.destroyed) {
+          disposeModels(scene, false);
+          return;
+        }
+        const result = createExteriorAssembly(modelId, scene);
+        this.installation.installExterior(
+          modelId,
+          result.representations!.exterior,
+        );
+        const old = this.assemblies.get(modelId);
+        this.assemblies.set(modelId, result);
+        if (modelForDevice(this.state.deviceId).id === modelId) {
+          this.assemblyModel = "";
+          this.activateAssembly(this.state);
+        }
+        if (old && modelForDevice(this.state.deviceId).id !== modelId)
+          disposeModels(old.root, false);
+        completed++;
+      }),
+      ...(
+        [
           ["cooling-01", hardwareUrls.cooling, 1.9],
           ["power-01", hardwareUrls.power, 1.8],
         ] as const
@@ -394,7 +421,7 @@ export class SceneEngine {
     ]);
     if (!this.destroyed) {
       this.assetsLoaded = true;
-      this.onAssets(completed === 4 ? "ready" : "degraded");
+      this.onAssets(completed === 6 ? "ready" : "degraded");
       this.view(this.currentView, this.currentFocus);
     }
   }
@@ -569,6 +596,7 @@ export class SceneEngine {
     const bounds = new THREE.Box3();
     this.models.server.traverse((object) => {
       if (!(object instanceof THREE.Mesh)) return;
+      if (!this.visible(object)) return;
       let parent = object.parent;
       while (parent && parent !== this.models.server) {
         if (this.models.parts.has(parent.userData.entityId)) return;
@@ -579,6 +607,10 @@ export class SceneEngine {
     for (const part of parts) {
       const group = this.models.parts.get(part.id);
       if (!group) continue;
+      const representations = this.assemblies.get(
+        this.assemblyModel,
+      )?.representations;
+      if (representations && this.state.explosion <= 0.015) continue;
       const base = this.partBases.get(part.id)?.toArray() ?? part.position;
       const target = new THREE.Vector3().fromArray(
         partPosition({ ...part, position: base }, this.state.explosion),
@@ -786,6 +818,8 @@ export class SceneEngine {
     ];
   }
   poseParts() {
+    const assembly = this.assemblies.get(this.assemblyModel);
+    if (assembly) poseExterior(assembly, this.explosion);
     this.guidePositions.fill(0);
     for (const [index, part] of partsForDevice(this.state.deviceId).entries()) {
       const base = this.partBases.get(part.id)?.toArray() ?? part.position;

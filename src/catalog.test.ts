@@ -49,7 +49,7 @@ test("四种机型的配置条目都对应可选择几何，尺寸由机型定�
     subpartsForDevice(one).filter((part) => part.parent === "drives-01").length,
     4,
   );
-  const storage = devices.find((device) => device.modelId === "storage-2u")!.id;
+  const storage = devices.find((device) => device.modelId === "storage-4u")!.id;
   assert.equal(
     subpartsForDevice(storage).filter((part) => part.parent === "sto-drives")
       .length,

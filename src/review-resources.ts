@@ -192,7 +192,9 @@ export function resourceOpenLabel(state: AppState, id: string) {
   if (entity?.kind === "device")
     return state.level === "rack" &&
       rackForDevice(id).id === rackForDevice(state.deviceId).id
-      ? "查看设备内部"
+      ? modelForDevice(id).category === "server"
+        ? "查看设备内部"
+        : "查看设备"
       : state.level === "device" && id === state.deviceId
         ? "聚焦设备"
         : "查看所在机柜";

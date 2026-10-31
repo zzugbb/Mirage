@@ -1,4 +1,4 @@
-import { partsForDevice, subpartsForDevice } from "../catalog";
+import { partsForDevice, subpartsForDevice, modelForDevice } from "../catalog";
 import type { Action, AppState } from "../domain";
 
 export function AssemblyControls({
@@ -12,10 +12,11 @@ export function AssemblyControls({
 }) {
   const parts = partsForDevice(state.deviceId),
     subparts = subpartsForDevice(state.deviceId);
+  const exteriorOnly = modelForDevice(state.deviceId).category !== "server";
   return (
     <section className="assembly-controls" aria-label="设备结构控制">
       <div className="section-heading">
-        <h3>结构拆解</h3>
+        <h3>{exteriorOnly ? "内部配置示意" : "结构拆解"}</h3>
         <span className="assembly-percent">
           {Math.round(state.explosion * 100)}
           <small>%</small>
@@ -51,10 +52,10 @@ export function AssemblyControls({
             className={state.explosion > 0 ? "active" : ""}
             onClick={() => dispatch({ type: "explode", amount: 1 })}
           >
-            爆炸展开 <span>↗</span>
+            {exteriorOnly ? "展开配置示意" : "爆炸展开"} <span>↗</span>
           </button>
           <button onClick={() => dispatch({ type: "explode", amount: 0 })}>
-            复原装配 <span>↙</span>
+            {exteriorOnly ? "复原外观" : "复原装配"} <span>↙</span>
           </button>
         </div>
         <label className="part-select-label" htmlFor="part-select">

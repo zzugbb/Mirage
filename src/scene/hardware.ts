@@ -8,12 +8,16 @@ import compactUrl from "../../assets/public/models/server-1u.glb?url";
 import serverUrl from "../../assets/public/models/server-2u.glb?url";
 import coolingUrl from "../../assets/public/models/cooling-unit.glb?url";
 import powerUrl from "../../assets/public/models/power-cabinet.glb?url";
+import switchUrl from "../../assets/public/models/switch-1u.glb?url";
+import storageUrl from "../../assets/public/models/storage-4u.glb?url";
 
 export const hardwareUrls = {
   server: serverUrl,
   compact: compactUrl,
   cooling: coolingUrl,
   power: powerUrl,
+  switch: switchUrl,
+  storage: storageUrl,
 };
 export const loadHardware = async (url: string) =>
   (await new GLTFLoader().loadAsync(url)).scene;

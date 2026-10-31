@@ -13,8 +13,9 @@ type ProxyBatch = {
   offsets: THREE.Vector3[];
   ids: string[];
   light: boolean;
+  transform?: THREE.Matrix4;
 };
-/** 远景设备只绘制外壳、面板、托架与状态灯；详细 GLB 始终只保留当前一台。 */
+/** 远景复用实例化外观与状态灯；仅当前设备展示可交互的详细装配。 */
 export class InstallationScene {
   root = new THREE.Group();
   racks = new Map<string, THREE.Group>();
@@ -141,21 +142,32 @@ export class InstallationScene {
       } else {
         const count = model.drives,
           span = model.id === "server-2u" ? 0.137 : 0.41;
+        const lff = model.category === "storage";
         const offset = Array.from({ length: count }, (_, i) => [
-          -span / 2 + ((i + 0.5) * span) / count,
-          0,
+          lff
+            ? (((i % 4) - 1.5) * span) / 4
+            : -span / 2 + ((i + 0.5) * span) / count,
+          lff ? ((2.5 - Math.floor(i / 4)) * height) / 6 : 0,
           depth / 2 + 0.017,
         ]);
         add(
-          [(span / count) * 0.84, height * 0.8, 0.009],
+          [
+            (span / (lff ? 4 : count)) * 0.84,
+            height * (lff ? 0.14 : 0.8),
+            0.009,
+          ],
           "#46515b",
           offset,
           0.55,
         );
         add(
-          [(span / count) * 0.58, 0.003, 0.005],
+          [(span / (lff ? 4 : count)) * 0.58, 0.003, 0.005],
           "#a8b4bb",
-          offset.map((p) => [p[0], -height * 0.22, p[2] + 0.006]),
+          offset.map((p) => [
+            p[0],
+            p[1] - height * (lff ? 0.03 : 0.22),
+            p[2] + 0.006,
+          ]),
           0.7,
         );
       }
@@ -167,6 +179,48 @@ export class InstallationScene {
         true,
       );
     }
+  }
+  /** 复用同一份贡献几何与贴图实例化远景，进入设备时再切换详细装配。 */
+  installExterior(modelId: string, exterior: THREE.Group) {
+    const members = devices.filter((device) => device.modelId === modelId);
+    if (!members.length) return;
+    this.batches = this.batches.filter((batch) => {
+      if (
+        batch.light ||
+        !members.some((device) => batch.ids.includes(device.id))
+      )
+        return true;
+      batch.mesh.removeFromParent();
+      batch.mesh.geometry.dispose();
+      (batch.mesh.material as THREE.Material).dispose();
+      return false;
+    });
+    exterior.updateWorldMatrix(true, true);
+    const inverse = exterior.parent!.matrixWorld.clone().invert();
+    exterior.traverse((object) => {
+      if (!(object instanceof THREE.Mesh)) return;
+      const material = Array.isArray(object.material)
+        ? object.material.map((m) => m.clone())
+        : object.material.clone();
+      const mesh = new THREE.InstancedMesh(
+        object.geometry.clone(),
+        material,
+        members.length,
+      );
+      const ids = members.map((device) => device.id);
+      mesh.userData.instanceEntityIds = ids;
+      mesh.userData.instanceVisible = [];
+      mesh.castShadow = mesh.receiveShadow = true;
+      this.root.add(mesh);
+      this.batches.push({
+        mesh,
+        ids,
+        offsets: members.map(() => new THREE.Vector3()),
+        light: false,
+        transform: inverse.clone().multiply(object.matrixWorld),
+      });
+    });
+    this.visibilityKey = this.appearanceKey = "";
   }
   update(state: AppState, inspection: number) {
     this.root.visible = state.level !== "device" && inspection === 0;
@@ -190,6 +244,7 @@ export class InstallationScene {
         position.copy(group.position).add(batch.offsets[index]);
         scale.setScalar(visible ? 1 : 0);
         matrix.compose(position, new THREE.Quaternion(), scale);
+        if (batch.transform) matrix.multiply(batch.transform);
         batch.mesh.setMatrixAt(index, matrix);
         batch.mesh.userData.instanceVisible[index] = visible;
       });
@@ -235,7 +290,10 @@ export class InstallationScene {
     });
     for (const batch of this.batches) {
       batch.mesh.geometry.dispose();
-      (batch.mesh.material as THREE.Material).dispose();
+      for (const material of Array.isArray(batch.mesh.material)
+        ? batch.mesh.material
+        : [batch.mesh.material])
+        material.dispose();
     }
     this.root.removeFromParent();
   }

@@ -394,7 +394,11 @@ export function Viewport({
               ? "机房空间"
               : state.level === "rack"
                 ? "机柜结构"
-                : "设备结构"}
+                : modelForDevice(state.deviceId).category !== "server"
+                  ? state.explosion === 0
+                    ? "设备外观"
+                    : "内部配置示意"
+                  : "设备结构"}
           </small>
         </div>
         <div className="axis" aria-hidden="true" ref={axes}>

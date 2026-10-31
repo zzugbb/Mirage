@@ -49,6 +49,15 @@ export function ReviewScene({
   const [supported, setSupported] = useState(false);
   const [orbit, setOrbit] = useState(false);
   const presentation = reviewPresentation(layer, state.level);
+  const model = modelForDevice(state.deviceId);
+  const representation =
+    model.category === "server"
+      ? "设备内部"
+      : assets !== "ready"
+        ? "内部配置示意 · 外观模型尚未就绪"
+        : state.explosion === 0
+          ? "外观模型 · 展开可看配置示意"
+          : "内部配置示意";
   useEffect(() => {
     let active: SceneEngine | null = null;
     setAssets("loading");
@@ -230,7 +239,7 @@ export function ReviewScene({
             ? "01 号机房 / 8 机柜 · 84 设备"
             : state.level === "rack"
               ? `${rackForDevice(state.deviceId).name} / 42U`
-              : `${modelForDevice(state.deviceId).name} / ${modelForDevice(state.deviceId).category === "server" ? "设备内部" : "简化结构示意"}`}
+              : `${model.name} / ${representation}`}
         </span>
         <strong>{presentation.title}</strong>
         {state.level !== "device" && (

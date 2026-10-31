@@ -27,6 +27,7 @@ export function ResourceActions({
     resourceCatalog(state.deviceId).find((r) => r.id === selected)?.name ??
     entity.name;
   const preview = selected !== state.selected;
+  const exteriorOnly = modelForDevice(state.deviceId).category !== "server";
   return (
     <div className="review-object-actions" aria-label="对象操作">
       <span>对象操作</span>
@@ -62,7 +63,10 @@ export function ResourceActions({
                 </button>
               )}
               <button disabled={!ready} onClick={() => onOpen(selected)}>
-                查看设备内部 ↗
+                {modelForDevice(selected).category === "server"
+                  ? "查看设备内部"
+                  : "查看设备"}{" "}
+                ↗
               </button>
             </>
           ) : (
@@ -81,13 +85,13 @@ export function ResourceActions({
             aria-pressed={state.explosion > 0}
             onClick={() => dispatch({ type: "explode", amount: 1 })}
           >
-            展开部件
+            {exteriorOnly ? "展开配置示意" : "展开部件"}
           </button>
           <button
             disabled={!ready}
             onClick={() => dispatch({ type: "explode", amount: 0 })}
           >
-            复原装配
+            {exteriorOnly ? "复原外观" : "复原装配"}
           </button>
           <label className="review-explode-label">
             展开{" "}

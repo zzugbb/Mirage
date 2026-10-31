@@ -2,10 +2,11 @@ import * as THREE from "three";
 import definition from "../../assets/public/scenes/room-01.json" with { type: "json" };
 import { modelById, partsForDevice } from "../catalog.ts";
 import { devices } from "../installation.ts";
-type Assembly = {
+export type Assembly = {
   root: THREE.Group;
   groups: Map<string, THREE.Group>;
   positions: Map<string, THREE.Vector3>;
+  representations?: { exterior: THREE.Group; schematic: THREE.Group };
 };
 function maker() {
   const materials = new Map<string, THREE.MeshStandardMaterial>();
@@ -251,6 +252,30 @@ function children(
         [w * 0.6, 0.003, 0.005],
         [0, -size[1] * 0.2, size[2] / 2],
         "#9da8ae",
+        0.8,
+      );
+    } else if (id === "sto-drives") {
+      // 4U 24 个 LFF 盘位：4 列 × 6 层，不沿用 2U SFF 的单排立式排列。
+      const width = size[0] / 4,
+        height = size[1] / 6;
+      child.position.set(
+        ((i % 4) - 1.5) * width,
+        (2.5 - Math.floor(i / 4)) * height,
+        0,
+      );
+      box(child, [0.1016, 0.023, 0.147], [0, 0, 0], "#9aa4ac", 0.75);
+      box(
+        child,
+        [width * 0.94, height * 0.88, 0.008],
+        [0, 0, size[2] / 2],
+        "#28333d",
+        0.4,
+      );
+      box(
+        child,
+        [width * 0.6, 0.003, 0.003],
+        [0, -height * 0.2, size[2] / 2 + 0.005],
+        "#b3bec4",
         0.8,
       );
     } else {
