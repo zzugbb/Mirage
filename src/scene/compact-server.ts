@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { createEquipmentAssembly } from "./equipment-model.ts";
 import { partsForDevice } from "../catalog.ts";
 
-/** 已清理纹理与元数据的贡献几何；零件重定父节点时保留装配矩阵。 */
+/** 保留已审核贴图与材质的贡献模型；零件重定父节点时保留装配矩阵。 */
 export function mapCompactServer(root: THREE.Group) {
   const groups = new Map<string, THREE.Group>();
   const positions = new Map<string, THREE.Vector3>();
@@ -92,30 +92,12 @@ export function mapCompactServer(root: THREE.Group) {
   }
   root.traverse((object) => {
     if (!(object instanceof THREE.Mesh)) return;
-    let owner: THREE.Object3D | null = object;
-    while (owner && !owner.userData.entityId) owner = owner.parent;
-    const id = String(owner?.userData.entityId ?? "");
-    const color =
-      id.startsWith("dimm") ||
-      id === "board-01" ||
-      id === "backplane-01" ||
-      id === "nic-01" ||
-      id === "raid-01"
-        ? "#315a46"
-        : id.startsWith("fan") || id === "duct-01"
-          ? "#282e32"
-          : "#9ca6ac";
-    const adjust = (source: THREE.Material) => {
-      if (!(source instanceof THREE.MeshStandardMaterial)) return source;
-      const mat = source.clone();
-      mat.color.set(color);
-      mat.metalness = color === "#315a46" ? 0.15 : 0.65;
-      mat.roughness = 0.4;
-      return mat;
-    };
-    object.material = Array.isArray(object.material)
-      ? object.material.map(adjust)
-      : adjust(object.material);
+    for (const material of Array.isArray(object.material)
+      ? object.material
+      : [object.material]) {
+      if (material instanceof THREE.MeshStandardMaterial && material.map)
+        material.map.anisotropy = 8;
+    }
     object.castShadow = object.receiveShadow = true;
   });
   // 剩余简化件不属于当前装配，释放其几何；已附着的件由场景统一释放。
