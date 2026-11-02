@@ -22,6 +22,7 @@ import {
 } from "../camera";
 import type { CameraView } from "../camera";
 import { StructurePresentation } from "./presentation";
+import { ShellCutaway } from "./shell-cutaway";
 import { createBackdrop, createRoomLights, RenderPipeline } from "./rendering";
 import definition from "../../assets/public/scenes/room-01.json" with { type: "json" };
 import type { PresentationPhase, SceneFeedback } from "../mechanics";
@@ -40,6 +41,17 @@ export class SceneEngine {
   renderer: THREE.WebGLRenderer;
   pipeline: RenderPipeline;
   roomLights: THREE.RectAreaLight[];
+  shellCutaway: ShellCutaway;
+  shellTargets = definition.installation.racks.flatMap((rack) =>
+    [definition.rack.size[1] / 2, definition.rack.size[1]].map(
+      (y) =>
+        new THREE.Vector3(
+          rack.position[0],
+          rack.position[1] + y,
+          rack.position[2],
+        ),
+    ),
+  );
   scene = new THREE.Scene();
   camera = new THREE.PerspectiveCamera(40, 1, 0.01, 150);
   controls: OrbitControls;
@@ -189,6 +201,7 @@ export class SceneEngine {
     this.scene.add(grid);
     for (const group of [
       this.models.room,
+      ...this.models.shellOccluders,
       this.models.rack,
       this.models.rackDoor,
       this.models.rackSlide,
@@ -221,6 +234,7 @@ export class SceneEngine {
         })),
       });
     }
+    this.shellCutaway = new ShellCutaway(this.models.shellOccluders);
     this.scene.add(this.models.root);
     this.scene.add(this.telemetry.root, this.signals.root);
     this.installation = new InstallationScene(this.models);
@@ -986,6 +1000,12 @@ export class SceneEngine {
       !this.reducedMotion &&
       time - this.lastManualInteraction > 4000;
     if (!this.paused) this.controls.update();
+    const cutCount = this.shellCutaway.update(
+      this.camera.position,
+      this.shellTargets,
+      this.models.room.visible,
+    );
+    this.host.dataset.shellCutaway = String(cutCount);
     const feedback: SceneFeedback = {
       key: presentationKey(this.state),
       phase,

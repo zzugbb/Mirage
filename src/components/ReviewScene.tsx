@@ -81,6 +81,7 @@ export function ReviewScene({
   const [quality, setQuality] = useState(true);
   const [supported, setSupported] = useState(false);
   const [orbit, setOrbit] = useState(false);
+  const [cutaway, setCutaway] = useState(true);
   const [sliceControls, setSliceControls] = useState(initialSliceControls);
   const slice = useMemo(
     () =>
@@ -265,6 +266,9 @@ export function ReviewScene({
   useEffect(() => {
     airflowGeometry.current?.update(airflow);
   }, [airflow, retry]);
+  useEffect(() => {
+    if (engine.current) engine.current.shellCutaway.enabled = cutaway;
+  }, [cutaway, retry]);
   const scope = readings.get(
     state.level === "room" ? "room-01" : rackForDevice(state.deviceId).id,
   )!;
@@ -311,7 +315,7 @@ export function ReviewScene({
         ...(host.current
           ?.closest(".review-workspace, .study-workspace")
           ?.querySelectorAll<HTMLElement>(
-            ".review-scene-caption, .review-camera, .review-legend, .review-scene-tools, .review-loading, .review-inspector:not([hidden]), .review-object-actions, .study-layer-control, .study-room-summary, .study-alert-caption, .study-show-detail",
+            ".review-scene-caption, .review-camera, .review-legend, .review-scene-tools, .review-scene-tools details[open] > div, .review-loading, .review-inspector:not([hidden]), .review-object-actions, .study-layer-control, .study-room-summary, .study-alert-caption, .study-show-detail",
           ) ?? []),
       ]
         .filter((element) => element.getClientRects().length)
@@ -840,6 +844,15 @@ export function ReviewScene({
             <details>
               <summary>{compactTools ? "显示" : "画面"}</summary>
               <div>
+                <label title="按视线剖切挡住机柜的墙体与顶架；取消可恢复完整建筑">
+                  <input
+                    type="checkbox"
+                    checked={cutaway}
+                    disabled={state.level !== "room"}
+                    onChange={(e) => setCutaway(e.target.checked)}
+                  />
+                  自动建筑剖切
+                </label>
                 <label>
                   <input
                     type="checkbox"

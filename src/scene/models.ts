@@ -93,7 +93,7 @@ export function buildModels() {
   const root = new THREE.Group();
   const room = identify(new THREE.Group(), "room-01");
   root.add(room);
-  buildRoomShell(room, box, glow, text);
+  const shellOccluders = buildRoomShell(room, box, glow, text);
   const facilities = new Map<string, THREE.Group>();
   const fans: THREE.Group[] = [];
   for (const config of definition.facilities) {
@@ -329,6 +329,7 @@ export function buildModels() {
   return {
     root,
     room,
+    shellOccluders,
     rack,
     rackDoor,
     rackSlide,
