@@ -10,6 +10,14 @@
       12
     ],
     "wallThickness": 0.16,
+    "maintenance": {
+      "description": "当前同向机柜的维护范围预留示意，非实测净距或工程校核",
+      "frontDepth": 1.2,
+      "rearDepth": 0.9,
+      "sidePadding": 0.2,
+      "floorY": 0.075,
+      "color": "#a4b7c1"
+    },
     "fixtures": [
       {
         "id": "access-reader-01",

@@ -1061,7 +1061,7 @@ export class SceneEngine {
     }
     for (const element of this.anchorElements) {
       const id = element.dataset.anchor!;
-      if (element.dataset.anchorKind === "flow") {
+      if (element.dataset.anchorKind === "position") {
         const point = element.dataset.anchorPosition!.split(",").map(Number);
         this.anchorPosition.fromArray(point).project(this.camera);
         const x = (this.anchorPosition.x * 0.5 + 0.5) * this.host.clientWidth;

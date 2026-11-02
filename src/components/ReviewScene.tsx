@@ -23,6 +23,8 @@ import { TemperatureSliceGeometry } from "../scene/temperature-slice";
 import { airflowSnapshot, airflowVisualTime } from "../airflow";
 import { AirflowGeometry } from "../scene/airflow";
 import { placeFlowLabel } from "../airflow-label-layout";
+import { maintenanceAreas } from "../maintenance";
+import { MaintenanceGeometry } from "../scene/maintenance";
 
 const initialSliceControls = () => ({
   orientation: "horizontal" as SliceOrientation,
@@ -68,6 +70,7 @@ export function ReviewScene({
   const dataGeometry = useRef<ReviewDataGeometry | null>(null);
   const sliceGeometry = useRef<TemperatureSliceGeometry | null>(null);
   const airflowGeometry = useRef<AirflowGeometry | null>(null);
+  const maintenanceGeometry = useRef<MaintenanceGeometry | null>(null);
   const clockEpoch = useRef(performance.now());
   const previousScene = useRef(state);
   const currentState = useRef(state);
@@ -97,6 +100,13 @@ export function ReviewScene({
     [readings, sliceControls, layer, state.level],
   );
   const sliceRow = sliceRackRows.find((row) => row.id === slice?.rowId);
+  const maintenance = useMemo(
+    () =>
+      layer === "overview" && state.level === "room"
+        ? maintenanceAreas(selectedId)
+        : [],
+    [layer, state.level, selectedId],
+  );
   const airflow = useMemo(
     () =>
       layer === "environment" && state.level === "room"
@@ -162,7 +172,11 @@ export function ReviewScene({
       const flow = new AirflowGeometry();
       active.models.root.add(flow.root);
       airflowGeometry.current = flow;
+      const areas = new MaintenanceGeometry();
+      active.models.root.add(areas.root);
+      maintenanceGeometry.current = areas;
       active.onRenderFrame = (now, roomReady) => {
+        areas.setReady(roomReady);
         flow.animate(
           airflowVisualTime(
             currentState.current,
@@ -194,6 +208,8 @@ export function ReviewScene({
       sliceGeometry.current = null;
       airflowGeometry.current?.dispose();
       airflowGeometry.current = null;
+      maintenanceGeometry.current?.dispose();
+      maintenanceGeometry.current = null;
       active?.dispose();
       engine.current = null;
     };
@@ -267,6 +283,9 @@ export function ReviewScene({
     airflowGeometry.current?.update(airflow);
   }, [airflow, retry]);
   useEffect(() => {
+    maintenanceGeometry.current?.update(maintenance);
+  }, [maintenance, retry]);
+  useEffect(() => {
     if (engine.current) engine.current.shellCutaway.enabled = cutaway;
   }, [cutaway, retry]);
   const scope = readings.get(
@@ -304,7 +323,8 @@ export function ReviewScene({
     .slice(0, state.level === "room" ? 6 : 3);
   const labelKey =
     labels.map((r) => r.id).join(":") +
-    (airflow?.routes.map((route) => route.id).join(":") ?? "");
+    (airflow?.routes.map((route) => route.id).join(":") ?? "") +
+    maintenance.map((area) => area.id).join(":");
   useEffect(() => {
     if (anchors.current) engine.current?.bindAnchors(anchors.current);
     // 投影先由引擎完成；按选择和异常优先级移除碰撞标签。
@@ -329,7 +349,7 @@ export function ReviewScene({
         );
         if (line) line.style.visibility = "hidden";
         if (label.hidden) continue;
-        if (label.dataset.anchorKind === "flow" && sceneRect) {
+        if (label.dataset.anchorKind === "position" && sceneRect) {
           const x = Number(label.dataset.screenX),
             y = Number(label.dataset.screenY);
           const rect = placeFlowLabel(
@@ -416,6 +436,7 @@ export function ReviewScene({
         .map((route) => route.deviceId)
         .join(",")}
       data-airflow-input={airflow?.coolingCapacity}
+      data-maintenance-rack={maintenance[0]?.rackId}
     >
       <div className="review-viewport">
         <div
@@ -498,6 +519,24 @@ export function ReviewScene({
           </details>
         </div>
         <div className="review-anchors" ref={anchors}>
+          {maintenance.map((area) => (
+            <div
+              key={area.id}
+              hidden
+              aria-hidden="true"
+              data-anchor={area.id}
+              data-anchor-kind="position"
+              data-anchor-position={area.position.join(",")}
+              className="review-flow-anchor review-maintenance-anchor"
+            >
+              <b>
+                {area.rackName.split(" ")[0]} ·{" "}
+                {area.kind === "front" ? "柜前操作" : "柜后检修"}{" "}
+                {area.depth.toFixed(2)} m
+              </b>
+              <small>预留示意 · 非实测净距</small>
+            </div>
+          ))}
           {airflow?.routes.flatMap((route) =>
             route.endpoints.map((endpoint) => (
               <div
@@ -505,7 +544,7 @@ export function ReviewScene({
                 hidden
                 aria-hidden="true"
                 data-anchor={`${route.id}-${endpoint.kind}`}
-                data-anchor-kind="flow"
+                data-anchor-kind="position"
                 data-anchor-position={endpoint.point.join(",")}
                 className={`review-flow-anchor flow-${endpoint.kind} ${route.animated ? "" : "is-static"}`}
               >
@@ -589,9 +628,12 @@ export function ReviewScene({
               : "部分模型不可用 · 已使用简化结构"}
           </div>
         )}
-        {airflow && (
+        {(airflow || maintenance.length > 0) && (
           <svg className="review-flow-lines" aria-hidden="true" ref={flowLines}>
-            {airflow.routes.flatMap((route) =>
+            {maintenance.map((area) => (
+              <line key={area.id} data-flow-line={area.id} />
+            ))}
+            {airflow?.routes.flatMap((route) =>
               route.endpoints.map((endpoint) => (
                 <line
                   key={`${route.id}-${endpoint.kind}`}

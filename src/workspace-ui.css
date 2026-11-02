@@ -564,6 +564,24 @@
 .review-flow-anchor.is-static {
   border-color: #89989d;
 }
+.review-maintenance-anchor {
+  border-color: #a4b7c1;
+}
+.study-maintenance-config {
+  font-size: 11px;
+  color: #b1c2cc;
+}
+.study-maintenance-config > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 8px 0;
+}
+.study-maintenance-config dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
 .review-flow-lines {
   position: absolute;
   inset: 0;

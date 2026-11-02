@@ -27,6 +27,7 @@ import {
 } from "./review-resources";
 import type { ResourceFilter } from "./review-resources";
 import { devices, rackForDevice } from "./installation";
+import { maintenanceAreas } from "./maintenance";
 import { ResourceActions } from "./components/ResourceActions";
 import { ReviewScene } from "./components/ReviewScene";
 import { ReviewTrend } from "./components/ReviewTrend";
@@ -138,6 +139,7 @@ export function Workspace() {
     (r) => r.id === selected,
   )!;
   const entity = entityById(selected)!;
+  const maintenance = useMemo(() => maintenanceAreas(selected), [selected]);
   const component = entity.kind === "part";
   const ready =
     !review.pendingId &&
@@ -663,35 +665,37 @@ export function Workspace() {
               ) : null
             }
           />
-          {state.level === "room" && layer === "overview" && (
-            <div className="study-room-summary">
-              <span>01 号机房</span>
-              <h1>运行概览</h1>
-              <div>
-                <p>
-                  <strong>
-                    {room.lifecycleCounts.running}
-                    <small>台</small>
-                  </strong>
-                  <span>运行设备</span>
-                </p>
-                <p>
-                  <strong>
-                    {power(room.power)}
-                    <small>kW</small>
-                  </strong>
-                  <span>已知输入功耗</span>
-                </p>
+          {state.level === "room" &&
+            layer === "overview" &&
+            maintenance.length === 0 && (
+              <div className="study-room-summary">
+                <span>01 号机房</span>
+                <h1>运行概览</h1>
+                <div>
+                  <p>
+                    <strong>
+                      {room.lifecycleCounts.running}
+                      <small>台</small>
+                    </strong>
+                    <span>运行设备</span>
+                  </p>
+                  <p>
+                    <strong>
+                      {power(room.power)}
+                      <small>kW</small>
+                    </strong>
+                    <span>已知输入功耗</span>
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    pick("room-01");
+                  }}
+                >
+                  查看机房详情
+                </button>
               </div>
-              <button
-                onClick={() => {
-                  pick("room-01");
-                }}
-              >
-                查看机房详情
-              </button>
-            </div>
-          )}
+            )}
           {layer === "alarms" && state.level === "room" && (
             <div className="study-alert-caption">
               <span>当前异常</span>
@@ -860,6 +864,25 @@ export function Workspace() {
                 <details className="study-configuration">
                   <summary>配置与数据说明</summary>
                   <p>{entity.description}</p>
+                  {maintenance.length > 0 && (
+                    <>
+                      <dl className="study-maintenance-config">
+                        {maintenance.map((area) => (
+                          <div key={area.id}>
+                            <dt>{area.title}</dt>
+                            <dd>
+                              {area.depth.toFixed(2)} × {area.width.toFixed(2)}{" "}
+                              m
+                            </dd>
+                          </div>
+                        ))}
+                      </dl>
+                      <p>
+                        尺寸为进深 ×
+                        宽度的预留示意，不是实测净距或工程校核。场景总览选中机柜时显示范围。
+                      </p>
+                    </>
+                  )}
                   <p>{reading?.source}</p>
                   <p>
                     当前数据为确定性模拟。空缺不按零值计算；部件读数为模型推导。
