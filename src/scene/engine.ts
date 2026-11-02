@@ -1041,6 +1041,25 @@ export class SceneEngine {
     }
     for (const element of this.anchorElements) {
       const id = element.dataset.anchor!;
+      if (element.dataset.anchorKind === "flow") {
+        const point = element.dataset.anchorPosition!.split(",").map(Number);
+        this.anchorPosition.fromArray(point).project(this.camera);
+        const x = (this.anchorPosition.x * 0.5 + 0.5) * this.host.clientWidth;
+        const y = (-this.anchorPosition.y * 0.5 + 0.5) * this.host.clientHeight;
+        element.dataset.screenX = String(x);
+        element.dataset.screenY = String(y);
+        element.hidden =
+          this.state.level !== "room" ||
+          frame.busy ||
+          frame.relocation !== 0 ||
+          this.anchorPosition.z < -1 ||
+          this.anchorPosition.z > 1 ||
+          x < 0 ||
+          x > this.host.clientWidth ||
+          y < 0 ||
+          y > this.host.clientHeight;
+        continue;
+      }
       const rackAnchor = element.dataset.anchorKind === "rack";
       const deviceAnchor = element.dataset.anchorKind === "device";
       const partAnchor = element.dataset.anchorKind === "part";

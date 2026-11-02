@@ -17,6 +17,17 @@ export class AirflowGeometry {
   cone = new THREE.ConeGeometry(0.065, 0.19, 8);
   sphere = new THREE.SphereGeometry(0.055, 8, 6);
   ribbon = new THREE.CylinderGeometry(1, 1, 1, 6);
+  endpointGeometry = new THREE.TorusGeometry(0.1, 0.018, 6, 20);
+  endpoints = new THREE.InstancedMesh(
+    this.endpointGeometry,
+    new THREE.MeshBasicMaterial({
+      transparent: true,
+      opacity: 0.9,
+      depthWrite: false,
+      toneMapped: false,
+    }),
+    maximumRoutes * 4,
+  );
   batches = kinds.map((kind) => {
     const arrows = new THREE.InstancedMesh(
       this.cone,
@@ -72,6 +83,11 @@ export class AirflowGeometry {
   enabled = false;
   constructor() {
     this.root.visible = false;
+    this.endpoints.count = 0;
+    this.endpoints.raycast = () => {};
+    this.endpoints.frustumCulled = false;
+    this.endpoints.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    this.root.add(this.endpoints);
   }
   at(path: CachedPath, t: number, target: THREE.Vector3) {
     const scaled = Math.max(0, Math.min(1, t)) * airflowSettings.samples,
@@ -84,6 +100,37 @@ export class AirflowGeometry {
     this.enabled = !!snapshot?.routes.length;
     this.root.visible = this.enabled;
     if (!snapshot) return;
+    let endpointIndex = 0;
+    for (const route of snapshot.routes)
+      for (const endpoint of route.endpoints) {
+        this.transform.position.fromArray(endpoint.point);
+        this.transform.scale.setScalar(1);
+        this.transform.rotation.set(
+          endpoint.kind === "floor" ? -Math.PI / 2 : 0,
+          0,
+          0,
+        );
+        this.transform.updateMatrix();
+        this.endpoints.setMatrixAt(endpointIndex, this.transform.matrix);
+        this.endpoints.setColorAt(
+          endpointIndex++,
+          new THREE.Color(
+            route.animated
+              ? airflowSettings.colors[
+                  endpoint.kind === "floor"
+                    ? "supply"
+                    : endpoint.kind === "intake"
+                      ? "through"
+                      : endpoint.kind
+                ]
+              : airflowSettings.colors.unknown,
+          ),
+        );
+      }
+    this.endpoints.count = endpointIndex;
+    this.endpoints.instanceMatrix.needsUpdate = true;
+    if (this.endpoints.instanceColor)
+      this.endpoints.instanceColor.needsUpdate = true;
     const key = JSON.stringify(
       snapshot.routes.map((route) => [route.id, route.segments]),
     );
@@ -181,9 +228,12 @@ export class AirflowGeometry {
               1) %
             1;
           this.at(path, t, this.position);
+          this.at(path, Math.min(1, t + 0.01), this.tangent)
+            .sub(this.position)
+            .normalize();
           this.transform.position.copy(this.position);
-          this.transform.scale.setScalar(1);
-          this.transform.quaternion.identity();
+          this.transform.scale.set(0.65, 1.8, 0.65);
+          this.transform.quaternion.setFromUnitVectors(this.up, this.tangent);
           this.transform.updateMatrix();
           batch.sparks.setMatrixAt(count, this.transform.matrix);
           batch.sparks.setColorAt(count, path.color);
@@ -200,6 +250,9 @@ export class AirflowGeometry {
     this.cone.dispose();
     this.sphere.dispose();
     this.ribbon.dispose();
+    this.endpointGeometry.dispose();
+    this.endpoints.material.dispose();
+    this.endpoints.dispose();
     for (const batch of this.batches) {
       for (const mesh of [batch.arrows, batch.sparks, batch.band]) {
         mesh.material.dispose();

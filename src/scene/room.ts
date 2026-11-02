@@ -105,8 +105,10 @@ export function buildRoomShell(
     );
   text(room, "MIRAGE  /  01", [-2.6, 3.38, back + 0.15], 0.25);
   // 两排机柜前方保留通行与送风格栅，地面线只作空间导向。
-  for (const z of [3.05, -0.55]) {
-    for (let x = -4.1; x < 4.2; x += 0.5) {
+  for (const { z } of definition.airflow.floorOutlets) {
+    const { startX, step, count } = definition.airflow.floorGrid;
+    for (let i = 0; i < count; i++) {
+      const x = startX + i * step;
       box(room, [0.44, 0.008, 0.46], [x, 0.052, z], "#27333e", 0.5);
       for (let k = 0; k < 7; k++)
         box(

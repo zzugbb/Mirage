@@ -17,6 +17,12 @@ import { sliceRackRows } from "./temperature-slice.ts";
 export const airflowSettings = definition.airflow;
 export type FlowPoint = [number, number, number];
 export type FlowKind = "supply" | "through" | "return";
+export type FlowEndpoint = {
+  kind: "supply" | "floor" | "intake" | "return";
+  point: FlowPoint;
+  title: string;
+  detail: string;
+};
 export type AirflowRoute = {
   id: string;
   sourceId: string;
@@ -24,6 +30,7 @@ export type AirflowRoute = {
   rackId: string;
   animated: boolean;
   status: string;
+  endpoints: FlowEndpoint[];
   segments: { kind: FlowKind; points: FlowPoint[] }[];
 };
 export type AirflowSnapshot = ReturnType<typeof airflowSnapshot>;
@@ -121,7 +128,7 @@ export function airflowSnapshot(
         ? [representative(selectedRack.id)]
         : row
           ? [representative(row.rackIds[0])]
-          : sliceRackRows.map((row) => representative(row.rackIds[0]));
+          : [representative(sliceRackRows[0].rackIds[0])];
   const routes: AirflowRoute[] = [];
   for (const target of targets) {
     if (
@@ -142,12 +149,33 @@ export function airflowSnapshot(
     const rack = rackForDevice(target.id),
       h = deviceHeight(target.id),
       [x, , z] = rack.position;
+    const rackRow = sliceRackRows.find((row) => row.rackIds.includes(rack.id));
+    const floorOutlet = airflowSettings.floorOutlets.find(
+      (outlet) => outlet.rowId === rackRow?.id,
+    );
+    if (!floorOutlet) continue;
     const front = z + definition.rack.size[2] / 2,
       rear = z - definition.rack.size[2] / 2;
     const outlet = plus(source.position, airflowSettings.supplyOffset),
       inlet = plus(source.position, airflowSettings.returnOffset);
     const intake: FlowPoint = [x, h, front + airflowSettings.faceClearance],
       exhaust: FlowPoint = [x, h, rear - airflowSettings.faceClearance];
+    const grid = airflowSettings.floorGrid;
+    const floor: FlowPoint = [
+      grid.startX +
+        Math.max(
+          0,
+          Math.min(grid.count - 1, Math.round((x - grid.startX) / grid.step)),
+        ) *
+          grid.step,
+      airflowSettings.supplyHeight,
+      floorOutlet.z,
+    ];
+    const returnTurn: FlowPoint = [
+      x,
+      airflowSettings.returnHeight,
+      rear - airflowSettings.rearApproach,
+    ];
     const reading = readings.get(target.id);
     const animated =
       reading?.quality === "valid" &&
@@ -170,6 +198,32 @@ export function airflowSnapshot(
       rackId: rack.id,
       animated,
       status,
+      endpoints: [
+        {
+          kind: "supply",
+          point: outlet,
+          title: "送风 · 逻辑端点",
+          detail: `${source.name} · 冷却输入 ${Math.round(coolingCapacityAt(time))}%`,
+        },
+        {
+          kind: "floor",
+          point: floor,
+          title: "地板送风",
+          detail: `${rack.name.split(" ")[0]} 柜前格栅 · 假设送出位置`,
+        },
+        {
+          kind: "intake",
+          point: intake,
+          title: "设备进风",
+          detail: `${target.name} · ${animated ? `${reading.temperature!.toFixed(1)} °C · 模拟` : status}`,
+        },
+        {
+          kind: "return",
+          point: returnTurn,
+          title: "回风假设",
+          detail: `柜后 → ${source.name} · 无排风测点`,
+        },
+      ],
       segments: [
         {
           kind: "supply",
@@ -183,14 +237,10 @@ export function airflowSnapshot(
             [
               airflowSettings.serviceAisleX,
               airflowSettings.supplyHeight,
-              front + airflowSettings.frontApproach,
+              floor[2],
             ],
-            [
-              x,
-              airflowSettings.supplyHeight,
-              front + airflowSettings.frontApproach,
-            ],
-            [x, h, front + airflowSettings.frontApproach],
+            floor,
+            [floor[0], h, floor[2]],
             intake,
           ]),
         },
@@ -200,11 +250,7 @@ export function airflowSnapshot(
           points: roundedFlowPath([
             exhaust,
             [x, h, rear - airflowSettings.rearApproach],
-            [
-              x,
-              airflowSettings.returnHeight,
-              rear - airflowSettings.rearApproach,
-            ],
+            returnTurn,
             [
               airflowSettings.serviceAisleX,
               airflowSettings.returnHeight,

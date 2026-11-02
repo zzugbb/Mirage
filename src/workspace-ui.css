@@ -529,6 +529,83 @@
 .workspace-ui .review-anchor small {
   font-size: 10px;
 }
+.review-flow-anchor {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 2;
+  width: max-content;
+  max-width: 185px;
+  padding: 6px 9px;
+  border-left: 2px solid #5fc9df;
+  border-radius: 3px;
+  background: #18242ded;
+  color: #d2e5e8;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.review-flow-anchor[hidden] {
+  display: none;
+}
+.review-flow-anchor b {
+  font-weight: 550;
+}
+.review-flow-anchor small {
+  display: block;
+  font-size: 10px;
+  color: #a8bcc6;
+}
+.review-flow-anchor.flow-intake {
+  border-color: #b5e0d7;
+}
+.review-flow-anchor.flow-return {
+  border-color: #c2bfae;
+}
+.review-flow-anchor.is-static {
+  border-color: #89989d;
+}
+.review-flow-lines {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.review-flow-lines line {
+  stroke: #b6c9cd;
+  stroke-width: 1;
+  opacity: 0.65;
+}
+.review-flow-explanation {
+  border-top: 1px solid #ffffff12;
+  padding-top: 7px;
+}
+.review-flow-explanation summary {
+  cursor: pointer;
+  color: #c0d7dc;
+  font-size: 11px;
+}
+.review-flow-explanation ol {
+  padding-left: 18px;
+  margin: 10px 0;
+}
+.review-flow-explanation li {
+  margin: 7px 0;
+  line-height: 1.5;
+}
+.review-flow-explanation li span {
+  display: block;
+  font-size: 10px;
+}
+.review-flow-explanation p {
+  font-size: 10px;
+  line-height: 1.6;
+  margin: 8px 0 0;
+}
+.workspace-ui .review-slice-legend:has(.review-flow-explanation[open]) {
+  max-height: calc(100% - 140px);
+  overflow-y: auto;
+}
 .workspace-ui .review-scene-toolbar {
   position: absolute;
   z-index: 13;
@@ -1324,6 +1401,27 @@
     bottom: 16px;
     font-size: 9px;
   }
+  .workspace-ui .review-slice-legend {
+    width: calc(100% - 32px);
+    padding: 10px 12px;
+  }
+  .workspace-ui .review-slice-legend:has(.review-flow-explanation[open]) {
+    max-height: calc(100% - 184px);
+  }
+  .workspace-ui .review-slice-heading {
+    margin-bottom: 6px;
+  }
+  .workspace-ui .review-legend > .review-slice-controls {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 6px 12px;
+    margin-top: 6px;
+    padding-top: 6px;
+  }
+  .workspace-ui .review-slice-controls .review-slice-stats,
+  .workspace-ui .review-slice-controls > small,
+  .workspace-ui .review-flow-explanation {
+    grid-column: 1 / -1;
+  }
   .workspace-ui .review-object-actions {
     bottom: 16px;
   }
@@ -1338,6 +1436,12 @@
   .study-show-detail {
     right: 12px;
     bottom: 48px;
+  }
+  .workspace-ui[data-layer="environment"][data-scene-level="room"]
+    .study-show-detail {
+    top: 118px;
+    bottom: auto;
+    right: 16px;
   }
   .workspace-ui .review-analysis-body {
     display: flex;

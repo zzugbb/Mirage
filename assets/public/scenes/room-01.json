@@ -124,10 +124,14 @@
     "serviceAisleX": -4.7,
     "supplyHeight": 0.16,
     "returnHeight": 2.65,
-    "frontApproach": 0.7,
     "rearApproach": 0.45,
     "faceClearance": 0.08,
     "representativeHeight": 1.2,
+    "floorOutlets": [
+      { "rowId": "row-a", "z": 3.05 },
+      { "rowId": "row-b", "z": -0.55 }
+    ],
+    "floorGrid": { "startX": -4.1, "step": 0.5, "count": 17 },
     "cornerRadius": 0.12,
     "samples": 64,
     "visualCyclesPerSecond": 0.12,

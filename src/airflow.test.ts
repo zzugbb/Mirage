@@ -12,12 +12,13 @@ import { devices, racks, deviceHeight, rackForDevice } from "./installation.ts";
 import { spatialSnapshot } from "./spatial.ts";
 import { simulate } from "./simulation.ts";
 import { AirflowGeometry } from "./scene/airflow.ts";
+import { placeFlowLabel } from "./airflow-label-layout.ts";
 
 test("气流代表路径绑定已登记冷却关系，选中设备与机柜排都有明确范围", () => {
   const readings = spatialSnapshot(60).readings;
   const room = airflowSnapshot(60, readings);
-  assert.equal(room.routes.length, 2);
-  assert.equal(new Set(room.routes.map((route) => route.rackId)).size, 2);
+  assert.equal(room.routes.length, 1);
+  assert.equal(room.routes[0].rackId, "rack-a01");
   const selected = devices.find((device) => device.rackId === "rack-a07")!;
   const device = airflowSnapshot(60, readings, selected.id);
   assert.equal(device.routes.length, 1);
@@ -47,6 +48,65 @@ test("气流代表路径绑定已登记冷却关系，选中设备与机柜排�
       ],
       "front-to-rear-assumed",
     );
+});
+
+test("四个气流端点对应已配置设施、格栅与设备，读数不扩展为环境或排风测点", () => {
+  for (const device of devices) {
+    const readings = spatialSnapshot(60).readings;
+    const route = airflowSnapshot(60, readings, device.id).routes[0];
+    const [supply, floor, intake, returning] = route.endpoints;
+    assert.deepEqual(
+      route.endpoints.map((endpoint) => endpoint.kind),
+      ["supply", "floor", "intake", "return"],
+    );
+    assert.deepEqual(supply.point, route.segments[0].points[0]);
+    assert.deepEqual(intake.point, route.segments[1].points[0]);
+    const row = definition.temperatureSlice.vertical.rows.find((row) =>
+      row.rackIds.includes(device.rackId),
+    )!;
+    assert.equal(
+      floor.point[2],
+      airflowSettings.floorOutlets.find((outlet) => outlet.rowId === row.id)!.z,
+    );
+    const grid = airflowSettings.floorGrid;
+    assert.ok(
+      Math.abs(
+        (floor.point[0] - grid.startX) / grid.step -
+          Math.round((floor.point[0] - grid.startX) / grid.step),
+      ) < 1e-8,
+    );
+    assert.ok(floor.point[2] > intake.point[2]);
+    assert.equal(returning.point[1], airflowSettings.returnHeight);
+    assert.ok(returning.point[2] < route.segments[1].points[1][2]);
+    assert.match(returning.detail, /无排风测点/);
+    assert.doesNotMatch(returning.detail, /°C|m\/s/);
+    if (route.animated)
+      assert.match(
+        intake.detail,
+        new RegExp(`${readings.get(device.id)!.temperature!.toFixed(1)} °C`),
+      );
+    else {
+      assert.match(intake.detail, /静态/);
+      assert.doesNotMatch(intake.detail, /°C/);
+    }
+  }
+});
+
+test("气流标签就近避开控件、已放标签和边界，空间不足时不覆盖控件", () => {
+  const bounds = { left: 0, top: 0, right: 390, bottom: 500 };
+  const control = { left: 10, top: 350, right: 280, bottom: 490 };
+  const first = placeFlowLabel(180, 320, 150, 40, bounds, [control])!;
+  assert.ok(first);
+  const second = placeFlowLabel(180, 320, 150, 40, bounds, [control, first])!;
+  assert.ok(second);
+  assert.ok(
+    second.bottom + 8 <= first.top ||
+      first.bottom + 8 <= second.top ||
+      second.right + 8 <= first.left ||
+      first.right + 8 <= second.left,
+  );
+  assert.ok(placeFlowLabel(5, 5, 140, 40, bounds, []));
+  assert.equal(placeFlowLabel(180, 320, 150, 40, bounds, [bounds]), null);
 });
 
 test("送风与回风绕开柜体，穿柜沿实际U位从正面向背面，回风不穿过上方桥架", () => {
@@ -152,6 +212,8 @@ test("气流几何复用缓冲与材质，粒子可重复定位，减少动态�
   const geometry = new AirflowGeometry(),
     snapshot = airflowSnapshot(60, spatialSnapshot(60).readings);
   geometry.update(snapshot);
+  assert.equal(geometry.endpoints.count, snapshot.routes.length * 4);
+  assert.equal(geometry.endpoints.material.depthTest, true);
   const buffers = geometry.batches.map((batch) => [
     batch.band.geometry,
     batch.band.material,
@@ -217,6 +279,8 @@ test("气流几何复用缓冲与材质，粒子可重复定位，减少动态�
     geometry.cone,
     geometry.sphere,
     geometry.ribbon,
+    geometry.endpointGeometry,
+    geometry.endpoints.material,
     ...geometry.batches.flatMap((batch) => [
       batch.arrows.material,
       batch.sparks.material,
@@ -227,6 +291,6 @@ test("气流几何复用缓冲与材质，粒子可重复定位，减少动态�
   geometry.update(null);
   assert.equal(geometry.root.visible, false);
   geometry.dispose();
-  assert.equal(disposed, 12);
+  assert.equal(disposed, 14);
   assert.equal(geometry.root.children.length, 0);
 });

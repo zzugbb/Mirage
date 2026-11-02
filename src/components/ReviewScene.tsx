@@ -22,6 +22,7 @@ import type { SliceOrientation } from "../temperature-slice";
 import { TemperatureSliceGeometry } from "../scene/temperature-slice";
 import { airflowSnapshot, airflowVisualTime } from "../airflow";
 import { AirflowGeometry } from "../scene/airflow";
+import { placeFlowLabel } from "../airflow-label-layout";
 
 const initialSliceControls = () => ({
   orientation: "horizontal" as SliceOrientation,
@@ -61,6 +62,7 @@ export function ReviewScene({
 }) {
   const host = useRef<HTMLDivElement>(null);
   const anchors = useRef<HTMLDivElement>(null);
+  const flowLines = useRef<SVGSVGElement>(null);
   const engine = useRef<SceneEngine | null>(null);
   const initial = useRef(state);
   const dataGeometry = useRef<ReviewDataGeometry | null>(null);
@@ -296,7 +298,9 @@ export function ReviewScene({
               (readings.get(a.id)?.power ?? -Infinity)),
     )
     .slice(0, state.level === "room" ? 6 : 3);
-  const labelKey = labels.map((r) => r.id).join(":");
+  const labelKey =
+    labels.map((r) => r.id).join(":") +
+    (airflow?.routes.map((route) => route.id).join(":") ?? "");
   useEffect(() => {
     if (anchors.current) engine.current?.bindAnchors(anchors.current);
     // 投影先由引擎完成；按选择和异常优先级移除碰撞标签。
@@ -309,12 +313,64 @@ export function ReviewScene({
           ?.querySelectorAll<HTMLElement>(
             ".review-scene-caption, .review-camera, .review-legend, .review-scene-tools, .review-loading, .review-inspector:not([hidden]), .review-object-actions, .study-layer-control, .study-room-summary, .study-alert-caption, .study-show-detail",
           ) ?? []),
-      ].map((element) => element.getBoundingClientRect());
+      ]
+        .filter((element) => element.getClientRects().length)
+        .map((element) => element.getBoundingClientRect());
       for (const label of anchors.current?.querySelectorAll<HTMLElement>(
-        "button",
+        "[data-anchor]",
       ) ?? []) {
         label.style.visibility = "";
+        const line = flowLines.current?.querySelector<SVGLineElement>(
+          `[data-flow-line="${label.dataset.anchor}"]`,
+        );
+        if (line) line.style.visibility = "hidden";
         if (label.hidden) continue;
+        if (label.dataset.anchorKind === "flow" && sceneRect) {
+          const x = Number(label.dataset.screenX),
+            y = Number(label.dataset.screenY);
+          const rect = placeFlowLabel(
+            x + sceneRect.left,
+            y + sceneRect.top,
+            label.offsetWidth,
+            label.offsetHeight,
+            sceneRect,
+            accepted,
+          );
+          label.style.visibility = rect ? "" : "hidden";
+          if (rect) {
+            label.style.transform = `translate(${rect.left - sceneRect.left}px,${rect.top - sceneRect.top}px)`;
+            accepted.push(
+              new DOMRect(
+                rect.left,
+                rect.top,
+                rect.right - rect.left,
+                rect.bottom - rect.top,
+              ),
+            );
+            if (line) {
+              line.style.visibility = "";
+              line.setAttribute("x1", String(x));
+              line.setAttribute("y1", String(y));
+              line.setAttribute(
+                "x2",
+                String(
+                  Math.max(
+                    rect.left,
+                    Math.min(rect.right, x + sceneRect.left),
+                  ) - sceneRect.left,
+                ),
+              );
+              line.setAttribute(
+                "y2",
+                String(
+                  Math.max(rect.top, Math.min(rect.bottom, y + sceneRect.top)) -
+                    sceneRect.top,
+                ),
+              );
+            }
+          }
+          continue;
+        }
         const rect = label.getBoundingClientRect();
         if (
           (sceneRect &&
@@ -438,6 +494,22 @@ export function ReviewScene({
           </details>
         </div>
         <div className="review-anchors" ref={anchors}>
+          {airflow?.routes.flatMap((route) =>
+            route.endpoints.map((endpoint) => (
+              <div
+                key={`${route.id}-${endpoint.kind}`}
+                hidden
+                aria-hidden="true"
+                data-anchor={`${route.id}-${endpoint.kind}`}
+                data-anchor-kind="flow"
+                data-anchor-position={endpoint.point.join(",")}
+                className={`review-flow-anchor flow-${endpoint.kind} ${route.animated ? "" : "is-static"}`}
+              >
+                <b>{endpoint.title}</b>
+                <small>{endpoint.detail}</small>
+              </div>
+            )),
+          )}
           {labels.map((item) => {
             const reading = readings.get(item.id)!;
             const signal = signalStyles[signalFor(reading)];
@@ -512,6 +584,18 @@ export function ReviewScene({
               ? "详细模型加载中 · 可继续浏览"
               : "部分模型不可用 · 已使用简化结构"}
           </div>
+        )}
+        {airflow && (
+          <svg className="review-flow-lines" aria-hidden="true" ref={flowLines}>
+            {airflow.routes.flatMap((route) =>
+              route.endpoints.map((endpoint) => (
+                <line
+                  key={`${route.id}-${endpoint.kind}`}
+                  data-flow-line={`${route.id}-${endpoint.kind}`}
+                />
+              )),
+            )}
+          </svg>
         )}
         <div
           className={`review-legend ${slice ? "review-slice-legend" : ""}`}
@@ -653,6 +737,27 @@ export function ReviewScene({
                       ? "局部插值示意 · 空白无估计"
                       : `高 ${sliceSettings.height.min.toFixed(2)}–${sliceSettings.height.max.toFixed(2)} m · 插值示意 · 空白无估计`}
                   </small>
+                  {airflow && (
+                    <details className="review-flow-explanation">
+                      <summary>
+                        气流路径 ·{" "}
+                        {airflow.routes[0]?.animated ? "代表支路" : "静态示意"}
+                      </summary>
+                      <ol aria-label="气流端点与读数">
+                        {airflow.routes.flatMap((route) =>
+                          route.endpoints.map((endpoint) => (
+                            <li key={`${route.id}-${endpoint.kind}`}>
+                              <b>{endpoint.title}</b>
+                              <span>{endpoint.detail}</span>
+                            </li>
+                          )),
+                        )}
+                      </ol>
+                      <p>
+                        当前机柜同向，假设前进后出。送风沿低位侧通道至柜前格栅，再穿柜并从上方回到制冷单元；未建立架空地板风腔或封闭冷热通道。端点均为代表位置，线宽和脉冲速度不表示风量或风速。暂停可读方向；停机、维护或观测无效时仅保留灰色静态路径。
+                      </p>
+                    </details>
+                  )}
                 </div>
               )}
               {layer === "power" && <small>灰色：数据或预算未定义</small>}
