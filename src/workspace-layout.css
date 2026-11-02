@@ -1,0 +1,582 @@
+/* 工作区控件统一尺寸：导航、对象、场景操作与时间各占一个区域。 */
+.design-review {
+  --review-line: #2a393f;
+  --review-accent: #a9d3d4;
+}
+.design-review button {
+  box-shadow: none;
+}
+.design-review .review-layerbar {
+  padding: 0 16px;
+  gap: 16px;
+  min-height: 48px;
+  background: #151e22;
+}
+.design-review .review-resource-toggle {
+  height: 32px;
+  min-height: 32px;
+  margin: 0;
+  padding: 0 12px;
+  gap: 7px;
+  border: 1px solid #34464d;
+  border-radius: 4px;
+  background: transparent;
+}
+.design-review .review-resource-toggle:hover {
+  background: #26363d;
+}
+.design-review .review-layers {
+  gap: 8px;
+}
+.design-review .review-layers button {
+  padding: 0 14px;
+  min-height: 48px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.design-review .review-layers button:hover {
+  background: #ffffff06;
+  color: #e4f0ed;
+}
+.design-review .review-layers button[aria-pressed="true"] {
+  background: transparent;
+  color: #d4ebe5;
+}
+.design-review .review-layers button[aria-pressed="true"]:after {
+  left: 14px;
+  right: 14px;
+  height: 2px;
+  background: #a9d3d4;
+}
+.design-review .review-inspector-toggle {
+  height: 32px;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid #34464d;
+  border-radius: 4px;
+  background: transparent;
+  margin-left: auto;
+  white-space: nowrap;
+}
+.design-review .review-inspector-toggle[aria-expanded="true"] {
+  background: #25383d;
+}
+.design-review .review-header-actions {
+  gap: 24px;
+}
+.design-review .review-presets nav .workspace-tour-toggle {
+  display: flex;
+  justify-content: space-between;
+  border: 0;
+  border-bottom: 1px solid #36474d;
+  border-radius: 0;
+  margin-bottom: 6px;
+}
+.design-review .resource-header {
+  padding: 0 12px 0 16px;
+}
+.design-review .resource-search {
+  margin: 12px 12px 8px;
+  border-color: #374a51;
+  background: #10191d;
+}
+.design-review .resource-search:focus-within {
+  outline: 0;
+  border-color: #9dc8c8;
+  box-shadow: 0 0 0 2px #9dc8c815;
+}
+.design-review .resource-search input {
+  min-height: 36px;
+}
+.design-review .resource-filter {
+  background: transparent;
+  border-color: #2e4148;
+  min-height: 30px;
+  padding: 5px 8px;
+}
+.design-review .resource-context {
+  padding: 0 16px 8px;
+  border-bottom: 0;
+}
+.design-review .resource-results {
+  padding: 0 8px 12px;
+  scrollbar-color: #40565d transparent;
+}
+.resource-rack-group h3 {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  color: #78969d;
+  margin: 12px 8px 4px;
+}
+.resource-entry {
+  display: flex;
+  align-items: stretch;
+  border-radius: 4px;
+  margin: 2px 0;
+  border: 1px solid transparent;
+}
+.resource-entry:hover {
+  background: #ffffff05;
+}
+.resource-entry.selected {
+  background: #23373d;
+  border-color: #47676c;
+}
+.design-review .resource-row,
+.design-review .resource-part-row {
+  flex: 1;
+  min-width: 0;
+  min-height: 62px;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 3px 7px;
+  padding: 9px 7px;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  align-content: center;
+}
+.design-review .resource-row[aria-pressed="true"] {
+  background: transparent;
+  border: 0;
+}
+.design-review .resource-row strong {
+  grid-column: 2;
+  align-self: center;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.resource-kind {
+  grid-row: 1;
+  grid-column: 1;
+  width: 23px;
+  height: 23px;
+  display: grid;
+  place-items: center;
+  color: #92b4ba;
+  border: 1px solid #354b52;
+  border-radius: 3px;
+  font-size: 10px;
+}
+.design-review .resource-row-meta {
+  grid-column: 2;
+  font-size: 10px;
+}
+.design-review .resource-row-foot {
+  grid-column: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+  justify-content: flex-start;
+}
+.design-review .resource-row-foot small {
+  font-size: 9px;
+}
+.design-review .resource-row[data-kind="rack"] .resource-row-foot small {
+  max-width: 110px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.design-review .resource-row-foot > span {
+  font-size: 9px;
+}
+.design-review .resource-enter {
+  width: 28px;
+  flex-shrink: 0;
+  margin: 5px 0;
+  padding: 0;
+  border: 0;
+  border-left: 1px solid #31474d;
+  border-radius: 0;
+  background: transparent;
+  font-size: 23px;
+  color: #90b5b9;
+}
+.design-review .resource-enter:hover {
+  background: #334a51;
+  color: #e3f2ed;
+}
+.design-review .resource-enter:disabled {
+  opacity: 0.35;
+}
+.design-review .resource-selection[hidden] {
+  display: none;
+}
+.design-review .resource-selection {
+  padding: 10px 12px;
+  background: #1b2b30;
+  border-color: #364a51;
+}
+.design-review .resource-selection > strong {
+  font-size: 11px;
+}
+.design-review .resource-selection > small {
+  font-size: 10px;
+}
+.design-review .review-scene-toolbar {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px;
+  background: #142025e8;
+  border: 1px solid #34484f;
+  border-radius: 5px;
+}
+.design-review .review-scene-toolbar .review-camera,
+.design-review .review-scene-toolbar .review-scene-tools {
+  position: static;
+  display: flex;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  gap: 2px;
+}
+.design-review .review-scene-toolbar .review-scene-tools {
+  border-left: 1px solid #3a4d54;
+  padding-left: 8px;
+}
+.design-review .review-scene-toolbar button,
+.design-review .review-scene-toolbar summary {
+  min-height: 30px;
+  padding: 6px 9px;
+  font-size: 10px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+}
+.design-review .review-scene-toolbar button[aria-pressed="true"] {
+  background: #344e52;
+  color: #d7ebe4;
+}
+.design-review .review-scene-toolbar button:hover,
+.design-review .review-scene-toolbar summary:hover {
+  background: #2b3f45;
+}
+.design-review .review-legend:not(.review-slice-legend) {
+  bottom: 22px;
+  padding: 6px 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  width: auto;
+}
+.design-review .review-view-explanation summary {
+  color: #88a2a9;
+}
+.design-review .review-clock {
+  min-height: 52px;
+  padding: 0 18px;
+  gap: 12px;
+  background: #111c21;
+  border-top: 1px solid #33454c;
+}
+.design-review .review-clock .clock-mode {
+  display: inline;
+  font-size: 10px;
+  font-family: inherit;
+  color: #829ca5;
+  white-space: nowrap;
+}
+.design-review .review-clock > button {
+  border: 0;
+  background: transparent;
+  border-radius: 4px;
+  min-height: 32px;
+  padding: 5px 8px;
+}
+.design-review .review-clock > button[aria-label] {
+  color: #bbd9d5;
+  font-size: 23px;
+}
+.design-review .review-clock > button:last-child {
+  border: 1px solid #34494f;
+  margin-left: 4px;
+  color: #afcbce;
+  font-size: 11px;
+  padding: 0 12px;
+}
+.design-review .review-clock time {
+  font-size: 12px;
+  min-width: 38px;
+}
+.design-review .review-clock .clock-duration {
+  font-size: 10px;
+  min-width: 44px;
+  color: #7e969f;
+}
+.design-review .review-clock input[type="range"] {
+  appearance: none;
+  height: 20px;
+  min-height: 20px;
+  background: transparent;
+  accent-color: #a9d3d4;
+  cursor: pointer;
+}
+.design-review .review-clock input::-webkit-slider-runnable-track {
+  height: 3px;
+  border-radius: 2px;
+  background: #425c65;
+}
+.design-review .review-clock input::-webkit-slider-thumb {
+  appearance: none;
+  height: 12px;
+  width: 12px;
+  margin-top: -4.5px;
+  border-radius: 50%;
+  background: #b7d9d3;
+}
+.design-review .review-clock input::-moz-range-track {
+  height: 3px;
+  background: #425c65;
+}
+.design-review .review-clock input::-moz-range-thumb {
+  height: 12px;
+  width: 12px;
+  border: 0;
+  border-radius: 50%;
+  background: #b7d9d3;
+}
+.design-review .review-analysis {
+  background: #142126;
+  border-color: #344b53;
+}
+.design-review .review-analysis-head {
+  padding: 12px 18px 8px;
+}
+.design-review .review-analysis-head strong {
+  font-size: 12px;
+}
+.design-review .review-analysis-head small {
+  font-size: 10px;
+  margin-left: 12px;
+  color: #8ba5ae;
+}
+.design-review .review-analysis-body {
+  padding: 0 18px 12px;
+  gap: 20px;
+  grid-template-columns: minmax(0, 1fr) 218px;
+}
+.design-review .review-events {
+  border-left: 1px solid #30464e;
+  padding-left: 14px;
+}
+.design-review .review-events button {
+  padding: 9px 0;
+  border-bottom: 1px solid #24383f;
+}
+.design-review .review-playback {
+  border-top: 1px solid #2d424a;
+  padding-top: 7px;
+}
+.design-review .review-alerts-view {
+  height: 228px;
+  background: #152329;
+  border-top: 1px solid #36505a;
+}
+.design-review .review-alerts-heading {
+  padding: 12px 18px;
+  background: #18292f;
+}
+.design-review .review-alerts-heading h2 {
+  font-size: 13px;
+}
+.design-review .review-alerts-heading p {
+  color: #8ba7af;
+  margin-top: 5px;
+  font-size: 10px;
+}
+.design-review .review-alerts-heading small {
+  color: #acc6cd;
+}
+.design-review .review-alerts-filters button {
+  border: 1px solid #3b525b;
+  border-radius: 4px;
+  padding: 6px 10px;
+  background: transparent;
+  color: #a8c0c6;
+}
+.design-review .review-alerts-filters button[aria-pressed="true"] {
+  background: #304d55;
+  border-color: #6b929b;
+  color: #dfefeb;
+}
+.design-review .review-alert-row {
+  border-color: #2d424a;
+  min-height: 44px;
+}
+.design-review .review-alert-row.selected {
+  background: #263f47;
+}
+.design-review .review-alert-select {
+  padding: 10px 18px;
+  color: #c5d9dd;
+}
+.design-review .review-alert-select strong {
+  font-size: 11px;
+}
+.design-review .review-alert-select small {
+  color: #93afb8;
+}
+.design-review .review-alert-locate {
+  color: #afd0d5;
+  border: 1px solid #405d66;
+  border-radius: 4px;
+  margin-right: 18px;
+}
+.design-review .review-inspector {
+  background: #17272ded;
+  border: 1px solid #3c555f;
+  box-shadow: 0 16px 36px #0005;
+}
+.design-review .review-inspector-title {
+  border-color: #354b54;
+  color: #91adb6;
+}
+@media (min-width: 1001px) {
+  .design-review .navigation-open .review-resource-toggle {
+    display: none;
+  }
+}
+@media (max-height: 800px) and (min-width: 601px) {
+  .design-review .review-alerts-view {
+    height: 200px;
+  }
+  .design-review .review-scene-toolbar {
+    bottom: 12px;
+  }
+}
+@media (max-width: 600px) {
+  .design-review .review-layerbar {
+    padding: 0 10px;
+    gap: 6px;
+  }
+  .design-review .review-resource-toggle {
+    padding: 0 8px;
+    min-height: 36px;
+    height: 36px;
+    font-size: 10px;
+  }
+  .design-review .review-layers {
+    gap: 0;
+  }
+  .design-review .review-layers button {
+    padding: 0 9px;
+    font-size: 11px;
+  }
+  .design-review .review-layers button[aria-pressed="true"]:after {
+    left: 9px;
+    right: 9px;
+  }
+  .design-review .review-inspector-toggle {
+    padding: 0 7px;
+    font-size: 10px;
+  }
+  .design-review .resource-row {
+    min-height: 64px;
+  }
+  .design-review .resource-enter {
+    width: 44px;
+  }
+  .design-review .review-scene-toolbar {
+    right: 12px;
+    bottom: 105px;
+    gap: 4px;
+  }
+  .design-review .review-scene-toolbar button,
+  .design-review .review-scene-toolbar summary {
+    min-height: 34px;
+    padding: 5px 7px;
+  }
+  .design-review .review-scene-toolbar kbd {
+    display: none;
+  }
+  .design-review .review-scene[data-slice-orientation] .review-scene-toolbar {
+    bottom: 204px;
+  }
+  .design-review .review-legend:not(.review-slice-legend) {
+    bottom: 0;
+    height: 76px;
+    padding: 14px 16px;
+    width: 100%;
+    background: #111d23;
+    border-top: 1px solid #2b424a;
+  }
+  .design-review .review-clock {
+    padding: 0 10px;
+    gap: 7px;
+    min-height: 52px;
+  }
+  .design-review .review-clock .clock-mode,
+  .design-review .review-clock .clock-duration {
+    display: none;
+  }
+  .design-review .review-clock > button:last-child {
+    padding: 0 8px;
+    min-width: 80px;
+    font-size: 10px;
+  }
+  .design-review .review-analysis-body {
+    display: flex;
+    flex-direction: column;
+    padding: 0 14px 12px;
+  }
+  .design-review .review-events {
+    border-left: 0;
+    border-top: 1px solid #30464e;
+    padding: 12px 0 0;
+  }
+  .design-review .review-alerts-view {
+    height: 290px;
+  }
+  .design-review .review-alerts-heading {
+    padding: 10px 14px;
+  }
+}
+.design-review .resource-row strong {
+  font-size: 12px;
+}
+.design-review .resource-row-foot small,
+.design-review .resource-row-foot > span {
+  font-size: 10px;
+}
+.design-review .review-alert-row > .review-alert-locate {
+  color: #afd0d5;
+  border-color: #405d66;
+  background: transparent;
+}
+.design-review .review-events button {
+  font-size: 11px;
+}
+.design-review .review-events button small {
+  color: #90abb4;
+  font-size: 10px;
+}
+.design-review .review-compare-reading > span {
+  font-size: 11px;
+}
+.design-review .review-playback button,
+.design-review .review-playback select {
+  color: #b8d2d7;
+  background: #1c3038;
+  border-color: #39515a;
+  border-radius: 3px;
+}
+@media (min-width: 601px) {
+  .design-review {
+    --review-analysis-height: 310px;
+  }
+  .design-review .review-inspector {
+    max-height: calc(100% - 180px);
+  }
+  .design-review[data-analysis="true"] .review-inspector {
+    max-height: calc(100% - var(--review-analysis-height) - 180px);
+  }
+}

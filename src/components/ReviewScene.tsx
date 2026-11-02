@@ -379,9 +379,11 @@ export function ReviewScene({
             ? slice.orientation === "horizontal"
               ? "进风温度水平切片 · 局部插值"
               : `进风温度垂直切片 · ${sliceRow!.name}`
-            : presentation.title}
+            : layer === "overview" && state.level === "rack"
+              ? "机柜总览"
+              : presentation.title}
         </strong>
-        {state.level !== "device" && !airflow && (
+        {state.level !== "device" && !airflow && layer !== "alarms" && (
           <div className="review-scene-readings" aria-label="场景运行读数">
             <span>
               <b>{scope.lifecycleCounts.running}</b>
@@ -429,25 +431,58 @@ export function ReviewScene({
           </p>
         </details>
       </div>
-      <div className="review-camera" aria-label="标准视角">
-        {(
-          [
-            ["interior", "全景"],
-            ["iso", "等轴"],
-            ["top", "俯视"],
-            ["front", "前视"],
-          ] as const
-        )
-          .filter(([id]) => state.level === "room" || id !== "interior")
-          .map(([id, text]) => (
-            <button
-              key={id}
-              aria-pressed={view === id}
-              onClick={() => camera(id)}
-            >
-              {text}
-            </button>
-          ))}
+      <div className="review-scene-toolbar">
+        <div className="review-camera" aria-label="标准视角">
+          {(
+            [
+              ["interior", "全景"],
+              ["iso", "等轴"],
+              ["top", "俯视"],
+              ["front", "前视"],
+            ] as const
+          )
+            .filter(([id]) => state.level === "room" || id !== "interior")
+            .map(([id, text]) => (
+              <button
+                key={id}
+                aria-pressed={view === id}
+                onClick={() => camera(id)}
+              >
+                {text}
+              </button>
+            ))}
+        </div>
+        <div
+          className="review-scene-tools"
+          onPointerDownCapture={onTakeover}
+          onKeyDownCapture={onTakeover}
+        >
+          <button onClick={onFocus}>
+            聚焦选择 <kbd>F</kbd>
+          </button>
+          <details>
+            <summary>画面</summary>
+            <div>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={orbit}
+                  onChange={(e) => setOrbit(e.target.checked)}
+                />
+                镜头环绕
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={quality && supported}
+                  disabled={!supported}
+                  onChange={(e) => setQuality(e.target.checked)}
+                />
+                细节阴影
+              </label>
+            </div>
+          </details>
+        </div>
       </div>
       <div className="review-anchors" ref={anchors}>
         {labels.map((item) => {
@@ -522,37 +557,6 @@ export function ReviewScene({
             : "部分模型不可用 · 已使用简化结构"}
         </div>
       )}
-      <div
-        className="review-scene-tools"
-        onPointerDownCapture={onTakeover}
-        onKeyDownCapture={onTakeover}
-      >
-        <button onClick={onFocus}>
-          聚焦选择 <kbd>F</kbd>
-        </button>
-        <details>
-          <summary>画面</summary>
-          <div>
-            <label>
-              <input
-                type="checkbox"
-                checked={orbit}
-                onChange={(e) => setOrbit(e.target.checked)}
-              />
-              镜头环绕
-            </label>
-            <label>
-              <input
-                type="checkbox"
-                checked={quality && supported}
-                disabled={!supported}
-                onChange={(e) => setQuality(e.target.checked)}
-              />
-              细节阴影
-            </label>
-          </div>
-        </details>
-      </div>
       <div
         className={`review-legend ${slice ? "review-slice-legend" : ""}`}
         aria-label="当前图层图例"

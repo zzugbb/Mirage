@@ -18,37 +18,81 @@ function ResourceRow({
   selected,
   reading,
   onPick,
+  onOpen,
+  ready,
+  showLocation,
+  compactLocation,
 }: {
   resource: Resource;
   selected: string;
   reading?: SpatialReading;
   onPick: (id: string) => void;
+  onOpen: (id: string) => void;
+  ready: boolean;
+  showLocation: boolean;
+  compactLocation: boolean;
 }) {
   const signal = signalStyles[signalFor(reading)];
   return (
-    <button
-      className={`resource-row ${resource.kind === "part" ? "resource-part-row" : ""}`}
-      data-kind={resource.kind}
-      aria-pressed={selected === resource.id}
-      onClick={() => onPick(resource.id)}
+    <div
+      className={`resource-entry ${selected === resource.id ? "selected" : ""}`}
     >
-      <strong>{resource.name}</strong>
-      {resource.kind !== "part" && (
-        <span className="resource-row-meta">{resource.location}</span>
-      )}
-      <span className="resource-row-foot">
-        <small>{resource.detail}</small>
-        {reading && (
-          <span style={{ color: signal.color }}>
-            {signal.icon}{" "}
-            {resource.kind === "part" && reading.quality === "valid"
-              ? "模型"
-              : ""}
-            {signal.label}
+      <button
+        className={`resource-row ${resource.kind === "part" ? "resource-part-row" : ""}`}
+        data-kind={resource.kind}
+        aria-pressed={selected === resource.id}
+        onClick={() => onPick(resource.id)}
+      >
+        <span className="resource-kind" aria-hidden="true">
+          {
+            {
+              rack: "柜",
+              server: "算",
+              switch: "网",
+              storage: "存",
+              facility: "设",
+              part: "件",
+              room: "房",
+            }[resource.kind]
+          }
+        </span>
+        <strong>{resource.name}</strong>
+        {showLocation && resource.kind !== "part" && (
+          <span className="resource-row-meta">
+            {compactLocation
+              ? resource.location.split(" / ").at(-1)
+              : resource.location}
           </span>
         )}
-      </span>
-    </button>
+        <span className="resource-row-foot">
+          <small>
+            {resource.kind === "rack"
+              ? resource.detail.split(" · ").slice(0, 2).join(" · ")
+              : resource.detail}
+          </small>
+          {reading && (
+            <span style={{ color: signal.color }}>
+              {signal.icon}{" "}
+              {resource.kind === "part" && reading.quality === "valid"
+                ? "模型"
+                : ""}
+              {signal.label}
+            </span>
+          )}
+        </span>
+      </button>
+      {resource.kind !== "facility" && (
+        <button
+          className="resource-enter"
+          aria-label={`进入 ${resource.name}`}
+          title={`进入 ${resource.name}`}
+          disabled={!ready}
+          onClick={() => onOpen(resource.id)}
+        >
+          ›
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -92,9 +136,8 @@ export function ResourceNavigator({
   const current = catalog.find((r) => r.id === selected);
   const searching = !!query.trim() || filter !== "all";
   const grouped = state.level === "device" && !searching;
-  const open = () => {
-    if (!current) return;
-    onOpen(current.id);
+  const enter = (id: string) => {
+    onOpen(id);
     setQuery("");
     setFilter("all");
   };
@@ -105,6 +148,10 @@ export function ResourceNavigator({
       selected={selected}
       reading={readings.get(resource.id)}
       onPick={onPick}
+      onOpen={enter}
+      ready={ready}
+      showLocation={searching || state.level === "rack"}
+      compactLocation={!searching}
     />
   );
   return (
@@ -256,7 +303,20 @@ export function ResourceNavigator({
                 </details>
               ) : null;
             })
-          : results.map(render)}
+          : !searching && state.level === "room"
+            ? ["A 排", "B 排", "设施"].map((group) => (
+                <section className="resource-rack-group" key={group}>
+                  <h3>{group}</h3>
+                  {results
+                    .filter((r) =>
+                      group === "设施"
+                        ? r.kind === "facility"
+                        : r.kind === "rack" && r.name.startsWith(group[0]),
+                    )
+                    .map(render)}
+                </section>
+              ))
+            : results.map(render)}
         {!results.length && (
           <div className="resource-empty">
             <strong>没有匹配的资源</strong>
@@ -272,7 +332,10 @@ export function ResourceNavigator({
           </div>
         )}
       </nav>
-      <footer className="resource-selection">
+      <footer
+        className="resource-selection"
+        hidden={!current || current.kind === "room"}
+      >
         {current && current.kind !== "room" ? (
           <>
             <strong>{current.name}</strong>
@@ -287,16 +350,14 @@ export function ResourceNavigator({
               <button
                 className="resource-open"
                 disabled={!ready}
-                onClick={open}
+                onClick={() => enter(current.id)}
               >
                 {resourceOpenLabel(state, current.id)} ↗
               </button>
             </div>
             {!ready && <span role="status">场景切换中…</span>}
           </>
-        ) : (
-          <p>选中资源后，可查看详情或逐层进入。</p>
-        )}
+        ) : null}
       </footer>
     </aside>
   );

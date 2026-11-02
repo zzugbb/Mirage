@@ -37,9 +37,9 @@ export function ReviewAlerts({
         </div>
         <div className="review-alerts-filters" aria-label="告警级别">
           {[
-            ["all", "全部"],
-            ["2", "◆ 严重"],
-            ["1", "▲ 预警"],
+            ["all", `全部 ${alerts.length}`],
+            ["2", `◆ 严重 ${alerts.filter((r) => r.alarm === 2).length}`],
+            ["1", `▲ 预警 ${alerts.filter((r) => r.alarm === 1).length}`],
           ].map(([id, label]) => (
             <button
               key={id}

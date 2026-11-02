@@ -44,6 +44,7 @@ import { tourSteps } from "./tour";
 import "./design-review.css";
 import "./resource-navigation.css";
 import "./review-polish.css";
+import "./workspace-layout.css";
 
 const shots: { id: ReviewShot; name: string; note: string }[] = [
   { id: "overview", name: "机房浏览", note: "材质、定位与状态的主次关系" },
@@ -164,7 +165,6 @@ export function Workspace({ reviewMode = false }: { reviewMode?: boolean }) {
     [state.time, state.replayCycle, state.deviceId],
   );
   const reading = selectedReading(inspected, spatial.readings);
-  const room = spatial.readings.get("room-01")!;
   const entity = entityById(selectedId)!;
   const component = entity.kind === "part";
   const signal = signalStyles[signalFor(reading)];
@@ -374,46 +374,51 @@ export function Workspace({ reviewMode = false }: { reviewMode?: boolean }) {
           )}
         </div>
         <div className="review-header-actions">
-          <span className="review-simulation">确定性模拟 · 120s</span>
-          <button
-            className="workspace-tour-toggle"
-            disabled={review.pendingTour || (tour.mode === "manual" && !ready)}
-            aria-label={
-              review.pendingTour
-                ? "正在准备巡游"
-                : tour.mode === "playing"
-                  ? "暂停巡游"
-                  : tour.mode === "paused"
-                    ? "继续巡游"
-                    : "开始巡游"
-            }
-            title={
-              tour.mode === "manual"
-                ? "从机房开始巡游，保留当前模拟时间"
-                : `${tourSteps[tour.step].title} · ${tour.step + 1}/${tourSteps.length}`
-            }
-            onClick={() =>
-              control({
-                type: tour.mode === "playing" ? "tour-pause" : "tour-resume",
-              })
-            }
-          >
-            {review.pendingTour
-              ? "准备巡游…"
-              : tour.mode === "playing"
-                ? "暂停巡游"
-                : tour.mode === "paused"
-                  ? "继续巡游"
-                  : "开始巡游"}
-            {tour.mode !== "manual" && (
-              <small>
-                {tour.step + 1}/{tourSteps.length}
-              </small>
-            )}
-          </button>
           <details className="review-presets">
-            <summary>演示</summary>
+            <summary>
+              {tour.mode === "playing" ? "巡游中 · 演示" : "演示"}
+            </summary>
             <nav aria-label="载入演示画面">
+              <button
+                className="workspace-tour-toggle"
+                disabled={
+                  review.pendingTour || (tour.mode === "manual" && !ready)
+                }
+                aria-label={
+                  review.pendingTour
+                    ? "正在准备巡游"
+                    : tour.mode === "playing"
+                      ? "暂停巡游"
+                      : tour.mode === "paused"
+                        ? "继续巡游"
+                        : "开始巡游"
+                }
+                title={
+                  tour.mode === "manual"
+                    ? "从机房开始巡游，保留当前模拟时间"
+                    : `${tourSteps[tour.step].title} · ${tour.step + 1}/${tourSteps.length}`
+                }
+                onClick={() =>
+                  control({
+                    type:
+                      tour.mode === "playing" ? "tour-pause" : "tour-resume",
+                  })
+                }
+              >
+                {review.pendingTour
+                  ? "准备巡游…"
+                  : tour.mode === "playing"
+                    ? "暂停巡游"
+                    : tour.mode === "paused"
+                      ? "继续巡游"
+                      : "开始巡游"}
+                {tour.mode !== "manual" && (
+                  <small>
+                    {tour.step + 1}/{tourSteps.length}
+                  </small>
+                )}
+              </button>
+
               {shots.map((s, i) => (
                 <button
                   key={s.id}
@@ -504,20 +509,20 @@ export function Workspace({ reviewMode = false }: { reviewMode?: boolean }) {
                   onClick={() => control({ type: "layer", layer: l.id })}
                 >
                   {l.name}
-                  {l.id === "alarms" && (
-                    <small className="review-view-count">
-                      {room.alarmCount}
-                    </small>
-                  )}
                 </button>
               ))}
             </div>
             <button
               className="review-inspector-toggle"
+              aria-label={inspectorOpen ? "收起对象详情" : "展开对象详情"}
               aria-expanded={inspectorOpen}
               onClick={() => showInspector(!inspectorOpen)}
             >
-              {inspectorOpen ? "收起对象详情" : "对象详情"}
+              {inspectorOpen
+                ? "收起详情"
+                : selectedId === "room-01"
+                  ? "机房概览"
+                  : "所选详情"}
             </button>
           </div>
           <ReviewScene
@@ -552,6 +557,7 @@ export function Workspace({ reviewMode = false }: { reviewMode?: boolean }) {
             onExtract={(id) => control({ type: "extract-resource", id })}
           />
           <div className="review-clock">
+            <span className="clock-mode">模拟回放</span>
             <button
               onClick={() => dispatch({ type: "play" })}
               aria-label={state.playing ? "暂停模拟" : "播放模拟"}
@@ -573,14 +579,14 @@ export function Workspace({ reviewMode = false }: { reviewMode?: boolean }) {
                 dispatch({ type: "seek", time: Number(e.target.value) })
               }
             />
-            <span>02:00</span>
+            <span className="clock-duration">/ 02:00</span>
             <button
               aria-expanded={review.analysis}
               onClick={() =>
                 control({ type: "analysis", value: !review.analysis })
               }
             >
-              {review.analysis ? "收起分析 ↓" : "时间分析 ↑"}
+              {review.analysis ? "收起分析" : "曲线与事件"}
             </button>
           </div>
           {review.analysis && (
