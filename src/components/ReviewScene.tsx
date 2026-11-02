@@ -575,7 +575,9 @@ export function ReviewScene({
                       ? state.level === "device"
                         ? "表面温度 · °C · 模型推导"
                         : "U 位色条 · 设备进风温度"
-                      : "机柜标尺 · 功耗 / 预算占比"}
+                      : state.level === "device"
+                        ? "部件功耗 / 模型预算占比"
+                        : "机柜标尺 · 功耗 / 预算占比"}
                   </>
                 )}
               </span>
@@ -675,69 +677,84 @@ export function ReviewScene({
       </div>
       <div className="review-scene-toolbar">
         {controls}
-        <div className="review-camera" aria-label="标准视角">
-          {compactTools ? (
-            <select
-              aria-label="选择视角"
-              value={view}
-              onChange={(event) => camera(event.target.value as View)}
-            >
-              {state.level === "room" && <option value="interior">全景</option>}
-              <option value="iso">等轴</option>
-              <option value="top">俯视</option>
-              <option value="front">前视</option>
-            </select>
-          ) : (
-            (
-              [
-                ["interior", "全景"],
-                ["iso", "等轴"],
-                ["top", "俯视"],
-                ["front", "前视"],
-              ] as const
-            )
-              .filter(([id]) => state.level === "room" || id !== "interior")
-              .map(([id, text]) => (
-                <button
-                  key={id}
-                  aria-pressed={view === id}
-                  onClick={() => camera(id)}
-                >
-                  {text}
-                </button>
-              ))
-          )}
-        </div>
         <div
-          className="review-scene-tools"
-          onPointerDownCapture={onTakeover}
-          onKeyDownCapture={onTakeover}
+          className={
+            compactTools
+              ? "review-view-controls is-compact"
+              : "review-view-controls"
+          }
+          style={compactTools ? undefined : { display: "contents" }}
         >
-          <button onClick={onFocus}>
-            聚焦选择 <kbd>F</kbd>
-          </button>
-          <details>
-            <summary>画面</summary>
-            <div>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={orbit}
-                  onChange={(e) => setOrbit(e.target.checked)}
-                />
-                镜头环绕
-              </label>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={quality && supported}
-                  disabled={!supported}
-                  onChange={(e) => setQuality(e.target.checked)}
-                />
-                细节阴影
-              </label>
-            </div>
-          </details>
+          <div className="review-camera" aria-label="标准视角">
+            {compactTools ? (
+              <select
+                aria-label="选择视角"
+                value={view}
+                onChange={(event) => camera(event.target.value as View)}
+              >
+                {state.level === "room" && (
+                  <option value="interior">全景</option>
+                )}
+                <option value="iso">等轴</option>
+                <option value="top">俯视</option>
+                <option value="front">前视</option>
+              </select>
+            ) : (
+              (
+                [
+                  ["interior", "全景"],
+                  ["iso", "等轴"],
+                  ["top", "俯视"],
+                  ["front", "前视"],
+                ] as const
+              )
+                .filter(([id]) => state.level === "room" || id !== "interior")
+                .map(([id, text]) => (
+                  <button
+                    key={id}
+                    aria-pressed={view === id}
+                    onClick={() => camera(id)}
+                  >
+                    {text}
+                  </button>
+                ))
+            )}
+          </div>
+          <div
+            className="review-scene-tools"
+            onPointerDownCapture={onTakeover}
+            onKeyDownCapture={onTakeover}
+          >
+            <button
+              onClick={onFocus}
+              aria-label="聚焦选择"
+              title="聚焦所选对象（F）"
+            >
+              {compactTools ? "聚焦" : "聚焦选择"} <kbd>F</kbd>
+            </button>
+            <details>
+              <summary>{compactTools ? "显示" : "画面"}</summary>
+              <div>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={orbit}
+                    onChange={(e) => setOrbit(e.target.checked)}
+                  />
+                  镜头环绕
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={quality && supported}
+                    disabled={!supported}
+                    onChange={(e) => setQuality(e.target.checked)}
+                  />
+                  细节阴影
+                </label>
+              </div>
+            </details>
+          </div>
         </div>
       </div>
     </div>

@@ -134,9 +134,15 @@
   padding-inline: 6px;
 }
 .study-clock time {
-  margin-left: 12px;
+  margin-left: 8px;
   color: #e1e8ed;
   font-variant-numeric: tabular-nums;
+}
+.study-clock-action {
+  margin-left: 12px;
+  padding-left: 12px;
+  border-left: 1px solid #ffffff18;
+  color: #b1e1df;
 }
 .study-shots {
   position: relative;
@@ -337,15 +343,19 @@
 }
 .study-resource {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 80px;
+  grid-template-columns: minmax(0, 1fr) 88px;
   min-height: 64px;
   align-items: center;
   border-radius: 6px;
   margin: 2px 0;
   padding: 0 6px 0 10px;
 }
-.study-resource:hover {
-  background: #ffffff04;
+.study-resource:hover,
+.study-resource:focus-within {
+  background: #ffffff08;
+}
+.design-study .study-resource-text:hover {
+  background: transparent;
 }
 .study-resource.selected {
   background: #2a3740;
@@ -382,15 +392,19 @@
   font-size: 10px;
   text-align: center;
 }
+.study-resource-list.is-search .study-resource-text small {
+  white-space: normal;
+  line-height: 17px;
+}
 .study-row-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 2px;
+  gap: 4px;
   align-items: center;
 }
 .design-study .study-row-actions button {
-  min-height: 30px;
-  padding: 3px 2px;
+  min-height: 32px;
+  padding: 5px 3px;
   font-size: 11px;
   color: #95adb9;
   white-space: nowrap;
@@ -407,6 +421,7 @@
   border-top: 1px solid #ffffff07;
 }
 .study-stage {
+  container: study-scene / inline-size;
   min-width: 0;
   min-height: 0;
   position: relative;
@@ -481,51 +496,63 @@
   inset: 0;
   pointer-events: none;
 }
-.design-study .review-camera {
+.design-study .review-view-controls.is-compact {
   position: absolute;
-  top: 22px;
   right: 22px;
-  bottom: auto;
-  padding: 0;
-  border: 0;
+  top: 20px;
+  display: flex;
+  align-items: center;
+  padding: 4px;
+  border: 1px solid #ffffff12;
+  border-radius: 8px;
+  background: #1d2730ed;
   pointer-events: auto;
+  gap: 4px;
+}
+.design-study .review-camera,
+.design-study .review-scene-tools {
+  position: static;
+  padding: 0;
+  margin: 0;
+  border: 0;
   background: none;
+  display: flex;
+  align-items: center;
+  gap: 2px;
 }
 .design-study .review-camera select {
-  width: 76px;
-  height: 36px;
+  width: 72px;
+  min-height: 32px;
+  height: 32px;
   font-size: 12px;
-  padding: 0 10px;
-  border: 1px solid #ffffff15;
-  background: #1d2730ed;
+  padding: 0 8px;
+  border: 0;
+  background: #ffffff06;
 }
 .design-study .review-scene-tools {
-  position: absolute;
-  right: 22px;
-  top: 68px;
-  bottom: auto;
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 5px;
-  pointer-events: auto;
+  padding-left: 4px;
+  border-left: 1px solid #ffffff12;
 }
 .design-study .review-scene-tools > button,
 .design-study .review-scene-tools summary {
-  padding: 7px 10px;
-  font-size: 11px;
-  text-align: center;
-  background: #1d2730ed;
-  border: 1px solid #ffffff12;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 5px 9px;
+  font-size: 12px;
+  background: none;
+  border: 0;
+  cursor: pointer;
 }
 .design-study .review-scene-tools kbd {
   display: none;
 }
 .design-study .review-scene-tools details > div {
-  right: 86px;
-  top: 0;
+  right: 0;
+  top: 44px;
   bottom: auto;
-  width: 150px;
+  width: 164px;
   padding: 12px;
   background: #26313a;
   border: 1px solid #ffffff18;
@@ -594,6 +621,9 @@
   border-radius: 6px;
 }
 .design-study .review-legend {
+  display: block;
+  height: auto;
+  right: auto;
   left: 24px;
   bottom: 24px;
   padding: 0;
@@ -608,10 +638,73 @@
   bottom: 92px;
 }
 .design-study .review-slice-legend {
-  width: 250px;
-  padding: 12px;
+  pointer-events: auto;
+  width: 270px;
+  max-width: calc(100% - 32px);
+  padding: 14px;
   background: #1d2931eb;
   border-radius: 7px;
+}
+.design-study[data-layer="power"] .review-legend,
+.design-study[data-layer="environment"]
+  .review-legend:not(.review-slice-legend) {
+  width: 242px;
+  padding: 12px;
+  border-radius: 7px;
+  background: #1d2931eb;
+}
+.design-study .review-slice-legend .review-scale,
+.design-study .review-slice-legend > div:not(.review-status-key) {
+  width: 100%;
+}
+.design-study .review-slice-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.design-study .review-slice-heading > span {
+  margin-right: auto;
+}
+.design-study .review-slice-heading select {
+  min-width: 0;
+  min-height: 28px;
+  padding: 3px 6px;
+  font-size: 11px;
+  background: #2b3740;
+  border: 1px solid #ffffff15;
+}
+.design-study .review-legend > .review-slice-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid #ffffff12;
+}
+.design-study .review-slice-controls label,
+.design-study .review-slice-stats {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  white-space: nowrap;
+  font-size: 11px;
+}
+.design-study .review-slice-controls output {
+  color: #d6e9ee;
+}
+.design-study .review-slice-controls input[type="range"] {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  accent-color: #b1dede;
+}
+.design-study .review-slice-controls small {
+  font-size: 10px;
+  line-height: 1.6;
+  color: #8fa4b0;
 }
 .study-room-summary {
   position: absolute;
@@ -726,24 +819,37 @@
   border-bottom: 1px solid #ffffff07;
 }
 .study-identity {
-  padding: 22px 22px 20px;
+  padding: 18px 22px;
 }
 .study-identity > small {
   color: #7d919f;
   font-size: 11px;
 }
 .study-identity h1 {
-  margin: 8px 0 12px;
+  margin: 6px 0 8px;
   font-size: 19px;
   font-weight: 550;
-  line-height: 1.6;
+  line-height: 1.4;
 }
 .study-identity > span {
   font-size: 11px;
 }
+.study-inspector.is-analysis .study-panel-heading {
+  height: 48px;
+}
+.study-inspector.is-analysis .study-identity {
+  padding-block: 12px;
+}
+.study-inspector.is-analysis .study-identity h1 {
+  font-size: 17px;
+  margin-bottom: 0;
+}
+.study-inspector.is-analysis .study-identity > span {
+  display: none;
+}
 .study-alarm-detail {
-  margin: 0 22px 20px;
-  padding: 14px 0 14px 12px;
+  margin: 0 22px 18px;
+  padding: 10px 0 10px 12px;
   border-left: 2px solid #d18f64;
   background: #dfad7610;
 }
@@ -765,7 +871,8 @@
 }
 .study-metrics {
   display: grid;
-  gap: 20px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 14px;
   padding: 0 22px 22px;
 }
 .study-metrics > div {
@@ -773,11 +880,13 @@
   gap: 7px;
 }
 .study-metrics span {
+  min-height: 32px;
+  line-height: 16px;
   color: #9cabb7;
   font-size: 11px;
 }
 .study-metrics strong {
-  font-size: 28px;
+  font-size: 24px;
   font-weight: 450;
   line-height: 1.3;
   font-variant-numeric: tabular-nums;
@@ -854,7 +963,7 @@
   color: #b7d2db;
 }
 .study-time-control {
-  margin: 0 22px 18px;
+  margin: 0 22px 12px;
   padding: 12px;
   display: flex;
   align-items: center;
@@ -874,6 +983,19 @@
 .study-time-control > span {
   font-size: 11px;
   color: #8498a6;
+}
+.study-time-control > small {
+  margin-left: auto;
+  font-size: 10px;
+  color: #91a5b2;
+}
+.study-inspector .study-return-detail {
+  margin-left: auto;
+  color: #b1dede;
+  font-size: 11px;
+}
+.study-inspector .study-return-detail + button {
+  margin-left: 4px;
 }
 .study-time-control input {
   width: 100%;
@@ -899,17 +1021,18 @@
   display: flex;
   flex-direction: column;
   padding: 0 22px;
-  gap: 22px;
+  gap: 16px;
 }
 .design-study .review-compare-reading {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: baseline;
   flex-wrap: wrap;
   gap: 6px;
   font-size: 11px;
 }
 .design-study .review-compare-reading > span {
-  flex-basis: 100%;
+  line-height: 1.6;
   color: #a9bdc9;
 }
 .design-study .review-compare-reading strong {
@@ -922,6 +1045,7 @@
   font-size: 11px;
 }
 .design-study .review-compare-reading > small {
+  grid-column: 1 / -1;
   margin-left: auto;
   font-size: 10px;
   color: #7e95a4;
@@ -951,9 +1075,8 @@
   color: #c9dbe2;
 }
 .design-study .review-playback small {
-  flex-basis: 100%;
-  margin: 0;
-  font-size: 10px;
+  margin-left: auto;
+  font-size: 9px;
 }
 .design-study .review-events {
   max-height: none;
@@ -989,12 +1112,6 @@
   margin-right: 8px;
   color: #dfb991;
 }
-.design-study .study-back-detail {
-  display: block;
-  margin: 20px 22px;
-  color: #a9c9d5;
-  font-size: 12px;
-}
 @media (max-width: 1279px) and (min-width: 1100px) {
   .study-workspace.has-nav {
     grid-template-columns: 264px minmax(0, 1fr);
@@ -1011,25 +1128,23 @@
   }
 }
 @media (max-width: 1099px) and (min-width: 601px) {
-  .study-workspace.has-nav {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .study-workspace.has-inspector,
-  .study-workspace.has-nav.has-inspector {
+  .study-workspace.has-inspector {
     grid-template-columns: minmax(0, 1fr) 280px;
   }
-  .study-workspace.has-analysis,
-  .study-workspace.has-nav.has-analysis {
+  .study-workspace.has-analysis {
     grid-template-columns: minmax(0, 1fr) 380px;
   }
+  .study-workspace.has-nav,
+  .study-workspace.has-nav.has-inspector,
+  .study-workspace.has-nav.has-analysis {
+    grid-template-columns: 264px minmax(0, 1fr);
+  }
+  .study-workspace.has-nav .study-inspector {
+    display: none;
+  }
   .study-navigation {
-    position: absolute;
-    z-index: 25;
-    width: 288px;
-    top: 0;
-    bottom: 0;
-    left: 0;
-    box-shadow: 18px 0 40px #0005;
+    position: static;
+    width: auto;
   }
   .study-draft {
     display: none;
@@ -1126,25 +1241,21 @@
     padding: 4px 8px;
     font-size: 11px;
   }
-  .design-study .review-camera {
+  .design-study .review-view-controls.is-compact {
     right: 12px;
-    top: 66px;
+    top: 62px;
   }
   .design-study .review-camera select {
     width: 64px;
     font-size: 11px;
   }
-  .design-study .review-scene-tools {
-    right: 12px;
-    top: 108px;
-  }
   .design-study .review-scene-tools > button,
   .design-study .review-scene-tools summary {
-    font-size: 10px;
-    padding-inline: 6px;
+    font-size: 11px;
+    padding-inline: 8px;
   }
   .study-room-summary {
-    top: 84px;
+    top: 118px;
     left: 20px;
   }
   .study-room-summary h1 {
@@ -1161,7 +1272,7 @@
     margin-top: 8px;
   }
   .study-alert-caption {
-    top: 84px;
+    top: 118px;
     left: 20px;
   }
   .design-study .review-legend {
@@ -1197,4 +1308,20 @@
 .design-study .study-resource.is-child {
   margin-left: 12px;
   background: #ffffff02;
+}
+
+/* 以场景实际宽度避让工具，不依赖浏览器宽度推测两侧栏是否展开。 */
+@container study-scene (max-width: 540px) {
+  .design-study .review-view-controls.is-compact {
+    top: 68px;
+    right: 16px;
+  }
+  .study-layer-control {
+    left: 16px;
+  }
+  .study-room-summary,
+  .study-alert-caption {
+    top: 132px;
+    left: 20px;
+  }
 }

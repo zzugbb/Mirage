@@ -68,6 +68,16 @@ test("资源行将设备编号与类型位置分离，机柜和部件保留可�
     title: "SRV-01",
     detail: "2U 服务器 · U23–24",
   });
+  assert.deepEqual(
+    studyRowText(
+      catalog.find((r) => r.id === "srv-01")!,
+      true,
+    ),
+    {
+      title: "SRV-01",
+      detail: "2U 服务器 · A01 机柜 / U23–24",
+    },
+  );
   assert.deepEqual(studyRowText(catalog.find((r) => r.id === "rack-a01")!), {
     title: "A01 机柜",
     detail: "42U · 10 台设备",

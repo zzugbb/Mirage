@@ -135,19 +135,21 @@ export function DesignStudy() {
   const pick = useCallback((id: string, enter = false) => {
     control({ type: enter ? "open-resource" : "pick", id });
     setInspector(true);
+    if (matchMedia("(max-width: 1099px)").matches) setNav(false);
     if (enter) {
       setQuery("");
       setFilter("all");
-      if (matchMedia("(max-width: 1099px)").matches) setNav(false);
     }
   }, []);
   const focus = (id: string) => {
     control({ type: "focus-resource", id });
     setInspector(true);
+    if (matchMedia("(max-width: 1099px)").matches) setNav(false);
   };
   const analyze = () => {
     control({ type: "analysis", value: true });
     setInspector(true);
+    if (matchMedia("(max-width: 1099px)").matches) setNav(false);
   };
   useEffect(() => {
     if (
@@ -167,9 +169,11 @@ export function DesignStudy() {
   useEffect(() => {
     document.title = "Mirage · 浮城 — 场景工作台设计稿";
     const key = (event: KeyboardEvent) => {
-      if ((event.target as HTMLElement).closest("input,select,textarea"))
-        return;
       if (event.key === "Escape") {
+        if (query) {
+          setQuery("");
+          return;
+        }
         const popup = document.querySelector<HTMLDetailsElement>(
           ".design-study details[open]",
         );
@@ -177,16 +181,19 @@ export function DesignStudy() {
           popup.open = false;
           popup.querySelector("summary")?.focus();
         } else if (review.analysis) control({ type: "analysis", value: false });
+        else if (inspector) setInspector(false);
         else if (nav && matchMedia("(max-width: 1099px)").matches)
           setNav(false);
         else dispatch({ type: "back" });
       }
+      if ((event.target as HTMLElement).closest("input,select,textarea"))
+        return;
       if (event.key.toLowerCase() === "f")
         control({ type: "focus-resource", id: selected });
     };
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
-  }, [selected, review.analysis, nav, dispatch]);
+  }, [selected, review.analysis, nav, inspector, query, dispatch]);
   const load = (next: StudyShot) => {
     setExpanded([]);
     setShot(next);
@@ -204,7 +211,9 @@ export function DesignStudy() {
         ? row.kind === "rack"
           ? `${row.name[0]} 排机柜`
           : "机房设施"
-        : "资源";
+        : state.level === "rack" && !query
+          ? `${rackForDevice(state.deviceId).name} · 设备`
+          : "搜索结果";
   const groups = [...new Set(rows.map(groupOf))].sort((a, b) =>
     state.level === "device"
       ? componentGroups.indexOf(a) - componentGroups.indexOf(b)
@@ -240,13 +249,20 @@ export function DesignStudy() {
         <div className="study-clock">
           <button
             aria-label={state.playing ? "暂停模拟" : "播放模拟"}
+            title={state.playing ? "暂停模拟" : "播放模拟"}
             onClick={() => dispatch({ type: "play" })}
           >
             {state.playing ? "Ⅱ" : "▷"}
           </button>
-          <button onClick={analyze} title="回看模拟时间与指标变化">
-            {state.playing ? "模拟播放" : "模拟暂停"}
+          <button
+            onClick={analyze}
+            aria-label="打开时间分析"
+            aria-pressed={review.analysis}
+            title="查看所选对象的曲线与事件，回看同步更新场景"
+          >
+            <span>模拟</span>
             <time>{clock(state.time)}</time>
+            <span className="study-clock-action">分析</span>
           </button>
         </div>
         <details className="study-shots">
@@ -284,7 +300,11 @@ export function DesignStudy() {
       >
         <aside className="study-navigation" hidden={!nav} aria-label="资源导航">
           <div className="study-panel-heading">
-            <h2>资源</h2>
+            <h2>
+              {layer === "alarms" && state.level !== "device"
+                ? "告警资源"
+                : "资源"}
+            </h2>
             <span>
               {state.level === "room"
                 ? "机房"
@@ -324,10 +344,11 @@ export function DesignStudy() {
             </select>
             {layer === "alarms" && state.level !== "device" && (
               <button
+                aria-label="仅看告警"
                 aria-pressed={onlyAlarms}
                 onClick={() => setOnlyAlarms((v) => !v)}
               >
-                {onlyAlarms ? "仅异常" : "全部状态"}
+                <span aria-hidden="true">{onlyAlarms ? "✓ " : ""}</span>仅看告警
               </button>
             )}
           </div>
@@ -343,7 +364,7 @@ export function DesignStudy() {
             </button>
           )}
           <div
-            className="study-resource-list"
+            className={`study-resource-list ${query.trim() || filter !== "all" ? "is-search" : ""}`}
             key={`${state.level}:${state.deviceId}`}
           >
             {groups.map((group) => (
@@ -360,7 +381,10 @@ export function DesignStudy() {
                 {visibleRows
                   .filter((r) => groupOf(r) === group)
                   .map((row) => {
-                    const text = studyRowText(row),
+                    const text = studyRowText(
+                        row,
+                        !!query.trim() || filter !== "all",
+                      ),
                       data = spatial.readings.get(row.id),
                       style = signalStyles[signalFor(data)];
                     const locateOnly =
@@ -563,6 +587,15 @@ export function DesignStudy() {
           >
             <div className="study-panel-heading">
               <h2>{review.analysis ? "时间分析" : "对象详情"}</h2>
+              {review.analysis && (
+                <button
+                  className="study-return-detail"
+                  aria-label="返回对象详情"
+                  onClick={() => control({ type: "analysis", value: false })}
+                >
+                  详情
+                </button>
+              )}
               <button
                 aria-label="收起详情面板"
                 onClick={() => {
@@ -589,6 +622,9 @@ export function DesignStudy() {
                   </button>
                   <time>{clock(state.time)}</time>
                   <span>/ 02:00</span>
+                  <small>
+                    {state.playing ? "播放中" : "已暂停"} · 场景同步
+                  </small>
                   <input
                     aria-label="共享模拟时间"
                     type="range"
@@ -616,12 +652,6 @@ export function DesignStudy() {
                   onRate={(rate) => dispatch({ type: "rate", rate })}
                   onClose={() => control({ type: "analysis", value: false })}
                 />
-                <button
-                  className="study-back-detail"
-                  onClick={() => control({ type: "analysis", value: false })}
-                >
-                  返回对象详情
-                </button>
               </>
             ) : (
               <>
@@ -633,7 +663,7 @@ export function DesignStudy() {
                         ? `${reading.alarmCount} 台设备存在温度告警，可从资源目录逐层定位。`
                         : "设备进风温度持续超限。回看曲线与事件，检查异常发生过程。"}
                     </p>
-                    <button onClick={analyze}>查看发生过程</button>
+                    <button onClick={analyze}>回看告警过程</button>
                   </section>
                 )}
                 {reading ? (

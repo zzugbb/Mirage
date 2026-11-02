@@ -44,12 +44,12 @@ export function studyVisibleRows(
       )
     : rows;
 }
-export function studyRowText(resource: Resource) {
+export function studyRowText(resource: Resource, includeLocation = false) {
   const device = ["server", "switch", "storage"].includes(resource.kind);
   return {
     title: device ? resource.name.split(" · ").at(-1)! : resource.name,
     detail: device
-      ? `${resource.name.split(" · ")[0]} · ${resource.location.split(" / ").at(-1)}`
+      ? `${resource.name.split(" · ")[0]} · ${includeLocation ? resource.location : resource.location.split(" / ").at(-1)}`
       : resource.kind === "rack"
         ? resource.detail.split(" · ").slice(0, 2).join(" · ")
         : resource.detail,
