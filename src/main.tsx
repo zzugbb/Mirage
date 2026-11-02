@@ -9,9 +9,6 @@ import "./operations.css";
 const Workspace = lazy(() =>
   import("./Workspace").then((module) => ({ default: module.Workspace })),
 );
-const DesignStudy = lazy(() =>
-  import("./DesignStudy").then((module) => ({ default: module.DesignStudy })),
-);
 const OriginalPrototype = lazy(() =>
   import("./App").then((module) => ({ default: module.App })),
 );
@@ -20,8 +17,6 @@ createRoot(document.getElementById("root")!).render(
   <Suspense fallback={<p role="status">正在载入三维工作区…</p>}>
     {route === "prototype" ? (
       <OriginalPrototype />
-    ) : route === "design" ? (
-      <DesignStudy />
     ) : (
       <Workspace reviewMode={route === "review"} />
     )}

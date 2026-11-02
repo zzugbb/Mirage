@@ -6,6 +6,8 @@ import {
   useRef,
   useState,
 } from "react";
+import { entityById, getPath, presentationKey } from "./domain";
+import type { Action } from "./domain";
 import {
   createReview,
   createWorkspace,
@@ -14,100 +16,69 @@ import {
   reviewHistories,
   reviewEvents,
 } from "./review-model";
-import type { ReviewMetric, ReviewShot } from "./review-model";
-import type { Action, Level } from "./domain";
-import { entityById, getPath, presentationKey } from "./domain";
+import type { ReviewAction, ResourceAction, ReviewState } from "./review-model";
 import { spatialSnapshot, selectedReading } from "./spatial";
-import { devices, deviceById } from "./installation";
+import { signalFor, signalStyles, signalText } from "./status";
 import {
-  partsForDevice,
-  subpartsForDevice,
-  modelForDevice,
-  unitLabel,
-} from "./catalog";
-import {
-  qualityNames,
-  lifecycleNames,
-  signalFor,
-  signalStyles,
-  signalText,
-} from "./status";
-import type { PresentationPhase, SceneFeedback } from "./mechanics";
-import { ResourceNavigator } from "./components/ResourceNavigator";
+  findResources,
+  resourceCatalog,
+  resourceOpenLabel,
+  canSelectInScene,
+  componentGroups,
+} from "./review-resources";
+import type { ResourceFilter } from "./review-resources";
+import { devices, rackForDevice } from "./installation";
 import { ResourceActions } from "./components/ResourceActions";
-import { ReviewAlerts } from "./components/ReviewAlerts";
-import { resourceCatalog, resourceOpenLabel } from "./review-resources";
 import { ReviewScene } from "./components/ReviewScene";
 import { ReviewTrend } from "./components/ReviewTrend";
 import { ReviewAnalysis } from "./components/ReviewAnalysis";
+import type { PresentationPhase, SceneFeedback } from "./mechanics";
+import {
+  studyPreset,
+  studyShots,
+  studyVisibleRows,
+  studyRowText,
+} from "./design-study-model";
+import type { StudyShot } from "./design-study-model";
 import { tourSteps } from "./tour";
 import "./design-review.css";
-import "./resource-navigation.css";
-import "./review-polish.css";
-import "./workspace-layout.css";
+import "./design-study.css";
 
-const shots: { id: ReviewShot; name: string; note: string }[] = [
-  { id: "overview", name: "机房浏览", note: "材质、定位与状态的主次关系" },
-  { id: "environment", name: "温度分布", note: "同一空间，切换温度观察" },
-  { id: "assembly", name: "部件展开", note: "结构操作与数据图层共存" },
-  { id: "time", name: "运行回看", note: "曲线、事件与三维共用时间" },
-];
-const temperatureText = (value: number | null | undefined) =>
+const clock = (time: number) =>
+  `${String(Math.floor(time / 60)).padStart(2, "0")}:${String(time % 60).padStart(2, "0")}`;
+const temperature = (value: number | null | undefined) =>
   value == null ? "—" : value.toFixed(1);
-const powerText = (value: number | null | undefined) =>
+const power = (value: number | null | undefined) =>
   value == null
     ? "—"
     : value >= 1000
       ? (value / 1000).toFixed(2)
       : value.toFixed(1);
+function reducer(
+  state: ReviewState,
+  action:
+    ReviewAction | ResourceAction | { type: "study-shot"; shot: StudyShot },
+) {
+  return action.type === "study-shot"
+    ? studyPreset(state, action.shot)
+    : reviewTransition(state, action);
+}
 
 export function Workspace({ reviewMode = false }: { reviewMode?: boolean }) {
-  const [review, control] = useReducer(
-    reviewTransition,
-    reviewMode,
-    (paused) =>
-      paused
-        ? createReview()
-        : createWorkspace(
-            matchMedia("(prefers-reduced-motion: reduce)").matches,
-          ),
+  const [review, control] = useReducer(reducer, reviewMode, (paused) =>
+    paused
+      ? createReview()
+      : createWorkspace(matchMedia("(prefers-reduced-motion: reduce)").matches),
   );
   const { scene: state, layer, tour } = review;
-  const [alertsOpen, setAlertsOpen] = useState(true);
-  const [shot, setShot] = useState<ReviewShot>("overview");
-  const [shotRevision, setShotRevision] = useState(0);
+  const selected = review.selectedId ?? state.selected;
+  const [shot, setShot] = useState<StudyShot>("overview");
+  const [revision, setRevision] = useState(0);
   const [phase, setPhase] = useState<PresentationPhase>("closed");
-  const [navigation, setNavigation] = useState(
-    () => matchMedia("(min-width: 1001px)").matches,
-  );
-  const closeNavigation = useCallback(() => {
-    setNavigation(false);
-    requestAnimationFrame(() =>
-      document
-        .querySelector<HTMLButtonElement>(".review-resource-toggle")
-        ?.focus(),
-    );
-  }, []);
-  const toggleNavigation = () => {
-    takeover();
-    if (navigation) closeNavigation();
-    else {
-      setNavigation(true);
-      requestAnimationFrame(() =>
-        document
-          .querySelector<HTMLInputElement>(".resource-search input")
-          ?.focus(),
-      );
-    }
-  };
-  const [inspectorMode, setInspectorMode] = useState<
-    "auto" | "open" | "closed"
-  >("auto");
   const [feedback, setFeedback] = useState<SceneFeedback | null>(null);
   const latestFeedback = useRef(feedback);
   latestFeedback.current = feedback;
   const [hidden, setHidden] = useState(() => document.hidden);
-  const takeover = useCallback(() => control({ type: "takeover" }), []);
   const tourShot = useMemo(
     () =>
       tour.mode === "manual"
@@ -139,10 +110,105 @@ export function Workspace({ reviewMode = false }: { reviewMode?: boolean }) {
     }, 250);
     return () => clearInterval(timer);
   }, [tour.mode, hidden]);
+  const [nav, setNav] = useState(
+    () => matchMedia("(min-width: 1100px)").matches,
+  );
+  const navigationRef = useRef<HTMLElement>(null);
+  const navigationOpenerRef = useRef<HTMLButtonElement>(null);
+  const previousNav = useRef(nav);
+  useEffect(() => {
+    if (previousNav.current === nav) return;
+    previousNav.current = nav;
+    if (nav) navigationRef.current?.querySelector("input")?.focus();
+    else if (navigationRef.current?.contains(document.activeElement))
+      navigationOpenerRef.current?.focus();
+  }, [nav]);
+  const [inspector, setInspector] = useState(false);
+  const [query, setQuery] = useState("");
+  const [expanded, setExpanded] = useState<string[]>([]);
+  const [filter, setFilter] = useState<ResourceFilter>("all");
+  const [onlyAlarms, setOnlyAlarms] = useState(false);
+  const [metric, setMetric] = useState<"temperature" | "power">("temperature");
+  const spatial = useMemo(
+    () => spatialSnapshot(state.time, state.replayCycle, state.deviceId),
+    [state.time, state.replayCycle, state.deviceId],
+  );
+  const reading = selectedReading({ ...state, selected }, spatial.readings);
+  const room = spatial.readings.get("room-01")!;
+  const resource = resourceCatalog(state.deviceId).find(
+    (r) => r.id === selected,
+  )!;
+  const entity = entityById(selected)!;
+  const component = entity.kind === "part";
   const ready =
     !review.pendingId &&
     !!feedback?.settled &&
     feedback.key === presentationKey(state);
+  const rows = useMemo(
+    () =>
+      studyVisibleRows(
+        findResources(state, query, filter),
+        spatial.readings,
+        onlyAlarms && state.level !== "device",
+      ),
+    [state, query, filter, onlyAlarms, spatial],
+  );
+  const browsingParts =
+    state.level === "device" && !query.trim() && filter === "all";
+  const visibleRows = browsingParts
+    ? rows
+        .filter((row) => !row.parent)
+        .flatMap((row) => [
+          row,
+          ...(expanded.includes(row.id)
+            ? rows.filter((child) => child.parent === row.id)
+            : []),
+        ])
+    : rows;
+  const histories = useMemo(
+    () => reviewHistories(selected, state.deviceId),
+    [selected, state.deviceId],
+  );
+  const scope = devices.filter(
+    (d) =>
+      entity.kind === "room" ||
+      (entity.kind === "rack" && d.rackId === selected) ||
+      d.id === (component ? state.deviceId : selected),
+  );
+  const events = useMemo(
+    () =>
+      reviewEvents(
+        scope.map((d) => d.id),
+        state.time,
+        state.replayCycle,
+      ),
+    [selected, state.deviceId, state.time, state.replayCycle],
+  );
+  const signal = signalStyles[signalFor(reading)];
+  const dispatch = useCallback(
+    (action: Action) => control({ type: "scene", action }),
+    [],
+  );
+  const takeover = useCallback(() => control({ type: "takeover" }), []);
+  const pick = useCallback((id: string, enter = false) => {
+    control({ type: enter ? "open-resource" : "pick", id });
+    setInspector(true);
+    if (matchMedia("(max-width: 1099px)").matches) setNav(false);
+    if (enter) {
+      setQuery("");
+      setFilter("all");
+    }
+  }, []);
+  const focus = (id: string) => {
+    control({ type: "focus-resource", id });
+    setInspector(true);
+    if (matchMedia("(max-width: 1099px)").matches) setNav(false);
+  };
+  const analyze = () => {
+    control({ type: "analysis", value: true });
+    setInspector(true);
+    if (matchMedia("(max-width: 1099px)").matches) setNav(false);
+  };
   useEffect(() => {
     if (
       review.pendingId &&
@@ -151,80 +217,6 @@ export function Workspace({ reviewMode = false }: { reviewMode?: boolean }) {
     )
       control({ type: "navigation-ready", key: feedback.key });
   }, [review.pendingId, feedback, state]);
-  const selectedId = review.selectedId ?? state.selected;
-  const inspectorOpen =
-    inspectorMode === "open" ||
-    (inspectorMode === "auto" && selectedId !== "room-01");
-  const inspected = { ...state, selected: selectedId };
-  const resource = resourceCatalog(state.deviceId).find(
-    (item) => item.id === selectedId,
-  );
-  const preview = selectedId !== state.selected;
-  const [metricChoice, setMetricChoice] = useState<ReviewMetric>("temperature");
-  const spatial = useMemo(
-    () => spatialSnapshot(state.time, state.replayCycle, state.deviceId),
-    [state.time, state.replayCycle, state.deviceId],
-  );
-  const reading = selectedReading(inspected, spatial.readings);
-  const entity = entityById(selectedId)!;
-  const component = entity.kind === "part";
-  const signal = signalStyles[signalFor(reading)];
-  const readingStatus =
-    !component && reading?.alarm
-      ? `温度告警 · ${signal.label}`
-      : component && reading?.quality === "valid"
-        ? `模型评估 · ${signal.label}`
-        : signalText(reading);
-  const metric: ReviewMetric =
-    layer === "power"
-      ? "power"
-      : layer === "environment"
-        ? "temperature"
-        : metricChoice;
-  const histories = useMemo(
-    () => reviewHistories(selectedId, state.deviceId),
-    [selectedId, state.deviceId],
-  );
-  const series = histories[metric];
-  const dispatch = useCallback((action: Action) => {
-    control({ type: "scene", action });
-    if (
-      (action.type === "locate" || action.type === "navigate") &&
-      matchMedia("(max-width: 1000px)").matches
-    )
-      setNavigation(false);
-  }, []);
-  useEffect(() => {
-    const previous = document.title;
-    document.title = reviewMode
-      ? "Mirage · 浮城 — 工作区设计评审"
-      : "Mirage · 浮城 — 三维工作区";
-    return () => {
-      document.title = previous;
-    };
-  }, [reviewMode]);
-  const pick = useCallback((id: string) => control({ type: "pick", id }), []);
-  const openResource = useCallback((id: string) => {
-    control({ type: "open-resource", id });
-    if (matchMedia("(max-width: 1000px)").matches) setNavigation(false);
-    requestAnimationFrame(() => {
-      const center = document.querySelector<HTMLElement>(".review-center");
-      center?.focus({ preventScroll: true });
-      if (matchMedia("(max-width: 600px)").matches)
-        center?.scrollIntoView({ block: "start" });
-    });
-  }, []);
-  const focusResource = useCallback(
-    (id: string) => control({ type: "focus-resource", id }),
-    [],
-  );
-  const select = useCallback(
-    (id: string, enter = false) => {
-      if (enter) openResource(id);
-      else pick(id);
-    },
-    [openResource, pick],
-  );
   useEffect(() => {
     if (!state.playing) return;
     const timer = setInterval(() => {
@@ -233,643 +225,662 @@ export function Workspace({ reviewMode = false }: { reviewMode?: boolean }) {
     return () => clearInterval(timer);
   }, [state.playing, dispatch]);
   useEffect(() => {
+    document.title = reviewMode
+      ? "Mirage · 浮城 — 工作区评审"
+      : "Mirage · 浮城 — 三维工作区";
     const key = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        const popup = document.querySelector<HTMLDetailsElement>(
-          ".review-presets[open], .review-about[open], .review-view-explanation[open], .review-scene-tools details[open]",
-        );
-        if (popup) {
-          event.preventDefault();
-          popup.open = false;
-          popup.querySelector("summary")?.focus();
+        if (query) {
+          setQuery("");
           return;
         }
+        const popup = document.querySelector<HTMLDetailsElement>(
+          ".design-study details[open]",
+        );
+        if (popup) {
+          popup.open = false;
+          popup.querySelector("summary")?.focus();
+        } else if (review.analysis) control({ type: "analysis", value: false });
+        else if (inspector) setInspector(false);
+        else if (nav && matchMedia("(max-width: 1099px)").matches)
+          setNav(false);
+        else dispatch({ type: "back" });
       }
-      if (event.key === "Escape" && navigation) {
-        event.preventDefault();
-        closeNavigation();
+      if ((event.target as HTMLElement).closest("input,select,textarea"))
         return;
+      if (event.key.toLowerCase() === "f") {
+        control({ type: "focus-resource", id: selected });
+        setInspector(true);
+        if (matchMedia("(max-width: 1099px)").matches) setNav(false);
       }
-      if (
-        (event.target as HTMLElement).matches(
-          "input,select,textarea,[contenteditable=true]",
-        )
-      )
-        return;
-      if (event.key === "Escape") {
-        dispatch({ type: "back" });
-      }
-      if (event.key.toLowerCase() === "f") focusResource(selectedId);
     };
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
-  }, [navigation, dispatch, focusResource, selectedId, closeNavigation]);
-  const loadShot = (next: ReviewShot) => {
-    setInspectorMode("auto");
+  }, [selected, review.analysis, nav, inspector, query, dispatch, reviewMode]);
+  const load = (next: StudyShot) => {
+    setExpanded([]);
     setShot(next);
-    setShotRevision((value) => value + 1);
-    control({ type: "shot", shot: next });
-    setNavigation(false);
+    setRevision((n) => n + 1);
+    setQuery("");
+    setFilter("all");
+    setOnlyAlarms(next === "alarms");
+    setInspector(next !== "overview");
+    control({ type: "study-shot", shot: next });
   };
-  const showInspector = (open: boolean) => {
-    takeover();
-    setInspectorMode(open ? "open" : "closed");
-    requestAnimationFrame(() => {
-      if (!matchMedia("(max-width: 600px)").matches) return;
-      document
-        .querySelector<HTMLElement>(
-          open ? ".review-inspector" : ".review-center",
-        )
-        ?.scrollIntoView({
-          block: "start",
-          behavior: matchMedia("(prefers-reduced-motion: reduce)").matches
-            ? "instant"
-            : "smooth",
-        });
-    });
-  };
-  const parts = [
-    ...partsForDevice(state.deviceId),
-    ...subpartsForDevice(state.deviceId),
-  ];
-  const scopeDevices =
-    entity.kind === "facility"
-      ? []
-      : devices.filter((d) =>
-          entity.kind === "room" || entity.kind === "rack"
-            ? entity.kind === "room" || d.rackId === entity.id
-            : d.id === (entity.kind === "device" ? selectedId : state.deviceId),
-        );
-  const events = review.analysis
-    ? reviewEvents(
-        scopeDevices.map((device) => device.id),
-        state.time,
-        state.replayCycle,
-      )
-    : [];
-  const currentLayer = reviewLayers.find((l) => l.id === layer)!;
-  const currentValue =
-    metric === "temperature" ? reading?.temperature : reading?.power;
-  const unit =
-    metric === "temperature"
-      ? "°C"
-      : (reading?.power ?? 0) >= 1000
-        ? "kW"
-        : "W";
-  const coverage =
-    metric === "temperature"
-      ? reading?.coverageTemperature
-      : reading?.coveragePower;
-  const metricLabel =
-    metric === "temperature" ? reading?.temperatureLabel : reading?.powerLabel;
+  const groupOf = (row: (typeof rows)[number]) =>
+    browsingParts
+      ? (row.group ?? "其他部件")
+      : state.level === "room" && !query.trim() && filter === "all"
+        ? row.kind === "rack"
+          ? `${row.name[0]} 排机柜`
+          : "机房设施"
+        : state.level === "rack" && !query.trim() && filter === "all"
+          ? `${rackForDevice(state.deviceId).name} · 设备`
+          : "搜索结果";
+  const groups = [...new Set(rows.map(groupOf))].sort((a, b) =>
+    state.level === "device"
+      ? componentGroups.indexOf(a) - componentGroups.indexOf(b)
+      : 0,
+  );
+  const mainMetric = metric;
   return (
     <div
-      className="design-review"
-      data-time={state.time}
-      data-selection={selectedId}
-      data-scene-level={state.level}
-      data-scene-device={state.deviceId}
-      data-focus-revision={state.focusRevision}
-      data-explosion={state.explosion}
-      data-cover-open={state.coverOpen}
-      data-layer={layer}
+      className="design-review design-study"
       data-analysis={review.analysis}
+      data-layer={layer}
+      data-scene-level={state.level}
+      data-selection={selected}
+      data-time={state.time}
+      data-playing={state.playing}
       data-tour={tour.mode}
       data-tour-step={tour.step}
       data-tour-pending={review.pendingTour}
+      data-scene-device={state.deviceId}
+      data-focus-revision={state.focusRevision}
+      data-cover-open={state.coverOpen}
+      data-explosion={state.explosion}
     >
-      <header className="review-header">
+      <header className="study-header">
         <a
-          className="review-brand"
+          className="study-brand"
           href={reviewMode ? "?review" : "./"}
           aria-label="Mirage 浮城首页"
         >
-          Mirage<span>浮城</span>
+          Mirage <span>浮城</span>
         </a>
-        <div className="review-location">
-          <nav aria-label="空间路径">
-            {getPath(state).map((id, i) => (
-              <span key={id}>
-                {i > 0 && <i>/</i>}
-                <button
-                  aria-current={id === state.selected ? "location" : undefined}
-                  onClick={() =>
-                    entityById(id)?.kind === "part"
-                      ? dispatch({ type: "select", id })
-                      : dispatch({
-                          type: "navigate",
-                          level: entityById(id)!.kind as Level,
-                          id,
-                        })
-                  }
-                >
-                  {entityById(id)!.name}
-                </button>
-              </span>
+        {reviewMode && <span className="study-draft">评审</span>}
+        <nav className="study-path" aria-label="空间路径">
+          {getPath(state).map((item, i) => (
+            <span key={item}>
+              {i > 0 && <i>/</i>}
+              <button onClick={() => pick(item, true)}>
+                {entityById(item)?.name ?? item}
+              </button>
+            </span>
+          ))}
+        </nav>
+        <div className="study-clock">
+          <button
+            aria-label={state.playing ? "暂停模拟" : "播放模拟"}
+            title={state.playing ? "暂停模拟" : "播放模拟"}
+            onClick={() => dispatch({ type: "play" })}
+          >
+            {state.playing ? "Ⅱ" : "▷"}
+          </button>
+          <button
+            onClick={analyze}
+            aria-label="打开时间分析"
+            aria-pressed={review.analysis}
+            title="查看所选对象的曲线与事件，回看同步更新场景"
+          >
+            <span>模拟</span>
+            <time>{clock(state.time)}</time>
+            <span className="study-clock-action">分析</span>
+          </button>
+        </div>
+        <details className="study-shots">
+          <summary>
+            演示{" "}
+            <span>
+              {tour.mode === "playing"
+                ? "巡游中"
+                : tour.mode === "paused"
+                  ? "巡游暂停"
+                  : reviewMode
+                    ? "评审"
+                    : "自由浏览"}
+            </span>
+          </summary>
+          <nav aria-label="演示画面与巡游">
+            <button
+              className="study-tour-control"
+              disabled={
+                review.pendingTour || (tour.mode === "manual" && !ready)
+              }
+              onClick={() => {
+                setOnlyAlarms(false);
+                control({
+                  type: tour.mode === "playing" ? "tour-pause" : "tour-resume",
+                });
+              }}
+              title={
+                tour.mode === "manual"
+                  ? "从机房开始巡游，保留当前模拟时间"
+                  : tourSteps[tour.step].title
+              }
+            >
+              {review.pendingTour
+                ? "正在准备巡游"
+                : tour.mode === "playing"
+                  ? "暂停巡游"
+                  : tour.mode === "paused"
+                    ? "继续巡游"
+                    : "开始巡游"}
+              {tour.mode !== "manual" && (
+                <small>
+                  {tour.step + 1}/{tourSteps.length}
+                </small>
+              )}
+            </button>
+            {studyShots.map((s, i) => (
+              <button
+                key={s.id}
+                aria-pressed={shot === s.id}
+                onClick={(e) => {
+                  load(s.id);
+                  e.currentTarget.closest("details")?.removeAttribute("open");
+                }}
+              >
+                <small>0{i + 1}</small>
+                {s.name}
+              </button>
             ))}
+            <p>载入固定画面将重置对象与时间。</p>
+            <details className="study-about">
+              <summary>场景与数据说明</summary>
+              <div>
+                <p>
+                  原创演示空间，运行数据来自统一的 120
+                  秒确定性模拟。设备读数为模拟，部件读数为模型推导，无真实管理接口或
+                  CFD。
+                </p>
+                <p>
+                  温度切片由设备进风代表位置局部插值；气流是按当前布置与风向假设绘制的路径，均非环境实测。门禁、烟感与环境探头仅作布置示意。
+                </p>
+                <p>
+                  交换机、存储内部仍为配置示意；湿度/露点、容量、完整连接与园区入口尚未实施。
+                </p>
+                <a href="?prototype">打开原型对照</a>
+              </div>
+            </details>
           </nav>
+        </details>
+      </header>
+      <main
+        className={`study-workspace ${nav ? "has-nav" : ""} ${inspector ? "has-inspector" : ""} ${review.analysis ? "has-analysis" : ""}`}
+      >
+        <aside
+          ref={navigationRef}
+          className="study-navigation"
+          hidden={!nav}
+          aria-label="资源导航"
+          onPointerDownCapture={takeover}
+          onKeyDownCapture={takeover}
+        >
+          <div className="study-panel-heading">
+            <h2>
+              {layer === "alarms" && state.level !== "device"
+                ? "告警资源"
+                : "资源"}
+            </h2>
+            <span>
+              {state.level === "room"
+                ? "机房"
+                : state.level === "rack"
+                  ? "机柜"
+                  : "部件"}
+            </span>
+            <button aria-label="收起资源导航" onClick={() => setNav(false)}>
+              ×
+            </button>
+          </div>
+          <label className="study-search">
+            <span aria-hidden="true">⌕</span>
+            <input
+              aria-label="查找资源"
+              placeholder="名称、编号或 U 位"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+            {query && (
+              <button aria-label="清除搜索" onClick={() => setQuery("")}>
+                ×
+              </button>
+            )}
+          </label>
+          <div className="study-filters">
+            <select
+              aria-label="资源类型"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value as ResourceFilter)}
+            >
+              <option value="all">全部类型</option>
+              <option value="server">服务器</option>
+              <option value="switch">交换机</option>
+              <option value="storage">存储</option>
+              <option value="facility">设施</option>
+            </select>
+            {layer === "alarms" && state.level !== "device" && (
+              <button
+                aria-label="仅看告警"
+                aria-pressed={onlyAlarms}
+                onClick={() => setOnlyAlarms((v) => !v)}
+              >
+                <span aria-hidden="true">{onlyAlarms ? "✓ " : ""}</span>仅看告警
+              </button>
+            )}
+          </div>
           {state.level !== "room" && (
-            <button onClick={() => dispatch({ type: "back" })}>
-              ← 返回上级
+            <button
+              className="study-parent"
+              onClick={() => dispatch({ type: "back" })}
+            >
+              ←{" "}
+              {state.level === "device"
+                ? rackForDevice(state.deviceId).name
+                : "01号机房"}
             </button>
           )}
-        </div>
-        <div className="review-header-actions">
-          <details className="review-presets">
-            <summary>
-              {tour.mode === "playing" ? "巡游中 · 演示" : "演示"}
-            </summary>
-            <nav aria-label="载入演示画面">
-              <button
-                className="workspace-tour-toggle"
-                disabled={
-                  review.pendingTour || (tour.mode === "manual" && !ready)
-                }
-                aria-label={
-                  review.pendingTour
-                    ? "正在准备巡游"
-                    : tour.mode === "playing"
-                      ? "暂停巡游"
-                      : tour.mode === "paused"
-                        ? "继续巡游"
-                        : "开始巡游"
-                }
-                title={
-                  tour.mode === "manual"
-                    ? "从机房开始巡游，保留当前模拟时间"
-                    : `${tourSteps[tour.step].title} · ${tour.step + 1}/${tourSteps.length}`
-                }
-                onClick={() =>
-                  control({
-                    type:
-                      tour.mode === "playing" ? "tour-pause" : "tour-resume",
-                  })
-                }
-              >
-                {review.pendingTour
-                  ? "准备巡游…"
-                  : tour.mode === "playing"
-                    ? "暂停巡游"
-                    : tour.mode === "paused"
-                      ? "继续巡游"
-                      : "开始巡游"}
-                {tour.mode !== "manual" && (
-                  <small>
-                    {tour.step + 1}/{tourSteps.length}
-                  </small>
-                )}
-              </button>
-
-              {shots.map((s, i) => (
+          <div
+            className={`study-resource-list ${query.trim() || filter !== "all" ? "is-search" : ""}`}
+            key={`${state.level}:${state.deviceId}`}
+          >
+            {groups.map((group) => (
+              <section key={group}>
+                <h3>
+                  {group}
+                  <span>
+                    {
+                      rows.filter(
+                        (r) =>
+                          groupOf(r) === group && (!browsingParts || !r.parent),
+                      ).length
+                    }
+                  </span>
+                </h3>
+                {visibleRows
+                  .filter((r) => groupOf(r) === group)
+                  .map((row) => {
+                    const text = studyRowText(
+                        row,
+                        !!query.trim() || filter !== "all",
+                      ),
+                      data = spatial.readings.get(row.id),
+                      style = signalStyles[signalFor(data)];
+                    const locateOnly =
+                      row.kind === "part" ||
+                      row.kind === "facility" ||
+                      (state.level === "device" && row.id === state.deviceId);
+                    return (
+                      <div
+                        className={`study-resource ${row.parent ? "is-child" : ""} ${selected === row.id ? "selected" : ""}`}
+                        key={row.id}
+                      >
+                        <button
+                          className="study-resource-text"
+                          aria-pressed={selected === row.id}
+                          title={`${row.name} · ${row.location} · ${data ? signalText(data) : "未接入数据"}`}
+                          aria-label={`${row.name}，${data ? signalText(data) : "未接入数据"}`}
+                          onClick={() => pick(row.id)}
+                        >
+                          <span className="study-resource-title">
+                            <strong>{text.title}</strong>
+                            <span
+                              className="study-row-status"
+                              style={{ color: style.color }}
+                              title={data ? signalText(data) : "未接入数据"}
+                            >
+                              {data ? style.icon : "—"}
+                            </span>
+                          </span>
+                          <small>{text.detail}</small>
+                        </button>
+                        <div
+                          className="study-row-actions"
+                          aria-label={`${row.name}操作`}
+                        >
+                          <button
+                            disabled={
+                              !ready ||
+                              (!locateOnly && !canSelectInScene(state, row.id))
+                            }
+                            aria-label={`定位 ${row.name}`}
+                            onClick={() =>
+                              locateOnly ? pick(row.id, true) : focus(row.id)
+                            }
+                          >
+                            定位
+                          </button>
+                          {row.kind === "part" &&
+                            rows.some((child) => child.parent === row.id) && (
+                              <button
+                                aria-label={`${expanded.includes(row.id) ? "收起" : "展开"}${row.name}子件`}
+                                aria-expanded={expanded.includes(row.id)}
+                                onClick={() =>
+                                  setExpanded((current) =>
+                                    current.includes(row.id)
+                                      ? current.filter((id) => id !== row.id)
+                                      : [...current, row.id],
+                                  )
+                                }
+                              >
+                                子件
+                              </button>
+                            )}
+                          {!locateOnly && (
+                            <button
+                              disabled={!ready}
+                              aria-label={`${resourceOpenLabel(state, row.id)} · ${row.name}`}
+                              onClick={() => pick(row.id, true)}
+                            >
+                              进入
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+              </section>
+            ))}
+            {!rows.length && (
+              <p className="study-empty">
+                {onlyAlarms
+                  ? query.trim() || filter !== "all"
+                    ? "没有匹配的告警资源"
+                    : "当前范围没有活动告警"
+                  : "没有匹配的资源"}
                 <button
-                  key={s.id}
-                  aria-label={`载入${s.name}`}
-                  aria-pressed={shot === s.id}
-                  title={`${s.note}；载入预设将重置对象、时间、结构与切片设置`}
-                  onClick={(e) => {
-                    loadShot(s.id);
-                    e.currentTarget.closest("details")?.removeAttribute("open");
+                  onClick={() => {
+                    setOnlyAlarms(false);
+                    setQuery("");
+                    setFilter("all");
                   }}
                 >
-                  <small>0{i + 1}</small>
-                  {s.name}
+                  查看全部资源
                 </button>
-              ))}
-              <p>载入示例将重置对象、时间、结构与切片设置。</p>
-            </nav>
-          </details>
-          <details className="review-about">
-            <summary>关于</summary>
-            <div>
-              <strong>场景与设计边界</strong>
-              <p>
-                原创演示空间，所有运行数据由统一的 120
-                秒确定性脚本生成。设备测点为模拟，部件温度与功耗为模型推导，无真实管理接口或
-                CFD。
               </p>
-              <p>
-                机房温度切片按设备进风代表位置作局部插值，气流路径按当前布置与前进后出假设绘制，均非环境实测或
-                CFD
-                结果。门禁读卡器、烟感和环境探头仅作布置示意，尚未接入监测；湿度/露点、空间容量和连接视图尚未实施。
-              </p>
-              <a href="?prototype">打开原型对照 ↗</a>
-            </div>
-          </details>
-        </div>
-      </header>
-      <div
-        className={`review-workspace ${navigation ? "navigation-open" : ""}`}
-        role="main"
-        aria-label={reviewMode ? "交互评审工作区" : "三维工作区"}
-      >
-        <ResourceNavigator
-          onClose={closeNavigation}
-          state={state}
-          selected={selectedId}
-          readings={spatial.readings}
-          ready={ready}
-          onPick={pick}
-          onOpen={openResource}
-          onFocus={focusResource}
-          onBack={() => dispatch({ type: "back" })}
-          onInteract={takeover}
-        />
-        <section
-          className={`review-center ${inspectorOpen ? "inspector-open" : ""}`}
-          aria-label="连续工作区"
-          tabIndex={-1}
-        >
-          <div className="review-layerbar">
-            <button
-              className="review-resource-toggle"
-              aria-label={navigation ? "收起资源导航" : "展开资源导航"}
-              aria-expanded={navigation}
-              aria-controls="workspace-resources"
-              onClick={toggleNavigation}
-            >
-              <svg
-                aria-hidden="true"
-                width="16"
-                height="16"
-                viewBox="0 0 20 20"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.4"
+            )}
+          </div>
+          <footer className="study-nav-caption">
+            {state.level === "device"
+              ? "部件状态为模型评估，非独立告警"
+              : "单击选择 · 定位聚焦 · 进入下一级"}
+          </footer>
+        </aside>
+        <section className="study-stage" aria-label="三维工作区">
+          <div className="study-layer-control">
+            {!nav && (
+              <button
+                ref={navigationOpenerRef}
+                aria-label="展开资源导航"
+                onClick={() => {
+                  takeover();
+                  setNav(true);
+                }}
               >
-                <rect x="2.5" y="3" width="15" height="14" rx="1.5" />
-                <path d="M7.5 3v14M4.5 6h1M4.5 9h1" />
-              </svg>
-              <span>资源</span>
-            </button>
-            <div className="review-layers" aria-label="观察视图">
+                资源
+              </button>
+            )}
+            <nav aria-label="观察视图">
               {reviewLayers.map((l) => (
                 <button
                   key={l.id}
                   aria-pressed={layer === l.id}
-                  title={l.description}
                   onClick={() => {
-                    if (l.id === "alarms") {
-                      setAlertsOpen(true);
-                      control({ type: "analysis", value: false });
-                    }
                     control({ type: "layer", layer: l.id });
+                    setOnlyAlarms(l.id === "alarms");
+                    setMetric(l.id === "power" ? "power" : "temperature");
                   }}
                 >
                   {l.name}
                 </button>
               ))}
-            </div>
-            <button
-              className="review-inspector-toggle"
-              aria-label={inspectorOpen ? "收起对象详情" : "展开对象详情"}
-              aria-expanded={inspectorOpen}
-              onClick={() => showInspector(!inspectorOpen)}
-            >
-              {inspectorOpen
-                ? "收起详情"
-                : selectedId === "room-01"
-                  ? "机房概览"
-                  : "所选详情"}
-            </button>
+            </nav>
           </div>
-          <div className="review-stage">
-            <ReviewScene
-              selectedId={selectedId}
-              tourShot={tourShot}
-              onTakeover={takeover}
-              shotRevision={shotRevision}
-              state={state}
-              layer={layer}
-              readings={spatial.readings}
-              onSelect={select}
-              onFocus={() => focusResource(selectedId)}
-              onPhase={setPhase}
-              onFeedback={setFeedback}
-              controls={
+          <ReviewScene
+            state={state}
+            layer={layer}
+            readings={spatial.readings}
+            selectedId={selected}
+            onSelect={pick}
+            onFocus={() => focus(selected)}
+            onPhase={setPhase}
+            onFeedback={setFeedback}
+            shotRevision={revision}
+            tourShot={tourShot}
+            onTakeover={takeover}
+            compactTools
+            controls={
+              state.level !== "room" ? (
                 <ResourceActions
                   state={state}
-                  selected={selectedId}
+                  selected={selected}
                   ready={ready}
                   phase={phase}
                   dispatch={dispatch}
-                  onOpen={openResource}
+                  onOpen={(id) => pick(id, true)}
                   onExtract={(id) => control({ type: "extract-resource", id })}
                 />
-              }
-            />
-          </div>
-          {layer === "alarms" && !review.analysis && alertsOpen && (
-            <div className="review-dock">
-              <ReviewAlerts
-                readings={spatial.readings}
-                selected={selectedId}
-                time={state.time}
-                onPick={pick}
-                onLocate={focusResource}
-              />
+              ) : null
+            }
+          />
+          {state.level === "room" && layer === "overview" && (
+            <div className="study-room-summary">
+              <span>01 号机房</span>
+              <h1>运行概览</h1>
+              <div>
+                <p>
+                  <strong>
+                    {room.lifecycleCounts.running}
+                    <small>台</small>
+                  </strong>
+                  <span>运行设备</span>
+                </p>
+                <p>
+                  <strong>
+                    {power(room.power)}
+                    <small>kW</small>
+                  </strong>
+                  <span>已知输入功耗</span>
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  pick("room-01");
+                }}
+              >
+                查看机房详情
+              </button>
             </div>
           )}
-          <div className="review-clock">
-            <span className="clock-mode">模拟回放</span>
+          {layer === "alarms" && state.level === "room" && (
+            <div className="study-alert-caption">
+              <span>当前异常</span>
+              <strong>
+                {room.alarmCount}
+                <small>台设备</small>
+              </strong>
+              <p>点击空间标记查看对应对象</p>
+            </div>
+          )}
+          {!inspector && (
             <button
-              onClick={() => dispatch({ type: "play" })}
-              aria-label={state.playing ? "暂停模拟" : "播放模拟"}
+              className="study-show-detail"
+              onClick={() => {
+                takeover();
+                setInspector(true);
+              }}
             >
-              {state.playing ? "Ⅱ" : "▷"}
+              对象详情
             </button>
-            <time>
-              {String(Math.floor(state.time / 60)).padStart(2, "0")}:
-              {String(state.time % 60).padStart(2, "0")}
-            </time>
-            <input
-              aria-label="共享模拟时间"
-              type="range"
-              min="0"
-              max="120"
-              step="1"
-              value={state.time}
-              onChange={(e) =>
-                dispatch({ type: "seek", time: Number(e.target.value) })
-              }
-            />
-            <span className="clock-duration">/ 02:00</span>
-            {layer === "alarms" && (
+          )}
+        </section>
+        {inspector && (
+          <aside
+            className={`study-inspector ${review.analysis ? "is-analysis" : ""}`}
+            key={`${selected}:${review.analysis}`}
+            aria-label={review.analysis ? "时间分析面板" : "对象详情"}
+          >
+            <div className="study-panel-heading">
+              <h2>{review.analysis ? "时间分析" : "对象详情"}</h2>
+              {review.analysis && (
+                <button
+                  className="study-return-detail"
+                  aria-label="返回对象详情"
+                  onClick={() => control({ type: "analysis", value: false })}
+                >
+                  详情
+                </button>
+              )}
               <button
-                className="clock-alert-toggle"
-                aria-expanded={!review.analysis && alertsOpen}
+                aria-label="收起详情面板"
                 onClick={() => {
-                  setAlertsOpen(review.analysis || !alertsOpen);
+                  setInspector(false);
                   control({ type: "analysis", value: false });
                 }}
               >
-                当前告警
-              </button>
-            )}
-            <button
-              aria-expanded={review.analysis}
-              onClick={() =>
-                control({ type: "analysis", value: !review.analysis })
-              }
-            >
-              {review.analysis ? "收起分析" : "曲线与事件"}
-            </button>
-          </div>
-          {review.analysis && (
-            <div className="review-dock">
-              <ReviewAnalysis
-                key={`${selectedId}:${state.deviceId}`}
-                title={resource?.name ?? entity.name}
-                labels={{
-                  temperature: reading?.temperatureLabel ?? "温度",
-                  power: reading?.powerLabel ?? "功耗",
-                }}
-                histories={histories}
-                events={events}
-                time={state.time}
-                playbackRate={state.playbackRate}
-                component={component}
-                onSeek={(time) => dispatch({ type: "seek", time })}
-                onReplay={() => dispatch({ type: "replay" })}
-                onRate={(rate) => dispatch({ type: "rate", rate })}
-                onClose={() => control({ type: "analysis", value: false })}
-              />
-            </div>
-          )}
-          <aside
-            className="review-inspector"
-            key={selectedId}
-            aria-label="所选对象概览"
-            hidden={!inspectorOpen}
-            onPointerDownCapture={takeover}
-            onKeyDownCapture={takeover}
-            onFocusCapture={takeover}
-          >
-            <div className="review-inspector-title">
-              <span>所选对象</span>
-              <button
-                aria-label="收起对象详情"
-                onClick={() => showInspector(false)}
-              >
                 ×
               </button>
-              <span>
-                {entity.kind === "part"
-                  ? "部件"
-                  : entity.kind === "device"
-                    ? "设备"
-                    : entity.kind === "rack"
-                      ? "机柜"
-                      : entity.kind === "room"
-                        ? "机房"
-                        : "设施"}
-              </span>
             </div>
-            <div className="review-identity">
-              <small>
-                {entity.kind === "device"
-                  ? modelForDevice(selectedId).name
-                  : component
-                    ? `${state.deviceId.toUpperCase()} / 部件模型`
-                    : entity.kind === "rack"
-                      ? "机柜"
-                      : entity.kind === "room"
-                        ? "机房"
-                        : "设施"}
-              </small>
+            <div className="study-identity">
+              <small>{resource?.location}</small>
               <h1>{resource?.name ?? entity.name}</h1>
-              {resource && (
-                <p className="review-resource-location">{resource.location}</p>
-              )}
-              {preview && (
-                <div className="review-resource-preview">
-                  <p>正在预览其他位置的资源</p>
-                  <button
-                    disabled={!ready}
-                    onClick={() => openResource(selectedId)}
-                  >
-                    {resourceOpenLabel(state, selectedId)} ↗
-                  </button>
-                </div>
-              )}
-              <span className="review-signal" style={{ color: signal.color }}>
-                {signal.icon} {readingStatus}
+              <span style={{ color: signal.color }}>
+                {signal.icon} {component ? "模型评估 · " : ""}
+                {signalText(reading)}
               </span>
             </div>
-            {reading ? (
+            {review.analysis ? (
               <>
-                <div className="review-primary-metric">
-                  <span>{metricLabel}</span>
-                  <strong>
-                    {metric === "temperature"
-                      ? temperatureText(currentValue)
-                      : powerText(currentValue)}
-                    <small>{unit}</small>
-                  </strong>
-                  <div>
-                    <span>
-                      {reading.quality !== "valid"
-                        ? qualityNames[reading.quality]
-                        : component
-                          ? "模型推导 · 无独立测点"
-                          : `有效覆盖 ${coverage}/${reading.count}`}
-                    </span>
-                    <time>
-                      {reading.observedAt == null
-                        ? "无观测时间"
-                        : `t+${reading.observedAt}s`}
-                    </time>
-                  </div>
-                  {layer === "power" && (
-                    <p className="review-budget">
-                      {reading.budget !== null &&
-                      reading.budget > 0 &&
-                      reading.power !== null
-                        ? `预算 ${powerText(reading.budget)} ${reading.budget >= 1000 ? "kW" : "W"} · 当前占比 ${((reading.power / reading.budget) * 100).toFixed(1)}%`
-                        : "未定义有效预算 · 不计算占比"}
-                    </p>
-                  )}
-                </div>
-                <div className="review-secondary-metrics">
-                  <div>
-                    <span>
-                      {metric === "temperature"
-                        ? component
-                          ? "部件功耗分配"
-                          : "输入功耗"
-                        : component
-                          ? "模型表面温度"
-                          : reading.count > 1
-                            ? "最高进风温度"
-                            : "设备进风温度"}
-                    </span>
-                    <b>
-                      {metric === "temperature"
-                        ? powerText(reading.power)
-                        : temperatureText(reading.temperature)}
-                      <small>
-                        {metric === "temperature"
-                          ? reading.power !== null && reading.power >= 1000
-                            ? "kW"
-                            : "W"
-                          : "°C"}
-                      </small>
-                    </b>
-                  </div>
-                  <div>
-                    <span>{component ? "整机告警" : "告警设备"}</span>
-                    <button
-                      onClick={() => {
-                        setAlertsOpen(true);
-                        control({ type: "analysis", value: false });
-                        control({ type: "layer", layer: "alarms" });
-                      }}
-                    >
-                      {component
-                        ? spatial.readings.get(state.deviceId)!.alarmCount
-                        : reading.alarmCount}
-                      <small>台 ↗</small>
-                    </button>
-                  </div>
-                </div>
-                <section className="review-mini-trend">
-                  <div>
-                    <h2>对象趋势</h2>
-                    {layer === "overview" ? (
-                      <div>
-                        {(["temperature", "power"] as const).map((m) => (
-                          <button
-                            key={m}
-                            aria-pressed={metric === m}
-                            onClick={() => setMetricChoice(m)}
-                          >
-                            {m === "temperature" ? "温度" : "功耗"}
-                          </button>
-                        ))}
-                      </div>
-                    ) : (
-                      <small>{currentLayer.name}</small>
-                    )}
-                  </div>
-                  <ReviewTrend
-                    series={series}
-                    metric={metric}
-                    time={state.time}
-                    compact
-                  />
-                  <button
-                    className="review-expand-trend"
-                    onClick={() => control({ type: "analysis", value: true })}
-                  >
-                    展开曲线与事件 <span>↗</span>
+                <div className="study-time-control">
+                  <button onClick={() => dispatch({ type: "play" })}>
+                    {state.playing ? "暂停" : "播放"}
                   </button>
-                </section>
+                  <time>{clock(state.time)}</time>
+                  <span>/ 02:00</span>
+                  <small>
+                    {state.playing ? "播放中" : "已暂停"} · 场景同步
+                  </small>
+                  <input
+                    aria-label="共享模拟时间"
+                    type="range"
+                    min="0"
+                    max="120"
+                    value={state.time}
+                    onChange={(e) =>
+                      dispatch({ type: "seek", time: Number(e.target.value) })
+                    }
+                  />
+                </div>
+                <ReviewAnalysis
+                  title={resource?.name ?? entity.name}
+                  labels={{
+                    temperature: reading?.temperatureLabel ?? "温度",
+                    power: reading?.powerLabel ?? "功耗",
+                  }}
+                  histories={histories}
+                  events={events}
+                  time={state.time}
+                  playbackRate={state.playbackRate}
+                  component={component}
+                  onSeek={(time) => dispatch({ type: "seek", time })}
+                  onReplay={() => dispatch({ type: "replay" })}
+                  onRate={(rate) => dispatch({ type: "rate", rate })}
+                  onClose={() => control({ type: "analysis", value: false })}
+                />
               </>
             ) : (
-              <p className="review-empty-data">该设施尚未定义遥测数据。</p>
-            )}
-            {state.level === "device" && (
-              <label className="review-part-select">
-                选择部件
-                <select
-                  aria-label="选择设备部件"
-                  value={
-                    parts.some((p) => p.id === selectedId) ? selectedId : ""
-                  }
-                  onChange={(e) => select(e.target.value || state.deviceId)}
-                >
-                  <option value="">整台设备</option>
-                  {parts.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} · {p.slot}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            )}
-            <details className="review-detail">
-              <summary>配置与数据详情</summary>
-              {reading && (
-                <div className="review-quality">
-                  <span>
-                    {reading.count > 1
-                      ? `${reading.lifecycleCounts.running} 运行 · ${reading.lifecycleCounts.maintenance} 维护 · ${reading.lifecycleCounts.stopped} 停机`
-                      : lifecycleNames[reading.lifecycle]}
-                  </span>
-                  <span>
-                    {reading.count > 1
-                      ? `${reading.qualityCounts.offline} 离线 · ${reading.qualityCounts.stale} 过期 · ${reading.qualityCounts.missing} 未配置`
-                      : `数据${qualityNames[reading.quality]}`}
-                  </span>
-                </div>
-              )}
-              <p>{entity.description}</p>
-              {deviceById(selectedId) && (
-                <p>
-                  {unitLabel(selectedId)} · {modelForDevice(selectedId).name} ·{" "}
-                  {modelForDevice(selectedId).category === "server"
-                    ? "贡献几何与适配部件"
-                    : "简化参数化结构，内部精度待补齐"}
-                </p>
-              )}
-              {component && (
-                <p>
-                  代表表面温度来自进风加温升假设，功耗按部件分配。没有环境湿度或独立遥测。
-                </p>
-              )}
-              {reading && (
-                <>
-                  <p>{reading.source}</p>
+              <>
+                {!!reading?.alarm && !component && (
+                  <section className="study-alarm-detail">
+                    <h2>进风温度异常</h2>
+                    <p>
+                      {reading.count > 1
+                        ? `${reading.alarmCount} 台设备存在温度告警，可从资源目录逐层定位。`
+                        : "设备进风温度持续超限。回看曲线与事件，检查异常发生过程。"}
+                    </p>
+                    <button onClick={analyze}>回看告警过程</button>
+                  </section>
+                )}
+                {reading ? (
+                  <>
+                    <div className="study-metrics">
+                      <div>
+                        <span>{reading.temperatureLabel}</span>
+                        <strong>
+                          {temperature(reading.temperature)}
+                          <small>°C</small>
+                        </strong>
+                        <small>
+                          有效覆盖 {reading.coverageTemperature}/{reading.count}
+                        </small>
+                      </div>
+                      <div>
+                        <span>{reading.powerLabel}</span>
+                        <strong>
+                          {power(reading.power)}
+                          <small>
+                            {(reading.power ?? 0) >= 1000 ? "kW" : "W"}
+                          </small>
+                        </strong>
+                        <small>
+                          有效覆盖 {reading.coveragePower}/{reading.count}
+                        </small>
+                      </div>
+                    </div>
+                    <section className="study-trend">
+                      <div>
+                        <h2>变化趋势</h2>
+                        <button
+                          aria-pressed={mainMetric === "temperature"}
+                          onClick={() => setMetric("temperature")}
+                        >
+                          温度
+                        </button>
+                        <button
+                          aria-pressed={mainMetric === "power"}
+                          onClick={() => setMetric("power")}
+                        >
+                          功耗
+                        </button>
+                      </div>
+                      <ReviewTrend
+                        series={histories[mainMetric]}
+                        metric={mainMetric}
+                        time={state.time}
+                        compact
+                      />
+                      <button onClick={analyze}>
+                        分析曲线与事件 <span>↗</span>
+                      </button>
+                    </section>
+                  </>
+                ) : (
+                  <p className="study-empty">设施布置示意，尚未接入遥测。</p>
+                )}
+                <details className="study-configuration">
+                  <summary>配置与数据说明</summary>
+                  <p>{entity.description}</p>
+                  <p>{reading?.source}</p>
                   <p>
-                    温度覆盖 {reading.coverageTemperature}/{reading.count}
-                    ；功耗覆盖 {reading.coveragePower}/{reading.count}
-                    。过期读数不进入当前汇总，停机零功耗为有效值。
+                    当前数据为确定性模拟。空缺不按零值计算；部件读数为模型推导。
                   </p>
-                </>
-              )}
-            </details>
+                </details>
+              </>
+            )}
           </aside>
-        </section>
-      </div>
+        )}
+      </main>
     </div>
   );
 }

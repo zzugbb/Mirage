@@ -14,6 +14,7 @@ test("统一工作区为默认入口，评审书签与原型对照入口保留�
   assert.equal(workspaceRoute(""), "workspace");
   assert.equal(workspaceRoute("?foo=bar"), "workspace");
   assert.equal(workspaceRoute("?review"), "review");
+  assert.equal(workspaceRoute("?design"), "review");
   assert.equal(workspaceRoute("?prototype&review"), "prototype");
   const main = createWorkspace();
   assert.equal(main.scene.time, 60);

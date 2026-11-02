@@ -11,8 +11,8 @@ import { spatialSnapshot } from "./spatial.ts";
 import { reviewTransition } from "./review-model.ts";
 import { workspaceRoute } from "./workspace-route.ts";
 
-test("设计稿入口独立于默认工作区和既有评审入口", () => {
-  assert.equal(workspaceRoute("?design"), "design");
+test("已确认设计书签复用暂停评审，默认与原型入口保留", () => {
+  assert.equal(workspaceRoute("?design"), "review");
   assert.equal(workspaceRoute("?review"), "review");
   assert.equal(workspaceRoute(""), "workspace");
   assert.equal(workspaceRoute("?prototype&design"), "prototype");

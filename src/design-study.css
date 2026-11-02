@@ -1,4 +1,4 @@
-/* 独立布局提案；不改变默认工作区。 */
+/* 已确认的场景工作台：正式入口与暂停评审共享布局。 */
 .design-review.design-study {
   --study-bg: #101419;
   --study-panel: #191e24;
@@ -170,6 +170,28 @@
   border: 1px solid #ffffff15;
   border-radius: 9px;
   box-shadow: 0 16px 40px #0005;
+  max-height: calc(100svh - 120px);
+  overflow-y: auto;
+}
+.study-shots .study-tour-control {
+  justify-content: space-between;
+  margin-bottom: 8px;
+  background: #ffffff06;
+}
+.study-shots .study-about summary {
+  padding: 10px 12px;
+  border-top: 1px solid #ffffff10;
+  border-radius: 0;
+  font-size: 11px;
+  color: #a9bdc9;
+}
+.study-about > div {
+  padding: 0 12px 8px;
+}
+.study-shots .study-about p {
+  margin: 8px 0;
+  padding: 0;
+  line-height: 1.8;
 }
 .study-shots nav button {
   display: flex;
@@ -1178,6 +1200,9 @@
   }
 }
 @media (max-width: 600px) {
+  .study-shots {
+    margin-left: auto;
+  }
   .design-review.design-study {
     height: auto;
     min-height: 100svh;
