@@ -43,6 +43,7 @@ export function ReviewScene({
   tourShot,
   onTakeover,
   controls,
+  compactTools = false,
 }: {
   state: AppState;
   layer: ReviewLayer;
@@ -56,6 +57,7 @@ export function ReviewScene({
   tourShot: { revision: number; view: View; focus: boolean } | null;
   onTakeover: () => void;
   controls: ReactNode;
+  compactTools?: boolean;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const anchors = useRef<HTMLDivElement>(null);
@@ -303,9 +305,9 @@ export function ReviewScene({
       const sceneRect = host.current?.parentElement?.getBoundingClientRect();
       const accepted = [
         ...(host.current
-          ?.closest(".review-workspace")
+          ?.closest(".review-workspace, .study-workspace")
           ?.querySelectorAll<HTMLElement>(
-            ".review-scene-caption, .review-camera, .review-legend, .review-scene-tools, .review-loading, .review-inspector:not([hidden]), .review-object-actions",
+            ".review-scene-caption, .review-camera, .review-legend, .review-scene-tools, .review-loading, .review-inspector:not([hidden]), .review-object-actions, .study-layer-control, .study-room-summary, .study-alert-caption, .study-show-detail",
           ) ?? []),
       ].map((element) => element.getBoundingClientRect());
       for (const label of anchors.current?.querySelectorAll<HTMLElement>(
@@ -674,24 +676,37 @@ export function ReviewScene({
       <div className="review-scene-toolbar">
         {controls}
         <div className="review-camera" aria-label="标准视角">
-          {(
-            [
-              ["interior", "全景"],
-              ["iso", "等轴"],
-              ["top", "俯视"],
-              ["front", "前视"],
-            ] as const
-          )
-            .filter(([id]) => state.level === "room" || id !== "interior")
-            .map(([id, text]) => (
-              <button
-                key={id}
-                aria-pressed={view === id}
-                onClick={() => camera(id)}
-              >
-                {text}
-              </button>
-            ))}
+          {compactTools ? (
+            <select
+              aria-label="选择视角"
+              value={view}
+              onChange={(event) => camera(event.target.value as View)}
+            >
+              {state.level === "room" && <option value="interior">全景</option>}
+              <option value="iso">等轴</option>
+              <option value="top">俯视</option>
+              <option value="front">前视</option>
+            </select>
+          ) : (
+            (
+              [
+                ["interior", "全景"],
+                ["iso", "等轴"],
+                ["top", "俯视"],
+                ["front", "前视"],
+              ] as const
+            )
+              .filter(([id]) => state.level === "room" || id !== "interior")
+              .map(([id, text]) => (
+                <button
+                  key={id}
+                  aria-pressed={view === id}
+                  onClick={() => camera(id)}
+                >
+                  {text}
+                </button>
+              ))
+          )}
         </div>
         <div
           className="review-scene-tools"
