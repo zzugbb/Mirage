@@ -4,7 +4,6 @@ import { rackForDevice } from "../installation";
 import {
   componentGroups,
   findResources,
-  resourceCatalog,
   resourceFilters,
   resourceOpenLabel,
   canSelectInScene,
@@ -19,6 +18,8 @@ function ResourceRow({
   reading,
   onPick,
   onOpen,
+  onFocus,
+  state,
   ready,
   showLocation,
   compactLocation,
@@ -28,11 +29,18 @@ function ResourceRow({
   reading?: SpatialReading;
   onPick: (id: string) => void;
   onOpen: (id: string) => void;
+  onFocus: (id: string) => void;
+  state: AppState;
   ready: boolean;
   showLocation: boolean;
   compactLocation: boolean;
 }) {
   const signal = signalStyles[signalFor(reading)];
+  const openLabel = resourceOpenLabel(state, resource.id);
+  const locateOnly =
+    resource.kind === "part" ||
+    resource.kind === "facility" ||
+    (state.level === "device" && resource.id === state.deviceId);
   return (
     <div
       className={`resource-entry ${selected === resource.id ? "selected" : ""}`}
@@ -81,17 +89,27 @@ function ResourceRow({
           )}
         </span>
       </button>
-      {resource.kind !== "facility" && (
+      <div className="resource-row-actions" aria-label={`${resource.name}操作`}>
+        {!locateOnly && canSelectInScene(state, resource.id) && (
+          <button
+            title={`定位 ${resource.name}`}
+            aria-label={`定位 ${resource.name}`}
+            disabled={!ready}
+            onClick={() => onFocus(resource.id)}
+          >
+            定位
+          </button>
+        )}
         <button
-          className="resource-enter"
-          aria-label={`进入 ${resource.name}`}
-          title={`进入 ${resource.name}`}
+          title={`${openLabel} · ${resource.name}`}
+          aria-label={`${openLabel} · ${resource.name}`}
           disabled={!ready}
           onClick={() => onOpen(resource.id)}
         >
-          ›
+          {locateOnly ? "定位" : "进入"}
+          <span aria-hidden="true">{locateOnly ? "⌖" : "›"}</span>
         </button>
-      )}
+      </div>
     </div>
   );
 }
@@ -125,15 +143,10 @@ export function ResourceNavigator({
   useEffect(() => {
     list.current?.scrollTo({ top: 0 });
   }, [query, filter, state.level]);
-  const catalog = useMemo(
-    () => resourceCatalog(state.deviceId),
-    [state.deviceId],
-  );
   const results = useMemo(
     () => findResources(state, query, filter),
     [state.level, state.deviceId, query, filter],
   );
-  const current = catalog.find((r) => r.id === selected);
   const searching = !!query.trim() || filter !== "all";
   const grouped = state.level === "device" && !searching;
   const enter = (id: string) => {
@@ -149,6 +162,8 @@ export function ResourceNavigator({
       reading={readings.get(resource.id)}
       onPick={onPick}
       onOpen={enter}
+      onFocus={onFocus}
+      state={state}
       ready={ready}
       showLocation={searching || state.level === "rack"}
       compactLocation={!searching}
@@ -332,33 +347,6 @@ export function ResourceNavigator({
           </div>
         )}
       </nav>
-      <footer
-        className="resource-selection"
-        hidden={!current || current.kind === "room"}
-      >
-        {current && current.kind !== "room" ? (
-          <>
-            <strong>{current.name}</strong>
-            <small>{current.location}</small>
-            <div>
-              {canSelectInScene(state, current.id) &&
-                current.kind !== "part" && (
-                  <button disabled={!ready} onClick={() => onFocus(current.id)}>
-                    定位
-                  </button>
-                )}
-              <button
-                className="resource-open"
-                disabled={!ready}
-                onClick={() => enter(current.id)}
-              >
-                {resourceOpenLabel(state, current.id)} ↗
-              </button>
-            </div>
-            {!ready && <span role="status">场景切换中…</span>}
-          </>
-        ) : null}
-      </footer>
     </aside>
   );
 }

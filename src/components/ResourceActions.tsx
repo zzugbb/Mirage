@@ -69,9 +69,7 @@ export function ResourceActions({
                 ↗
               </button>
             </>
-          ) : (
-            <small>选择设备后可查看内部</small>
-          )}
+          ) : null}
         </>
       ) : (
         <>
@@ -107,26 +105,29 @@ export function ResourceActions({
           >
             {exteriorOnly ? "复原外观" : "复原部件"}
           </button>
-          <label className="review-explode-label">
-            展开{" "}
-            <input
-              aria-label="部件展开进度"
-              type="range"
-              min="0"
-              max="100"
-              value={state.explosion * 100}
-              onChange={(e) =>
-                dispatch({
-                  type: "explode",
-                  amount: Number(e.target.value) / 100,
-                })
-              }
-            />
-            <output>{Math.round(state.explosion * 100)}%</output>
-          </label>
+          <details className="review-explode-settings">
+            <summary>展开进度</summary>
+            <label className="review-explode-label">
+              展开{" "}
+              <input
+                aria-label="部件展开进度"
+                type="range"
+                min="0"
+                max="100"
+                value={state.explosion * 100}
+                onChange={(e) =>
+                  dispatch({
+                    type: "explode",
+                    amount: Number(e.target.value) / 100,
+                  })
+                }
+              />
+              <output>{Math.round(state.explosion * 100)}%</output>
+            </label>
+          </details>
         </>
       )}
-      {state.level !== "room" && (
+      {state.level !== "room" && !ready && (
         <small role="status">
           {!ready &&
           ![

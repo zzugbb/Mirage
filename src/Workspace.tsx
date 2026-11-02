@@ -73,6 +73,7 @@ export function Workspace({ reviewMode = false }: { reviewMode?: boolean }) {
           ),
   );
   const { scene: state, layer, tour } = review;
+  const [alertsOpen, setAlertsOpen] = useState(true);
   const [shot, setShot] = useState<ReviewShot>("overview");
   const [shotRevision, setShotRevision] = useState(0);
   const [phase, setPhase] = useState<PresentationPhase>("closed");
@@ -474,7 +475,7 @@ export function Workspace({ reviewMode = false }: { reviewMode?: boolean }) {
           onInteract={takeover}
         />
         <section
-          className="review-center"
+          className={`review-center ${inspectorOpen ? "inspector-open" : ""}`}
           aria-label="连续工作区"
           tabIndex={-1}
         >
@@ -506,7 +507,13 @@ export function Workspace({ reviewMode = false }: { reviewMode?: boolean }) {
                   key={l.id}
                   aria-pressed={layer === l.id}
                   title={l.description}
-                  onClick={() => control({ type: "layer", layer: l.id })}
+                  onClick={() => {
+                    if (l.id === "alarms") {
+                      setAlertsOpen(true);
+                      control({ type: "analysis", value: false });
+                    }
+                    control({ type: "layer", layer: l.id });
+                  }}
                 >
                   {l.name}
                 </button>
@@ -525,37 +532,43 @@ export function Workspace({ reviewMode = false }: { reviewMode?: boolean }) {
                   : "所选详情"}
             </button>
           </div>
-          <ReviewScene
-            selectedId={selectedId}
-            tourShot={tourShot}
-            onTakeover={takeover}
-            shotRevision={shotRevision}
-            state={state}
-            layer={layer}
-            readings={spatial.readings}
-            onSelect={select}
-            onFocus={() => focusResource(selectedId)}
-            onPhase={setPhase}
-            onFeedback={setFeedback}
-          />
-          {layer === "alarms" && !review.analysis && (
-            <ReviewAlerts
+          <div className="review-stage">
+            <ReviewScene
+              selectedId={selectedId}
+              tourShot={tourShot}
+              onTakeover={takeover}
+              shotRevision={shotRevision}
+              state={state}
+              layer={layer}
               readings={spatial.readings}
-              selected={selectedId}
-              time={state.time}
-              onPick={pick}
-              onLocate={focusResource}
+              onSelect={select}
+              onFocus={() => focusResource(selectedId)}
+              onPhase={setPhase}
+              onFeedback={setFeedback}
+              controls={
+                <ResourceActions
+                  state={state}
+                  selected={selectedId}
+                  ready={ready}
+                  phase={phase}
+                  dispatch={dispatch}
+                  onOpen={openResource}
+                  onExtract={(id) => control({ type: "extract-resource", id })}
+                />
+              }
             />
+          </div>
+          {layer === "alarms" && !review.analysis && alertsOpen && (
+            <div className="review-dock">
+              <ReviewAlerts
+                readings={spatial.readings}
+                selected={selectedId}
+                time={state.time}
+                onPick={pick}
+                onLocate={focusResource}
+              />
+            </div>
           )}
-          <ResourceActions
-            state={state}
-            selected={selectedId}
-            ready={ready}
-            phase={phase}
-            dispatch={dispatch}
-            onOpen={openResource}
-            onExtract={(id) => control({ type: "extract-resource", id })}
-          />
           <div className="review-clock">
             <span className="clock-mode">模拟回放</span>
             <button
@@ -580,6 +593,18 @@ export function Workspace({ reviewMode = false }: { reviewMode?: boolean }) {
               }
             />
             <span className="clock-duration">/ 02:00</span>
+            {layer === "alarms" && (
+              <button
+                className="clock-alert-toggle"
+                aria-expanded={!review.analysis && alertsOpen}
+                onClick={() => {
+                  setAlertsOpen(review.analysis || !alertsOpen);
+                  control({ type: "analysis", value: false });
+                }}
+              >
+                当前告警
+              </button>
+            )}
             <button
               aria-expanded={review.analysis}
               onClick={() =>
@@ -590,247 +615,260 @@ export function Workspace({ reviewMode = false }: { reviewMode?: boolean }) {
             </button>
           </div>
           {review.analysis && (
-            <ReviewAnalysis
-              key={`${selectedId}:${state.deviceId}`}
-              title={resource?.name ?? entity.name}
-              labels={{
-                temperature: reading?.temperatureLabel ?? "温度",
-                power: reading?.powerLabel ?? "功耗",
-              }}
-              histories={histories}
-              events={events}
-              time={state.time}
-              playbackRate={state.playbackRate}
-              component={component}
-              onSeek={(time) => dispatch({ type: "seek", time })}
-              onReplay={() => dispatch({ type: "replay" })}
-              onRate={(rate) => dispatch({ type: "rate", rate })}
-              onClose={() => control({ type: "analysis", value: false })}
-            />
+            <div className="review-dock">
+              <ReviewAnalysis
+                key={`${selectedId}:${state.deviceId}`}
+                title={resource?.name ?? entity.name}
+                labels={{
+                  temperature: reading?.temperatureLabel ?? "温度",
+                  power: reading?.powerLabel ?? "功耗",
+                }}
+                histories={histories}
+                events={events}
+                time={state.time}
+                playbackRate={state.playbackRate}
+                component={component}
+                onSeek={(time) => dispatch({ type: "seek", time })}
+                onReplay={() => dispatch({ type: "replay" })}
+                onRate={(rate) => dispatch({ type: "rate", rate })}
+                onClose={() => control({ type: "analysis", value: false })}
+              />
+            </div>
           )}
-        </section>
-        <aside
-          className="review-inspector"
-          aria-label="所选对象概览"
-          hidden={!inspectorOpen}
-          onPointerDownCapture={takeover}
-          onKeyDownCapture={takeover}
-          onFocusCapture={takeover}
-        >
-          <div className="review-inspector-title">
-            <span>所选对象</span>
-            <button
-              aria-label="收起对象详情"
-              onClick={() => showInspector(false)}
-            >
-              ×
-            </button>
-            <span>
-              {entity.kind === "part"
-                ? "部件"
-                : entity.kind === "device"
-                  ? "设备"
-                  : entity.kind === "rack"
-                    ? "机柜"
-                    : entity.kind === "room"
-                      ? "机房"
-                      : "设施"}
-            </span>
-          </div>
-          <div className="review-identity">
-            <small>
-              {entity.kind === "device"
-                ? modelForDevice(selectedId).name
-                : component
-                  ? `${state.deviceId.toUpperCase()} / 部件模型`
-                  : "MIRAGE / 浮城"}
-            </small>
-            <h1>{resource?.name ?? entity.name}</h1>
-            {resource && (
-              <p className="review-resource-location">{resource.location}</p>
-            )}
-            {preview && (
-              <div className="review-resource-preview">
-                <p>正在预览其他位置的资源</p>
-                <button
-                  disabled={!ready}
-                  onClick={() => openResource(selectedId)}
-                >
-                  {resourceOpenLabel(state, selectedId)} ↗
-                </button>
-              </div>
-            )}
-            <span className="review-signal" style={{ color: signal.color }}>
-              {signal.icon} {readingStatus}
-            </span>
-          </div>
-          {reading ? (
-            <>
-              <div className="review-primary-metric">
-                <span>{metricLabel}</span>
-                <strong>
-                  {metric === "temperature"
-                    ? temperatureText(currentValue)
-                    : powerText(currentValue)}
-                  <small>{unit}</small>
-                </strong>
-                <div>
-                  <span>
-                    {reading.quality !== "valid"
-                      ? qualityNames[reading.quality]
-                      : component
-                        ? "模型推导 · 无独立测点"
-                        : `有效覆盖 ${coverage}/${reading.count}`}
-                  </span>
-                  <time>
-                    {reading.observedAt == null
-                      ? "无观测时间"
-                      : `t+${reading.observedAt}s`}
-                  </time>
-                </div>
-                {layer === "power" && (
-                  <p className="review-budget">
-                    {reading.budget !== null &&
-                    reading.budget > 0 &&
-                    reading.power !== null
-                      ? `预算 ${powerText(reading.budget)} ${reading.budget >= 1000 ? "kW" : "W"} · 当前占比 ${((reading.power / reading.budget) * 100).toFixed(1)}%`
-                      : "未定义有效预算 · 不计算占比"}
-                  </p>
-                )}
-              </div>
-              <div className="review-secondary-metrics">
-                <div>
-                  <span>
-                    {metric === "temperature"
-                      ? component
-                        ? "部件功耗分配"
-                        : "输入功耗"
-                      : component
-                        ? "模型表面温度"
-                        : reading.count > 1
-                          ? "最高进风温度"
-                          : "设备进风温度"}
-                  </span>
-                  <b>
-                    {metric === "temperature"
-                      ? powerText(reading.power)
-                      : temperatureText(reading.temperature)}
-                    <small>
-                      {metric === "temperature"
-                        ? reading.power !== null && reading.power >= 1000
-                          ? "kW"
-                          : "W"
-                        : "°C"}
-                    </small>
-                  </b>
-                </div>
-                <div>
-                  <span>{component ? "整机告警" : "告警设备"}</span>
+          <aside
+            className="review-inspector"
+            key={selectedId}
+            aria-label="所选对象概览"
+            hidden={!inspectorOpen}
+            onPointerDownCapture={takeover}
+            onKeyDownCapture={takeover}
+            onFocusCapture={takeover}
+          >
+            <div className="review-inspector-title">
+              <span>所选对象</span>
+              <button
+                aria-label="收起对象详情"
+                onClick={() => showInspector(false)}
+              >
+                ×
+              </button>
+              <span>
+                {entity.kind === "part"
+                  ? "部件"
+                  : entity.kind === "device"
+                    ? "设备"
+                    : entity.kind === "rack"
+                      ? "机柜"
+                      : entity.kind === "room"
+                        ? "机房"
+                        : "设施"}
+              </span>
+            </div>
+            <div className="review-identity">
+              <small>
+                {entity.kind === "device"
+                  ? modelForDevice(selectedId).name
+                  : component
+                    ? `${state.deviceId.toUpperCase()} / 部件模型`
+                    : entity.kind === "rack"
+                      ? "机柜"
+                      : entity.kind === "room"
+                        ? "机房"
+                        : "设施"}
+              </small>
+              <h1>{resource?.name ?? entity.name}</h1>
+              {resource && (
+                <p className="review-resource-location">{resource.location}</p>
+              )}
+              {preview && (
+                <div className="review-resource-preview">
+                  <p>正在预览其他位置的资源</p>
                   <button
-                    onClick={() => control({ type: "layer", layer: "alarms" })}
+                    disabled={!ready}
+                    onClick={() => openResource(selectedId)}
                   >
-                    {component
-                      ? spatial.readings.get(state.deviceId)!.alarmCount
-                      : reading.alarmCount}
-                    <small>台 ↗</small>
+                    {resourceOpenLabel(state, selectedId)} ↗
                   </button>
                 </div>
-              </div>
-              <section className="review-mini-trend">
-                <div>
-                  <h2>对象趋势</h2>
-                  {layer === "overview" ? (
-                    <div>
-                      {(["temperature", "power"] as const).map((m) => (
-                        <button
-                          key={m}
-                          aria-pressed={metric === m}
-                          onClick={() => setMetricChoice(m)}
-                        >
-                          {m === "temperature" ? "温度" : "功耗"}
-                        </button>
-                      ))}
-                    </div>
-                  ) : (
-                    <small>{currentLayer.name}</small>
+              )}
+              <span className="review-signal" style={{ color: signal.color }}>
+                {signal.icon} {readingStatus}
+              </span>
+            </div>
+            {reading ? (
+              <>
+                <div className="review-primary-metric">
+                  <span>{metricLabel}</span>
+                  <strong>
+                    {metric === "temperature"
+                      ? temperatureText(currentValue)
+                      : powerText(currentValue)}
+                    <small>{unit}</small>
+                  </strong>
+                  <div>
+                    <span>
+                      {reading.quality !== "valid"
+                        ? qualityNames[reading.quality]
+                        : component
+                          ? "模型推导 · 无独立测点"
+                          : `有效覆盖 ${coverage}/${reading.count}`}
+                    </span>
+                    <time>
+                      {reading.observedAt == null
+                        ? "无观测时间"
+                        : `t+${reading.observedAt}s`}
+                    </time>
+                  </div>
+                  {layer === "power" && (
+                    <p className="review-budget">
+                      {reading.budget !== null &&
+                      reading.budget > 0 &&
+                      reading.power !== null
+                        ? `预算 ${powerText(reading.budget)} ${reading.budget >= 1000 ? "kW" : "W"} · 当前占比 ${((reading.power / reading.budget) * 100).toFixed(1)}%`
+                        : "未定义有效预算 · 不计算占比"}
+                    </p>
                   )}
                 </div>
-                <ReviewTrend
-                  series={series}
-                  metric={metric}
-                  time={state.time}
-                  compact
-                />
-                <button
-                  className="review-expand-trend"
-                  onClick={() => control({ type: "analysis", value: true })}
-                >
-                  展开曲线与事件 <span>↗</span>
-                </button>
-              </section>
-            </>
-          ) : (
-            <p className="review-empty-data">该设施尚未定义遥测数据。</p>
-          )}
-          {state.level === "device" && (
-            <label className="review-part-select">
-              选择部件
-              <select
-                aria-label="选择设备部件"
-                value={parts.some((p) => p.id === selectedId) ? selectedId : ""}
-                onChange={(e) => select(e.target.value || state.deviceId)}
-              >
-                <option value="">整台设备</option>
-                {parts.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} · {p.slot}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-          <details className="review-detail">
-            <summary>配置与数据详情</summary>
-            {reading && (
-              <div className="review-quality">
-                <span>
-                  {reading.count > 1
-                    ? `${reading.lifecycleCounts.running} 运行 · ${reading.lifecycleCounts.maintenance} 维护 · ${reading.lifecycleCounts.stopped} 停机`
-                    : lifecycleNames[reading.lifecycle]}
-                </span>
-                <span>
-                  {reading.count > 1
-                    ? `${reading.qualityCounts.offline} 离线 · ${reading.qualityCounts.stale} 过期 · ${reading.qualityCounts.missing} 未配置`
-                    : `数据${qualityNames[reading.quality]}`}
-                </span>
-              </div>
-            )}
-            <p>{entity.description}</p>
-            {deviceById(selectedId) && (
-              <p>
-                {unitLabel(selectedId)} · {modelForDevice(selectedId).name} ·{" "}
-                {modelForDevice(selectedId).category === "server"
-                  ? "贡献几何与适配部件"
-                  : "简化参数化结构，内部精度待补齐"}
-              </p>
-            )}
-            {component && (
-              <p>
-                代表表面温度来自进风加温升假设，功耗按部件分配。没有环境湿度或独立遥测。
-              </p>
-            )}
-            {reading && (
-              <>
-                <p>{reading.source}</p>
-                <p>
-                  温度覆盖 {reading.coverageTemperature}/{reading.count}
-                  ；功耗覆盖 {reading.coveragePower}/{reading.count}
-                  。过期读数不进入当前汇总，停机零功耗为有效值。
-                </p>
+                <div className="review-secondary-metrics">
+                  <div>
+                    <span>
+                      {metric === "temperature"
+                        ? component
+                          ? "部件功耗分配"
+                          : "输入功耗"
+                        : component
+                          ? "模型表面温度"
+                          : reading.count > 1
+                            ? "最高进风温度"
+                            : "设备进风温度"}
+                    </span>
+                    <b>
+                      {metric === "temperature"
+                        ? powerText(reading.power)
+                        : temperatureText(reading.temperature)}
+                      <small>
+                        {metric === "temperature"
+                          ? reading.power !== null && reading.power >= 1000
+                            ? "kW"
+                            : "W"
+                          : "°C"}
+                      </small>
+                    </b>
+                  </div>
+                  <div>
+                    <span>{component ? "整机告警" : "告警设备"}</span>
+                    <button
+                      onClick={() => {
+                        setAlertsOpen(true);
+                        control({ type: "analysis", value: false });
+                        control({ type: "layer", layer: "alarms" });
+                      }}
+                    >
+                      {component
+                        ? spatial.readings.get(state.deviceId)!.alarmCount
+                        : reading.alarmCount}
+                      <small>台 ↗</small>
+                    </button>
+                  </div>
+                </div>
+                <section className="review-mini-trend">
+                  <div>
+                    <h2>对象趋势</h2>
+                    {layer === "overview" ? (
+                      <div>
+                        {(["temperature", "power"] as const).map((m) => (
+                          <button
+                            key={m}
+                            aria-pressed={metric === m}
+                            onClick={() => setMetricChoice(m)}
+                          >
+                            {m === "temperature" ? "温度" : "功耗"}
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <small>{currentLayer.name}</small>
+                    )}
+                  </div>
+                  <ReviewTrend
+                    series={series}
+                    metric={metric}
+                    time={state.time}
+                    compact
+                  />
+                  <button
+                    className="review-expand-trend"
+                    onClick={() => control({ type: "analysis", value: true })}
+                  >
+                    展开曲线与事件 <span>↗</span>
+                  </button>
+                </section>
               </>
+            ) : (
+              <p className="review-empty-data">该设施尚未定义遥测数据。</p>
             )}
-          </details>
-        </aside>
+            {state.level === "device" && (
+              <label className="review-part-select">
+                选择部件
+                <select
+                  aria-label="选择设备部件"
+                  value={
+                    parts.some((p) => p.id === selectedId) ? selectedId : ""
+                  }
+                  onChange={(e) => select(e.target.value || state.deviceId)}
+                >
+                  <option value="">整台设备</option>
+                  {parts.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} · {p.slot}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            <details className="review-detail">
+              <summary>配置与数据详情</summary>
+              {reading && (
+                <div className="review-quality">
+                  <span>
+                    {reading.count > 1
+                      ? `${reading.lifecycleCounts.running} 运行 · ${reading.lifecycleCounts.maintenance} 维护 · ${reading.lifecycleCounts.stopped} 停机`
+                      : lifecycleNames[reading.lifecycle]}
+                  </span>
+                  <span>
+                    {reading.count > 1
+                      ? `${reading.qualityCounts.offline} 离线 · ${reading.qualityCounts.stale} 过期 · ${reading.qualityCounts.missing} 未配置`
+                      : `数据${qualityNames[reading.quality]}`}
+                  </span>
+                </div>
+              )}
+              <p>{entity.description}</p>
+              {deviceById(selectedId) && (
+                <p>
+                  {unitLabel(selectedId)} · {modelForDevice(selectedId).name} ·{" "}
+                  {modelForDevice(selectedId).category === "server"
+                    ? "贡献几何与适配部件"
+                    : "简化参数化结构，内部精度待补齐"}
+                </p>
+              )}
+              {component && (
+                <p>
+                  代表表面温度来自进风加温升假设，功耗按部件分配。没有环境湿度或独立遥测。
+                </p>
+              )}
+              {reading && (
+                <>
+                  <p>{reading.source}</p>
+                  <p>
+                    温度覆盖 {reading.coverageTemperature}/{reading.count}
+                    ；功耗覆盖 {reading.coveragePower}/{reading.count}
+                    。过期读数不进入当前汇总，停机零功耗为有效值。
+                  </p>
+                </>
+              )}
+            </details>
+          </aside>
+        </section>
       </div>
     </div>
   );
