@@ -404,7 +404,7 @@ export function Workspace({ reviewMode = false }: { reviewMode?: boolean }) {
                   key={s.id}
                   aria-label={`载入${s.name}`}
                   aria-pressed={shot === s.id}
-                  title={`${s.note}；载入预设将重置选择与时间`}
+                  title={`${s.note}；载入预设将重置对象、时间、结构与切片高度`}
                   onClick={(e) => {
                     loadShot(s.id);
                     e.currentTarget.closest("details")?.removeAttribute("open");
@@ -414,7 +414,7 @@ export function Workspace({ reviewMode = false }: { reviewMode?: boolean }) {
                   {s.name}
                 </button>
               ))}
-              <p>载入示例将重置对象、时间和结构。</p>
+              <p>载入示例将重置对象、时间、结构与切片高度。</p>
             </nav>
           </details>
           <details className="review-about">
@@ -426,7 +426,9 @@ export function Workspace({ reviewMode = false }: { reviewMode?: boolean }) {
                 秒确定性脚本生成。设备测点为模拟，部件温度与功耗为模型推导，无真实管理接口或
                 CFD。
               </p>
-              <p>温度切片、气流、湿度/露点、空间容量和连接视图尚未实施。</p>
+              <p>
+                机房温度切片按设备进风代表位置作局部插值，并非环境实测。气流、垂直切片、湿度/露点、空间容量和连接视图尚未实施。
+              </p>
               <a href="?prototype">打开原型对照 ↗</a>
             </div>
           </details>

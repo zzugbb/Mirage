@@ -37,6 +37,15 @@
       }
     ]
   },
+  "temperatureSlice": {
+    "model": "intake-local-idw-v1",
+    "description": "以各设备U位中心、机柜正面前方的代表位置作局部反距离插值；非真实传感器坐标、房间环境温度或CFD",
+    "height": { "min": 0.2, "max": 2.1, "initial": 1.2, "step": 0.05 },
+    "frontOffset": 0.08,
+    "support": { "x": 1, "y": 0.55, "z": 1 },
+    "cellSize": 0.1,
+    "opacity": 0.62
+  },
   "rack": {
     "id": "rack-a01",
     "position": [

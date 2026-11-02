@@ -986,6 +986,100 @@
   font-size: 10px;
   min-height: 28px;
 }
+
+.design-review .review-slice-legend {
+  width: 252px;
+  pointer-events: auto;
+}
+.design-review .review-legend > .review-slice-controls {
+  width: auto;
+}
+.design-review .review-slice-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 10px;
+  margin-top: 10px;
+  border-top: 1px solid #3b4b50;
+}
+.design-review .review-slice-controls label,
+.design-review .review-slice-stats {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.design-review .review-slice-controls output {
+  color: #d0e4e3;
+  font-variant-numeric: tabular-nums;
+}
+.design-review .review-slice-controls input[type="range"] {
+  width: 100%;
+  margin: 0;
+  accent-color: #9cbfb9;
+}
+.design-review .review-slice-stats {
+  font-size: 10px;
+  color: #acbfc1;
+  font-variant-numeric: tabular-nums;
+}
+@media (min-width: 601px) {
+  .design-review[data-analysis="true"]
+    .review-scene[data-slice-height]
+    .review-scene-readings {
+    display: none;
+  }
+  .design-review[data-analysis="true"] .review-slice-legend {
+    bottom: 12px;
+    padding: 8px 10px;
+  }
+  .design-review[data-analysis="true"] .review-slice-legend > span,
+  .design-review[data-analysis="true"] .review-slice-legend > small {
+    display: none;
+  }
+  .design-review[data-analysis="true"] .review-slice-controls {
+    border-top: 0;
+    padding-top: 4px;
+    margin-top: 4px;
+    gap: 4px;
+  }
+  .design-review[data-analysis="true"] .review-slice-controls small {
+    margin-top: 0;
+  }
+}
+@media (max-width: 600px) {
+  .design-review .review-slice-legend {
+    width: 100%;
+    height: 182px;
+  }
+  .design-review .review-scene[data-slice-height] {
+    height: 628px;
+    min-height: 628px;
+  }
+  .design-review .review-scene[data-slice-height] .review-canvas,
+  .design-review .review-scene[data-slice-height] .review-anchors {
+    bottom: 182px;
+  }
+  .design-review .review-scene[data-slice-height] .review-camera {
+    bottom: 192px;
+  }
+  .design-review .review-scene[data-slice-height] .review-scene-tools {
+    bottom: 242px;
+  }
+  .design-review .review-legend > .review-slice-controls {
+    grid-column: 1 / -1;
+    grid-row: 4;
+    gap: 3px;
+    margin-top: 7px;
+    padding-top: 7px;
+  }
+  .design-review .review-slice-controls small {
+    margin-top: 0;
+  }
+  .design-review .review-slice-controls input[type="range"] {
+    min-height: 28px;
+  }
+}
 .design-review .workspace-tour-toggle small {
   margin-left: 8px;
   color: #9db8b4;
