@@ -75,7 +75,9 @@ export function Workspace({ reviewMode = false }: { reviewMode?: boolean }) {
   const [shot, setShot] = useState<ReviewShot>("overview");
   const [shotRevision, setShotRevision] = useState(0);
   const [phase, setPhase] = useState<PresentationPhase>("closed");
-  const [navigation, setNavigation] = useState(false);
+  const [navigation, setNavigation] = useState(
+    () => matchMedia("(min-width: 1101px)").matches,
+  );
   const [inspectorMode, setInspectorMode] = useState<
     "auto" | "open" | "closed"
   >("auto");
@@ -165,7 +167,10 @@ export function Workspace({ reviewMode = false }: { reviewMode?: boolean }) {
   const series = histories[metric];
   const dispatch = useCallback((action: Action) => {
     control({ type: "scene", action });
-    if (action.type === "locate" || action.type === "navigate")
+    if (
+      (action.type === "locate" || action.type === "navigate") &&
+      matchMedia("(max-width: 1100px)").matches
+    )
       setNavigation(false);
   }, []);
   useEffect(() => {
@@ -180,7 +185,7 @@ export function Workspace({ reviewMode = false }: { reviewMode?: boolean }) {
   const pick = useCallback((id: string) => control({ type: "pick", id }), []);
   const openResource = useCallback((id: string) => {
     control({ type: "open-resource", id });
-    setNavigation(false);
+    if (matchMedia("(max-width: 1100px)").matches) setNavigation(false);
     requestAnimationFrame(() => {
       const center = document.querySelector<HTMLElement>(".review-center");
       center?.focus({ preventScroll: true });
@@ -428,7 +433,8 @@ export function Workspace({ reviewMode = false }: { reviewMode?: boolean }) {
               </p>
               <p>
                 机房温度切片按设备进风代表位置作局部插值，气流路径按当前布置与前进后出假设绘制，均非环境实测或
-                CFD 结果。湿度/露点、空间容量和连接视图尚未实施。
+                CFD
+                结果。门禁读卡器、烟感和环境探头仅作布置示意，尚未接入监测；湿度/露点、空间容量和连接视图尚未实施。
               </p>
               <a href="?prototype">打开原型对照 ↗</a>
             </div>

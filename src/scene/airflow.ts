@@ -14,43 +14,10 @@ type CachedPath = {
 /** 少量实例化箭头和粒子；路径不参与拾取，穿柜段用低亮度透视线表达方向。 */
 export class AirflowGeometry {
   root = new THREE.Group();
-  cone = new THREE.ConeGeometry(0.035, 0.1, 8);
-  sphere = new THREE.SphereGeometry(0.035, 8, 6);
+  cone = new THREE.ConeGeometry(0.065, 0.19, 8);
+  sphere = new THREE.SphereGeometry(0.055, 8, 6);
+  ribbon = new THREE.CylinderGeometry(1, 1, 1, 6);
   batches = kinds.map((kind) => {
-    const count = maximumRoutes * airflowSettings.samples * 2;
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute(
-      "position",
-      new THREE.BufferAttribute(new Float32Array(count * 3), 3).setUsage(
-        THREE.DynamicDrawUsage,
-      ),
-    );
-    geometry.setAttribute(
-      "color",
-      new THREE.BufferAttribute(new Float32Array(count * 3), 3).setUsage(
-        THREE.DynamicDrawUsage,
-      ),
-    );
-    geometry.setAttribute(
-      "lineDistance",
-      new THREE.BufferAttribute(new Float32Array(count), 1).setUsage(
-        THREE.DynamicDrawUsage,
-      ),
-    );
-    geometry.setDrawRange(0, 0);
-    const line = new THREE.LineSegments(
-      geometry,
-      new THREE.LineDashedMaterial({
-        vertexColors: true,
-        transparent: true,
-        opacity: 0.4,
-        depthWrite: false,
-        depthTest: kind !== "through",
-        toneMapped: false,
-        dashSize: kind === "return" ? 0.12 : 0.3,
-        gapSize: kind === "return" ? 0.12 : 0.04,
-      }),
-    );
     const arrows = new THREE.InstancedMesh(
       this.cone,
       new THREE.MeshBasicMaterial({
@@ -74,17 +41,27 @@ export class AirflowGeometry {
       }),
       maximumRoutes * 3,
     );
-    for (const mesh of [arrows, sparks]) {
+    const band = new THREE.InstancedMesh(
+      this.ribbon,
+      new THREE.MeshBasicMaterial({
+        transparent: true,
+        opacity: 0.8,
+        depthWrite: false,
+        depthTest: kind !== "through",
+        toneMapped: false,
+      }),
+      maximumRoutes * airflowSettings.samples,
+    );
+    for (const mesh of [arrows, sparks, band]) {
       mesh.count = 0;
       mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
       mesh.raycast = () => {};
       mesh.frustumCulled = false;
     }
-    line.raycast = () => {};
     if (kind === "through")
-      for (const object of [line, arrows, sparks]) object.renderOrder = 4;
-    this.root.add(line, arrows, sparks);
-    return { kind, line, arrows, sparks, paths: [] as CachedPath[] };
+      for (const object of [arrows, sparks, band]) object.renderOrder = 4;
+    this.root.add(arrows, sparks, band);
+    return { kind, arrows, sparks, band, paths: [] as CachedPath[] };
   });
   transform = new THREE.Object3D();
   position = new THREE.Vector3();
@@ -129,17 +106,8 @@ export class AirflowGeometry {
         });
     }
     for (const batch of this.batches) {
-      const position = batch.line.geometry.getAttribute(
-        "position",
-      ) as THREE.BufferAttribute;
-      const colors = batch.line.geometry.getAttribute(
-        "color",
-      ) as THREE.BufferAttribute;
-      const distances = batch.line.geometry.getAttribute(
-        "lineDistance",
-      ) as THREE.BufferAttribute;
-      let vertex = 0,
-        arrow = 0;
+      let arrow = 0,
+        strip = 0;
       batch.paths.forEach((path, index) => {
         path.animated = snapshot.routes[index].animated;
         path.color.set(
@@ -147,18 +115,25 @@ export class AirflowGeometry {
             ? airflowSettings.colors[batch.kind]
             : airflowSettings.colors.unknown,
         );
-        let length = 0;
         for (let i = 0; i < airflowSettings.samples; i++) {
           const a = path.points[i],
             b = path.points[i + 1];
-          position.setXYZ(vertex, ...a);
-          position.setXYZ(vertex + 1, ...b);
-          colors.setXYZ(vertex, path.color.r, path.color.g, path.color.b);
-          colors.setXYZ(vertex + 1, path.color.r, path.color.g, path.color.b);
-          distances.setX(vertex, length);
-          length += Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
-          distances.setX(vertex + 1, length);
-          vertex += 2;
+          // 回风保留间隔，送风连续；实体线宽不依赖 WebGL 的单像素线限制。
+          if (batch.kind !== "return" || i % 3 !== 2) {
+            this.position.fromArray(a);
+            this.tangent.fromArray(b).sub(this.position);
+            this.transform.position
+              .copy(this.position)
+              .addScaledVector(this.tangent, 0.5);
+            this.transform.scale.set(0.03, this.tangent.length(), 0.03);
+            this.transform.quaternion.setFromUnitVectors(
+              this.up,
+              this.tangent.normalize(),
+            );
+            this.transform.updateMatrix();
+            batch.band.setMatrixAt(strip, this.transform.matrix);
+            batch.band.setColorAt(strip++, path.color);
+          }
         }
         for (const t of [0.2, 0.55, 0.85]) {
           this.at(path, t, this.position);
@@ -174,20 +149,18 @@ export class AirflowGeometry {
           arrow++;
         }
       });
-      for (const attr of [position, colors, distances]) attr.needsUpdate = true;
-      batch.line.geometry.setDrawRange(0, vertex);
-      batch.line.geometry.computeBoundingSphere();
+      batch.band.count = strip;
+      batch.band.instanceMatrix.needsUpdate = true;
+      if (batch.band.instanceColor) batch.band.instanceColor.needsUpdate = true;
       batch.arrows.count = arrow;
       batch.arrows.instanceMatrix.needsUpdate = true;
       if (batch.arrows.instanceColor)
         batch.arrows.instanceColor.needsUpdate = true;
-      batch.line.material.opacity =
-        batch.kind === "supply"
-          ? 0.4 + (0.3 * snapshot.coolingCapacity) / 100
-          : batch.kind === "return"
-            ? 0.5
-            : 0.6;
     }
+    this.batches.forEach((batch) => {
+      batch.band.material.opacity =
+        batch.kind === "supply" ? 0.55 + snapshot.coolingCapacity * 0.003 : 0.7;
+    });
     this.animate(snapshot.time, false, true);
   }
   animate(time: number, reducedMotion = false, roomReady = true) {
@@ -226,10 +199,9 @@ export class AirflowGeometry {
   dispose() {
     this.cone.dispose();
     this.sphere.dispose();
+    this.ribbon.dispose();
     for (const batch of this.batches) {
-      batch.line.geometry.dispose();
-      batch.line.material.dispose();
-      for (const mesh of [batch.arrows, batch.sparks]) {
+      for (const mesh of [batch.arrows, batch.sparks, batch.band]) {
         mesh.material.dispose();
         mesh.dispose();
       }

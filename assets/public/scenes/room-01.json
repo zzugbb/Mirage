@@ -10,6 +10,63 @@
       12
     ],
     "wallThickness": 0.16,
+    "fixtures": [
+      {
+        "id": "access-reader-01",
+        "kind": "access",
+        "name": "门禁读卡器",
+        "position": [
+          5.05,
+          1.35,
+          -5.87
+        ],
+        "dataStatus": "not-connected"
+      },
+      {
+        "id": "smoke-01",
+        "kind": "smoke",
+        "name": "烟感 A",
+        "position": [
+          -2.8,
+          3.65,
+          1.1
+        ],
+        "dataStatus": "not-connected"
+      },
+      {
+        "id": "smoke-02",
+        "kind": "smoke",
+        "name": "烟感 B",
+        "position": [
+          2.8,
+          3.65,
+          -2.5
+        ],
+        "dataStatus": "not-connected"
+      },
+      {
+        "id": "environment-01",
+        "kind": "environment",
+        "name": "环境探头 A",
+        "position": [
+          -6.86,
+          1.5,
+          2
+        ],
+        "dataStatus": "not-connected"
+      },
+      {
+        "id": "environment-02",
+        "kind": "environment",
+        "name": "环境探头 B",
+        "position": [
+          -6.86,
+          1.5,
+          -2
+        ],
+        "dataStatus": "not-connected"
+      }
+    ],
     "lights": [
       {
         "position": [

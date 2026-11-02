@@ -153,9 +153,9 @@ test("气流几何复用缓冲与材质，粒子可重复定位，减少动态�
     snapshot = airflowSnapshot(60, spatialSnapshot(60).readings);
   geometry.update(snapshot);
   const buffers = geometry.batches.map((batch) => [
-    batch.line.geometry,
-    batch.line.material,
-    batch.line.geometry.getAttribute("position"),
+    batch.band.geometry,
+    batch.band.material,
+    batch.band.instanceMatrix,
     batch.arrows.geometry,
     batch.sparks.geometry,
   ]);
@@ -168,23 +168,25 @@ test("气流几何复用缓冲与材质，粒子可重复定位，减少动态�
   geometry.batches.forEach((batch, index) =>
     assert.deepEqual([...batch.sparks.instanceMatrix.array], poses[index]),
   );
-  const reducedSupply = geometry.batches[0].line.material.opacity;
+  const reducedSupply = geometry.batches[0].band.material.opacity;
   geometry.update(airflowSnapshot(0, spatialSnapshot(0).readings));
-  assert.ok(geometry.batches[0].line.material.opacity > reducedSupply);
+  assert.ok(geometry.batches[0].band.material.opacity > reducedSupply);
   geometry.batches.forEach((batch, index) => {
     assert.deepEqual(
       [
-        batch.line.geometry,
-        batch.line.material,
-        batch.line.geometry.getAttribute("position"),
+        batch.band.geometry,
+        batch.band.material,
+        batch.band.instanceMatrix,
         batch.arrows.geometry,
         batch.sparks.geometry,
       ],
       buffers[index],
     );
+    assert.ok(batch.band.count > 0);
+    assert.equal(batch.band.material.depthTest, batch.kind !== "through");
     assert.ok(batch.arrows.count > 0);
     assert.ok(batch.sparks.count > 0);
-    assert.equal(batch.line.material.depthTest, batch.kind !== "through");
+    assert.equal(batch.band.material.depthTest, batch.kind !== "through");
   });
   geometry.animate(60, true);
   assert.ok(
@@ -205,7 +207,7 @@ test("气流几何复用缓冲与材质，粒子可重复定位，减少动态�
   );
   assert.ok(geometry.batches.every((batch) => batch.sparks.count === 0));
   for (const batch of geometry.batches)
-    for (const object of [batch.line, batch.arrows, batch.sparks]) {
+    for (const object of [batch.arrows, batch.sparks, batch.band]) {
       const intersections: unknown[] = [];
       object.raycast({} as never, intersections as never);
       assert.deepEqual(intersections, []);
@@ -214,17 +216,17 @@ test("气流几何复用缓冲与材质，粒子可重复定位，减少动态�
   for (const resource of [
     geometry.cone,
     geometry.sphere,
+    geometry.ribbon,
     ...geometry.batches.flatMap((batch) => [
-      batch.line.geometry,
-      batch.line.material,
       batch.arrows.material,
       batch.sparks.material,
+      batch.band.material,
     ]),
   ])
     resource.addEventListener("dispose", () => disposed++);
   geometry.update(null);
   assert.equal(geometry.root.visible, false);
   geometry.dispose();
-  assert.equal(disposed, 14);
+  assert.equal(disposed, 12);
   assert.equal(geometry.root.children.length, 0);
 });
