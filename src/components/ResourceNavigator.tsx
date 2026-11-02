@@ -62,6 +62,7 @@ export function ResourceNavigator({
   onFocus,
   onBack,
   onInteract,
+  onClose,
 }: {
   state: AppState;
   selected: string;
@@ -72,6 +73,7 @@ export function ResourceNavigator({
   onFocus: (id: string) => void;
   onBack: () => void;
   onInteract?: () => void;
+  onClose?: () => void;
 }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<ResourceFilter>("all");
@@ -107,6 +109,7 @@ export function ResourceNavigator({
   );
   return (
     <aside
+      id="workspace-resources"
       className="object-panel resource-panel"
       aria-label="资源导航"
       onPointerDownCapture={onInteract}
@@ -122,6 +125,28 @@ export function ResourceNavigator({
               ? "机柜"
               : "设备内部"}
         </small>
+        {onClose && (
+          <button
+            className="resource-close"
+            aria-label="收起资源导航"
+            aria-controls="workspace-resources"
+            aria-expanded="true"
+            title="收起资源导航"
+            onClick={onClose}
+          >
+            <svg
+              aria-hidden="true"
+              width="18"
+              height="18"
+              viewBox="0 0 20 20"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.4"
+            >
+              <path d="M13 5l-5 5 5 5M4 4v12" />
+            </svg>
+          </button>
+        )}
       </header>
       <div className="resource-search">
         <input

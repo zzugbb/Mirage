@@ -1166,15 +1166,7 @@
 }
 
 /* 桌面也允许将资源列表收起，空间留给当前场景。 */
-@media (min-width: 1101px) {
-  .design-review .review-nav-toggle {
-    display: block;
-    white-space: nowrap;
-    font-size: 11px;
-    color: #adc8c8;
-    padding: 8px 10px;
-    border: 1px solid #34474b;
-  }
+@media (min-width: 1001px) {
   .design-review .review-workspace:not(.navigation-open) {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -1226,5 +1218,68 @@
     .review-scene[data-slice-orientation]
     .review-view-explanation {
     margin-top: 5px;
+  }
+}
+
+/* 资源开关紧邻被控制区域，页头只保留空间路径。 */
+.design-review .review-resource-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 40px;
+  padding: 0 12px 0 0;
+  margin-right: 18px;
+  color: #b3cbcc;
+  border-right: 1px solid #34474b;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+.design-review .review-layerbar {
+  justify-content: flex-start;
+}
+.design-review .review-inspector-toggle {
+  margin-left: auto;
+}
+.design-review .resource-header {
+  gap: 10px;
+}
+.design-review .resource-header small {
+  margin-left: auto;
+}
+.design-review .resource-close {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 40px;
+  color: #adc8c8;
+  flex-shrink: 0;
+}
+.design-review .resource-close:hover,
+.design-review .review-resource-toggle:hover {
+  color: #e0f4ed;
+  background: #243539;
+}
+@media (min-width: 1001px) {
+  .design-review .navigation-open .review-resource-toggle {
+    display: none;
+  }
+}
+@media (max-width: 600px) {
+  .design-review .review-layerbar {
+    padding: 0 12px;
+  }
+  .design-review .review-resource-toggle {
+    gap: 5px;
+    margin-right: 12px;
+    padding-right: 10px;
+    min-height: 44px;
+  }
+  .design-review .review-layers {
+    gap: 14px;
+  }
+  .design-review .resource-close {
+    height: 44px;
+    width: 44px;
   }
 }

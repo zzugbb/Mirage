@@ -76,8 +76,28 @@ export function Workspace({ reviewMode = false }: { reviewMode?: boolean }) {
   const [shotRevision, setShotRevision] = useState(0);
   const [phase, setPhase] = useState<PresentationPhase>("closed");
   const [navigation, setNavigation] = useState(
-    () => matchMedia("(min-width: 1101px)").matches,
+    () => matchMedia("(min-width: 1001px)").matches,
   );
+  const closeNavigation = useCallback(() => {
+    setNavigation(false);
+    requestAnimationFrame(() =>
+      document
+        .querySelector<HTMLButtonElement>(".review-resource-toggle")
+        ?.focus(),
+    );
+  }, []);
+  const toggleNavigation = () => {
+    takeover();
+    if (navigation) closeNavigation();
+    else {
+      setNavigation(true);
+      requestAnimationFrame(() =>
+        document
+          .querySelector<HTMLInputElement>(".resource-search input")
+          ?.focus(),
+      );
+    }
+  };
   const [inspectorMode, setInspectorMode] = useState<
     "auto" | "open" | "closed"
   >("auto");
@@ -169,7 +189,7 @@ export function Workspace({ reviewMode = false }: { reviewMode?: boolean }) {
     control({ type: "scene", action });
     if (
       (action.type === "locate" || action.type === "navigate") &&
-      matchMedia("(max-width: 1100px)").matches
+      matchMedia("(max-width: 1000px)").matches
     )
       setNavigation(false);
   }, []);
@@ -185,7 +205,7 @@ export function Workspace({ reviewMode = false }: { reviewMode?: boolean }) {
   const pick = useCallback((id: string) => control({ type: "pick", id }), []);
   const openResource = useCallback((id: string) => {
     control({ type: "open-resource", id });
-    if (matchMedia("(max-width: 1100px)").matches) setNavigation(false);
+    if (matchMedia("(max-width: 1000px)").matches) setNavigation(false);
     requestAnimationFrame(() => {
       const center = document.querySelector<HTMLElement>(".review-center");
       center?.focus({ preventScroll: true });
@@ -226,7 +246,7 @@ export function Workspace({ reviewMode = false }: { reviewMode?: boolean }) {
       }
       if (event.key === "Escape" && navigation) {
         event.preventDefault();
-        setNavigation(false);
+        closeNavigation();
         return;
       }
       if (
@@ -242,7 +262,7 @@ export function Workspace({ reviewMode = false }: { reviewMode?: boolean }) {
     };
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
-  }, [navigation, dispatch, focusResource, selectedId]);
+  }, [navigation, dispatch, focusResource, selectedId, closeNavigation]);
   const loadShot = (next: ReviewShot) => {
     setInspectorMode("auto");
     setShot(next);
@@ -326,16 +346,6 @@ export function Workspace({ reviewMode = false }: { reviewMode?: boolean }) {
           Mirage<span>浮城</span>
         </a>
         <div className="review-location">
-          <button
-            className="review-nav-toggle"
-            aria-expanded={navigation}
-            onClick={() => {
-              takeover();
-              setNavigation((v) => !v);
-            }}
-          >
-            资源导航 {navigation ? "−" : "+"}
-          </button>
           <nav aria-label="空间路径">
             {getPath(state).map((id, i) => (
               <span key={id}>
@@ -447,6 +457,7 @@ export function Workspace({ reviewMode = false }: { reviewMode?: boolean }) {
         aria-label={reviewMode ? "交互评审工作区" : "三维工作区"}
       >
         <ResourceNavigator
+          onClose={closeNavigation}
           state={state}
           selected={selectedId}
           readings={spatial.readings}
@@ -463,6 +474,27 @@ export function Workspace({ reviewMode = false }: { reviewMode?: boolean }) {
           tabIndex={-1}
         >
           <div className="review-layerbar">
+            <button
+              className="review-resource-toggle"
+              aria-label={navigation ? "收起资源导航" : "展开资源导航"}
+              aria-expanded={navigation}
+              aria-controls="workspace-resources"
+              onClick={toggleNavigation}
+            >
+              <svg
+                aria-hidden="true"
+                width="16"
+                height="16"
+                viewBox="0 0 20 20"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.4"
+              >
+                <rect x="2.5" y="3" width="15" height="14" rx="1.5" />
+                <path d="M7.5 3v14M4.5 6h1M4.5 9h1" />
+              </svg>
+              <span>资源</span>
+            </button>
             <div className="review-layers" aria-label="观察视图">
               {reviewLayers.map((l) => (
                 <button
