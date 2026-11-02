@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import {
-  sliceBounds,
+  slicePoint,
   sliceColumns,
   sliceRows,
   sliceSettings,
@@ -28,12 +28,11 @@ export class TemperatureSliceGeometry {
   );
   color = new THREE.Color();
   constructor() {
-    const { minX, maxX, minZ, maxZ } = sliceBounds;
     this.texture.colorSpace = THREE.LinearSRGBColorSpace;
     this.texture.magFilter = THREE.LinearFilter;
     this.texture.minFilter = THREE.LinearFilter;
     this.plane = new THREE.Mesh(
-      new THREE.PlaneGeometry(maxX - minX, maxZ - minZ),
+      new THREE.PlaneGeometry(1, 1),
       new THREE.MeshBasicMaterial({
         map: this.texture,
         transparent: true,
@@ -43,8 +42,6 @@ export class TemperatureSliceGeometry {
         toneMapped: false,
       }),
     );
-    this.plane.rotation.x = -Math.PI / 2;
-    this.plane.position.set((minX + maxX) / 2, 0, (minZ + maxZ) / 2);
     this.plane.renderOrder = 2;
     this.plane.raycast = () => {};
     this.guide.raycast = () => {};
@@ -72,71 +69,33 @@ export class TemperatureSliceGeometry {
       this.pixels[i * 4 + 3] = Math.round(255 * Math.sqrt(slice.influence[i]));
     });
     this.texture.needsUpdate = true;
-    this.plane.position.y = slice.height;
-    const { minX, maxX, minZ, maxZ } = sliceBounds;
+    const width = Math.hypot(...slice.frame.u),
+      height = Math.hypot(...slice.frame.v);
+    this.plane.rotation.x =
+      slice.orientation === "horizontal" ? -Math.PI / 2 : 0;
+    this.plane.position.fromArray(slicePoint(slice.frame, 0.5, 0.5));
+    this.plane.scale.set(width, height, 1);
     const positions: number[] = [];
-    for (const x of [minX, maxX])
-      for (const z of [minZ, maxZ]) {
-        positions.push(
-          x,
-          slice.height,
-          z,
-          x + (x === minX ? 0.3 : -0.3),
-          slice.height,
-          z,
-        );
-        positions.push(
-          x,
-          slice.height,
-          z,
-          x,
-          slice.height,
-          z + (z === minZ ? 0.3 : -0.3),
-        );
+    const line = (a: number[], b: number[]) => positions.push(...a, ...b);
+    const point = (u: number, v: number) => slicePoint(slice.frame, u, v);
+    for (const u of [0, 1])
+      for (const v of [0, 1]) {
+        line(point(u, v), point(u + (u === 0 ? 0.3 : -0.3) / width, v));
+        line(point(u, v), point(u, v + (v === 0 ? 0.3 : -0.3) / height));
       }
-    positions.push(
-      minX,
-      0.02,
-      maxZ,
-      minX,
-      slice.height,
-      maxZ,
-      minX - 0.15,
-      slice.height,
-      maxZ,
-      minX + 0.15,
-      slice.height,
-      maxZ,
+    const marker = point(0, slice.orientation === "horizontal" ? 0 : 1);
+    line([marker[0], 0.02, marker[2]], marker);
+    line(
+      [marker[0] - 0.15, marker[1], marker[2]],
+      [marker[0] + 0.15, marker[1], marker[2]],
     );
     const attribute = this.guide.geometry.getAttribute(
       "position",
     ) as THREE.BufferAttribute;
-    positions.push(
-      minX,
-      slice.height,
-      minZ,
-      maxX,
-      slice.height,
-      minZ,
-      maxX,
-      slice.height,
-      minZ,
-      maxX,
-      slice.height,
-      maxZ,
-      maxX,
-      slice.height,
-      maxZ,
-      minX,
-      slice.height,
-      maxZ,
-      minX,
-      slice.height,
-      maxZ,
-      minX,
-      slice.height,
-      minZ,
-    );
+    line(point(0, 0), point(1, 0));
+    line(point(1, 0), point(1, 1));
+    line(point(1, 1), point(0, 1));
+    line(point(0, 1), point(0, 0));
     attribute.array.set(positions);
     attribute.needsUpdate = true;
     this.guide.geometry.computeBoundingSphere();

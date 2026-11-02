@@ -404,7 +404,7 @@ export function Workspace({ reviewMode = false }: { reviewMode?: boolean }) {
                   key={s.id}
                   aria-label={`载入${s.name}`}
                   aria-pressed={shot === s.id}
-                  title={`${s.note}；载入预设将重置对象、时间、结构与切片高度`}
+                  title={`${s.note}；载入预设将重置对象、时间、结构与切片设置`}
                   onClick={(e) => {
                     loadShot(s.id);
                     e.currentTarget.closest("details")?.removeAttribute("open");
@@ -414,7 +414,7 @@ export function Workspace({ reviewMode = false }: { reviewMode?: boolean }) {
                   {s.name}
                 </button>
               ))}
-              <p>载入示例将重置对象、时间、结构与切片高度。</p>
+              <p>载入示例将重置对象、时间、结构与切片设置。</p>
             </nav>
           </details>
           <details className="review-about">
@@ -427,7 +427,7 @@ export function Workspace({ reviewMode = false }: { reviewMode?: boolean }) {
                 CFD。
               </p>
               <p>
-                机房温度切片按设备进风代表位置作局部插值，并非环境实测。气流、垂直切片、湿度/露点、空间容量和连接视图尚未实施。
+                机房水平与垂直温度切片按设备进风代表位置作局部插值，并非环境实测。气流、湿度/露点、空间容量和连接视图尚未实施。
               </p>
               <a href="?prototype">打开原型对照 ↗</a>
             </div>

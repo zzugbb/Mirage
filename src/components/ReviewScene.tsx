@@ -11,8 +11,21 @@ import { partsForDevice, modelForDevice } from "../catalog";
 import { reviewSpatialMarks } from "../review-spatial";
 import { ReviewDataGeometry } from "../scene/review-data";
 import { signalFor, signalStyles } from "../status";
-import { sliceSettings, temperatureSlice } from "../temperature-slice";
+import {
+  sliceSettings,
+  sliceRackRows,
+  temperatureSlice,
+  verticalTemperatureSlice,
+} from "../temperature-slice";
+import type { SliceOrientation } from "../temperature-slice";
 import { TemperatureSliceGeometry } from "../scene/temperature-slice";
+
+const initialSliceControls = () => ({
+  orientation: "horizontal" as SliceOrientation,
+  height: sliceSettings.height.initial,
+  rowId: sliceRackRows[0].id,
+  distance: sliceSettings.vertical.distance.initial,
+});
 
 export function ReviewScene({
   state,
@@ -55,16 +68,25 @@ export function ReviewScene({
   const [quality, setQuality] = useState(true);
   const [supported, setSupported] = useState(false);
   const [orbit, setOrbit] = useState(false);
-  const [sliceHeight, setSliceHeight] = useState<number>(
-    sliceSettings.height.initial,
-  );
+  const [sliceControls, setSliceControls] = useState(initialSliceControls);
   const slice = useMemo(
     () =>
       layer === "environment" && state.level === "room"
-        ? temperatureSlice(readings, sliceHeight)
+        ? sliceControls.orientation === "horizontal"
+          ? temperatureSlice(readings, sliceControls.height)
+          : verticalTemperatureSlice(
+              readings,
+              sliceControls.rowId,
+              sliceControls.distance,
+            )
         : null,
-    [readings, sliceHeight, layer, state.level],
+    [readings, sliceControls, layer, state.level],
   );
+  const sliceRow = sliceRackRows.find((row) => row.id === slice?.rowId);
+  const positionSettings =
+    slice?.orientation === "vertical"
+      ? sliceSettings.vertical.distance
+      : sliceSettings.height;
   const presentation = reviewPresentation(layer, state.level);
   const model = modelForDevice(state.deviceId);
   const representation =
@@ -153,7 +175,7 @@ export function ReviewScene({
   useEffect(() => {
     // 评审预设使用相同的空间构图，便于直接比较图层；普通操作不触发。
     const next = currentState.current.level === "room" ? "interior" : "iso";
-    setSliceHeight(sliceSettings.height.initial);
+    setSliceControls(initialSliceControls());
     engine.current?.view(next);
     setView(next);
   }, [shotRevision, retry]);
@@ -191,7 +213,9 @@ export function ReviewScene({
   )!;
   const candidates =
     state.level === "room"
-      ? racks
+      ? sliceRow
+        ? racks.filter((rack) => sliceRow.rackIds.includes(rack.id))
+        : racks
       : state.level === "rack"
         ? devices.filter((d) => d.rackId === rackForDevice(state.deviceId).id)
         : partsForDevice(state.deviceId).filter(
@@ -270,6 +294,9 @@ export function ReviewScene({
       className="review-scene"
       aria-label="三维场景"
       data-slice-height={slice?.height}
+      data-slice-orientation={slice?.orientation}
+      data-slice-row={slice?.rowId}
+      data-slice-position={slice ? (slice.height ?? slice.distance) : undefined}
     >
       <div
         className="review-canvas"
@@ -286,15 +313,21 @@ export function ReviewScene({
       <div className="review-scene-caption">
         <span>
           {state.level === "room"
-            ? "01 号机房 / 8 机柜 · 84 设备"
+            ? sliceRow
+              ? `${sliceRow.name} / ${sliceRow.rackIds.length} 机柜 · ${devices.filter((device) => sliceRow.rackIds.includes(device.rackId)).length} 设备`
+              : "01 号机房 / 8 机柜 · 84 设备"
             : state.level === "rack"
               ? `${rackForDevice(state.deviceId).name} / 42U`
               : `${model.name} / ${representation}`}
         </span>
         <strong>
-          {slice ? "进风温度切片 · 局部插值" : presentation.title}
+          {slice
+            ? slice.orientation === "horizontal"
+              ? "进风温度水平切片 · 局部插值"
+              : `进风温度垂直切片 · ${sliceRow!.name}`
+            : presentation.title}
         </strong>
-        {state.level !== "device" && (
+        {state.level !== "device" && slice?.orientation !== "vertical" && (
           <div className="review-scene-readings" aria-label="场景运行读数">
             <span>
               <b>{scope.lifecycleCounts.running}</b>
@@ -322,7 +355,7 @@ export function ReviewScene({
           <summary>读图说明</summary>
           <p>
             {slice
-              ? "切片在当前高度估计机柜正面进风附近的温度，色条仍对应逐台设备。输入为同一时间的有效模拟读数；代表位置按U位中心假设，非独立环境测点。最近位置离线、过期或超出插值范围时留空；不推断机柜排风或整间机房温度。"
+              ? `${slice.orientation === "horizontal" ? "水平切片估计当前高度的进风温度。" : `垂直切片显示${sliceRow!.name}正面 ${sliceSettings.height.min.toFixed(2)}–${sliceSettings.height.max.toFixed(2)} 米高度的进风差异，滑杆调整离柜距离；标签取切面纵向最高估计。俯视时切面呈侧边，可切到前视观察。`}色条仍对应逐台设备。输入为同一时间的有效模拟读数；代表位置按U位中心假设，非独立环境测点。最近位置离线、过期或超出插值范围时留空；不推断机柜排风或整间机房温度。`
               : presentation.description}
           </p>
         </details>
@@ -379,8 +412,10 @@ export function ReviewScene({
                     : layer === "environment"
                       ? slice
                         ? slice.rackEstimates.get(item.id) == null
-                          ? "本层无估计"
-                          : `本层约 ${slice.rackEstimates.get(item.id)!.toFixed(1)} °C`
+                          ? slice.orientation === "horizontal"
+                            ? "本层无估计"
+                            : "切面无估计"
+                          : `${slice.orientation === "horizontal" ? "本层约" : "切面最高约"} ${slice.rackEstimates.get(item.id)!.toFixed(1)} °C`
                         : reading.temperature === null
                           ? "—"
                           : `${reading.count > 1 ? "最高 " : ""}${reading.temperature.toFixed(1)} °C`
@@ -467,14 +502,53 @@ export function ReviewScene({
           </div>
         ) : (
           <>
-            <span>
-              {layer === "environment"
-                ? slice
-                  ? "切片与 U 位色条 · 进风温度"
-                  : state.level === "device"
-                    ? "表面温度 · °C · 模型推导"
-                    : "U 位色条 · 设备进风温度"
-                : "机柜标尺 · 功耗 / 预算占比"}
+            <span className={slice ? "review-slice-heading" : undefined}>
+              {slice ? (
+                <>
+                  <span>进风温度</span>
+                  <select
+                    aria-label="温度切片方向"
+                    value={sliceControls.orientation}
+                    onChange={(event) => {
+                      onTakeover();
+                      setSliceControls((current) => ({
+                        ...current,
+                        orientation: event.target.value as SliceOrientation,
+                      }));
+                    }}
+                  >
+                    <option value="horizontal">水平切片</option>
+                    <option value="vertical">垂直切片</option>
+                  </select>
+                  {slice.orientation === "vertical" && (
+                    <select
+                      aria-label="温度切片机柜排"
+                      value={sliceControls.rowId}
+                      onChange={(event) => {
+                        onTakeover();
+                        setSliceControls((current) => ({
+                          ...current,
+                          rowId: event.target.value,
+                        }));
+                      }}
+                    >
+                      {sliceRackRows.map((row) => (
+                        <option key={row.id} value={row.id}>
+                          {row.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </>
+              ) : (
+                <>
+                  {layer === "environment"
+                    ? state.level === "device"
+                      ? "表面温度 · °C · 模型推导"
+                      : "U 位色条 · 设备进风温度"
+                    : "机柜标尺 · 功耗 / 预算占比"}
+                </>
+              )}
             </span>
             <i className={`review-scale ${layer}`} />
             <div>
@@ -494,33 +568,45 @@ export function ReviewScene({
             </small>
             {slice && (
               <div className="review-slice-controls" aria-label="温度切片控制">
-                <label htmlFor="temperature-slice-height">
-                  切片高度{" "}
-                  <output htmlFor="temperature-slice-height">
-                    {slice.height.toFixed(2)} m
+                <label htmlFor="temperature-slice-position">
+                  {slice.orientation === "horizontal"
+                    ? "切片高度"
+                    : "距机柜正面"}{" "}
+                  <output htmlFor="temperature-slice-position">
+                    {(slice.height ?? slice.distance).toFixed(2)} m
                   </output>
                 </label>
                 <input
-                  id="temperature-slice-height"
+                  id="temperature-slice-position"
                   type="range"
-                  aria-label="温度切片高度"
-                  aria-valuetext={`${slice.height.toFixed(2)} 米`}
-                  min={sliceSettings.height.min}
-                  max={sliceSettings.height.max}
-                  step={sliceSettings.height.step}
-                  value={sliceHeight}
+                  aria-label={
+                    slice.orientation === "horizontal"
+                      ? "温度切片高度"
+                      : "垂直切片离柜距离"
+                  }
+                  aria-valuetext={`${(slice.height ?? slice.distance).toFixed(2)} 米`}
+                  min={positionSettings.min}
+                  max={positionSettings.max}
+                  step={positionSettings.step}
+                  value={slice.height ?? slice.distance}
                   onChange={(event) => {
                     onTakeover();
-                    setSliceHeight(Number(event.target.value));
+                    const value = Number(event.target.value);
+                    setSliceControls((current) =>
+                      slice.orientation === "horizontal"
+                        ? { ...current, height: value }
+                        : { ...current, distance: value },
+                    );
                   }}
                 />
                 <span
                   className="review-slice-stats"
                   role="img"
-                  aria-label={`当前高度有效输入 ${slice.validInputs}/${slice.totalInputs} 台设备；切片估计${slice.min === null ? "无有效值" : `${slice.min.toFixed(1)} 至 ${slice.max!.toFixed(1)} 摄氏度`}`}
+                  aria-label={`${slice.orientation === "horizontal" ? "当前高度" : sliceRow!.name}有效输入 ${slice.validInputs}/${slice.totalInputs} 台设备；切片估计${slice.min === null ? "无有效值" : `${slice.min.toFixed(1)} 至 ${slice.max!.toFixed(1)} 摄氏度`}`}
                 >
                   <span>
-                    本层有效 {slice.validInputs}/{slice.totalInputs} 台
+                    {slice.orientation === "horizontal" ? "本层" : "本排"}有效{" "}
+                    {slice.validInputs}/{slice.totalInputs} 台
                   </span>
                   <span>
                     {slice.min === null
@@ -528,7 +614,11 @@ export function ReviewScene({
                       : `${slice.min.toFixed(1)}–${slice.max!.toFixed(1)} °C`}
                   </span>
                 </span>
-                <small>局部插值示意 · 空白无估计</small>
+                <small>
+                  {slice.orientation === "horizontal"
+                    ? "局部插值示意 · 空白无估计"
+                    : `高 ${sliceSettings.height.min.toFixed(2)}–${sliceSettings.height.max.toFixed(2)} m · 插值示意 · 空白无估计`}
+                </small>
               </div>
             )}
             {layer === "power" && <small>灰色：数据或预算未定义</small>}

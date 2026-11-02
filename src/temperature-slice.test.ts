@@ -5,9 +5,15 @@ import {
   localIntakeTemperature,
   temperatureSlice,
   sliceSettings,
+  sliceRackRows,
+  slicePoint,
+  verticalTemperatureSlice,
+  sliceColumns,
+  sliceRows,
 } from "./temperature-slice.ts";
 import type { IntakeInput } from "./temperature-slice.ts";
-import { deviceHeight, rackForDevice } from "./installation.ts";
+import { deviceHeight, rackForDevice, racks } from "./installation.ts";
+import { Vector3 } from "three";
 import { spatialSnapshot } from "./spatial.ts";
 import { TemperatureSliceGeometry } from "./scene/temperature-slice.ts";
 import { temperatureColor, observationColor } from "./scene/metric-color.ts";
@@ -156,4 +162,134 @@ test("切片复用纹理与几何、保留空白透明像素，不遮挡对象�
   mesh.dispose();
   assert.equal(disposed, 5);
   assert.equal(mesh.root.children.length, 0);
+});
+
+test("垂直切片绑定明确机柜排，按真实前后位置与高度取样，排定义无重复或遗漏", () => {
+  const assigned = sliceRackRows.flatMap((row) => row.rackIds);
+  assert.equal(new Set(assigned).size, racks.length);
+  assert.deepEqual([...assigned].sort(), racks.map((rack) => rack.id).sort());
+  const readings = spatialSnapshot(60).readings;
+  for (const row of sliceRackRows) {
+    const members = racks.filter((rack) => row.rackIds.includes(rack.id));
+    assert.equal(new Set(members.map((rack) => rack.position[2])).size, 1);
+    const slice = verticalTemperatureSlice(readings, row.id, 0.08);
+    assert.equal(slice.orientation, "vertical");
+    assert.equal(slice.height, null);
+    assert.equal(slice.frame.origin[2], members[0].position[2] + 0.55 + 0.08);
+    const lower = slicePoint(slice.frame, 0, 0),
+      upper = slicePoint(slice.frame, 1, 1);
+    assert.equal(lower[1], 0.2);
+    assert.ok(Math.abs(upper[1] - 2.1) < 1e-9);
+    assert.equal(lower[2], upper[2]);
+    assert.deepEqual(
+      [...slice.rackEstimates.keys()].sort(),
+      [...row.rackIds].sort(),
+    );
+    const inputs = intakeInputs(readings).filter((input) =>
+      row.rackIds.includes(rackForDevice(input.id).id),
+    );
+    const expected = localIntakeTemperature(
+      inputs,
+      slicePoint(slice.frame, 40 / (sliceColumns - 1), 20 / (sliceRows - 1)),
+    ).temperature;
+    const actual = slice.values[20 * sliceColumns + 40];
+    assert.ok(
+      expected === null
+        ? Number.isNaN(actual)
+        : Math.abs(expected - actual) < 1e-5,
+    );
+  }
+});
+
+test("垂直切片只使用所选排，其他排升温不串入，整排无效时保留空白", () => {
+  const readings = spatialSnapshot(60).readings;
+  const initial = verticalTemperatureSlice(readings, "row-a", 0.08);
+  const b = sliceRackRows.find((row) => row.id === "row-b")!;
+  for (const input of intakeInputs(readings))
+    if (b.rackIds.includes(rackForDevice(input.id).id)) {
+      const reading = readings.get(input.id)!;
+      readings.set(input.id, {
+        ...reading,
+        quality: "valid",
+        temperature: 100,
+      });
+    }
+  assert.deepEqual(verticalTemperatureSlice(readings, "row-a", 0.08), initial);
+  assert.ok(verticalTemperatureSlice(readings, "row-b", 0.08).min! >= 99.9);
+  for (const input of intakeInputs(readings))
+    if (b.rackIds.includes(rackForDevice(input.id).id)) {
+      const reading = readings.get(input.id)!;
+      readings.set(input.id, {
+        ...reading,
+        quality: "offline",
+        temperature: null,
+      });
+    }
+  const missing = verticalTemperatureSlice(readings, "row-b", 0.08);
+  assert.equal(missing.validInputs, 0);
+  assert.equal(missing.totalInputs, 44);
+  assert.equal(missing.min, null);
+  assert.ok(missing.values.every(Number.isNaN));
+  assert.ok(
+    [...missing.rackEstimates.values()].every((value) => value === null),
+  );
+});
+
+test("垂直切片的离柜位置有界，移动和跨时刻回看可重复，不修改输入快照", () => {
+  const readings = spatialSnapshot(60).readings,
+    original = structuredClone(readings);
+  const near = verticalTemperatureSlice(readings, "row-a", 0.08);
+  const far = verticalTemperatureSlice(readings, "row-a", 0.9);
+  assert.ok(Math.abs(far.frame.origin[2] - near.frame.origin[2] - 0.82) < 1e-9);
+  assert.notDeepEqual(far.influence, near.influence);
+  const cool = verticalTemperatureSlice(
+    spatialSnapshot(0).readings,
+    "row-a",
+    0.08,
+  );
+  assert.ok(near.max! > cool.max! + 5);
+  assert.deepEqual(verticalTemperatureSlice(readings, "row-a", 0.08), near);
+  assert.deepEqual(readings, original);
+  assert.equal(verticalTemperatureSlice(readings, "row-a", -1).distance, 0.08);
+  assert.equal(verticalTemperatureSlice(readings, "row-a", 5).distance, 0.9);
+  assert.equal(
+    verticalTemperatureSlice(readings, "未知排", NaN).rowId,
+    "row-a",
+  );
+  assert.equal(verticalTemperatureSlice(readings, "row-a", NaN).distance, 0.08);
+});
+
+test("水平和垂直切片的纹理角点与世界采样方向一致，切换时复用 GPU 资源", () => {
+  const geometry = new TemperatureSliceGeometry();
+  const texture = geometry.texture,
+    plane = geometry.plane.geometry;
+  const readings = spatialSnapshot(60).readings;
+  for (const slice of [
+    temperatureSlice(readings, 1.2),
+    verticalTemperatureSlice(readings, "row-b", 0.4),
+    temperatureSlice(readings, 0.6),
+  ]) {
+    geometry.update(slice);
+    geometry.plane.updateMatrixWorld(true);
+    for (const [u, v] of [
+      [0, 0],
+      [1, 1],
+      [0.2, 0.7],
+    ]) {
+      const world = new Vector3(u - 0.5, v - 0.5, 0).applyMatrix4(
+        geometry.plane.matrixWorld,
+      );
+      assert.ok(
+        world.distanceTo(new Vector3(...slicePoint(slice.frame, u, v))) < 1e-6,
+      );
+    }
+    assert.equal(geometry.texture, texture);
+    assert.equal(geometry.plane.geometry, plane);
+    assert.ok(
+      [...geometry.guide.geometry.getAttribute("position").array].every(
+        Number.isFinite,
+      ),
+    );
+  }
+  geometry.dispose();
 });

@@ -88,11 +88,108 @@ export const sliceColumns =
   Math.ceil((sliceBounds.maxX - sliceBounds.minX) / sliceSettings.cellSize) + 1;
 export const sliceRows =
   Math.ceil((sliceBounds.maxZ - sliceBounds.minZ) / sliceSettings.cellSize) + 1;
-export type TemperatureSlice = ReturnType<typeof temperatureSlice>;
+export type SliceFrame = {
+  origin: [number, number, number];
+  u: [number, number, number];
+  v: [number, number, number];
+};
+export type SliceOrientation = "horizontal" | "vertical";
+type SlicePlane =
+  | { orientation: "horizontal"; height: number; distance: null; rowId: null }
+  | { orientation: "vertical"; height: null; distance: number; rowId: string };
+export type TemperatureSlice = SlicePlane & {
+  frame: SliceFrame;
+  values: Float32Array;
+  influence: Float32Array;
+  rackEstimates: Map<string, number | null>;
+  validInputs: number;
+  totalInputs: number;
+  min: number | null;
+  max: number | null;
+};
+export const sliceRackRows = sliceSettings.vertical.rows;
+/** 纹理坐标与采样、网格和边界共用同一空间基准。 */
+export function slicePoint(
+  frame: SliceFrame,
+  u: number,
+  v: number,
+): [number, number, number] {
+  return [0, 1, 2].map(
+    (axis) => frame.origin[axis] + frame.u[axis] * u + frame.v[axis] * v,
+  ) as [number, number, number];
+}
+function sampleSlice(
+  inputs: IntakeInput[],
+  nearby: IntakeInput[],
+  plane: SlicePlane,
+  frame: SliceFrame,
+): TemperatureSlice {
+  const values = new Float32Array(sliceColumns * sliceRows).fill(NaN);
+  const influence = new Float32Array(values.length);
+  let min = Infinity,
+    max = -Infinity;
+  for (let row = 0; row < sliceRows; row++)
+    for (let col = 0; col < sliceColumns; col++) {
+      const point = localIntakeTemperature(
+        nearby,
+        slicePoint(frame, col / (sliceColumns - 1), row / (sliceRows - 1)),
+      );
+      const index = row * sliceColumns + col;
+      if (point.temperature !== null) {
+        values[index] = point.temperature;
+        influence[index] = point.influence;
+        min = Math.min(min, point.temperature);
+        max = Math.max(max, point.temperature);
+      }
+    }
+  const rackEstimates = new Map<string, number | null>();
+  for (const rack of racks) {
+    const rackInputs = inputs.filter(
+      (input) => rackForDevice(input.id).id === rack.id,
+    );
+    if (!rackInputs.length) continue;
+    if (plane.orientation === "horizontal") {
+      rackEstimates.set(
+        rack.id,
+        localIntakeTemperature(inputs, [
+          rack.position[0],
+          plane.height,
+          rack.position[2] +
+            definition.rack.size[2] / 2 +
+            sliceSettings.frontOffset,
+        ]).temperature,
+      );
+    } else {
+      let highest: number | null = null;
+      for (let row = 0; row < sliceRows; row++) {
+        const y = slicePoint(frame, 0, row / (sliceRows - 1))[1];
+        const value = localIntakeTemperature(inputs, [
+          rack.position[0],
+          y,
+          frame.origin[2],
+        ]).temperature;
+        if (value !== null)
+          highest = highest === null ? value : Math.max(highest, value);
+      }
+      rackEstimates.set(rack.id, highest);
+    }
+  }
+  return {
+    ...plane,
+    frame,
+    values,
+    influence,
+    rackEstimates,
+    validInputs: nearby.filter((input) => input.temperature !== null).length,
+    totalInputs: nearby.length,
+    min: min === Infinity ? null : min,
+    max: max === -Infinity ? null : max,
+  };
+}
 export function temperatureSlice(
   readings: Map<string, SpatialReading>,
   requestedHeight: number,
-) {
+): TemperatureSlice {
   const height = Number.isFinite(requestedHeight)
     ? Math.max(
         sliceSettings.height.min,
@@ -103,47 +200,47 @@ export function temperatureSlice(
   const nearby = inputs.filter(
     (input) => Math.abs(input.position[1] - height) < sliceSettings.support.y,
   );
-  const values = new Float32Array(sliceColumns * sliceRows).fill(NaN);
-  const influence = new Float32Array(values.length);
-  let min = Infinity,
-    max = -Infinity;
-  for (let row = 0; row < sliceRows; row++)
-    for (let col = 0; col < sliceColumns; col++) {
-      // PlaneGeometry 的 v=0 对应旋转后的 +Z 边，纹理与世界坐标保持同向。
-      const z =
-        sliceBounds.maxZ -
-        (row / (sliceRows - 1)) * (sliceBounds.maxZ - sliceBounds.minZ);
-      const x =
-        sliceBounds.minX +
-        (col / (sliceColumns - 1)) * (sliceBounds.maxX - sliceBounds.minX);
-      const point = localIntakeTemperature(nearby, [x, height, z]);
-      const index = row * sliceColumns + col;
-      if (point.temperature !== null) {
-        values[index] = point.temperature;
-        influence[index] = point.influence;
-        min = Math.min(min, point.temperature);
-        max = Math.max(max, point.temperature);
-      }
-    }
-  return {
-    height,
-    values,
-    influence,
-    rackEstimates: new Map(
-      racks.map((rack) => [
-        rack.id,
-        localIntakeTemperature(inputs, [
-          rack.position[0],
-          height,
-          rack.position[2] +
-            definition.rack.size[2] / 2 +
-            sliceSettings.frontOffset,
-        ]).temperature,
-      ]),
-    ),
-    validInputs: nearby.filter((input) => input.temperature !== null).length,
-    totalInputs: nearby.length,
-    min: min === Infinity ? null : min,
-    max: max === -Infinity ? null : max,
-  };
+  return sampleSlice(
+    inputs,
+    nearby,
+    { orientation: "horizontal", height, distance: null, rowId: null },
+    {
+      origin: [sliceBounds.minX, height, sliceBounds.maxZ],
+      u: [sliceBounds.maxX - sliceBounds.minX, 0, 0],
+      v: [0, 0, sliceBounds.minZ - sliceBounds.maxZ],
+    },
+  );
+}
+
+export function verticalTemperatureSlice(
+  readings: Map<string, SpatialReading>,
+  rowId: string,
+  requestedDistance: number,
+): TemperatureSlice {
+  const row = sliceRackRows.find((row) => row.id === rowId) ?? sliceRackRows[0];
+  const members = racks.filter((rack) => row.rackIds.includes(rack.id));
+  const limits = sliceSettings.vertical.distance;
+  const distance = Number.isFinite(requestedDistance)
+    ? Math.max(limits.min, Math.min(limits.max, requestedDistance))
+    : limits.initial;
+  const inputs = intakeInputs(readings).filter((input) =>
+    row.rackIds.includes(rackForDevice(input.id).id),
+  );
+  const minX =
+    Math.min(...members.map((rack) => rack.position[0])) -
+    sliceSettings.support.x;
+  const maxX =
+    Math.max(...members.map((rack) => rack.position[0])) +
+    sliceSettings.support.x;
+  const front = members[0].position[2] + definition.rack.size[2] / 2;
+  return sampleSlice(
+    inputs,
+    inputs,
+    { orientation: "vertical", height: null, distance, rowId: row.id },
+    {
+      origin: [minX, sliceSettings.height.min, front + distance],
+      u: [maxX - minX, 0, 0],
+      v: [0, sliceSettings.height.max - sliceSettings.height.min, 0],
+    },
+  );
 }

@@ -41,6 +41,13 @@
     "model": "intake-local-idw-v1",
     "description": "以各设备U位中心、机柜正面前方的代表位置作局部反距离插值；非真实传感器坐标、房间环境温度或CFD",
     "height": { "min": 0.2, "max": 2.1, "initial": 1.2, "step": 0.05 },
+    "vertical": {
+      "distance": { "min": 0.08, "max": 0.9, "initial": 0.08, "step": 0.02 },
+      "rows": [
+        { "id": "row-a", "name": "A 排", "rackIds": ["rack-a01", "rack-a02", "rack-a03", "rack-a04"] },
+        { "id": "row-b", "name": "B 排", "rackIds": ["rack-a05", "rack-a06", "rack-a07", "rack-a08"] }
+      ]
+    },
     "frontOffset": 0.08,
     "support": { "x": 1, "y": 0.55, "z": 1 },
     "cellSize": 0.1,
