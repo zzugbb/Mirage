@@ -19,6 +19,8 @@ import {
 } from "../temperature-slice";
 import type { SliceOrientation } from "../temperature-slice";
 import { TemperatureSliceGeometry } from "../scene/temperature-slice";
+import { airflowSnapshot, airflowVisualTime } from "../airflow";
+import { AirflowGeometry } from "../scene/airflow";
 
 const initialSliceControls = () => ({
   orientation: "horizontal" as SliceOrientation,
@@ -31,6 +33,7 @@ export function ReviewScene({
   state,
   layer,
   readings,
+  selectedId,
   onSelect,
   onFocus,
   onPhase,
@@ -42,6 +45,7 @@ export function ReviewScene({
   state: AppState;
   layer: ReviewLayer;
   readings: Map<string, SpatialReading>;
+  selectedId: string;
   onSelect: (id: string, enter?: boolean) => void;
   onFocus: () => void;
   onPhase: (phase: PresentationPhase) => void;
@@ -56,6 +60,8 @@ export function ReviewScene({
   const initial = useRef(state);
   const dataGeometry = useRef<ReviewDataGeometry | null>(null);
   const sliceGeometry = useRef<TemperatureSliceGeometry | null>(null);
+  const airflowGeometry = useRef<AirflowGeometry | null>(null);
+  const clockEpoch = useRef(performance.now());
   const previousScene = useRef(state);
   const currentState = useRef(state);
   currentState.current = state;
@@ -83,6 +89,30 @@ export function ReviewScene({
     [readings, sliceControls, layer, state.level],
   );
   const sliceRow = sliceRackRows.find((row) => row.id === slice?.rowId);
+  const airflow = useMemo(
+    () =>
+      layer === "environment" && state.level === "room"
+        ? airflowSnapshot(
+            state.time,
+            readings,
+            selectedId,
+            state.deviceId,
+            slice?.rowId,
+          )
+        : null,
+    [
+      layer,
+      state.level,
+      state.time,
+      state.deviceId,
+      readings,
+      selectedId,
+      slice?.rowId,
+    ],
+  );
+  useEffect(() => {
+    clockEpoch.current = performance.now();
+  }, [state.time, state.playing, state.playbackRate]);
   const positionSettings =
     slice?.orientation === "vertical"
       ? sliceSettings.vertical.distance
@@ -121,6 +151,20 @@ export function ReviewScene({
       const thermal = new TemperatureSliceGeometry();
       active.models.root.add(thermal.root);
       sliceGeometry.current = thermal;
+      const flow = new AirflowGeometry();
+      active.models.root.add(flow.root);
+      airflowGeometry.current = flow;
+      active.onRenderFrame = (now, roomReady) => {
+        flow.animate(
+          airflowVisualTime(
+            currentState.current,
+            now - clockEpoch.current,
+            active!.paused || active!.reducedMotion,
+          ),
+          active!.reducedMotion,
+          roomReady,
+        );
+      };
       active.onAssets = setAssets;
       engine.current = active;
       setSupported(active.pipeline.available);
@@ -129,6 +173,7 @@ export function ReviewScene({
       setError("三维场景启动失败，请检查 WebGL 2 与硬件加速。");
     }
     const visibility = () => {
+      clockEpoch.current = performance.now();
       if (active) active.paused = document.hidden;
     };
     visibility();
@@ -139,6 +184,8 @@ export function ReviewScene({
       dataGeometry.current = null;
       sliceGeometry.current?.dispose();
       sliceGeometry.current = null;
+      airflowGeometry.current?.dispose();
+      airflowGeometry.current = null;
       active?.dispose();
       engine.current = null;
     };
@@ -182,7 +229,7 @@ export function ReviewScene({
   useEffect(() => {
     if (engine.current) {
       engine.current.telemetry.mode = presentation.mode;
-      // 评审只展示已有设备测点，不把预设冷却关系冒充气流。
+      // 旧遥测关系线与新的布置路径分开，避免重复叠加。
       engine.current.telemetry.enabled = false;
       engine.current.telemetry.root.visible = false;
       engine.current.showLabels = true;
@@ -208,6 +255,9 @@ export function ReviewScene({
   useEffect(() => {
     sliceGeometry.current?.update(slice);
   }, [slice, retry]);
+  useEffect(() => {
+    airflowGeometry.current?.update(airflow);
+  }, [airflow, retry]);
   const scope = readings.get(
     state.level === "room" ? "room-01" : rackForDevice(state.deviceId).id,
   )!;
@@ -297,6 +347,10 @@ export function ReviewScene({
       data-slice-orientation={slice?.orientation}
       data-slice-row={slice?.rowId}
       data-slice-position={slice ? (slice.height ?? slice.distance) : undefined}
+      data-airflow-targets={airflow?.routes
+        .map((route) => route.deviceId)
+        .join(",")}
+      data-airflow-input={airflow?.coolingCapacity}
     >
       <div
         className="review-canvas"
@@ -327,7 +381,7 @@ export function ReviewScene({
               : `进风温度垂直切片 · ${sliceRow!.name}`
             : presentation.title}
         </strong>
-        {state.level !== "device" && slice?.orientation !== "vertical" && (
+        {state.level !== "device" && !airflow && (
           <div className="review-scene-readings" aria-label="场景运行读数">
             <span>
               <b>{scope.lifecycleCounts.running}</b>
@@ -351,12 +405,27 @@ export function ReviewScene({
             </span>
           </div>
         )}
+        {airflow && (
+          <div className="review-airflow-caption" aria-label="气流路径示意">
+            <p>
+              气流示意 · 冷却输入 <b>{airflow.coolingCapacity}%</b>
+            </p>
+            <div>
+              <span className="flow-supply">→ 送风</span>
+              <span className="flow-through">⇢ 穿柜</span>
+              <span className="flow-return">⇢ 回风假设</span>
+            </div>
+            <small>{airflow.label}</small>
+          </div>
+        )}
         <details className="review-view-explanation">
           <summary>读图说明</summary>
           <p>
             {slice
               ? `${slice.orientation === "horizontal" ? "水平切片估计当前高度的进风温度。" : `垂直切片显示${sliceRow!.name}正面 ${sliceSettings.height.min.toFixed(2)}–${sliceSettings.height.max.toFixed(2)} 米高度的进风差异，滑杆调整离柜距离；标签取切面纵向最高估计。俯视时切面呈侧边，可切到前视观察。`}色条仍对应逐台设备。输入为同一时间的有效模拟读数；代表位置按U位中心假设，非独立环境测点。最近位置离线、过期或超出插值范围时留空；不推断机柜排风或整间机房温度。`
               : presentation.description}
+            {airflow &&
+              " 气流只示意已登记冷却关系的代表路径，当前同向布置不构成封闭冷热通道。端点为制冷单元逻辑代表位置，穿柜方向为配置假设；线条明暗对照冷却输入，不代表风量、风速或排风温度。选中对象可查看对应路径，停机或数据无效对象仅保留静态方向。"}
           </p>
         </details>
       </div>

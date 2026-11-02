@@ -991,6 +991,38 @@
   width: 252px;
   pointer-events: auto;
 }
+.design-review .review-airflow-caption {
+  margin-top: 8px;
+  font-size: 10px;
+  line-height: 1.5;
+  color: #b5c9cc;
+}
+.design-review .review-airflow-caption p {
+  margin: 0 0 4px;
+}
+.design-review .review-airflow-caption b {
+  color: #c7e3dc;
+  font-variant-numeric: tabular-nums;
+}
+.design-review .review-airflow-caption > div {
+  display: flex;
+  gap: 12px;
+}
+.design-review .review-airflow-caption small {
+  display: block;
+  margin-top: 4px;
+  font-size: 10px;
+  color: #95abad;
+}
+.design-review .flow-supply {
+  color: #5fc9df;
+}
+.design-review .flow-through {
+  color: #b5e0d7;
+}
+.design-review .flow-return {
+  color: #c2bfae;
+}
 .design-review .review-legend > .review-slice-heading {
   display: flex;
   align-items: center;
@@ -1084,22 +1116,14 @@
   }
   .design-review .review-scene[data-slice-orientation] .review-canvas,
   .design-review .review-scene[data-slice-orientation] .review-anchors {
-    bottom: 196px;
+    top: 120px;
+    bottom: 224px;
   }
   .design-review .review-scene[data-slice-orientation] .review-camera {
     bottom: 206px;
   }
   .design-review .review-scene[data-slice-orientation] .review-scene-tools {
     bottom: 256px;
-  }
-  .design-review
-    .review-scene[data-slice-orientation="vertical"]
-    .review-canvas,
-  .design-review
-    .review-scene[data-slice-orientation="vertical"]
-    .review-anchors {
-    top: 90px;
-    bottom: 254px;
   }
   .design-review .review-legend > .review-slice-heading {
     grid-column: 1 / -1;

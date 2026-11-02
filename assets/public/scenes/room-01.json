@@ -53,6 +53,29 @@
     "cellSize": 0.1,
     "opacity": 0.62
   },
+  "airflow": {
+    "model": "representative-airflow-v1",
+    "description": "当前同向机柜布置的代表送风、穿柜与上方回风路径假设，非封闭冷热通道、风口识别、实测风量、流速或CFD",
+    "modelDirections": {
+      "server-1u": "front-to-rear-assumed",
+      "server-2u": "front-to-rear-assumed",
+      "switch-1u": "front-to-rear-assumed",
+      "storage-4u": "front-to-rear-assumed"
+    },
+    "supplyOffset": [0, -0.65, 0.45],
+    "returnOffset": [0, 0.8, 0.45],
+    "serviceAisleX": -4.7,
+    "supplyHeight": 0.16,
+    "returnHeight": 2.65,
+    "frontApproach": 0.7,
+    "rearApproach": 0.45,
+    "faceClearance": 0.08,
+    "representativeHeight": 1.2,
+    "cornerRadius": 0.12,
+    "samples": 64,
+    "visualCyclesPerSecond": 0.12,
+    "colors": { "supply": "#5fc9df", "through": "#b5e0d7", "return": "#c2bfae", "unknown": "#89989d" }
+  },
   "rack": {
     "id": "rack-a01",
     "position": [

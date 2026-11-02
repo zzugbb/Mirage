@@ -1,0 +1,230 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import definition from "../assets/public/scenes/room-01.json" with { type: "json" };
+import {
+  airflowSettings,
+  airflowSnapshot,
+  airflowVisualTime,
+  flowPoint,
+  roundedFlowPath,
+} from "./airflow.ts";
+import { devices, racks, deviceHeight, rackForDevice } from "./installation.ts";
+import { spatialSnapshot } from "./spatial.ts";
+import { simulate } from "./simulation.ts";
+import { AirflowGeometry } from "./scene/airflow.ts";
+
+test("气流代表路径绑定已登记冷却关系，选中设备与机柜排都有明确范围", () => {
+  const readings = spatialSnapshot(60).readings;
+  const room = airflowSnapshot(60, readings);
+  assert.equal(room.routes.length, 2);
+  assert.equal(new Set(room.routes.map((route) => route.rackId)).size, 2);
+  const selected = devices.find((device) => device.rackId === "rack-a07")!;
+  const device = airflowSnapshot(60, readings, selected.id);
+  assert.equal(device.routes.length, 1);
+  assert.equal(device.routes[0].deviceId, selected.id);
+  const rack = airflowSnapshot(60, readings, "rack-a07");
+  assert.equal(rack.routes[0].rackId, "rack-a07");
+  const row = airflowSnapshot(60, readings, "rack-a01", "srv-01", "row-b");
+  assert.equal(row.routes.length, 1);
+  assert.equal(row.routes[0].rackId, "rack-a05");
+  for (const route of [
+    ...room.routes,
+    ...device.routes,
+    ...rack.routes,
+    ...row.routes,
+  ]) {
+    const relation = definition.installation.relations.find(
+      (relation) => relation.id === route.id,
+    )!;
+    assert.equal(relation.target, route.deviceId);
+    assert.equal(relation.source, route.sourceId);
+    assert.equal(relation.kind, "cooling");
+  }
+  for (const model of definition.equipmentModels)
+    assert.equal(
+      airflowSettings.modelDirections[
+        model.id as keyof typeof airflowSettings.modelDirections
+      ],
+      "front-to-rear-assumed",
+    );
+});
+
+test("送风与回风绕开柜体，穿柜沿实际U位从正面向背面，回风不穿过上方桥架", () => {
+  const readings = spatialSnapshot(60).readings;
+  for (const device of devices) {
+    const route = airflowSnapshot(60, readings, device.id).routes[0];
+    assert.ok(route);
+    const [supply, through, returnPath] = route.segments;
+    assert.deepEqual(supply.points.at(-1), through.points[0]);
+    assert.deepEqual(through.points.at(-1), returnPath.points[0]);
+    assert.equal(through.points[0][1], deviceHeight(device.id));
+    assert.equal(through.points[0][0], rackForDevice(device.id).position[0]);
+    assert.ok(through.points[0][2] > through.points[1][2]);
+    assert.equal(
+      Math.max(...returnPath.points.map((point) => point[1])),
+      airflowSettings.returnHeight,
+    );
+    assert.ok(airflowSettings.returnHeight > definition.rack.size[1]);
+    assert.ok(airflowSettings.returnHeight < 3.35);
+    for (const segment of [supply, returnPath])
+      for (let i = 0; i <= 64; i++) {
+        const [x, y, z] = flowPoint(segment.points, i / 64);
+        assert.ok(
+          Math.abs(x) < definition.room.size[0] / 2 &&
+            Math.abs(z) < definition.room.size[2] / 2 &&
+            y > 0 &&
+            y < definition.room.size[1],
+        );
+        for (const rack of racks)
+          assert.ok(
+            !(
+              Math.abs(x - rack.position[0]) < definition.rack.size[0] / 2 &&
+              Math.abs(z - rack.position[2]) < definition.rack.size[2] / 2 &&
+              y < definition.rack.size[1] + 0.05
+            ),
+            `${device.id}: 路径不得穿过${rack.id}`,
+          );
+      }
+  }
+  const path = roundedFlowPath([
+    [0, 0.1, 0],
+    [1, 0.1, 0],
+    [1, 1, 0],
+  ]);
+  assert.ok(
+    path.every((point) => point[1] >= 0.1 && point[0] >= 0 && point[0] <= 1),
+  );
+});
+
+test("停机、维护和无效观测不演示运行气流，过期时路径不跳到另一台设备", () => {
+  for (const condition of [
+    "offline",
+    "missing",
+    "stale",
+    "stopped",
+    "maintenance",
+  ]) {
+    const device = devices.find(
+      (device) =>
+        device.telemetry === condition || device.lifecycle === condition,
+    )!;
+    assert.ok(device);
+    const snapshot = airflowSnapshot(
+      60,
+      spatialSnapshot(60).readings,
+      device.id,
+    );
+    assert.equal(snapshot.routes[0].animated, false, condition);
+    assert.match(snapshot.label, /静态/);
+  }
+  const stale = devices.find((device) => device.telemetry === "stale")!;
+  const before = airflowSnapshot(44, spatialSnapshot(44).readings, stale.id);
+  const after = airflowSnapshot(45, spatialSnapshot(45).readings, stale.id);
+  assert.equal(before.routes[0].animated, true);
+  assert.equal(after.routes[0].animated, false);
+  assert.deepEqual(before.routes[0].segments, after.routes[0].segments);
+});
+
+test("冷却输入、温度和事件取同一确定性时间，任意顺序回看不累计路径变化", () => {
+  const warm = airflowSnapshot(60, spatialSnapshot(60).readings);
+  for (const time of [0, 20, 26, 60, 70, 78, 120, 0, 60]) {
+    const snapshot = airflowSnapshot(time, spatialSnapshot(time).readings);
+    assert.equal(snapshot.coolingCapacity, simulate(time).coolingCapacity);
+    assert.deepEqual(
+      snapshot.routes.map((route) => route.segments),
+      warm.routes.map((route) => route.segments),
+    );
+  }
+  assert.equal(warm.coolingCapacity, 35);
+  assert.deepEqual(airflowSnapshot(60, spatialSnapshot(60).readings), warm);
+  const paused = { time: 60, playing: false, playbackRate: 2 as const };
+  assert.equal(airflowVisualTime(paused, 900), 60);
+  assert.equal(airflowVisualTime({ ...paused, playing: true }, 250), 60.5);
+  assert.equal(airflowVisualTime({ ...paused, playing: true }, 900, true), 60);
+  assert.equal(airflowVisualTime({ ...paused, playing: true }, Infinity), 60);
+  assert.equal(
+    airflowVisualTime({ ...paused, time: 120, playing: true }, 900),
+    120,
+  );
+});
+
+test("气流几何复用缓冲与材质，粒子可重复定位，减少动态效果保留静态箭头", () => {
+  const geometry = new AirflowGeometry(),
+    snapshot = airflowSnapshot(60, spatialSnapshot(60).readings);
+  geometry.update(snapshot);
+  const buffers = geometry.batches.map((batch) => [
+    batch.line.geometry,
+    batch.line.material,
+    batch.line.geometry.getAttribute("position"),
+    batch.arrows.geometry,
+    batch.sparks.geometry,
+  ]);
+  geometry.animate(60.25);
+  const poses = geometry.batches.map((batch) => [
+    ...batch.sparks.instanceMatrix.array,
+  ]);
+  geometry.animate(12);
+  geometry.animate(60.25);
+  geometry.batches.forEach((batch, index) =>
+    assert.deepEqual([...batch.sparks.instanceMatrix.array], poses[index]),
+  );
+  const reducedSupply = geometry.batches[0].line.material.opacity;
+  geometry.update(airflowSnapshot(0, spatialSnapshot(0).readings));
+  assert.ok(geometry.batches[0].line.material.opacity > reducedSupply);
+  geometry.batches.forEach((batch, index) => {
+    assert.deepEqual(
+      [
+        batch.line.geometry,
+        batch.line.material,
+        batch.line.geometry.getAttribute("position"),
+        batch.arrows.geometry,
+        batch.sparks.geometry,
+      ],
+      buffers[index],
+    );
+    assert.ok(batch.arrows.count > 0);
+    assert.ok(batch.sparks.count > 0);
+    assert.equal(batch.line.material.depthTest, batch.kind !== "through");
+  });
+  geometry.animate(60, true);
+  assert.ok(
+    geometry.batches.every(
+      (batch) =>
+        !batch.sparks.visible &&
+        batch.sparks.count === 0 &&
+        batch.arrows.count > 0,
+    ),
+  );
+  geometry.animate(60, false, false);
+  assert.equal(geometry.root.visible, false);
+  geometry.animate(60, false, true);
+  assert.equal(geometry.root.visible, true);
+  const offline = devices.find((device) => device.telemetry === "offline")!;
+  geometry.update(
+    airflowSnapshot(60, spatialSnapshot(60).readings, offline.id),
+  );
+  assert.ok(geometry.batches.every((batch) => batch.sparks.count === 0));
+  for (const batch of geometry.batches)
+    for (const object of [batch.line, batch.arrows, batch.sparks]) {
+      const intersections: unknown[] = [];
+      object.raycast({} as never, intersections as never);
+      assert.deepEqual(intersections, []);
+    }
+  let disposed = 0;
+  for (const resource of [
+    geometry.cone,
+    geometry.sphere,
+    ...geometry.batches.flatMap((batch) => [
+      batch.line.geometry,
+      batch.line.material,
+      batch.arrows.material,
+      batch.sparks.material,
+    ]),
+  ])
+    resource.addEventListener("dispose", () => disposed++);
+  geometry.update(null);
+  assert.equal(geometry.root.visible, false);
+  geometry.dispose();
+  assert.equal(disposed, 14);
+  assert.equal(geometry.root.children.length, 0);
+});

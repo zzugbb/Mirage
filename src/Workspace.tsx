@@ -427,7 +427,8 @@ export function Workspace({ reviewMode = false }: { reviewMode?: boolean }) {
                 CFD。
               </p>
               <p>
-                机房水平与垂直温度切片按设备进风代表位置作局部插值，并非环境实测。气流、湿度/露点、空间容量和连接视图尚未实施。
+                机房温度切片按设备进风代表位置作局部插值，气流路径按当前布置与前进后出假设绘制，均非环境实测或
+                CFD 结果。湿度/露点、空间容量和连接视图尚未实施。
               </p>
               <a href="?prototype">打开原型对照 ↗</a>
             </div>
@@ -482,6 +483,7 @@ export function Workspace({ reviewMode = false }: { reviewMode?: boolean }) {
             </button>
           </div>
           <ReviewScene
+            selectedId={selectedId}
             tourShot={tourShot}
             onTakeover={takeover}
             shotRevision={shotRevision}

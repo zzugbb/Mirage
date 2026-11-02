@@ -92,6 +92,7 @@ export class SceneEngine {
   keyLight: THREE.DirectionalLight;
   showLabels = false;
   retainMaterials = false;
+  onRenderFrame: ((time: number, roomReady: boolean) => void) | null = null;
   pendingComponentFocus = false;
   anchors: HTMLElement | null = null;
   anchorElements: HTMLElement[] = [];
@@ -1159,6 +1160,15 @@ export class SceneEngine {
       surfaceMode,
       this.surface.snapshot.readings,
     );
+    this.onRenderFrame?.(
+      time,
+      this.state.level === "room" &&
+        frame.relocation === 0 &&
+        !frame.busy &&
+        !assemblyBusy &&
+        this.fades.find((fade) => fade.group === this.models.room)!.opacity ===
+          1,
+    );
     this.pipeline.render(
       delta,
       frame.relocation,
@@ -1169,6 +1179,7 @@ export class SceneEngine {
     this.frame = requestAnimationFrame(this.animate);
   };
   dispose() {
+    this.onRenderFrame = null;
     this.destroyed = true;
     cancelAnimationFrame(this.frame);
     this.observer.disconnect();
