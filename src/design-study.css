@@ -347,8 +347,13 @@
   min-height: 64px;
   align-items: center;
   border-radius: 6px;
+  border-bottom: 1px solid #ffffff06;
+  background: var(--resource-row-background, transparent);
   margin: 2px 0;
   padding: 0 6px 0 10px;
+}
+.study-resource:last-child {
+  border-bottom-color: transparent;
 }
 .study-resource:hover,
 .study-resource:focus-within {
@@ -357,13 +362,13 @@
 .design-study .study-resource-text:hover {
   background: transparent;
 }
-.study-resource.selected {
+.design-study .study-resource.selected {
   background: #2a3740;
   box-shadow: inset 2px 0 #9dcecf;
 }
 .design-study .study-resource-text {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 12px;
+  grid-template-columns: minmax(0, 1fr);
   align-items: center;
   gap: 5px;
   text-align: left;
@@ -371,7 +376,14 @@
   background: transparent;
   min-width: 0;
 }
+.study-resource-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
 .study-resource-text strong {
+  min-width: 0;
   font-size: 13px;
   font-weight: 500;
   overflow: hidden;
@@ -389,6 +401,7 @@
   line-height: 17px;
 }
 .study-row-status {
+  flex: none;
   font-size: 10px;
   text-align: center;
 }
@@ -401,18 +414,28 @@
   grid-template-columns: 1fr 1fr;
   gap: 4px;
   align-items: center;
+  align-self: start;
+  margin-top: 4px;
 }
 .design-study .study-row-actions button {
   min-height: 32px;
-  padding: 5px 3px;
+  padding: 4px 3px;
+  border: 1px solid #ffffff0a;
+  background: #ffffff03;
   font-size: 11px;
   color: #95adb9;
   white-space: nowrap;
   border-radius: 4px;
 }
-.study-row-actions button:hover {
-  background: #ffffff0b;
+.design-study .study-row-actions button:hover {
+  border-color: #ffffff22;
+  background: #ffffff0e;
   color: #e4f0f1;
+}
+.design-study .study-row-actions button[aria-expanded="true"] {
+  color: #b1e1df;
+  border-color: #90caca38;
+  background: #90caca12;
 }
 .study-nav-caption {
   padding: 10px 20px;
@@ -1307,7 +1330,7 @@
 
 .design-study .study-resource.is-child {
   margin-left: 12px;
-  background: #ffffff02;
+  --resource-row-background: #ffffff02;
 }
 
 /* 以场景实际宽度避让工具，不依赖浏览器宽度推测两侧栏是否展开。 */

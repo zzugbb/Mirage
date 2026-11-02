@@ -96,17 +96,18 @@ export function DesignStudy() {
       ),
     [state, query, filter, onlyAlarms, spatial],
   );
-  const visibleRows =
-    state.level === "device" && !query.trim() && filter === "all"
-      ? rows
-          .filter((row) => !row.parent)
-          .flatMap((row) => [
-            row,
-            ...(expanded.includes(row.id)
-              ? rows.filter((child) => child.parent === row.id)
-              : []),
-          ])
-      : rows;
+  const browsingParts =
+    state.level === "device" && !query.trim() && filter === "all";
+  const visibleRows = browsingParts
+    ? rows
+        .filter((row) => !row.parent)
+        .flatMap((row) => [
+          row,
+          ...(expanded.includes(row.id)
+            ? rows.filter((child) => child.parent === row.id)
+            : []),
+        ])
+    : rows;
   const histories = useMemo(
     () => reviewHistories(selected, state.deviceId),
     [selected, state.deviceId],
@@ -188,8 +189,11 @@ export function DesignStudy() {
       }
       if ((event.target as HTMLElement).closest("input,select,textarea"))
         return;
-      if (event.key.toLowerCase() === "f")
+      if (event.key.toLowerCase() === "f") {
         control({ type: "focus-resource", id: selected });
+        setInspector(true);
+        if (matchMedia("(max-width: 1099px)").matches) setNav(false);
+      }
     };
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
@@ -205,13 +209,13 @@ export function DesignStudy() {
     control({ type: "study-shot", shot: next });
   };
   const groupOf = (row: (typeof rows)[number]) =>
-    state.level === "device" && !query
+    browsingParts
       ? (row.group ?? "其他部件")
-      : state.level === "room" && !query && filter === "all"
+      : state.level === "room" && !query.trim() && filter === "all"
         ? row.kind === "rack"
           ? `${row.name[0]} 排机柜`
           : "机房设施"
-        : state.level === "rack" && !query
+        : state.level === "rack" && !query.trim() && filter === "all"
           ? `${rackForDevice(state.deviceId).name} · 设备`
           : "搜索结果";
   const groups = [...new Set(rows.map(groupOf))].sort((a, b) =>
@@ -373,8 +377,10 @@ export function DesignStudy() {
                   {group}
                   <span>
                     {
-                      rows.filter((r) => groupOf(r) === group && !r.parent)
-                        .length
+                      rows.filter(
+                        (r) =>
+                          groupOf(r) === group && (!browsingParts || !r.parent),
+                      ).length
                     }
                   </span>
                 </h3>
@@ -403,13 +409,15 @@ export function DesignStudy() {
                           aria-label={`${row.name}，${data ? signalText(data) : "未接入数据"}`}
                           onClick={() => pick(row.id)}
                         >
-                          <strong>{text.title}</strong>
-                          <span
-                            className="study-row-status"
-                            style={{ color: style.color }}
-                            title={data ? signalText(data) : "未接入数据"}
-                          >
-                            {data ? style.icon : "—"}
+                          <span className="study-resource-title">
+                            <strong>{text.title}</strong>
+                            <span
+                              className="study-row-status"
+                              style={{ color: style.color }}
+                              title={data ? signalText(data) : "未接入数据"}
+                            >
+                              {data ? style.icon : "—"}
+                            </span>
                           </span>
                           <small>{text.detail}</small>
                         </button>
@@ -462,7 +470,11 @@ export function DesignStudy() {
             ))}
             {!rows.length && (
               <p className="study-empty">
-                {onlyAlarms ? "当前范围没有活动告警" : "没有匹配的资源"}
+                {onlyAlarms
+                  ? query.trim() || filter !== "all"
+                    ? "没有匹配的告警资源"
+                    : "当前范围没有活动告警"
+                  : "没有匹配的资源"}
                 <button
                   onClick={() => {
                     setOnlyAlarms(false);
