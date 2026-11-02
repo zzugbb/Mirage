@@ -3,6 +3,7 @@ import definition from "../../assets/public/scenes/room-01.json" with { type: "j
 import { createEquipmentAssembly } from "./equipment-model";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 import { buildRoomShell } from "./room";
+import { powerSettings, pdus } from "../power-config.ts";
 
 export type SceneModel = ReturnType<typeof buildModels>;
 const materials = new Map<string, THREE.MeshStandardMaterial>();
@@ -165,9 +166,18 @@ export function buildModels() {
     }
 
   box(rack, [rw, 0.065, rd], [0, rh, 0], "#3f454c", 0.7);
+  const rearShell = new THREE.Group();
+  rearShell.name = "rack-rear-shell";
+  rack.add(rearShell);
   for (const x of [-rw / 2 + 0.025, rw / 2 - 0.025])
     for (const z of [-rd / 2 + 0.025, rd / 2 - 0.025])
-      box(rack, [0.045, rh, 0.045], [x, rh / 2 + 0.05, z], "#5d6369", 0.8);
+      box(
+        z < 0 ? rearShell : rack,
+        [0.045, rh, 0.045],
+        [x, rh / 2 + 0.05, z],
+        "#5d6369",
+        0.8,
+      );
   for (const x of [-rw / 2, rw / 2])
     box(
       rack,
@@ -177,7 +187,7 @@ export function buildModels() {
       0.45,
     );
   box(
-    rack,
+    rearShell,
     [rw - 0.06, rh - 0.1, 0.025],
     [0, rh / 2 + 0.05, -rd / 2],
     "#1d2024",
@@ -289,16 +299,25 @@ export function buildModels() {
     box(server, [0.46, 0.019, 0.008], [0, -0.028, z], "#78929f", 0.7);
   for (const x of [-0.248, 0.248])
     box(server, [0.028, 0.085, 0.018], [x, 0, 0.396], "#355c6d", 0.8);
-  for (const [index, x] of [-0.28, 0.28].entries()) {
+  for (const [index, feed] of (["A", "B"] as const).entries()) {
     const pdu = new THREE.Group();
+    pdu.name = `pdu-${feed}`;
+    pdu.userData.entityId = pdus.find(
+      (pdu) => pdu.rackId === definition.rack.id && pdu.feed === feed,
+    )!.id;
     rack.add(pdu);
-    pdu.position.set(x, 1.14, -0.46);
-    box(pdu, [0.028, 1.65, 0.036], [0, 0, 0], "#1b242c", 0.5);
-    for (let i = 0; i < 24; i++) {
+    pdu.position.fromArray(powerSettings.layout.positions[feed]);
+    box(pdu, powerSettings.layout.size, [0, 0, 0], "#1b242c", 0.5);
+    for (let i = 0; i < powerSettings.outletsPerPdu; i++) {
       box(
         pdu,
         [0.021, 0.035, 0.004],
-        [0, (i - 11.5) * 0.061, -0.021],
+        [
+          0,
+          (i - (powerSettings.outletsPerPdu - 1) / 2) *
+            powerSettings.layout.outletPitch,
+          -0.021,
+        ],
         "#394149",
         0.3,
       );
@@ -306,7 +325,12 @@ export function buildModels() {
         box(
           pdu,
           [0.003, 0.014, 0.002],
-          [dx, (i - 11.5) * 0.061, -0.024],
+          [
+            dx,
+            (i - (powerSettings.outletsPerPdu - 1) / 2) *
+              powerSettings.layout.outletPitch,
+            -0.024,
+          ],
           "#10171b",
           0.1,
         );

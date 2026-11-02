@@ -120,7 +120,11 @@ test("部件按当前配置分组，机柜列表按 U 位排列；告警与其�
     id: "rack-a01",
   });
   const inRack = findResources(review.scene, "", "all");
-  assert.equal(inRack.length, 10);
+  assert.equal(inRack.length, 12);
+  assert.equal(
+    inRack.filter((resource) => resource.kind === "facility").length,
+    2,
+  );
   assert.match(inRack[0].name, /交换机/);
   assert.match(inRack[0].location, /U41/);
   review = reviewTransition(review, { type: "open-resource", id: "srv-01" });

@@ -25,6 +25,9 @@ import { AirflowGeometry } from "../scene/airflow";
 import { placeFlowLabel } from "../airflow-label-layout";
 import { maintenanceAreas } from "../maintenance";
 import { MaintenanceGeometry } from "../scene/maintenance";
+import { powerScene } from "../power-paths";
+import { PowerGeometry } from "../scene/power";
+import { pduById } from "../power-config";
 
 const initialSliceControls = () => ({
   orientation: "horizontal" as SliceOrientation,
@@ -71,6 +74,7 @@ export function ReviewScene({
   const sliceGeometry = useRef<TemperatureSliceGeometry | null>(null);
   const airflowGeometry = useRef<AirflowGeometry | null>(null);
   const maintenanceGeometry = useRef<MaintenanceGeometry | null>(null);
+  const powerGeometry = useRef<PowerGeometry | null>(null);
   const clockEpoch = useRef(performance.now());
   const previousScene = useRef(state);
   const currentState = useRef(state);
@@ -100,6 +104,10 @@ export function ReviewScene({
     [readings, sliceControls, layer, state.level],
   );
   const sliceRow = sliceRackRows.find((row) => row.id === slice?.rowId);
+  const supply = useMemo(
+    () => (layer === "power" ? powerScene(state, selectedId) : null),
+    [layer, state.level, state.deviceId, state.trayExtended, selectedId],
+  );
   const maintenance = useMemo(
     () =>
       layer === "overview" && state.level === "room"
@@ -175,7 +183,22 @@ export function ReviewScene({
       const areas = new MaintenanceGeometry();
       active.models.root.add(areas.root);
       maintenanceGeometry.current = areas;
+      const supplyGeometry = new PowerGeometry();
+      active.models.root.add(supplyGeometry.root);
+      powerGeometry.current = supplyGeometry;
       active.onRenderFrame = (now, roomReady) => {
+        const level = currentState.current.level;
+        supplyGeometry.frame(
+          level === "room"
+            ? roomReady
+            : level === "device"
+              ? active!.presentation.pose.inspection === 1
+              : active!.presentation.pose.inspection === 0 &&
+                ["closed", "open", "extended"].includes(
+                  active!.lastPhase ?? "",
+                ),
+          active!.models.parts,
+        );
         areas.setReady(roomReady);
         flow.animate(
           airflowVisualTime(
@@ -210,6 +233,8 @@ export function ReviewScene({
       airflowGeometry.current = null;
       maintenanceGeometry.current?.dispose();
       maintenanceGeometry.current = null;
+      powerGeometry.current?.dispose();
+      powerGeometry.current = null;
       active?.dispose();
       engine.current = null;
     };
@@ -225,7 +250,9 @@ export function ReviewScene({
       state.focusRevision !== previousScene.current.focusRevision
     ) {
       // 资源定位保留机柜上下文，避免自动贴到封闭设备内部。
-      active.view("iso", false);
+      const isPdu = !!pduById(state.selected);
+      active.view(isPdu ? "rear" : "iso", false);
+      if (isPdu) setView("rear");
       if (
         previousScene.current.level === "rack" &&
         previousScene.current.deviceId !== state.deviceId
@@ -266,7 +293,13 @@ export function ReviewScene({
     if (engine.current) engine.current.autoOrbit = orbit;
   }, [orbit, retry]);
   useEffect(() => {
-    setView(state.level === "room" ? "interior" : "iso");
+    setView(
+      state.level === "room"
+        ? "interior"
+        : state.level === "rack" && pduById(state.selected)
+          ? "rear"
+          : "iso",
+    );
   }, [state.level]);
   useEffect(() => {
     if (!tourShot) return;
@@ -285,6 +318,9 @@ export function ReviewScene({
   useEffect(() => {
     maintenanceGeometry.current?.update(maintenance);
   }, [maintenance, retry]);
+  useEffect(() => {
+    powerGeometry.current?.update(supply);
+  }, [supply, retry]);
   useEffect(() => {
     if (engine.current) engine.current.shellCutaway.enabled = cutaway;
   }, [cutaway, retry]);
@@ -324,7 +360,9 @@ export function ReviewScene({
   const labelKey =
     labels.map((r) => r.id).join(":") +
     (airflow?.routes.map((route) => route.id).join(":") ?? "") +
-    maintenance.map((area) => area.id).join(":");
+    maintenance.map((area) => area.id).join(":") +
+    (supply?.labels.map((label) => label.id).join(":") ?? "") +
+    (supply?.deviceId ?? "");
   useEffect(() => {
     if (anchors.current) engine.current?.bindAnchors(anchors.current);
     // 投影先由引擎完成；按选择和异常优先级移除碰撞标签。
@@ -349,7 +387,10 @@ export function ReviewScene({
         );
         if (line) line.style.visibility = "hidden";
         if (label.hidden) continue;
-        if (label.dataset.anchorKind === "position" && sceneRect) {
+        if (
+          ["position", "power-part"].includes(label.dataset.anchorKind ?? "") &&
+          sceneRect
+        ) {
           const x = Number(label.dataset.screenX),
             y = Number(label.dataset.screenY);
           const rect = placeFlowLabel(
@@ -437,6 +478,8 @@ export function ReviewScene({
         .join(",")}
       data-airflow-input={airflow?.coolingCapacity}
       data-maintenance-rack={maintenance[0]?.rackId}
+      data-power-rack={supply?.rackId}
+      data-power-device={supply?.deviceId}
     >
       <div className="review-viewport">
         <div
@@ -519,6 +562,22 @@ export function ReviewScene({
           </details>
         </div>
         <div className="review-anchors" ref={anchors}>
+          {supply?.labels.map((label) => (
+            <div
+              key={label.id}
+              hidden
+              aria-hidden="true"
+              data-anchor={label.id}
+              data-anchor-part={label.partId}
+              data-anchor-kind={label.partId ? "power-part" : "position"}
+              data-anchor-level={state.level}
+              data-anchor-position={label.point?.join(",")}
+              className="review-flow-anchor review-power-anchor"
+            >
+              <b>{label.title}</b>
+              <small>{label.detail}</small>
+            </div>
+          ))}
           {maintenance.map((area) => (
             <div
               key={area.id}
@@ -628,10 +687,13 @@ export function ReviewScene({
               : "部分模型不可用 · 已使用简化结构"}
           </div>
         )}
-        {(airflow || maintenance.length > 0) && (
+        {(airflow || maintenance.length > 0 || supply) && (
           <svg className="review-flow-lines" aria-hidden="true" ref={flowLines}>
             {maintenance.map((area) => (
               <line key={area.id} data-flow-line={area.id} />
+            ))}
+            {supply?.labels.map((label) => (
+              <line key={label.id} data-flow-line={label.id} />
             ))}
             {airflow?.routes.flatMap((route) =>
               route.endpoints.map((endpoint) => (
@@ -722,11 +784,7 @@ export function ReviewScene({
                     : "100%"}
                 </span>
               </div>
-              <small>
-                {layer === "environment"
-                  ? "蓝色低温 → 暖色高温"
-                  : "蓝色低占比 → 暖色高占比"}
-              </small>
+              {layer === "environment" && <small>蓝色低温 → 暖色高温</small>}
               {slice && (
                 <div
                   className="review-slice-controls"
@@ -807,6 +865,21 @@ export function ReviewScene({
                 </div>
               )}
               {layer === "power" && <small>灰色：数据或预算未定义</small>}
+              {layer === "power" && supply && (
+                <div className="power-scene-key" aria-label="供电路径示意">
+                  <strong>{supply.caption}</strong>
+                  <span>
+                    {state.level === "device"
+                      ? "A/B 配置端点"
+                      : "A 实线 · B 分段"}{" "}
+                    · 静态示意
+                  </span>
+                  <small>
+                    {state.level === "rack" ? "后侧观察剖切 · " : ""}支路未计量
+                    · 不推断独立上游
+                  </small>
+                </div>
+              )}
             </>
           )}
         </div>
@@ -849,6 +922,7 @@ export function ReviewScene({
                 <option value="iso">等轴</option>
                 <option value="top">俯视</option>
                 <option value="front">前视</option>
+                <option value="rear">后视</option>
               </select>
             ) : (
               (

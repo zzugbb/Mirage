@@ -23,6 +23,7 @@ import {
 import type { CameraView } from "../camera";
 import { StructurePresentation } from "./presentation";
 import { ShellCutaway } from "./shell-cutaway";
+import { pdus, pduById } from "../power-config.ts";
 import { createBackdrop, createRoomLights, RenderPipeline } from "./rendering";
 import definition from "../../assets/public/scenes/room-01.json" with { type: "json" };
 import type { PresentationPhase, SceneFeedback } from "../mechanics";
@@ -528,6 +529,10 @@ export class SceneEngine {
     const rack = rackForDevice(state.deviceId);
     this.models.rack.position.fromArray(rack.position);
     this.models.rack.userData.entityId = rack.id;
+    for (const pdu of pdus.filter((pdu) => pdu.rackId === rack.id))
+      this.models.rack.getObjectByName(`pdu-${pdu.feed}`)!.userData.entityId =
+        pdu.id;
+    this.models.rack.updateWorldMatrix(true, true);
     const label = this.models.rack.getObjectByName("rack-label") as
       THREE.Sprite | undefined;
     if (label) {
@@ -551,6 +556,13 @@ export class SceneEngine {
     );
   }
   objectFor(id: string) {
+    const pdu = pduById(id);
+    if (pdu)
+      return (
+        pdu.rackId === rackForDevice(this.state.deviceId).id
+          ? this.models.rack
+          : this.installation.racks.get(pdu.rackId)
+      )?.getObjectByName(`pdu-${pdu.feed}`);
     if (id === rackForDevice(this.state.deviceId).id) return this.models.rack;
     if (id === this.state.deviceId) return this.models.server;
     if (this.installation?.racks.has(id))
@@ -731,13 +743,15 @@ export class SceneEngine {
     const direction = new THREE.Vector3(
       ...((view === "top"
         ? [0.001, 1, 0.001]
-        : view === "front"
-          ? [0, 0.13, 1]
-          : view === "right"
-            ? [1, 0.2, 0.001]
-            : level === "rack"
-              ? [0.45, 0.42, 1.5]
-              : [0.85, 0.85, 1.05]) as [number, number, number]),
+        : view === "rear"
+          ? [0, 0.13, -1]
+          : view === "front"
+            ? [0, 0.13, 1]
+            : view === "right"
+              ? [1, 0.2, 0.001]
+              : level === "rack"
+                ? [0.45, 0.42, 1.5]
+                : [0.85, 0.85, 1.05]) as [number, number, number]),
     ).normalize();
     const minimum = cameraMinimumDistance[level];
     const distance = framingPoints.length
@@ -1000,6 +1014,12 @@ export class SceneEngine {
       !this.reducedMotion &&
       time - this.lastManualInteraction > 4000;
     if (!this.paused) this.controls.update();
+    const rearObservation =
+      this.state.level === "rack" &&
+      (!!pduById(this.state.selected) || this.telemetry.mode === "power");
+    this.models.rack.getObjectByName("rack-rear-shell")!.visible =
+      !rearObservation;
+    this.host.dataset.rearObservation = String(rearObservation);
     const cutCount = this.shellCutaway.update(
       this.camera.position,
       this.shellTargets,
@@ -1061,17 +1081,30 @@ export class SceneEngine {
     }
     for (const element of this.anchorElements) {
       const id = element.dataset.anchor!;
-      if (element.dataset.anchorKind === "position") {
-        const point = element.dataset.anchorPosition!.split(",").map(Number);
-        this.anchorPosition.fromArray(point).project(this.camera);
+      if (
+        ["position", "power-part"].includes(element.dataset.anchorKind ?? "")
+      ) {
+        if (element.dataset.anchorKind === "power-part") {
+          const part = this.models.parts.get(element.dataset.anchorPart!);
+          if (!part) {
+            element.hidden = true;
+            continue;
+          }
+          this.anchorBounds.setFromObject(part).getCenter(this.anchorPosition);
+        } else
+          this.anchorPosition.fromArray(
+            element.dataset.anchorPosition!.split(",").map(Number),
+          );
+        this.anchorPosition.project(this.camera);
         const x = (this.anchorPosition.x * 0.5 + 0.5) * this.host.clientWidth;
         const y = (-this.anchorPosition.y * 0.5 + 0.5) * this.host.clientHeight;
         element.dataset.screenX = String(x);
         element.dataset.screenY = String(y);
         element.hidden =
-          this.state.level !== "room" ||
+          this.state.level !== (element.dataset.anchorLevel ?? "room") ||
           frame.busy ||
-          frame.relocation !== 0 ||
+          frame.relocation !==
+            (element.dataset.anchorLevel === "device" ? 1 : 0) ||
           this.anchorPosition.z < -1 ||
           this.anchorPosition.z > 1 ||
           x < 0 ||

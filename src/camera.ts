@@ -2,7 +2,8 @@
 export function frameDistance(size: number, aspect: number, minimum: number) {
   return Math.max(minimum, (size * 1.55) / Math.min(1, Math.max(0.2, aspect)));
 }
-export type CameraView = "iso" | "top" | "front" | "right" | "interior";
+export type CameraView =
+  "iso" | "top" | "front" | "rear" | "right" | "interior";
 export const cameraMinimumDistance = {
   room: 3,
   rack: 1,

@@ -6,6 +6,7 @@ import {
 } from "./domain.ts";
 import type { Action, AppState } from "./domain.ts";
 import { spatialSnapshot } from "./spatial.ts";
+import { pduById, associatedInputReading } from "./power-config.ts";
 import { canSelectInScene } from "./review-resources.ts";
 import { rackForDevice } from "./installation.ts";
 import { deviceObservation } from "./device-data.ts";
@@ -243,7 +244,23 @@ function reviewInteractionTransition(
           : { ...current, trayExtended: false, doorOpen: false };
       return { ...state, scene, selectedId: action.id, pendingId: action.id };
     }
-    if (target.kind === "part") {
+    if (pduById(target.id)) {
+      const pdu = pduById(target.id)!;
+      if (
+        current.level !== "rack" ||
+        rackForDevice(current.deviceId).id !== pdu.rackId
+      )
+        scene = {
+          ...transition(current, {
+            type: "navigate",
+            level: "rack",
+            id: target.id,
+          }),
+          doorOpen: false,
+          trayExtended: false,
+        };
+      scene = transition({ ...scene, selected: target.id }, { type: "focus" });
+    } else if (target.kind === "part") {
       if (!canSelectInScene(current, target.id)) return state;
       scene = transition(
         transition(
@@ -417,7 +434,8 @@ export function reviewHistories(id: string, deviceId: string) {
     power: [],
   };
   for (let time = 0; time <= 120; time++) {
-    const reading = spatialSnapshot(time, 0, deviceId).readings.get(id);
+    const readings = spatialSnapshot(time, 0, deviceId).readings;
+    const reading = readings.get(id) ?? associatedInputReading(id, readings);
     for (const metric of ["temperature", "power"] as const)
       history[metric].push({
         time,

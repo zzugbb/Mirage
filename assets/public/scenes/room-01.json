@@ -435,7 +435,7 @@
         -0.24
       ],
       "color": "#78939e",
-      "description": "热插拔电源结构示意，无实际供电关系或控制功能。",
+      "description": "热插拔电源结构示意，已映射演示输入 A；无实测支路功率或控制功能。",
       "modelNodes": [
         "part_psu_01"
       ],
@@ -462,7 +462,7 @@
         -0.24
       ],
       "color": "#78939e",
-      "description": "第二电源槽位示意，不据此推断真实冗余能力。",
+      "description": "第二电源槽位映射演示输入 B，不据此推断上游独立性或真实冗余能力。",
       "modelNodes": [
         "part_psu_02"
       ],
@@ -3615,7 +3615,1343 @@
       "mount": "rear-0u",
       "perRack": 2,
       "outletsPerPdu": 24,
-      "description": "后置 A/B 两路 PDU；电源入口按 A/B 接入，未声明上游电源独立性，不参与设备功耗重复求和。"
+      "description": "同一配电柜的16个逻辑出线端点连接16个后置0U PDU，A/B为接入标识；上游独立性、回路容量及支路计量未定义，功耗仅汇总关联整机且不重复计入。",
+      "model": "configured-power-chain-v1",
+      "sourceId": "power-01",
+      "layout": {
+        "positions": {
+          "A": [
+            -0.28,
+            1.14,
+            -0.46
+          ],
+          "B": [
+            0.28,
+            1.14,
+            -0.46
+          ]
+        },
+        "size": [
+          0.028,
+          1.65,
+          0.036
+        ],
+        "inletOffset": [
+          0,
+          0.79,
+          -0.025
+        ],
+        "outletPitch": 0.061,
+        "outletOffsetZ": -0.025
+      },
+      "modelInlets": {
+        "server-2u": {
+          "A": "psu-01",
+          "B": "psu-02"
+        },
+        "server-1u": {
+          "A": "psu-01",
+          "B": "psu-02"
+        },
+        "switch-1u": {
+          "A": "net-psu-a",
+          "B": "net-psu-b"
+        },
+        "storage-4u": {
+          "A": "sto-psu-a",
+          "B": "sto-psu-b"
+        }
+      },
+      "routing": {
+        "height": 3.05,
+        "serviceAisleX": 4.9,
+        "rearClearance": 0.24,
+        "sourceOffset": [
+          -0.25,
+          0.65,
+          0.35
+        ],
+        "colors": {
+          "A": "#86bfd4",
+          "B": "#beb6d9"
+        }
+      },
+      "pdus": [
+        {
+          "id": "pdu-a01-a",
+          "rackId": "rack-a01",
+          "feed": "A",
+          "sourcePort": "QF-01"
+        },
+        {
+          "id": "pdu-a01-b",
+          "rackId": "rack-a01",
+          "feed": "B",
+          "sourcePort": "QF-02"
+        },
+        {
+          "id": "pdu-a02-a",
+          "rackId": "rack-a02",
+          "feed": "A",
+          "sourcePort": "QF-03"
+        },
+        {
+          "id": "pdu-a02-b",
+          "rackId": "rack-a02",
+          "feed": "B",
+          "sourcePort": "QF-04"
+        },
+        {
+          "id": "pdu-a03-a",
+          "rackId": "rack-a03",
+          "feed": "A",
+          "sourcePort": "QF-05"
+        },
+        {
+          "id": "pdu-a03-b",
+          "rackId": "rack-a03",
+          "feed": "B",
+          "sourcePort": "QF-06"
+        },
+        {
+          "id": "pdu-a04-a",
+          "rackId": "rack-a04",
+          "feed": "A",
+          "sourcePort": "QF-07"
+        },
+        {
+          "id": "pdu-a04-b",
+          "rackId": "rack-a04",
+          "feed": "B",
+          "sourcePort": "QF-08"
+        },
+        {
+          "id": "pdu-b01-a",
+          "rackId": "rack-a05",
+          "feed": "A",
+          "sourcePort": "QF-09"
+        },
+        {
+          "id": "pdu-b01-b",
+          "rackId": "rack-a05",
+          "feed": "B",
+          "sourcePort": "QF-10"
+        },
+        {
+          "id": "pdu-b02-a",
+          "rackId": "rack-a06",
+          "feed": "A",
+          "sourcePort": "QF-11"
+        },
+        {
+          "id": "pdu-b02-b",
+          "rackId": "rack-a06",
+          "feed": "B",
+          "sourcePort": "QF-12"
+        },
+        {
+          "id": "pdu-b03-a",
+          "rackId": "rack-a07",
+          "feed": "A",
+          "sourcePort": "QF-13"
+        },
+        {
+          "id": "pdu-b03-b",
+          "rackId": "rack-a07",
+          "feed": "B",
+          "sourcePort": "QF-14"
+        },
+        {
+          "id": "pdu-b04-a",
+          "rackId": "rack-a08",
+          "feed": "A",
+          "sourcePort": "QF-15"
+        },
+        {
+          "id": "pdu-b04-b",
+          "rackId": "rack-a08",
+          "feed": "B",
+          "sourcePort": "QF-16"
+        }
+      ],
+      "links": [
+        {
+          "id": "power-srv-01-a",
+          "pduId": "pdu-a01-a",
+          "outlet": 1,
+          "deviceId": "srv-01",
+          "inlet": "A"
+        },
+        {
+          "id": "power-srv-02-a",
+          "pduId": "pdu-a01-a",
+          "outlet": 2,
+          "deviceId": "srv-02",
+          "inlet": "A"
+        },
+        {
+          "id": "power-srv-07-a",
+          "pduId": "pdu-a01-a",
+          "outlet": 3,
+          "deviceId": "srv-07",
+          "inlet": "A"
+        },
+        {
+          "id": "power-srv-08-a",
+          "pduId": "pdu-a01-a",
+          "outlet": 4,
+          "deviceId": "srv-08",
+          "inlet": "A"
+        },
+        {
+          "id": "power-srv-09-a",
+          "pduId": "pdu-a01-a",
+          "outlet": 5,
+          "deviceId": "srv-09",
+          "inlet": "A"
+        },
+        {
+          "id": "power-srv-10-a",
+          "pduId": "pdu-a01-a",
+          "outlet": 6,
+          "deviceId": "srv-10",
+          "inlet": "A"
+        },
+        {
+          "id": "power-srv-11-a",
+          "pduId": "pdu-a01-a",
+          "outlet": 7,
+          "deviceId": "srv-11",
+          "inlet": "A"
+        },
+        {
+          "id": "power-srv-12-a",
+          "pduId": "pdu-a01-a",
+          "outlet": 8,
+          "deviceId": "srv-12",
+          "inlet": "A"
+        },
+        {
+          "id": "power-sw-01-a",
+          "pduId": "pdu-a01-a",
+          "outlet": 9,
+          "deviceId": "sw-01",
+          "inlet": "A"
+        },
+        {
+          "id": "power-sw-02-a",
+          "pduId": "pdu-a01-a",
+          "outlet": 10,
+          "deviceId": "sw-02",
+          "inlet": "A"
+        },
+        {
+          "id": "power-srv-01-b",
+          "pduId": "pdu-a01-b",
+          "outlet": 1,
+          "deviceId": "srv-01",
+          "inlet": "B"
+        },
+        {
+          "id": "power-srv-02-b",
+          "pduId": "pdu-a01-b",
+          "outlet": 2,
+          "deviceId": "srv-02",
+          "inlet": "B"
+        },
+        {
+          "id": "power-srv-07-b",
+          "pduId": "pdu-a01-b",
+          "outlet": 3,
+          "deviceId": "srv-07",
+          "inlet": "B"
+        },
+        {
+          "id": "power-srv-08-b",
+          "pduId": "pdu-a01-b",
+          "outlet": 4,
+          "deviceId": "srv-08",
+          "inlet": "B"
+        },
+        {
+          "id": "power-srv-09-b",
+          "pduId": "pdu-a01-b",
+          "outlet": 5,
+          "deviceId": "srv-09",
+          "inlet": "B"
+        },
+        {
+          "id": "power-srv-10-b",
+          "pduId": "pdu-a01-b",
+          "outlet": 6,
+          "deviceId": "srv-10",
+          "inlet": "B"
+        },
+        {
+          "id": "power-srv-11-b",
+          "pduId": "pdu-a01-b",
+          "outlet": 7,
+          "deviceId": "srv-11",
+          "inlet": "B"
+        },
+        {
+          "id": "power-srv-12-b",
+          "pduId": "pdu-a01-b",
+          "outlet": 8,
+          "deviceId": "srv-12",
+          "inlet": "B"
+        },
+        {
+          "id": "power-sw-01-b",
+          "pduId": "pdu-a01-b",
+          "outlet": 9,
+          "deviceId": "sw-01",
+          "inlet": "B"
+        },
+        {
+          "id": "power-sw-02-b",
+          "pduId": "pdu-a01-b",
+          "outlet": 10,
+          "deviceId": "sw-02",
+          "inlet": "B"
+        },
+        {
+          "id": "power-srv-03-a",
+          "pduId": "pdu-a02-a",
+          "outlet": 1,
+          "deviceId": "srv-03",
+          "inlet": "A"
+        },
+        {
+          "id": "power-srv-04-a",
+          "pduId": "pdu-a02-a",
+          "outlet": 2,
+          "deviceId": "srv-04",
+          "inlet": "A"
+        },
+        {
+          "id": "power-srv-13-a",
+          "pduId": "pdu-a02-a",
+          "outlet": 3,
+          "deviceId": "srv-13",
+          "inlet": "A"
+        },
+        {
+          "id": "power-srv-14-a",
+          "pduId": "pdu-a02-a",
+          "outlet": 4,
+          "deviceId": "srv-14",
+          "inlet": "A"
+        },
+        {
+          "id": "power-srv-15-a",
+          "pduId": "pdu-a02-a",
+          "outlet": 5,
+          "deviceId": "srv-15",
+          "inlet": "A"
+        },
+        {
+          "id": "power-srv-16-a",
+          "pduId": "pdu-a02-a",
+          "outlet": 6,
+          "deviceId": "srv-16",
+          "inlet": "A"
+        },
+        {
+          "id": "power-srv-17-a",
+          "pduId": "pdu-a02-a",
+          "outlet": 7,
+          "deviceId": "srv-17",
+          "inlet": "A"
+        },
+        {
+          "id": "power-srv-18-a",
+          "pduId": "pdu-a02-a",
+          "outlet": 8,
+          "deviceId": "srv-18",
+          "inlet": "A"
+        },
+        {
+          "id": "power-sw-03-a",
+          "pduId": "pdu-a02-a",
+          "outlet": 9,
+          "deviceId": "sw-03",
+          "inlet": "A"
+        },
+        {
+          "id": "power-sw-04-a",
+          "pduId": "pdu-a02-a",
+          "outlet": 10,
+          "deviceId": "sw-04",
+          "inlet": "A"
+        },
+        {
+          "id": "power-srv-03-b",
+          "pduId": "pdu-a02-b",
+          "outlet": 1,
+          "deviceId": "srv-03",
+          "inlet": "B"
+        },
+        {
+          "id": "power-srv-04-b",
+          "pduId": "pdu-a02-b",
+          "outlet": 2,
+          "deviceId": "srv-04",
+          "inlet": "B"
+        },
+        {
+          "id": "power-srv-13-b",
+          "pduId": "pdu-a02-b",
+          "outlet": 3,
+          "deviceId": "srv-13",
+          "inlet": "B"
+        },
+        {
+          "id": "power-srv-14-b",
+          "pduId": "pdu-a02-b",
+          "outlet": 4,
+          "deviceId": "srv-14",
+          "inlet": "B"
+        },
+        {
+          "id": "power-srv-15-b",
+          "pduId": "pdu-a02-b",
+          "outlet": 5,
+          "deviceId": "srv-15",
+          "inlet": "B"
+        },
+        {
+          "id": "power-srv-16-b",
+          "pduId": "pdu-a02-b",
+          "outlet": 6,
+          "deviceId": "srv-16",
+          "inlet": "B"
+        },
+        {
+          "id": "power-srv-17-b",
+          "pduId": "pdu-a02-b",
+          "outlet": 7,
+          "deviceId": "srv-17",
+          "inlet": "B"
+        },
+        {
+          "id": "power-srv-18-b",
+          "pduId": "pdu-a02-b",
+          "outlet": 8,
+          "deviceId": "srv-18",
+          "inlet": "B"
+        },
+        {
+          "id": "power-sw-03-b",
+          "pduId": "pdu-a02-b",
+          "outlet": 9,
+          "deviceId": "sw-03",
+          "inlet": "B"
+        },
+        {
+          "id": "power-sw-04-b",
+          "pduId": "pdu-a02-b",
+          "outlet": 10,
+          "deviceId": "sw-04",
+          "inlet": "B"
+        },
+        {
+          "id": "power-srv-05-a",
+          "pduId": "pdu-a03-a",
+          "outlet": 1,
+          "deviceId": "srv-05",
+          "inlet": "A"
+        },
+        {
+          "id": "power-srv-06-a",
+          "pduId": "pdu-a03-a",
+          "outlet": 2,
+          "deviceId": "srv-06",
+          "inlet": "A"
+        },
+        {
+          "id": "power-srv-19-a",
+          "pduId": "pdu-a03-a",
+          "outlet": 3,
+          "deviceId": "srv-19",
+          "inlet": "A"
+        },
+        {
+          "id": "power-srv-20-a",
+          "pduId": "pdu-a03-a",
+          "outlet": 4,
+          "deviceId": "srv-20",
+          "inlet": "A"
+        },
+        {
+          "id": "power-srv-21-a",
+          "pduId": "pdu-a03-a",
+          "outlet": 5,
+          "deviceId": "srv-21",
+          "inlet": "A"
+        },
+        {
+          "id": "power-srv-22-a",
+          "pduId": "pdu-a03-a",
+          "outlet": 6,
+          "deviceId": "srv-22",
+          "inlet": "A"
+        },
+        {
+          "id": "power-srv-23-a",
+          "pduId": "pdu-a03-a",
+          "outlet": 7,
+          "deviceId": "srv-23",
+          "inlet": "A"
+        },
+        {
+          "id": "power-srv-24-a",
+          "pduId": "pdu-a03-a",
+          "outlet": 8,
+          "deviceId": "srv-24",
+          "inlet": "A"
+        },
+        {
+          "id": "power-sw-05-a",
+          "pduId": "pdu-a03-a",
+          "outlet": 9,
+          "deviceId": "sw-05",
+          "inlet": "A"
+        },
+        {
+          "id": "power-sw-06-a",
+          "pduId": "pdu-a03-a",
+          "outlet": 10,
+          "deviceId": "sw-06",
+          "inlet": "A"
+        },
+        {
+          "id": "power-srv-05-b",
+          "pduId": "pdu-a03-b",
+          "outlet": 1,
+          "deviceId": "srv-05",
+          "inlet": "B"
+        },
+        {
+          "id": "power-srv-06-b",
+          "pduId": "pdu-a03-b",
+          "outlet": 2,
+          "deviceId": "srv-06",
+          "inlet": "B"
+        },
+        {
+          "id": "power-srv-19-b",
+          "pduId": "pdu-a03-b",
+          "outlet": 3,
+          "deviceId": "srv-19",
+          "inlet": "B"
+        },
+        {
+          "id": "power-srv-20-b",
+          "pduId": "pdu-a03-b",
+          "outlet": 4,
+          "deviceId": "srv-20",
+          "inlet": "B"
+        },
+        {
+          "id": "power-srv-21-b",
+          "pduId": "pdu-a03-b",
+          "outlet": 5,
+          "deviceId": "srv-21",
+          "inlet": "B"
+        },
+        {
+          "id": "power-srv-22-b",
+          "pduId": "pdu-a03-b",
+          "outlet": 6,
+          "deviceId": "srv-22",
+          "inlet": "B"
+        },
+        {
+          "id": "power-srv-23-b",
+          "pduId": "pdu-a03-b",
+          "outlet": 7,
+          "deviceId": "srv-23",
+          "inlet": "B"
+        },
+        {
+          "id": "power-srv-24-b",
+          "pduId": "pdu-a03-b",
+          "outlet": 8,
+          "deviceId": "srv-24",
+          "inlet": "B"
+        },
+        {
+          "id": "power-sw-05-b",
+          "pduId": "pdu-a03-b",
+          "outlet": 9,
+          "deviceId": "sw-05",
+          "inlet": "B"
+        },
+        {
+          "id": "power-sw-06-b",
+          "pduId": "pdu-a03-b",
+          "outlet": 10,
+          "deviceId": "sw-06",
+          "inlet": "B"
+        },
+        {
+          "id": "power-srv-25-a",
+          "pduId": "pdu-a04-a",
+          "outlet": 1,
+          "deviceId": "srv-25",
+          "inlet": "A"
+        },
+        {
+          "id": "power-srv-26-a",
+          "pduId": "pdu-a04-a",
+          "outlet": 2,
+          "deviceId": "srv-26",
+          "inlet": "A"
+        },
+        {
+          "id": "power-srv-27-a",
+          "pduId": "pdu-a04-a",
+          "outlet": 3,
+          "deviceId": "srv-27",
+          "inlet": "A"
+        },
+        {
+          "id": "power-srv-28-a",
+          "pduId": "pdu-a04-a",
+          "outlet": 4,
+          "deviceId": "srv-28",
+          "inlet": "A"
+        },
+        {
+          "id": "power-srv-29-a",
+          "pduId": "pdu-a04-a",
+          "outlet": 5,
+          "deviceId": "srv-29",
+          "inlet": "A"
+        },
+        {
+          "id": "power-srv-30-a",
+          "pduId": "pdu-a04-a",
+          "outlet": 6,
+          "deviceId": "srv-30",
+          "inlet": "A"
+        },
+        {
+          "id": "power-srv-31-a",
+          "pduId": "pdu-a04-a",
+          "outlet": 7,
+          "deviceId": "srv-31",
+          "inlet": "A"
+        },
+        {
+          "id": "power-srv-32-a",
+          "pduId": "pdu-a04-a",
+          "outlet": 8,
+          "deviceId": "srv-32",
+          "inlet": "A"
+        },
+        {
+          "id": "power-sw-07-a",
+          "pduId": "pdu-a04-a",
+          "outlet": 9,
+          "deviceId": "sw-07",
+          "inlet": "A"
+        },
+        {
+          "id": "power-sw-08-a",
+          "pduId": "pdu-a04-a",
+          "outlet": 10,
+          "deviceId": "sw-08",
+          "inlet": "A"
+        },
+        {
+          "id": "power-srv-25-b",
+          "pduId": "pdu-a04-b",
+          "outlet": 1,
+          "deviceId": "srv-25",
+          "inlet": "B"
+        },
+        {
+          "id": "power-srv-26-b",
+          "pduId": "pdu-a04-b",
+          "outlet": 2,
+          "deviceId": "srv-26",
+          "inlet": "B"
+        },
+        {
+          "id": "power-srv-27-b",
+          "pduId": "pdu-a04-b",
+          "outlet": 3,
+          "deviceId": "srv-27",
+          "inlet": "B"
+        },
+        {
+          "id": "power-srv-28-b",
+          "pduId": "pdu-a04-b",
+          "outlet": 4,
+          "deviceId": "srv-28",
+          "inlet": "B"
+        },
+        {
+          "id": "power-srv-29-b",
+          "pduId": "pdu-a04-b",
+          "outlet": 5,
+          "deviceId": "srv-29",
+          "inlet": "B"
+        },
+        {
+          "id": "power-srv-30-b",
+          "pduId": "pdu-a04-b",
+          "outlet": 6,
+          "deviceId": "srv-30",
+          "inlet": "B"
+        },
+        {
+          "id": "power-srv-31-b",
+          "pduId": "pdu-a04-b",
+          "outlet": 7,
+          "deviceId": "srv-31",
+          "inlet": "B"
+        },
+        {
+          "id": "power-srv-32-b",
+          "pduId": "pdu-a04-b",
+          "outlet": 8,
+          "deviceId": "srv-32",
+          "inlet": "B"
+        },
+        {
+          "id": "power-sw-07-b",
+          "pduId": "pdu-a04-b",
+          "outlet": 9,
+          "deviceId": "sw-07",
+          "inlet": "B"
+        },
+        {
+          "id": "power-sw-08-b",
+          "pduId": "pdu-a04-b",
+          "outlet": 10,
+          "deviceId": "sw-08",
+          "inlet": "B"
+        },
+        {
+          "id": "power-srv-33-a",
+          "pduId": "pdu-b01-a",
+          "outlet": 1,
+          "deviceId": "srv-33",
+          "inlet": "A"
+        },
+        {
+          "id": "power-srv-34-a",
+          "pduId": "pdu-b01-a",
+          "outlet": 2,
+          "deviceId": "srv-34",
+          "inlet": "A"
+        },
+        {
+          "id": "power-srv-35-a",
+          "pduId": "pdu-b01-a",
+          "outlet": 3,
+          "deviceId": "srv-35",
+          "inlet": "A"
+        },
+        {
+          "id": "power-srv-36-a",
+          "pduId": "pdu-b01-a",
+          "outlet": 4,
+          "deviceId": "srv-36",
+          "inlet": "A"
+        },
+        {
+          "id": "power-srv-37-a",
+          "pduId": "pdu-b01-a",
+          "outlet": 5,
+          "deviceId": "srv-37",
+          "inlet": "A"
+        },
+        {
+          "id": "power-srv-38-a",
+          "pduId": "pdu-b01-a",
+          "outlet": 6,
+          "deviceId": "srv-38",
+          "inlet": "A"
+        },
+        {
+          "id": "power-srv-39-a",
+          "pduId": "pdu-b01-a",
+          "outlet": 7,
+          "deviceId": "srv-39",
+          "inlet": "A"
+        },
+        {
+          "id": "power-srv-40-a",
+          "pduId": "pdu-b01-a",
+          "outlet": 8,
+          "deviceId": "srv-40",
+          "inlet": "A"
+        },
+        {
+          "id": "power-sw-09-a",
+          "pduId": "pdu-b01-a",
+          "outlet": 9,
+          "deviceId": "sw-09",
+          "inlet": "A"
+        },
+        {
+          "id": "power-sw-10-a",
+          "pduId": "pdu-b01-a",
+          "outlet": 10,
+          "deviceId": "sw-10",
+          "inlet": "A"
+        },
+        {
+          "id": "power-srv-33-b",
+          "pduId": "pdu-b01-b",
+          "outlet": 1,
+          "deviceId": "srv-33",
+          "inlet": "B"
+        },
+        {
+          "id": "power-srv-34-b",
+          "pduId": "pdu-b01-b",
+          "outlet": 2,
+          "deviceId": "srv-34",
+          "inlet": "B"
+        },
+        {
+          "id": "power-srv-35-b",
+          "pduId": "pdu-b01-b",
+          "outlet": 3,
+          "deviceId": "srv-35",
+          "inlet": "B"
+        },
+        {
+          "id": "power-srv-36-b",
+          "pduId": "pdu-b01-b",
+          "outlet": 4,
+          "deviceId": "srv-36",
+          "inlet": "B"
+        },
+        {
+          "id": "power-srv-37-b",
+          "pduId": "pdu-b01-b",
+          "outlet": 5,
+          "deviceId": "srv-37",
+          "inlet": "B"
+        },
+        {
+          "id": "power-srv-38-b",
+          "pduId": "pdu-b01-b",
+          "outlet": 6,
+          "deviceId": "srv-38",
+          "inlet": "B"
+        },
+        {
+          "id": "power-srv-39-b",
+          "pduId": "pdu-b01-b",
+          "outlet": 7,
+          "deviceId": "srv-39",
+          "inlet": "B"
+        },
+        {
+          "id": "power-srv-40-b",
+          "pduId": "pdu-b01-b",
+          "outlet": 8,
+          "deviceId": "srv-40",
+          "inlet": "B"
+        },
+        {
+          "id": "power-sw-09-b",
+          "pduId": "pdu-b01-b",
+          "outlet": 9,
+          "deviceId": "sw-09",
+          "inlet": "B"
+        },
+        {
+          "id": "power-sw-10-b",
+          "pduId": "pdu-b01-b",
+          "outlet": 10,
+          "deviceId": "sw-10",
+          "inlet": "B"
+        },
+        {
+          "id": "power-srv-41-a",
+          "pduId": "pdu-b02-a",
+          "outlet": 1,
+          "deviceId": "srv-41",
+          "inlet": "A"
+        },
+        {
+          "id": "power-srv-42-a",
+          "pduId": "pdu-b02-a",
+          "outlet": 2,
+          "deviceId": "srv-42",
+          "inlet": "A"
+        },
+        {
+          "id": "power-srv-43-a",
+          "pduId": "pdu-b02-a",
+          "outlet": 3,
+          "deviceId": "srv-43",
+          "inlet": "A"
+        },
+        {
+          "id": "power-srv-44-a",
+          "pduId": "pdu-b02-a",
+          "outlet": 4,
+          "deviceId": "srv-44",
+          "inlet": "A"
+        },
+        {
+          "id": "power-srv-45-a",
+          "pduId": "pdu-b02-a",
+          "outlet": 5,
+          "deviceId": "srv-45",
+          "inlet": "A"
+        },
+        {
+          "id": "power-srv-46-a",
+          "pduId": "pdu-b02-a",
+          "outlet": 6,
+          "deviceId": "srv-46",
+          "inlet": "A"
+        },
+        {
+          "id": "power-srv-47-a",
+          "pduId": "pdu-b02-a",
+          "outlet": 7,
+          "deviceId": "srv-47",
+          "inlet": "A"
+        },
+        {
+          "id": "power-srv-48-a",
+          "pduId": "pdu-b02-a",
+          "outlet": 8,
+          "deviceId": "srv-48",
+          "inlet": "A"
+        },
+        {
+          "id": "power-sw-11-a",
+          "pduId": "pdu-b02-a",
+          "outlet": 9,
+          "deviceId": "sw-11",
+          "inlet": "A"
+        },
+        {
+          "id": "power-sw-12-a",
+          "pduId": "pdu-b02-a",
+          "outlet": 10,
+          "deviceId": "sw-12",
+          "inlet": "A"
+        },
+        {
+          "id": "power-srv-41-b",
+          "pduId": "pdu-b02-b",
+          "outlet": 1,
+          "deviceId": "srv-41",
+          "inlet": "B"
+        },
+        {
+          "id": "power-srv-42-b",
+          "pduId": "pdu-b02-b",
+          "outlet": 2,
+          "deviceId": "srv-42",
+          "inlet": "B"
+        },
+        {
+          "id": "power-srv-43-b",
+          "pduId": "pdu-b02-b",
+          "outlet": 3,
+          "deviceId": "srv-43",
+          "inlet": "B"
+        },
+        {
+          "id": "power-srv-44-b",
+          "pduId": "pdu-b02-b",
+          "outlet": 4,
+          "deviceId": "srv-44",
+          "inlet": "B"
+        },
+        {
+          "id": "power-srv-45-b",
+          "pduId": "pdu-b02-b",
+          "outlet": 5,
+          "deviceId": "srv-45",
+          "inlet": "B"
+        },
+        {
+          "id": "power-srv-46-b",
+          "pduId": "pdu-b02-b",
+          "outlet": 6,
+          "deviceId": "srv-46",
+          "inlet": "B"
+        },
+        {
+          "id": "power-srv-47-b",
+          "pduId": "pdu-b02-b",
+          "outlet": 7,
+          "deviceId": "srv-47",
+          "inlet": "B"
+        },
+        {
+          "id": "power-srv-48-b",
+          "pduId": "pdu-b02-b",
+          "outlet": 8,
+          "deviceId": "srv-48",
+          "inlet": "B"
+        },
+        {
+          "id": "power-sw-11-b",
+          "pduId": "pdu-b02-b",
+          "outlet": 9,
+          "deviceId": "sw-11",
+          "inlet": "B"
+        },
+        {
+          "id": "power-sw-12-b",
+          "pduId": "pdu-b02-b",
+          "outlet": 10,
+          "deviceId": "sw-12",
+          "inlet": "B"
+        },
+        {
+          "id": "power-srv-49-a",
+          "pduId": "pdu-b03-a",
+          "outlet": 1,
+          "deviceId": "srv-49",
+          "inlet": "A"
+        },
+        {
+          "id": "power-srv-50-a",
+          "pduId": "pdu-b03-a",
+          "outlet": 2,
+          "deviceId": "srv-50",
+          "inlet": "A"
+        },
+        {
+          "id": "power-srv-51-a",
+          "pduId": "pdu-b03-a",
+          "outlet": 3,
+          "deviceId": "srv-51",
+          "inlet": "A"
+        },
+        {
+          "id": "power-srv-52-a",
+          "pduId": "pdu-b03-a",
+          "outlet": 4,
+          "deviceId": "srv-52",
+          "inlet": "A"
+        },
+        {
+          "id": "power-srv-53-a",
+          "pduId": "pdu-b03-a",
+          "outlet": 5,
+          "deviceId": "srv-53",
+          "inlet": "A"
+        },
+        {
+          "id": "power-srv-54-a",
+          "pduId": "pdu-b03-a",
+          "outlet": 6,
+          "deviceId": "srv-54",
+          "inlet": "A"
+        },
+        {
+          "id": "power-srv-55-a",
+          "pduId": "pdu-b03-a",
+          "outlet": 7,
+          "deviceId": "srv-55",
+          "inlet": "A"
+        },
+        {
+          "id": "power-srv-56-a",
+          "pduId": "pdu-b03-a",
+          "outlet": 8,
+          "deviceId": "srv-56",
+          "inlet": "A"
+        },
+        {
+          "id": "power-sto-01-a",
+          "pduId": "pdu-b03-a",
+          "outlet": 9,
+          "deviceId": "sto-01",
+          "inlet": "A"
+        },
+        {
+          "id": "power-sto-02-a",
+          "pduId": "pdu-b03-a",
+          "outlet": 10,
+          "deviceId": "sto-02",
+          "inlet": "A"
+        },
+        {
+          "id": "power-sw-13-a",
+          "pduId": "pdu-b03-a",
+          "outlet": 11,
+          "deviceId": "sw-13",
+          "inlet": "A"
+        },
+        {
+          "id": "power-sw-14-a",
+          "pduId": "pdu-b03-a",
+          "outlet": 12,
+          "deviceId": "sw-14",
+          "inlet": "A"
+        },
+        {
+          "id": "power-srv-49-b",
+          "pduId": "pdu-b03-b",
+          "outlet": 1,
+          "deviceId": "srv-49",
+          "inlet": "B"
+        },
+        {
+          "id": "power-srv-50-b",
+          "pduId": "pdu-b03-b",
+          "outlet": 2,
+          "deviceId": "srv-50",
+          "inlet": "B"
+        },
+        {
+          "id": "power-srv-51-b",
+          "pduId": "pdu-b03-b",
+          "outlet": 3,
+          "deviceId": "srv-51",
+          "inlet": "B"
+        },
+        {
+          "id": "power-srv-52-b",
+          "pduId": "pdu-b03-b",
+          "outlet": 4,
+          "deviceId": "srv-52",
+          "inlet": "B"
+        },
+        {
+          "id": "power-srv-53-b",
+          "pduId": "pdu-b03-b",
+          "outlet": 5,
+          "deviceId": "srv-53",
+          "inlet": "B"
+        },
+        {
+          "id": "power-srv-54-b",
+          "pduId": "pdu-b03-b",
+          "outlet": 6,
+          "deviceId": "srv-54",
+          "inlet": "B"
+        },
+        {
+          "id": "power-srv-55-b",
+          "pduId": "pdu-b03-b",
+          "outlet": 7,
+          "deviceId": "srv-55",
+          "inlet": "B"
+        },
+        {
+          "id": "power-srv-56-b",
+          "pduId": "pdu-b03-b",
+          "outlet": 8,
+          "deviceId": "srv-56",
+          "inlet": "B"
+        },
+        {
+          "id": "power-sto-01-b",
+          "pduId": "pdu-b03-b",
+          "outlet": 9,
+          "deviceId": "sto-01",
+          "inlet": "B"
+        },
+        {
+          "id": "power-sto-02-b",
+          "pduId": "pdu-b03-b",
+          "outlet": 10,
+          "deviceId": "sto-02",
+          "inlet": "B"
+        },
+        {
+          "id": "power-sw-13-b",
+          "pduId": "pdu-b03-b",
+          "outlet": 11,
+          "deviceId": "sw-13",
+          "inlet": "B"
+        },
+        {
+          "id": "power-sw-14-b",
+          "pduId": "pdu-b03-b",
+          "outlet": 12,
+          "deviceId": "sw-14",
+          "inlet": "B"
+        },
+        {
+          "id": "power-srv-57-a",
+          "pduId": "pdu-b04-a",
+          "outlet": 1,
+          "deviceId": "srv-57",
+          "inlet": "A"
+        },
+        {
+          "id": "power-srv-58-a",
+          "pduId": "pdu-b04-a",
+          "outlet": 2,
+          "deviceId": "srv-58",
+          "inlet": "A"
+        },
+        {
+          "id": "power-srv-59-a",
+          "pduId": "pdu-b04-a",
+          "outlet": 3,
+          "deviceId": "srv-59",
+          "inlet": "A"
+        },
+        {
+          "id": "power-srv-60-a",
+          "pduId": "pdu-b04-a",
+          "outlet": 4,
+          "deviceId": "srv-60",
+          "inlet": "A"
+        },
+        {
+          "id": "power-srv-61-a",
+          "pduId": "pdu-b04-a",
+          "outlet": 5,
+          "deviceId": "srv-61",
+          "inlet": "A"
+        },
+        {
+          "id": "power-srv-62-a",
+          "pduId": "pdu-b04-a",
+          "outlet": 6,
+          "deviceId": "srv-62",
+          "inlet": "A"
+        },
+        {
+          "id": "power-srv-63-a",
+          "pduId": "pdu-b04-a",
+          "outlet": 7,
+          "deviceId": "srv-63",
+          "inlet": "A"
+        },
+        {
+          "id": "power-srv-64-a",
+          "pduId": "pdu-b04-a",
+          "outlet": 8,
+          "deviceId": "srv-64",
+          "inlet": "A"
+        },
+        {
+          "id": "power-sto-03-a",
+          "pduId": "pdu-b04-a",
+          "outlet": 9,
+          "deviceId": "sto-03",
+          "inlet": "A"
+        },
+        {
+          "id": "power-sto-04-a",
+          "pduId": "pdu-b04-a",
+          "outlet": 10,
+          "deviceId": "sto-04",
+          "inlet": "A"
+        },
+        {
+          "id": "power-sw-15-a",
+          "pduId": "pdu-b04-a",
+          "outlet": 11,
+          "deviceId": "sw-15",
+          "inlet": "A"
+        },
+        {
+          "id": "power-sw-16-a",
+          "pduId": "pdu-b04-a",
+          "outlet": 12,
+          "deviceId": "sw-16",
+          "inlet": "A"
+        },
+        {
+          "id": "power-srv-57-b",
+          "pduId": "pdu-b04-b",
+          "outlet": 1,
+          "deviceId": "srv-57",
+          "inlet": "B"
+        },
+        {
+          "id": "power-srv-58-b",
+          "pduId": "pdu-b04-b",
+          "outlet": 2,
+          "deviceId": "srv-58",
+          "inlet": "B"
+        },
+        {
+          "id": "power-srv-59-b",
+          "pduId": "pdu-b04-b",
+          "outlet": 3,
+          "deviceId": "srv-59",
+          "inlet": "B"
+        },
+        {
+          "id": "power-srv-60-b",
+          "pduId": "pdu-b04-b",
+          "outlet": 4,
+          "deviceId": "srv-60",
+          "inlet": "B"
+        },
+        {
+          "id": "power-srv-61-b",
+          "pduId": "pdu-b04-b",
+          "outlet": 5,
+          "deviceId": "srv-61",
+          "inlet": "B"
+        },
+        {
+          "id": "power-srv-62-b",
+          "pduId": "pdu-b04-b",
+          "outlet": 6,
+          "deviceId": "srv-62",
+          "inlet": "B"
+        },
+        {
+          "id": "power-srv-63-b",
+          "pduId": "pdu-b04-b",
+          "outlet": 7,
+          "deviceId": "srv-63",
+          "inlet": "B"
+        },
+        {
+          "id": "power-srv-64-b",
+          "pduId": "pdu-b04-b",
+          "outlet": 8,
+          "deviceId": "srv-64",
+          "inlet": "B"
+        },
+        {
+          "id": "power-sto-03-b",
+          "pduId": "pdu-b04-b",
+          "outlet": 9,
+          "deviceId": "sto-03",
+          "inlet": "B"
+        },
+        {
+          "id": "power-sto-04-b",
+          "pduId": "pdu-b04-b",
+          "outlet": 10,
+          "deviceId": "sto-04",
+          "inlet": "B"
+        },
+        {
+          "id": "power-sw-15-b",
+          "pduId": "pdu-b04-b",
+          "outlet": 11,
+          "deviceId": "sw-15",
+          "inlet": "B"
+        },
+        {
+          "id": "power-sw-16-b",
+          "pduId": "pdu-b04-b",
+          "outlet": 12,
+          "deviceId": "sw-16",
+          "inlet": "B"
+        }
+      ]
     },
     "networkLinks": [
       {

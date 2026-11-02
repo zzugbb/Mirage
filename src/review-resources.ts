@@ -1,6 +1,7 @@
 import { entityById } from "./domain.ts";
 import type { AppState } from "./domain.ts";
 import { devices, racks, deviceById, rackForDevice } from "./installation.ts";
+import { pdus, pduById, pduName } from "./power-config.ts";
 import {
   modelForDevice,
   partsForDevice,
@@ -111,7 +112,16 @@ export function resourceCatalog(deviceId: string): Resource[] {
       name: entityById(id)!.name,
       kind: "facility" as const,
       location: "01号机房",
-      detail: "机房设施 · 结构示意",
+      detail:
+        id === "power-01" ? "16 个逻辑出线 · 未计量" : "机房设施 · 结构示意",
+    })),
+    ...pdus.map((pdu) => ({
+      id: pdu.id,
+      name: pduName(pdu.id),
+      kind: "facility" as const,
+      location: `${racks.find((rack) => rack.id === pdu.rackId)!.name} / 后置 0U`,
+      detail: `PDU ${pdu.feed} · ${pdu.sourcePort} · 24 插座 · 未计量`,
+      group: "供电附件",
     })),
     ...modules.map((part) => ({
       id: part.id,
@@ -161,10 +171,14 @@ export function findResources(
         ),
     );
   if (state.level === "room")
-    return catalog.filter((r) => r.kind === "rack" || r.kind === "facility");
+    return catalog.filter(
+      (r) => r.kind === "rack" || (r.kind === "facility" && !pduById(r.id)),
+    );
   if (state.level === "rack")
     return catalog.filter(
-      (r) => deviceById(r.id)?.rackId === rackForDevice(state.deviceId).id,
+      (r) =>
+        (deviceById(r.id)?.rackId ?? pduById(r.id)?.rackId) ===
+        rackForDevice(state.deviceId).id,
     );
   return catalog.filter((r) => r.kind === "part");
 }
@@ -182,6 +196,7 @@ export function canSelectInScene(state: AppState, id: string) {
     );
   return (
     id === rackForDevice(state.deviceId).id ||
+    pduById(id)?.rackId === rackForDevice(state.deviceId).id ||
     (deviceById(id)?.rackId === rackForDevice(state.deviceId).id &&
       (!state.trayExtended || id === state.deviceId))
   );

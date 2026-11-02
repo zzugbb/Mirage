@@ -18,6 +18,7 @@ export function ReviewAnalysis({
   time,
   playbackRate,
   component,
+  powerOnly = false,
   onSeek,
   onReplay,
   onRate,
@@ -30,6 +31,7 @@ export function ReviewAnalysis({
   time: number;
   playbackRate: 1 | 2 | 4;
   component: boolean;
+  powerOnly?: boolean;
   onSeek: (time: number) => void;
   onReplay: () => void;
   onRate: (rate: 1 | 2 | 4) => void;
@@ -42,7 +44,9 @@ export function ReviewAnalysis({
       <div className="review-analysis-head">
         <strong>
           {title}
-          <small>温度与功耗</small>
+          <small>
+            {powerOnly ? "关联整机输入 · 非设施计量" : "温度与功耗"}
+          </small>
         </strong>
         <span>
           {inspection === null
@@ -55,7 +59,10 @@ export function ReviewAnalysis({
       </div>
       <div className="review-analysis-body">
         <div className="review-comparison">
-          {(["temperature", "power"] as const).map((metric) => {
+          {(powerOnly
+            ? ["power" as const]
+            : (["temperature", "power"] as const)
+          ).map((metric) => {
             const point = histories[metric][cursor],
               value = point?.value ?? null;
             const kilo = metric === "power" && value !== null && value >= 1000;
@@ -113,7 +120,11 @@ export function ReviewAnalysis({
         </div>
         <div className="review-events">
           <h3>
-            {component ? "所属设备事件" : "已发生事件"}
+            {powerOnly
+              ? "关联设备事件"
+              : component
+                ? "所属设备事件"
+                : "已发生事件"}
             <span>{events.length}</span>
           </h3>
           {events.length ? (

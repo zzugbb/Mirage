@@ -7,6 +7,7 @@ import {
 import { racks, devices, deviceById, rackForDevice } from "./installation.ts";
 import sceneDefinition from "../assets/public/scenes/room-01.json" with { type: "json" };
 import { normalizeTime, scenario } from "./simulation.ts";
+import { pdus, pduById, pduName } from "./power-config.ts";
 export { simulate } from "./simulation.ts";
 
 export type Level = "room" | "rack" | "device";
@@ -62,8 +63,17 @@ export const entities: Entity[] = [
     name: "配电柜",
     kind: "facility",
     parent: "room-01",
-    description: "配电设施示意，尚未建立供电连接关系。",
+    description:
+      "配电柜逻辑出线连接机柜 PDU；回路容量、设施计量与上游独立性未定义。",
   },
+  ...pdus.map((pdu) => ({
+    id: pdu.id,
+    name: pduName(pdu.id),
+    kind: "facility" as const,
+    parent: pdu.rackId,
+    description:
+      "后置 0U PDU，24 个插座；连接为演示配置，无独立计量、运行状态或远程控制。",
+  })),
   ...racks
     .filter((rack) => rack.id !== "rack-a01")
     .map((rack) => ({
@@ -180,12 +190,13 @@ export function transition(state: AppState, action: Action): AppState {
             ].some((part) => part.id === action.id)))
       )
         return state;
+      const targetRack = pduById(action.id)?.rackId ?? action.id;
       const deviceId =
         deviceById(action.id)?.id ??
-        (racks.some((rack) => rack.id === action.id)
-          ? rackForDevice(state.deviceId).id === action.id
+        (racks.some((rack) => rack.id === targetRack)
+          ? rackForDevice(state.deviceId).id === targetRack
             ? state.deviceId
-            : devices.find((device) => device.rackId === action.id)!.id
+            : devices.find((device) => device.rackId === targetRack)!.id
           : state.deviceId);
       return {
         ...state,
@@ -196,12 +207,13 @@ export function transition(state: AppState, action: Action): AppState {
     }
     case "navigate": {
       const target = action.id ?? state.selected;
+      const targetRack = pduById(target)?.rackId ?? target;
       const deviceId =
         deviceById(target)?.id ??
-        (racks.some((rack) => rack.id === target)
-          ? rackForDevice(state.deviceId).id === target
+        (racks.some((rack) => rack.id === targetRack)
+          ? rackForDevice(state.deviceId).id === targetRack
             ? state.deviceId
-            : devices.find((device) => device.rackId === target)!.id
+            : devices.find((device) => device.rackId === targetRack)!.id
           : state.deviceId);
       return {
         ...state,
@@ -306,8 +318,9 @@ export function transition(state: AppState, action: Action): AppState {
         ].some((part) => part.id === entity.id)
       )
         return state;
-      const level =
-        entity.kind === "facility" || entity.kind === "room"
+      const level = pduById(entity.id)
+        ? "rack"
+        : entity.kind === "facility" || entity.kind === "room"
           ? "room"
           : entity.kind === "rack"
             ? "rack"

@@ -4,6 +4,7 @@ import { modelForDevice } from "../catalog";
 import { resourceOpenLabel, resourceCatalog } from "../review-resources";
 import type { PresentationPhase } from "../mechanics";
 import { phaseLabels } from "../mechanics";
+import { pduById } from "../power-config";
 
 export function ResourceActions({
   state,
@@ -70,6 +71,7 @@ export function ResourceActions({
               </button>
             </>
           ) : null}
+          {pduById(selected) && <small>后侧观察剖切</small>}
         </>
       ) : (
         <>

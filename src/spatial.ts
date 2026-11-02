@@ -4,6 +4,7 @@ import { racks, devices, deviceById } from "./installation.ts";
 import { partsForDevice, subpartsForDevice } from "./catalog.ts";
 import type { AppState } from "./domain.ts";
 import type { SimulationSnapshot } from "./simulation.ts";
+import { associatedInputReading } from "./power-config.ts";
 export type SpatialReading = {
   temperatureLimits?: number[];
   lifecycle: Lifecycle;
@@ -338,5 +339,8 @@ export function selectedReading(
   state: AppState,
   readings: Map<string, SpatialReading>,
 ): SpatialReading | null {
-  return readings.get(state.selected) ?? null;
+  return (
+    readings.get(state.selected) ??
+    associatedInputReading(state.selected, readings)
+  );
 }

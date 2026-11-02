@@ -5,6 +5,7 @@ import { racks, devices, rackForDevice, deviceHeight } from "../installation";
 import type { AppState } from "../domain";
 import type { SpatialReading } from "../spatial";
 import { signalFor, signalStyles } from "../status";
+import { pdus } from "../power-config.ts";
 import { text } from "./models";
 import type { SceneModel } from "./models";
 
@@ -30,6 +31,8 @@ export class InstallationScene {
         object.userData = {};
       });
       group.userData.entityId = rack.id;
+      for (const pdu of pdus.filter((pdu) => pdu.rackId === rack.id))
+        group.getObjectByName(`pdu-${pdu.feed}`)!.userData.entityId = pdu.id;
       group.position.fromArray(rack.position);
       this.root.add(group);
       this.racks.set(rack.id, group);

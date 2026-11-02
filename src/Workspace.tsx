@@ -28,6 +28,8 @@ import {
 import type { ResourceFilter } from "./review-resources";
 import { devices, rackForDevice } from "./installation";
 import { maintenanceAreas } from "./maintenance";
+import { isPowerFacility, pduById, powerDeviceIds } from "./power-config";
+import { PowerConnections } from "./components/PowerConnections";
 import { ResourceActions } from "./components/ResourceActions";
 import { ReviewScene } from "./components/ReviewScene";
 import { ReviewTrend } from "./components/ReviewTrend";
@@ -141,6 +143,11 @@ export function Workspace() {
   const entity = entityById(selected)!;
   const maintenance = useMemo(() => maintenanceAreas(selected), [selected]);
   const component = entity.kind === "part";
+  const powerFacility = isPowerFacility(selected);
+  const associatedDevices = useMemo(
+    () => new Set(powerDeviceIds(selected)),
+    [selected],
+  );
   const ready =
     !review.pendingId &&
     !!feedback?.settled &&
@@ -172,7 +179,7 @@ export function Workspace() {
   );
   const scope = devices.filter(
     (d) =>
-      entity.kind === "room" ||
+      (powerFacility ? associatedDevices.has(d.id) : entity.kind === "room") ||
       (entity.kind === "rack" && d.rackId === selected) ||
       d.id === (component ? state.deviceId : selected),
   );
@@ -274,14 +281,16 @@ export function Workspace() {
           ? `${row.name[0]} 排机柜`
           : "机房设施"
         : state.level === "rack" && !query.trim() && filter === "all"
-          ? `${rackForDevice(state.deviceId).name} · 设备`
+          ? pduById(row.id)
+            ? "供电附件 · 后置 0U"
+            : `${rackForDevice(state.deviceId).name} · 设备`
           : "搜索结果";
   const groups = [...new Set(rows.map(groupOf))].sort((a, b) =>
     state.level === "device"
       ? componentGroups.indexOf(a) - componentGroups.indexOf(b)
       : 0,
   );
-  const mainMetric = metric;
+  const mainMetric = powerFacility ? "power" : metric;
   return (
     <div
       className="mirage-workspace workspace-ui"
@@ -748,9 +757,15 @@ export function Workspace() {
             <div className="study-identity">
               <small>{resource?.location}</small>
               <h1>{resource?.name ?? entity.name}</h1>
-              <span style={{ color: signal.color }}>
-                {signal.icon} {component ? "模型评估 · " : ""}
-                {signalText(reading)}
+              <span style={{ color: powerFacility ? "#9caebc" : signal.color }}>
+                {powerFacility ? (
+                  "◇ 连接示意 · 未计量"
+                ) : (
+                  <>
+                    {signal.icon} {component ? "模型评估 · " : ""}
+                    {signalText(reading)}
+                  </>
+                )}
               </span>
             </div>
             {review.analysis ? (
@@ -786,6 +801,7 @@ export function Workspace() {
                   time={state.time}
                   playbackRate={state.playbackRate}
                   component={component}
+                  powerOnly={powerFacility}
                   onSeek={(time) => dispatch({ type: "seek", time })}
                   onReplay={() => dispatch({ type: "replay" })}
                   onRate={(rate) => dispatch({ type: "rate", rate })}
@@ -807,17 +823,22 @@ export function Workspace() {
                 )}
                 {reading ? (
                   <>
-                    <div className="study-metrics">
-                      <div>
-                        <span>{reading.temperatureLabel}</span>
-                        <strong>
-                          {temperature(reading.temperature)}
-                          <small>°C</small>
-                        </strong>
-                        <small>
-                          有效覆盖 {reading.coverageTemperature}/{reading.count}
-                        </small>
-                      </div>
+                    <div
+                      className={`study-metrics ${powerFacility ? "is-associated-power" : ""}`}
+                    >
+                      {!powerFacility && (
+                        <div>
+                          <span>{reading.temperatureLabel}</span>
+                          <strong>
+                            {temperature(reading.temperature)}
+                            <small>°C</small>
+                          </strong>
+                          <small>
+                            有效覆盖 {reading.coverageTemperature}/
+                            {reading.count}
+                          </small>
+                        </div>
+                      )}
                       <div>
                         <span>{reading.powerLabel}</span>
                         <strong>
@@ -829,23 +850,45 @@ export function Workspace() {
                         <small>
                           有效覆盖 {reading.coveragePower}/{reading.count}
                         </small>
+                        {powerFacility && (
+                          <small>关联设备汇总 · 非设施或支路计量</small>
+                        )}
                       </div>
                     </div>
+                    {(layer === "power" || powerFacility) && (
+                      <PowerConnections
+                        state={state}
+                        selectedId={selected}
+                        readings={spatial.readings}
+                        ready={ready}
+                        onSelect={(id) => pick(id)}
+                        onLocate={(id) => pick(id, true)}
+                        onViewPower={
+                          layer === "power"
+                            ? undefined
+                            : () => control({ type: "layer", layer: "power" })
+                        }
+                      />
+                    )}
                     <section className="study-trend">
                       <div>
-                        <h2>变化趋势</h2>
-                        <button
-                          aria-pressed={mainMetric === "temperature"}
-                          onClick={() => setMetric("temperature")}
-                        >
-                          温度
-                        </button>
-                        <button
-                          aria-pressed={mainMetric === "power"}
-                          onClick={() => setMetric("power")}
-                        >
-                          功耗
-                        </button>
+                        <h2>{powerFacility ? "关联输入趋势" : "变化趋势"}</h2>
+                        {!powerFacility && (
+                          <button
+                            aria-pressed={mainMetric === "temperature"}
+                            onClick={() => setMetric("temperature")}
+                          >
+                            温度
+                          </button>
+                        )}
+                        {!powerFacility && (
+                          <button
+                            aria-pressed={mainMetric === "power"}
+                            onClick={() => setMetric("power")}
+                          >
+                            功耗
+                          </button>
+                        )}
                       </div>
                       <ReviewTrend
                         series={histories[mainMetric]}
