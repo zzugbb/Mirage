@@ -1,6 +1,5 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { workspaceRoute } from "./workspace-route.ts";
 import {
   createReview,
   createWorkspace,
@@ -10,12 +9,7 @@ import type { ReviewState } from "./review-model.ts";
 import { presentationKey } from "./domain.ts";
 import { tourSteps } from "./tour.ts";
 
-test("统一工作区为默认入口，评审书签与原型对照入口保留各自启动方式", () => {
-  assert.equal(workspaceRoute(""), "workspace");
-  assert.equal(workspaceRoute("?foo=bar"), "workspace");
-  assert.equal(workspaceRoute("?review"), "review");
-  assert.equal(workspaceRoute("?design"), "review");
-  assert.equal(workspaceRoute("?prototype&review"), "prototype");
+test("工作区默认播放与巡游，减少动态效果时保留手动探索", () => {
   const main = createWorkspace();
   assert.equal(main.scene.time, 60);
   assert.equal(main.scene.playing, true);

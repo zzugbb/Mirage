@@ -9,7 +9,6 @@ import {
 import { entityById, getPath, presentationKey } from "./domain";
 import type { Action } from "./domain";
 import {
-  createReview,
   createWorkspace,
   reviewTransition,
   reviewLayers,
@@ -34,15 +33,15 @@ import { ReviewTrend } from "./components/ReviewTrend";
 import { ReviewAnalysis } from "./components/ReviewAnalysis";
 import type { PresentationPhase, SceneFeedback } from "./mechanics";
 import {
-  studyPreset,
-  studyShots,
-  studyVisibleRows,
-  studyRowText,
-} from "./design-study-model";
-import type { StudyShot } from "./design-study-model";
+  workspacePreset,
+  workspaceShots,
+  visibleResourceRows,
+  resourceRowText,
+} from "./workspace-presets";
+import type { WorkspaceShot } from "./workspace-presets";
 import { tourSteps } from "./tour";
-import "./design-review.css";
-import "./design-study.css";
+import "./scene-ui.css";
+import "./workspace-ui.css";
 
 const clock = (time: number) =>
   `${String(Math.floor(time / 60)).padStart(2, "0")}:${String(time % 60).padStart(2, "0")}`;
@@ -57,22 +56,22 @@ const power = (value: number | null | undefined) =>
 function reducer(
   state: ReviewState,
   action:
-    ReviewAction | ResourceAction | { type: "study-shot"; shot: StudyShot },
+    | ReviewAction
+    | ResourceAction
+    | { type: "workspace-shot"; shot: WorkspaceShot },
 ) {
-  return action.type === "study-shot"
-    ? studyPreset(state, action.shot)
+  return action.type === "workspace-shot"
+    ? workspacePreset(state, action.shot)
     : reviewTransition(state, action);
 }
 
-export function Workspace({ reviewMode = false }: { reviewMode?: boolean }) {
-  const [review, control] = useReducer(reducer, reviewMode, (paused) =>
-    paused
-      ? createReview()
-      : createWorkspace(matchMedia("(prefers-reduced-motion: reduce)").matches),
+export function Workspace() {
+  const [review, control] = useReducer(reducer, undefined, () =>
+    createWorkspace(matchMedia("(prefers-reduced-motion: reduce)").matches),
   );
   const { scene: state, layer, tour } = review;
   const selected = review.selectedId ?? state.selected;
-  const [shot, setShot] = useState<StudyShot>("overview");
+  const [shot, setShot] = useState<WorkspaceShot>("overview");
   const [revision, setRevision] = useState(0);
   const [phase, setPhase] = useState<PresentationPhase>("closed");
   const [feedback, setFeedback] = useState<SceneFeedback | null>(null);
@@ -146,7 +145,7 @@ export function Workspace({ reviewMode = false }: { reviewMode?: boolean }) {
     feedback.key === presentationKey(state);
   const rows = useMemo(
     () =>
-      studyVisibleRows(
+      visibleResourceRows(
         findResources(state, query, filter),
         spatial.readings,
         onlyAlarms && state.level !== "device",
@@ -225,9 +224,7 @@ export function Workspace({ reviewMode = false }: { reviewMode?: boolean }) {
     return () => clearInterval(timer);
   }, [state.playing, dispatch]);
   useEffect(() => {
-    document.title = reviewMode
-      ? "Mirage · 浮城 — 工作区评审"
-      : "Mirage · 浮城 — 三维工作区";
+    document.title = "Mirage · 浮城 — 三维工作区";
     const key = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         if (query) {
@@ -235,7 +232,7 @@ export function Workspace({ reviewMode = false }: { reviewMode?: boolean }) {
           return;
         }
         const popup = document.querySelector<HTMLDetailsElement>(
-          ".design-study details[open]",
+          ".workspace-ui details[open]",
         );
         if (popup) {
           popup.open = false;
@@ -256,8 +253,8 @@ export function Workspace({ reviewMode = false }: { reviewMode?: boolean }) {
     };
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
-  }, [selected, review.analysis, nav, inspector, query, dispatch, reviewMode]);
-  const load = (next: StudyShot) => {
+  }, [selected, review.analysis, nav, inspector, query, dispatch]);
+  const load = (next: WorkspaceShot) => {
     setExpanded([]);
     setShot(next);
     setRevision((n) => n + 1);
@@ -265,7 +262,7 @@ export function Workspace({ reviewMode = false }: { reviewMode?: boolean }) {
     setFilter("all");
     setOnlyAlarms(next === "alarms");
     setInspector(next !== "overview");
-    control({ type: "study-shot", shot: next });
+    control({ type: "workspace-shot", shot: next });
   };
   const groupOf = (row: (typeof rows)[number]) =>
     browsingParts
@@ -285,7 +282,7 @@ export function Workspace({ reviewMode = false }: { reviewMode?: boolean }) {
   const mainMetric = metric;
   return (
     <div
-      className="design-review design-study"
+      className="mirage-workspace workspace-ui"
       data-analysis={review.analysis}
       data-layer={layer}
       data-scene-level={state.level}
@@ -301,14 +298,9 @@ export function Workspace({ reviewMode = false }: { reviewMode?: boolean }) {
       data-explosion={state.explosion}
     >
       <header className="study-header">
-        <a
-          className="study-brand"
-          href={reviewMode ? "?review" : "./"}
-          aria-label="Mirage 浮城首页"
-        >
+        <a className="study-brand" href="./" aria-label="Mirage 浮城首页">
           Mirage <span>浮城</span>
         </a>
-        {reviewMode && <span className="study-draft">评审</span>}
         <nav className="study-path" aria-label="空间路径">
           {getPath(state).map((item, i) => (
             <span key={item}>
@@ -338,7 +330,7 @@ export function Workspace({ reviewMode = false }: { reviewMode?: boolean }) {
             <span className="study-clock-action">分析</span>
           </button>
         </div>
-        <details className="study-shots">
+        <details className="workspace-shots">
           <summary>
             演示{" "}
             <span>
@@ -346,9 +338,7 @@ export function Workspace({ reviewMode = false }: { reviewMode?: boolean }) {
                 ? "巡游中"
                 : tour.mode === "paused"
                   ? "巡游暂停"
-                  : reviewMode
-                    ? "评审"
-                    : "自由浏览"}
+                  : "自由浏览"}
             </span>
           </summary>
           <nav aria-label="演示画面与巡游">
@@ -382,7 +372,7 @@ export function Workspace({ reviewMode = false }: { reviewMode?: boolean }) {
                 </small>
               )}
             </button>
-            {studyShots.map((s, i) => (
+            {workspaceShots.map((s, i) => (
               <button
                 key={s.id}
                 aria-pressed={shot === s.id}
@@ -410,7 +400,6 @@ export function Workspace({ reviewMode = false }: { reviewMode?: boolean }) {
                 <p>
                   交换机、存储内部仍为配置示意；湿度/露点、容量、完整连接与园区入口尚未实施。
                 </p>
-                <a href="?prototype">打开原型对照</a>
               </div>
             </details>
           </nav>
@@ -511,7 +500,7 @@ export function Workspace({ reviewMode = false }: { reviewMode?: boolean }) {
                 {visibleRows
                   .filter((r) => groupOf(r) === group)
                   .map((row) => {
-                    const text = studyRowText(
+                    const text = resourceRowText(
                         row,
                         !!query.trim() || filter !== "all",
                       ),

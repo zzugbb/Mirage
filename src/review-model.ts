@@ -328,7 +328,7 @@ function reviewInteractionTransition(
   }
   if (action.type === "layer") return { ...state, layer: action.layer };
   if (action.type === "shot") {
-    // 只有明确进入评审画面才装载预设；普通图层、时间操作不改镜头与姿态。
+    // 只有明确载入演示画面才装载预设；普通图层、时间操作不改镜头与姿态。
     const initial = createReview();
     initial.scene.focusRevision = state.scene.focusRevision + 1;
     if (action.shot === "environment") initial.layer = "environment";

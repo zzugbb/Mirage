@@ -1,5 +1,5 @@
-/* 已确认的场景工作台：正式入口与暂停评审共享布局。 */
-.design-review.design-study {
+/* 已确认的正式工作区布局与控件样式。 */
+.mirage-workspace.workspace-ui {
   --study-bg: #101419;
   --study-panel: #191e24;
   --study-line: #ffffff0e;
@@ -12,16 +12,16 @@
   font-size: 13px;
   font-family: "Inter", "SF Pro Text", "PingFang SC", sans-serif;
 }
-.design-study * {
+.workspace-ui * {
   box-sizing: border-box;
 }
-.design-study button,
-.design-study select,
-.design-study summary {
+.workspace-ui button,
+.workspace-ui select,
+.workspace-ui summary {
   min-height: 32px;
   border-radius: 6px;
 }
-.design-study button {
+.workspace-ui button {
   border: 0;
   background: transparent;
   padding: 6px 10px;
@@ -30,35 +30,35 @@
     background 0.16s,
     color 0.16s;
 }
-.design-study button:hover {
+.workspace-ui button:hover {
   background: #ffffff09;
 }
-.design-study button:disabled {
+.workspace-ui button:disabled {
   opacity: 0.32;
   cursor: default;
 }
-.design-study button[aria-pressed="true"] {
+.workspace-ui button[aria-pressed="true"] {
   color: var(--study-accent);
 }
-.design-study button:focus-visible,
-.design-study input:focus-visible,
-.design-study select:focus-visible,
-.design-study summary:focus-visible {
+.workspace-ui button:focus-visible,
+.workspace-ui input:focus-visible,
+.workspace-ui select:focus-visible,
+.workspace-ui summary:focus-visible {
   outline: 2px solid #90caca;
   outline-offset: 2px;
 }
-.design-study input,
-.design-study select {
+.workspace-ui input,
+.workspace-ui select {
   color: var(--study-text);
 }
-.design-study a {
+.workspace-ui a {
   color: inherit;
   text-decoration: none;
 }
-.design-study h1,
-.design-study h2,
-.design-study h3,
-.design-study p {
+.workspace-ui h1,
+.workspace-ui h2,
+.workspace-ui h3,
+.workspace-ui p {
   margin: 0;
 }
 .study-header {
@@ -86,13 +86,6 @@
   font-weight: 500;
   letter-spacing: 2px;
   color: #b0bdc6;
-}
-.study-draft {
-  color: #82909c;
-  font-size: 10px;
-  padding: 2px 6px;
-  border: 1px solid #ffffff12;
-  border-radius: 3px;
 }
 .study-path {
   margin-left: 14px;
@@ -144,10 +137,10 @@
   border-left: 1px solid #ffffff18;
   color: #b1e1df;
 }
-.study-shots {
+.workspace-shots {
   position: relative;
 }
-.study-shots summary {
+.workspace-shots summary {
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -156,11 +149,11 @@
   font-size: 12px;
   list-style: none;
 }
-.study-shots summary span {
+.workspace-shots summary span {
   font-size: 10px;
   color: #8f9ba5;
 }
-.study-shots nav {
+.workspace-shots nav {
   position: absolute;
   right: 0;
   top: 43px;
@@ -173,12 +166,12 @@
   max-height: calc(100svh - 120px);
   overflow-y: auto;
 }
-.study-shots .study-tour-control {
+.workspace-shots .study-tour-control {
   justify-content: space-between;
   margin-bottom: 8px;
   background: #ffffff06;
 }
-.study-shots .study-about summary {
+.workspace-shots .study-about summary {
   padding: 10px 12px;
   border-top: 1px solid #ffffff10;
   border-radius: 0;
@@ -188,12 +181,12 @@
 .study-about > div {
   padding: 0 12px 8px;
 }
-.study-shots .study-about p {
+.workspace-shots .study-about p {
   margin: 8px 0;
   padding: 0;
   line-height: 1.8;
 }
-.study-shots nav button {
+.workspace-shots nav button {
   display: flex;
   align-items: center;
   gap: 16px;
@@ -201,26 +194,27 @@
   padding: 10px 12px;
   text-align: left;
 }
-.study-shots nav button[aria-pressed="true"] {
+.workspace-shots nav button[aria-pressed="true"] {
   background: #33434b;
 }
-.study-shots nav small {
+.workspace-shots nav small {
   color: #8495a0;
   font-size: 11px;
 }
-.study-shots nav p {
+.workspace-shots nav p {
   padding: 10px 12px;
   color: #91a0aa;
   font-size: 11px;
   line-height: 1.6;
 }
-.study-shots nav a {
+.workspace-shots nav a {
   display: block;
   margin: 6px 12px;
   font-size: 11px;
   color: #bed3d8;
 }
 .study-workspace {
+  grid-template-rows: minmax(0, 1fr);
   flex: 1;
   min-height: 0;
   display: grid;
@@ -381,14 +375,14 @@
 .study-resource:focus-within {
   background: #ffffff08;
 }
-.design-study .study-resource-text:hover {
+.workspace-ui .study-resource-text:hover {
   background: transparent;
 }
-.design-study .study-resource.selected {
+.workspace-ui .study-resource.selected {
   background: #2a3740;
   box-shadow: inset 2px 0 #9dcecf;
 }
-.design-study .study-resource-text {
+.workspace-ui .study-resource-text {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   align-items: center;
@@ -439,7 +433,7 @@
   align-self: start;
   margin-top: 4px;
 }
-.design-study .study-row-actions button {
+.workspace-ui .study-row-actions button {
   min-height: 32px;
   padding: 4px 3px;
   border: 1px solid #ffffff0a;
@@ -449,12 +443,12 @@
   white-space: nowrap;
   border-radius: 4px;
 }
-.design-study .study-row-actions button:hover {
+.workspace-ui .study-row-actions button:hover {
   border-color: #ffffff22;
   background: #ffffff0e;
   color: #e4f0f1;
 }
-.design-study .study-row-actions button[aria-expanded="true"] {
+.workspace-ui .study-row-actions button[aria-expanded="true"] {
   color: #b1e1df;
   border-color: #90caca38;
   background: #90caca12;
@@ -503,45 +497,45 @@
   background: #222a32e8;
   font-size: 12px;
 }
-.design-study .review-scene {
+.workspace-ui .review-scene {
   height: 100%;
   min-height: 0;
   position: relative;
 }
-.design-study .review-viewport {
+.workspace-ui .review-viewport {
   position: absolute;
   inset: 0;
 }
-.design-study .review-canvas {
+.workspace-ui .review-canvas {
   inset: 0;
 }
-.design-study .review-scene-caption {
+.workspace-ui .review-scene-caption {
   display: none;
 }
-.design-study .review-anchors {
+.workspace-ui .review-anchors {
   inset: 0;
 }
-.design-study .review-anchor {
+.workspace-ui .review-anchor {
   border: 1px solid #ffffff1a;
   border-radius: 5px;
   background: #1e2932ed;
   padding: 9px 11px;
   box-shadow: 0 5px 14px #0003;
 }
-.design-study .review-anchor span {
+.workspace-ui .review-anchor span {
   font-size: 12px;
   font-weight: 550;
 }
-.design-study .review-anchor small {
+.workspace-ui .review-anchor small {
   font-size: 10px;
 }
-.design-study .review-scene-toolbar {
+.workspace-ui .review-scene-toolbar {
   position: absolute;
   z-index: 13;
   inset: 0;
   pointer-events: none;
 }
-.design-study .review-view-controls.is-compact {
+.workspace-ui .review-view-controls.is-compact {
   position: absolute;
   right: 22px;
   top: 20px;
@@ -554,8 +548,8 @@
   pointer-events: auto;
   gap: 4px;
 }
-.design-study .review-camera,
-.design-study .review-scene-tools {
+.workspace-ui .review-camera,
+.workspace-ui .review-scene-tools {
   position: static;
   padding: 0;
   margin: 0;
@@ -565,7 +559,7 @@
   align-items: center;
   gap: 2px;
 }
-.design-study .review-camera select {
+.workspace-ui .review-camera select {
   width: 72px;
   min-height: 32px;
   height: 32px;
@@ -574,12 +568,12 @@
   border: 0;
   background: #ffffff06;
 }
-.design-study .review-scene-tools {
+.workspace-ui .review-scene-tools {
   padding-left: 4px;
   border-left: 1px solid #ffffff12;
 }
-.design-study .review-scene-tools > button,
-.design-study .review-scene-tools summary {
+.workspace-ui .review-scene-tools > button,
+.workspace-ui .review-scene-tools summary {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -590,10 +584,10 @@
   border: 0;
   cursor: pointer;
 }
-.design-study .review-scene-tools kbd {
+.workspace-ui .review-scene-tools kbd {
   display: none;
 }
-.design-study .review-scene-tools details > div {
+.workspace-ui .review-scene-tools details > div {
   right: 0;
   top: 44px;
   bottom: auto;
@@ -603,10 +597,10 @@
   border: 1px solid #ffffff18;
   border-radius: 6px;
 }
-.design-study .review-scene-tools label {
+.workspace-ui .review-scene-tools label {
   font-size: 12px;
 }
-.design-study .review-object-actions {
+.workspace-ui .review-object-actions {
   position: absolute;
   bottom: 24px;
   left: 50%;
@@ -623,39 +617,39 @@
   flex-wrap: wrap;
   box-shadow: 0 10px 24px #0003;
 }
-.design-study .review-object-actions > span,
-.design-study .review-object-actions > strong {
+.workspace-ui .review-object-actions > span,
+.workspace-ui .review-object-actions > strong {
   display: none;
 }
-.design-study .review-object-actions button {
+.workspace-ui .review-object-actions button {
   min-height: 32px;
   border: 0;
   border-radius: 5px;
   padding: 5px 10px;
   font-size: 12px;
 }
-.design-study .review-object-actions button[aria-pressed="true"] {
+.workspace-ui .review-object-actions button[aria-pressed="true"] {
   background: #3a4b55;
   color: #e5f3f1;
 }
-.design-study .review-object-actions > small {
+.workspace-ui .review-object-actions > small {
   flex-basis: 100%;
   padding: 0 8px;
   text-align: center;
   font-size: 10px;
   color: #a7b9c2;
 }
-.design-study .review-explode-settings {
+.workspace-ui .review-explode-settings {
   position: relative;
 }
-.design-study .review-explode-settings summary {
+.workspace-ui .review-explode-settings summary {
   padding: 5px 10px;
   cursor: pointer;
   font-size: 11px;
   list-style: none;
   color: #99aebc;
 }
-.design-study .review-explode-settings label {
+.workspace-ui .review-explode-settings label {
   position: absolute;
   bottom: 45px;
   right: 0;
@@ -665,7 +659,7 @@
   border: 1px solid #ffffff16;
   border-radius: 6px;
 }
-.design-study .review-legend {
+.workspace-ui .review-legend {
   display: block;
   height: auto;
   right: auto;
@@ -678,11 +672,11 @@
   font-size: 10px;
   color: #a0b0bc;
 }
-.design-study[data-scene-level="device"] .review-legend,
-.design-study[data-scene-level="rack"] .review-legend {
+.workspace-ui[data-scene-level="device"] .review-legend,
+.workspace-ui[data-scene-level="rack"] .review-legend {
   bottom: 92px;
 }
-.design-study .review-slice-legend {
+.workspace-ui .review-slice-legend {
   pointer-events: auto;
   width: 270px;
   max-width: calc(100% - 32px);
@@ -690,29 +684,29 @@
   background: #1d2931eb;
   border-radius: 7px;
 }
-.design-study[data-layer="power"] .review-legend,
-.design-study[data-layer="environment"]
+.workspace-ui[data-layer="power"] .review-legend,
+.workspace-ui[data-layer="environment"]
   .review-legend:not(.review-slice-legend) {
   width: 242px;
   padding: 12px;
   border-radius: 7px;
   background: #1d2931eb;
 }
-.design-study .review-slice-legend .review-scale,
-.design-study .review-slice-legend > div:not(.review-status-key) {
+.workspace-ui .review-slice-legend .review-scale,
+.workspace-ui .review-slice-legend > div:not(.review-status-key) {
   width: 100%;
 }
-.design-study .review-slice-heading {
+.workspace-ui .review-slice-heading {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
   margin-bottom: 10px;
 }
-.design-study .review-slice-heading > span {
+.workspace-ui .review-slice-heading > span {
   margin-right: auto;
 }
-.design-study .review-slice-heading select {
+.workspace-ui .review-slice-heading select {
   min-width: 0;
   min-height: 28px;
   padding: 3px 6px;
@@ -720,7 +714,7 @@
   background: #2b3740;
   border: 1px solid #ffffff15;
 }
-.design-study .review-legend > .review-slice-controls {
+.workspace-ui .review-legend > .review-slice-controls {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 8px;
@@ -728,8 +722,8 @@
   padding-top: 10px;
   border-top: 1px solid #ffffff12;
 }
-.design-study .review-slice-controls label,
-.design-study .review-slice-stats {
+.workspace-ui .review-slice-controls label,
+.workspace-ui .review-slice-stats {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
@@ -737,16 +731,16 @@
   white-space: nowrap;
   font-size: 11px;
 }
-.design-study .review-slice-controls output {
+.workspace-ui .review-slice-controls output {
   color: #d6e9ee;
 }
-.design-study .review-slice-controls input[type="range"] {
+.workspace-ui .review-slice-controls input[type="range"] {
   width: 100%;
   min-width: 0;
   margin: 0;
   accent-color: #b1dede;
 }
-.design-study .review-slice-controls small {
+.workspace-ui .review-slice-controls small {
   font-size: 10px;
   line-height: 1.6;
   color: #8fa4b0;
@@ -1048,27 +1042,27 @@
   accent-color: #b1dede;
   margin-top: 6px;
 }
-.design-study .review-analysis {
+.workspace-ui .review-analysis {
   background: transparent;
   border: 0;
 }
-.design-study .review-analysis-head {
+.workspace-ui .review-analysis-head {
   display: flex;
   padding: 0 22px 12px;
   color: #8fa4b2;
   font-size: 11px;
 }
-.design-study .review-analysis-head > strong,
-.design-study .review-analysis-head > button {
+.workspace-ui .review-analysis-head > strong,
+.workspace-ui .review-analysis-head > button {
   display: none;
 }
-.design-study .review-analysis-body {
+.workspace-ui .review-analysis-body {
   display: flex;
   flex-direction: column;
   padding: 0 22px;
   gap: 16px;
 }
-.design-study .review-compare-reading {
+.workspace-ui .review-compare-reading {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: baseline;
@@ -1076,83 +1070,83 @@
   gap: 6px;
   font-size: 11px;
 }
-.design-study .review-compare-reading > span {
+.workspace-ui .review-compare-reading > span {
   line-height: 1.6;
   color: #a9bdc9;
 }
-.design-study .review-compare-reading strong {
+.workspace-ui .review-compare-reading strong {
   font-size: 21px;
   font-weight: 450;
   color: #c4e1df;
 }
-.design-study .review-compare-reading strong small {
+.workspace-ui .review-compare-reading strong small {
   margin-left: 5px;
   font-size: 11px;
 }
-.design-study .review-compare-reading > small {
+.workspace-ui .review-compare-reading > small {
   grid-column: 1 / -1;
   margin-left: auto;
   font-size: 10px;
   color: #7e95a4;
 }
-.design-study .review-compare-metric + .review-compare-metric {
+.workspace-ui .review-compare-metric + .review-compare-metric {
   margin-top: 16px;
 }
-.design-study .review-compare-metric.power strong {
+.workspace-ui .review-compare-metric.power strong {
   color: #d9bc8f;
 }
-.design-study .review-trend text {
+.workspace-ui .review-trend text {
   fill: #8299a7;
 }
-.design-study .review-trend line {
+.workspace-ui .review-trend line {
   stroke: #32424b;
 }
-.design-study .review-playback {
+.workspace-ui .review-playback {
   flex-wrap: wrap;
   gap: 8px;
   padding-top: 10px;
   color: #8fa4b2;
 }
-.design-study .review-playback select {
+.workspace-ui .review-playback select {
   background: #25343f;
   border-color: #3c5260;
   padding: 3px;
   color: #c9dbe2;
 }
-.design-study .review-playback small {
+.workspace-ui .review-playback small {
   margin-left: auto;
   font-size: 9px;
 }
-.design-study .review-events {
+.workspace-ui .review-events {
   max-height: none;
   overflow: visible;
   border: 0;
   border-top: 1px solid #ffffff0b;
   padding: 14px 0 0;
 }
-.design-study .review-events h3 {
+.workspace-ui .review-events h3 {
   color: #a8bbc6;
   font-size: 12px;
   font-weight: 500;
 }
-.design-study .review-events button {
+.workspace-ui .review-events button {
   padding: 10px 0;
   gap: 12px;
   border-bottom: 1px solid #ffffff06;
   width: 100%;
 }
-.design-study .review-events button time {
+.workspace-ui .review-events button time {
   font-size: 11px;
   color: #7c96a6;
 }
-.design-study .review-events button span {
+.workspace-ui .review-events button span {
   font-size: 11px;
   line-height: 1.7;
 }
-.design-study .review-events button small {
+.workspace-ui .review-events button small {
   color: #7c96a6;
 }
-.design-study .review-events button i {
+.workspace-ui .review-events button i {
   font-style: normal;
   margin-right: 8px;
   color: #dfb991;
@@ -1191,19 +1185,18 @@
     position: static;
     width: auto;
   }
-  .study-draft {
-    display: none;
-  }
   .study-header {
     gap: 8px;
     padding-inline: 16px;
   }
 }
 @media (max-width: 600px) {
-  .study-shots {
+  .workspace-shots {
+    grid-column: 2;
+    grid-row: 1;
     margin-left: auto;
   }
-  .design-review.design-study {
+  .mirage-workspace.workspace-ui {
     height: auto;
     min-height: 100svh;
   }
@@ -1212,32 +1205,35 @@
     min-height: 106px;
     padding: 10px 14px;
     gap: 8px;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto auto;
   }
   .study-brand {
+    grid-column: 1;
+    grid-row: 1;
     font-size: 23px;
   }
-  .study-draft {
-    margin-right: auto;
-    font-size: 9px;
-  }
-  .study-shots summary {
+  .workspace-shots summary {
     font-size: 11px;
     padding: 2px 0;
   }
-  .study-shots summary span {
+  .workspace-shots summary span {
     display: none;
   }
   .study-path {
     order: 2;
     margin: 0;
-    flex-basis: calc(100% - 160px);
+    grid-column: 1;
+    grid-row: 2;
   }
   .study-path button {
     font-size: 10px;
     padding: 4px;
   }
   .study-clock {
+    grid-column: 2;
+    grid-row: 2;
     order: 3;
     margin-left: auto;
   }
@@ -1289,16 +1285,16 @@
     padding: 4px 8px;
     font-size: 11px;
   }
-  .design-study .review-view-controls.is-compact {
+  .workspace-ui .review-view-controls.is-compact {
     right: 12px;
     top: 62px;
   }
-  .design-study .review-camera select {
+  .workspace-ui .review-camera select {
     width: 64px;
     font-size: 11px;
   }
-  .design-study .review-scene-tools > button,
-  .design-study .review-scene-tools summary {
+  .workspace-ui .review-scene-tools > button,
+  .workspace-ui .review-scene-tools summary {
     font-size: 11px;
     padding-inline: 8px;
   }
@@ -1323,19 +1319,19 @@
     top: 118px;
     left: 20px;
   }
-  .design-study .review-legend {
+  .workspace-ui .review-legend {
     left: 16px;
     bottom: 16px;
     font-size: 9px;
   }
-  .design-study .review-object-actions {
+  .workspace-ui .review-object-actions {
     bottom: 16px;
   }
-  .design-study .review-object-actions button {
+  .workspace-ui .review-object-actions button {
     font-size: 11px;
     padding-inline: 8px;
   }
-  .design-study .review-explode-settings summary {
+  .workspace-ui .review-explode-settings summary {
     font-size: 10px;
     padding-inline: 5px;
   }
@@ -1343,24 +1339,24 @@
     right: 12px;
     bottom: 48px;
   }
-  .design-study .review-analysis-body {
+  .workspace-ui .review-analysis-body {
     display: flex;
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .design-study button {
+  .workspace-ui button {
     transition: none;
   }
 }
 
-.design-study .study-resource.is-child {
+.workspace-ui .study-resource.is-child {
   margin-left: 12px;
   --resource-row-background: #ffffff02;
 }
 
 /* 以场景实际宽度避让工具，不依赖浏览器宽度推测两侧栏是否展开。 */
 @container study-scene (max-width: 540px) {
-  .design-study .review-view-controls.is-compact {
+  .workspace-ui .review-view-controls.is-compact {
     top: 68px;
     right: 16px;
   }

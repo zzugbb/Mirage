@@ -225,7 +225,7 @@ export function ReviewScene({
     previousScene.current = state;
   }, [state, retry]);
   useEffect(() => {
-    // 评审预设使用相同的空间构图，便于直接比较图层；普通操作不触发。
+    // 演示预设使用相同的空间构图，便于直接比较图层；普通操作不触发。
     const next = currentState.current.level === "room" ? "interior" : "iso";
     setSliceControls(initialSliceControls());
     engine.current?.view(next);

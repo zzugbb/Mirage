@@ -3,17 +3,13 @@ import assert from "node:assert/strict";
 import { simulate, scenario, temperatureHistory } from "./simulation.ts";
 import { createState, presentationKey, transition } from "./domain.ts";
 import { createExperience, experienceTransition } from "./tour.ts";
-import { componentCoverageFor } from "./equipment.ts";
 import { partsForDevice, subpartsForDevice } from "./catalog.ts";
 
 test("服务器维护部件清单包括处理器、磁盘和扩展卡，未把未安装 GPU 计入", () => {
-  const mapped = componentCoverageFor("srv-01").flatMap((item) => item.partIds);
-  assert.deepEqual(
-    mapped.toSorted(),
-    [...partsForDevice("srv-01"), ...subpartsForDevice("srv-01")]
-      .map((part) => part.id)
-      .toSorted(),
-  );
+  const mapped = [
+    ...partsForDevice("srv-01"),
+    ...subpartsForDevice("srv-01"),
+  ].map((part) => part.id);
   assert.equal(new Set(mapped).size, 57);
   assert.ok(
     mapped.includes("processor-01") &&

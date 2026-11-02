@@ -1,19 +1,19 @@
-import { createReview, reviewTransition } from "./review-model.ts";
+import { reviewTransition } from "./review-model.ts";
 import type { ReviewState } from "./review-model.ts";
 import type { Resource } from "./review-resources.ts";
 import type { SpatialReading } from "./spatial.ts";
 
-export const studyShots = [
+export const workspaceShots = [
   { id: "overview", name: "机房浏览" },
   { id: "structure", name: "设备内部" },
   { id: "alarms", name: "告警排查" },
   { id: "time", name: "时间分析" },
 ] as const;
-export type StudyShot = (typeof studyShots)[number]["id"];
+export type WorkspaceShot = (typeof workspaceShots)[number]["id"];
 
-export function studyPreset(
+export function workspacePreset(
   current: ReviewState,
-  shot: StudyShot,
+  shot: WorkspaceShot,
 ): ReviewState {
   const next = reviewTransition(current, {
     type: "shot",
@@ -30,10 +30,9 @@ export function studyPreset(
   }
   return next;
 }
-export const initialStudy = () => createReview();
 
 /** 保留资源的结构顺序；部件模型评估不能充当独立设备告警。 */
-export function studyVisibleRows(
+export function visibleResourceRows(
   rows: Resource[],
   readings: Map<string, SpatialReading>,
   onlyAlarms: boolean,
@@ -44,7 +43,7 @@ export function studyVisibleRows(
       )
     : rows;
 }
-export function studyRowText(resource: Resource, includeLocation = false) {
+export function resourceRowText(resource: Resource, includeLocation = false) {
   const device = ["server", "switch", "storage"].includes(resource.kind);
   return {
     title: device ? resource.name.split(" · ").at(-1)! : resource.name,
