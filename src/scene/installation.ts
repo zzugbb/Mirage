@@ -1,3 +1,4 @@
+import { updateRackBlanking } from "./rack-blanking";
 import { equipmentModels, modelForDevice } from "../catalog";
 import * as THREE from "three";
 import { observationColor } from "./metric-color";
@@ -31,6 +32,7 @@ export class InstallationScene {
         object.userData = {};
       });
       group.userData.entityId = rack.id;
+      updateRackBlanking(group, rack.id);
       for (const pdu of pdus.filter((pdu) => pdu.rackId === rack.id))
         group.getObjectByName(`pdu-${pdu.feed}`)!.userData.entityId = pdu.id;
       group.position.fromArray(rack.position);

@@ -1,3 +1,4 @@
+import { createRackBlanking } from "./rack-blanking";
 import { SelectionCorners } from "./selection";
 import * as THREE from "three";
 import definition from "../../assets/public/scenes/room-01.json" with { type: "json" };
@@ -199,25 +200,14 @@ export function buildModels() {
     "#1d2024",
     0.55,
   );
-  for (let u = 1; u <= 42; u++) {
+  for (let u = 1; u <= definition.rack.units; u++) {
     const y = definition.rack.unitOrigin + u * definition.rack.unitPitch;
     for (const x of [-0.25, 0.25])
       box(rack, [0.015, 0.012, 0.025], [x, y, 0.52], "#70767d", 0.7);
-    if (
-      !definition.installation.devices.some((device) => {
-        const span = definition.equipmentModels.find(
-          (model) => model.id === device.modelId,
-        )!.units;
-        return u >= device.startUnit && u < device.startUnit + span;
-      })
-    ) {
-      box(rack, [0.465, 0.04, 0.025], [0, y, 0.5], "#282c31", 0.65);
-      for (const x of [-0.14, -0.06, 0.02, 0.1])
-        box(rack, [0.045, 0.008, 0.006], [x, y, 0.517], "#5d6369");
-    }
   }
+  rack.add(createRackBlanking(definition.rack.id));
   for (const x of [-0.3, 0.3])
-    glow(rack, [0.008, 2, 0.012], [x, 1.1, 0.55], "#4f565e");
+    glow(rack, [0.008, rh - 0.1, 0.012], [x, rh / 2 + 0.05, 0.55], "#4f565e");
   text(rack, "A01", [0, 2.36, 0], 0.1).name = "rack-label";
   // 可透视的冲孔钢网门；孔洞通过规则透明度图实现，尺寸仍为真实米制。
   const perforation = document.createElement("canvas");
@@ -242,7 +232,7 @@ export function buildModels() {
   holes.wrapS = holes.wrapT = THREE.RepeatWrapping;
   holes.repeat.set(24, 84);
   const steelDoor = new THREE.Mesh(
-    new THREE.PlaneGeometry(0.51, 1.89),
+    new THREE.PlaneGeometry(0.51, rh - 0.21),
     new THREE.MeshStandardMaterial({
       color: "#32363b",
       metalness: 0.65,
@@ -257,24 +247,30 @@ export function buildModels() {
   rackDoor.name = "rack-door";
   rackDoor.position.set(-0.285, 0, 0.57);
   rack.add(rackDoor);
-  steelDoor.position.set(0.285, 1.1, 0);
+  steelDoor.position.set(0.285, rh / 2 + 0.05, 0);
   steelDoor.castShadow = true;
   rackDoor.add(steelDoor);
   for (const x of [-0.277, 0.277])
     box(
       rackDoor,
-      [0.025, 1.99, 0.025],
-      [x + 0.285, 1.1, 0.005],
+      [0.025, rh - 0.11, 0.025],
+      [x + 0.285, rh / 2 + 0.05, 0.005],
       "#282c31",
       0.65,
     );
-  for (const y of [0.115, 2.085])
+  for (const y of [0.115, rh - 0.015])
     box(rackDoor, [0.57, 0.034, 0.025], [0.285, y, 0.005], "#282c31", 0.65);
-  box(rackDoor, [0.018, 0.22, 0.035], [0.512, 1.1, 0.037], "#72777e", 0.85);
+  box(
+    rackDoor,
+    [0.018, 0.22, 0.035],
+    [0.512, rh / 2 + 0.05, 0.037],
+    "#72777e",
+    0.85,
+  );
   for (const y of [0.45, 1.72])
     box(rack, [0.025, 0.065, 0.035], [-0.28, y, 0.59], "#777b80", 0.8);
   for (let z = -0.43; z < 0.4; z += 0.032)
-    box(rack, [0.35, 0.002, 0.006], [0, 2.135, z], "#15171b");
+    box(rack, [0.35, 0.002, 0.006], [0, rh + 0.035, z], "#15171b");
   const rackSlide = new THREE.Group();
   rack.add(rackSlide);
   const railMount = new THREE.Group();
@@ -379,6 +375,7 @@ export function disposeModels(root: THREE.Object3D, shared = true) {
   const mats = new Set<THREE.Material>();
   const textures = new Set<THREE.Texture>();
   root.traverse((object) => {
+    if (object instanceof THREE.InstancedMesh) object.dispose();
     if (
       object instanceof THREE.DirectionalLight ||
       object instanceof THREE.PointLight ||

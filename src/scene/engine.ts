@@ -1,3 +1,4 @@
+import { updateRackBlanking } from "./rack-blanking";
 import { fixtureById } from "../fixtures";
 import { modelForDevice, partsForDevice } from "../catalog";
 import { createEquipmentAssembly } from "./equipment-model";
@@ -531,6 +532,11 @@ export class SceneEngine {
     const rack = rackForDevice(state.deviceId);
     this.models.rack.position.fromArray(rack.position);
     this.models.rack.userData.entityId = rack.id;
+    this.host.dataset.blankingUnits = updateRackBlanking(
+      this.models.rack,
+      rack.id,
+    ).join(",");
+    this.host.dataset.blankingRack = rack.id;
     for (const pdu of pdus.filter((pdu) => pdu.rackId === rack.id))
       this.models.rack.getObjectByName(`pdu-${pdu.feed}`)!.userData.entityId =
         pdu.id;

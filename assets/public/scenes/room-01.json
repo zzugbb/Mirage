@@ -169,10 +169,22 @@
     ],
     "size": [
       0.6,
-      2.1,
+      2.16,
       1.1
     ],
     "units": 42,
+    "blanking": {
+      "policy": "cover-unoccupied-units",
+      "description": "逐柜按已安装设备配置封闭未安装U位，不代表可分配容量或实测气密性",
+      "width": 0.465,
+      "depth": 0.012,
+      "gap": 0.002,
+      "frontZ": 0.54,
+      "color": "#343a40",
+      "fastenerX": 0.224,
+      "fastenerSize": [0.006, 0.006, 0.003],
+      "fastenerColor": "#737b82"
+    },
     "unitPitch": 0.04445,
     "unitOrigin": 0.2,
     "motion": {

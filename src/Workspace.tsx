@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { rackBlankingUnits, unitRanges } from "./rack-blanking";
 import { fixtureById } from "./fixtures";
 import { FixtureDetails } from "./components/FixtureDetails";
 import { entityById, getPath, presentationKey } from "./domain";
@@ -1093,6 +1094,14 @@ export function Workspace() {
                   <details className="study-configuration">
                     <summary>配置与数据说明</summary>
                     <p>{entity.description}</p>
+                    {entity.kind === "rack" && (
+                      <p className="study-blanking-config">
+                        前置 1U 盲板 {rackBlankingUnits(selected).length} 块：
+                        {unitRanges(rackBlankingUnits(selected))}。
+                        按本柜安装配置封闭未安装位置，不代表可分配容量或实测气密性。
+                      </p>
+                    )}
+
                     {maintenance.length > 0 && (
                       <>
                         <dl className="study-maintenance-config">
