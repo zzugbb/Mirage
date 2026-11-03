@@ -8,7 +8,8 @@ import { devices, racks, rackForDevice } from "../installation";
 import type { SpatialReading } from "../spatial";
 import type { ReviewLayer } from "../review-model";
 import { reviewPresentation } from "../review-model";
-import { partsForDevice, modelForDevice } from "../catalog";
+import { partsForDevice, subpartsForDevice, modelForDevice } from "../catalog";
+import { sceneLabels } from "../scene-labels";
 import { reviewSpatialMarks } from "../review-spatial";
 import { ReviewDataGeometry } from "../scene/review-data";
 import { signalFor, signalStyles } from "../status";
@@ -96,6 +97,7 @@ export function ReviewScene({
   const [supported, setSupported] = useState(false);
   const [orbit, setOrbit] = useState(false);
   const [cutaway, setCutaway] = useState(true);
+  const [moreLabels, setMoreLabels] = useState(false);
   const [sliceControls, setSliceControls] = useState(initialSliceControls);
   const slice = useMemo(
     () =>
@@ -364,36 +366,37 @@ export function ReviewScene({
   const scope = readings.get(
     state.level === "room" ? "room-01" : rackForDevice(state.deviceId).id,
   )!;
-  const candidates =
+  const candidates: { id: string; name: string }[] =
     state.level === "room"
       ? sliceRow
         ? racks.filter((rack) => sliceRow.rackIds.includes(rack.id))
         : racks
       : state.level === "rack"
         ? devices.filter((d) => d.rackId === rackForDevice(state.deviceId).id)
-        : partsForDevice(state.deviceId).filter(
-            (p) => !["lid", "duct", "cable"].includes(p.node),
-          );
-  const labels = [...candidates]
-    .filter(
-      (item) => layer !== "alarms" || (readings.get(item.id)?.alarm ?? 0) > 0,
-    )
-    .sort(
-      (a, b) =>
-        Number(b.id === state.selected) - Number(a.id === state.selected) ||
-        (layer === "overview" || layer === "alarms"
-          ? (readings.get(b.id)?.alarm ?? 0) - (readings.get(a.id)?.alarm ?? 0)
-          : layer === "environment"
-            ? (slice
-                ? (slice.rackEstimates.get(b.id) ?? -Infinity)
-                : (readings.get(b.id)?.temperature ?? -Infinity)) -
-              (slice
-                ? (slice.rackEstimates.get(a.id) ?? -Infinity)
-                : (readings.get(a.id)?.temperature ?? -Infinity))
-            : (readings.get(b.id)?.power ?? -Infinity) -
-              (readings.get(a.id)?.power ?? -Infinity)),
-    )
-    .slice(0, state.level === "room" ? 6 : 3);
+        : [
+            ...partsForDevice(state.deviceId).filter(
+              (p) =>
+                p.id === selectedId ||
+                !["lid", "duct", "cable"].includes(p.node),
+            ),
+            ...subpartsForDevice(state.deviceId).filter(
+              (p) => p.id === selectedId,
+            ),
+          ];
+  const labels = sceneLabels(candidates, readings, {
+    level: state.level,
+    layer,
+    selectedId,
+    more: moreLabels,
+    estimates: slice?.rackEstimates,
+    hasPath: !!airflow || !!supply || network.length > 0,
+    annotatedIds: [
+      ...network.flatMap((marker) => (marker.partId ? [marker.partId] : [])),
+      ...(supply?.labels.flatMap((label) =>
+        label.partId ? [label.partId] : [],
+      ) ?? []),
+    ],
+  });
   const labelKey =
     labels.map((r) => r.id).join(":") +
     (airflow?.routes.map((route) => route.id).join(":") ?? "") +
@@ -427,9 +430,10 @@ export function ReviewScene({
         if (line) line.style.visibility = "hidden";
         if (label.hidden) continue;
         if (
-          ["position", "power-part", "part-position"].includes(
+          (["position", "power-part", "part-position"].includes(
             label.dataset.anchorKind ?? "",
-          ) &&
+          ) ||
+            label.classList.contains("selected")) &&
           sceneRect
         ) {
           const x = Number(label.dataset.screenX),
@@ -727,9 +731,12 @@ export function ReviewScene({
                       预算
                     </em>
                   )}
-                {(layer === "overview" || layer === "alarms") && (
+                {(layer === "alarms" ||
+                  (layer === "overview" &&
+                    signalFor(reading) !== "normal" &&
+                    state.level !== "device")) && (
                   <em style={{ color: signal.color }}>
-                    {reading.alarmCount > 0
+                    {reading.count > 1 && reading.alarmCount > 0
                       ? `${signal.icon} 告警 ${reading.alarmCount}台`
                       : `${signal.icon} ${state.level === "device" ? "模型" : ""}${signal.label}`}
                   </em>
@@ -748,8 +755,14 @@ export function ReviewScene({
         {(airflow ||
           maintenance.length > 0 ||
           supply ||
-          network.length > 0) && (
+          network.length > 0 ||
+          labels.some((item) => item.id === selectedId)) && (
           <svg className="review-flow-lines" aria-hidden="true" ref={flowLines}>
+            {labels
+              .filter((item) => item.id === selectedId)
+              .map((item) => (
+                <line key={item.id} data-flow-line={item.id} />
+              ))}
             {maintenance.map((area) => (
               <line key={area.id} data-flow-line={area.id} />
             ))}
@@ -782,7 +795,7 @@ export function ReviewScene({
               </span>
               <small>
                 {state.level === "device"
-                  ? "本端所属部件 · 对端位于机柜"
+                  ? "所属部件示意 · 非物理端口定位"
                   : "设备代表位置 · 非物理端口定位"}
               </small>
               <button onClick={onClearNetwork} aria-label="关闭网络端点标记">
@@ -1049,6 +1062,17 @@ export function ReviewScene({
                     onChange={(e) => setCutaway(e.target.checked)}
                   />
                   自动建筑剖切
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={moreLabels}
+                    onChange={(e) => {
+                      onTakeover();
+                      setMoreLabels(e.target.checked);
+                    }}
+                  />
+                  更多对象标签
                 </label>
                 <label>
                   <input

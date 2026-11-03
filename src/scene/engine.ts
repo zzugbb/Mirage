@@ -1186,17 +1186,27 @@ export class SceneEngine {
           this.anchorPosition.z += modelForDevice(id).depth / 2;
         }
         this.anchorPosition.project(this.camera);
+        const selectedLabel = element.classList.contains("selected");
         const x =
           (this.anchorPosition.x * 0.5 + 0.5) * this.host.clientWidth +
-          (deviceAnchor ? 80 : 0);
+          (deviceAnchor && !selectedLabel ? 80 : 0);
         const y = (-this.anchorPosition.y * 0.5 + 0.5) * this.host.clientHeight;
+        element.dataset.screenX = String(x);
+        element.dataset.screenY = String(y);
         element.style.transform = `translate(${x}px,${y}px)`;
+        // 选中标签交由布局器向内避让；不因文字宽度超出边界而直接消失。
         element.hidden =
+          this.anchorPosition.z < -1 ||
           this.anchorPosition.z > 1 ||
-          x < 10 ||
-          x > this.host.clientWidth - element.offsetWidth - 23 ||
-          y < 22 ||
-          y > this.host.clientHeight - 65;
+          x < 0 ||
+          x > this.host.clientWidth ||
+          y < 0 ||
+          y > this.host.clientHeight ||
+          (!selectedLabel &&
+            (x < 10 ||
+              x > this.host.clientWidth - element.offsetWidth - 23 ||
+              y < 22 ||
+              y > this.host.clientHeight - 65));
       }
     }
     this.axesQuaternion.copy(this.camera.quaternion).invert();

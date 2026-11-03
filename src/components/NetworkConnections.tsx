@@ -1,3 +1,4 @@
+import { ConnectionSection } from "./ConnectionSection";
 import { useState } from "react";
 import type { AppState } from "../domain";
 import { deviceById, rackById } from "../installation";
@@ -65,18 +66,17 @@ export function NetworkConnections({
     );
   });
   return (
-    <section
+    <ConnectionSection
+      title="网络接入"
       className="network-connections"
-      aria-label="网络接入"
-      onPointerDownCapture={onInteract}
-      onKeyDownCapture={onInteract}
+      summary={
+        rack
+          ? `${switchesForRack(rack.id).length} 台交换机 · 配置`
+          : `${links.length} / ${ports.length} 口已配置`
+      }
+      active={!!activeLinkId}
+      onInteract={onInteract}
     >
-      <h2>
-        网络接入 <small>配置示意</small>
-      </h2>
-      <p className="network-boundary">
-        仅查看已登记接入。未采集链路状态、协商速率或流量；设备离线不等于网线断开。
-      </p>
       {rack ? (
         <div className="network-switch-list">
           {switchesForRack(rack.id).map((sw) => {
@@ -207,26 +207,28 @@ export function NetworkConnections({
               <p role="status">没有匹配的端口；可清空查找或显示未配置端口。</p>
             )}
           </div>
-          <p className="network-boundary">
-            已配置 {links.length} / {ports.length}{" "}
-            个逻辑口。未配置不等于物理空闲或可用；A/B
-            仅区分接入组，不证明上联独立或冗余保障。场景标记使用设备代表位置，内部使用所属部件，均非物理端口定位。
-          </p>
-          {!isSwitch && modelForDevice(device.id).category === "storage" && (
+        </>
+      ) : null}
+      <details>
+        <summary>配置边界</summary>
+        <p>未采集链路状态、协商速率或流量；设备离线不等于断链。</p>
+        <p className="network-boundary">
+          未配置不等于物理空闲或可用；A/B
+          仅区分接入组，不证明上联独立或冗余保障。场景标记使用设备代表位置，内部使用所属部件，均非物理端口定位。
+        </p>
+        {device &&
+          !isSwitch &&
+          modelForDevice(device.id).category === "storage" && (
             <p className="network-boundary">
               存储逻辑口 1/2
               对应两控制器各一条接入，另两口尚未配置；内部仍为配置示意。
             </p>
           )}
-        </>
-      ) : null}
-      <details>
-        <summary>配置边界</summary>
         <p>
           {networkSettings.description}。100G
           端口未定义交换机间互联或上联骨干，不按未连接配置推断链路异常。
         </p>
       </details>
-    </section>
+    </ConnectionSection>
   );
 }

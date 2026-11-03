@@ -829,7 +829,7 @@ export function Workspace() {
                 ) : (
                   <>
                     {signal.icon} {component ? "模型评估 · " : ""}
-                    {signalText(reading)}
+                    {component ? signal.label : signalText(reading)}
                   </>
                 )}
               </span>
@@ -928,18 +928,6 @@ export function Workspace() {
                         {coolingRange.lifecycle.stopped}（无当前进风）
                       </p>
                     </div>
-                    <CoolingConnections
-                      state={state}
-                      selectedId={selected}
-                      readings={spatial.readings}
-                      ready={ready}
-                      airflowVisible={
-                        layer === "environment" && state.level === "room"
-                      }
-                      onSelect={pick}
-                      onLocateSource={() => pick(coolingSource.id, true)}
-                      onViewAirflow={showAirflow}
-                    />
                     <section className="study-trend">
                       <div>
                         <h2>关联进风趋势</h2>
@@ -954,6 +942,19 @@ export function Workspace() {
                         对照冷却输入与温度响应 <span>↗</span>
                       </button>
                     </section>
+                    <CoolingConnections
+                      onInteract={takeover}
+                      state={state}
+                      selectedId={selected}
+                      readings={spatial.readings}
+                      ready={ready}
+                      airflowVisible={
+                        layer === "environment" && state.level === "room"
+                      }
+                      onSelect={pick}
+                      onLocateSource={() => pick(coolingSource.id, true)}
+                      onViewAirflow={showAirflow}
+                    />
                   </>
                 ) : reading ? (
                   <>
@@ -967,10 +968,13 @@ export function Workspace() {
                             {temperature(reading.temperature)}
                             <small>°C</small>
                           </strong>
-                          <small>
-                            有效覆盖 {reading.coverageTemperature}/
-                            {reading.count}
-                          </small>
+                          {(reading.count > 1 ||
+                            reading.coverageTemperature !== 1) && (
+                            <small>
+                              有效覆盖 {reading.coverageTemperature}/
+                              {reading.count}
+                            </small>
+                          )}
                         </div>
                       )}
                       <div>
@@ -981,56 +985,16 @@ export function Workspace() {
                             {(reading.power ?? 0) >= 1000 ? "kW" : "W"}
                           </small>
                         </strong>
-                        <small>
-                          有效覆盖 {reading.coveragePower}/{reading.count}
-                        </small>
+                        {(reading.count > 1 || reading.coveragePower !== 1) && (
+                          <small>
+                            有效覆盖 {reading.coveragePower}/{reading.count}
+                          </small>
+                        )}
                         {powerFacility && (
                           <small>关联设备汇总 · 非设施或支路计量</small>
                         )}
                       </div>
                     </div>
-                    {(layer === "power" || powerFacility) && (
-                      <PowerConnections
-                        state={state}
-                        selectedId={selected}
-                        readings={spatial.readings}
-                        ready={ready}
-                        onSelect={(id) => pick(id)}
-                        onLocate={(id) => pick(id, true)}
-                        onViewPower={
-                          layer === "power"
-                            ? undefined
-                            : () => control({ type: "layer", layer: "power" })
-                        }
-                      />
-                    )}
-                    {layer === "overview" && (
-                      <NetworkConnections
-                        key={selected}
-                        state={state}
-                        selectedId={selected}
-                        activeLinkId={activeNetworkLink}
-                        ready={ready}
-                        onSelect={pick}
-                        onLocate={(id) => pick(id, true)}
-                        onTrace={setNetworkLinkId}
-                        onInteract={takeover}
-                      />
-                    )}
-                    {layer === "environment" && (
-                      <CoolingConnections
-                        state={state}
-                        selectedId={selected}
-                        readings={spatial.readings}
-                        ready={ready}
-                        airflowVisible={
-                          layer === "environment" && state.level === "room"
-                        }
-                        onSelect={pick}
-                        onLocateSource={() => pick(coolingSource.id, true)}
-                        onViewAirflow={showAirflow}
-                      />
-                    )}
                     <section className="study-trend">
                       <div>
                         <h2>{powerFacility ? "关联输入趋势" : "变化趋势"}</h2>
@@ -1061,6 +1025,50 @@ export function Workspace() {
                         分析曲线与事件 <span>↗</span>
                       </button>
                     </section>
+                    {(layer === "power" || powerFacility) && (
+                      <PowerConnections
+                        onInteract={takeover}
+                        state={state}
+                        selectedId={selected}
+                        readings={spatial.readings}
+                        ready={ready}
+                        onSelect={(id) => pick(id)}
+                        onLocate={(id) => pick(id, true)}
+                        onViewPower={
+                          layer === "power"
+                            ? undefined
+                            : () => control({ type: "layer", layer: "power" })
+                        }
+                      />
+                    )}
+                    {layer === "overview" && (
+                      <NetworkConnections
+                        key={selected}
+                        state={state}
+                        selectedId={selected}
+                        activeLinkId={activeNetworkLink}
+                        ready={ready}
+                        onSelect={pick}
+                        onLocate={(id) => pick(id, true)}
+                        onTrace={setNetworkLinkId}
+                        onInteract={takeover}
+                      />
+                    )}
+                    {layer === "environment" && (
+                      <CoolingConnections
+                        onInteract={takeover}
+                        state={state}
+                        selectedId={selected}
+                        readings={spatial.readings}
+                        ready={ready}
+                        airflowVisible={
+                          layer === "environment" && state.level === "room"
+                        }
+                        onSelect={pick}
+                        onLocateSource={() => pick(coolingSource.id, true)}
+                        onViewAirflow={showAirflow}
+                      />
+                    )}
                   </>
                 ) : (
                   <p className="study-empty">设施布置示意，尚未接入遥测。</p>

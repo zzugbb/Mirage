@@ -1,3 +1,4 @@
+import { ConnectionSection } from "./ConnectionSection";
 import {
   coolingSource,
   coolingDeviceIds,
@@ -16,6 +17,7 @@ export function CoolingConnections({
   readings,
   ready,
   airflowVisible,
+  onInteract,
   onSelect,
   onLocateSource,
   onViewAirflow,
@@ -25,6 +27,7 @@ export function CoolingConnections({
   readings: Map<string, SpatialReading>;
   ready: boolean;
   airflowVisible: boolean;
+  onInteract: () => void;
   onSelect: (id: string) => void;
   onLocateSource: () => void;
   onViewAirflow: () => void;
@@ -36,9 +39,17 @@ export function CoolingConnections({
   const device =
     !source && !rack && ids.length === 1 ? deviceById(ids[0]) : null;
   return (
-    <section className="cooling-connections" aria-label="冷却关联">
+    <ConnectionSection
+      onInteract={onInteract}
+      title={source ? "配置服务范围" : "冷却关联"}
+      className="cooling-connections"
+      summary={
+        source
+          ? `${racks.length} 柜 · ${ids.length} 台设备`
+          : `${ids.length} 台设备 · 前进后出假设`
+      }
+    >
       <div className="cooling-heading">
-        <h2>{source ? "配置服务范围" : "冷却关联"}</h2>
         {!airflowVisible && (
           <button disabled={!ready} onClick={onViewAirflow}>
             {state.level === "room" ? "查看气流" : "机房气流"} ↗
@@ -162,6 +173,6 @@ export function CoolingConnections({
           定位制冷单元 ↗
         </button>
       )}
-    </section>
+    </ConnectionSection>
   );
 }

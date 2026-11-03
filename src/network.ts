@@ -106,8 +106,8 @@ export function networkMarkers(
         title: `${device.name} · ${side === "source" ? sourcePorts(id).find((p) => p.port === port)!.name : `接入 ${switchRole(id)} / 端口 ${String(port).padStart(2, "0")}`}`,
         detail:
           state.level === "device"
-            ? "所属部件 · 配置示意，非物理端口定位"
-            : `${link.speedGbps} Gb/s 配置 · 设备代表位置`,
+            ? partsForDevice(id).find((part) => part.id === partId)!.name
+            : rack.name,
         ...(state.level === "device" ? { partId } : { point }),
       },
     ];

@@ -1,3 +1,4 @@
+import { ConnectionSection } from "./ConnectionSection";
 import { useState } from "react";
 import type { AppState } from "../domain";
 import { entityById } from "../domain";
@@ -24,6 +25,7 @@ export function PowerConnections({
   selectedId,
   readings,
   ready,
+  onInteract,
   onSelect,
   onLocate,
   onViewPower,
@@ -32,6 +34,7 @@ export function PowerConnections({
   selectedId: string;
   readings: Map<string, SpatialReading>;
   ready: boolean;
+  onInteract: () => void;
   onSelect: (id: string) => void;
   onLocate: (id: string) => void;
   onViewPower?: () => void;
@@ -60,11 +63,21 @@ export function PowerConnections({
         : false,
   );
   return (
-    <section className="power-connections" aria-label="供电连接">
-      <div className="power-connection-heading">
-        <h2>供电连接</h2>
-        {onViewPower && <button onClick={onViewPower}>场景查看 ↗</button>}
-      </div>
+    <ConnectionSection
+      onInteract={onInteract}
+      title="供电连接"
+      className="power-connections"
+      summary={
+        pdu
+          ? `${links.length} / ${powerSettings.outletsPerPdu} 插座已接`
+          : rack
+            ? "2 个 PDU · 配置"
+            : device
+              ? `${links.length} 路输入 · 配置`
+              : `${pdus.length} 个出线 · 配置`
+      }
+    >
+      {onViewPower && <button onClick={onViewPower}>场景查看 ↗</button>}
       <p className="power-boundary">
         配置示意 · A/B 未定义独立上游；回路与插座未计量，整机输入不分摊。
       </p>
@@ -255,6 +268,6 @@ export function PowerConnections({
           )}
         </>
       ) : null}
-    </section>
+    </ConnectionSection>
   );
 }
