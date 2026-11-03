@@ -1082,9 +1082,15 @@ export class SceneEngine {
     for (const element of this.anchorElements) {
       const id = element.dataset.anchor!;
       if (
-        ["position", "power-part"].includes(element.dataset.anchorKind ?? "")
+        ["position", "power-part", "part-position"].includes(
+          element.dataset.anchorKind ?? "",
+        )
       ) {
-        if (element.dataset.anchorKind === "power-part") {
+        if (
+          ["power-part", "part-position"].includes(
+            element.dataset.anchorKind ?? "",
+          )
+        ) {
           const part = this.models.parts.get(element.dataset.anchorPart!);
           if (!part) {
             element.hidden = true;

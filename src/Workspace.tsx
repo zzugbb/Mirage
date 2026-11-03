@@ -31,6 +31,8 @@ import { devices, rackForDevice } from "./installation";
 import { maintenanceAreas } from "./maintenance";
 import { isPowerFacility, pduById, powerDeviceIds } from "./power-config";
 import { PowerConnections } from "./components/PowerConnections";
+import { NetworkConnections } from "./components/NetworkConnections";
+import { networkContextIncludes, networkMarkers } from "./network";
 import { CoolingConnections } from "./components/CoolingConnections";
 import {
   coolingSource,
@@ -135,6 +137,12 @@ export function Workspace() {
       navigationOpenerRef.current?.focus();
   }, [nav]);
   const [inspector, setInspector] = useState(false);
+  const [networkLinkId, setNetworkLinkId] = useState<string | null>(null);
+  const activeNetworkLink =
+    layer === "overview" &&
+    networkMarkers(state, selected, networkLinkId).length
+      ? networkLinkId
+      : null;
   const [query, setQuery] = useState("");
   const [expanded, setExpanded] = useState<string[]>([]);
   const [filter, setFilter] = useState<ResourceFilter>("all");
@@ -223,15 +231,21 @@ export function Workspace() {
     [],
   );
   const takeover = useCallback(() => control({ type: "takeover" }), []);
-  const pick = useCallback((id: string, enter = false) => {
-    control({ type: enter ? "open-resource" : "pick", id });
-    setInspector(true);
-    if (matchMedia("(max-width: 1099px)").matches) setNav(false);
-    if (enter) {
-      setQuery("");
-      setFilter("all");
-    }
-  }, []);
+  const pick = useCallback(
+    (id: string, enter = false) => {
+      setNetworkLinkId((current) =>
+        networkContextIncludes(id, state.deviceId, current) ? current : null,
+      );
+      control({ type: enter ? "open-resource" : "pick", id });
+      setInspector(true);
+      if (matchMedia("(max-width: 1099px)").matches) setNav(false);
+      if (enter) {
+        setQuery("");
+        setFilter("all");
+      }
+    },
+    [state.deviceId],
+  );
   const focus = (id: string) => {
     control({ type: "focus-resource", id });
     setInspector(true);
@@ -293,6 +307,7 @@ export function Workspace() {
     return () => window.removeEventListener("keydown", key);
   }, [selected, review.analysis, nav, inspector, query, dispatch]);
   const load = (next: WorkspaceShot) => {
+    setNetworkLinkId(null);
     setExpanded([]);
     setShot(next);
     setRevision((n) => n + 1);
@@ -690,6 +705,11 @@ export function Workspace() {
             layer={layer}
             readings={spatial.readings}
             selectedId={selected}
+            networkLinkId={activeNetworkLink}
+            onClearNetwork={() => {
+              takeover();
+              setNetworkLinkId(null);
+            }}
             onSelect={pick}
             onFocus={() => focus(selected)}
             onPhase={setPhase}
@@ -714,7 +734,8 @@ export function Workspace() {
           />
           {state.level === "room" &&
             layer === "overview" &&
-            maintenance.length === 0 && (
+            maintenance.length === 0 &&
+            !activeNetworkLink && (
               <div className="study-room-summary">
                 <span>01 号机房</span>
                 <h1>运行概览</h1>
@@ -981,6 +1002,19 @@ export function Workspace() {
                             ? undefined
                             : () => control({ type: "layer", layer: "power" })
                         }
+                      />
+                    )}
+                    {layer === "overview" && (
+                      <NetworkConnections
+                        key={selected}
+                        state={state}
+                        selectedId={selected}
+                        activeLinkId={activeNetworkLink}
+                        ready={ready}
+                        onSelect={pick}
+                        onLocate={(id) => pick(id, true)}
+                        onTrace={setNetworkLinkId}
+                        onInteract={takeover}
                       />
                     )}
                     {layer === "environment" && (

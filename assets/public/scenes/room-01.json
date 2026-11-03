@@ -4953,6 +4953,152 @@
         }
       ]
     },
+    "networkAccess": {
+      "model": "configured-network-access-v1",
+      "description": "逻辑接入配置与部件归属，不代表真实端口几何、施工布线、链路状态、协商速率、流量或冗余保障",
+      "switchPortGroups": [
+        {
+          "first": 1,
+          "last": 48,
+          "speedGbps": 25,
+          "label": "25G 接入口"
+        },
+        {
+          "first": 49,
+          "last": 54,
+          "speedGbps": 100,
+          "label": "100G 端口 · 未配置上联"
+        }
+      ],
+      "sourcePorts": {
+        "server-2u": [
+          {
+            "port": 1,
+            "name": "逻辑口 1",
+            "partId": "nic-01",
+            "speedGbps": 25
+          },
+          {
+            "port": 2,
+            "name": "逻辑口 2",
+            "partId": "nic-01",
+            "speedGbps": 25
+          }
+        ],
+        "server-1u": [
+          {
+            "port": 1,
+            "name": "逻辑口 1",
+            "partId": "nic-01",
+            "speedGbps": 25
+          },
+          {
+            "port": 2,
+            "name": "逻辑口 2",
+            "partId": "nic-01",
+            "speedGbps": 25
+          }
+        ],
+        "storage-4u": [
+          {
+            "port": 1,
+            "name": "控制器 A / 口 1",
+            "partId": "sto-controller-a",
+            "speedGbps": 25
+          },
+          {
+            "port": 2,
+            "name": "控制器 B / 口 1",
+            "partId": "sto-controller-b",
+            "speedGbps": 25
+          },
+          {
+            "port": 3,
+            "name": "控制器 A / 口 2",
+            "partId": "sto-controller-a",
+            "speedGbps": 25
+          },
+          {
+            "port": 4,
+            "name": "控制器 B / 口 2",
+            "partId": "sto-controller-b",
+            "speedGbps": 25
+          }
+        ]
+      },
+      "switchPartId": "net-ports",
+      "objectMarkerOffset": [
+        0,
+        0,
+        0.61
+      ],
+      "switchRoles": [
+        {
+          "deviceId": "sw-01",
+          "role": "A"
+        },
+        {
+          "deviceId": "sw-02",
+          "role": "B"
+        },
+        {
+          "deviceId": "sw-03",
+          "role": "A"
+        },
+        {
+          "deviceId": "sw-04",
+          "role": "B"
+        },
+        {
+          "deviceId": "sw-05",
+          "role": "A"
+        },
+        {
+          "deviceId": "sw-06",
+          "role": "B"
+        },
+        {
+          "deviceId": "sw-07",
+          "role": "A"
+        },
+        {
+          "deviceId": "sw-08",
+          "role": "B"
+        },
+        {
+          "deviceId": "sw-09",
+          "role": "A"
+        },
+        {
+          "deviceId": "sw-10",
+          "role": "B"
+        },
+        {
+          "deviceId": "sw-11",
+          "role": "A"
+        },
+        {
+          "deviceId": "sw-12",
+          "role": "B"
+        },
+        {
+          "deviceId": "sw-13",
+          "role": "A"
+        },
+        {
+          "deviceId": "sw-14",
+          "role": "B"
+        },
+        {
+          "deviceId": "sw-15",
+          "role": "A"
+        },
+        {
+          "deviceId": "sw-16",
+          "role": "B"
+        }
+      ]
+    },
     "networkLinks": [
       {
         "id": "link-srv-01-0",

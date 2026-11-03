@@ -28,6 +28,8 @@ import { MaintenanceGeometry } from "../scene/maintenance";
 import { powerScene } from "../power-paths";
 import { PowerGeometry } from "../scene/power";
 import { pduById } from "../power-config";
+import { networkMarkers, networkLinkById } from "../network";
+import { NetworkGeometry } from "../scene/network";
 
 const initialSliceControls = () => ({
   orientation: "horizontal" as SliceOrientation,
@@ -41,6 +43,8 @@ export function ReviewScene({
   layer,
   readings,
   selectedId,
+  networkLinkId = null,
+  onClearNetwork,
   onSelect,
   onFocus,
   onPhase,
@@ -55,6 +59,8 @@ export function ReviewScene({
   layer: ReviewLayer;
   readings: Map<string, SpatialReading>;
   selectedId: string;
+  networkLinkId?: string | null;
+  onClearNetwork?: () => void;
   onSelect: (id: string, enter?: boolean) => void;
   onFocus: () => void;
   onPhase: (phase: PresentationPhase) => void;
@@ -75,6 +81,7 @@ export function ReviewScene({
   const airflowGeometry = useRef<AirflowGeometry | null>(null);
   const maintenanceGeometry = useRef<MaintenanceGeometry | null>(null);
   const powerGeometry = useRef<PowerGeometry | null>(null);
+  const networkGeometry = useRef<NetworkGeometry | null>(null);
   const clockEpoch = useRef(performance.now());
   const previousScene = useRef(state);
   const currentState = useRef(state);
@@ -108,12 +115,23 @@ export function ReviewScene({
     () => (layer === "power" ? powerScene(state, selectedId) : null),
     [layer, state.level, state.deviceId, state.trayExtended, selectedId],
   );
+  const network = useMemo(
+    () => networkMarkers(state, selectedId, networkLinkId),
+    [
+      state.level,
+      state.deviceId,
+      state.trayExtended,
+      selectedId,
+      networkLinkId,
+    ],
+  );
+  const networkLink = networkLinkById(networkLinkId);
   const maintenance = useMemo(
     () =>
-      layer === "overview" && state.level === "room"
+      layer === "overview" && state.level === "room" && !networkLinkId
         ? maintenanceAreas(selectedId)
         : [],
-    [layer, state.level, selectedId],
+    [layer, state.level, selectedId, networkLinkId],
   );
   const airflow = useMemo(
     () =>
@@ -186,9 +204,23 @@ export function ReviewScene({
       const supplyGeometry = new PowerGeometry();
       active.models.root.add(supplyGeometry.root);
       powerGeometry.current = supplyGeometry;
+      const networkDots = new NetworkGeometry();
+      active.models.root.add(networkDots.root);
+      networkGeometry.current = networkDots;
       active.onRenderFrame = (now, roomReady) => {
         const level = currentState.current.level;
         supplyGeometry.frame(
+          level === "room"
+            ? roomReady
+            : level === "device"
+              ? active!.presentation.pose.inspection === 1
+              : active!.presentation.pose.inspection === 0 &&
+                ["closed", "open", "extended"].includes(
+                  active!.lastPhase ?? "",
+                ),
+          active!.models.parts,
+        );
+        networkDots.frame(
           level === "room"
             ? roomReady
             : level === "device"
@@ -235,6 +267,8 @@ export function ReviewScene({
       maintenanceGeometry.current = null;
       powerGeometry.current?.dispose();
       powerGeometry.current = null;
+      networkGeometry.current?.dispose();
+      networkGeometry.current = null;
       active?.dispose();
       engine.current = null;
     };
@@ -322,6 +356,9 @@ export function ReviewScene({
     powerGeometry.current?.update(supply);
   }, [supply, retry]);
   useEffect(() => {
+    networkGeometry.current?.update(network);
+  }, [network, retry]);
+  useEffect(() => {
     if (engine.current) engine.current.shellCutaway.enabled = cutaway;
   }, [cutaway, retry]);
   const scope = readings.get(
@@ -362,7 +399,9 @@ export function ReviewScene({
     (airflow?.routes.map((route) => route.id).join(":") ?? "") +
     maintenance.map((area) => area.id).join(":") +
     (supply?.labels.map((label) => label.id).join(":") ?? "") +
-    (supply?.deviceId ?? "");
+    (supply?.deviceId ?? "") +
+    networkLinkId +
+    network.map((marker) => marker.id).join(":");
   useEffect(() => {
     if (anchors.current) engine.current?.bindAnchors(anchors.current);
     // 投影先由引擎完成；按选择和异常优先级移除碰撞标签。
@@ -388,7 +427,9 @@ export function ReviewScene({
         if (line) line.style.visibility = "hidden";
         if (label.hidden) continue;
         if (
-          ["position", "power-part"].includes(label.dataset.anchorKind ?? "") &&
+          ["position", "power-part", "part-position"].includes(
+            label.dataset.anchorKind ?? "",
+          ) &&
           sceneRect
         ) {
           const x = Number(label.dataset.screenX),
@@ -480,6 +521,7 @@ export function ReviewScene({
       data-maintenance-rack={maintenance[0]?.rackId}
       data-power-rack={supply?.rackId}
       data-power-device={supply?.deviceId}
+      data-network-link={network.length ? networkLinkId : undefined}
     >
       <div className="review-viewport">
         <div
@@ -562,6 +604,22 @@ export function ReviewScene({
           </details>
         </div>
         <div className="review-anchors" ref={anchors}>
+          {network.map((marker) => (
+            <div
+              key={marker.id}
+              hidden
+              aria-hidden="true"
+              data-anchor={marker.id}
+              data-anchor-part={marker.partId}
+              data-anchor-kind={marker.partId ? "part-position" : "position"}
+              data-anchor-level={state.level}
+              data-anchor-position={marker.point?.join(",")}
+              className="review-flow-anchor review-network-anchor"
+            >
+              <b>{marker.title}</b>
+              <small>{marker.detail}</small>
+            </div>
+          ))}
           {supply?.labels.map((label) => (
             <div
               key={label.id}
@@ -687,13 +745,19 @@ export function ReviewScene({
               : "部分模型不可用 · 已使用简化结构"}
           </div>
         )}
-        {(airflow || maintenance.length > 0 || supply) && (
+        {(airflow ||
+          maintenance.length > 0 ||
+          supply ||
+          network.length > 0) && (
           <svg className="review-flow-lines" aria-hidden="true" ref={flowLines}>
             {maintenance.map((area) => (
               <line key={area.id} data-flow-line={area.id} />
             ))}
             {supply?.labels.map((label) => (
               <line key={label.id} data-flow-line={label.id} />
+            ))}
+            {network.map((marker) => (
+              <line key={marker.id} data-flow-line={marker.id} />
             ))}
             {airflow?.routes.flatMap((route) =>
               route.endpoints.map((endpoint) => (
@@ -709,6 +773,23 @@ export function ReviewScene({
           className={`review-legend ${slice ? "review-slice-legend" : ""}`}
           aria-label="当前图层图例"
         >
+          {network.length > 0 && networkLink && (
+            <div className="network-scene-key">
+              <strong>网络接入 · {networkLink.speedGbps} Gb/s 配置</strong>
+              <span>
+                {networkLink.source.toUpperCase()} / {networkLink.sourcePort} ↔{" "}
+                {networkLink.target.toUpperCase()} / {networkLink.targetPort}
+              </span>
+              <small>
+                {state.level === "device"
+                  ? "本端所属部件 · 对端位于机柜"
+                  : "设备代表位置 · 非物理端口定位"}
+              </small>
+              <button onClick={onClearNetwork} aria-label="关闭网络端点标记">
+                ×
+              </button>
+            </div>
+          )}
           {layer === "overview" || layer === "alarms" ? (
             <div className="review-status-key">
               {state.level === "device" && (

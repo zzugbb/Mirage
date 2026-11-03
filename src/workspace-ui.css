@@ -1830,3 +1830,208 @@
   grid-template-rows: 32px auto 1fr;
   align-content: start;
 }
+
+.study-inspector .network-connections {
+  padding: 20px 22px;
+  border-top: 1px solid #2a343d;
+}
+.network-connections h2 {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 12px;
+  font-size: 12px;
+  color: #d8e3e9;
+}
+.network-connections h2 small,
+.network-connections p,
+.network-connections details {
+  font-size: 10px;
+  color: #93a8b6;
+  line-height: 1.7;
+  font-weight: 400;
+}
+.network-connections button {
+  font-size: 11px;
+  color: #b1dede;
+}
+.network-connections button:hover:not(:disabled) {
+  color: #e0f4f4;
+}
+.network-connections button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.network-switch-list > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid #2a343d;
+}
+.network-switch-list > div > button:first-child {
+  display: grid;
+  gap: 6px;
+  text-align: left;
+}
+.network-switch-list small,
+.network-port-row small {
+  color: #8fa5b4;
+  font-size: 10px;
+}
+.network-device-context {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 11px;
+  margin: 14px 0;
+}
+.network-port-controls {
+  display: grid;
+  gap: 10px;
+  margin: 14px 0;
+  font-size: 10px;
+  color: #b6c8d3;
+}
+.network-port-controls label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.network-port-controls input[type="checkbox"] {
+  accent-color: #b1dede;
+}
+.network-port-controls input:not([type="checkbox"]) {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #3c4b55;
+  border-radius: 4px;
+  background: #1d2830;
+  color: #d8e3e9;
+  padding: 8px;
+  font-size: 11px;
+}
+.network-port-heading,
+.network-port-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid #2a343d;
+}
+.network-port-heading {
+  font-size: 10px;
+  color: #8fa5b4;
+}
+.network-port-row > div:first-child {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  font-size: 11px;
+}
+.network-port-row strong {
+  color: #c3d1da;
+  font-size: 11px;
+  font-weight: 500;
+}
+.network-port-row button {
+  text-align: left;
+  line-height: 1.6;
+}
+.network-port-row > div:last-child {
+  font-size: 10px;
+  color: #8fa5b4;
+}
+.network-port-row > div:last-child button {
+  background: #24313a;
+  border: 1px solid #3c4b55;
+  border-radius: 4px;
+  padding: 5px 7px;
+}
+.network-port-row button[aria-pressed="true"] {
+  border-color: #a6d5c9;
+  background: #30473f;
+}
+.network-connections details {
+  margin-top: 14px;
+}
+.network-connections summary {
+  cursor: pointer;
+  color: #bdced8;
+}
+.workspace-ui .review-legend > .network-scene-key {
+  display: grid;
+  width: auto;
+  position: relative;
+  gap: 6px;
+  padding: 0 24px 12px 0;
+  border-bottom: 1px solid #43544f;
+  margin-bottom: 10px;
+  white-space: normal;
+  max-width: 290px;
+}
+.network-scene-key > * {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.workspace-ui .network-scene-key small {
+  white-space: normal;
+  color: #93a8b6;
+}
+.network-scene-key strong {
+  font-size: 11px;
+  color: #cfe3dc;
+}
+.network-scene-key span {
+  font-size: 10px;
+  color: #b7cfc6;
+}
+.network-scene-key button {
+  pointer-events: auto;
+  position: absolute;
+  right: 0;
+  top: 0;
+  padding: 2px 4px;
+  color: #c1d9d0;
+  font-size: 14px;
+}
+@media (max-width: 600px) {
+  .workspace-ui .review-legend:has(.network-scene-key) {
+    left: 16px;
+    right: 16px;
+    width: auto;
+    max-width: none;
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: 7px;
+    background: #1d2931eb;
+  }
+  .workspace-ui .review-legend > .network-scene-key {
+    grid-column: 1;
+    grid-row: 1;
+    max-width: none;
+    border-bottom: 0;
+    margin: 0;
+    padding-bottom: 0;
+  }
+  .workspace-ui .review-legend:has(.network-scene-key) .review-status-key {
+    grid-column: 2;
+    grid-row: 1;
+    width: auto;
+    gap: 6px 8px;
+    align-content: start;
+  }
+  .workspace-ui .study-stage:has(.network-scene-key) .study-show-detail {
+    top: 118px;
+    bottom: auto;
+    right: 16px;
+  }
+}
