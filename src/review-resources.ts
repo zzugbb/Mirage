@@ -123,8 +123,9 @@ export function resourceCatalog(deviceId: string): Resource[] {
       name: fixture.name,
       kind: "facility" as const,
       location: `01号机房 / ${fixture.location}`,
-      detail: `${fixture.location} · ${fixture.kind === "cable-tray" ? "结构示意" : "未接入"}`,
-      group: fixture.kind === "cable-tray" ? "建筑与布线" : "环境与安全",
+      detail: `${fixture.location} · ${fixture.dataStatus === "not-applicable" ? "结构示意" : "未接入"}`,
+      group:
+        fixture.dataStatus === "not-applicable" ? "建筑与布线" : "环境与安全",
     })),
     ...pdus.map((pdu) => ({
       id: pdu.id,

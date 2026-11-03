@@ -14,7 +14,7 @@ import { selectedReading, spatialSnapshot } from "./spatial.ts";
 import { visibleResourceRows } from "./workspace-presets.ts";
 import { buildRoomFixtures } from "./scene/fixtures.ts";
 
-test("九处布置设施的身份、安装对象与场景位置一致，几何可射线选择", () => {
+test("十处布置设施的身份、安装对象与场景位置一致，几何可射线选择", () => {
   const mounts = new Map(
     [...new Set(roomFixtures.map((f) => f.mountId))].map((id) => [
       id,
@@ -33,8 +33,8 @@ test("九处布置设施的身份、安装对象与场景位置一致，几何�
       return mesh;
     },
   );
-  assert.equal(fixtures.size, 9);
-  assert.equal(new Set(roomFixtures.map((f) => f.id)).size, 9);
+  assert.equal(fixtures.size, 10);
+  assert.equal(new Set(roomFixtures.map((f) => f.id)).size, 10);
   for (const f of roomFixtures) {
     assert.equal(entityById(f.id)?.kind, "facility");
     assert.equal(entityById(f.id)?.parent, "room-01");
@@ -43,7 +43,9 @@ test("九处布置设施的身份、安装对象与场景位置一致，几何�
     assert.equal(group.userData.entityId, f.id);
     assert.equal(
       group.userData.dataStatus,
-      f.kind === "cable-tray" ? "not-applicable" : "not-connected",
+      ["cable-tray", "entrance"].includes(f.kind)
+        ? "not-applicable"
+        : "not-connected",
     );
     group.updateWorldMatrix(true, true);
     assert.deepEqual(

@@ -1,7 +1,12 @@
-import { buildRoomFixtures } from "./fixtures";
+import {
+  entranceSettings,
+  entranceFixture,
+  entranceOpening,
+} from "../entrance.ts";
+import { buildRoomFixtures } from "./fixtures.ts";
 import * as THREE from "three";
 import definition from "../../assets/public/scenes/room-01.json" with { type: "json" };
-import { createRoomFloor } from "./room-surfaces";
+import { createRoomFloor } from "./room-surfaces.ts";
 type Box = (
   parent: THREE.Object3D,
   size: number[],
@@ -68,11 +73,11 @@ export function buildRoomShell(
   }
   const backWall = structure("shell-back-wall");
   // 后墙的 1.3 米门洞，墙体分段而非贴图。
-  const doorX = 4.2,
-    doorW = 1.3,
-    doorH = 2.5;
-  const leftSpan = doorX - doorW / 2 - left,
-    rightSpan = width / 2 - (doorX + doorW / 2);
+  const doorX = entranceFixture.position[0],
+    doorW = entranceSettings.openingWidth,
+    doorH = entranceOpening.top;
+  const leftSpan = entranceOpening.left - left,
+    rightSpan = width / 2 - entranceOpening.right;
   surface(
     backWall,
     [leftSpan, height, 0.16],
@@ -91,25 +96,18 @@ export function buildRoomShell(
     [doorX, doorH + (height - doorH) / 2, back],
     "wall",
   );
-  const door = new THREE.Group();
-  door.position.set(doorX - doorW / 2, 0, back + 0.04);
-  door.rotation.y = -0.7;
-  backWall.add(door);
-  box(
-    door,
-    [doorW - 0.04, doorH - 0.03, 0.055],
-    [(doorW - 0.04) / 2, doorH / 2, 0],
-    "#3b4859",
-    0.5,
-  );
-  box(door, [0.08, 0.24, 0.045], [1.05, 1.1, 0.05], "#bccad9", 0.85);
-  for (let x = left + 0.3; x < width / 2; x += 1.4)
+  // 门洞内只保留过梁上的墙缝，不能让竖向装饰条悬在通行开口中。
+  for (let x = left + 0.3; x < width / 2; x += 1.4) {
+    const aboveDoor = x > entranceOpening.left && x < entranceOpening.right;
+    const bottom = aboveDoor ? doorH : 0.15;
+    const top = height - 0.15;
     surface(
       backWall,
-      [0.008, height - 0.3, 0.008],
-      [x, height / 2, back + 0.09],
+      [0.008, top - bottom, 0.008],
+      [x, (top + bottom) / 2, back + 0.09],
       "joint",
     );
+  }
   text(backWall, "MIRAGE  /  01", [-2.6, 3.38, back + 0.15], 0.25);
   // 两排机柜前方保留通行与送风格栅，地面线只作空间导向。
   for (const { z } of definition.airflow.floorOutlets) {

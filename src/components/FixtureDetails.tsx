@@ -1,3 +1,8 @@
+import {
+  entranceSettings,
+  entranceOpening,
+  entranceRelations,
+} from "../entrance";
 import type { RoomFixture } from "../fixtures";
 import { fixtureBoundary } from "../fixtures";
 import {
@@ -24,10 +29,11 @@ export function FixtureDetails({
   onPreview: (id: string) => void;
   onLocate: (id: string) => void;
 }) {
+  const isEntrance = fixture.kind === "entrance";
   const isTray = fixture.kind === "cable-tray";
   const relations = isTray
     ? trayRelations(fixture.id)
-    : leakRelations(fixture.id);
+    : [...entranceRelations(fixture.id), ...leakRelations(fixture.id)];
   return (
     <section className="fixture-details" aria-label="设施布置">
       <dl>
@@ -37,20 +43,43 @@ export function FixtureDetails({
         </div>
         <div>
           <dt>
-            {isTray
-              ? "桥架底高"
-              : fixture.kind === "leak-cable"
-                ? "敷设高度"
-                : "中心高度"}
+            {isEntrance
+              ? "门洞底高"
+              : isTray
+                ? "桥架底高"
+                : fixture.kind === "leak-cable"
+                  ? "敷设高度"
+                  : "中心高度"}
           </dt>
           <dd>
-            {(
-              fixture.position[1] -
-              (isTray ? cableTraySettings.rungSize[1] / 2 : 0)
+            {(isEntrance
+              ? entranceOpening.bottom
+              : fixture.position[1] -
+                (isTray ? cableTraySettings.rungSize[1] / 2 : 0)
             ).toFixed(fixture.kind === "leak-cable" ? 3 : 2)}{" "}
             <small>m</small>
           </dd>
         </div>
+        {isEntrance && (
+          <>
+            <div>
+              <dt>洞口宽 × 高</dt>
+              <dd>
+                {entranceSettings.openingWidth.toFixed(2)} ×{" "}
+                {entranceSettings.openingHeight.toFixed(2)} <small>m</small>
+              </dd>
+            </div>
+            <div>
+              <dt>展示姿态</dt>
+              <dd>
+                {Math.round(
+                  (Math.abs(entranceSettings.displayAngle) * 180) / Math.PI,
+                )}
+                ° · 静态
+              </dd>
+            </div>
+          </>
+        )}
         {isTray && (
           <div>
             <dt>长度 × 外宽</dt>
@@ -118,8 +147,8 @@ export function FixtureDetails({
       )}
       <p>
         {analysis
-          ? isTray
-            ? "桥架是静态布置对象，没有运行曲线或事件。共享时间仍可用于回看机房设备。"
+          ? fixture.dataStatus === "not-applicable"
+            ? "此对象为静态结构布置，没有运行曲线或事件。共享时间仍可用于回看机房设备。"
             : "此设施尚未接入数据，没有历史曲线或事件。共享时间仍可用于回看机房设备。"
           : fixtureBoundary(fixture)}
       </p>

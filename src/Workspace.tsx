@@ -856,7 +856,7 @@ export function Workspace() {
                 }}
               >
                 {fixture ? (
-                  fixture.kind === "cable-tray" ? (
+                  fixture.dataStatus === "not-applicable" ? (
                     "— 结构布置 · 无运行数据"
                   ) : (
                     "— 布置示意 · 未接入数据"

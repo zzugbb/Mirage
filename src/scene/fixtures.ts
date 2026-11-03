@@ -1,3 +1,4 @@
+import { buildEntrance } from "./entrance.ts";
 import { buildLeakCable } from "./leak-detection.ts";
 import { buildCableTray } from "./cable-trays.ts";
 import { leakDetection } from "../leak-detection.ts";
@@ -20,7 +21,9 @@ export function buildRoomFixtures(mounts: Map<string, THREE.Group>, box: Box) {
     group.userData = { entityId: fixture.id, dataStatus: fixture.dataStatus };
     fixtures.set(fixture.id, group);
     mounts.get(fixture.mountId)!.add(group);
-    if (fixture.kind === "cable-tray") {
+    if (fixture.kind === "entrance") {
+      buildEntrance(group);
+    } else if (fixture.kind === "cable-tray") {
       buildCableTray(group);
     } else if (fixture.kind === "leak-cable") {
       buildLeakCable(group);
