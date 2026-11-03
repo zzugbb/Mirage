@@ -27,32 +27,32 @@ export function sceneLabels<T extends { id: string }>(
       : (reading.power ?? -Infinity);
   };
   const standardLimit = level === "room" ? 6 : 3;
-  const limit =
-    more || layer === "alarms"
-      ? standardLimit
-      : layer === "overview"
-        ? level === "device" || options.hasPath
-          ? 1
-          : 3
-        : options.hasPath
-          ? 2
-          : Math.min(4, standardLimit);
+  const limit = more
+    ? standardLimit
+    : layer === "overview" || layer === "alarms"
+      ? 1
+      : options.hasPath
+        ? 2
+        : Math.min(4, standardLimit);
   return candidates
     .filter((item) => {
       if (options.annotatedIds?.includes(item.id)) return false;
       const reading = readings.get(item.id);
       if (!reading) return false;
-      if (layer === "alarms") return reading.alarm > 0;
-      if (layer !== "overview" || more || selected(item)) return true;
-      // 部件模型评估不提升为独立异常；总览不自动为正常对象填满标签。
-      return level !== "device" && reading.alarm > 0;
+      if (layer === "alarms")
+        return reading.alarm > 0 && (more || selected(item));
+      if (layer === "overview") return more || selected(item);
+      return true;
     })
     .sort(
       (a, b) =>
         Number(selected(b)) - Number(selected(a)) ||
-        (layer === "overview" || layer === "alarms"
-          ? (readings.get(b.id)?.alarm ?? 0) - (readings.get(a.id)?.alarm ?? 0)
-          : value(b) - value(a)),
+        (layer === "overview"
+          ? 0
+          : layer === "alarms"
+            ? (readings.get(b.id)?.alarm ?? 0) -
+              (readings.get(a.id)?.alarm ?? 0)
+            : value(b) - value(a)),
     )
     .slice(0, limit);
 }

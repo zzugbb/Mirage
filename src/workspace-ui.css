@@ -767,6 +767,9 @@
   font-size: 10px;
   color: #a0b0bc;
 }
+.workspace-ui .review-legend:empty {
+  display: none;
+}
 .workspace-ui[data-scene-level="device"] .review-legend,
 .workspace-ui[data-scene-level="rack"] .review-legend {
   bottom: 92px;
@@ -1968,6 +1971,10 @@
     padding: 10px 12px;
     border-radius: 7px;
     background: #1d2931eb;
+  }
+  .workspace-ui
+    .review-legend:has(.network-scene-key):not(:has(.review-status-key)) {
+    grid-template-columns: minmax(0, 1fr);
   }
   .workspace-ui .review-legend > .network-scene-key {
     grid-column: 1;

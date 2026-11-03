@@ -1,3 +1,4 @@
+import { SelectionCorners } from "./selection";
 import * as THREE from "three";
 import definition from "../../assets/public/scenes/room-01.json" with { type: "json" };
 import { createEquipmentAssembly } from "./equipment-model";
@@ -347,7 +348,7 @@ export function buildModels() {
   server.add(assembly.root);
   for (const x of [-0.232, 0.232])
     glow(server, [0.002, 0.002, 0.77], [x, 0.041, 0], "#757c84");
-  const selection = new THREE.Box3Helper(new THREE.Box3(), "#b5c9e2");
+  const selection = new SelectionCorners();
   root.add(selection);
   selection.visible = false;
   return {

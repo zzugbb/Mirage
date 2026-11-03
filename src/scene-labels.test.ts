@@ -11,27 +11,42 @@ const options = {
   selectedId: "room-01",
   more: false,
 } as const;
-test("总览限制状态卡，保留选中对象优先级，完整告警仍留在读数中", () => {
+test("总览只标选择，告警只标选中异常；更多标签不改变原始告警范围", () => {
   const readings = spatialSnapshot(60).readings;
-  const labels = sceneLabels(racks, readings, options);
-  assert.equal(labels.length, 3);
-  assert.ok(labels.every((item) => readings.get(item.id)!.alarm > 0));
-  assert.ok(
-    racks.filter((r) => readings.get(r.id)!.alarm > 0).length > labels.length,
-  );
-  assert.equal(
-    sceneLabels(racks, readings, { ...options, selectedId: "rack-a03" })[0].id,
-    "rack-a03",
+  assert.deepEqual(sceneLabels(racks, readings, options), []);
+  assert.deepEqual(
+    sceneLabels(racks, readings, { ...options, selectedId: "rack-a03" }).map(
+      (r) => r.id,
+    ),
+    ["rack-a03"],
   );
   assert.equal(
     sceneLabels(racks, readings, { ...options, more: true }).length,
     6,
   );
   assert.deepEqual(
+    sceneLabels(racks, readings, {
+      ...options,
+      layer: "alarms",
+      selectedId: "rack-a01",
+    }).map((r) => r.id),
+    ["rack-a01"],
+  );
+  assert.deepEqual(
+    sceneLabels(racks, readings, {
+      ...options,
+      layer: "alarms",
+      selectedId: "rack-a03",
+    }),
+    [],
+  );
+  assert.deepEqual(
     new Set(
-      sceneLabels(racks, readings, { ...options, layer: "alarms" }).map(
-        (r) => r.id,
-      ),
+      sceneLabels(racks, readings, {
+        ...options,
+        layer: "alarms",
+        more: true,
+      }).map((r) => r.id),
     ),
     new Set(
       racks.filter((r) => readings.get(r.id)!.alarm > 0).map((r) => r.id),

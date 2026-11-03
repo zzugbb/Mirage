@@ -804,7 +804,10 @@ export class SceneEngine {
       ),
       this.camera,
     );
-    for (const hit of this.raycaster.intersectObject(this.models.root, true)) {
+    for (const hit of this.raycaster.intersectObjects(
+      [this.models.root, this.signals.root],
+      true,
+    )) {
       if (!(hit.object instanceof THREE.Mesh) || !this.visible(hit.object))
         continue;
       if (
@@ -1059,26 +1062,28 @@ export class SceneEngine {
       this.fades.find((fade) => fade.group === this.models.room)!.opacity,
     );
     const object = this.objectFor(this.state.selected);
-    this.models.selection.visible =
+    const showSelection =
       !!object &&
       this.state.selected !== "room-01" &&
-      entityById(this.state.selected)?.kind !== "rack" &&
       !(
         this.state.level === "device" &&
         this.state.selected === this.state.deviceId
       ) &&
+      !frame.busy &&
       this.visible(object);
-    if (
-      this.telemetry.alarmBox.visible &&
-      this.state.selected === this.state.deviceId
-    )
-      this.models.selection.visible = false;
-    if (object && this.models.selection.visible) {
+    if (object && showSelection)
       this.models.selection.box.setFromObject(object);
-      this.models.selection.box.expandByScalar(
-        this.state.level === "device" ? 0.006 : 0.025,
-      );
-    }
+    this.models.selection.update(
+      showSelection
+        ? `${this.state.deviceId}:${this.state.selected}:${this.state.focusRevision}`
+        : null,
+      time,
+      this.reducedMotion,
+      this.state.level === "device" ? 0.006 : 0.025,
+    );
+    this.host.dataset.selectionTarget = showSelection
+      ? this.state.selected
+      : "";
     for (const element of this.anchorElements) {
       const id = element.dataset.anchor!;
       if (
@@ -1228,10 +1233,14 @@ export class SceneEngine {
     }
     const surfaceMode =
       this.retainMaterials &&
-      this.state.level !== "device" &&
-      (this.telemetry.mode === "temperature" || this.telemetry.mode === "power")
+      (this.telemetry.mode === "status" ||
+        this.telemetry.mode === "alarms" ||
+        (this.state.level !== "device" &&
+          (this.telemetry.mode === "temperature" ||
+            this.telemetry.mode === "power")))
         ? "object"
         : this.telemetry.mode;
+    this.host.dataset.surfaceMode = surfaceMode;
     this.surface.update(this.state, surfaceMode);
     this.signals.update(
       this.state,
@@ -1239,9 +1248,14 @@ export class SceneEngine {
       this.surface.snapshot.readings,
       this.models,
       this.presentation.pose.inspection,
-      this.explosion,
-      time,
-      this.reducedMotion,
+      this.camera,
+    );
+    this.host.dataset.signalCount = String(
+      this.signals.root.visible
+        ? [...this.signals.rackMarks, ...this.signals.deviceMarks].filter(
+            (m) => m.root.visible,
+          ).length
+        : 0,
     );
     this.installation.updateAppearance(
       this.state,
@@ -1274,6 +1288,7 @@ export class SceneEngine {
     this.controls.dispose();
     this.pipeline.dispose();
     this.surface.dispose();
+    this.signals.dispose();
     for (const assembly of this.assemblies.values())
       if (!assembly.root.parent) disposeModels(assembly.root, false);
     const canvas = this.renderer.domElement;

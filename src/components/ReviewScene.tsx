@@ -12,7 +12,6 @@ import { partsForDevice, subpartsForDevice, modelForDevice } from "../catalog";
 import { sceneLabels } from "../scene-labels";
 import { reviewSpatialMarks } from "../review-spatial";
 import { ReviewDataGeometry } from "../scene/review-data";
-import { signalFor, signalStyles } from "../status";
 import {
   sliceSettings,
   sliceRackRows,
@@ -651,11 +650,9 @@ export function ReviewScene({
               className="review-flow-anchor review-maintenance-anchor"
             >
               <b>
-                {area.rackName.split(" ")[0]} ·{" "}
                 {area.kind === "front" ? "柜前操作" : "柜后检修"}{" "}
                 {area.depth.toFixed(2)} m
               </b>
-              <small>预留示意 · 非实测净距</small>
             </div>
           ))}
           {airflow?.routes.flatMap((route) =>
@@ -676,7 +673,6 @@ export function ReviewScene({
           )}
           {labels.map((item) => {
             const reading = readings.get(item.id)!;
-            const signal = signalStyles[signalFor(reading)];
             return (
               <button
                 hidden
@@ -731,16 +727,6 @@ export function ReviewScene({
                       预算
                     </em>
                   )}
-                {(layer === "alarms" ||
-                  (layer === "overview" &&
-                    signalFor(reading) !== "normal" &&
-                    state.level !== "device")) && (
-                  <em style={{ color: signal.color }}>
-                    {reading.count > 1 && reading.alarmCount > 0
-                      ? `${signal.icon} 告警 ${reading.alarmCount}台`
-                      : `${signal.icon} ${state.level === "device" ? "模型" : ""}${signal.label}`}
-                  </em>
-                )}
               </button>
             );
           })}
@@ -803,17 +789,26 @@ export function ReviewScene({
               </button>
             </div>
           )}
-          {layer === "overview" || layer === "alarms" ? (
+          {layer === "overview" ? (
+            maintenance.length > 0 ? (
+              <div className="review-status-key">
+                <small>通道预留示意 · 非实测净距</small>
+              </div>
+            ) : state.level === "device" && model.category !== "server" ? (
+              <div className="review-status-key">
+                <small>{representation}</small>
+              </div>
+            ) : null
+          ) : layer === "alarms" ? (
             <div className="review-status-key">
-              {state.level === "device" && (
-                <small>部件模型评估 · 非独立告警</small>
+              {state.level === "device" ? (
+                <small>设备告警见详情 · 部件不独立告警</small>
+              ) : (
+                <>
+                  <span className="legend-warning">▲ 预警</span>
+                  <span className="legend-critical">◆ 严重</span>
+                </>
               )}
-              {layer !== "alarms" && (
-                <span className="legend-normal">● 正常</span>
-              )}
-              <span className="legend-warning">▲ 预警</span>
-              <span className="legend-critical">◆ 严重</span>
-              {layer !== "alarms" && <span>⊘ 离线</span>}
             </div>
           ) : (
             <>
