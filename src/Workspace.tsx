@@ -832,7 +832,11 @@ export function Workspace() {
                 }}
               >
                 {fixture ? (
-                  "— 布置示意 · 未接入数据"
+                  fixture.kind === "cable-tray" ? (
+                    "— 结构布置 · 无运行数据"
+                  ) : (
+                    "— 布置示意 · 未接入数据"
+                  )
                 ) : coolingFacility ? (
                   "◇ 冷却输入 · 模拟"
                 ) : powerFacility ? (
@@ -872,7 +876,7 @@ export function Workspace() {
                     fixture={fixture}
                     analysis
                     onPreview={pick}
-                    onLocate={(id) => pick(id, true)}
+                    onLocate={focus}
                   />
                 ) : (
                   <ReviewAnalysis
@@ -912,7 +916,7 @@ export function Workspace() {
                   <FixtureDetails
                     fixture={fixture}
                     onPreview={pick}
-                    onLocate={(id) => pick(id, true)}
+                    onLocate={focus}
                   />
                 ) : coolingRange && coolingHistories ? (
                   <>

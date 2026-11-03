@@ -1,0 +1,36 @@
+import definition from "../assets/public/scenes/room-01.json" with { type: "json" };
+
+export const cableTraySettings = definition.room.cableTrays;
+export const trayOuterWidth =
+  cableTraySettings.railSpacing +
+  cableTraySettings.railSize[0] +
+  cableTraySettings.capOverhang * 2;
+export const trayRow = (id: string) =>
+  cableTraySettings.rows.find((row) => row.fixtureId === id);
+/** 只有空间对应，不表示电气/网络连接或桥架服务范围。 */
+export function trayRelations(id: string) {
+  return (trayRow(id)?.rackIds ?? []).map((rackId) => {
+    const rack = definition.installation.racks.find((r) => r.id === rackId)!;
+    return { id: rack.id, name: rack.name, relation: "下方机柜 · 布置对应" };
+  });
+}
+export function trayEndpoints(id: string) {
+  const fixture = definition.room.fixtures.find((f) => f.id === id);
+  if (!trayRow(id) || !fixture) return [];
+  return [-1, 1].map((side) => [
+    fixture.position[0] + (side * cableTraySettings.length) / 2,
+    fixture.position[1],
+    fixture.position[2],
+  ]);
+}
+/** 局部坐标覆盖长边和吊装位置，选中桥架自身不参与剖切。 */
+export function traySightOffsets(id: string) {
+  if (!trayRow(id)) return [];
+  const s = cableTraySettings;
+  return [
+    ...[-s.length / 2, 0, s.length / 2].flatMap((x) =>
+      [-s.railSpacing / 2, s.railSpacing / 2].map((z) => [x, 0, z]),
+    ),
+    ...s.supportXs.map((x) => [x, s.rodTopY, 0]),
+  ];
+}

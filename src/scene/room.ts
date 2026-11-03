@@ -129,20 +129,15 @@ export function buildRoomShell(
     for (const x of [-4.6, 4.6])
       box(room, [0.018, 0.007, 1.15], [x, 0.058, z], "#6c9da9", 0.1);
   }
-  for (const z of [-1.8, 1.8]) {
-    const tray = structure(`shell-tray-${z}`);
-    for (const dz of [-0.2, 0.2])
-      surface(tray, [9.5, 0.07, 0.035], [0, 3.38, z + dz], "tray");
-    for (let x = -4.6; x < 4.7; x += 0.3)
-      surface(tray, [0.03, 0.04, 0.42], [x, 3.35, z], "tray");
-    for (const x of [-4.4, 4.4])
-      surface(tray, [0.025, 0.7, 0.025], [x, 3.76, z], "suspension");
-  }
+  const trayMounts = definition.room.fixtures
+    .filter((fixture) => fixture.kind === "cable-tray")
+    .map((fixture) => [fixture.mountId, structure(fixture.mountId)] as const);
   const fixtures = buildRoomFixtures(
     new Map([
       ["room-01", room],
       [leftWall.name, leftWall],
       [backWall.name, backWall],
+      ...trayMounts,
     ]),
     box,
   );

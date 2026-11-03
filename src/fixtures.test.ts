@@ -14,9 +14,9 @@ import { selectedReading, spatialSnapshot } from "./spatial.ts";
 import { visibleResourceRows } from "./workspace-presets.ts";
 import { buildRoomFixtures } from "./scene/fixtures.ts";
 
-test("七处设施的身份、安装对象与场景位置一致，几何可射线选择", () => {
+test("九处布置设施的身份、安装对象与场景位置一致，几何可射线选择", () => {
   const mounts = new Map(
-    ["room-01", "shell-left-wall", "shell-back-wall"].map((id) => [
+    [...new Set(roomFixtures.map((f) => f.mountId))].map((id) => [
       id,
       new THREE.Group(),
     ]),
@@ -33,15 +33,18 @@ test("七处设施的身份、安装对象与场景位置一致，几何可射�
       return mesh;
     },
   );
-  assert.equal(fixtures.size, 7);
-  assert.equal(new Set(roomFixtures.map((f) => f.id)).size, 7);
+  assert.equal(fixtures.size, 9);
+  assert.equal(new Set(roomFixtures.map((f) => f.id)).size, 9);
   for (const f of roomFixtures) {
     assert.equal(entityById(f.id)?.kind, "facility");
     assert.equal(entityById(f.id)?.parent, "room-01");
     const group = fixtures.get(f.id)!;
     assert.equal(group.parent, mounts.get(f.mountId));
     assert.equal(group.userData.entityId, f.id);
-    assert.equal(group.userData.dataStatus, "not-connected");
+    assert.equal(
+      group.userData.dataStatus,
+      f.kind === "cable-tray" ? "not-applicable" : "not-connected",
+    );
     group.updateWorldMatrix(true, true);
     assert.deepEqual(
       group.getWorldPosition(new THREE.Vector3()).toArray(),

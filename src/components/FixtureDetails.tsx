@@ -1,6 +1,12 @@
 import type { RoomFixture } from "../fixtures";
 import { fixtureBoundary } from "../fixtures";
 import {
+  cableTraySettings,
+  trayRelations,
+  trayEndpoints,
+  trayOuterWidth,
+} from "../cable-trays";
+import {
   configuredPathLength,
   isLeakFixture,
   leakDetection,
@@ -18,7 +24,10 @@ export function FixtureDetails({
   onPreview: (id: string) => void;
   onLocate: (id: string) => void;
 }) {
-  const relations = leakRelations(fixture.id);
+  const isTray = fixture.kind === "cable-tray";
+  const relations = isTray
+    ? trayRelations(fixture.id)
+    : leakRelations(fixture.id);
   return (
     <section className="fixture-details" aria-label="设施布置">
       <dl>
@@ -27,12 +36,30 @@ export function FixtureDetails({
           <dd>{fixture.location}</dd>
         </div>
         <div>
-          <dt>{fixture.kind === "leak-cable" ? "敷设高度" : "中心高度"}</dt>
+          <dt>
+            {isTray
+              ? "桥架底高"
+              : fixture.kind === "leak-cable"
+                ? "敷设高度"
+                : "中心高度"}
+          </dt>
           <dd>
-            {fixture.position[1].toFixed(fixture.kind === "leak-cable" ? 3 : 2)}{" "}
+            {(
+              fixture.position[1] -
+              (isTray ? cableTraySettings.rungSize[1] / 2 : 0)
+            ).toFixed(fixture.kind === "leak-cable" ? 3 : 2)}{" "}
             <small>m</small>
           </dd>
         </div>
+        {isTray && (
+          <div>
+            <dt>长度 × 外宽</dt>
+            <dd>
+              {cableTraySettings.length.toFixed(2)} ×{" "}
+              {trayOuterWidth.toFixed(3)} <small>m</small>
+            </dd>
+          </div>
+        )}
         <div>
           <dt>对象编号</dt>
           <dd>{fixture.id}</dd>
@@ -49,6 +76,22 @@ export function FixtureDetails({
           </div>
         )}
       </dl>
+      {isTray && !analysis && (
+        <details className="fixture-relations">
+          <summary>
+            端点配置 <span>2</span>
+          </summary>
+          <dl>
+            {trayEndpoints(fixture.id).map((point, i) => (
+              <div key={i}>
+                <dt>{i ? "+X 端" : "−X 端"}</dt>
+                <dd>{point.map((v) => v.toFixed(2)).join(" / ")} m</dd>
+              </div>
+            ))}
+          </dl>
+          <p>X / Y / Z 为机房坐标，端点未登记外部连接。</p>
+        </details>
+      )}
       {relations.length > 0 && !analysis && (
         <details className="fixture-relations">
           <summary>
@@ -75,7 +118,9 @@ export function FixtureDetails({
       )}
       <p>
         {analysis
-          ? "此设施尚未接入数据，没有历史曲线或事件。共享时间仍可用于回看机房设备。"
+          ? isTray
+            ? "桥架是静态布置对象，没有运行曲线或事件。共享时间仍可用于回看机房设备。"
+            : "此设施尚未接入数据，没有历史曲线或事件。共享时间仍可用于回看机房设备。"
           : fixtureBoundary(fixture)}
       </p>
       <small>位置与高度为场景配置示意</small>

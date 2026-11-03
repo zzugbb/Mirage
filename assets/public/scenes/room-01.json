@@ -130,8 +130,99 @@
           ],
           "distance": 3.8
         }
+      },
+      {
+        "id": "cable-tray-a",
+        "kind": "cable-tray",
+        "name": "A 排桥架",
+        "position": [
+          0,
+          3.35,
+          1.8
+        ],
+        "dataStatus": "not-applicable",
+        "location": "A 排机柜上方",
+        "mountId": "shell-tray-a",
+        "focus": {
+          "direction": [
+            0.4,
+            0.6,
+            1
+          ],
+          "distance": 5
+        }
+      },
+      {
+        "id": "cable-tray-b",
+        "kind": "cable-tray",
+        "name": "B 排桥架",
+        "position": [
+          0,
+          3.35,
+          -1.8
+        ],
+        "dataStatus": "not-applicable",
+        "location": "B 排机柜上方",
+        "mountId": "shell-tray-b",
+        "focus": {
+          "direction": [
+            0.4,
+            0.6,
+            1
+          ],
+          "distance": 5
+        }
       }
     ],
+    "cableTrays": {
+      "description": "既有两排桥架的布置示意；柜排关系仅表示空间对应，未配置实际线缆、桥架互连、分隔或承载能力",
+      "length": 9.5,
+      "railSpacing": 0.4,
+      "railSize": [
+        0.035,
+        0.07
+      ],
+      "railCenterY": 0.03,
+      "capLength": 0.012,
+      "capOverhang": 0.005,
+      "rungSize": [
+        0.03,
+        0.04,
+        0.42
+      ],
+      "rungPitch": 0.3,
+      "supportXs": [
+        -4.4,
+        4.4
+      ],
+      "supportWidth": 0.54,
+      "supportDepth": 0.055,
+      "supportHeight": 0.025,
+      "rodOffsetZ": 0.245,
+      "rodSize": 0.018,
+      "nutSize": [0.035, 0.012, 0.035],
+      "rodTopY": 0.77,
+      "rows": [
+        {
+          "fixtureId": "cable-tray-a",
+          "rackIds": [
+            "rack-a01",
+            "rack-a02",
+            "rack-a03",
+            "rack-a04"
+          ]
+        },
+        {
+          "fixtureId": "cable-tray-b",
+          "rackIds": [
+            "rack-a05",
+            "rack-a06",
+            "rack-a07",
+            "rack-a08"
+          ]
+        }
+      ]
+    },
     "leakDetection": {
       "controllerId": "leak-controller-01",
       "cableId": "leak-cable-01",
