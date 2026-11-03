@@ -1,4 +1,10 @@
 import type { ReviewMetric, ReviewPoint } from "./review-model.ts";
+export type TrendMetric = ReviewMetric | "cooling";
+export const trendMetricNames = {
+  temperature: "温度",
+  power: "功耗",
+  cooling: "冷却输入",
+};
 export const trendLeft = 48,
   trendRight = 14;
 export const trendTimeAtX = (pixel: number, width: number) =>
@@ -16,7 +22,7 @@ export const trendTimeAtX = (pixel: number, width: number) =>
 /** 只用当前已发生的观测定标，缺失值断线，未来点既不绘制也不参与量程。 */
 export function trendGeometry(
   series: ReviewPoint[],
-  metric: ReviewMetric,
+  metric: TrendMetric,
   time: number,
   width: number,
   height: number,
@@ -32,8 +38,8 @@ export function trendGeometry(
     metric === "temperature" ? 2 : hi * 0.04,
     1,
   );
-  const min = Math.max(0, lo - padding),
-    max = hi + padding;
+  const min = metric === "cooling" ? 0 : Math.max(0, lo - padding),
+    max = metric === "cooling" ? 100 : hi + padding;
   const top = 12,
     bottom = height - 22;
   const x = (t: number) =>
@@ -58,7 +64,14 @@ export function trendGeometry(
     bottom,
     empty: !values.length,
     ticks: [min, (min + max) / 2, max],
-    unit: metric === "temperature" ? "°C" : kilowatts ? "kW" : "W",
+    unit:
+      metric === "cooling"
+        ? "%"
+        : metric === "temperature"
+          ? "°C"
+          : kilowatts
+            ? "kW"
+            : "W",
     text: (value: number) =>
       kilowatts
         ? (value / 1000).toFixed(1)

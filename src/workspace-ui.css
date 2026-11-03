@@ -1721,3 +1721,112 @@
     right: 16px;
   }
 }
+
+/* 冷却配置与输入响应沿用对象详情；不把设施当作新的环境测点。 */
+.study-inspector .cooling-connections {
+  padding: 20px 22px;
+  border-top: 1px solid #2a343d;
+}
+.cooling-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.cooling-heading h2 {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: #d8e3e9;
+}
+.cooling-connections button,
+.cooling-response-summary button {
+  color: #b1dede;
+  font-size: 11px;
+}
+.cooling-heading > button {
+  flex-shrink: 0;
+  border: 1px solid #3c4b55;
+  border-radius: 4px;
+  background: #24313a;
+  padding: 5px 8px;
+}
+.cooling-connections button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.cooling-connections button:hover:not(:disabled),
+.cooling-response-summary button:hover {
+  color: #e0f4f4;
+}
+.cooling-connections p,
+.cooling-response-summary p,
+.cooling-analysis-boundary {
+  font-size: 10px;
+  color: #93a8b6;
+  line-height: 1.7;
+  margin: 10px 0;
+}
+.cooling-connections .cooling-source-link {
+  margin-top: 12px;
+}
+.cooling-range-list {
+  margin-top: 12px;
+}
+.cooling-range-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid #28333c;
+}
+.cooling-range-row > button {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  display: grid;
+  gap: 5px;
+}
+.cooling-range-row strong {
+  font-size: 12px;
+  font-weight: 500;
+}
+.cooling-range-row small {
+  color: #8fa5b4;
+  font-size: 10px;
+  line-height: 1.5;
+}
+.cooling-range-row > span {
+  font-size: 10px;
+  color: #c2cfd6;
+  flex-shrink: 0;
+}
+.cooling-path-boundary {
+  margin-top: 14px;
+  font-size: 10px;
+  color: #93a8b6;
+  line-height: 1.7;
+}
+.cooling-path-boundary summary {
+  cursor: pointer;
+  color: #bdced8;
+}
+.cooling-path-boundary ol {
+  padding-left: 18px;
+}
+.cooling-path-boundary li {
+  padding: 3px 0;
+}
+.cooling-response-summary {
+  padding: 0 22px 12px;
+}
+.workspace-ui .review-trend.cooling .review-series {
+  stroke: #a7cbd7;
+}
+.workspace-ui .review-trend.cooling circle {
+  fill: #a7cbd7;
+}
+.cooling-metrics > div {
+  grid-template-rows: 32px auto 1fr;
+  align-content: start;
+}

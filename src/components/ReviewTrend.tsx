@@ -1,10 +1,12 @@
 import { useEffect, useId, useRef, useState } from "react";
-import type { ReviewEvent, ReviewMetric, ReviewPoint } from "../review-model";
+import type { ReviewEvent, ReviewPoint } from "../review-model";
+import type { TrendMetric } from "../trend-geometry";
 import {
   trendGeometry,
   trendLeft,
   trendRight,
   trendTimeAtX,
+  trendMetricNames,
 } from "../trend-geometry";
 
 export function ReviewTrend({
@@ -18,7 +20,7 @@ export function ReviewTrend({
   onSeek,
 }: {
   series: ReviewPoint[];
-  metric: ReviewMetric;
+  metric: TrendMetric;
   time: number;
   compact?: boolean;
   cursorTime?: number;
@@ -69,9 +71,7 @@ export function ReviewTrend({
           role={onSeek ? "slider" : "img"}
           tabIndex={onSeek ? 0 : undefined}
           aria-label={
-            onSeek
-              ? `${metric === "temperature" ? "温度" : "功耗"}曲线时间`
-              : undefined
+            onSeek ? `${trendMetricNames[metric]}曲线时间` : undefined
           }
           aria-labelledby={onSeek ? undefined : id}
           aria-describedby={onSeek ? id : undefined}
@@ -120,7 +120,7 @@ export function ReviewTrend({
         >
           <title
             id={id}
-          >{`所选对象${metric === "temperature" ? "温度" : "功耗"}趋势，显示至第 ${time} 秒；空缺不按零值连线。${onSeek ? "点击回看；左右方向键逐秒移动，Shift 加速，Home/End 跳至起止。" : ""}`}</title>
+          >{`所选对象${trendMetricNames[metric]}趋势，显示至第 ${time} 秒；空缺不按零值连线。${onSeek ? "点击回看；左右方向键逐秒移动，Shift 加速，Home/End 跳至起止。" : ""}`}</title>
           {!chart.empty && (
             <>
               {chart.ticks.map((t) => (

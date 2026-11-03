@@ -13,6 +13,7 @@ import {
   reviewTransition,
   reviewLayers,
   reviewHistories,
+  reviewCoolingHistories,
   reviewEvents,
 } from "./review-model";
 import type { ReviewAction, ResourceAction, ReviewState } from "./review-model";
@@ -30,6 +31,14 @@ import { devices, rackForDevice } from "./installation";
 import { maintenanceAreas } from "./maintenance";
 import { isPowerFacility, pduById, powerDeviceIds } from "./power-config";
 import { PowerConnections } from "./components/PowerConnections";
+import { CoolingConnections } from "./components/CoolingConnections";
+import {
+  coolingSource,
+  isCoolingSource,
+  coolingDeviceIds,
+  coolingSummary,
+} from "./cooling";
+import { coolingCapacityAt } from "./simulation";
 import { ResourceActions } from "./components/ResourceActions";
 import { ReviewScene } from "./components/ReviewScene";
 import { ReviewTrend } from "./components/ReviewTrend";
@@ -144,8 +153,12 @@ export function Workspace() {
   const maintenance = useMemo(() => maintenanceAreas(selected), [selected]);
   const component = entity.kind === "part";
   const powerFacility = isPowerFacility(selected);
+  const coolingFacility = isCoolingSource(selected);
   const associatedDevices = useMemo(
-    () => new Set(powerDeviceIds(selected)),
+    () =>
+      new Set(
+        coolingFacility ? coolingDeviceIds(selected) : powerDeviceIds(selected),
+      ),
     [selected],
   );
   const ready =
@@ -173,13 +186,25 @@ export function Workspace() {
             : []),
         ])
     : rows;
+  const coolingHistories = useMemo(
+    () => (coolingFacility ? reviewCoolingHistories() : null),
+    [coolingFacility],
+  );
+  const coolingRange = coolingFacility
+    ? coolingSummary([...associatedDevices], spatial.readings)
+    : null;
   const histories = useMemo(
-    () => reviewHistories(selected, state.deviceId),
-    [selected, state.deviceId],
+    () =>
+      coolingHistories
+        ? { temperature: coolingHistories.temperature, power: [] }
+        : reviewHistories(selected, state.deviceId),
+    [selected, state.deviceId, coolingHistories],
   );
   const scope = devices.filter(
     (d) =>
-      (powerFacility ? associatedDevices.has(d.id) : entity.kind === "room") ||
+      (powerFacility || coolingFacility
+        ? associatedDevices.has(d.id)
+        : entity.kind === "room") ||
       (entity.kind === "rack" && d.rackId === selected) ||
       d.id === (component ? state.deviceId : selected),
   );
@@ -216,6 +241,10 @@ export function Workspace() {
     control({ type: "analysis", value: true });
     setInspector(true);
     if (matchMedia("(max-width: 1099px)").matches) setNav(false);
+  };
+  const showAirflow = () => {
+    control({ type: "layer", layer: "environment" });
+    if (state.level !== "room") pick(coolingSource.id, true);
   };
   useEffect(() => {
     if (
@@ -517,6 +546,11 @@ export function Workspace() {
                       ),
                       data = spatial.readings.get(row.id),
                       style = signalStyles[signalFor(data)];
+                    const rowStatus = data
+                      ? signalText(data)
+                      : isCoolingSource(row.id)
+                        ? "模拟输入"
+                        : "未接入数据";
                     const locateOnly =
                       row.kind === "part" ||
                       row.kind === "facility" ||
@@ -529,8 +563,8 @@ export function Workspace() {
                         <button
                           className="study-resource-text"
                           aria-pressed={selected === row.id}
-                          title={`${row.name} · ${row.location} · ${data ? signalText(data) : "未接入数据"}`}
-                          aria-label={`${row.name}，${data ? signalText(data) : "未接入数据"}`}
+                          title={`${row.name} · ${row.location} · ${rowStatus}`}
+                          aria-label={`${row.name}，${rowStatus}`}
                           onClick={() => pick(row.id)}
                         >
                           <span className="study-resource-title">
@@ -538,9 +572,13 @@ export function Workspace() {
                             <span
                               className="study-row-status"
                               style={{ color: style.color }}
-                              title={data ? signalText(data) : "未接入数据"}
+                              title={rowStatus}
                             >
-                              {data ? style.icon : "—"}
+                              {data
+                                ? style.icon
+                                : isCoolingSource(row.id)
+                                  ? "◇"
+                                  : "—"}
                             </span>
                           </span>
                           <small>{text.detail}</small>
@@ -757,8 +795,15 @@ export function Workspace() {
             <div className="study-identity">
               <small>{resource?.location}</small>
               <h1>{resource?.name ?? entity.name}</h1>
-              <span style={{ color: powerFacility ? "#9caebc" : signal.color }}>
-                {powerFacility ? (
+              <span
+                style={{
+                  color:
+                    powerFacility || coolingFacility ? "#9caebc" : signal.color,
+                }}
+              >
+                {coolingFacility ? (
+                  "◇ 冷却输入 · 模拟"
+                ) : powerFacility ? (
                   "◇ 连接示意 · 未计量"
                 ) : (
                   <>
@@ -802,6 +847,7 @@ export function Workspace() {
                   playbackRate={state.playbackRate}
                   component={component}
                   powerOnly={powerFacility}
+                  cooling={coolingHistories?.cooling}
                   onSeek={(time) => dispatch({ type: "seek", time })}
                   onReplay={() => dispatch({ type: "replay" })}
                   onRate={(rate) => dispatch({ type: "rate", rate })}
@@ -821,7 +867,74 @@ export function Workspace() {
                     <button onClick={analyze}>回看告警过程</button>
                   </section>
                 )}
-                {reading ? (
+                {coolingRange && coolingHistories ? (
+                  <>
+                    <div className="study-metrics cooling-metrics">
+                      <div>
+                        <span>演示冷却输入</span>
+                        <strong>
+                          {Math.round(coolingCapacityAt(state.time))}
+                          <small>%</small>
+                        </strong>
+                        <small>模拟驱动 · 非风量或制冷量</small>
+                      </div>
+                      <div>
+                        <span>关联设备最高进风</span>
+                        <strong>
+                          {temperature(coolingRange.maximum)}
+                          <small>°C</small>
+                        </strong>
+                        <small>
+                          有效覆盖 {coolingRange.coverage}/{coolingRange.count}
+                        </small>
+                      </div>
+                    </div>
+                    <div className="cooling-response-summary">
+                      {coolingRange.hottestId && (
+                        <button onClick={() => pick(coolingRange.hottestId!)}>
+                          预览最高进风设备{" "}
+                          {coolingRange.hottestId.toUpperCase()} ↗
+                        </button>
+                      )}
+                      <p>
+                        关联设备 {coolingRange.alarmIds.length} 台当前告警 ·
+                        制冷单元未定义独立告警
+                      </p>
+                      <p>
+                        过期 {coolingRange.quality.stale} · 离线{" "}
+                        {coolingRange.quality.offline} · 缺失{" "}
+                        {coolingRange.quality.missing} · 停机{" "}
+                        {coolingRange.lifecycle.stopped}（无当前进风）
+                      </p>
+                    </div>
+                    <CoolingConnections
+                      state={state}
+                      selectedId={selected}
+                      readings={spatial.readings}
+                      ready={ready}
+                      airflowVisible={
+                        layer === "environment" && state.level === "room"
+                      }
+                      onSelect={pick}
+                      onLocateSource={() => pick(coolingSource.id, true)}
+                      onViewAirflow={showAirflow}
+                    />
+                    <section className="study-trend">
+                      <div>
+                        <h2>关联进风趋势</h2>
+                      </div>
+                      <ReviewTrend
+                        series={coolingHistories.temperature}
+                        metric="temperature"
+                        time={state.time}
+                        compact
+                      />
+                      <button onClick={analyze}>
+                        对照冷却输入与温度响应 <span>↗</span>
+                      </button>
+                    </section>
+                  </>
+                ) : reading ? (
                   <>
                     <div
                       className={`study-metrics ${powerFacility ? "is-associated-power" : ""}`}
@@ -868,6 +981,20 @@ export function Workspace() {
                             ? undefined
                             : () => control({ type: "layer", layer: "power" })
                         }
+                      />
+                    )}
+                    {layer === "environment" && (
+                      <CoolingConnections
+                        state={state}
+                        selectedId={selected}
+                        readings={spatial.readings}
+                        ready={ready}
+                        airflowVisible={
+                          layer === "environment" && state.level === "room"
+                        }
+                        onSelect={pick}
+                        onLocateSource={() => pick(coolingSource.id, true)}
+                        onViewAirflow={showAirflow}
                       />
                     )}
                     <section className="study-trend">
@@ -927,6 +1054,11 @@ export function Workspace() {
                     </>
                   )}
                   <p>{reading?.source}</p>
+                  {coolingFacility && (
+                    <p>
+                      冷却输入来自确定性演示；关联进风是设备模拟读数，不是制冷单元送/回风温度，也不提供设施功率、风量、制冷量或控制能力。
+                    </p>
+                  )}
                   <p>
                     当前数据为确定性模拟。空缺不按零值计算；部件读数为模型推导。
                   </p>

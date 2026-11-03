@@ -7,6 +7,8 @@ import {
 import type { Action, AppState } from "./domain.ts";
 import { spatialSnapshot } from "./spatial.ts";
 import { pduById, associatedInputReading } from "./power-config.ts";
+import { coolingSource, coolingDeviceIds, coolingSummary } from "./cooling.ts";
+import { coolingCapacityAt } from "./simulation.ts";
 import { canSelectInScene } from "./review-resources.ts";
 import { rackForDevice } from "./installation.ts";
 import { deviceObservation } from "./device-data.ts";
@@ -453,6 +455,32 @@ export function reviewHistories(id: string, deviceId: string) {
 }
 
 export type ReviewEvent = SimulationEvent & { deviceIds: string[] };
+/** 冷却输入与关联进风使用同一时钟；输入百分比不是设施计量。 */
+export function reviewCoolingHistories() {
+  const histories: Record<"temperature" | "cooling", ReviewPoint[]> = {
+    temperature: [],
+    cooling: [],
+  };
+  const ids = coolingDeviceIds(coolingSource.id);
+  for (let time = 0; time <= 120; time++) {
+    const summary = coolingSummary(ids, spatialSnapshot(time).readings);
+    histories.temperature.push({
+      time,
+      value: summary.maximum,
+      coverage: summary.coverage,
+      count: summary.count,
+      quality: summary.maximum === null ? "missing" : "valid",
+    });
+    histories.cooling.push({
+      time,
+      value: Math.round(coolingCapacityAt(time)),
+      coverage: 1,
+      count: 1,
+      quality: "valid",
+    });
+  }
+  return histories;
+}
 /** 已知历史不会因当前数据过期消失；公共冷却输入在当前范围只显示一次。 */
 export function reviewEvents(
   deviceIds: string[],

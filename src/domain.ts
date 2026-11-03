@@ -56,7 +56,8 @@ export const entities: Entity[] = [
     name: "制冷单元",
     kind: "facility",
     parent: "room-01",
-    description: "风冷设施示意，尚未进行热流体仿真。",
+    description:
+      "风冷设施配置示意；演示冷却输入驱动已关联设备的温度响应，逻辑送回风端点不代表真实风口，尚无设施计量或热流体仿真。",
   },
   {
     id: "power-01",

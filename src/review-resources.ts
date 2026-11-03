@@ -113,7 +113,9 @@ export function resourceCatalog(deviceId: string): Resource[] {
       kind: "facility" as const,
       location: "01号机房",
       detail:
-        id === "power-01" ? "16 个逻辑出线 · 未计量" : "机房设施 · 结构示意",
+        id === "power-01"
+          ? "16 个逻辑出线 · 未计量"
+          : "冷却输入 · 演示关联 · 无设施计量",
     })),
     ...pdus.map((pdu) => ({
       id: pdu.id,

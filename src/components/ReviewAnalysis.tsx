@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { ReviewEvent, ReviewMetric, ReviewPoint } from "../review-model";
 import { qualityNames } from "../status";
 import { ReviewTrend } from "./ReviewTrend";
+import type { TrendMetric } from "../trend-geometry";
 const eventLabels = {
   input: "输入",
   raised: "预警",
@@ -19,6 +20,7 @@ export function ReviewAnalysis({
   playbackRate,
   component,
   powerOnly = false,
+  cooling,
   onSeek,
   onReplay,
   onRate,
@@ -32,6 +34,7 @@ export function ReviewAnalysis({
   playbackRate: 1 | 2 | 4;
   component: boolean;
   powerOnly?: boolean;
+  cooling?: ReviewPoint[];
   onSeek: (time: number) => void;
   onReplay: () => void;
   onRate: (rate: 1 | 2 | 4) => void;
@@ -39,13 +42,38 @@ export function ReviewAnalysis({
 }) {
   const [inspection, setInspection] = useState<number | null>(null);
   const cursor = Math.min(time, inspection ?? time);
+  const series: {
+    metric: TrendMetric;
+    label: string;
+    points: ReviewPoint[];
+  }[] = cooling
+    ? [
+        { metric: "cooling", label: "演示冷却输入", points: cooling },
+        {
+          metric: "temperature",
+          label: "关联设备最高进风",
+          points: histories.temperature,
+        },
+      ]
+    : (powerOnly
+        ? ["power" as const]
+        : (["temperature", "power"] as const)
+      ).map((metric) => ({
+        metric,
+        label: labels[metric],
+        points: histories[metric],
+      }));
   return (
     <section className="review-analysis" aria-label="时间分析">
       <div className="review-analysis-head">
         <strong>
           {title}
           <small>
-            {powerOnly ? "关联整机输入 · 非设施计量" : "温度与功耗"}
+            {cooling
+              ? "冷却输入与关联进风"
+              : powerOnly
+                ? "关联整机输入 · 非设施计量"
+                : "温度与功耗"}
           </small>
         </strong>
         <span>
@@ -59,14 +87,18 @@ export function ReviewAnalysis({
       </div>
       <div className="review-analysis-body">
         <div className="review-comparison">
-          {(powerOnly
-            ? ["power" as const]
-            : (["temperature", "power"] as const)
-          ).map((metric) => {
-            const point = histories[metric][cursor],
+          {series.map(({ metric, label, points }) => {
+            const point = points[cursor],
               value = point?.value ?? null;
             const kilo = metric === "power" && value !== null && value >= 1000;
-            const unit = metric === "temperature" ? "°C" : kilo ? "kW" : "W";
+            const unit =
+              metric === "cooling"
+                ? "%"
+                : metric === "temperature"
+                  ? "°C"
+                  : kilo
+                    ? "kW"
+                    : "W";
             const status =
               !point || point.quality !== "valid"
                 ? qualityNames[point?.quality ?? "missing"]
@@ -78,17 +110,19 @@ export function ReviewAnalysis({
             return (
               <div className={`review-compare-metric ${metric}`} key={metric}>
                 <div className="review-compare-reading">
-                  <span>{labels[metric]}</span>
+                  <span>{label}</span>
                   <strong>
                     {value === null
                       ? "—"
                       : (kilo ? value / 1000 : value).toFixed(kilo ? 2 : 1)}
                     <small>{unit}</small>
                   </strong>
-                  <small>{status}</small>
+                  <small>
+                    {metric === "cooling" ? "模拟输入 · 非制冷量" : status}
+                  </small>
                 </div>
                 <ReviewTrend
-                  series={histories[metric]}
+                  series={points}
                   metric={metric}
                   time={time}
                   cursorTime={cursor}
@@ -99,6 +133,11 @@ export function ReviewAnalysis({
               </div>
             );
           })}
+          {cooling && (
+            <p className="cooling-analysis-boundary">
+              输入百分比用于驱动演示温度响应，不是风量或设施功率。最高进风仅取有效设备，覆盖变化也会影响曲线；相关事件不等于已证实根因。
+            </p>
+          )}
           <div className="review-playback">
             <button onClick={onReplay}>重新播放</button>
             <label>
@@ -120,11 +159,13 @@ export function ReviewAnalysis({
         </div>
         <div className="review-events">
           <h3>
-            {powerOnly
-              ? "关联设备事件"
-              : component
-                ? "所属设备事件"
-                : "已发生事件"}
+            {cooling
+              ? "输入与关联设备事件"
+              : powerOnly
+                ? "关联设备事件"
+                : component
+                  ? "所属设备事件"
+                  : "已发生事件"}
             <span>{events.length}</span>
           </h3>
           {events.length ? (
