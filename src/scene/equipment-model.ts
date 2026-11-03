@@ -1,3 +1,4 @@
+import { storageDrive, storageMidplane } from "./storage-model.ts";
 import * as THREE from "three";
 import definition from "../../assets/public/scenes/room-01.json" with { type: "json" };
 import { modelById, partsForDevice } from "../catalog.ts";
@@ -255,29 +256,7 @@ function children(
         0.8,
       );
     } else if (id === "sto-drives") {
-      // 4U 24 个 LFF 盘位：4 列 × 6 层，不沿用 2U SFF 的单排立式排列。
-      const width = size[0] / 4,
-        height = size[1] / 6;
-      child.position.set(
-        ((i % 4) - 1.5) * width,
-        (2.5 - Math.floor(i / 4)) * height,
-        0,
-      );
-      box(child, [0.1016, 0.023, 0.147], [0, 0, 0], "#9aa4ac", 0.75);
-      box(
-        child,
-        [width * 0.94, height * 0.88, 0.008],
-        [0, 0, size[2] / 2],
-        "#28333d",
-        0.4,
-      );
-      box(
-        child,
-        [width * 0.6, 0.003, 0.003],
-        [0, -height * 0.2, size[2] / 2 + 0.005],
-        "#b3bec4",
-        0.8,
-      );
+      storageDrive(child, i, size, box);
     } else {
       const vertical = count >= 8,
         w = vertical ? Math.min(0.015, (size[0] / count) * 0.85) : 0.06985;
@@ -444,7 +423,8 @@ export function createEquipmentAssembly(modelId: string): Assembly {
           size,
         );
     } else {
-      detail(group, p.node, size, box);
+      if (p.id === "sto-midplane") storageMidplane(group, size, box);
+      else detail(group, p.node, size, box);
       if (p.id === "board-01") {
         const tail = new THREE.Group();
         tail.position.z = -0.18;
