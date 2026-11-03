@@ -359,6 +359,11 @@
   display: block;
   overflow: visible;
 }
+.review-trend svg[role="slider"] {
+  touch-action: pan-y pinch-zoom;
+  user-select: none;
+  cursor: ew-resize;
+}
 .review-trend text {
   fill: #8ea49b;
   font:

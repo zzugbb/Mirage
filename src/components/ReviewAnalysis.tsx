@@ -154,7 +154,7 @@ export function ReviewAnalysis({
                 ))}
               </select>
             </label>
-            <small>点击曲线回看 · 空缺保留</small>
+            <small>点击或横拖回看 · 空缺保留</small>
           </div>
         </div>
         <div className="review-events">

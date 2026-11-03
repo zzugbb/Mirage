@@ -1,4 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
+import type { PointerEvent } from "react";
+import { beginTrendScrub, moveTrendScrub } from "../trend-scrub";
+import type { TrendScrub } from "../trend-scrub";
 import type { ReviewEvent, ReviewPoint } from "../review-model";
 import type { TrendMetric } from "../trend-geometry";
 import {
@@ -28,6 +31,7 @@ export function ReviewTrend({
   onInspect?: (time: number | null) => void;
   onSeek?: (time: number) => void;
 }) {
+  const scrub = useRef<TrendScrub | null>(null);
   const host = useRef<HTMLDivElement>(null),
     [width, setWidth] = useState(280),
     [height, setHeight] = useState(compact ? 100 : 82),
@@ -51,6 +55,23 @@ export function ReviewTrend({
   }) => {
     const rect = e.currentTarget.getBoundingClientRect();
     return trendTimeAtX(((e.clientX - rect.left) / rect.width) * width, width);
+  };
+  const clearScrub = (e: PointerEvent<SVGSVGElement>) => {
+    if (scrub.current?.pointerId !== e.pointerId) return;
+    scrub.current = null;
+    onInspect?.(null);
+    if (e.currentTarget.hasPointerCapture(e.pointerId))
+      e.currentTarget.releasePointerCapture(e.pointerId);
+  };
+  const moveScrub = (e: PointerEvent<SVGSVGElement>, ending = false) => {
+    if (!scrub.current || scrub.current.pointerId !== e.pointerId) return;
+    const next = moveTrendScrub(scrub.current, e, pointerTime(e), ending);
+    scrub.current = next.scrub;
+    if (next.seek !== null) {
+      e.currentTarget.focus({ preventScroll: true });
+      onInspect?.(null);
+      onSeek?.(next.seek);
+    }
   };
   const markers = [
     ...new Set(
@@ -79,23 +100,39 @@ export function ReviewTrend({
           aria-valuemax={onSeek ? 120 : undefined}
           aria-valuenow={onSeek ? time : undefined}
           aria-valuetext={onSeek ? `t+${time}秒` : undefined}
-          onPointerMove={
-            onInspect
-              ? (e) => {
-                  if (e.pointerType === "mouse")
-                    onInspect(Math.min(time, pointerTime(e)));
-                }
-              : undefined
-          }
-          onPointerLeave={onInspect ? () => onInspect(null) : undefined}
-          onClick={
+          onPointerDown={
             onSeek
               ? (e) => {
+                  if (!e.isPrimary || e.button !== 0 || scrub.current) return;
+                  const next = beginTrendScrub(
+                    e,
+                    e.pointerType === "touch",
+                    pointerTime(e),
+                  );
+                  scrub.current = next;
+                  e.currentTarget.setPointerCapture(e.pointerId);
                   onInspect?.(null);
-                  onSeek(pointerTime(e));
+                  if (next.lastTime !== null) {
+                    e.currentTarget.focus({ preventScroll: true });
+                    onSeek(next.lastTime);
+                  }
                 }
               : undefined
           }
+          onPointerMove={(e) => {
+            if (scrub.current) moveScrub(e);
+            else if (e.pointerType === "mouse" && e.buttons === 0)
+              onInspect?.(Math.min(time, pointerTime(e)));
+          }}
+          onPointerUp={(e) => {
+            moveScrub(e, true);
+            clearScrub(e);
+          }}
+          onPointerCancel={clearScrub}
+          onLostPointerCapture={clearScrub}
+          onPointerLeave={() => {
+            if (!scrub.current) onInspect?.(null);
+          }}
           onKeyDown={
             onSeek
               ? (e) => {
@@ -120,7 +157,7 @@ export function ReviewTrend({
         >
           <title
             id={id}
-          >{`所选对象${trendMetricNames[metric]}趋势，显示至第 ${time} 秒；空缺不按零值连线。${onSeek ? "点击回看；左右方向键逐秒移动，Shift 加速，Home/End 跳至起止。" : ""}`}</title>
+          >{`所选对象${trendMetricNames[metric]}趋势，显示至第 ${time} 秒；空缺不按零值连线。${onSeek ? "点击或横向拖动回看；左右方向键逐秒移动，Shift 加速，Home/End 跳至起止。" : ""}`}</title>
           {!chart.empty && (
             <>
               {chart.ticks.map((t) => (

@@ -340,6 +340,8 @@ export function Workspace() {
     setFilter("all");
     setOnlyAlarms(next === "alarms");
     setInspector(next !== "overview");
+    if (next === "time" && matchMedia("(max-width: 1099px)").matches)
+      setNav(false);
     control({ type: "workspace-shot", shot: next });
   };
   const groupOf = (row: (typeof rows)[number]) =>
