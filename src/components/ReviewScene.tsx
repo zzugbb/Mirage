@@ -244,6 +244,7 @@ export function ReviewScene({
                   active!.lastPhase ?? "",
                 ),
           active!.models.parts,
+          active!.camera,
         );
         areas.setReady(roomReady);
         flow.animate(
@@ -405,7 +406,7 @@ export function ReviewScene({
     estimates: slice?.rackEstimates,
     hasPath: !!airflow || !!supply || network.length > 0,
     annotatedIds: [
-      ...network.flatMap((marker) => (marker.partId ? [marker.partId] : [])),
+      ...network.map((marker) => marker.partId ?? marker.deviceId),
       ...(supply?.labels.flatMap((label) =>
         label.partId ? [label.partId] : [],
       ) ?? []),
@@ -643,7 +644,6 @@ export function ReviewScene({
               className="review-flow-anchor review-network-anchor"
             >
               <b>{marker.title}</b>
-              <small>{marker.detail}</small>
             </div>
           ))}
           {supply?.labels.map((label) => (
@@ -814,10 +814,6 @@ export function ReviewScene({
           {network.length > 0 && networkLink && (
             <div className="network-scene-key">
               <strong>网络接入 · {networkLink.speedGbps} Gb/s 配置</strong>
-              <span>
-                {networkLink.source.toUpperCase()} / {networkLink.sourcePort} ↔{" "}
-                {networkLink.target.toUpperCase()} / {networkLink.targetPort}
-              </span>
               <small>
                 {state.level === "device"
                   ? "所属部件示意 · 非物理端口定位"

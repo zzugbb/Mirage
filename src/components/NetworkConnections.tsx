@@ -12,6 +12,8 @@ import {
   switchRole,
   switchesForRack,
   networkMarkers,
+  networkEndpoints,
+  networkLinkById,
 } from "../network";
 
 export function NetworkConnections({
@@ -35,6 +37,7 @@ export function NetworkConnections({
 }) {
   const [allPorts, setAllPorts] = useState(false);
   const [query, setQuery] = useState("");
+  const activeLink = networkLinkById(activeLinkId);
   const links = networkLinksFor(selectedId, state.deviceId);
   const id = networkDeviceId(selectedId, state.deviceId),
     rack = rackById(selectedId);
@@ -77,6 +80,39 @@ export function NetworkConnections({
       active={!!activeLinkId}
       onInteract={onInteract}
     >
+      {activeLink && (
+        <section className="network-trace" aria-label="当前网络连接">
+          <div className="network-trace-heading">
+            <span>{activeLink.speedGbps} Gb/s · 配置接入</span>
+            <button onClick={() => onTrace(null)}>结束标记</button>
+          </div>
+          {networkEndpoints(activeLink.id).map((endpoint) => (
+            <div className="network-trace-endpoint" key={endpoint.side}>
+              <span aria-hidden="true">{endpoint.ordinal}</span>
+              <button
+                className="network-trace-preview"
+                aria-label={`预览端点 ${endpoint.name}`}
+                onClick={() => onSelect(endpoint.deviceId)}
+              >
+                <strong>{endpoint.name}</strong>
+                <small>{endpoint.portLabel}</small>
+                <small>{endpoint.location}</small>
+                {state.level === "device" &&
+                  state.deviceId === endpoint.deviceId && (
+                    <small>所属部件 · {endpoint.partName}</small>
+                  )}
+              </button>
+              <button
+                disabled={!ready}
+                aria-label={`定位端点 ${endpoint.name}`}
+                onClick={() => onLocate(endpoint.deviceId)}
+              >
+                定位
+              </button>
+            </div>
+          ))}
+        </section>
+      )}
       {rack ? (
         <div className="network-switch-list">
           {switchesForRack(rack.id).map((sw) => {
@@ -102,17 +138,19 @@ export function NetworkConnections({
         </div>
       ) : device ? (
         <>
-          <div className="network-device-context">
-            <span>
-              {device.name} ·{" "}
-              {isSwitch
-                ? `接入 ${switchRole(device.id)}`
-                : `${ports.length} 个配置逻辑口`}
-            </span>
-            <button onClick={() => onLocate(device.id)} disabled={!ready}>
-              定位设备 ↗
-            </button>
-          </div>
+          {!activeLink && (
+            <div className="network-device-context">
+              <span>
+                {device.name} ·{" "}
+                {isSwitch
+                  ? `接入 ${switchRole(device.id)}`
+                  : `${ports.length} 个配置逻辑口`}
+              </span>
+              <button onClick={() => onLocate(device.id)} disabled={!ready}>
+                定位设备 ↗
+              </button>
+            </div>
+          )}
           {selectedId !== device.id && (
             <p className="network-boundary">
               以下为所属整机接入，不把所选部件作为独立链路。
@@ -154,7 +192,12 @@ export function NetworkConnections({
               const visible =
                 link && networkMarkers(state, selectedId, link.id).length > 0;
               return (
-                <div role="row" className="network-port-row" key={port.port}>
+                <div
+                  role="row"
+                  className="network-port-row"
+                  data-traced={!!link && activeLinkId === link.id}
+                  key={port.port}
+                >
                   <div role="cell">
                     <strong>
                       {isSwitch

@@ -36,7 +36,7 @@ import { maintenanceAreas } from "./maintenance";
 import { isPowerFacility, pduById, powerDeviceIds } from "./power-config";
 import { PowerConnections } from "./components/PowerConnections";
 import { NetworkConnections } from "./components/NetworkConnections";
-import { networkContextIncludes, networkMarkers } from "./network";
+import { networkContextIncludes } from "./network";
 import { CoolingConnections } from "./components/CoolingConnections";
 import {
   coolingSource,
@@ -152,7 +152,7 @@ export function Workspace() {
     : null;
   const activeNetworkLink =
     layer === "overview" &&
-    networkMarkers(state, selected, networkLinkId).length
+    networkContextIncludes(selected, state.deviceId, networkLinkId)
       ? networkLinkId
       : null;
   const [query, setQuery] = useState("");
@@ -265,6 +265,9 @@ export function Workspace() {
     [state.deviceId],
   );
   const focus = (id: string) => {
+    setNetworkLinkId((current) =>
+      networkContextIncludes(id, state.deviceId, current) ? current : null,
+    );
     setPowerLinkId((current) =>
       powerContextIncludes(id, state.deviceId, current) ? current : null,
     );

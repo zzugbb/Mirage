@@ -3,11 +3,12 @@ import type { NetworkMarker } from "../network.ts";
 /** 只标记代表端点，不绘制未校核的物理线缆或模拟数据流。 */
 export class NetworkGeometry {
   root = new THREE.Group();
-  geometry = new THREE.SphereGeometry(0.045, 12, 8);
+  geometry = new THREE.RingGeometry(0.02, 0.026, 24);
   material = new THREE.MeshBasicMaterial({
     color: "#b9d5cb",
     toneMapped: false,
     depthWrite: false,
+    side: THREE.DoubleSide,
   });
   dots = new THREE.InstancedMesh(this.geometry, this.material, 2);
   transform = new THREE.Object3D();
@@ -25,7 +26,12 @@ export class NetworkGeometry {
     this.markers = markers;
     this.root.visible = false;
   }
-  frame(ready: boolean, parts: Map<string, THREE.Group>) {
+  frame(
+    ready: boolean,
+    parts: Map<string, THREE.Group>,
+    camera?: THREE.Camera,
+  ) {
+    if (camera) this.transform.quaternion.copy(camera.quaternion);
     let index = 0;
     for (const marker of this.markers) {
       if (marker.point) this.transform.position.fromArray(marker.point);

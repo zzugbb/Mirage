@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import * as THREE from "three";
 import {
   networkSettings,
+  networkEndpoints,
   sourcePorts,
   switchPorts,
   switchRole,
@@ -11,7 +12,7 @@ import {
   networkMarkers,
   networkContextIncludes,
 } from "./network.ts";
-import { networkLinks, modelForDevice } from "./catalog.ts";
+import { networkLinks, modelForDevice, unitLabel } from "./catalog.ts";
 import { devices, racks } from "./installation.ts";
 import { createState, presentationKey } from "./domain.ts";
 import { NetworkGeometry } from "./scene/network.ts";
@@ -235,4 +236,77 @@ test("从展开存储定位交换机先安全复原，保留共享时间和原�
   assert.equal(review.scene.level, "rack");
   assert.equal(review.scene.deviceId, peer);
   assert.equal(review.scene.time, 78);
+});
+
+test("两端编号与逻辑端口、位置、部件归属一致，反向查看不翻转身份", () => {
+  assert.deepEqual(networkEndpoints(null), []);
+  assert.deepEqual(networkEndpoints("unknown"), []);
+  for (const link of networkLinks) {
+    const endpoints = networkEndpoints(link.id);
+    assert.deepEqual(
+      endpoints.map((e) => e.deviceId),
+      [link.source, link.target],
+    );
+    assert.deepEqual(
+      endpoints.map((e) => e.ordinal),
+      ["①", "②"],
+    );
+    assert.deepEqual(
+      endpoints.map((e) => e.port),
+      [link.sourcePort, link.targetPort],
+    );
+    for (const endpoint of endpoints) {
+      assert.ok(endpoint.location.includes(unitLabel(endpoint.deviceId)));
+      assert.ok(
+        modelForDevice(endpoint.deviceId).parts.includes(endpoint.partId),
+      );
+      const state = {
+        ...createState(),
+        level: "device" as const,
+        deviceId: endpoint.deviceId,
+      };
+      // 选择另一端仅预览，当前模型仍只显示本端所属部件。
+      const peer = endpoints.find((e) => e.deviceId !== endpoint.deviceId)!;
+      const markers = networkMarkers(state, peer.deviceId, link.id);
+      assert.equal(markers.length, 1);
+      assert.equal(markers[0].deviceId, endpoint.deviceId);
+      assert.equal(markers[0].partId, endpoint.partId);
+      assert.equal(markers[0].title, `${endpoint.ordinal} ${endpoint.name}`);
+    }
+  }
+});
+
+test("端点空心标记面向观察镜头，保留遮挡与中心空白，切换关系不残留实例", () => {
+  const geometry = new NetworkGeometry();
+  const camera = new THREE.PerspectiveCamera();
+  camera.position.set(2, 3, 5);
+  camera.lookAt(0, 0, 0);
+  const markers = networkMarkers(createState(), "srv-01", "link-srv-01-0");
+  geometry.update(markers);
+  geometry.frame(true, new Map(), camera);
+  assert.equal(geometry.dots.count, 2);
+  const matrix = new THREE.Matrix4(),
+    quaternion = new THREE.Quaternion();
+  const position = new THREE.Vector3(),
+    scale = new THREE.Vector3();
+  geometry.dots.getMatrixAt(1, matrix);
+  matrix.decompose(position, quaternion, scale);
+  assert.ok(quaternion.normalize().angleTo(camera.quaternion) < 1e-6);
+  assert.ok(
+    position.distanceTo(new THREE.Vector3(...markers[1].point!)) < 1e-6,
+  );
+  const positions = geometry.geometry.getAttribute("position");
+  for (let i = 0; i < positions.count; i++) {
+    const radius = Math.hypot(positions.getX(i), positions.getY(i));
+    assert.ok(radius >= 0.0199 && radius <= 0.0261);
+  }
+  assert.equal(geometry.material.depthTest, true);
+  geometry.update(markers.slice(1));
+  assert.equal(geometry.root.visible, false);
+  geometry.frame(true, new Map(), camera);
+  assert.equal(geometry.dots.count, 1);
+  geometry.update([]);
+  geometry.frame(true, new Map(), camera);
+  assert.equal(geometry.root.visible, false);
+  geometry.dispose();
 });

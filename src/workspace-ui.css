@@ -1833,6 +1833,68 @@
   align-content: start;
 }
 
+.network-trace {
+  border: 1px solid #43544f;
+  border-radius: 5px;
+  padding: 0 10px;
+  margin-top: 14px;
+}
+.network-trace-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  font-size: 10px;
+  color: #a8c3ba;
+}
+.network-trace-endpoint {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 8px;
+  padding: 11px 0;
+  border-top: 1px solid #ffffff0b;
+}
+.network-trace-endpoint > span {
+  color: #c5dfd4;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.network-trace-endpoint > button:last-child {
+  background: #24313a;
+  border: 1px solid #3c4b55;
+  border-radius: 4px;
+  padding: 4px 7px;
+  font-size: 10px;
+}
+.workspace-ui .network-trace-preview {
+  padding: 0;
+  display: grid;
+  gap: 4px;
+  text-align: left;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.6;
+}
+.network-trace-preview strong {
+  font-size: 11px;
+  font-weight: 500;
+}
+.network-trace-preview small {
+  font-size: 10px;
+  color: #92a9b5;
+}
+.network-port-row[data-traced="true"] {
+  background: #a6d5c90a;
+  box-shadow: inset 2px 0 #a6d5c9;
+  padding-left: 8px;
+}
+.review-network-anchor {
+  border-color: #b9d5cb;
+  padding: 4px 7px;
+  background: #18242dcc;
+}
 .network-connections p,
 .network-connections details {
   font-size: 10px;
@@ -1969,16 +2031,13 @@
   overflow-wrap: anywhere;
 }
 .workspace-ui .network-scene-key small {
+  margin: 0;
   white-space: normal;
   color: #93a8b6;
 }
 .network-scene-key strong {
   font-size: 11px;
   color: #cfe3dc;
-}
-.network-scene-key span {
-  font-size: 10px;
-  color: #b7cfc6;
 }
 .network-scene-key button {
   pointer-events: auto;
@@ -1991,6 +2050,7 @@
 }
 @media (max-width: 600px) {
   .workspace-ui .review-legend:has(.network-scene-key) {
+    grid-template-rows: auto;
     left: 16px;
     right: 16px;
     width: auto;

@@ -10,6 +10,7 @@ import {
   networkLinks,
   partsForDevice,
   subpartsForDevice,
+  unitLabel,
 } from "./catalog.ts";
 import type { AppState } from "./domain.ts";
 export const networkSettings = definition.installation.networkAccess;
@@ -56,10 +57,38 @@ export function networkContextIncludes(
     networkLinksFor(id, activeDeviceId).some((link) => link.id === linkId)
   );
 }
+/** 两端编号固定跟随连接配置，不随当前选择翻转，也不表示数据方向。 */
+export function networkEndpoints(linkId: string | null) {
+  const link = networkLinkById(linkId);
+  if (!link) return [];
+  return (["source", "target"] as const).map((side) => {
+    const device = deviceById(link[side])!;
+    const port = side === "source" ? link.sourcePort : link.targetPort;
+    const source =
+      side === "source"
+        ? sourcePorts(device.id).find((item) => item.port === port)!
+        : null;
+    return {
+      side,
+      deviceId: device.id,
+      name: device.name,
+      ordinal: side === "source" ? "①" : "②",
+      port,
+      portLabel:
+        source?.name ??
+        `接入 ${switchRole(device.id)} / 端口 ${String(port).padStart(2, "0")}`,
+      partId: source?.partId ?? networkSettings.switchPartId,
+      partName: partsForDevice(device.id).find(
+        (part) => part.id === (source?.partId ?? networkSettings.switchPartId),
+      )!.name,
+      location: `${rackForDevice(device.id).name} / ${unitLabel(device.id)}`,
+    };
+  });
+}
 export type NetworkMarker = {
   id: string;
   title: string;
-  detail: string;
+  deviceId: string;
   point?: [number, number, number];
   partId?: string;
 };
@@ -81,15 +110,9 @@ export function networkMarkers(
     ![link.source, link.target].includes(state.deviceId)
   )
     return [];
-  return (["source", "target"] as const).flatMap((side) => {
-    const id = link[side],
-      device = deviceById(id)!,
-      port = side === "source" ? link.sourcePort : link.targetPort;
+  return networkEndpoints(linkId).flatMap((endpoint) => {
+    const { side, deviceId: id, partId } = endpoint;
     if (state.level === "device" && id !== state.deviceId) return [];
-    const partId =
-      side === "source"
-        ? sourcePorts(id).find((p) => p.port === port)!.partId
-        : networkSettings.switchPartId;
     const rack = rackForDevice(id);
     const point: [number, number, number] = [
       rack.position[0] + networkSettings.objectMarkerOffset[0],
@@ -103,11 +126,8 @@ export function networkMarkers(
     return [
       {
         id: `network-${side}`,
-        title: `${device.name} · ${side === "source" ? sourcePorts(id).find((p) => p.port === port)!.name : `接入 ${switchRole(id)} / 端口 ${String(port).padStart(2, "0")}`}`,
-        detail:
-          state.level === "device"
-            ? partsForDevice(id).find((part) => part.id === partId)!.name
-            : rack.name,
+        deviceId: id,
+        title: `${endpoint.ordinal} ${endpoint.name}`,
         ...(state.level === "device" ? { partId } : { point }),
       },
     ];
