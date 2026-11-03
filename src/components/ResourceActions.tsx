@@ -50,7 +50,7 @@ export function ResourceActions({
             aria-pressed={state.doorOpen}
             onClick={() => dispatch({ type: "door", open: !state.doorOpen })}
           >
-            {state.doorOpen ? "关闭柜门" : "打开柜门"}
+            {state.doorOpen ? "关闭前门" : "打开前门"}
           </button>
           {entity.kind === "device" ? (
             <>

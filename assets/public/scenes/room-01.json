@@ -293,6 +293,46 @@
       "doorDuration": 0.7,
       "trayDuration": 0.85,
       "inspectionDuration": 0.7
+    },
+    "enclosure": {
+      "description": "双扇冲孔后门、顶部刷条进线口及PDU侧壁支架为结构布置示意；不定义开孔率、散热能力或实际施工布线",
+      "rearDoor": {
+        "width": 0.522,
+        "heightInset": 0.2,
+        "centerYInset": 0.05,
+        "offsetZ": -0.018,
+        "seam": 0.006,
+        "frameWidth": 0.022,
+        "thickness": 0.018,
+        "holePitch": 0.009,
+        "color": "#454b52",
+        "frameColor": "#383e45"
+      },
+      "roof": {
+        "thickness": 0.065,
+        "entryXs": [
+          -0.2,
+          0.2
+        ],
+        "entryZ": -0.37,
+        "entryWidth": 0.11,
+        "entryDepth": 0.14,
+        "rimWidth": 0.008,
+        "brushGap": 0.008,
+        "color": "#3f454c",
+        "brushColor": "#1d242a"
+      },
+      "pduMount": {
+        "sideInnerX": 0.2875,
+        "heightOffsets": [
+          -0.65,
+          0,
+          0.65
+        ],
+        "height": 0.035,
+        "thickness": 0.008,
+        "color": "#626b73"
+      }
     }
   },
   "server": {
@@ -3806,12 +3846,12 @@
       "layout": {
         "positions": {
           "A": [
-            -0.28,
+            -0.265,
             1.14,
             -0.46
           ],
           "B": [
-            0.28,
+            0.265,
             1.14,
             -0.46
           ]

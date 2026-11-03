@@ -1104,11 +1104,18 @@ export function Workspace() {
                     <summary>配置与数据说明</summary>
                     <p>{entity.description}</p>
                     {entity.kind === "rack" && (
-                      <p className="study-blanking-config">
-                        前置 1U 盲板 {rackBlankingUnits(selected).length} 块：
-                        {unitRanges(rackBlankingUnits(selected))}。
-                        按本柜安装配置封闭未安装位置，不代表可分配容量或实测气密性。
-                      </p>
+                      <>
+                        <p className="study-blanking-config">
+                          前置 1U 盲板 {rackBlankingUnits(selected).length} 块：
+                          {unitRanges(rackBlankingUnits(selected))}。
+                          按本柜安装配置封闭未安装位置，不代表可分配容量或实测气密性。
+                        </p>
+                        <p>
+                          双扇冲孔后门、顶部刷条进线口与 PDU
+                          侧壁支架为结构示意。
+                          后门随供电观察剖切，不提供独立开合；进线口未配置施工线缆，不据此推断散热或布线能力。
+                        </p>
+                      </>
                     )}
 
                     {maintenance.length > 0 && (

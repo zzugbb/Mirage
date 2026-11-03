@@ -1,4 +1,9 @@
 import { createRackBlanking } from "./rack-blanking";
+import {
+  createPduMounts,
+  createRackRearDoors,
+  createRackRoof,
+} from "./rack-enclosure";
 import { SelectionCorners } from "./selection";
 import * as THREE from "three";
 import definition from "../../assets/public/scenes/room-01.json" with { type: "json" };
@@ -173,7 +178,7 @@ export function buildModels() {
       box(rack, [0.016, 0.035, 0.016], [x, 0.09, z], "#8b939c", 0.8);
     }
 
-  box(rack, [rw, 0.065, rd], [0, rh, 0], "#3f454c", 0.7);
+  rack.add(createRackRoof(), createPduMounts());
   const rearShell = new THREE.Group();
   rearShell.name = "rack-rear-shell";
   rack.add(rearShell);
@@ -194,13 +199,7 @@ export function buildModels() {
       "#24272b",
       0.45,
     );
-  box(
-    rearShell,
-    [rw - 0.06, rh - 0.1, 0.025],
-    [0, rh / 2 + 0.05, -rd / 2],
-    "#1d2024",
-    0.55,
-  );
+  rearShell.add(createRackRearDoors());
   for (let u = 1; u <= definition.rack.units; u++) {
     const y = definition.rack.unitOrigin + u * definition.rack.unitPitch;
     for (const x of [-0.25, 0.25])
@@ -270,7 +269,7 @@ export function buildModels() {
   );
   for (const y of [0.45, 1.72])
     box(rack, [0.025, 0.065, 0.035], [-0.28, y, 0.59], "#777b80", 0.8);
-  for (let z = -0.43; z < 0.4; z += 0.032)
+  for (let z = -0.23; z < 0.4; z += 0.032)
     box(rack, [0.35, 0.002, 0.006], [0, rh + 0.035, z], "#15171b");
   const rackSlide = new THREE.Group();
   rack.add(rackSlide);
