@@ -45,6 +45,8 @@ export function ReviewScene({
   readings,
   selectedId,
   networkLinkId = null,
+  powerLinkId = null,
+  onClearPower,
   onClearNetwork,
   onSelect,
   onFocus,
@@ -61,6 +63,8 @@ export function ReviewScene({
   readings: Map<string, SpatialReading>;
   selectedId: string;
   networkLinkId?: string | null;
+  powerLinkId?: string | null;
+  onClearPower?: () => void;
   onClearNetwork?: () => void;
   onSelect: (id: string, enter?: boolean) => void;
   onFocus: () => void;
@@ -114,8 +118,16 @@ export function ReviewScene({
   );
   const sliceRow = sliceRackRows.find((row) => row.id === slice?.rowId);
   const supply = useMemo(
-    () => (layer === "power" ? powerScene(state, selectedId) : null),
-    [layer, state.level, state.deviceId, state.trayExtended, selectedId],
+    () =>
+      layer === "power" ? powerScene(state, selectedId, powerLinkId) : null,
+    [
+      layer,
+      state.level,
+      state.deviceId,
+      state.trayExtended,
+      selectedId,
+      powerLinkId,
+    ],
   );
   const network = useMemo(
     () => networkMarkers(state, selectedId, networkLinkId),
@@ -534,6 +546,7 @@ export function ReviewScene({
       data-maintenance-rack={maintenance[0]?.rackId}
       data-power-rack={supply?.rackId}
       data-power-device={supply?.deviceId}
+      data-power-trace={supply?.traceId ?? undefined}
       data-network-link={network.length ? networkLinkId : undefined}
     >
       <div className="review-viewport">
@@ -983,15 +996,22 @@ export function ReviewScene({
               {layer === "power" && supply && (
                 <div className="power-scene-key" aria-label="供电路径示意">
                   <strong>{supply.caption}</strong>
-                  <span>
-                    {state.level === "device"
-                      ? "A/B 配置端点"
-                      : "A 实线 · B 分段"}{" "}
-                    · 静态示意
-                  </span>
+                  {supply.traceId && (
+                    <button onClick={onClearPower}>结束追踪</button>
+                  )}
+                  {!supply.traceId && (
+                    <span>
+                      {state.level === "device"
+                        ? "A/B 配置端点"
+                        : "A 实线 · B 分段"}{" "}
+                      · 静态示意
+                    </span>
+                  )}
                   <small>
-                    {state.level === "rack" ? "后侧观察剖切 · " : ""}支路未计量
-                    · 不推断独立上游
+                    {state.level === "rack" ? "后侧观察剖切 · " : ""}
+                    {supply.traceId
+                      ? "配置支路 · 未计量"
+                      : "支路未计量 · 不推断独立上游"}
                   </small>
                 </div>
               )}

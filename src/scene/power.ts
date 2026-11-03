@@ -30,8 +30,14 @@ export class PowerGeometry {
   bounds = new THREE.Box3();
   color = new THREE.Color();
   snapshot: PowerScene | null = null;
+  outlet = new THREE.LineSegments(
+    new THREE.EdgesGeometry(new THREE.BoxGeometry(0.034, 0.048, 0.003)),
+    new THREE.LineBasicMaterial({ color: "#d4e9e5", toneMapped: false }),
+  );
   constructor() {
-    this.root.add(this.bands, this.dots);
+    this.root.add(this.bands, this.dots, this.outlet);
+    this.outlet.raycast = () => {};
+    this.outlet.visible = false;
     for (const mesh of [this.bands, this.dots]) {
       mesh.count = 0;
       mesh.raycast = () => {};
@@ -43,6 +49,7 @@ export class PowerGeometry {
   update(snapshot: PowerScene | null) {
     this.snapshot = snapshot;
     this.root.visible = !!snapshot;
+    this.outlet.visible = false;
     let band = 0,
       dot = 0;
     for (const path of snapshot?.paths ?? []) {
@@ -59,7 +66,8 @@ export class PowerGeometry {
           this.transform.position
             .copy(this.start)
             .addScaledVector(this.direction, (j + 0.5) / steps);
-          this.transform.scale.set(0.014, distance / steps, 0.014);
+          const radius = snapshot?.traceId ? 0.008 : 0.014;
+          this.transform.scale.set(radius, distance / steps, radius);
           if (distance > 1e-8)
             this.transform.quaternion.setFromUnitVectors(
               this.up,
@@ -73,8 +81,14 @@ export class PowerGeometry {
     }
     for (const label of snapshot?.labels ?? []) {
       if (!label.point) continue;
+      if (label.kind === "outlet") {
+        this.outlet.position.fromArray(label.point);
+        this.outlet.position.z -= 0.002;
+        this.outlet.visible = true;
+        continue;
+      }
       this.transform.position.fromArray(label.point);
-      this.transform.scale.setScalar(1);
+      this.transform.scale.setScalar(this.snapshot?.traceId ? 0.6 : 1);
       this.transform.quaternion.identity();
       this.transform.updateMatrix();
       this.dots.setMatrixAt(dot, this.transform.matrix);
@@ -95,7 +109,7 @@ export class PowerGeometry {
       const part = label.partId ? parts.get(label.partId) : undefined;
       if (!part) continue;
       this.bounds.setFromObject(part).getCenter(this.transform.position);
-      this.transform.scale.setScalar(1);
+      this.transform.scale.setScalar(this.snapshot?.traceId ? 0.6 : 1);
       this.transform.quaternion.identity();
       this.transform.updateMatrix();
       this.dots.setMatrixAt(index, this.transform.matrix);
@@ -106,6 +120,8 @@ export class PowerGeometry {
     if (this.dots.instanceColor) this.dots.instanceColor.needsUpdate = true;
   }
   dispose() {
+    this.outlet.geometry.dispose();
+    this.outlet.material.dispose();
     this.cylinder.dispose();
     this.sphere.dispose();
     for (const mesh of [this.bands, this.dots]) {

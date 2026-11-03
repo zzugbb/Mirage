@@ -8,6 +8,7 @@ import {
 } from "react";
 import { rackBlankingUnits, unitRanges } from "./rack-blanking";
 import { fixtureById } from "./fixtures";
+import { powerContextIncludes } from "./power-trace";
 import { FixtureDetails } from "./components/FixtureDetails";
 import { entityById, getPath, presentationKey } from "./domain";
 import type { Action } from "./domain";
@@ -141,6 +142,14 @@ export function Workspace() {
   }, [nav]);
   const [inspector, setInspector] = useState(false);
   const [networkLinkId, setNetworkLinkId] = useState<string | null>(null);
+  const [powerLinkId, setPowerLinkId] = useState<string | null>(null);
+  const activePowerLink = powerContextIncludes(
+    selected,
+    state.deviceId,
+    powerLinkId,
+  )
+    ? powerLinkId
+    : null;
   const activeNetworkLink =
     layer === "overview" &&
     networkMarkers(state, selected, networkLinkId).length
@@ -239,6 +248,9 @@ export function Workspace() {
   const takeover = useCallback(() => control({ type: "takeover" }), []);
   const pick = useCallback(
     (id: string, enter = false) => {
+      setPowerLinkId((current) =>
+        powerContextIncludes(id, state.deviceId, current) ? current : null,
+      );
       setNetworkLinkId((current) =>
         networkContextIncludes(id, state.deviceId, current) ? current : null,
       );
@@ -253,6 +265,9 @@ export function Workspace() {
     [state.deviceId],
   );
   const focus = (id: string) => {
+    setPowerLinkId((current) =>
+      powerContextIncludes(id, state.deviceId, current) ? current : null,
+    );
     control({ type: "focus-resource", id });
     setInspector(true);
     if (matchMedia("(max-width: 1099px)").matches) setNav(false);
@@ -313,6 +328,7 @@ export function Workspace() {
     return () => window.removeEventListener("keydown", key);
   }, [selected, review.analysis, nav, inspector, query, dispatch]);
   const load = (next: WorkspaceShot) => {
+    setPowerLinkId(null);
     setNetworkLinkId(null);
     setExpanded([]);
     setShot(next);
@@ -712,6 +728,11 @@ export function Workspace() {
             readings={spatial.readings}
             selectedId={selected}
             networkLinkId={activeNetworkLink}
+            powerLinkId={activePowerLink}
+            onClearPower={() => {
+              takeover();
+              setPowerLinkId(null);
+            }}
             onClearNetwork={() => {
               takeover();
               setNetworkLinkId(null);
@@ -1057,6 +1078,12 @@ export function Workspace() {
                     </section>
                     {(layer === "power" || powerFacility) && (
                       <PowerConnections
+                        activeLinkId={activePowerLink}
+                        onTrace={(id) => {
+                          setPowerLinkId(id);
+                          if (id) control({ type: "layer", layer: "power" });
+                          else takeover();
+                        }}
                         onInteract={takeover}
                         state={state}
                         selectedId={selected}

@@ -1621,11 +1621,41 @@
 .power-outlet,
 .power-outlet-heading {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto 38px;
   gap: 8px;
   align-items: center;
   padding: 8px 0;
   border-bottom: 1px solid #ffffff0a;
+}
+.power-outlet[data-traced="true"] {
+  background: #86b9b70d;
+  box-shadow: inset 2px 0 #92bfc0;
+}
+.power-outlet > span:nth-child(2) {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  font-size: 10px;
+}
+.power-outlet > span:last-child button {
+  padding: 4px;
+  border: 1px solid #ffffff18;
+  background: #ffffff05;
+  border-radius: 4px;
+}
+.power-outlet button[aria-pressed="true"] {
+  color: #c3e4e2;
+  border-color: #84b6b6;
+}
+.power-scene-key > button {
+  pointer-events: auto;
+  justify-self: start;
+  padding: 3px 7px;
+  border: 1px solid #ffffff22;
+  border-radius: 4px;
+  background: #ffffff08;
+  color: #c3dddf;
+  font: inherit;
+  cursor: pointer;
 }
 .power-outlet-heading {
   color: #8298a9;

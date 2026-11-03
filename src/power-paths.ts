@@ -18,12 +18,14 @@ import {
   inletPart,
 } from "./power-config.ts";
 import type { PowerFeed } from "./power-config.ts";
+import { powerLinksForContext, powerLinkById } from "./power-trace.ts";
 export type PowerPoint = [number, number, number];
 export type PowerPath = { feed: PowerFeed; points: PowerPoint[] };
 export type PowerLabel = {
   id: string;
   point?: PowerPoint;
   partId?: string;
+  kind?: "outlet";
   title: string;
   detail: string;
 };
@@ -33,6 +35,7 @@ export type PowerScene = {
   caption: string;
   paths: PowerPath[];
   labels: PowerLabel[];
+  traceId: string | null;
 };
 const add = (a: number[], b: number[]): PowerPoint => [
   a[0] + b[0],
@@ -59,16 +62,24 @@ export function pduOutletPosition(id: string, outlet: number): PowerPoint {
 export function powerScene(
   state: AppState,
   selectedId: string,
+  traceId: string | null = null,
 ): PowerScene | null {
   if (!entityById(selectedId)) return null;
+  const context = powerLinksForContext(selectedId, state.deviceId);
+  if (!context.length) return null;
+  const traced = context.some((link) => link.id === traceId)
+    ? powerLinkById(traceId)
+    : undefined;
   const pdu = pduById(selectedId),
     selectedDevice = deviceById(selectedId),
     entity = entityById(selectedId);
-  const rack = pdu
-    ? rackById(pdu.rackId)!
-    : selectedDevice
-      ? rackForDevice(selectedDevice.id)
-      : (rackById(selectedId) ?? rackForDevice(state.deviceId));
+  const rack = traced
+    ? rackForDevice(traced.deviceId)
+    : pdu
+      ? rackById(pdu.rackId)!
+      : selectedDevice
+        ? rackForDevice(selectedDevice.id)
+        : (rackById(selectedId) ?? rackForDevice(state.deviceId));
   if (
     state.level === "device" &&
     selectedId !== state.deviceId &&
@@ -78,7 +89,7 @@ export function powerScene(
   if (state.level === "rack" && rack.id !== rackForDevice(state.deviceId).id)
     return null;
   const device =
-    selectedDevice ??
+    (traced ? deviceById(traced.deviceId) : selectedDevice) ??
     (rackForDevice(state.deviceId).id === rack.id
       ? deviceById(state.deviceId)!
       : devices.find((device) => device.rackId === rack.id)!);
@@ -86,11 +97,13 @@ export function powerScene(
   const selectedFeed = (["A", "B"] as const).find(
     (feed) => inletPart(model.id, feed) === selectedId,
   );
-  const feeds = pdu
-    ? [pdu.feed]
-    : selectedFeed
-      ? [selectedFeed]
-      : (["A", "B"] as PowerFeed[]);
+  const feeds = traced
+    ? [traced.inlet]
+    : pdu
+      ? [pdu.feed]
+      : selectedFeed
+        ? [selectedFeed]
+        : (["A", "B"] as PowerFeed[]);
   const paths: PowerPath[] = [],
     labels: PowerLabel[] = [];
   const source = definition.facilities.find(
@@ -168,11 +181,16 @@ export function powerScene(
     });
     labels.push({
       id: `power-pdu-${feed}`,
-      point: inlet,
-      title: pduName(targetPdu.id),
-      detail: `${targetPdu.sourcePort} → 入口 ${feed} · 未计量`,
+      point: traced ? outlet : inlet,
+      ...(traced ? { kind: "outlet" as const } : {}),
+      title: traced
+        ? `${pduName(targetPdu.id)} · 插座 ${String(link.outlet).padStart(2, "0")}`
+        : pduName(targetPdu.id),
+      detail: traced
+        ? `→ ${device.name} / 输入 ${feed} · 未计量`
+        : `${targetPdu.sourcePort} → 入口 ${feed} · 未计量`,
     });
-    if (state.level === "rack")
+    if (state.level === "rack" || traced)
       labels.push({
         id: `power-inlet-${feed}`,
         point: endpoint,
@@ -183,7 +201,8 @@ export function powerScene(
   return {
     rackId: rack.id,
     deviceId: device.id,
-    caption: `${rack.name.split(" ")[0]} / ${device.name} · ${feeds.join("+")} 接入示意`,
+    caption: `${rack.name.split(" ")[0]} / ${device.name} · ${feeds.join("+")} ${traced ? `插座 ${String(traced.outlet).padStart(2, "0")}` : "接入示意"}`,
+    traceId: traced?.id ?? null,
     paths,
     labels,
   };

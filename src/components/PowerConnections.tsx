@@ -15,6 +15,7 @@ import {
 } from "../power-config";
 import type { SpatialReading } from "../spatial";
 import { qualityNames } from "../status";
+import { powerScene } from "../power-paths";
 
 const input = (reading?: SpatialReading) =>
   reading?.quality === "valid" && reading.power !== null
@@ -29,6 +30,8 @@ export function PowerConnections({
   onSelect,
   onLocate,
   onViewPower,
+  activeLinkId,
+  onTrace,
 }: {
   state: AppState;
   selectedId: string;
@@ -38,6 +41,8 @@ export function PowerConnections({
   onSelect: (id: string) => void;
   onLocate: (id: string) => void;
   onViewPower?: () => void;
+  activeLinkId: string | null;
+  onTrace: (id: string | null) => void;
 }) {
   const [empty, setEmpty] = useState(false);
   const pdu = pduById(selectedId),
@@ -62,11 +67,13 @@ export function PowerConnections({
           (!selectedFeed || link.inlet === selectedFeed)
         : false,
   );
+  const canTrace = ready && !!powerScene(state, selectedId);
   return (
     <ConnectionSection
       onInteract={onInteract}
       title="供电连接"
       className="power-connections"
+      active={!!activeLinkId}
       summary={
         pdu
           ? `${links.length} / ${powerSettings.outletsPerPdu} 插座已接`
@@ -175,6 +182,7 @@ export function PowerConnections({
             <div role="row" className="power-outlet-heading">
               <span role="columnheader">插座 / 去向</span>
               <span role="columnheader">整机输入</span>
+              <span role="columnheader">支路</span>
             </div>
             {Array.from(
               { length: powerSettings.outletsPerPdu },
@@ -188,7 +196,12 @@ export function PowerConnections({
                 const link = links.find((link) => link.outlet === outlet),
                   device = link ? deviceById(link.deviceId)! : null;
                 return (
-                  <div role="row" key={outlet} className="power-outlet">
+                  <div
+                    role="row"
+                    key={outlet}
+                    className="power-outlet"
+                    data-traced={!!link && activeLinkId === link.id}
+                  >
                     <span role="cell">
                       <b>{String(outlet).padStart(2, "0")}</b>
                       {device && link ? (
@@ -208,6 +221,22 @@ export function PowerConnections({
                     </span>
                     <span role="cell">
                       {device ? input(readings.get(device.id)) : "—"}
+                    </span>
+                    <span role="cell">
+                      {link ? (
+                        <button
+                          aria-label={`追踪${pduName(pdu.id)}插座${String(outlet).padStart(2, "0")}`}
+                          aria-pressed={activeLinkId === link.id}
+                          disabled={!canTrace}
+                          onClick={() =>
+                            onTrace(activeLinkId === link.id ? null : link.id)
+                          }
+                        >
+                          {activeLinkId === link.id ? "取消" : "追踪"}
+                        </button>
+                      ) : (
+                        "—"
+                      )}
                     </span>
                   </div>
                 );
@@ -239,6 +268,18 @@ export function PowerConnections({
                   {String(link.outlet).padStart(2, "0")} → {device.name}
                 </span>
                 <div>
+                  <button
+                    aria-label={`追踪${device.name}输入${link.inlet}`}
+                    aria-pressed={activeLinkId === link.id}
+                    disabled={!canTrace}
+                    onClick={() =>
+                      onTrace(activeLinkId === link.id ? null : link.id)
+                    }
+                  >
+                    {activeLinkId === link.id
+                      ? "取消追踪"
+                      : `追踪输入 ${link.inlet}`}
+                  </button>
                   <button
                     disabled={!ready}
                     onClick={() => onLocate(link.pduId)}
