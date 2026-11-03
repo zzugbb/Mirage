@@ -1,3 +1,4 @@
+import { fixtureById } from "../fixtures";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { AppState } from "../domain";
@@ -330,12 +331,14 @@ export function ReviewScene({
   useEffect(() => {
     setView(
       state.level === "room"
-        ? "interior"
+        ? fixtureById(state.selected)
+          ? "iso"
+          : "interior"
         : state.level === "rack" && pduById(state.selected)
           ? "rear"
           : "iso",
     );
-  }, [state.level]);
+  }, [state.level, state.focusRevision]);
   useEffect(() => {
     if (!tourShot) return;
     engine.current?.view(tourShot.view, tourShot.focus);
@@ -396,7 +399,12 @@ export function ReviewScene({
       ) ?? []),
     ],
   });
+  const selectedFixture =
+    state.level === "room" && selectedId === state.selected
+      ? fixtureById(selectedId)
+      : undefined;
   const labelKey =
+    (selectedFixture?.id ?? "") +
     labels.map((r) => r.id).join(":") +
     (airflow?.routes.map((route) => route.id).join(":") ?? "") +
     maintenance.map((area) => area.id).join(":") +
@@ -438,7 +446,9 @@ export function ReviewScene({
           const x = Number(label.dataset.screenX),
             y = Number(label.dataset.screenY);
           const rect = placeFlowLabel(
-            x + sceneRect.left,
+            x +
+              sceneRect.left +
+              (label.classList.contains("review-fixture-anchor") ? 56 : 0),
             y + sceneRect.top,
             label.offsetWidth,
             label.offsetHeight,
@@ -671,6 +681,20 @@ export function ReviewScene({
               </div>
             )),
           )}
+          {selectedFixture && (
+            <button
+              hidden
+              data-anchor={selectedFixture.id}
+              data-anchor-kind="position"
+              data-anchor-position={selectedFixture.position.join(",")}
+              data-anchor-object={selectedFixture.id}
+              className="review-anchor review-fixture-anchor selected"
+              onClick={() => onSelect(selectedFixture.id)}
+              onDoubleClick={() => onSelect(selectedFixture.id, true)}
+            >
+              <b>{selectedFixture.name}</b>
+            </button>
+          )}
           {labels.map((item) => {
             const reading = readings.get(item.id)!;
             return (
@@ -738,12 +762,14 @@ export function ReviewScene({
               : "部分模型不可用 · 已使用简化结构"}
           </div>
         )}
-        {(airflow ||
+        {(selectedFixture ||
+          airflow ||
           maintenance.length > 0 ||
           supply ||
           network.length > 0 ||
           labels.some((item) => item.id === selectedId)) && (
           <svg className="review-flow-lines" aria-hidden="true" ref={flowLines}>
+            {selectedFixture && <line data-flow-line={selectedFixture.id} />}
             {labels
               .filter((item) => item.id === selectedId)
               .map((item) => (

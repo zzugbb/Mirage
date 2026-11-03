@@ -1,3 +1,4 @@
+import { roomFixtures } from "./fixtures.ts";
 import { entityById } from "./domain.ts";
 import type { AppState } from "./domain.ts";
 import { devices, racks, deviceById, rackForDevice } from "./installation.ts";
@@ -116,6 +117,14 @@ export function resourceCatalog(deviceId: string): Resource[] {
         id === "power-01"
           ? "16 个逻辑出线 · 未计量"
           : "冷却输入 · 演示关联 · 无设施计量",
+    })),
+    ...roomFixtures.map((fixture) => ({
+      id: fixture.id,
+      name: fixture.name,
+      kind: "facility" as const,
+      location: `01号机房 / ${fixture.location}`,
+      detail: `${fixture.location} · 未接入`,
+      group: "环境与安全",
     })),
     ...pdus.map((pdu) => ({
       id: pdu.id,

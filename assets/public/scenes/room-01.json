@@ -24,11 +24,14 @@
         "kind": "access",
         "name": "门禁读卡器",
         "position": [
-          5.05,
+          3.3,
           1.35,
           -5.87
         ],
-        "dataStatus": "not-connected"
+        "dataStatus": "not-connected",
+        "location": "后墙入口左侧",
+        "mountId": "shell-back-wall",
+        "focus": { "direction": [-0.45, 0.2, 1], "distance": 2.4 }
       },
       {
         "id": "smoke-01",
@@ -39,7 +42,10 @@
           3.65,
           1.1
         ],
-        "dataStatus": "not-connected"
+        "dataStatus": "not-connected",
+        "location": "A 排上方",
+        "mountId": "room-01",
+        "focus": { "direction": [0.8, -0.45, 1], "distance": 2.5 }
       },
       {
         "id": "smoke-02",
@@ -50,7 +56,10 @@
           3.65,
           -2.5
         ],
-        "dataStatus": "not-connected"
+        "dataStatus": "not-connected",
+        "location": "B 排上方",
+        "mountId": "room-01",
+        "focus": { "direction": [0.8, -0.45, 1], "distance": 2.5 }
       },
       {
         "id": "environment-01",
@@ -61,7 +70,10 @@
           1.5,
           2
         ],
-        "dataStatus": "not-connected"
+        "dataStatus": "not-connected",
+        "location": "左墙前段",
+        "mountId": "shell-left-wall",
+        "focus": { "direction": [1, 0.2, 0.55], "distance": 1.8 }
       },
       {
         "id": "environment-02",
@@ -72,7 +84,10 @@
           1.5,
           -2
         ],
-        "dataStatus": "not-connected"
+        "dataStatus": "not-connected",
+        "location": "左墙后段",
+        "mountId": "shell-left-wall",
+        "focus": { "direction": [1, 0.2, 0.55], "distance": 1.8 }
       }
     ],
     "lights": [

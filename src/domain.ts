@@ -8,6 +8,7 @@ import { racks, devices, deviceById, rackForDevice } from "./installation.ts";
 import sceneDefinition from "../assets/public/scenes/room-01.json" with { type: "json" };
 import { normalizeTime, scenario } from "./simulation.ts";
 import { pdus, pduById, pduName } from "./power-config.ts";
+import { roomFixtures, fixtureBoundary } from "./fixtures.ts";
 export { simulate } from "./simulation.ts";
 
 export type Level = "room" | "rack" | "device";
@@ -67,6 +68,13 @@ export const entities: Entity[] = [
     description:
       "配电柜逻辑出线连接机柜 PDU；回路容量、设施计量与上游独立性未定义。",
   },
+  ...roomFixtures.map((fixture) => ({
+    id: fixture.id,
+    name: fixture.name,
+    kind: "facility" as const,
+    parent: "room-01",
+    description: fixtureBoundary(fixture),
+  })),
   ...pdus.map((pdu) => ({
     id: pdu.id,
     name: pduName(pdu.id),

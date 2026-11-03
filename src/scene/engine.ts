@@ -1,3 +1,4 @@
+import { fixtureById } from "../fixtures";
 import { modelForDevice, partsForDevice } from "../catalog";
 import { createEquipmentAssembly } from "./equipment-model";
 import { advanceAssembly, assemblyPartPosition } from "../assembly-motion";
@@ -53,6 +54,7 @@ export class SceneEngine {
         ),
     ),
   );
+  fixtureTargets = [new THREE.Vector3()];
   scene = new THREE.Scene();
   camera = new THREE.PerspectiveCamera(40, 1, 0.01, 150);
   controls: OrbitControls;
@@ -556,6 +558,7 @@ export class SceneEngine {
     );
   }
   objectFor(id: string) {
+    if (this.models.fixtures.has(id)) return this.models.fixtures.get(id);
     const pdu = pduById(id);
     if (pdu)
       return (
@@ -666,6 +669,11 @@ export class SceneEngine {
     return object.visible && (!object.parent || this.visible(object.parent));
   }
   view(view: View, focus = false) {
+    const fixture =
+      this.state.level === "room" && focus
+        ? fixtureById(this.state.selected)
+        : undefined;
+    if (fixture && view === "interior") view = "iso";
     // 先在当前镜头中完成复原与合盖，再随设备返回机柜。
     if (
       this.state.level !== "device" &&
@@ -703,6 +711,8 @@ export class SceneEngine {
     }
     const level: Level = deferDevice ? "rack" : this.state.level;
     if (deferDevice) focus = false;
+    this.controls.maxPolarAngle =
+      fixture?.kind === "smoke" ? Math.PI * 0.65 : Math.PI / 2 - 0.03;
     this.interior = view === "interior" && level === "room";
     this.controls.minAzimuthAngle = this.interior ? -0.65 : -Infinity;
     this.controls.maxAzimuthAngle = this.interior ? 0.65 : Infinity;
@@ -753,7 +763,11 @@ export class SceneEngine {
                 ? [0.45, 0.42, 1.5]
                 : [0.85, 0.85, 1.05]) as [number, number, number]),
     ).normalize();
-    const minimum = cameraMinimumDistance[level];
+    if (fixture && view === "iso")
+      direction.fromArray(fixture.focus.direction).normalize();
+    const minimum = fixture
+      ? fixture.focus.distance
+      : cameraMinimumDistance[level];
     const distance = framingPoints.length
       ? pointsFrameDistance(
           framingPoints.map((point) => point.sub(center).toArray()),
@@ -1023,11 +1037,20 @@ export class SceneEngine {
     this.models.rack.getObjectByName("rack-rear-shell")!.visible =
       !rearObservation;
     this.host.dataset.rearObservation = String(rearObservation);
+    const selectedFixture =
+      this.state.level === "room"
+        ? this.models.fixtures.get(this.state.selected)
+        : undefined;
+    selectedFixture?.getWorldPosition(this.fixtureTargets[0]);
     const cutCount = this.shellCutaway.update(
       this.camera.position,
-      this.shellTargets,
+      selectedFixture ? this.fixtureTargets : this.shellTargets,
       this.models.room.visible,
+      selectedFixture,
     );
+    this.host.dataset.fixtureTarget = selectedFixture
+      ? this.state.selected
+      : "";
     this.host.dataset.shellCutaway = String(cutCount);
     const feedback: SceneFeedback = {
       key: presentationKey(this.state),
@@ -1079,7 +1102,7 @@ export class SceneEngine {
         : null,
       time,
       this.reducedMotion,
-      this.state.level === "device" ? 0.006 : 0.025,
+      this.state.level === "device" || selectedFixture ? 0.006 : 0.025,
     );
     this.host.dataset.selectionTarget = showSelection
       ? this.state.selected
@@ -1111,7 +1134,12 @@ export class SceneEngine {
         const y = (-this.anchorPosition.y * 0.5 + 0.5) * this.host.clientHeight;
         element.dataset.screenX = String(x);
         element.dataset.screenY = String(y);
+        const anchorObject = element.dataset.anchorObject
+          ? this.objectFor(element.dataset.anchorObject)
+          : undefined;
         element.hidden =
+          (!!element.dataset.anchorObject &&
+            (!anchorObject || !this.visible(anchorObject))) ||
           this.state.level !== (element.dataset.anchorLevel ?? "room") ||
           frame.busy ||
           frame.relocation !==

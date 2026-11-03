@@ -6,6 +6,8 @@ import {
   useRef,
   useState,
 } from "react";
+import { fixtureById } from "./fixtures";
+import { FixtureDetails } from "./components/FixtureDetails";
 import { entityById, getPath, presentationKey } from "./domain";
 import type { Action } from "./domain";
 import {
@@ -158,6 +160,7 @@ export function Workspace() {
     (r) => r.id === selected,
   )!;
   const entity = entityById(selected)!;
+  const fixture = fixtureById(selected);
   const maintenance = useMemo(() => maintenanceAreas(selected), [selected]);
   const component = entity.kind === "part";
   const powerFacility = isPowerFacility(selected);
@@ -203,10 +206,12 @@ export function Workspace() {
     : null;
   const histories = useMemo(
     () =>
-      coolingHistories
-        ? { temperature: coolingHistories.temperature, power: [] }
-        : reviewHistories(selected, state.deviceId),
-    [selected, state.deviceId, coolingHistories],
+      fixture
+        ? { temperature: [], power: [] }
+        : coolingHistories
+          ? { temperature: coolingHistories.temperature, power: [] }
+          : reviewHistories(selected, state.deviceId),
+    [selected, state.deviceId, coolingHistories, fixture],
   );
   const scope = devices.filter(
     (d) =>
@@ -239,7 +244,7 @@ export function Workspace() {
       control({ type: enter ? "open-resource" : "pick", id });
       setInspector(true);
       if (matchMedia("(max-width: 1099px)").matches) setNav(false);
-      if (enter) {
+      if (enter && !fixtureById(id)) {
         setQuery("");
         setFilter("all");
       }
@@ -323,7 +328,7 @@ export function Workspace() {
       : state.level === "room" && !query.trim() && filter === "all"
         ? row.kind === "rack"
           ? `${row.name[0]} 排机柜`
-          : "机房设施"
+          : (row.group ?? "机房设施")
         : state.level === "rack" && !query.trim() && filter === "all"
           ? pduById(row.id)
             ? "供电附件 · 后置 0U"
@@ -735,6 +740,7 @@ export function Workspace() {
           {state.level === "room" &&
             layer === "overview" &&
             maintenance.length === 0 &&
+            !fixture &&
             !activeNetworkLink && (
               <div className="study-room-summary">
                 <span>01 号机房</span>
@@ -819,10 +825,14 @@ export function Workspace() {
               <span
                 style={{
                   color:
-                    powerFacility || coolingFacility ? "#9caebc" : signal.color,
+                    powerFacility || coolingFacility || fixture
+                      ? "#9caebc"
+                      : signal.color,
                 }}
               >
-                {coolingFacility ? (
+                {fixture ? (
+                  "— 布置示意 · 未接入数据"
+                ) : coolingFacility ? (
                   "◇ 冷却输入 · 模拟"
                 ) : powerFacility ? (
                   "◇ 连接示意 · 未计量"
@@ -856,24 +866,28 @@ export function Workspace() {
                     }
                   />
                 </div>
-                <ReviewAnalysis
-                  title={resource?.name ?? entity.name}
-                  labels={{
-                    temperature: reading?.temperatureLabel ?? "温度",
-                    power: reading?.powerLabel ?? "功耗",
-                  }}
-                  histories={histories}
-                  events={events}
-                  time={state.time}
-                  playbackRate={state.playbackRate}
-                  component={component}
-                  powerOnly={powerFacility}
-                  cooling={coolingHistories?.cooling}
-                  onSeek={(time) => dispatch({ type: "seek", time })}
-                  onReplay={() => dispatch({ type: "replay" })}
-                  onRate={(rate) => dispatch({ type: "rate", rate })}
-                  onClose={() => control({ type: "analysis", value: false })}
-                />
+                {fixture ? (
+                  <FixtureDetails fixture={fixture} analysis />
+                ) : (
+                  <ReviewAnalysis
+                    title={resource?.name ?? entity.name}
+                    labels={{
+                      temperature: reading?.temperatureLabel ?? "温度",
+                      power: reading?.powerLabel ?? "功耗",
+                    }}
+                    histories={histories}
+                    events={events}
+                    time={state.time}
+                    playbackRate={state.playbackRate}
+                    component={component}
+                    powerOnly={powerFacility}
+                    cooling={coolingHistories?.cooling}
+                    onSeek={(time) => dispatch({ type: "seek", time })}
+                    onReplay={() => dispatch({ type: "replay" })}
+                    onRate={(rate) => dispatch({ type: "rate", rate })}
+                    onClose={() => control({ type: "analysis", value: false })}
+                  />
+                )}
               </>
             ) : (
               <>
@@ -888,7 +902,9 @@ export function Workspace() {
                     <button onClick={analyze}>回看告警过程</button>
                   </section>
                 )}
-                {coolingRange && coolingHistories ? (
+                {fixture ? (
+                  <FixtureDetails fixture={fixture} />
+                ) : coolingRange && coolingHistories ? (
                   <>
                     <div className="study-metrics cooling-metrics">
                       <div>
@@ -1073,38 +1089,40 @@ export function Workspace() {
                 ) : (
                   <p className="study-empty">设施布置示意，尚未接入遥测。</p>
                 )}
-                <details className="study-configuration">
-                  <summary>配置与数据说明</summary>
-                  <p>{entity.description}</p>
-                  {maintenance.length > 0 && (
-                    <>
-                      <dl className="study-maintenance-config">
-                        {maintenance.map((area) => (
-                          <div key={area.id}>
-                            <dt>{area.title}</dt>
-                            <dd>
-                              {area.depth.toFixed(2)} × {area.width.toFixed(2)}{" "}
-                              m
-                            </dd>
-                          </div>
-                        ))}
-                      </dl>
+                {!fixture && (
+                  <details className="study-configuration">
+                    <summary>配置与数据说明</summary>
+                    <p>{entity.description}</p>
+                    {maintenance.length > 0 && (
+                      <>
+                        <dl className="study-maintenance-config">
+                          {maintenance.map((area) => (
+                            <div key={area.id}>
+                              <dt>{area.title}</dt>
+                              <dd>
+                                {area.depth.toFixed(2)} ×{" "}
+                                {area.width.toFixed(2)} m
+                              </dd>
+                            </div>
+                          ))}
+                        </dl>
+                        <p>
+                          尺寸为进深 ×
+                          宽度的预留示意，不是实测净距或工程校核。场景总览选中机柜时显示范围。
+                        </p>
+                      </>
+                    )}
+                    <p>{reading?.source}</p>
+                    {coolingFacility && (
                       <p>
-                        尺寸为进深 ×
-                        宽度的预留示意，不是实测净距或工程校核。场景总览选中机柜时显示范围。
+                        冷却输入来自确定性演示；关联进风是设备模拟读数，不是制冷单元送/回风温度，也不提供设施功率、风量、制冷量或控制能力。
                       </p>
-                    </>
-                  )}
-                  <p>{reading?.source}</p>
-                  {coolingFacility && (
+                    )}
                     <p>
-                      冷却输入来自确定性演示；关联进风是设备模拟读数，不是制冷单元送/回风温度，也不提供设施功率、风量、制冷量或控制能力。
+                      当前数据为确定性模拟。空缺不按零值计算；部件读数为模型推导。
                     </p>
-                  )}
-                  <p>
-                    当前数据为确定性模拟。空缺不按零值计算；部件读数为模型推导。
-                  </p>
-                </details>
+                  </details>
+                )}
               </>
             )}
           </aside>

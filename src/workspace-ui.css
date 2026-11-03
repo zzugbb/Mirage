@@ -2053,3 +2053,33 @@
 .connection-content > details > summary {
   cursor: pointer;
 }
+
+.workspace-ui .fixture-details {
+  padding: 0 22px 24px;
+  color: #aabcc5;
+  font-size: 12px;
+  line-height: 1.7;
+}
+.workspace-ui .fixture-details dl {
+  margin: 0 0 22px;
+}
+.workspace-ui .fixture-details dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid #ffffff09;
+}
+.workspace-ui .fixture-details dt {
+  color: #849aa7;
+  flex-shrink: 0;
+}
+.workspace-ui .fixture-details dd {
+  margin: 0;
+  text-align: right;
+  overflow-wrap: anywhere;
+  color: #d4dfe3;
+}
+.workspace-ui .fixture-details > small {
+  color: #7f929f;
+}

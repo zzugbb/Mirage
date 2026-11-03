@@ -19,6 +19,7 @@ export class ShellCutaway {
     camera: THREE.Vector3,
     targets: THREE.Vector3[],
     roomVisible: boolean,
+    protectedObject?: THREE.Object3D,
   ) {
     let count = 0;
     for (const entry of this.entries) {
@@ -26,7 +27,15 @@ export class ShellCutaway {
       const bounds = this.padded
         .copy(entry.bounds)
         .expandByScalar(entry.cut ? 0.12 : 0);
+      let containsSelection = false;
+      for (
+        let parent = protectedObject;
+        parent;
+        parent = parent.parent ?? undefined
+      )
+        if (parent === entry.group) containsSelection = true;
       const cut =
+        !containsSelection &&
         this.enabled &&
         roomVisible &&
         targets.some((target) => {

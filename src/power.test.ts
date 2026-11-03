@@ -132,8 +132,9 @@ test("关联输入的有效零值与未知分开，设施趋势没有虚构温�
 test("PDU搜索和定位遵循机柜归属，跨设备定位先归位，保留共享时间", () => {
   assert.equal(findResources(createState(), "QF-16", "all")[0].id, "pdu-b04-b");
   assert.equal(
-    findResources(createState(), "", "all").length,
-    10,
+    findResources(createState(), "", "all").filter((row) => pduById(row.id))
+      .length,
+    0,
     "机房导航不铺开全部PDU",
   );
   let state = reviewTransition(createReview(), {

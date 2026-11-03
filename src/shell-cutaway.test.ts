@@ -70,3 +70,20 @@ test("视线贴近结构边缘时保留退出余量，离开遮挡范围后重�
   assert.equal(update(1.3), 0);
   assert.equal(update(1.05), 0);
 });
+
+test("所选设施的安装墙面保留，其他遮挡仍剖切；离开选择后恢复自动规则", () => {
+  const wall = structure([0, 3, 5]),
+    tray = structure([0, 2, 3]);
+  const fixture = new THREE.Group();
+  const nested = new THREE.Group();
+  wall.add(nested);
+  nested.add(fixture);
+  const cutaway = new ShellCutaway([wall, tray]);
+  const camera = vector(0, 5, 10),
+    targets = [vector(0, 1, 0)];
+  assert.equal(cutaway.update(camera, targets, true, fixture), 1);
+  assert.equal(wall.visible, true);
+  assert.equal(tray.visible, false);
+  assert.equal(cutaway.update(camera, targets, true), 2);
+  assert.equal(wall.visible, false);
+});
