@@ -1,3 +1,4 @@
+import { createFanModule } from "./fan-module.ts";
 import { switchBoard } from "./switch-model.ts";
 import { storageDrive, storageMidplane } from "./storage-model.ts";
 import * as THREE from "three";
@@ -221,6 +222,12 @@ function children(
     } else if (node === "fans") {
       const w = (size[0] / count) * 0.9;
       child.position.x = ((i - (count - 1) / 2) * size[0]) / count;
+      if (id === "net-fans" || id === "sto-fans") {
+        child.userData.focusDirection = definition.fanModule.focusDirection;
+        root.userData.focusDirection = definition.fanModule.focusDirection;
+        child.add(createFanModule([w, size[1], size[2]]));
+        continue;
+      }
       box(child, [w, size[1], size[2]], [0, 0, 0], "#252d34", 0.3);
       for (let k = 0; k < 7; k++)
         box(

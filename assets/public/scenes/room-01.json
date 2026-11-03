@@ -3,6 +3,21 @@
   "id": "mirage-room-01-v1",
   "unit": "m",
   "description": "原创机房与计算、网络、存储及配电附件的通用配置，非真实现场或厂商精确结构",
+  "fanModule": {
+    "description": "交换机与存储风扇的静态配置示意，不代表精确叶型、转速或风量",
+    "focusDirection": [0.28, 0.25, -1],
+    "wallRatio": 0.06,
+    "openingRadiusRatio": 0.41,
+    "hubRadiusRatio": 0.14,
+    "bladeCount": 7,
+    "bladeTwist": 0.8,
+    "rotorRearRatio": 0.22,
+    "rotorThicknessRatio": 0.06,
+    "supportWidthRatio": 0.035,
+    "frameColor": "#3d4851",
+    "rotorColor": "#87929b",
+    "hardwareColor": "#a5afb5"
+  },
   "room": {
     "size": [
       14,
