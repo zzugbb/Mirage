@@ -868,7 +868,12 @@ export function Workspace() {
                   />
                 </div>
                 {fixture ? (
-                  <FixtureDetails fixture={fixture} analysis />
+                  <FixtureDetails
+                    fixture={fixture}
+                    analysis
+                    onPreview={pick}
+                    onLocate={(id) => pick(id, true)}
+                  />
                 ) : (
                   <ReviewAnalysis
                     title={resource?.name ?? entity.name}
@@ -904,7 +909,11 @@ export function Workspace() {
                   </section>
                 )}
                 {fixture ? (
-                  <FixtureDetails fixture={fixture} />
+                  <FixtureDetails
+                    fixture={fixture}
+                    onPreview={pick}
+                    onLocate={(id) => pick(id, true)}
+                  />
                 ) : coolingRange && coolingHistories ? (
                   <>
                     <div className="study-metrics cooling-metrics">

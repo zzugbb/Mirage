@@ -88,8 +88,108 @@
         "location": "左墙后段",
         "mountId": "shell-left-wall",
         "focus": { "direction": [1, 0.2, 0.55], "distance": 1.8 }
+      },
+      {
+        "id": "leak-controller-01",
+        "kind": "leak-controller",
+        "name": "漏水检测控制器",
+        "position": [
+          -6.84,
+          0.45,
+          -4.8
+        ],
+        "dataStatus": "not-connected",
+        "location": "左墙制冷单元旁",
+        "mountId": "shell-left-wall",
+        "focus": {
+          "direction": [
+            1,
+            0.4,
+            1
+          ],
+          "distance": 2.2
+        }
+      },
+      {
+        "id": "leak-cable-01",
+        "kind": "leak-cable",
+        "name": "漏水感应线",
+        "position": [
+          -6.35,
+          0.065,
+          -4.1
+        ],
+        "dataStatus": "not-connected",
+        "location": "制冷单元周边地面",
+        "mountId": "room-01",
+        "focus": {
+          "direction": [
+            0.6,
+            1,
+            1
+          ],
+          "distance": 3.8
+        }
       }
     ],
+    "leakDetection": {
+      "controllerId": "leak-controller-01",
+      "cableId": "leak-cable-01",
+      "nearbyFacilityId": "cooling-01",
+      "controllerSize": [
+        0.1,
+        0.22,
+        0.18
+      ],
+      "leadRadius": 0.005,
+      "sensingRadius": 0.007,
+      "leadColor": "#47515a",
+      "sensingColor": "#9a9180",
+      "leadPoints": [
+        [
+          -6.82,
+          0.34,
+          -4.8
+        ],
+        [
+          -6.82,
+          0.065,
+          -4.8
+        ],
+        [
+          -6.82,
+          0.065,
+          -4.1
+        ],
+        [
+          -6.35,
+          0.065,
+          -4.1
+        ]
+      ],
+      "sensingPoints": [
+        [
+          -6.35,
+          0.065,
+          -4.1
+        ],
+        [
+          -4.85,
+          0.065,
+          -4.1
+        ],
+        [
+          -4.85,
+          0.065,
+          -5.45
+        ],
+        [
+          -6.35,
+          0.065,
+          -5.45
+        ]
+      ]
+    },
     "lights": [
       {
         "position": [

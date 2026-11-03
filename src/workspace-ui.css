@@ -2083,3 +2083,62 @@
 .workspace-ui .fixture-details > small {
   color: #7f929f;
 }
+
+.workspace-ui .fixture-relations {
+  margin-bottom: 20px;
+}
+.workspace-ui .fixture-relations summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  color: #d4dfe3;
+  cursor: pointer;
+}
+.workspace-ui .fixture-relations summary::after {
+  content: "+";
+  color: #849aa7;
+}
+.workspace-ui .fixture-relations[open] summary::after {
+  content: "−";
+}
+.workspace-ui .fixture-relations summary span {
+  margin-left: auto;
+  color: #849aa7;
+}
+.workspace-ui .fixture-relations > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 10px;
+  padding: 10px 0;
+  border-top: 1px solid #ffffff09;
+}
+.workspace-ui .fixture-relations button {
+  padding: 5px 8px;
+  border: 1px solid #ffffff0c;
+  border-radius: 4px;
+  color: #afc8d1;
+  background: #ffffff03;
+  cursor: pointer;
+}
+.workspace-ui .fixture-relations button:first-child {
+  padding: 5px 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+}
+.workspace-ui .fixture-relations strong,
+.workspace-ui .fixture-relations small {
+  display: block;
+}
+.workspace-ui .fixture-relations strong {
+  font-weight: 500;
+}
+.workspace-ui .fixture-relations small {
+  color: #849aa7;
+}
+.workspace-ui .fixture-relations button:hover {
+  color: #d4e9ed;
+  background: #ffffff08;
+}

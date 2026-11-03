@@ -1,3 +1,5 @@
+import { buildLeakCable } from "./leak-detection.ts";
+import { leakDetection } from "../leak-detection.ts";
 import * as THREE from "three";
 import { roomFixtures } from "../fixtures.ts";
 type Box = (
@@ -17,7 +19,13 @@ export function buildRoomFixtures(mounts: Map<string, THREE.Group>, box: Box) {
     group.userData = { entityId: fixture.id, dataStatus: fixture.dataStatus };
     fixtures.set(fixture.id, group);
     mounts.get(fixture.mountId)!.add(group);
-    if (fixture.kind === "smoke") {
+    if (fixture.kind === "leak-cable") {
+      buildLeakCable(group);
+    } else if (fixture.kind === "leak-controller") {
+      box(group, leakDetection.controllerSize, [0, 0, 0], "#68757b", 0.25);
+      box(group, [0.008, 0.08, 0.12], [0.053, 0.02, 0], "#2c3840", 0.1);
+      box(group, [0.026, 0.018, 0.026], [0.02, -0.11, 0], "#303d45", 0.15);
+    } else if (fixture.kind === "smoke") {
       const shell = new THREE.Mesh(
         new THREE.CylinderGeometry(0.105, 0.085, 0.055, 16),
         new THREE.MeshStandardMaterial({ color: "#d2d6d4", roughness: 0.65 }),

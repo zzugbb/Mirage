@@ -14,7 +14,7 @@ import { selectedReading, spatialSnapshot } from "./spatial.ts";
 import { visibleResourceRows } from "./workspace-presets.ts";
 import { buildRoomFixtures } from "./scene/fixtures.ts";
 
-test("五处设施的身份、安装对象与场景位置一致，几何可射线选择", () => {
+test("七处设施的身份、安装对象与场景位置一致，几何可射线选择", () => {
   const mounts = new Map(
     ["room-01", "shell-left-wall", "shell-back-wall"].map((id) => [
       id,
@@ -33,8 +33,8 @@ test("五处设施的身份、安装对象与场景位置一致，几何可射�
       return mesh;
     },
   );
-  assert.equal(fixtures.size, 5);
-  assert.equal(new Set(roomFixtures.map((f) => f.id)).size, 5);
+  assert.equal(fixtures.size, 7);
+  assert.equal(new Set(roomFixtures.map((f) => f.id)).size, 7);
   for (const f of roomFixtures) {
     assert.equal(entityById(f.id)?.kind, "facility");
     assert.equal(entityById(f.id)?.parent, "room-01");

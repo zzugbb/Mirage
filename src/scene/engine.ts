@@ -1,5 +1,9 @@
 import { updateRackBlanking } from "./rack-blanking";
-import { fixtureById } from "../fixtures";
+import {
+  fixtureById,
+  fixtureSightOffsets,
+  fixtureMountReference,
+} from "../fixtures";
 import { modelForDevice, partsForDevice } from "../catalog";
 import { createEquipmentAssembly } from "./equipment-model";
 import { advanceAssembly, assemblyPartPosition } from "../assembly-motion";
@@ -1047,12 +1051,21 @@ export class SceneEngine {
       this.state.level === "room"
         ? this.models.fixtures.get(this.state.selected)
         : undefined;
-    selectedFixture?.getWorldPosition(this.fixtureTargets[0]);
+    if (selectedFixture) {
+      const offsets = fixtureSightOffsets(this.state.selected);
+      for (const [i, offset] of offsets.entries()) {
+        this.fixtureTargets[i] ??= new THREE.Vector3();
+        selectedFixture.localToWorld(this.fixtureTargets[i].fromArray(offset));
+      }
+      this.fixtureTargets.length = offsets.length;
+    }
     const cutCount = this.shellCutaway.update(
       this.camera.position,
       selectedFixture ? this.fixtureTargets : this.shellTargets,
       this.models.room.visible,
-      selectedFixture,
+      selectedFixture
+        ? this.models.fixtures.get(fixtureMountReference(this.state.selected))
+        : undefined,
     );
     this.host.dataset.fixtureTarget = selectedFixture
       ? this.state.selected
