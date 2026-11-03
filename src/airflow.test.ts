@@ -212,7 +212,7 @@ test("气流几何复用缓冲与材质，粒子可重复定位，减少动态�
   const geometry = new AirflowGeometry(),
     snapshot = airflowSnapshot(60, spatialSnapshot(60).readings);
   geometry.update(snapshot);
-  assert.equal(geometry.endpoints.count, snapshot.routes.length * 4);
+  assert.equal(geometry.endpoints.count, snapshot.routes.length * 3);
   assert.equal(geometry.endpoints.material.depthTest, true);
   const buffers = geometry.batches.map((batch) => [
     batch.band.geometry,
@@ -280,6 +280,8 @@ test("气流几何复用缓冲与材质，粒子可重复定位，减少动态�
     geometry.sphere,
     geometry.ribbon,
     geometry.endpointGeometry,
+    geometry.floorFrameGeometry,
+    geometry.floorFrames.material,
     geometry.endpoints.material,
     ...geometry.batches.flatMap((batch) => [
       batch.arrows.material,
@@ -291,6 +293,6 @@ test("气流几何复用缓冲与材质，粒子可重复定位，减少动态�
   geometry.update(null);
   assert.equal(geometry.root.visible, false);
   geometry.dispose();
-  assert.equal(disposed, 14);
+  assert.equal(disposed, 16);
   assert.equal(geometry.root.children.length, 0);
 });

@@ -1,3 +1,4 @@
+import { createFloorGrilles } from "./floor-grilles.ts";
 import {
   entranceSettings,
   entranceFixture,
@@ -110,20 +111,8 @@ export function buildRoomShell(
   }
   text(backWall, "MIRAGE  /  01", [-2.6, 3.38, back + 0.15], 0.25);
   // 两排机柜前方保留通行与送风格栅，地面线只作空间导向。
+  room.add(createFloorGrilles());
   for (const { z } of definition.airflow.floorOutlets) {
-    const { startX, step, count } = definition.airflow.floorGrid;
-    for (let i = 0; i < count; i++) {
-      const x = startX + i * step;
-      box(room, [0.44, 0.008, 0.46], [x, 0.052, z], "#27333e", 0.5);
-      for (let k = 0; k < 7; k++)
-        box(
-          room,
-          [0.38, 0.009, 0.018],
-          [x, 0.06, z - 0.18 + k * 0.06],
-          "#69798c",
-          0.7,
-        );
-    }
     for (const x of [-4.6, 4.6])
       box(room, [0.018, 0.007, 1.15], [x, 0.058, z], "#6c9da9", 0.1);
   }

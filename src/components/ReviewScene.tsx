@@ -543,6 +543,9 @@ export function ReviewScene({
       data-airflow-targets={airflow?.routes
         .map((route) => route.deviceId)
         .join(",")}
+      data-airflow-grilles={airflow?.routes
+        .map((route) => route.floorGrille.id)
+        .join(",")}
       data-airflow-input={airflow?.coolingCapacity}
       data-maintenance-rack={maintenance[0]?.rackId}
       data-power-rack={supply?.rackId}

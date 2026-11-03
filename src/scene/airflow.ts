@@ -1,3 +1,4 @@
+import { floorGrilleSettings as grille } from "../floor-grilles.ts";
 import * as THREE from "three";
 import { airflowSettings, flowPoint } from "../airflow.ts";
 import type { AirflowSnapshot, FlowKind, FlowPoint } from "../airflow.ts";
@@ -26,6 +27,12 @@ export class AirflowGeometry {
       depthWrite: false,
       toneMapped: false,
     }),
+    maximumRoutes * 4,
+  );
+  floorFrameGeometry = new THREE.BoxGeometry(1, 1, 1);
+  floorFrames = new THREE.InstancedMesh(
+    this.floorFrameGeometry,
+    new THREE.MeshBasicMaterial({ toneMapped: false, depthWrite: false }),
     maximumRoutes * 4,
   );
   batches = kinds.map((kind) => {
@@ -87,7 +94,11 @@ export class AirflowGeometry {
     this.endpoints.raycast = () => {};
     this.endpoints.frustumCulled = false;
     this.endpoints.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-    this.root.add(this.endpoints);
+    this.floorFrames.count = 0;
+    this.floorFrames.raycast = () => {};
+    this.floorFrames.frustumCulled = false;
+    this.floorFrames.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    this.root.add(this.endpoints, this.floorFrames);
   }
   at(path: CachedPath, t: number, target: THREE.Vector3) {
     const scaled = Math.max(0, Math.min(1, t)) * airflowSettings.samples,
@@ -99,17 +110,46 @@ export class AirflowGeometry {
   update(snapshot: AirflowSnapshot | null) {
     this.enabled = !!snapshot?.routes.length;
     this.root.visible = this.enabled;
-    if (!snapshot) return;
-    let endpointIndex = 0;
-    for (const route of snapshot.routes)
+    if (!snapshot) {
+      this.endpoints.count = this.floorFrames.count = 0;
+      return;
+    }
+    let endpointIndex = 0,
+      frameIndex = 0;
+    for (const route of snapshot.routes) {
+      const [x, y, z] = route.floorGrille.position;
+      const color = new THREE.Color(
+        route.animated
+          ? airflowSettings.colors.supply
+          : airflowSettings.colors.unknown,
+      );
+      this.transform.rotation.set(0, 0, 0);
+      for (const side of [-1, 1]) {
+        for (const horizontal of [false, true]) {
+          this.transform.position.set(
+            x + (horizontal ? 0 : (side * grille.width) / 2),
+            y + grille.outlineLift,
+            z + (horizontal ? (side * grille.depth) / 2 : 0),
+          );
+          this.transform.scale.set(
+            horizontal
+              ? grille.width + grille.outlineWidth
+              : grille.outlineWidth,
+            grille.outlineHeight,
+            horizontal
+              ? grille.outlineWidth
+              : grille.depth + grille.outlineWidth,
+          );
+          this.transform.updateMatrix();
+          this.floorFrames.setMatrixAt(frameIndex, this.transform.matrix);
+          this.floorFrames.setColorAt(frameIndex++, color);
+        }
+      }
       for (const endpoint of route.endpoints) {
+        if (endpoint.kind === "floor") continue;
         this.transform.position.fromArray(endpoint.point);
         this.transform.scale.setScalar(1);
-        this.transform.rotation.set(
-          endpoint.kind === "floor" ? -Math.PI / 2 : 0,
-          0,
-          0,
-        );
+        this.transform.rotation.set(0, 0, 0);
         this.transform.updateMatrix();
         this.endpoints.setMatrixAt(endpointIndex, this.transform.matrix);
         this.endpoints.setColorAt(
@@ -117,16 +157,17 @@ export class AirflowGeometry {
           new THREE.Color(
             route.animated
               ? airflowSettings.colors[
-                  endpoint.kind === "floor"
-                    ? "supply"
-                    : endpoint.kind === "intake"
-                      ? "through"
-                      : endpoint.kind
+                  endpoint.kind === "intake" ? "through" : endpoint.kind
                 ]
               : airflowSettings.colors.unknown,
           ),
         );
       }
+    }
+    this.floorFrames.count = frameIndex;
+    this.floorFrames.instanceMatrix.needsUpdate = true;
+    if (this.floorFrames.instanceColor)
+      this.floorFrames.instanceColor.needsUpdate = true;
     this.endpoints.count = endpointIndex;
     this.endpoints.instanceMatrix.needsUpdate = true;
     if (this.endpoints.instanceColor)
@@ -251,6 +292,9 @@ export class AirflowGeometry {
     this.sphere.dispose();
     this.ribbon.dispose();
     this.endpointGeometry.dispose();
+    this.floorFrameGeometry.dispose();
+    this.floorFrames.material.dispose();
+    this.floorFrames.dispose();
     this.endpoints.material.dispose();
     this.endpoints.dispose();
     for (const batch of this.batches) {

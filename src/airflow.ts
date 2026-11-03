@@ -1,3 +1,5 @@
+import { nearestFloorGrille } from "./floor-grilles.ts";
+import type { FloorGrille } from "./floor-grilles.ts";
 import definition from "../assets/public/scenes/room-01.json" with { type: "json" };
 import {
   devices,
@@ -28,6 +30,7 @@ export type AirflowRoute = {
   sourceId: string;
   deviceId: string;
   rackId: string;
+  floorGrille: FloorGrille;
   animated: boolean;
   status: string;
   endpoints: FlowEndpoint[];
@@ -150,26 +153,18 @@ export function airflowSnapshot(
       h = deviceHeight(target.id),
       [x, , z] = rack.position;
     const rackRow = sliceRackRows.find((row) => row.rackIds.includes(rack.id));
-    const floorOutlet = airflowSettings.floorOutlets.find(
-      (outlet) => outlet.rowId === rackRow?.id,
-    );
-    if (!floorOutlet) continue;
+    const floorGrille = nearestFloorGrille(rackRow?.id ?? "", x);
+    if (!floorGrille) continue;
     const front = z + definition.rack.size[2] / 2,
       rear = z - definition.rack.size[2] / 2;
     const outlet = plus(source.position, airflowSettings.supplyOffset),
       inlet = plus(source.position, airflowSettings.returnOffset);
     const intake: FlowPoint = [x, h, front + airflowSettings.faceClearance],
       exhaust: FlowPoint = [x, h, rear - airflowSettings.faceClearance];
-    const grid = airflowSettings.floorGrid;
     const floor: FlowPoint = [
-      grid.startX +
-        Math.max(
-          0,
-          Math.min(grid.count - 1, Math.round((x - grid.startX) / grid.step)),
-        ) *
-          grid.step,
+      floorGrille.position[0],
       airflowSettings.supplyHeight,
-      floorOutlet.z,
+      floorGrille.position[2],
     ];
     const returnTurn: FlowPoint = [
       x,
@@ -196,6 +191,7 @@ export function airflowSnapshot(
       sourceId: source.id,
       deviceId: target.id,
       rackId: rack.id,
+      floorGrille,
       animated,
       status,
       endpoints: [

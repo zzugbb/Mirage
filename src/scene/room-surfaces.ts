@@ -1,5 +1,51 @@
+import {
+  floorGrilles,
+  floorGrilleSettings as grille,
+} from "../floor-grilles.ts";
 import * as THREE from "three";
 import definition from "../../assets/public/scenes/room-01.json" with { type: "json" };
+
+/** 薄地面为格栅留出浅凹开口；不建立架空地板或送风风腔。 */
+export function roomFloorGeometry(
+  width: number,
+  depth: number,
+  thickness: number,
+) {
+  const shape = new THREE.Shape();
+  shape.moveTo(-width / 2, -depth / 2);
+  shape.lineTo(width / 2, -depth / 2);
+  shape.lineTo(width / 2, depth / 2);
+  shape.lineTo(-width / 2, depth / 2);
+  shape.closePath();
+  for (const {
+    position: [x, , z],
+  } of floorGrilles) {
+    const hole = new THREE.Path(),
+      y = -z;
+    hole.moveTo(x - grille.width / 2, y - grille.depth / 2);
+    hole.lineTo(x - grille.width / 2, y + grille.depth / 2);
+    hole.lineTo(x + grille.width / 2, y + grille.depth / 2);
+    hole.lineTo(x + grille.width / 2, y - grille.depth / 2);
+    hole.closePath();
+    shape.holes.push(hole);
+  }
+  const geometry = new THREE.ExtrudeGeometry(shape, {
+    depth: thickness,
+    bevelEnabled: false,
+    steps: 1,
+  });
+  const positions = geometry.getAttribute("position"),
+    uv = geometry.getAttribute("uv");
+  // 与原连续地面保持同一世界坐标分格，开口不改变周边纹理比例。
+  for (let i = 0; i < positions.count; i++)
+    uv.setXY(
+      i,
+      (positions.getX(i) + width / 2) / width,
+      (positions.getY(i) + depth / 2) / depth,
+    );
+  geometry.rotateX(-Math.PI / 2);
+  return geometry;
+}
 
 /** 连续地面保持安装高度；接缝仅表达分格，不模拟可拆地板或架空层。 */
 export function createRoomFloor(width: number, depth: number) {
@@ -35,7 +81,7 @@ export function createRoomFloor(width: number, depth: number) {
   map.anisotropy = 8;
   map.needsUpdate = true;
   const floor = new THREE.Mesh(
-    new THREE.BoxGeometry(width, settings.thickness, depth),
+    roomFloorGeometry(width, depth, settings.thickness),
     new THREE.MeshStandardMaterial({
       color: settings.color,
       roughness: settings.roughness,
@@ -44,7 +90,7 @@ export function createRoomFloor(width: number, depth: number) {
     }),
   );
   floor.name = "room-floor";
-  floor.position.y = settings.surfaceY - settings.thickness / 2;
+  floor.position.y = settings.surfaceY - settings.thickness;
   floor.receiveShadow = true;
   return floor;
 }
