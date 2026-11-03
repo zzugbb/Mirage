@@ -1,13 +1,14 @@
 import { buildRoomFixtures } from "./fixtures";
 import * as THREE from "three";
 import definition from "../../assets/public/scenes/room-01.json" with { type: "json" };
-import { createFloorMaterial } from "./rendering";
+import { createRoomFloor } from "./room-surfaces";
 type Box = (
   parent: THREE.Object3D,
   size: number[],
   position: number[],
   color: string,
   metalness?: number,
+  roughness?: number,
 ) => THREE.Mesh;
 type Text = (
   parent: THREE.Object3D,
@@ -15,7 +16,7 @@ type Text = (
   position: number[],
   scale?: number,
 ) => THREE.Sprite;
-/** 原创剖切机房：有真实开口、通道和吊装设施；远景地砖共用一次实例绘制。 */
+/** 原创剖切机房：有真实开口、通道和吊装设施；地面分格以低对比表面纹理表达。 */
 export function buildRoomShell(
   room: THREE.Group,
   box: Box,
@@ -34,27 +35,22 @@ export function buildRoomShell(
   const left = -width / 2,
     back = -depth / 2;
   box(room, [width + 0.1, 0.2, depth + 0.1], [0, -0.11, 0], "#323a45", 0.35);
-  const tile = new THREE.BoxGeometry(0.496, 0.045, 0.496);
-  const floor = new THREE.InstancedMesh(
-    tile,
-    createFloorMaterial(),
-    width * depth * 4,
-  );
-  const transform = new THREE.Matrix4();
-  let index = 0;
-  for (let x = left + 0.25; x < width / 2; x += 0.5)
-    for (let z = back + 0.25; z < depth / 2; z += 0.5) {
-      transform.makeTranslation(x, 0.022, z);
-      floor.setMatrixAt(index++, transform);
-    }
-  floor.receiveShadow = true;
-  room.add(floor);
+  room.add(createRoomFloor(width, depth));
+  const surface = (
+    parent: THREE.Object3D,
+    size: number[],
+    position: number[],
+    kind: keyof typeof definition.rendering.shell,
+  ) => {
+    const { color, metalness, roughness } = definition.rendering.shell[kind];
+    return box(parent, size, position, color, metalness, roughness);
+  };
   const leftWall = structure("shell-left-wall");
   // 左墙窗洞：上下梁与四个立柱围出三扇玻璃窗。
-  box(leftWall, [0.16, 0.95, depth], [left, 0.475, 0], "#77828e");
-  box(leftWall, [0.16, 1.25, depth], [left, height - 0.625, 0], "#77828e");
+  surface(leftWall, [0.16, 0.95, depth], [left, 0.475, 0], "wall");
+  surface(leftWall, [0.16, 1.25, depth], [left, height - 0.625, 0], "wall");
   for (const z of [back + 0.1, -2, 2, depth / 2 - 0.1])
-    box(leftWall, [0.18, 2, 0.18], [left, 1.95, z], "#667382", 0.3);
+    surface(leftWall, [0.18, 2, 0.18], [left, 1.95, z], "frame");
   const glassMaterial = new THREE.MeshPhysicalMaterial({
     color: "#8ba0b5",
     transparent: true,
@@ -68,7 +64,7 @@ export function buildRoomShell(
     const glass = box(leftWall, [0.04, 1.9, 3.76], [left, 1.95, z], "#8ba0b5");
     glass.material = glassMaterial;
     for (const y of [1, 2.9])
-      box(leftWall, [0.19, 0.04, 3.9], [left, y, z], "#9aa7b7", 0.6);
+      surface(leftWall, [0.19, 0.04, 3.9], [left, y, z], "trim");
   }
   const backWall = structure("shell-back-wall");
   // 后墙的 1.3 米门洞，墙体分段而非贴图。
@@ -77,23 +73,23 @@ export function buildRoomShell(
     doorH = 2.5;
   const leftSpan = doorX - doorW / 2 - left,
     rightSpan = width / 2 - (doorX + doorW / 2);
-  box(
+  surface(
     backWall,
     [leftSpan, height, 0.16],
     [left + leftSpan / 2, height / 2, back],
-    "#7b8792",
+    "wall",
   );
-  box(
+  surface(
     backWall,
     [rightSpan, height, 0.16],
     [width / 2 - rightSpan / 2, height / 2, back],
-    "#7b8792",
+    "wall",
   );
-  box(
+  surface(
     backWall,
     [doorW, height - doorH, 0.16],
     [doorX, doorH + (height - doorH) / 2, back],
-    "#7b8792",
+    "wall",
   );
   const door = new THREE.Group();
   door.position.set(doorX - doorW / 2, 0, back + 0.04);
@@ -108,11 +104,11 @@ export function buildRoomShell(
   );
   box(door, [0.08, 0.24, 0.045], [1.05, 1.1, 0.05], "#bccad9", 0.85);
   for (let x = left + 0.3; x < width / 2; x += 1.4)
-    box(
+    surface(
       backWall,
       [0.008, height - 0.3, 0.008],
       [x, height / 2, back + 0.09],
-      "#5b6877",
+      "joint",
     );
   text(backWall, "MIRAGE  /  01", [-2.6, 3.38, back + 0.15], 0.25);
   // 两排机柜前方保留通行与送风格栅，地面线只作空间导向。
@@ -136,11 +132,11 @@ export function buildRoomShell(
   for (const z of [-1.8, 1.8]) {
     const tray = structure(`shell-tray-${z}`);
     for (const dz of [-0.2, 0.2])
-      box(tray, [9.5, 0.07, 0.035], [0, 3.38, z + dz], "#465364", 0.7);
+      surface(tray, [9.5, 0.07, 0.035], [0, 3.38, z + dz], "tray");
     for (let x = -4.6; x < 4.7; x += 0.3)
-      box(tray, [0.03, 0.04, 0.42], [x, 3.35, z], "#667486", 0.7);
+      surface(tray, [0.03, 0.04, 0.42], [x, 3.35, z], "tray");
     for (const x of [-4.4, 4.4])
-      box(tray, [0.025, 0.7, 0.025], [x, 3.76, z], "#7d8b9c", 0.7);
+      surface(tray, [0.025, 0.7, 0.025], [x, 3.76, z], "suspension");
   }
   const fixtures = buildRoomFixtures(
     new Map([

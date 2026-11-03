@@ -1267,11 +1267,48 @@
     },
     "floor": {
       "color": "#505965",
-      "gap": 0.0015,
-      "roughness": 1,
-      "metalness": 0.1,
-      "bumpScale": 0.00012,
-      "grainRepeat": 8
+      "tileSize": 0.5,
+      "thickness": 0.045,
+      "surfaceY": 0.0445,
+      "gap": 0.003,
+      "roughness": 0.94,
+      "metalness": 0.05,
+      "textureSize": 256,
+      "tileValue": 250,
+      "seamValue": 214,
+      "grainRange": 3
+    },
+    "shell": {
+      "wall": {
+        "color": "#5f6a74",
+        "metalness": 0.04,
+        "roughness": 0.88
+      },
+      "frame": {
+        "color": "#53606b",
+        "metalness": 0.25,
+        "roughness": 0.7
+      },
+      "trim": {
+        "color": "#7a8791",
+        "metalness": 0.4,
+        "roughness": 0.62
+      },
+      "joint": {
+        "color": "#54606a",
+        "metalness": 0.04,
+        "roughness": 0.9
+      },
+      "tray": {
+        "color": "#4c5964",
+        "metalness": 0.3,
+        "roughness": 0.7
+      },
+      "suspension": {
+        "color": "#61707c",
+        "metalness": 0.4,
+        "roughness": 0.6
+      }
     }
   },
   "subparts": [

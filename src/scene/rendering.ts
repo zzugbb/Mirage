@@ -96,36 +96,6 @@ export class RenderPipeline {
   }
 }
 
-export function createFloorMaterial() {
-  const settings = definition.rendering.floor;
-  const size = 64;
-  const pixels = new Uint8Array(size * size * 4);
-  let seed = 4217;
-  for (let i = 0; i < size * size; i++) {
-    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
-    const value = 204 + ((seed >>> 24) % 30);
-    pixels.set([value, value, value, 255], i * 4);
-  }
-  const grain = new THREE.DataTexture(pixels, size, size);
-  grain.wrapS = grain.wrapT = THREE.RepeatWrapping;
-  grain.repeat.set(settings.grainRepeat, settings.grainRepeat);
-  grain.generateMipmaps = true;
-  grain.minFilter = THREE.LinearMipmapLinearFilter;
-  grain.magFilter = THREE.LinearFilter;
-  grain.anisotropy = 4;
-  grain.needsUpdate = true;
-  return new THREE.MeshPhysicalMaterial({
-    color: settings.color,
-    metalness: settings.metalness,
-    roughness: settings.roughness,
-    roughnessMap: grain,
-    bumpMap: grain,
-    bumpScale: settings.bumpScale,
-    clearcoat: 0.08,
-    clearcoatRoughness: 0.55,
-  });
-}
-
 export function createRoomLights(room: THREE.Group) {
   RectAreaLightUniformsLib.init();
   const lights: THREE.RectAreaLight[] = [];

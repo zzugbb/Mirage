@@ -24,6 +24,7 @@ export function box(
   position: number[],
   color: string,
   metalness = 0.2,
+  roughness = 0.6,
 ) {
   const mesh = new THREE.Mesh(
     Math.min(...size) >= 0.02
@@ -35,7 +36,7 @@ export function box(
           Math.min(0.006, Math.min(...size) * 0.1),
         )
       : new THREE.BoxGeometry(...(size as [number, number, number])),
-    material(color, metalness),
+    material(color, metalness, roughness),
   );
   mesh.position.fromArray(position);
   mesh.castShadow = true;
