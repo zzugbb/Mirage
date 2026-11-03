@@ -866,13 +866,13 @@
       "slot": "CTRL",
       "position": [
         0,
-        -0.01,
-        0
+        -0.0155,
+        0.058
       ],
       "size": [
         0.4,
-        0.004,
-        0.36
+        0.003,
+        0.3
       ],
       "explode": [
         0,
@@ -894,7 +894,7 @@
       "slot": "ASIC",
       "position": [
         0,
-        0.005,
+        0,
         0
       ],
       "size": [
@@ -951,10 +951,10 @@
       "position": [
         0,
         0,
-        -0.12
+        -0.185
       ],
       "size": [
-        0.24,
+        0.216,
         0.03,
         0.06
       ],
@@ -1256,6 +1256,12 @@
     "server": "mirage-server-2u-v1",
     "cooling": "mirage-cooling-unit-v1",
     "power": "mirage-power-cabinet-v1"
+  },
+  "switchAssembly": {
+    "boardRearExtension": {
+      "width": 0.21,
+      "depth": 0.056
+    }
   },
   "storageAssembly": {
     "columns": 4,

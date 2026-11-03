@@ -1,3 +1,4 @@
+import { switchBoard } from "./switch-model.ts";
 import { storageDrive, storageMidplane } from "./storage-model.ts";
 import * as THREE from "three";
 import definition from "../../assets/public/scenes/room-01.json" with { type: "json" };
@@ -423,7 +424,8 @@ export function createEquipmentAssembly(modelId: string): Assembly {
           size,
         );
     } else {
-      if (p.id === "sto-midplane") storageMidplane(group, size, box);
+      if (p.id === "net-board") switchBoard(group, size, box);
+      else if (p.id === "sto-midplane") storageMidplane(group, size, box);
       else detail(group, p.node, size, box);
       if (p.id === "board-01") {
         const tail = new THREE.Group();
