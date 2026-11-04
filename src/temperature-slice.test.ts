@@ -360,3 +360,23 @@ test("垂直切片的最高输入只来自所选柜排，改变离柜距离只�
     }
   }
 });
+
+test("切片覆盖只列本层或本排的缺项，第45秒过期，回看恢复有效输入", () => {
+  const reads = (time: number) => spatialSnapshot(time).readings;
+  const row = (id: string, time: number) =>
+    verticalTemperatureSlice(reads(time), id, 0.08);
+  assert.deepEqual(row("row-a", 60).unavailableIds, ["srv-25"]);
+  const current = row("row-b", 45);
+  assert.deepEqual(current.unavailableIds, ["srv-56", "srv-59", "srv-63"]);
+  assert.equal(
+    current.validInputs + current.unavailableIds.length,
+    current.totalInputs,
+  );
+  const previous = row("row-b", 44);
+  assert.deepEqual(previous.unavailableIds, ["srv-56", "srv-63"]);
+  assert.equal(previous.validInputs, current.validInputs + 1);
+  const horizontal = temperatureSlice(reads(60), 1.2);
+  assert.deepEqual(horizontal.unavailableIds, current.unavailableIds);
+  const above = temperatureSlice(reads(60), sliceSettings.height.max);
+  assert.ok(!above.unavailableIds.includes("srv-59"));
+});

@@ -1,4 +1,4 @@
-import { SlicePeakPreview } from "./SlicePeakPreview";
+import { SliceInputPreview } from "./SliceInputPreview";
 import { fixtureById, roomFacilityById } from "../fixtures";
 import type { Dispatch, SetStateAction, ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -1010,24 +1010,11 @@ export function ReviewScene({
                       );
                     }}
                   />
-                  <span
-                    className="review-slice-stats"
-                    role="img"
-                    aria-label={`${slice.orientation === "horizontal" ? "当前高度" : sliceRow!.name}有效输入 ${slice.validInputs}/${slice.totalInputs} 台设备；切片估计${slice.min === null ? "无有效值" : `${slice.min.toFixed(1)} 至 ${slice.max!.toFixed(1)} 摄氏度`}`}
-                  >
-                    <span>
-                      {slice.orientation === "horizontal" ? "本层" : "本排"}有效{" "}
-                      {slice.validInputs}/{slice.totalInputs} 台
-                    </span>
-                    <span>
-                      {slice.min === null
-                        ? "无有效估计"
-                        : `${slice.min.toFixed(1)}–${slice.max!.toFixed(1)} °C`}
-                    </span>
-                  </span>
-                  <SlicePeakPreview
+                  <SliceInputPreview
                     key={`${shotRevision}:${slice.orientation}:${slice.rowId}:${slice.height ?? slice.distance}`}
-                    peak={slice.highestInput}
+                    slice={slice}
+                    readings={readings}
+                    onTakeover={onTakeover}
                     selectedId={selectedId}
                     onPreview={(id) => {
                       engine.current?.preservePanelView();
