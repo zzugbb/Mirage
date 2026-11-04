@@ -1,6 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as THREE from "three";
+import definition from "../assets/public/scenes/room-01.json" with { type: "json" };
+import { fixtureSightOffsets, roomFacilityById } from "./fixtures.ts";
+import { boundsFrameDistance } from "./camera.ts";
 import { ShellCutaway } from "./scene/shell-cutaway.ts";
 
 const vector = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
@@ -86,4 +89,90 @@ test("所选设施的安装墙面保留，其他遮挡仍剖切；离开选择�
   assert.equal(tray.visible, false);
   assert.equal(cutaway.update(camera, targets, true), 2);
   assert.equal(wall.visible, false);
+});
+
+test("同墙另一侧的门扇不能遮挡柜体，真正处于视线内的门扇和墙面仍可剖切", () => {
+  const wall = structure([0, 1, -6], [14, 3, 0.16]);
+  wall.add(structure([4.2, 0, 0.5], [1.3, 2.5, 1]));
+  const cutaway = new ShellCutaway([wall]);
+  assert.equal(
+    cutaway.update(vector(-5.6, 1.3, -2), [vector(-5.6, 1, -5.2)], true),
+    0,
+  );
+  assert.equal(
+    cutaway.update(vector(4.2, 1.3, -2), [vector(4.2, 1, -5.9)], true),
+    1,
+  );
+  assert.equal(
+    cutaway.update(vector(-5.6, 1.3, -8), [vector(-5.6, 1, -4.8)], true),
+    1,
+  );
+});
+
+test("两处柜式设施按各自通道定位，宽窄视口的取景视线均避开八个机柜", () => {
+  const blockers = definition.installation.racks.map((rack) =>
+    new THREE.Box3().setFromCenterAndSize(
+      new THREE.Vector3(...rack.position).add(
+        vector(0, definition.rack.size[1] / 2, 0),
+      ),
+      new THREE.Vector3(...definition.rack.size),
+    ),
+  );
+  for (const f of definition.facilities) {
+    const focus = roomFacilityById(f.id)!.focus;
+    const center = new THREE.Vector3(...f.position);
+    const direction = new THREE.Vector3(...focus.direction).normalize();
+    const offsets = fixtureSightOffsets(f.id);
+    assert.equal(offsets.length, 9);
+    for (const aspect of [852 / 836, 744 / 704, 390 / 580]) {
+      const camera = center
+        .clone()
+        .addScaledVector(
+          direction,
+          boundsFrameDistance(
+            f.size,
+            direction.toArray(),
+            aspect,
+            focus.distance,
+          ),
+        );
+      if (aspect < 1) {
+        const lens = new THREE.PerspectiveCamera(40, aspect, 0.01, 150);
+        lens.position.copy(camera);
+        lens.lookAt(center);
+        lens.updateMatrixWorld();
+        for (const sx of [-1, 1])
+          for (const sz of [-1, 1]) {
+            const top = center
+              .clone()
+              .add(
+                vector(
+                  (sx * f.size[0]) / 2,
+                  f.size[1] / 2,
+                  (sz * f.size[2]) / 2,
+                ),
+              )
+              .project(lens);
+            assert.ok(
+              ((1 - top.y) * 580) / 2 > 118,
+              "390px 视口柜顶应位于两行场景工具下方",
+            );
+          }
+      }
+      for (const offset of offsets) {
+        const target = center.clone().add(new THREE.Vector3(...offset));
+        const ray = new THREE.Ray(
+          camera,
+          target.clone().sub(camera).normalize(),
+        );
+        for (const box of blockers) {
+          const hit = ray.intersectBox(box, new THREE.Vector3());
+          assert.ok(
+            !hit || camera.distanceTo(hit) > camera.distanceTo(target),
+            f.id,
+          );
+        }
+      }
+    }
+  }
 });

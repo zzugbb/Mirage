@@ -15,6 +15,14 @@ export function configuredPathLength(points: number[][]) {
     );
 }
 export function leakRelations(id: string) {
+  if (id === leakDetection.nearbyFacilityId)
+    return definition.room.fixtures
+      .filter((f) => isLeakFixture(f.id))
+      .map((f) => ({
+        id: f.id,
+        name: f.name,
+        relation: "邻近布置 · 未接入数据",
+      }));
   if (!isLeakFixture(id)) return [];
   const counterpart = definition.room.fixtures.find(
     (f) =>

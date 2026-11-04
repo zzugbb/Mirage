@@ -8,6 +8,10 @@ export const roomFixtures = definition.room.fixtures;
 export type RoomFixture = (typeof roomFixtures)[number];
 export const fixtureById = (id: string) =>
   roomFixtures.find((f) => f.id === id);
+/** 两类设施共用空间定位，数据与详情仍由各自的定义提供。 */
+export const roomFacilityById = (id: string) =>
+  fixtureById(id) ??
+  definition.facilities.find((facility) => facility.id === id);
 // 点状设施取中心；线状设施取端点、转折与段中点，避免只避让接头而挡住另一段。
 const sightOffsets = new Map(
   roomFixtures.map((fixture) => {
@@ -31,6 +35,15 @@ const sightOffsets = new Map(
     ] as const;
   }),
 );
+// 柜体取中心和八个靠近外缘的点，供各观察方向判断建筑遮挡。
+for (const facility of definition.facilities) {
+  const [w, h, d] = facility.size;
+  const offsets = [[0, 0, 0]];
+  for (const x of [-w, w])
+    for (const y of [-h, h])
+      for (const z of [-d, d]) offsets.push([x * 0.45, y * 0.45, z * 0.45]);
+  sightOffsets.set(facility.id, offsets);
+}
 export const fixtureSightOffsets = (id: string) => sightOffsets.get(id) ?? [];
 /** 查看感应线时保留控制器的安装结构，避免引线端头悬空。 */
 export const fixtureMountReference = (id: string) =>

@@ -1,6 +1,6 @@
 import { updateRackBlanking } from "./rack-blanking";
 import {
-  fixtureById,
+  roomFacilityById,
   fixtureSightOffsets,
   fixtureMountReference,
 } from "../fixtures";
@@ -681,7 +681,7 @@ export class SceneEngine {
   view(view: View, focus = false) {
     const fixture =
       this.state.level === "room" && focus
-        ? fixtureById(this.state.selected)
+        ? roomFacilityById(this.state.selected)
         : undefined;
     if (fixture && view === "interior") view = "iso";
     // 先在当前镜头中完成复原与合盖，再随设备返回机柜。
@@ -722,7 +722,9 @@ export class SceneEngine {
     const level: Level = deferDevice ? "rack" : this.state.level;
     if (deferDevice) focus = false;
     this.controls.maxPolarAngle =
-      fixture?.kind === "smoke" ? Math.PI * 0.65 : Math.PI / 2 - 0.03;
+      fixture && "kind" in fixture && fixture.kind === "smoke"
+        ? Math.PI * 0.65
+        : Math.PI / 2 - 0.03;
     this.interior = view === "interior" && level === "room";
     this.controls.minAzimuthAngle = this.interior ? -0.65 : -Infinity;
     this.controls.maxAzimuthAngle = this.interior ? 0.65 : Infinity;
@@ -808,7 +810,9 @@ export class SceneEngine {
     }
     this.targetLook.copy(center);
     this.targetPosition.copy(center).addScaledVector(direction, distance);
-    this.controls.minDistance = minimum;
+    // 柜式设施的初始取景给工具栏和周边设施留出空间，随后仍可手动拉近。
+    this.controls.minDistance =
+      fixture && "size" in fixture ? cameraMinimumDistance[level] : minimum;
     this.controls.maxDistance = Math.max(
       distance * 1.1,
       level === "device" ? 5 : level === "rack" ? 9 : 24,
@@ -1058,7 +1062,8 @@ export class SceneEngine {
     this.host.dataset.rearObservation = String(rearObservation);
     const selectedFixture =
       this.state.level === "room"
-        ? this.models.fixtures.get(this.state.selected)
+        ? (this.models.fixtures.get(this.state.selected) ??
+          this.models.facilities.get(this.state.selected))
         : undefined;
     if (selectedFixture) {
       const offsets = fixtureSightOffsets(this.state.selected);

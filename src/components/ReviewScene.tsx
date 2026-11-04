@@ -1,4 +1,4 @@
-import { fixtureById } from "../fixtures";
+import { fixtureById, roomFacilityById } from "../fixtures";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { AppState } from "../domain";
@@ -344,7 +344,7 @@ export function ReviewScene({
   useEffect(() => {
     setView(
       state.level === "room"
-        ? fixtureById(state.selected)
+        ? roomFacilityById(state.selected)
           ? "iso"
           : "interior"
         : state.level === "rack" && pduById(state.selected)
@@ -414,7 +414,9 @@ export function ReviewScene({
   });
   const selectedFixture =
     state.level === "room" && selectedId === state.selected
-      ? fixtureById(selectedId)
+      ? layer === "overview"
+        ? roomFacilityById(selectedId)
+        : fixtureById(selectedId)
       : undefined;
   const labelKey =
     (selectedFixture?.id ?? "") +

@@ -9,7 +9,8 @@ import {
 import { rackBlankingUnits, unitRanges } from "./rack-blanking";
 import { fixtureById } from "./fixtures";
 import { powerContextIncludes } from "./power-trace";
-import { FixtureDetails } from "./components/FixtureDetails";
+import { leakRelations } from "./leak-detection";
+import { FixtureDetails, FixtureRelations } from "./components/FixtureDetails";
 import { entityById, getPath, presentationKey } from "./domain";
 import type { Action } from "./domain";
 import {
@@ -768,6 +769,8 @@ export function Workspace() {
             layer === "overview" &&
             maintenance.length === 0 &&
             !fixture &&
+            !coolingFacility &&
+            !powerFacility &&
             !activeNetworkLink && (
               <div className="study-room-summary">
                 <span>01 号机房</span>
@@ -1010,6 +1013,12 @@ export function Workspace() {
                       onSelect={pick}
                       onLocateSource={() => pick(coolingSource.id, true)}
                       onViewAirflow={showAirflow}
+                    />
+                    <FixtureRelations
+                      title="邻近检漏设施"
+                      relations={leakRelations(selected)}
+                      onPreview={pick}
+                      onLocate={focus}
                     />
                   </>
                 ) : reading ? (

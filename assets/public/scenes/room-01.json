@@ -548,6 +548,7 @@
         0.65
       ],
       "color": "#8faeb9",
+      "focus": { "direction": [0.22, 0.27, 1], "distance": 4.8 },
       "modelRotationYDegrees": 180
     },
     {
@@ -564,6 +565,7 @@
         0.5
       ],
       "color": "#b5bfc2",
+      "focus": { "direction": [-0.22, 0.27, 1], "distance": 4.6 },
       "modelRotationYDegrees": 0
     }
   ],

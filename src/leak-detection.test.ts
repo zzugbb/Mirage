@@ -39,6 +39,18 @@ test("检漏布置连接控制器、引线与感应线，末端保持明确；�
   assert.equal(leakRelations(cable.id)[0].id, controller.id);
   assert.equal(leakRelations(controller.id)[0].id, cable.id);
   assert.equal(leakRelations(cable.id)[1].relation, "邻近设施");
+  assert.deepEqual(
+    new Set(leakRelations(config.nearbyFacilityId).map((f) => f.id)),
+    new Set([controller.id, cable.id]),
+  );
+  for (const f of leakRelations(config.nearbyFacilityId))
+    assert.ok(
+      leakRelations(f.id).some(
+        (back) =>
+          back.id === config.nearbyFacilityId && back.relation === "邻近设施",
+      ),
+    );
+  assert.deepEqual(leakRelations("power-01"), []);
   assert.deepEqual(leakRelations("smoke-01"), []);
 });
 

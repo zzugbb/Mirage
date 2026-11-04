@@ -121,29 +121,12 @@ export function FixtureDetails({
           <p>X / Y / Z 为机房坐标，端点未登记外部连接。</p>
         </details>
       )}
-      {relations.length > 0 && !analysis && (
-        <details className="fixture-relations">
-          <summary>
-            布置关系 <span>{relations.length}</span>
-          </summary>
-          {relations.map((relation) => (
-            <div key={relation.id}>
-              <button
-                aria-label={`预览${relation.name}`}
-                onClick={() => onPreview(relation.id)}
-              >
-                <strong>{relation.name}</strong>
-                <small>{relation.relation}</small>
-              </button>
-              <button
-                aria-label={`定位${relation.name}`}
-                onClick={() => onLocate(relation.id)}
-              >
-                定位
-              </button>
-            </div>
-          ))}
-        </details>
+      {!analysis && (
+        <FixtureRelations
+          relations={relations}
+          onPreview={onPreview}
+          onLocate={onLocate}
+        />
       )}
       <p>
         {analysis
@@ -154,5 +137,43 @@ export function FixtureDetails({
       </p>
       <small>位置与高度为场景配置示意</small>
     </section>
+  );
+}
+
+export function FixtureRelations({
+  relations,
+  title = "布置关系",
+  onPreview,
+  onLocate,
+}: {
+  relations: { id: string; name: string; relation: string }[];
+  title?: string;
+  onPreview: (id: string) => void;
+  onLocate: (id: string) => void;
+}) {
+  if (!relations.length) return null;
+  return (
+    <details className="fixture-relations">
+      <summary>
+        {title} <span>{relations.length}</span>
+      </summary>
+      {relations.map((relation) => (
+        <div key={relation.id}>
+          <button
+            aria-label={`预览${relation.name}`}
+            onClick={() => onPreview(relation.id)}
+          >
+            <strong>{relation.name}</strong>
+            <small>{relation.relation}</small>
+          </button>
+          <button
+            aria-label={`定位${relation.name}`}
+            onClick={() => onLocate(relation.id)}
+          >
+            定位
+          </button>
+        </div>
+      ))}
+    </details>
   );
 }
