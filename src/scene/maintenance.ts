@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { maintenanceSettings } from "../maintenance.ts";
-import type { MaintenanceArea } from "../maintenance.ts";
+import type { MaintenanceArea, MaintenanceAisle } from "../maintenance.ts";
 
 /** 两个中性地面范围，保留深度测试，不参与对象拾取或运行告警。 */
 export class MaintenanceGeometry {
@@ -29,18 +29,27 @@ export class MaintenanceGeometry {
     }),
     2,
   );
+  ruler = new THREE.InstancedMesh(
+    this.geometry,
+    new THREE.MeshBasicMaterial({
+      color: "#b7dedb",
+      depthWrite: false,
+      toneMapped: false,
+    }),
+    3,
+  );
   transform = new THREE.Object3D();
   constructor() {
     this.root.visible = false;
-    this.root.add(this.border, this.fill);
-    for (const mesh of [this.border, this.fill]) {
+    this.root.add(this.border, this.fill, this.ruler);
+    for (const mesh of [this.border, this.fill, this.ruler]) {
       mesh.count = 0;
       mesh.raycast = () => {};
       mesh.frustumCulled = false;
       mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     }
   }
-  update(areas: MaintenanceArea[]) {
+  update(areas: MaintenanceArea[], aisle?: MaintenanceAisle) {
     this.enabled = areas.length > 0;
     this.root.visible = this.enabled;
     let index = 0;
@@ -62,6 +71,25 @@ export class MaintenanceGeometry {
         this.border.setMatrixAt(index++, this.transform.matrix);
       }
     }
+    this.ruler.count = 0;
+    if (aisle) {
+      const bar = (z: number, width: number, depth: number) => {
+        this.transform.position.set(
+          aisle.x,
+          aisle.front.position[1] + 0.008,
+          z,
+        );
+        this.transform.scale.set(width, 0.004, depth);
+        this.transform.updateMatrix();
+        this.ruler.setMatrixAt(this.ruler.count++, this.transform.matrix);
+      };
+      bar(aisle.startZ, 0.24, 0.025);
+      if (Math.abs(aisle.gap) > 1e-8) {
+        bar((aisle.startZ + aisle.endZ) / 2, 0.025, Math.abs(aisle.gap));
+        bar(aisle.endZ, 0.24, 0.025);
+      }
+    }
+    this.ruler.instanceMatrix.needsUpdate = true;
     this.fill.count = areas.length;
     this.border.count = index;
     this.fill.instanceMatrix.needsUpdate =
@@ -72,7 +100,7 @@ export class MaintenanceGeometry {
   }
   dispose() {
     this.geometry.dispose();
-    for (const mesh of [this.border, this.fill]) {
+    for (const mesh of [this.border, this.fill, this.ruler]) {
       mesh.material.dispose();
       mesh.dispose();
     }

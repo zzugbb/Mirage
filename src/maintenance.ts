@@ -1,5 +1,5 @@
 import definition from "../assets/public/scenes/room-01.json" with { type: "json" };
-import { rackById } from "./installation.ts";
+import { rackById, racks } from "./installation.ts";
 
 export const maintenanceSettings = definition.room.maintenance;
 export type MaintenanceArea = {
@@ -48,4 +48,55 @@ export function maintenanceAreas(rackId: string): MaintenanceArea[] {
       },
     };
   });
+}
+
+// 当前样板同向朝 +Z。只比较柜宽投影重合、双方各自只有一个对柜的跨排位置。
+const alignedRacks = (rack: (typeof racks)[number]) =>
+  racks.filter(
+    (other) =>
+      other.position[1] === rack.position[1] &&
+      Math.abs(other.position[2] - rack.position[2]) >=
+        definition.rack.size[2] &&
+      Math.abs(other.position[0] - rack.position[0]) < definition.rack.size[0],
+  );
+
+const aisles = racks.flatMap((lower) => {
+  const peers = alignedRacks(lower);
+  const upper = peers[0];
+  if (
+    peers.length !== 1 ||
+    upper.position[2] <= lower.position[2] ||
+    alignedRacks(upper).length !== 1
+  )
+    return [];
+  const [front] = maintenanceAreas(lower.id);
+  const [, rear] = maintenanceAreas(upper.id);
+  const startZ = front.bounds.maxZ,
+    endZ = rear.bounds.minZ;
+  return [
+    {
+      id: front.id + "/" + rear.id,
+      front,
+      rear,
+      faceDistance: rear.bounds.maxZ - front.bounds.minZ,
+      gap: endZ - startZ,
+      startZ,
+      endZ,
+      x:
+        (Math.max(front.bounds.minX, rear.bounds.minX) +
+          Math.min(front.bounds.maxX, rear.bounds.maxX)) /
+        2,
+    },
+  ];
+});
+export type MaintenanceAisle = (typeof aisles)[number];
+export function maintenanceAisle(rackId: string) {
+  return aisles.find(
+    (a) => a.front.rackId === rackId || a.rear.rackId === rackId,
+  );
+}
+export function reserveGapText(gap: number) {
+  if (Math.abs(gap) < 1e-8) return "预留边界相接";
+  const magnitude = Math.abs(gap);
+  return `${gap > 0 ? "预留间隔" : "预留重叠"} ${magnitude < 0.01 ? "< 0.01" : magnitude.toFixed(2)} m`;
 }

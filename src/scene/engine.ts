@@ -1,3 +1,4 @@
+import type { MaintenanceAisle } from "../maintenance.ts";
 import { updateRackBlanking } from "./rack-blanking";
 import {
   roomFacilityById,
@@ -129,6 +130,7 @@ export class SceneEngine {
   interior = false;
   currentView: View = "iso";
   currentFocus = false;
+  comparedAisle?: MaintenanceAisle;
   onAssets: (status: "ready" | "degraded") => void = () => {};
 
   constructor(
@@ -758,6 +760,16 @@ export class SceneEngine {
         : level === "device"
           ? this.deviceBounds(framingPoints)
           : null;
+    const aisle =
+      level === "room" && focus && view === "top"
+        ? this.comparedAisle
+        : undefined;
+    if (aisle && bounds) {
+      for (const side of [aisle.front, aisle.rear]) {
+        const rack = this.objectFor(side.rackId);
+        if (rack) bounds.expandByObject(rack);
+      }
+    }
     const center = bounds
       ? bounds.getCenter(new THREE.Vector3())
       : new THREE.Vector3(
@@ -777,7 +789,9 @@ export class SceneEngine {
           : 1.3;
     const direction = new THREE.Vector3(
       ...((view === "top"
-        ? [0.001, 1, 0.001]
+        ? aisle
+          ? [0, 1, 0.025]
+          : [0.001, 1, 0.001]
         : view === "rear"
           ? [0, 0.13, -1]
           : view === "front"

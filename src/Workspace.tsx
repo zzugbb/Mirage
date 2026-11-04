@@ -34,7 +34,11 @@ import {
 } from "./review-resources";
 import type { ResourceFilter } from "./review-resources";
 import { devices, rackForDevice } from "./installation";
-import { maintenanceAreas } from "./maintenance";
+import {
+  maintenanceAreas,
+  maintenanceAisle,
+  reserveGapText,
+} from "./maintenance";
 import { isPowerFacility, pduById, powerDeviceIds } from "./power-config";
 import { PowerConnections } from "./components/PowerConnections";
 import { NetworkConnections } from "./components/NetworkConnections";
@@ -177,6 +181,12 @@ export function Workspace() {
   const entity = entityById(selected)!;
   const fixture = fixtureById(selected);
   const maintenance = useMemo(() => maintenanceAreas(selected), [selected]);
+  const aisle =
+    layer === "overview" && state.level === "room"
+      ? maintenanceAisle(selected)
+      : undefined;
+  const opposite =
+    aisle && (aisle.front.rackId === selected ? aisle.rear : aisle.front);
   const component = entity.kind === "part";
   const powerFacility = isPowerFacility(selected);
   const coolingFacility = isCoolingSource(selected);
@@ -777,6 +787,7 @@ export function Workspace() {
             layer={layer}
             readings={spatial.readings}
             selectedId={selected}
+            aisle={aisle}
             networkLinkId={activeNetworkLink}
             powerLinkId={activePowerLink}
             onClearPower={() => {
@@ -1192,6 +1203,20 @@ export function Workspace() {
                         onLocate={(id) => pick(id, true)}
                         onTrace={setNetworkLinkId}
                         onInteract={takeover}
+                      />
+                    )}
+                    {aisle && opposite && (
+                      <FixtureRelations
+                        title="排间对柜"
+                        relations={[
+                          {
+                            id: opposite.rackId,
+                            name: opposite.rackName,
+                            relation: `${opposite.title} ${opposite.depth.toFixed(2)} m · 柜面间距 ${aisle.faceDistance.toFixed(2)} m · ${reserveGapText(aisle.gap)}`,
+                          },
+                        ]}
+                        onPreview={pick}
+                        onLocate={focus}
                       />
                     )}
                     {layer === "overview" && entity.kind === "rack" && (

@@ -572,6 +572,31 @@
 .review-maintenance-anchor {
   border-color: #a4b7c1;
 }
+.workspace-ui .review-legend .aisle-legend {
+  display: grid;
+  justify-items: start;
+  width: max-content;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: #1d2931eb;
+  gap: 5px;
+}
+.aisle-actions {
+  display: flex;
+  gap: 6px;
+}
+.workspace-ui .aisle-legend button {
+  pointer-events: auto;
+  padding: 4px 8px;
+  border: 1px solid #ffffff26;
+  border-radius: 4px;
+  font-size: 11px;
+}
+.aisle-legend strong {
+  color: #d8e7e7;
+  font-size: 11px;
+  font-weight: 550;
+}
 .study-maintenance-config {
   font-size: 11px;
   color: #b1c2cc;

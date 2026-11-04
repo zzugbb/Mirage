@@ -26,7 +26,11 @@ import { TemperatureSliceGeometry } from "../scene/temperature-slice";
 import { airflowSnapshot, airflowVisualTime } from "../airflow";
 import { AirflowGeometry } from "../scene/airflow";
 import { placeFlowLabel } from "../airflow-label-layout";
-import { maintenanceAreas } from "../maintenance";
+import {
+  maintenanceAreas,
+  reserveGapText,
+  type MaintenanceAisle,
+} from "../maintenance";
 import { MaintenanceGeometry } from "../scene/maintenance";
 import { powerScene } from "../power-paths";
 import { PowerGeometry } from "../scene/power";
@@ -41,6 +45,7 @@ export function ReviewScene({
   layer,
   readings,
   selectedId,
+  aisle,
   networkLinkId = null,
   powerLinkId = null,
   onClearPower,
@@ -62,6 +67,7 @@ export function ReviewScene({
   layer: ReviewLayer;
   readings: Map<string, SpatialReading>;
   selectedId: string;
+  aisle?: MaintenanceAisle;
   networkLinkId?: string | null;
   powerLinkId?: string | null;
   onClearPower?: () => void;
@@ -140,13 +146,38 @@ export function ReviewScene({
     ],
   );
   const networkLink = networkLinkById(networkLinkId);
+  const availableAisle = networkLinkId ? undefined : aisle;
+  const [comparedId, setComparedId] = useState<string | null>(null);
+  useEffect(() => setComparedId(null), [availableAisle?.id, shotRevision]);
+  const comparison =
+    availableAisle?.id === comparedId ? availableAisle : undefined;
   const maintenance = useMemo(
     () =>
       layer === "overview" && state.level === "room" && !networkLinkId
-        ? maintenanceAreas(selectedId)
+        ? comparison
+          ? [comparison.front, comparison.rear]
+          : maintenanceAreas(selectedId)
         : [],
-    [layer, state.level, selectedId, networkLinkId],
+    [layer, state.level, selectedId, networkLinkId, comparison],
   );
+  const areaLabels = useMemo(() => {
+    const labels = maintenance.map((area) => ({
+      id: area.id,
+      position: area.position,
+      text: `${comparison ? area.rackName.split(" ")[0] + " " : ""}${area.kind === "front" ? "柜前操作" : "柜后检修"} ${area.depth.toFixed(2)} m`,
+    }));
+    if (comparison)
+      labels.push({
+        id: comparison.id,
+        position: [
+          comparison.x,
+          comparison.front.position[1],
+          (comparison.startZ + comparison.endZ) / 2,
+        ],
+        text: reserveGapText(comparison.gap),
+      });
+    return labels;
+  }, [maintenance, comparison]);
   const airflow = useMemo(
     () =>
       layer === "environment" && state.level === "room"
@@ -360,8 +391,9 @@ export function ReviewScene({
     airflowGeometry.current?.update(airflow);
   }, [airflow, retry]);
   useEffect(() => {
-    maintenanceGeometry.current?.update(maintenance);
-  }, [maintenance, retry]);
+    maintenanceGeometry.current?.update(maintenance, comparison);
+    if (engine.current) engine.current.comparedAisle = comparison;
+  }, [maintenance, comparison, retry]);
   useEffect(() => {
     powerGeometry.current?.update(supply);
   }, [supply, retry]);
@@ -415,7 +447,7 @@ export function ReviewScene({
     (selectedFixture?.id ?? "") +
     labels.map((r) => r.id).join(":") +
     (airflow?.routes.map((route) => route.id).join(":") ?? "") +
-    maintenance.map((area) => area.id).join(":") +
+    areaLabels.map((label) => label.id).join(":") +
     (supply?.labels.map((label) => label.id).join(":") ?? "") +
     (supply?.deviceId ?? "") +
     networkLinkId +
@@ -525,7 +557,12 @@ export function ReviewScene({
     onTakeover();
     setOrbit(false);
     setView(next);
-    engine.current?.view(next);
+    const framePair = next === "top" && !!comparison;
+    engine.current?.view(next, framePair);
+    if (framePair && matchMedia("(max-width: 600px)").matches)
+      host.current
+        ?.closest(".study-stage")
+        ?.scrollIntoView({ block: "nearest" });
   };
   return (
     <div
@@ -542,7 +579,8 @@ export function ReviewScene({
         .map((route) => route.floorGrille.id)
         .join(",")}
       data-airflow-input={airflow?.coolingCapacity}
-      data-maintenance-rack={maintenance[0]?.rackId}
+      data-maintenance-rack={maintenance.length ? selectedId : undefined}
+      data-maintenance-aisle={comparison?.id}
       data-power-rack={supply?.rackId}
       data-power-device={supply?.deviceId}
       data-power-trace={supply?.traceId ?? undefined}
@@ -660,7 +698,7 @@ export function ReviewScene({
               <small>{label.detail}</small>
             </div>
           ))}
-          {maintenance.map((area) => (
+          {areaLabels.map((area) => (
             <div
               key={area.id}
               hidden
@@ -670,10 +708,7 @@ export function ReviewScene({
               data-anchor-position={area.position.join(",")}
               className="review-flow-anchor review-maintenance-anchor"
             >
-              <b>
-                {area.kind === "front" ? "柜前操作" : "柜后检修"}{" "}
-                {area.depth.toFixed(2)} m
-              </b>
+              <b>{area.text}</b>
             </div>
           ))}
           {airflow?.routes.flatMap((route) =>
@@ -785,7 +820,7 @@ export function ReviewScene({
               .map((item) => (
                 <line key={item.id} data-flow-line={item.id} />
               ))}
-            {maintenance.map((area) => (
+            {areaLabels.map((area) => (
               <line key={area.id} data-flow-line={area.id} />
             ))}
             {supply?.labels.map((label) => (
@@ -823,7 +858,29 @@ export function ReviewScene({
           )}
           {layer === "overview" ? (
             maintenance.length > 0 ? (
-              <div className="review-status-key">
+              <div className="review-status-key aisle-legend">
+                <div className="aisle-actions">
+                  {availableAisle && (
+                    <button
+                      aria-pressed={!!comparison}
+                      onClick={() => {
+                        onTakeover();
+                        setComparedId(comparison ? null : availableAisle.id);
+                      }}
+                    >
+                      {comparison ? "退出通道对照" : "对照排间通道"}
+                    </button>
+                  )}
+                  {comparison && (
+                    <button onClick={() => camera("top")}>俯看两柜</button>
+                  )}
+                </div>
+                {comparison && (
+                  <strong>
+                    柜面间距 {comparison.faceDistance.toFixed(2)} m ·{" "}
+                    {reserveGapText(comparison.gap)}
+                  </strong>
+                )}
                 <small>通道预留示意 · 非实测净距</small>
               </div>
             ) : state.level === "device" && model.category !== "server" ? (
