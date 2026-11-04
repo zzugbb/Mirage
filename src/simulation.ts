@@ -26,6 +26,7 @@ export type SimulationEvent = {
   kind: "input" | "raised" | "escalated" | "downgraded" | "recovered";
   title: string;
   detail: string;
+  conditionSince: number | null;
 };
 export type SimulationAlarm = {
   id: string;
@@ -145,13 +146,14 @@ function generateTrace(deviceId = "srv-01"): readonly Sample[] {
       kind: SimulationEvent["kind"],
       title: string,
       detail: string,
-      entityId: string = deviceId,
+      conditionSince: number | null = null,
     ) =>
       events.push(
         Object.freeze({
           id: `${scenario.id}:${deviceId}:${kind}:${t}`,
           time: t,
-          entityId,
+          entityId: kind === "input" ? scenario.relation.source : deviceId,
+          conditionSince,
           kind,
           title,
           detail,
@@ -162,28 +164,20 @@ function generateTrace(deviceId = "srv-01"): readonly Sample[] {
         "input",
         "冷却能力开始下降",
         "模拟输入：在 6 秒内从 100% 降至 35%。",
-        scenario.relation.source,
       );
     if (t === 26)
       addEvent(
         "input",
         "冷却能力降至 35%",
         "负载设定不变；温度滞后响应，风扇功耗随温度增加。",
-        scenario.relation.source,
       );
     if (t === 70)
-      addEvent(
-        "input",
-        "开始恢复冷却能力",
-        "模拟输入：在 8 秒内恢复到 100%。",
-        scenario.relation.source,
-      );
+      addEvent("input", "开始恢复冷却能力", "模拟输入：在 8 秒内恢复到 100%。");
     if (t === 78)
       addEvent(
         "input",
         "冷却能力已恢复 100%",
         "温度仍有响应延迟，告警按回差和持续条件恢复。",
-        scenario.relation.source,
       );
     warningSince =
       temperature >= scenario.warning.threshold ? (warningSince ?? t) : null;
@@ -209,7 +203,8 @@ function generateTrace(deviceId = "srv-01"): readonly Sample[] {
       addEvent(
         "raised",
         "进风温度预警",
-        `进风温度 ≥ 33 °C 已持续 5 秒，当前 ${temperature} °C。`,
+        `进风温度 ≥ 33 °C 已持续 5 秒，该秒读数 ${temperature} °C。`,
+        warningSince,
       );
     } else if (alarm?.active) {
       if (held(recoverySince, scenario.warning.clearHold)) {
@@ -217,7 +212,8 @@ function generateTrace(deviceId = "srv-01"): readonly Sample[] {
         addEvent(
           "recovered",
           "温度告警已恢复",
-          `进风温度 ≤ 31 °C 已持续 8 秒，当前 ${temperature} °C。`,
+          `进风温度 ≤ 31 °C 已持续 8 秒，该秒读数 ${temperature} °C。`,
+          recoverySince,
         );
       } else if (
         alarm.severity === "warning" &&
@@ -232,7 +228,8 @@ function generateTrace(deviceId = "srv-01"): readonly Sample[] {
         addEvent(
           "escalated",
           "进风温度升级为严重",
-          `进风温度 ≥ 38 °C 已持续 5 秒，当前 ${temperature} °C。`,
+          `进风温度 ≥ 38 °C 已持续 5 秒，该秒读数 ${temperature} °C。`,
+          criticalSince,
         );
       } else if (
         alarm.severity === "critical" &&
@@ -242,7 +239,8 @@ function generateTrace(deviceId = "srv-01"): readonly Sample[] {
         addEvent(
           "downgraded",
           "温度告警降级为预警",
-          `进风温度 ≤ 36 °C 已持续 5 秒，当前 ${temperature} °C。`,
+          `进风温度 ≤ 36 °C 已持续 5 秒，该秒读数 ${temperature} °C。`,
+          downgradeSince,
         );
       }
     }
@@ -255,12 +253,28 @@ function generateTrace(deviceId = "srv-01"): readonly Sample[] {
         ? { label, elapsed: t - since, required }
         : null;
     const pending = !alarm?.active
-      ? condition("预警持续条件", warningSince, scenario.warning.hold)
+      ? condition(
+          `预警条件 ≥ ${scenario.warning.threshold} °C`,
+          warningSince,
+          scenario.warning.hold,
+        )
       : alarm.severity === "critical"
-        ? condition("降级持续条件", downgradeSince, scenario.critical.clearHold)
+        ? condition(
+            `降级条件 ≤ ${scenario.critical.clear} °C`,
+            downgradeSince,
+            scenario.critical.clearHold,
+          )
         : temperature <= scenario.warning.clear
-          ? condition("恢复持续条件", recoverySince, scenario.warning.clearHold)
-          : condition("严重持续条件", criticalSince, scenario.critical.hold);
+          ? condition(
+              `恢复条件 ≤ ${scenario.warning.clear} °C`,
+              recoverySince,
+              scenario.warning.clearHold,
+            )
+          : condition(
+              `严重条件 ≥ ${scenario.critical.threshold} °C`,
+              criticalSince,
+              scenario.critical.hold,
+            );
     const phase =
       t < 20
         ? "stable"

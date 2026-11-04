@@ -57,6 +57,7 @@ import { coolingCapacityAt } from "./simulation";
 import { ResourceActions } from "./components/ResourceActions";
 import { ReviewScene } from "./components/ReviewScene";
 import { ReviewTrend } from "./components/ReviewTrend";
+import { InletAssessment } from "./components/InletAssessment";
 import { ReviewAnalysis } from "./components/ReviewAnalysis";
 import type { PresentationPhase, SceneFeedback } from "./mechanics";
 import {
@@ -189,6 +190,11 @@ export function Workspace() {
   const opposite =
     aisle && (aisle.front.rackId === selected ? aisle.rear : aisle.front);
   const component = entity.kind === "part";
+  const inletId = component
+    ? state.deviceId
+    : entity.kind === "device"
+      ? selected
+      : null;
   const powerFacility = isPowerFacility(selected);
   const coolingFacility = isCoolingSource(selected);
   const associatedDevices = useMemo(
@@ -317,7 +323,8 @@ export function Workspace() {
   const locateEventDevice = (id: string) => {
     setQuery("");
     setFilter("all");
-    focus(id, { revealStage: true });
+    if (state.playing) dispatch({ type: "seek", time: state.time });
+    focus(id, { revealStage: true, installation: true });
   };
   const eventHeading = useRef<HTMLHeadingElement>(null);
   const jumpToEvents = useRef(false);
@@ -332,9 +339,11 @@ export function Workspace() {
     setInspector(true);
     if (matchMedia("(max-width: 1099px)").matches) setNav(false);
   };
-  const showAirflow = () => {
-    const target = roomAirflowTarget(selected, state.deviceId);
+  const showAirflow = (id: string) => {
+    const target = roomAirflowTarget(id, state.deviceId);
     if (!target || !ready) return;
+    if (review.analysis && state.playing)
+      dispatch({ type: "seek", time: state.time });
     setSliceControls((current) => alignAirflowSlice(current, target.rowId));
     control({ type: "room-airflow", id: target.id });
     if (state.level !== "room") {
@@ -1035,6 +1044,18 @@ export function Workspace() {
                     }
                   />
                 </div>
+                {inletId && (
+                  <InletAssessment
+                    reading={spatial.readings.get(inletId)!}
+                    sample={spatial.samples.get(inletId)!}
+                    component={component}
+                    ready={ready}
+                    time={state.time}
+                    onSeek={(time) => dispatch({ type: "seek", time })}
+                    onAirflow={() => showAirflow(inletId)}
+                    onLocate={() => locateEventDevice(inletId)}
+                  />
+                )}
                 {fixture ? (
                   <FixtureDetails
                     fixture={fixture}
@@ -1057,6 +1078,8 @@ export function Workspace() {
                     component={component}
                     powerOnly={powerFacility}
                     cooling={coolingHistories?.cooling}
+                    onViewDeviceAirflow={showAirflow}
+                    ready={ready}
                     onLocateDevice={
                       entity.kind === "room" ||
                       entity.kind === "rack" ||
@@ -1163,7 +1186,7 @@ export function Workspace() {
                       }
                       onSelect={pick}
                       onLocateSource={() => pick(coolingSource.id, true)}
-                      onViewAirflow={showAirflow}
+                      onViewAirflow={() => showAirflow(selected)}
                     />
                     <FixtureRelations
                       title="邻近检漏设施"
@@ -1316,7 +1339,7 @@ export function Workspace() {
                         }
                         onSelect={pick}
                         onLocateSource={() => pick(coolingSource.id, true)}
-                        onViewAirflow={showAirflow}
+                        onViewAirflow={() => showAirflow(selected)}
                       />
                     )}
                   </>

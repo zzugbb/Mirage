@@ -19,6 +19,8 @@ export function AnalysisEvents({
   time,
   onSeek,
   onLocateDevice,
+  onViewDeviceAirflow,
+  ready,
 }: {
   title: string;
   headingRef: Ref<HTMLHeadingElement>;
@@ -26,6 +28,8 @@ export function AnalysisEvents({
   time: number;
   onSeek: (time: number) => void;
   onLocateDevice?: (id: string) => void;
+  onViewDeviceAirflow: (id: string) => void;
+  ready: boolean;
 }) {
   const row = (event: ReviewEvent) => (
     <button
@@ -83,6 +87,14 @@ export function AnalysisEvents({
                       {rackForDevice(source).name} / {unitLabel(source)}
                     </span>
                     <button
+                      aria-label={`查看 ${device.name} 机房气流`}
+                      disabled={!ready}
+                      onClick={() => onViewDeviceAirflow(source)}
+                    >
+                      机房气流
+                    </button>
+                    <button
+                      disabled={!ready}
                       aria-label={`定位 ${device.name}`}
                       onClick={() => onLocateDevice(source)}
                     >

@@ -2480,3 +2480,45 @@
     min-height: 44px;
   }
 }
+
+.inlet-assessment {
+  margin: 0 22px 12px;
+  padding-block: 9px;
+  border-block: 1px solid #ffffff12;
+  font-size: 11px;
+}
+.inlet-assessment header,
+.inlet-assessment .inlet-times,
+.inlet-assessment .inlet-locations {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.inlet-assessment header {
+  justify-content: space-between;
+}
+.inlet-assessment p {
+  margin: 5px 0;
+  color: #a8bac1;
+  line-height: 1.5;
+}
+.workspace-ui .inlet-assessment button {
+  padding: 4px 7px;
+  font-size: 11px;
+}
+.workspace-ui .inlet-times button {
+  padding: 3px 0;
+  border: 0;
+  color: #b5cfce;
+}
+.inlet-locations {
+  margin-top: 6px;
+}
+.event-location {
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.event-location > span {
+  flex-basis: 100%;
+}

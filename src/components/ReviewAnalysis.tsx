@@ -17,6 +17,8 @@ export function ReviewAnalysis({
   powerOnly = false,
   cooling,
   onLocateDevice,
+  onViewDeviceAirflow,
+  ready,
   onSeek,
   onReplay,
   onRate,
@@ -33,6 +35,8 @@ export function ReviewAnalysis({
   powerOnly?: boolean;
   cooling?: ReviewPoint[];
   onLocateDevice?: (id: string) => void;
+  onViewDeviceAirflow: (id: string) => void;
+  ready: boolean;
   onSeek: (time: number) => void;
   onReplay: () => void;
   onRate: (rate: 1 | 2 | 4) => void;
@@ -169,6 +173,8 @@ export function ReviewAnalysis({
           headingRef={eventHeading}
           time={time}
           onLocateDevice={onLocateDevice}
+          onViewDeviceAirflow={onViewDeviceAirflow}
+          ready={ready}
           onSeek={(target) => {
             setInspection(null);
             onSeek(target);
