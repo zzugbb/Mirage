@@ -480,6 +480,14 @@ export class SceneEngine {
       group.add(merged);
     }
   }
+  private panelViewport?: { width: number; height: number };
+  // 预览打开和还原侧栏时仅更新投影，真实窗口缩放与主动定位仍按目标取景。
+  preservePanelView() {
+    this.panelViewport = {
+      width: window.innerWidth,
+      height: window.innerHeight,
+    };
+  }
   resize() {
     const { width, height } = this.host.getBoundingClientRect();
     if (!width || !height) return;
@@ -490,6 +498,10 @@ export class SceneEngine {
     this.pipeline.resize(width, height);
     if (
       this.lastTime > 0 &&
+      !(
+        this.panelViewport?.width === window.innerWidth &&
+        this.panelViewport.height === window.innerHeight
+      ) &&
       Math.abs(previousAspect - this.camera.aspect) > 0.1
     )
       this.view(this.currentView, this.currentFocus);
@@ -679,6 +691,7 @@ export class SceneEngine {
     return object.visible && (!object.parent || this.visible(object.parent));
   }
   view(view: View, focus = false) {
+    this.panelViewport = undefined;
     const fixture =
       this.state.level === "room" && focus
         ? roomFacilityById(this.state.selected)

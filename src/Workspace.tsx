@@ -745,6 +745,15 @@ export function Workspace() {
               setNetworkLinkId(null);
             }}
             onSelect={pick}
+            onPreviewInput={(id) => {
+              pick(id);
+              return () => {
+                pick(selected);
+                setNav(nav);
+                setInspector(inspector);
+                control({ type: "analysis", value: review.analysis });
+              };
+            }}
             onFocus={() => focus(selected)}
             onPhase={setPhase}
             onFeedback={setFeedback}

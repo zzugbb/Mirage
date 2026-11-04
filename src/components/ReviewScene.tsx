@@ -1,3 +1,4 @@
+import { SlicePeakPreview } from "./SlicePeakPreview";
 import { fixtureById, roomFacilityById } from "../fixtures";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -49,6 +50,7 @@ export function ReviewScene({
   onClearPower,
   onClearNetwork,
   onSelect,
+  onPreviewInput,
   onFocus,
   onPhase,
   onFeedback,
@@ -67,6 +69,7 @@ export function ReviewScene({
   onClearPower?: () => void;
   onClearNetwork?: () => void;
   onSelect: (id: string, enter?: boolean) => void;
+  onPreviewInput: (id: string) => () => void;
   onFocus: () => void;
   onPhase: (phase: PresentationPhase) => void;
   onFeedback: (feedback: SceneFeedback) => void;
@@ -906,7 +909,15 @@ export function ReviewScene({
                     : "100%"}
                 </span>
               </div>
-              {layer === "environment" && <small>蓝色低温 → 暖色高温</small>}
+              {layer === "environment" && (
+                <small>
+                  {slice
+                    ? slice.orientation === "horizontal"
+                      ? "局部插值示意 · 空白无估计"
+                      : `高 ${sliceSettings.height.min.toFixed(2)}–${sliceSettings.height.max.toFixed(2)} m · 插值示意 · 空白无估计`
+                    : "蓝色低温 → 暖色高温"}
+                </small>
+              )}
               {slice && (
                 <div
                   className="review-slice-controls"
@@ -958,11 +969,19 @@ export function ReviewScene({
                         : `${slice.min.toFixed(1)}–${slice.max!.toFixed(1)} °C`}
                     </span>
                   </span>
-                  <small>
-                    {slice.orientation === "horizontal"
-                      ? "局部插值示意 · 空白无估计"
-                      : `高 ${sliceSettings.height.min.toFixed(2)}–${sliceSettings.height.max.toFixed(2)} m · 插值示意 · 空白无估计`}
-                  </small>
+                  <SlicePeakPreview
+                    key={`${shotRevision}:${slice.orientation}:${slice.rowId}:${slice.height ?? slice.distance}`}
+                    peak={slice.highestInput}
+                    selectedId={selectedId}
+                    onPreview={(id) => {
+                      engine.current?.preservePanelView();
+                      const restore = onPreviewInput(id);
+                      return () => {
+                        engine.current?.preservePanelView();
+                        restore();
+                      };
+                    }}
+                  />
                   {airflow && (
                     <details className="review-flow-explanation">
                       <summary>

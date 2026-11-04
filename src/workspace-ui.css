@@ -843,6 +843,28 @@
   line-height: 1.6;
   color: #8fa4b0;
 }
+.workspace-ui .slice-peak-preview {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  min-height: 28px;
+  padding: 3px 7px;
+  border: 1px solid #ffffff18;
+  border-radius: 4px;
+  color: #c4d9da;
+  background: #ffffff06;
+  font-size: 11px;
+  cursor: pointer;
+}
+.workspace-ui .slice-peak-preview:hover:enabled {
+  background: #ffffff12;
+}
+.workspace-ui .slice-peak-preview:disabled {
+  color: #a3b3bb;
+  cursor: default;
+}
 .study-room-summary {
   position: absolute;
   z-index: 3;

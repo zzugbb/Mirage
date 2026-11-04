@@ -102,6 +102,7 @@ export type TemperatureSlice = SlicePlane & {
   values: Float32Array;
   influence: Float32Array;
   rackEstimates: Map<string, number | null>;
+  highestInput: { id: string; temperature: number } | null;
   validInputs: number;
   totalInputs: number;
   min: number | null;
@@ -174,13 +175,26 @@ function sampleSlice(
       rackEstimates.set(rack.id, highest);
     }
   }
+  let highestInput: TemperatureSlice["highestInput"] = null;
+  let validInputs = 0;
+  for (const { id, temperature } of nearby) {
+    if (temperature === null) continue;
+    validInputs++;
+    if (
+      !highestInput ||
+      temperature > highestInput.temperature ||
+      (temperature === highestInput.temperature && id < highestInput.id)
+    )
+      highestInput = { id, temperature };
+  }
   return {
     ...plane,
     frame,
     values,
     influence,
     rackEstimates,
-    validInputs: nearby.filter((input) => input.temperature !== null).length,
+    highestInput,
+    validInputs,
     totalInputs: nearby.length,
     min: min === Infinity ? null : min,
     max: max === -Infinity ? null : max,

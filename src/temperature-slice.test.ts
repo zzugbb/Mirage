@@ -293,3 +293,70 @@ test("水平和垂直切片的纹理角点与世界采样方向一致，切换�
   }
   geometry.dispose();
 });
+
+test("水平切片从本层影响范围内选择最高设备输入，排除无效值，保留零值与并列次序", () => {
+  const readings = new Map(spatialSnapshot(60).readings);
+  const inputs = intakeInputs(readings);
+  const height = sliceSettings.height.initial;
+  const nearby = inputs.filter(
+    (i) => Math.abs(i.position[1] - height) < sliceSettings.support.y,
+  );
+  const outside = inputs.find(
+    (i) => Math.abs(i.position[1] - height) >= sliceSettings.support.y,
+  )!;
+  const set = (
+    id: string,
+    temperature: number | null,
+    quality: "valid" | "missing" | "offline" | "stale",
+  ) => readings.set(id, { ...readings.get(id)!, temperature, quality });
+  for (const { id } of inputs) set(id, null, "missing");
+  set(outside.id, 80, "valid");
+  set(nearby[0].id, 90, "offline");
+  set(nearby[1].id, 91, "stale");
+  set(nearby[2].id, Infinity, "valid");
+  assert.equal(temperatureSlice(readings, height).highestInput, null);
+  const tie = [nearby[3].id, nearby[4].id].sort();
+  for (const id of tie) set(id, 0, "valid");
+  const slice = temperatureSlice(readings, height);
+  assert.equal(slice.validInputs, 2);
+  assert.deepEqual(slice.highestInput, { id: tie[0], temperature: 0 });
+  set(tie[1], 37, "valid");
+  assert.deepEqual(temperatureSlice(readings, height).highestInput, {
+    id: tie[1],
+    temperature: 37,
+  });
+});
+
+test("垂直切片的最高输入只来自所选柜排，改变离柜距离只影响插值", () => {
+  const readings = new Map(spatialSnapshot(60).readings);
+  for (const { id } of intakeInputs(readings))
+    readings.set(id, {
+      ...readings.get(id)!,
+      temperature: null,
+      quality: "missing",
+    });
+  const [a, b] = sliceRackRows;
+  const ids = [a, b].map(
+    (row) =>
+      intakeInputs(readings).find((i) =>
+        row.rackIds.includes(rackForDevice(i.id).id),
+      )!.id,
+  );
+  ids.forEach((id, i) =>
+    readings.set(id, {
+      ...readings.get(id)!,
+      temperature: 30 + i,
+      quality: "valid",
+    }),
+  );
+  for (const [i, row] of [a, b].entries()) {
+    for (const distance of [
+      sliceSettings.vertical.distance.min,
+      sliceSettings.vertical.distance.max,
+    ]) {
+      const slice = verticalTemperatureSlice(readings, row.id, distance);
+      assert.equal(slice.validInputs, 1);
+      assert.deepEqual(slice.highestInput, { id: ids[i], temperature: 30 + i });
+    }
+  }
+});
