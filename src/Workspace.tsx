@@ -280,6 +280,22 @@ export function Workspace() {
     setInspector(true);
     if (matchMedia("(max-width: 1099px)").matches) setNav(false);
   };
+  const stageRef = useRef<HTMLElement>(null);
+  const locateEventDevice = (id: string) => {
+    setQuery("");
+    setFilter("all");
+    focus(id);
+    stageRef.current?.focus({ preventScroll: true });
+    stageRef.current?.scrollIntoView({ block: "nearest" });
+  };
+  const eventHeading = useRef<HTMLHeadingElement>(null);
+  const jumpToEvents = useRef(false);
+  useEffect(() => {
+    if (review.analysis && jumpToEvents.current) {
+      eventHeading.current?.focus();
+      jumpToEvents.current = false;
+    }
+  }, [review.analysis]);
   const analyze = () => {
     control({ type: "analysis", value: true });
     setInspector(true);
@@ -712,7 +728,12 @@ export function Workspace() {
               : "单击选择 · 定位聚焦 · 进入下一级"}
           </footer>
         </aside>
-        <section className="study-stage" aria-label="三维工作区">
+        <section
+          ref={stageRef}
+          tabIndex={-1}
+          className="study-stage"
+          aria-label="三维工作区"
+        >
           <div className="study-layer-control">
             {!nav && (
               <button
@@ -940,12 +961,21 @@ export function Workspace() {
                       power: reading?.powerLabel ?? "功耗",
                     }}
                     histories={histories}
+                    eventHeading={eventHeading}
                     events={events}
                     time={state.time}
                     playbackRate={state.playbackRate}
                     component={component}
                     powerOnly={powerFacility}
                     cooling={coolingHistories?.cooling}
+                    onLocateDevice={
+                      entity.kind === "room" ||
+                      entity.kind === "rack" ||
+                      powerFacility ||
+                      coolingFacility
+                        ? locateEventDevice
+                        : undefined
+                    }
                     onSeek={(time) => dispatch({ type: "seek", time })}
                     onReplay={() => dispatch({ type: "replay" })}
                     onRate={(rate) => dispatch({ type: "rate", rate })}
@@ -960,10 +990,17 @@ export function Workspace() {
                     <h2>进风温度异常</h2>
                     <p>
                       {reading.count > 1
-                        ? `${reading.alarmCount} 台设备存在温度告警，可从资源目录逐层定位。`
+                        ? `${reading.alarmCount} 台设备存在进风温度告警。`
                         : "设备进风温度持续超限。回看曲线与事件，检查异常发生过程。"}
                     </p>
-                    <button onClick={analyze}>回看告警过程</button>
+                    <button
+                      onClick={() => {
+                        jumpToEvents.current = true;
+                        analyze();
+                      }}
+                    >
+                      回看告警过程
+                    </button>
                   </section>
                 )}
                 {fixture ? (

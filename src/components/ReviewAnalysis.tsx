@@ -1,26 +1,22 @@
-import { useState } from "react";
+import { useState, type Ref } from "react";
 import type { ReviewEvent, ReviewMetric, ReviewPoint } from "../review-model";
 import { qualityNames } from "../status";
 import { ReviewTrend } from "./ReviewTrend";
 import type { TrendMetric } from "../trend-geometry";
-const eventLabels = {
-  input: "输入",
-  raised: "预警",
-  escalated: "升级",
-  downgraded: "降级",
-  recovered: "恢复",
-};
+import { AnalysisEvents } from "./AnalysisEvents";
 
 export function ReviewAnalysis({
   title,
   labels,
   histories,
   events,
+  eventHeading,
   time,
   playbackRate,
   component,
   powerOnly = false,
   cooling,
+  onLocateDevice,
   onSeek,
   onReplay,
   onRate,
@@ -30,11 +26,13 @@ export function ReviewAnalysis({
   labels: Record<ReviewMetric, string>;
   histories: Record<ReviewMetric, ReviewPoint[]>;
   events: ReviewEvent[];
+  eventHeading: Ref<HTMLHeadingElement>;
   time: number;
   playbackRate: 1 | 2 | 4;
   component: boolean;
   powerOnly?: boolean;
   cooling?: ReviewPoint[];
+  onLocateDevice?: (id: string) => void;
   onSeek: (time: number) => void;
   onReplay: () => void;
   onRate: (rate: 1 | 2 | 4) => void;
@@ -157,45 +155,25 @@ export function ReviewAnalysis({
             <small>点击或横拖回看 · 空缺保留</small>
           </div>
         </div>
-        <div className="review-events">
-          <h3>
-            {cooling
+        <AnalysisEvents
+          title={
+            cooling
               ? "输入与关联设备事件"
               : powerOnly
                 ? "关联设备事件"
                 : component
                   ? "所属设备事件"
-                  : "已发生事件"}
-            <span>{events.length}</span>
-          </h3>
-          {events.length ? (
-            events.map((event) => (
-              <button
-                key={event.id}
-                data-event-kind={event.kind}
-                aria-pressed={event.time === cursor}
-                title={event.detail}
-                onClick={() => {
-                  setInspection(null);
-                  onSeek(event.time);
-                }}
-              >
-                <time>{event.time}s</time>
-                <span>
-                  <i>{eventLabels[event.kind]}</i>
-                  {event.title}
-                  <small>
-                    {event.kind === "input"
-                      ? "场景输入"
-                      : event.deviceIds.join("、").toUpperCase()}
-                  </small>
-                </span>
-              </button>
-            ))
-          ) : (
-            <p>当前范围没有已发生事件</p>
-          )}
-        </div>
+                  : "已发生事件"
+          }
+          events={events}
+          headingRef={eventHeading}
+          time={time}
+          onLocateDevice={onLocateDevice}
+          onSeek={(target) => {
+            setInspection(null);
+            onSeek(target);
+          }}
+        />
       </div>
     </section>
   );

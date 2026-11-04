@@ -6,7 +6,11 @@ import {
   trendRight,
   trendTimeAtX,
 } from "./trend-geometry.ts";
-import { reviewHistories, reviewEvents } from "./review-model.ts";
+import {
+  reviewHistories,
+  reviewEvents,
+  eventsBySource,
+} from "./review-model.ts";
 import type { ReviewPoint } from "./review-model.ts";
 import { spatialSnapshot } from "./spatial.ts";
 import { devices } from "./installation.ts";
@@ -113,5 +117,35 @@ test("公共输入只显示一次，设备告警独立；过期保留已知事�
   assert.ok(reviewEvents(["srv-63"], 120).every((e) => e.kind === "input"));
   assert.ok(
     all.filter((e) => e.kind === "input").every((e) => e.deviceIds.length > 1),
+  );
+});
+
+test("告警过程按实体分组，逐组从发生到恢复，公共输入不归到设备", () => {
+  const rack = devices.filter((d) => d.rackId === "rack-a01").map((d) => d.id);
+  for (const time of [0, 20, 35, 49, 60, 95, 120]) {
+    const events = reviewEvents(rack, time);
+    const groups = eventsBySource(events);
+    assert.deepEqual(
+      groups.map((g) => g.source),
+      [...new Set(events.map((e) => e.entityId))],
+    );
+    for (const { source, history } of groups) {
+      assert.deepEqual(
+        history,
+        events.filter((e) => e.entityId === source).reverse(),
+      );
+      assert.ok(
+        history.every(
+          (e) => (e.kind === "input") === (source === "cooling-01"),
+        ),
+      );
+    }
+  }
+  const history = eventsBySource(reviewEvents(rack, 95)).find(
+    (g) => g.source === "srv-01",
+  )!.history;
+  assert.deepEqual(
+    history.map((e) => e.kind),
+    ["raised", "escalated", "downgraded", "recovered"],
   );
 });

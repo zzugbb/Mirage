@@ -548,3 +548,17 @@ export function reviewEvents(
     (a, b) => b.time - a.time || a.id.localeCompare(b.id),
   );
 }
+
+/** reviewEvents 已按时间倒序排列。各来源按最近事件排序，组内按发生顺序回看。 */
+export function eventsBySource(events: ReviewEvent[]) {
+  const groups = new Map<string, ReviewEvent[]>();
+  for (const event of events) {
+    const group = groups.get(event.entityId);
+    if (group) group.push(event);
+    else groups.set(event.entityId, [event]);
+  }
+  return Array.from(groups, ([source, history]) => ({
+    source,
+    history: history.reverse(),
+  }));
+}

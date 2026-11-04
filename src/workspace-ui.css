@@ -2259,3 +2259,70 @@
   color: #d4e9ed;
   background: #ffffff08;
 }
+
+.workspace-ui .event-source {
+  border-bottom: 1px solid #ffffff0c;
+}
+.event-source summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-block: 10px;
+  cursor: pointer;
+  font-size: 12px;
+  color: #bdcdd4;
+}
+.event-source summary::before {
+  content: "▸";
+  color: #91aab5;
+}
+.event-source[open] summary::before {
+  content: "▾";
+}
+.event-source summary::-webkit-details-marker {
+  display: none;
+}
+.event-source summary span {
+  margin-left: auto;
+  font-size: 11px;
+  color: #99aeb8;
+}
+.event-source summary small {
+  font-size: 10px;
+  color: #93a7b2;
+}
+.event-history {
+  margin: 0 0 8px 4px;
+  padding-left: 12px;
+  border-left: 1px solid #476069;
+}
+.event-location {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  color: #9cabb6;
+}
+.workspace-ui .event-location button {
+  width: auto;
+  color: #a8d9d5;
+  padding: 6px 8px;
+}
+.workspace-ui .review-events .analysis-event {
+  padding-inline: 6px;
+}
+.workspace-ui .analysis-event small {
+  font-size: 10px;
+}
+.workspace-ui .analysis-event[aria-pressed="true"] {
+  background: #23333b;
+  border-radius: 3px;
+}
+.workspace-ui .analysis-event[aria-pressed="true"] small {
+  color: #b5c9d2;
+}
+@media (max-width: 767px) {
+  .event-source summary {
+    min-height: 44px;
+  }
+}
