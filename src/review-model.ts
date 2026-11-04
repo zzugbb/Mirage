@@ -7,7 +7,12 @@ import {
 import type { Action, AppState } from "./domain.ts";
 import { spatialSnapshot } from "./spatial.ts";
 import { pduById, associatedInputReading } from "./power-config.ts";
-import { coolingSource, coolingDeviceIds, coolingSummary } from "./cooling.ts";
+import {
+  coolingSource,
+  coolingDeviceIds,
+  coolingSummary,
+  roomAirflowTarget,
+} from "./cooling.ts";
 import { coolingCapacityAt } from "./simulation.ts";
 import { canSelectInScene } from "./review-resources.ts";
 import { rackForDevice } from "./installation.ts";
@@ -67,6 +72,7 @@ export type ReviewAction =
   | { type: "shot"; shot: ReviewShot }
   | { type: "analysis"; value: boolean }
   | { type: "navigation-ready"; key: string }
+  | { type: "room-airflow"; id: string }
   | Exclude<ExperienceAction, { type: "scene" }>;
 export type ResourceAction = {
   type: "pick" | "open-resource" | "focus-resource" | "extract-resource";
@@ -180,6 +186,29 @@ function reviewInteractionTransition(
             : state.scene,
         }
       : state;
+  if (action.type === "room-airflow") {
+    const target = roomAirflowTarget(action.id, state.scene.deviceId);
+    if (!target || state.pendingId) return state;
+    const thermal: ReviewState = { ...state, layer: "environment" };
+    if (state.scene.level === "room")
+      return reviewInteractionTransition(thermal, {
+        type: "pick",
+        id: target.id,
+      });
+    // pendingId 记录结构归位后的目的地，selectedId 保留要在机房观察的对象。
+    const next = reviewInteractionTransition(thermal, {
+      type: "open-resource",
+      id: "room-01",
+    });
+    return {
+      ...next,
+      selectedId: target.id,
+      scene:
+        next.scene.level === "room"
+          ? { ...next.scene, selected: target.id }
+          : next.scene,
+    };
+  }
   if (action.type === "navigation-ready") {
     if (!state.pendingId || action.key !== presentationKey(state.scene))
       return state;
@@ -200,10 +229,17 @@ function reviewInteractionTransition(
           explosion: 0,
         },
       };
-    return reviewTransition(
+    const next = reviewTransition(
       { ...state, pendingId: null },
       { type: "open-resource", id: state.pendingId },
     );
+    if (state.pendingId === "room-01" && state.selectedId !== state.pendingId)
+      return {
+        ...next,
+        selectedId: state.selectedId,
+        scene: { ...next.scene, selected: state.selectedId },
+      };
+    return next;
   }
   if (action.type === "extract-resource") {
     if (

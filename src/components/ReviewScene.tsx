@@ -1,6 +1,6 @@
 import { SlicePeakPreview } from "./SlicePeakPreview";
 import { fixtureById, roomFacilityById } from "../fixtures";
-import type { ReactNode } from "react";
+import type { Dispatch, SetStateAction, ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { AppState } from "../domain";
 import type { PresentationPhase, SceneFeedback } from "../mechanics";
@@ -15,12 +15,13 @@ import { sceneLabels } from "../scene-labels";
 import { reviewSpatialMarks } from "../review-spatial";
 import { ReviewDataGeometry } from "../scene/review-data";
 import {
+  initialSliceControls,
   sliceSettings,
   sliceRackRows,
   temperatureSlice,
   verticalTemperatureSlice,
 } from "../temperature-slice";
-import type { SliceOrientation } from "../temperature-slice";
+import type { SliceOrientation, SliceControls } from "../temperature-slice";
 import { TemperatureSliceGeometry } from "../scene/temperature-slice";
 import { airflowSnapshot, airflowVisualTime } from "../airflow";
 import { AirflowGeometry } from "../scene/airflow";
@@ -33,15 +34,10 @@ import { pduById } from "../power-config";
 import { networkMarkers, networkLinkById } from "../network";
 import { NetworkGeometry } from "../scene/network";
 
-const initialSliceControls = () => ({
-  orientation: "horizontal" as SliceOrientation,
-  height: sliceSettings.height.initial,
-  rowId: sliceRackRows[0].id,
-  distance: sliceSettings.vertical.distance.initial,
-});
-
 export function ReviewScene({
   state,
+  sliceControls,
+  setSliceControls,
   layer,
   readings,
   selectedId,
@@ -61,6 +57,8 @@ export function ReviewScene({
   compactTools = false,
 }: {
   state: AppState;
+  sliceControls: SliceControls;
+  setSliceControls: Dispatch<SetStateAction<SliceControls>>;
   layer: ReviewLayer;
   readings: Map<string, SpatialReading>;
   selectedId: string;
@@ -105,7 +103,6 @@ export function ReviewScene({
   const [orbit, setOrbit] = useState(false);
   const [cutaway, setCutaway] = useState(true);
   const [moreLabels, setMoreLabels] = useState(false);
-  const [sliceControls, setSliceControls] = useState(initialSliceControls);
   const slice = useMemo(
     () =>
       layer === "environment" && state.level === "room"
@@ -328,7 +325,7 @@ export function ReviewScene({
     setSliceControls(initialSliceControls());
     engine.current?.view(next);
     setView(next);
-  }, [shotRevision, retry]);
+  }, [shotRevision, retry, setSliceControls]);
   useEffect(() => {
     if (engine.current) {
       engine.current.telemetry.mode = presentation.mode;

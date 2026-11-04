@@ -45,7 +45,9 @@ import {
   isCoolingSource,
   coolingDeviceIds,
   coolingSummary,
+  roomAirflowTarget,
 } from "./cooling";
+import { alignAirflowSlice, initialSliceControls } from "./temperature-slice";
 import { coolingCapacityAt } from "./simulation";
 import { ResourceActions } from "./components/ResourceActions";
 import { ReviewScene } from "./components/ReviewScene";
@@ -91,6 +93,7 @@ export function Workspace() {
   );
   const { scene: state, layer, tour } = review;
   const selected = review.selectedId ?? state.selected;
+  const [sliceControls, setSliceControls] = useState(initialSliceControls);
   const [shot, setShot] = useState<WorkspaceShot>("overview");
   const [revision, setRevision] = useState(0);
   const [phase, setPhase] = useState<PresentationPhase>("closed");
@@ -283,8 +286,18 @@ export function Workspace() {
     if (matchMedia("(max-width: 1099px)").matches) setNav(false);
   };
   const showAirflow = () => {
-    control({ type: "layer", layer: "environment" });
-    if (state.level !== "room") pick(coolingSource.id, true);
+    const target = roomAirflowTarget(selected, state.deviceId);
+    if (!target || !ready) return;
+    setSliceControls((current) => alignAirflowSlice(current, target.rowId));
+    control({ type: "room-airflow", id: target.id });
+    if (state.level !== "room") {
+      setQuery("");
+      setFilter("all");
+    }
+    setMetric("temperature");
+    setOnlyAlarms(false);
+    setInspector(true);
+    if (matchMedia("(max-width: 1099px)").matches) setNav(false);
   };
   useEffect(() => {
     if (
@@ -731,6 +744,8 @@ export function Workspace() {
           </div>
           <ReviewScene
             state={state}
+            sliceControls={sliceControls}
+            setSliceControls={setSliceControls}
             layer={layer}
             readings={spatial.readings}
             selectedId={selected}

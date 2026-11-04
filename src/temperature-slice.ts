@@ -109,6 +109,23 @@ export type TemperatureSlice = SlicePlane & {
   max: number | null;
 };
 export const sliceRackRows = sliceSettings.vertical.rows;
+export const initialSliceControls = () => ({
+  orientation: "horizontal" as SliceOrientation,
+  height: sliceSettings.height.initial,
+  rowId: sliceRackRows[0].id,
+  distance: sliceSettings.vertical.distance.initial,
+});
+export type SliceControls = ReturnType<typeof initialSliceControls>;
+
+export function alignAirflowSlice(
+  current: SliceControls,
+  rowId: string | null,
+): SliceControls {
+  return current.orientation === "vertical" && rowId && current.rowId !== rowId
+    ? { ...current, rowId }
+    : current;
+}
+
 /** 纹理坐标与采样、网格和边界共用同一空间基准。 */
 export function slicePoint(
   frame: SliceFrame,

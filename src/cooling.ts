@@ -31,6 +31,18 @@ export function coolingDeviceIds(id: string, deviceId = "srv-01") {
     return linked.has(deviceId) ? [deviceId] : [];
   return [];
 }
+/** 机房只能显示柜和整机的代表路径，部件沿用当前设备的冷却关系。 */
+export function roomAirflowTarget(id: string, deviceId: string) {
+  if (!coolingDeviceIds(id, deviceId).length) return null;
+  if (isCoolingSource(id) || id === "room-01") return { id, rowId: null };
+  const targetId =
+    deviceById(id) || racks.some((rack) => rack.id === id) ? id : deviceId;
+  const rackId = deviceById(targetId)?.rackId ?? targetId;
+  const row = definition.temperatureSlice.vertical.rows.find((r) =>
+    r.rackIds.includes(rackId),
+  );
+  return { id: targetId, rowId: row?.id ?? null };
+}
 export function coolingSummary(
   ids: string[],
   readings: Map<string, SpatialReading>,
