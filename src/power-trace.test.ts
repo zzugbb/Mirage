@@ -1,12 +1,100 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { createState, transition } from "./domain.ts";
-import { devices } from "./installation.ts";
+import {
+  createState,
+  entityById,
+  presentationKey,
+  transition,
+} from "./domain.ts";
+import { createReview, reviewTransition } from "./review-model.ts";
+import { devices, deviceById, rackForDevice } from "./installation.ts";
+import { unitLabel } from "./catalog.ts";
 import { roomFixtures } from "./fixtures.ts";
-import { powerLinks, inletPart } from "./power-config.ts";
-import { powerContextIncludes, powerLinksForContext } from "./power-trace.ts";
+import {
+  powerLinks,
+  powerSettings,
+  inletPart,
+  pduById,
+} from "./power-config.ts";
+import {
+  powerContextIncludes,
+  powerLinksForContext,
+  powerTraceStops,
+} from "./power-trace.ts";
 import { powerScene, pduOutletPosition } from "./power-paths.ts";
 import { PowerGeometry } from "./scene/power.ts";
+
+test("支路导航按配置列出出线、插座和设备安装位，未追踪时没有导航目标", () => {
+  for (const id of [null, "unknown"]) assert.deepEqual(powerTraceStops(id), []);
+  for (const link of powerLinks) {
+    const [source, pdu, device] = powerTraceStops(link.id);
+    assert.deepEqual(
+      [source.id, pdu.id, device.id],
+      [powerSettings.sourceId, link.pduId, link.deviceId],
+    );
+    assert.equal(
+      source.location,
+      `逻辑出线 ${pduById(link.pduId)!.sourcePort}`,
+    );
+    assert.equal(
+      pdu.location,
+      `后置 0U · 插座 ${String(link.outlet).padStart(2, "0")}`,
+    );
+    assert.equal(
+      device.location,
+      `${rackForDevice(link.deviceId).name} / ${unitLabel(link.deviceId)}`,
+    );
+    const part = inletPart(deviceById(link.deviceId)!.modelId, link.inlet);
+    assert.equal(
+      device.input,
+      `输入 ${link.inlet} · ${entityById(part)!.name}`,
+    );
+  }
+});
+
+test("展开设备预览同支路不动姿态，定位经归位后可沿同一支路回到出线", () => {
+  const link = powerLinks.find(
+    (link) => link.deviceId === "srv-01" && link.inlet === "B",
+  )!;
+  let state = reviewTransition(createReview(), {
+    type: "shot",
+    shot: "assembly",
+  });
+  state = reviewTransition(state, {
+    type: "scene",
+    action: { type: "seek", time: 49 },
+  });
+  const preview = reviewTransition(state, { type: "pick", id: link.pduId });
+  assert.deepEqual(preview.scene, state.scene);
+  state = reviewTransition(preview, { type: "focus-resource", id: link.pduId });
+  assert.equal(state.pendingId, link.pduId);
+  state = reviewTransition(state, {
+    type: "navigation-ready",
+    key: presentationKey(state.scene),
+  });
+  assert.equal(state.scene.selected, link.pduId);
+  state = reviewTransition(state, {
+    type: "locate-installation",
+    id: link.deviceId,
+  });
+  assert.equal(state.scene.level, "rack");
+  assert.equal(
+    powerScene(state.scene, state.scene.selected, link.id)?.traceId,
+    link.id,
+  );
+  state = reviewTransition(state, {
+    type: "focus-resource",
+    id: powerSettings.sourceId,
+  });
+  assert.equal(state.scene.level, "room");
+  assert.equal(state.scene.time, 49);
+  const supply = powerScene(state.scene, state.scene.selected, link.id)!;
+  assert.equal(supply.traceId, link.id);
+  assert.equal(
+    supply.labels.find((label) => label.id === "power-source")?.title,
+    "逻辑出线 QF-02",
+  );
+});
 
 test("无供电关系的设施不继承活动设备支路，错误追踪不能跨PDU或机柜泄漏", () => {
   const state = createState();

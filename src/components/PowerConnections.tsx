@@ -15,6 +15,7 @@ import {
 } from "../power-config";
 import type { SpatialReading } from "../spatial";
 import { qualityNames } from "../status";
+import { powerTraceStops } from "../power-trace";
 import { powerScene } from "../power-paths";
 
 const input = (reading?: SpatialReading) =>
@@ -67,6 +68,7 @@ export function PowerConnections({
           (!selectedFeed || link.inlet === selectedFeed)
         : false,
   );
+  const stops = powerTraceStops(activeLinkId);
   const canTrace = ready && !!powerScene(state, selectedId);
   return (
     <ConnectionSection
@@ -88,6 +90,42 @@ export function PowerConnections({
       <p className="power-boundary">
         配置示意 · A/B 未定义独立上游；回路与插座未计量，整机输入不分摊。
       </p>
+      {stops.length > 0 && (
+        <section className="power-active-trace" aria-label="当前供电支路">
+          <header>
+            <strong>当前供电支路</strong>
+            <button
+              aria-label="结束当前供电支路追踪"
+              onClick={() => onTrace(null)}
+            >
+              结束追踪
+            </button>
+          </header>
+          <ol>
+            {stops.map((stop) => (
+              <li key={stop.id}>
+                <button
+                  className="power-stop-preview"
+                  aria-label={`预览支路对象 ${stop.name}`}
+                  onClick={() => onSelect(stop.id)}
+                  aria-pressed={selectedId === stop.id}
+                >
+                  <strong>{stop.name}</strong>
+                  <small>{stop.location}</small>
+                  {stop.input && <small>{stop.input}</small>}
+                </button>
+                <button
+                  disabled={!ready}
+                  aria-label={`定位支路对象 ${stop.name}`}
+                  onClick={() => onLocate(stop.id)}
+                >
+                  定位
+                </button>
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
       {selectedId === powerSettings.sourceId ? (
         <>
           <p>

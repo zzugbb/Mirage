@@ -1,6 +1,8 @@
+import { entityById } from "./domain.ts";
 import { deviceById, rackById, rackForDevice } from "./installation.ts";
 import {
   modelForDevice,
+  unitLabel,
   partsForDevice,
   subpartsForDevice,
 } from "./catalog.ts";
@@ -8,11 +10,38 @@ import {
   powerLinks,
   powerSettings,
   pduById,
+  pduName,
   inletPart,
 } from "./power-config.ts";
 
 export const powerLinkById = (id: string | null) =>
   powerLinks.find((link) => link.id === id);
+/** 只有显式追踪的配置接入才提供导航，三处位置共用同一条连接。 */
+export function powerTraceStops(linkId: string | null) {
+  const link = powerLinkById(linkId);
+  if (!link) return [];
+  const pdu = pduById(link.pduId)!,
+    device = deviceById(link.deviceId)!;
+  const part = entityById(inletPart(device.modelId, link.inlet))!;
+  return [
+    {
+      id: powerSettings.sourceId,
+      name: entityById(powerSettings.sourceId)!.name,
+      location: `逻辑出线 ${pdu.sourcePort}`,
+    },
+    {
+      id: pdu.id,
+      name: pduName(pdu.id),
+      location: `后置 0U · 插座 ${String(link.outlet).padStart(2, "0")}`,
+    },
+    {
+      id: device.id,
+      name: device.name,
+      location: `${rackForDevice(device.id).name} / ${unitLabel(device.id)}`,
+      input: `输入 ${link.inlet} · ${part.name}`,
+    },
+  ];
+}
 /** 只认配置关系；背景设施不能借用活动设备的默认支路。 */
 export function powerLinksForContext(id: string, activeDeviceId: string) {
   if (id === "room-01" || id === powerSettings.sourceId) return powerLinks;

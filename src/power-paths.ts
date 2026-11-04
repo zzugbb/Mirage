@@ -114,16 +114,20 @@ export function powerScene(
     labels.push({
       id: "power-source",
       point: sourcePoint,
-      title: "配电柜 · 逻辑出线",
+      title: traced
+        ? `逻辑出线 ${pduById(traced.pduId)!.sourcePort}`
+        : "配电柜 · 逻辑出线",
       detail: "未计量 · 上游独立性未定义",
     });
   for (const feed of feeds) {
-    const targetPdu = pdus.find(
-      (pdu) => pdu.rackId === rack.id && pdu.feed === feed,
-    )!;
-    const link = powerLinks.find(
-      (link) => link.pduId === targetPdu.id && link.deviceId === device.id,
-    )!;
+    const targetPdu = traced
+      ? pduById(traced.pduId)!
+      : pdus.find((pdu) => pdu.rackId === rack.id && pdu.feed === feed)!;
+    const link =
+      traced ??
+      powerLinks.find(
+        (link) => link.pduId === targetPdu.id && link.deviceId === device.id,
+      )!;
     const partId = inletPart(model.id, feed);
     if (state.level === "device") {
       labels.push({

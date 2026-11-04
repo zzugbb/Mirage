@@ -1243,7 +1243,9 @@ export function Workspace() {
                     </section>
                     {(layer === "power" || powerFacility) && (
                       <PowerConnections
-                        activeLinkId={activePowerLink}
+                        activeLinkId={
+                          layer === "power" ? activePowerLink : null
+                        }
                         onTrace={(id) => {
                           setPowerLinkId(id);
                           if (id) control({ type: "layer", layer: "power" });
@@ -1255,7 +1257,11 @@ export function Workspace() {
                         readings={spatial.readings}
                         ready={ready}
                         onSelect={(id) => pick(id)}
-                        onLocate={(id) => pick(id, true)}
+                        onLocate={(id) =>
+                          focus(id, {
+                            installation: entityById(id)?.kind === "device",
+                          })
+                        }
                         onViewPower={
                           layer === "power"
                             ? undefined

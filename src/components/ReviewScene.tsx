@@ -330,9 +330,12 @@ export function ReviewScene({
       state.focusRevision !== previousScene.current.focusRevision
     ) {
       // 资源定位保留机柜上下文，避免自动贴到封闭设备内部。
-      const isPdu = !!pduById(state.selected);
-      active.view(isPdu ? "rear" : "iso", false);
-      if (isPdu) setView("rear");
+      const rear =
+        !!pduById(state.selected) ||
+        (supply?.traceId && supply.deviceId === state.selected);
+      const rackView = rear ? "rear" : "iso";
+      active.view(rackView, false);
+      setView(rackView);
       if (
         previousScene.current.level === "rack" &&
         previousScene.current.deviceId !== state.deviceId
@@ -692,10 +695,10 @@ export function ReviewScene({
               data-anchor-kind={label.partId ? "power-part" : "position"}
               data-anchor-level={state.level}
               data-anchor-position={label.point?.join(",")}
-              className="review-flow-anchor review-power-anchor"
+              className={`review-flow-anchor review-power-anchor ${supply?.traceId ? "is-traced" : ""}`}
             >
               <b>{label.title}</b>
-              <small>{label.detail}</small>
+              {!supply?.traceId && <small>{label.detail}</small>}
             </div>
           ))}
           {areaLabels.map((area) => (
