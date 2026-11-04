@@ -7,9 +7,12 @@ import {
 } from "./review-model.ts";
 import {
   findResources,
+  rackUnitQuery,
   resourceCatalog,
   componentGroups,
 } from "./review-resources.ts";
+import { devices, rackForDevice } from "./installation.ts";
+import { modelForDevice } from "./catalog.ts";
 import { presentationKey } from "./domain.ts";
 
 test("资源可按中文类型、编号、组合位置和 U 位查找，结果明确标出机型与位置", () => {
@@ -140,4 +143,99 @@ test("部件按当前配置分组，机柜列表按 U 位排列；告警与其�
   assert.equal(review.scene, scene);
   assert.equal(review.selectedId, selected);
   assert.equal(reviewPresentation("alarms", "room").mode, "alarms");
+});
+
+test("安装位置按实际占用跨度逐 U 精确匹配，携带柜号的区间查询区分设备和封板", () => {
+  const room = createReview().scene;
+  for (const d of devices) {
+    const rack = rackForDevice(d.id);
+    for (
+      let u = d.startUnit;
+      u < d.startUnit + modelForDevice(d.id).units;
+      u++
+    ) {
+      assert.deepEqual(
+        findResources(room, `${rack.name} / U${u}`, "all").map((r) => r.id),
+        [d.id],
+      );
+    }
+  }
+  assert.equal(findResources(room, "U39", "switch").length, 8);
+  for (const input of [
+    "B03 U27–33",
+    "rack-a07 / u27 - U33",
+    "B03机柜 U27至33",
+    "Ｂ０３ Ｕ２７～３３",
+  ]) {
+    assert.deepEqual(
+      findResources(room, input, "all").map((r) => r.id),
+      ["srv-55", "sto-01"],
+    );
+    assert.deepEqual(rackUnitQuery(room, input)?.blanking, [31, 32, 33]);
+  }
+  assert.deepEqual(rackUnitQuery(room, "A01 U40")?.blanking, [40]);
+  assert.deepEqual(findResources(room, "A01 U40", "all"), []);
+  assert.equal(findResources(room, "B03 U27", "server").length, 0);
+  for (const input of ["A01 U43", "U0", "B03 U33–27", "U2 U4"]) {
+    assert.ok(rackUnitQuery(room, input)?.error);
+    assert.deepEqual(findResources(room, input, "all"), []);
+  }
+  assert.equal(rackUnitQuery(room, "2U 服务器"), null);
+  assert.equal(findResources(room, "0U", "facility").length, 16);
+});
+test("柜内按 U 位查本柜，显式指定另一机柜仍能从设备内部跨柜查找", () => {
+  let review = reviewTransition(createReview(), {
+    type: "open-resource",
+    id: "srv-01",
+  });
+  for (const level of ["rack", "device"]) {
+    assert.equal(review.scene.level, level);
+    assert.deepEqual(
+      findResources(review.scene, "U24", "all").map((r) => r.id),
+      ["srv-01"],
+    );
+    assert.deepEqual(
+      findResources(review.scene, "B03 U26", "all").map((r) => r.id),
+      ["sto-01"],
+    );
+    review = reviewTransition(review, { type: "open-resource", id: "srv-01" });
+  }
+});
+test("安装位置定位从展开设备先归位，自身与跨柜结果都停在安装机柜并保留回看时间", () => {
+  const expanded = reviewTransition(createReview(), {
+    type: "shot",
+    shot: "assembly",
+  });
+  const start = reviewTransition(expanded, {
+    type: "scene",
+    action: { type: "seek", time: 49 },
+  });
+  for (const id of [start.scene.deviceId, "sto-01"]) {
+    const preview = reviewTransition(start, { type: "pick", id });
+    assert.deepEqual(preview.scene, start.scene);
+    const returning = reviewTransition(preview, {
+      type: "locate-installation",
+      id,
+    });
+    assert.equal(returning.pendingId, id);
+    assert.equal(returning.scene.explosion, 0);
+    assert.equal(returning.scene.deviceId, start.scene.deviceId);
+    assert.equal(
+      reviewTransition(returning, {
+        type: "navigation-ready",
+        key: presentationKey(start.scene),
+      }),
+      returning,
+    );
+    const located = reviewTransition(returning, {
+      type: "navigation-ready",
+      key: presentationKey(returning.scene),
+    });
+    assert.equal(located.scene.level, "rack");
+    assert.equal(located.scene.deviceId, id);
+    assert.equal(located.scene.selected, id);
+    assert.equal(located.scene.time, 49);
+    assert.equal(located.scene.coverOpen, false);
+    assert.equal(located.pendingId, null);
+  }
 });

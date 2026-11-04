@@ -129,3 +129,35 @@ test("告警图形按层级定位，当前设备随抽出位移；深度、相�
   assert.equal(disposed, 2);
   assert.equal(marks.root.children.length, 0);
 });
+
+test("装机角标复用安装外廓，忽略隐藏的展开部件并跟随导轨位移", () => {
+  const material = new THREE.MeshBasicMaterial();
+  const proxy = new THREE.Mesh(
+    new THREE.BoxGeometry(0.4826, 0.089, 0.9),
+    material,
+  );
+  proxy.position.set(-3, 1, 2);
+  const active = new THREE.Group();
+  active.position.copy(proxy.position);
+  const hidden = new THREE.Mesh(new THREE.BoxGeometry(3, 3, 3), material);
+  hidden.visible = false;
+  hidden.position.set(0, 4, 0);
+  active.add(hidden);
+  const marker = new SelectionCorners();
+  for (const travel of [0, 0.45, 0]) {
+    active.position.z = proxy.position.z + travel;
+    marker.setInstalledBox(active, proxy);
+    const expected = new THREE.Box3()
+      .setFromObject(proxy)
+      .translate(new THREE.Vector3(0, 0, travel));
+    assert.ok(
+      marker.box.min.distanceTo(expected.min) < 1e-8 &&
+        marker.box.max.distanceTo(expected.max) < 1e-8,
+    );
+  }
+  marker.geometry.dispose();
+  marker.material.dispose();
+  hidden.geometry.dispose();
+  proxy.geometry.dispose();
+  material.dispose();
+});

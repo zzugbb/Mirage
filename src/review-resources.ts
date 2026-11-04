@@ -1,3 +1,5 @@
+import definition from "../assets/public/scenes/room-01.json" with { type: "json" };
+import { rackBlankingUnits } from "./rack-blanking.ts";
 import { roomFixtures } from "./fixtures.ts";
 import { entityById } from "./domain.ts";
 import type { AppState } from "./domain.ts";
@@ -155,14 +157,67 @@ export function resourceCatalog(deviceId: string): Resource[] {
   ];
 }
 const normalize = (text: string) => text.toLowerCase().replace(/[\s\-–_]/g, "");
+// “U24”是安装坐标；“2U”和“0U”仍按机型或安装方式查找。
+const unitExpression =
+  /(?:^|[\s/])u\s*(-?\d+)(?:\s*[-–—~至]\s*u?\s*(\d+))?(?=$|[\s/])/i;
+const rackAliases = new Map(
+  racks.flatMap((r) =>
+    [r.id, r.name, r.name.split(" ")[0]].map(
+      (alias) => [normalize(alias), r] as const,
+    ),
+  ),
+);
+export function rackUnitQuery(
+  state: Pick<AppState, "level" | "deviceId">,
+  query: string,
+) {
+  const input = query.normalize("NFKC").trim();
+  const match = unitExpression.exec(input);
+  if (!match) return null;
+  const first = Number(match[1]),
+    last = Number(match[2] ?? match[1]);
+  const rest =
+    input.slice(0, match.index) +
+    " " +
+    input.slice(match.index + match[0].length);
+  const words = rest
+    .split(/[\s/]+/)
+    .filter(Boolean)
+    .map(normalize);
+  const explicitRack = words
+    .map((word) => rackAliases.get(word))
+    .find((rack) => rack !== undefined);
+  const rack =
+    explicitRack ??
+    (state.level === "room" ? undefined : rackForDevice(state.deviceId));
+  const terms = explicitRack
+    ? words.filter(
+        (word) => rackAliases.get(word) !== explicitRack && word !== "机柜",
+      )
+    : words;
+  const maximum = definition.rack.units;
+  let error = "";
+  if (first < 1 || last < 1 || first > maximum || last > maximum)
+    error = `标准 U 位范围为 U1–${maximum}。${first === 0 || last === 0 ? "后置 PDU 可按“0U”查找。" : ""}`;
+  else if (last < first || unitExpression.test(rest))
+    error = "请输入从低到高的一个连续区间，例如 U23–24。";
+  const blanking =
+    !error && rack && !terms.length
+      ? rackBlankingUnits(rack.id).filter((u) => u >= first && u <= last)
+      : undefined;
+  return { first, last, rack, terms, error, blanking };
+}
 export function findResources(
   state: AppState,
   query: string,
   filter: ResourceFilter,
+  units = rackUnitQuery(state, query),
 ): Resource[] {
+  if (units?.error) return [];
   const catalog = resourceCatalog(state.deviceId);
-  const terms = query.trim().split(/\s+/).filter(Boolean).map(normalize);
-  if (terms.length === 1) {
+  const terms =
+    units?.terms ?? query.trim().split(/\s+/).filter(Boolean).map(normalize);
+  if (!units && terms.length === 1) {
     const exact = catalog.find(
       (resource) =>
         resource.kind !== "part" &&
@@ -171,17 +226,28 @@ export function findResources(
     );
     if (exact) return [exact];
   }
-  if (terms.length || filter !== "all")
-    return catalog.filter(
-      (resource) =>
+  if (units || terms.length || filter !== "all")
+    return catalog.filter((resource) => {
+      if (units) {
+        const d = deviceById(resource.id);
+        if (
+          !d ||
+          (units.rack && d.rackId !== units.rack.id) ||
+          d.startUnit > units.last ||
+          d.startUnit + modelForDevice(d.id).units - 1 < units.first
+        )
+          return false;
+      }
+      return (
         (resource.kind !== "part" || state.level === "device") &&
         (filter === "all" || resource.kind === filter) &&
         terms.every((term) =>
           normalize(
             `${resource.id} ${resource.name} ${resource.location} ${resource.detail}`,
           ).includes(term),
-        ),
-    );
+        )
+      );
+    });
   if (state.level === "room")
     return catalog.filter(
       (r) => r.kind === "rack" || (r.kind === "facility" && !pduById(r.id)),

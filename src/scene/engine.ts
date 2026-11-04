@@ -1179,15 +1179,23 @@ export class SceneEngine {
       ) &&
       !frame.busy &&
       this.visible(object);
-    if (object && showSelection)
-      this.models.selection.box.setFromObject(object);
+    const installed =
+      this.state.level !== "device"
+        ? this.installation.devices.get(this.state.selected)
+        : undefined;
+    if (object && showSelection) {
+      if (installed) this.models.selection.setInstalledBox(object, installed);
+      else this.models.selection.box.setFromObject(object);
+    }
     this.models.selection.update(
       showSelection
         ? `${this.state.deviceId}:${this.state.selected}:${this.state.focusRevision}`
         : null,
       time,
       this.reducedMotion,
-      this.state.level === "device" || selectedFixture ? 0.006 : 0.025,
+      this.state.level === "device" || selectedFixture || installed
+        ? 0.006
+        : 0.025,
     );
     this.host.dataset.selectionTarget = showSelection
       ? this.state.selected

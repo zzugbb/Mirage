@@ -27,6 +27,7 @@ import { spatialSnapshot, selectedReading } from "./spatial";
 import { signalFor, signalStyles, signalText } from "./status";
 import {
   findResources,
+  rackUnitQuery,
   resourceCatalog,
   resourceOpenLabel,
   canSelectInScene,
@@ -201,14 +202,23 @@ export function Workspace() {
     !review.pendingId &&
     !!feedback?.settled &&
     feedback.key === presentationKey(state);
+  const unitQuery = useMemo(
+    () =>
+      rackUnitQuery({ level: state.level, deviceId: state.deviceId }, query),
+    [state.level, state.deviceId, query],
+  );
+  const blanking =
+    filter === "all" && !(onlyAlarms && state.level !== "device")
+      ? unitQuery?.blanking
+      : undefined;
   const rows = useMemo(
     () =>
       visibleResourceRows(
-        findResources(state, query, filter),
+        findResources(state, query, filter, unitQuery),
         spatial.readings,
         onlyAlarms && state.level !== "device",
       ),
-    [state, query, filter, onlyAlarms, spatial],
+    [state, query, filter, onlyAlarms, spatial, unitQuery],
   );
   const browsingParts =
     state.level === "device" && !query.trim() && filter === "all";
@@ -282,7 +292,10 @@ export function Workspace() {
   const stageRef = useRef<HTMLElement>(null);
   const focus = (
     id: string,
-    revealStage = matchMedia("(max-width: 600px)").matches,
+    {
+      revealStage = matchMedia("(max-width: 600px)").matches,
+      installation = false,
+    } = {},
   ) => {
     setNetworkLinkId((current) =>
       networkContextIncludes(id, state.deviceId, current) ? current : null,
@@ -290,7 +303,10 @@ export function Workspace() {
     setPowerLinkId((current) =>
       powerContextIncludes(id, state.deviceId, current) ? current : null,
     );
-    control({ type: "focus-resource", id });
+    control({
+      type: installation ? "locate-installation" : "focus-resource",
+      id,
+    });
     setInspector(true);
     if (matchMedia("(max-width: 1099px)").matches) setNav(false);
     if (revealStage) {
@@ -301,7 +317,7 @@ export function Workspace() {
   const locateEventDevice = (id: string) => {
     setQuery("");
     setFilter("all");
-    focus(id, true);
+    focus(id, { revealStage: true });
   };
   const eventHeading = useRef<HTMLHeadingElement>(null);
   const jumpToEvents = useRef(false);
@@ -612,6 +628,54 @@ export function Workspace() {
             className={`study-resource-list ${query.trim() || filter !== "all" ? "is-search" : ""}`}
             key={`${state.level}:${state.deviceId}`}
           >
+            {unitQuery && (
+              <section className="study-unit-query" aria-label="U 位安装核对">
+                {unitQuery.error ? (
+                  <p>{unitQuery.error}</p>
+                ) : (
+                  <>
+                    <strong>
+                      {unitQuery.rack?.name ?? "全机房"} · U{unitQuery.first}
+                      {unitQuery.first === unitQuery.last
+                        ? ""
+                        : `–${unitQuery.last}`}
+                    </strong>
+                    {blanking ? (
+                      <>
+                        <span>
+                          设备占用{" "}
+                          {unitQuery.last -
+                            unitQuery.first +
+                            1 -
+                            blanking.length}{" "}
+                          U · 前置盲板 {blanking.length} U
+                        </span>
+                        {blanking.length > 0 && (
+                          <>
+                            <small>
+                              封板位置：{unitRanges(blanking)}
+                              。封板不表示可分配容量。
+                            </small>
+                            <button
+                              disabled={!ready}
+                              onClick={() => focus(unitQuery.rack!.id)}
+                            >
+                              定位 {unitQuery.rack!.name}
+                            </button>
+                          </>
+                        )}
+                      </>
+                    ) : (
+                      <small>
+                        {unitQuery.rack
+                          ? "在此柜的安装范围内查找"
+                          : "在全部机柜的安装范围内查找"}
+                      </small>
+                    )}
+                  </>
+                )}
+              </section>
+            )}
             {groups.map((group) => (
               <section key={group}>
                 <h3>
@@ -630,7 +694,8 @@ export function Workspace() {
                   .map((row) => {
                     const text = resourceRowText(
                         row,
-                        !!query.trim() || filter !== "all",
+                        !unitQuery?.rack &&
+                          (!!query.trim() || filter !== "all"),
                       ),
                       data = spatial.readings.get(row.id),
                       style = signalStyles[signalFor(data)];
@@ -680,11 +745,17 @@ export function Workspace() {
                           <button
                             disabled={
                               !ready ||
-                              (!locateOnly && !canSelectInScene(state, row.id))
+                              (!unitQuery &&
+                                !locateOnly &&
+                                !canSelectInScene(state, row.id))
                             }
-                            aria-label={`定位 ${row.name}`}
+                            aria-label={`${unitQuery ? "定位安装位置" : "定位"} ${row.name}`}
                             onClick={() =>
-                              locateOnly ? pick(row.id, true) : focus(row.id)
+                              unitQuery
+                                ? focus(row.id, { installation: true })
+                                : locateOnly
+                                  ? pick(row.id, true)
+                                  : focus(row.id)
                             }
                           >
                             定位
@@ -720,7 +791,7 @@ export function Workspace() {
                   })}
               </section>
             ))}
-            {!rows.length && (
+            {!rows.length && !unitQuery?.error && !blanking?.length && (
               <p className="study-empty">
                 {onlyAlarms
                   ? query.trim() || filter !== "all"

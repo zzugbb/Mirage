@@ -75,7 +75,12 @@ export type ReviewAction =
   | { type: "room-airflow"; id: string }
   | Exclude<ExperienceAction, { type: "scene" }>;
 export type ResourceAction = {
-  type: "pick" | "open-resource" | "focus-resource" | "extract-resource";
+  type:
+    | "pick"
+    | "open-resource"
+    | "focus-resource"
+    | "locate-installation"
+    | "extract-resource";
   id: string;
 };
 export function reviewTransition(
@@ -259,12 +264,18 @@ function reviewInteractionTransition(
       }),
     };
   }
-  if (action.type === "open-resource" || action.type === "focus-resource") {
+  if (
+    action.type === "open-resource" ||
+    action.type === "focus-resource" ||
+    action.type === "locate-installation"
+  ) {
+    const installation = action.type === "locate-installation";
     const target = entityById(action.id);
-    if (!target) return state;
+    if (!target || (installation && target.kind !== "device")) return state;
     const current = state.scene;
     let scene = current;
     const elsewhere =
+      (installation && current.level === "device") ||
       (target.kind === "device" && target.id !== current.deviceId) ||
       (target.kind === "rack" &&
         target.id !== rackForDevice(current.deviceId).id) ||
@@ -308,12 +319,13 @@ function reviewInteractionTransition(
         { type: "focus" },
       );
     } else if (
-      action.type === "focus-resource" &&
+      (action.type === "focus-resource" || installation) &&
       target.kind === "device" &&
       current.level === "rack" &&
       rackForDevice(target.id).id === rackForDevice(current.deviceId).id
     ) {
       scene = { ...current, selected: target.id };
+      if (installation) scene = transition(scene, { type: "focus" });
     } else if (
       action.type === "focus-resource" &&
       canSelectInScene(current, action.id) &&

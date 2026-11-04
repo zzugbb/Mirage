@@ -32,6 +32,15 @@ export class SelectionCorners extends THREE.LineSegments<
     this.raycast = () => {};
     this.visible = false;
   }
+  // 装机角标取安装模型的外廓，中心随实际机箱移动。隐藏的展开部件不参与取界。
+  setInstalledBox(object: THREE.Object3D, installed: THREE.Object3D) {
+    this.box.setFromObject(installed);
+    if (installed !== object)
+      this.box.setFromCenterAndSize(
+        object.getWorldPosition(this.center),
+        this.box.getSize(this.size),
+      );
+  }
   update(key: string | null, time: number, reduced: boolean, padding = 0.006) {
     this.visible = !!key && !this.box.isEmpty();
     if (!this.visible) {
