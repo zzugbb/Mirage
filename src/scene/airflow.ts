@@ -12,7 +12,7 @@ type CachedPath = {
   index: number;
   color: THREE.Color;
 };
-/** 少量实例化箭头和粒子；路径不参与拾取，穿柜段用低亮度透视线表达方向。 */
+/** 少量实例化箭头和粒子；柜面轮廓与柜外方向标保留真实遮挡，不参与拾取。 */
 export class AirflowGeometry {
   root = new THREE.Group();
   cone = new THREE.ConeGeometry(0.065, 0.19, 8);
@@ -35,6 +35,16 @@ export class AirflowGeometry {
     new THREE.MeshBasicMaterial({ toneMapped: false, depthWrite: false }),
     maximumRoutes * 4,
   );
+  deviceFrames = new THREE.InstancedMesh(
+    this.floorFrameGeometry,
+    new THREE.MeshBasicMaterial({ toneMapped: false, depthWrite: false }),
+    maximumRoutes * 8,
+  );
+  faceArrows = new THREE.InstancedMesh(
+    this.cone,
+    new THREE.MeshBasicMaterial({ toneMapped: false, depthWrite: false }),
+    maximumRoutes * 2,
+  );
   batches = kinds.map((kind) => {
     const arrows = new THREE.InstancedMesh(
       this.cone,
@@ -43,7 +53,7 @@ export class AirflowGeometry {
         transparent: true,
         opacity: 0.72,
         depthWrite: false,
-        depthTest: kind !== "through",
+        depthTest: true,
         toneMapped: false,
       }),
       maximumRoutes * 3,
@@ -54,7 +64,7 @@ export class AirflowGeometry {
         transparent: true,
         opacity: 0.85,
         depthWrite: false,
-        depthTest: kind !== "through",
+        depthTest: true,
         toneMapped: false,
       }),
       maximumRoutes * 3,
@@ -65,7 +75,7 @@ export class AirflowGeometry {
         transparent: true,
         opacity: 0.8,
         depthWrite: false,
-        depthTest: kind !== "through",
+        depthTest: true,
         toneMapped: false,
       }),
       maximumRoutes * airflowSettings.samples,
@@ -76,8 +86,6 @@ export class AirflowGeometry {
       mesh.raycast = () => {};
       mesh.frustumCulled = false;
     }
-    if (kind === "through")
-      for (const object of [arrows, sparks, band]) object.renderOrder = 4;
     this.root.add(arrows, sparks, band);
     return { kind, arrows, sparks, band, paths: [] as CachedPath[] };
   });
@@ -98,7 +106,18 @@ export class AirflowGeometry {
     this.floorFrames.raycast = () => {};
     this.floorFrames.frustumCulled = false;
     this.floorFrames.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-    this.root.add(this.endpoints, this.floorFrames);
+    for (const mesh of [this.deviceFrames, this.faceArrows]) {
+      mesh.count = 0;
+      mesh.raycast = () => {};
+      mesh.frustumCulled = false;
+      mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    }
+    this.root.add(
+      this.endpoints,
+      this.floorFrames,
+      this.deviceFrames,
+      this.faceArrows,
+    );
   }
   at(path: CachedPath, t: number, target: THREE.Vector3) {
     const scaled = Math.max(0, Math.min(1, t)) * airflowSettings.samples,
@@ -112,10 +131,13 @@ export class AirflowGeometry {
     this.root.visible = this.enabled;
     if (!snapshot) {
       this.endpoints.count = this.floorFrames.count = 0;
+      this.deviceFrames.count = this.faceArrows.count = 0;
       return;
     }
     let endpointIndex = 0,
-      frameIndex = 0;
+      frameIndex = 0,
+      deviceFrameIndex = 0,
+      faceArrowIndex = 0;
     for (const route of snapshot.routes) {
       const [x, y, z] = route.floorGrille.position;
       const color = new THREE.Color(
@@ -145,8 +167,56 @@ export class AirflowGeometry {
           this.floorFrames.setColorAt(frameIndex++, color);
         }
       }
+      const through = route.segments.find(
+        (segment) => segment.kind === "through",
+      )!;
+      const [width, height] = route.faceSize;
+      this.tangent
+        .fromArray(through.points.at(-1)!)
+        .sub(this.position.fromArray(through.points[0]))
+        .normalize();
+      // 前后柜面分别标出同一安装范围；箭头放在柜外，暂停也能辨认前进后出。
+      for (const [index, point] of [
+        through.points[0],
+        through.points.at(-1)!,
+      ].entries()) {
+        const faceColor = new THREE.Color(
+          route.animated
+            ? airflowSettings.colors[index === 0 ? "through" : "return"]
+            : airflowSettings.colors.unknown,
+        );
+        this.transform.rotation.set(0, 0, 0);
+        for (const side of [-1, 1]) {
+          for (const horizontal of [false, true]) {
+            this.transform.position.set(
+              point[0] + (horizontal ? 0 : (side * width) / 2),
+              point[1] + (horizontal ? (side * height) / 2 : 0),
+              point[2],
+            );
+            this.transform.scale.set(
+              horizontal ? width : 0.009,
+              horizontal ? 0.009 : height,
+              0.009,
+            );
+            this.transform.updateMatrix();
+            this.deviceFrames.setMatrixAt(
+              deviceFrameIndex,
+              this.transform.matrix,
+            );
+            this.deviceFrames.setColorAt(deviceFrameIndex++, faceColor);
+          }
+        }
+        this.transform.position
+          .fromArray(point)
+          .addScaledVector(this.tangent, index === 0 ? -0.16 : 0.16);
+        this.transform.scale.setScalar(0.8);
+        this.transform.quaternion.setFromUnitVectors(this.up, this.tangent);
+        this.transform.updateMatrix();
+        this.faceArrows.setMatrixAt(faceArrowIndex, this.transform.matrix);
+        this.faceArrows.setColorAt(faceArrowIndex++, faceColor);
+      }
       for (const endpoint of route.endpoints) {
-        if (endpoint.kind === "floor") continue;
+        if (endpoint.kind === "floor" || endpoint.kind === "intake") continue;
         this.transform.position.fromArray(endpoint.point);
         this.transform.scale.setScalar(1);
         this.transform.rotation.set(0, 0, 0);
@@ -156,13 +226,19 @@ export class AirflowGeometry {
           endpointIndex++,
           new THREE.Color(
             route.animated
-              ? airflowSettings.colors[
-                  endpoint.kind === "intake" ? "through" : endpoint.kind
-                ]
+              ? airflowSettings.colors[endpoint.kind]
               : airflowSettings.colors.unknown,
           ),
         );
       }
+    }
+    for (const [mesh, count] of [
+      [this.deviceFrames, deviceFrameIndex],
+      [this.faceArrows, faceArrowIndex],
+    ] as const) {
+      mesh.count = count;
+      mesh.instanceMatrix.needsUpdate = true;
+      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
     }
     this.floorFrames.count = frameIndex;
     this.floorFrames.instanceMatrix.needsUpdate = true;
@@ -295,6 +371,10 @@ export class AirflowGeometry {
     this.floorFrameGeometry.dispose();
     this.floorFrames.material.dispose();
     this.floorFrames.dispose();
+    this.deviceFrames.material.dispose();
+    this.deviceFrames.dispose();
+    this.faceArrows.material.dispose();
+    this.faceArrows.dispose();
     this.endpoints.material.dispose();
     this.endpoints.dispose();
     for (const batch of this.batches) {

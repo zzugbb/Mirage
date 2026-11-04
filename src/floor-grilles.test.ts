@@ -168,7 +168,7 @@ test("格栅轮廓只跟随当前代表支路，无效数据静态灰显且清�
     const snapshot = airflowSnapshot(60, spatialSnapshot(60).readings, rack.id);
     geometry.update(snapshot);
     assert.equal(geometry.floorFrames.count, 4);
-    assert.equal(geometry.endpoints.count, 3);
+    assert.equal(geometry.endpoints.count, 2);
     const grille = snapshot.routes[0].floorGrille;
     const bounds = new THREE.Box3();
     for (let i = 0; i < 4; i++)

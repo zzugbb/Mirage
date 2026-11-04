@@ -13,6 +13,8 @@ import { spatialSnapshot } from "./spatial.ts";
 import { simulate } from "./simulation.ts";
 import { AirflowGeometry } from "./scene/airflow.ts";
 import { placeFlowLabel } from "./airflow-label-layout.ts";
+import { modelForDevice, unitLabel } from "./catalog.ts";
+import { Matrix4, Vector3, Color } from "three";
 
 test("气流代表路径绑定已登记冷却关系，选中设备与机柜排都有明确范围", () => {
   const readings = spatialSnapshot(60).readings;
@@ -80,6 +82,9 @@ test("四个气流端点对应已配置设施、格栅与设备，读数不扩�
     assert.ok(returning.point[2] < route.segments[1].points[1][2]);
     assert.match(returning.detail, /无排风测点/);
     assert.doesNotMatch(returning.detail, /°C|m\/s/);
+    assert.ok(intake.detail.includes(unitLabel(device.id)));
+    assert.ok(intake.detail.includes(device.name));
+    assert.equal(intake.label.includes("°C"), route.animated);
     if (route.animated)
       assert.match(
         intake.detail,
@@ -212,7 +217,7 @@ test("气流几何复用缓冲与材质，粒子可重复定位，减少动态�
   const geometry = new AirflowGeometry(),
     snapshot = airflowSnapshot(60, spatialSnapshot(60).readings);
   geometry.update(snapshot);
-  assert.equal(geometry.endpoints.count, snapshot.routes.length * 3);
+  assert.equal(geometry.endpoints.count, snapshot.routes.length * 2);
   assert.equal(geometry.endpoints.material.depthTest, true);
   const buffers = geometry.batches.map((batch) => [
     batch.band.geometry,
@@ -245,10 +250,11 @@ test("气流几何复用缓冲与材质，粒子可重复定位，减少动态�
       buffers[index],
     );
     assert.ok(batch.band.count > 0);
-    assert.equal(batch.band.material.depthTest, batch.kind !== "through");
+    assert.equal(batch.band.material.depthTest, true);
     assert.ok(batch.arrows.count > 0);
     assert.ok(batch.sparks.count > 0);
-    assert.equal(batch.band.material.depthTest, batch.kind !== "through");
+    assert.equal(batch.arrows.material.depthTest, true);
+    assert.equal(batch.sparks.material.depthTest, true);
   });
   geometry.animate(60, true);
   assert.ok(
@@ -282,6 +288,8 @@ test("气流几何复用缓冲与材质，粒子可重复定位，减少动态�
     geometry.endpointGeometry,
     geometry.floorFrameGeometry,
     geometry.floorFrames.material,
+    geometry.deviceFrames.material,
+    geometry.faceArrows.material,
     geometry.endpoints.material,
     ...geometry.batches.flatMap((batch) => [
       batch.arrows.material,
@@ -293,6 +301,69 @@ test("气流几何复用缓冲与材质，粒子可重复定位，减少动态�
   geometry.update(null);
   assert.equal(geometry.root.visible, false);
   geometry.dispose();
-  assert.equal(disposed, 16);
+  assert.equal(disposed, 18);
   assert.equal(geometry.root.children.length, 0);
+});
+
+test("四种机型的前后柜面轮廓对应实际 U 位，静态箭头在柜外并保留深度遮挡", () => {
+  const geometry = new AirflowGeometry();
+  const matrix = new Matrix4();
+  for (const device of devices) {
+    const route = airflowSnapshot(60, spatialSnapshot(60).readings, device.id);
+    geometry.update(route);
+    const { faceSize, segments } = route.routes[0];
+    assert.equal(
+      faceSize[1],
+      modelForDevice(device.id).units * definition.rack.unitPitch - 0.003,
+    );
+    assert.equal(geometry.deviceFrames.count, 8);
+    assert.equal(geometry.faceArrows.count, 2);
+    const [front, rear] = segments.find(
+      (segment) => segment.kind === "through",
+    )!.points;
+    for (const [index, face] of [front, rear].entries()) {
+      for (let edge = 0; edge < 4; edge++) {
+        geometry.deviceFrames.getMatrixAt(index * 4 + edge, matrix);
+        const center = new Vector3().setFromMatrixPosition(matrix);
+        assert.equal(center.z, Math.fround(face[2]));
+        assert.ok(
+          Math.abs(center.y - deviceHeight(device.id)) <=
+            faceSize[1] / 2 + 1e-6,
+        );
+        assert.ok(Math.abs(center.x - face[0]) <= faceSize[0] / 2 + 1e-6);
+      }
+      geometry.faceArrows.getMatrixAt(index, matrix);
+      const center = new Vector3().setFromMatrixPosition(matrix);
+      assert.ok(
+        index === 0 ? center.z > face[2] + 0.1 : center.z < face[2] - 0.1,
+      );
+      const direction = new Vector3(0, 1, 0).transformDirection(matrix);
+      assert.ok(direction.distanceTo(new Vector3(0, 0, -1)) < 1e-6);
+      assert.ok(Math.abs(center.y - deviceHeight(device.id)) < 1e-6);
+    }
+    geometry.animate(60, true);
+    for (const mesh of [geometry.deviceFrames, geometry.faceArrows]) {
+      assert.equal(mesh.material.depthTest, true);
+      assert.equal(mesh.material.depthWrite, false);
+      const intersections: unknown[] = [];
+      mesh.raycast({} as never, intersections as never);
+      assert.deepEqual(intersections, []);
+      if (!route.routes[0].animated) {
+        const color = new Color();
+        mesh.getColorAt(0, color);
+        const expected = new Color(airflowSettings.colors.unknown).toArray();
+        assert.ok(
+          color.toArray().every((n, i) => Math.abs(n - expected[i]) < 1e-6),
+        );
+      }
+    }
+  }
+  const before = [...geometry.faceArrows.instanceMatrix.array];
+  geometry.animate(10);
+  geometry.animate(60);
+  assert.deepEqual([...geometry.faceArrows.instanceMatrix.array], before);
+  geometry.update(null);
+  assert.equal(geometry.deviceFrames.count, 0);
+  assert.equal(geometry.faceArrows.count, 0);
+  geometry.dispose();
 });

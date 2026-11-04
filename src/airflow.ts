@@ -8,7 +8,7 @@ import {
   deviceHeight,
   rackForDevice,
 } from "./installation.ts";
-import { modelForDevice } from "./catalog.ts";
+import { modelForDevice, unitLabel } from "./catalog.ts";
 import { entityById } from "./domain.ts";
 import type { AppState } from "./domain.ts";
 import type { SpatialReading } from "./spatial.ts";
@@ -23,6 +23,7 @@ export type FlowEndpoint = {
   kind: "supply" | "floor" | "intake" | "return";
   point: FlowPoint;
   title: string;
+  label: string;
   detail: string;
 };
 export type AirflowRoute = {
@@ -31,6 +32,7 @@ export type AirflowRoute = {
   deviceId: string;
   rackId: string;
   floorGrille: FloorGrille;
+  faceSize: [number, number];
   animated: boolean;
   status: string;
   endpoints: FlowEndpoint[];
@@ -192,6 +194,11 @@ export function airflowSnapshot(
       deviceId: target.id,
       rackId: rack.id,
       floorGrille,
+      // 柜面代表范围，按安装 U 位标出，不冒充设备真实风口。
+      faceSize: [
+        0.5,
+        modelForDevice(target.id).units * definition.rack.unitPitch - 0.003,
+      ],
       animated,
       status,
       endpoints: [
@@ -199,24 +206,28 @@ export function airflowSnapshot(
           kind: "supply",
           point: outlet,
           title: "送风 · 逻辑端点",
+          label: `送风 · ${Math.round(coolingCapacityAt(time))}%`,
           detail: `${source.name} · 冷却输入 ${Math.round(coolingCapacityAt(time))}%`,
         },
         {
           kind: "floor",
           point: floor,
           title: "地板送风",
+          label: "送风格栅",
           detail: `${rack.name.split(" ")[0]} 柜前格栅 · 假设送出位置`,
         },
         {
           kind: "intake",
           point: intake,
           title: "设备进风",
-          detail: `${target.name} · ${animated ? `${reading.temperature!.toFixed(1)} °C · 模拟` : status}`,
+          label: `进风 · ${animated ? `${reading.temperature!.toFixed(1)} °C` : status.split("，")[0]}`,
+          detail: `${rack.name.split(" ")[0]} / ${target.name} · ${unitLabel(target.id)} · ${animated ? `${reading.temperature!.toFixed(1)} °C · 模拟` : status}`,
         },
         {
           kind: "return",
           point: returnTurn,
           title: "回风假设",
+          label: "回风假设",
           detail: `柜后 → ${source.name} · 无排风测点`,
         },
       ],

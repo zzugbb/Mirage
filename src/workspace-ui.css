@@ -564,6 +564,11 @@
 .review-flow-anchor.is-static {
   border-color: #89989d;
 }
+.review-airflow-endpoint {
+  padding: 3px 6px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
 .review-maintenance-anchor {
   border-color: #a4b7c1;
 }
