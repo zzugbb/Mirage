@@ -6,9 +6,11 @@ import {
   cableTraySettings as s,
   trayEndpoints,
   trayRelations,
+  rackTrayRelations,
   trayOuterWidth,
 } from "./cable-trays.ts";
 import { fixtureById, fixtureSightOffsets } from "./fixtures.ts";
+import { createRackRoof } from "./scene/rack-enclosure.ts";
 import { buildCableTray } from "./scene/cable-trays.ts";
 import { ShellCutaway } from "./scene/shell-cutaway.ts";
 import { createReview, reviewTransition } from "./review-model.ts";
@@ -72,6 +74,36 @@ test("两排桥架端点、下方机柜与室内布置一致，不凭编号推�
   assert.equal(seen.size, 8);
   assert.deepEqual(trayRelations("unknown"), []);
   assert.deepEqual(trayEndpoints("leak-cable-01"), []);
+});
+
+test("每个机柜反查到登记的上方桥架，高差与实际横档和柜顶板一致", () => {
+  const roof = createRackRoof();
+  roof.updateMatrixWorld(true);
+  const plate = new THREE.Box3().setFromObject(
+    roof.getObjectByName("roof-plate")!,
+  );
+  for (const row of s.rows) {
+    const tray = new THREE.Group();
+    tray.position.fromArray(fixtureById(row.fixtureId)!.position);
+    buildCableTray(tray);
+    tray.updateMatrixWorld(true);
+    const rungBottom = new THREE.Box3().setFromObject(tray.children[0]).min.y;
+    for (const rack of definition.installation.racks.filter((r) =>
+      row.rackIds.includes(r.id),
+    )) {
+      const relations = rackTrayRelations(rack.id);
+      assert.deepEqual(
+        relations.map((r) => r.id),
+        [row.fixtureId],
+      );
+      assert.ok(trayRelations(row.fixtureId).some((r) => r.id === rack.id));
+      const difference = rungBottom - (plate.max.y + rack.position[1]);
+      assert.ok(difference > 0);
+      assert.ok(relations[0].relation.includes(`${difference.toFixed(2)} m`));
+    }
+  }
+  for (const id of ["room-01", "cable-tray-b", "srv-01", "unknown"])
+    assert.deepEqual(rackTrayRelations(id), []);
 });
 
 test("桥架用两个实例批次表达，横档接合侧梁，吊杆接合承托梁，保留实体拾取", () => {

@@ -10,6 +10,7 @@ import {
   trayRelations,
   trayEndpoints,
   trayOuterWidth,
+  trayRungBottom,
 } from "../cable-trays";
 import {
   configuredPathLength,
@@ -46,7 +47,7 @@ export function FixtureDetails({
             {isEntrance
               ? "门洞底高"
               : isTray
-                ? "桥架底高"
+                ? "横档底高"
                 : fixture.kind === "leak-cable"
                   ? "敷设高度"
                   : "中心高度"}
@@ -54,8 +55,9 @@ export function FixtureDetails({
           <dd>
             {(isEntrance
               ? entranceOpening.bottom
-              : fixture.position[1] -
-                (isTray ? cableTraySettings.rungSize[1] / 2 : 0)
+              : isTray
+                ? trayRungBottom(fixture.position[1])
+                : fixture.position[1]
             ).toFixed(fixture.kind === "leak-cable" ? 3 : 2)}{" "}
             <small>m</small>
           </dd>

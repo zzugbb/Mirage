@@ -16,12 +16,19 @@ export function boundsFrameDistance(
   direction: number[],
   aspect: number,
   minimum: number,
+  topInsetFraction = 0,
 ) {
   const points: number[][] = [];
   for (const x of [-size[0] / 2, size[0] / 2])
     for (const y of [-size[1] / 2, size[1] / 2])
       for (const z of [-size[2] / 2, size[2] / 2]) points.push([x, y, z]);
-  return pointsFrameDistance(points, direction, aspect, minimum);
+  return pointsFrameDistance(
+    points,
+    direction,
+    aspect,
+    minimum,
+    topInsetFraction,
+  );
 }
 
 export function pointsFrameDistance(
@@ -29,6 +36,7 @@ export function pointsFrameDistance(
   direction: number[],
   aspect: number,
   minimum: number,
+  topInsetFraction = 0,
 ) {
   const length = Math.hypot(...direction);
   const n = direction.map((value) => value / length);
@@ -41,15 +49,19 @@ export function pointsFrameDistance(
     n[0] * right[1] - n[1] * right[0],
   ];
   const tangent = Math.tan((40 * Math.PI) / 360);
+  // 镜头中心不变，只收紧上半画幅；横向与下方继续使用完整视野。
+  const upperField = 1 - 2 * Math.min(0.45, Math.max(0, topInsetFraction));
   let result = minimum;
   for (const point of points) {
     const dot = (axis: number[]) =>
       point.reduce((sum, value, i) => sum + value * axis[i], 0);
+    const vertical = dot(up);
     result = Math.max(
       result,
       (Math.abs(dot(right)) * 1.12) / (tangent * Math.max(0.2, aspect)) +
         dot(n),
-      (Math.abs(dot(up)) * 1.12) / tangent + dot(n),
+      ((vertical > 0 ? vertical / upperField : -vertical) * 1.12) / tangent +
+        dot(n),
     );
   }
   return result;

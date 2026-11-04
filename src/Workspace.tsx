@@ -9,6 +9,7 @@ import {
 import { rackBlankingUnits, unitRanges } from "./rack-blanking";
 import { fixtureById } from "./fixtures";
 import { powerContextIncludes } from "./power-trace";
+import { rackTrayRelations } from "./cable-trays";
 import { leakRelations } from "./leak-detection";
 import { FixtureDetails, FixtureRelations } from "./components/FixtureDetails";
 import { entityById, getPath, presentationKey } from "./domain";
@@ -1123,6 +1124,14 @@ export function Workspace() {
                         onLocate={(id) => pick(id, true)}
                         onTrace={setNetworkLinkId}
                         onInteract={takeover}
+                      />
+                    )}
+                    {layer === "overview" && entity.kind === "rack" && (
+                      <FixtureRelations
+                        title="上方桥架"
+                        relations={rackTrayRelations(selected)}
+                        onPreview={pick}
+                        onLocate={focus}
                       />
                     )}
                     {layer === "environment" && (

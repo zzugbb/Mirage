@@ -83,3 +83,35 @@ test("小部件聚焦遵循旋转控制器的最近距离，镜头能够收敛�
     assert.ok(camera.position.distanceTo(target) < 0.001, `aspect=${aspect}`);
   }
 });
+
+test("定位机柜和长桥架时所有角点落在顶部工具下方，横向仍完整入镜", () => {
+  const direction = new Vector3(0.85, 0.85, 1.05).normalize();
+  for (const [w, h, inset] of [
+    [852, 836, 70],
+    [390, 580, 118],
+  ]) {
+    for (const size of [
+      [0.6, 2.16, 1.1],
+      [9.5, 0.8, 0.54],
+    ]) {
+      const distance = boundsFrameDistance(
+        size,
+        direction.toArray(),
+        w / h,
+        3,
+        inset / h,
+      );
+      const camera = new PerspectiveCamera(40, w / h, 0.01, 150);
+      camera.position.copy(direction).multiplyScalar(distance);
+      camera.lookAt(0, 0, 0);
+      camera.updateMatrixWorld();
+      for (const x of [-size[0] / 2, size[0] / 2])
+        for (const y of [-size[1] / 2, size[1] / 2])
+          for (const z of [-size[2] / 2, size[2] / 2]) {
+            const screen = new Vector3(x, y, z).project(camera);
+            assert.ok(((1 - screen.y) * h) / 2 > inset && screen.y > -1);
+            assert.ok(Math.abs(screen.x) < 1);
+          }
+    }
+  }
+});

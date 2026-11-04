@@ -789,6 +789,28 @@ export class SceneEngine {
     const minimum = fixture
       ? fixture.focus.distance
       : cameraMinimumDistance[level];
+    let topInsetFraction = 0;
+    if (
+      level === "room" &&
+      focus &&
+      (entityById(this.state.selected)?.kind === "rack" ||
+        (fixture && "kind" in fixture && fixture.kind === "cable-tray"))
+    ) {
+      const frame = this.host.getBoundingClientRect();
+      const controls = this.host
+        .closest(".study-stage")
+        ?.querySelectorAll<HTMLElement>(
+          ".study-layer-control, .review-camera, .review-scene-tools",
+        );
+      for (const control of controls ?? []) {
+        const rect = control.getBoundingClientRect();
+        if (rect.height && frame.height)
+          topInsetFraction = Math.max(
+            topInsetFraction,
+            (rect.bottom - frame.top + 8) / frame.height,
+          );
+      }
+    }
     const distance = framingPoints.length
       ? pointsFrameDistance(
           framingPoints.map((point) => point.sub(center).toArray()),
@@ -802,6 +824,7 @@ export class SceneEngine {
             direction.toArray(),
             this.camera.aspect,
             minimum,
+            topInsetFraction,
           )
         : frameDistance(size, this.camera.aspect, minimum);
     if (!bounds && level === "rack") {

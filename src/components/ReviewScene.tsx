@@ -342,15 +342,8 @@ export function ReviewScene({
     if (engine.current) engine.current.autoOrbit = orbit;
   }, [orbit, retry]);
   useEffect(() => {
-    setView(
-      state.level === "room"
-        ? roomFacilityById(state.selected)
-          ? "iso"
-          : "interior"
-        : state.level === "rack" && pduById(state.selected)
-          ? "rear"
-          : "iso",
-    );
+    // 层级切换与定位共用场景已经采用的视角，机房内聚焦机柜时同样是等轴近景。
+    if (engine.current) setView(engine.current.currentView);
   }, [state.level, state.focusRevision]);
   useEffect(() => {
     if (!tourShot) return;
