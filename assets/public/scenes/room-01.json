@@ -354,6 +354,10 @@
         ]
       ]
     },
+    "lightProfile": {
+      "bodyWidth": 0.16, "bodyHeight": 0.07, "bodyCenterY": 0.025, "endAllowance": 0.12,
+      "diffuserWidth": 0.105, "diffuserHeight": 0.008, "hangerInset": 0.35, "hangerWidth": 0.018
+    },
     "lights": [
       {
         "position": [
@@ -361,7 +365,21 @@
           3.75,
           0
         ],
-        "length": 8.2
+        "length": 8.2,
+        "id": "ceiling-light-01",
+        "kind": "ceiling-light",
+        "name": "左侧顶灯",
+        "location": "机房左侧上方",
+        "mountId": "shell-light-01",
+        "dataStatus": "not-applicable",
+        "focus": {
+          "direction": [
+            -0.65,
+            0.36,
+            1
+          ],
+          "distance": 4.5
+        }
       },
       {
         "position": [
@@ -369,7 +387,21 @@
           3.75,
           0
         ],
-        "length": 8.2
+        "length": 8.2,
+        "id": "ceiling-light-02",
+        "kind": "ceiling-light",
+        "name": "中央顶灯",
+        "location": "机房中央上方",
+        "mountId": "shell-light-02",
+        "dataStatus": "not-applicable",
+        "focus": {
+          "direction": [
+            0.65,
+            0.36,
+            1
+          ],
+          "distance": 4.5
+        }
       },
       {
         "position": [
@@ -377,7 +409,21 @@
           3.75,
           0
         ],
-        "length": 8.2
+        "length": 8.2,
+        "id": "ceiling-light-03",
+        "kind": "ceiling-light",
+        "name": "右侧顶灯",
+        "location": "机房右侧上方",
+        "mountId": "shell-light-03",
+        "dataStatus": "not-applicable",
+        "focus": {
+          "direction": [
+            0.65,
+            0.36,
+            1
+          ],
+          "distance": 4.5
+        }
       }
     ]
   },

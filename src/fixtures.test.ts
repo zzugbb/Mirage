@@ -2,6 +2,11 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as THREE from "three";
 import definition from "../assets/public/scenes/room-01.json" with { type: "json" };
+import {
+  ceilingLights,
+  diffuserBottom,
+  lightTrayRelations,
+} from "./ceiling-lights.ts";
 import { roomFixtures } from "./fixtures.ts";
 import { entityById, presentationKey } from "./domain.ts";
 import { findResources } from "./review-resources.ts";
@@ -14,7 +19,7 @@ import { selectedReading, spatialSnapshot } from "./spatial.ts";
 import { visibleResourceRows } from "./workspace-presets.ts";
 import { buildRoomFixtures } from "./scene/fixtures.ts";
 
-test("十处布置设施的身份、安装对象与场景位置一致，几何可射线选择", () => {
+function makeFixtures() {
   const mounts = new Map(
     [...new Set(roomFixtures.map((f) => f.mountId))].map((id) => [
       id,
@@ -33,8 +38,13 @@ test("十处布置设施的身份、安装对象与场景位置一致，几何�
       return mesh;
     },
   );
-  assert.equal(fixtures.size, 10);
-  assert.equal(new Set(roomFixtures.map((f) => f.id)).size, 10);
+  return { mounts, fixtures };
+}
+
+test("机房布置设施的身份、安装对象与场景位置一致，几何可射线选择", () => {
+  const { mounts, fixtures } = makeFixtures();
+  assert.equal(fixtures.size, 13);
+  assert.equal(new Set(roomFixtures.map((f) => f.id)).size, 13);
   for (const f of roomFixtures) {
     assert.equal(entityById(f.id)?.kind, "facility");
     assert.equal(entityById(f.id)?.parent, "room-01");
@@ -43,7 +53,7 @@ test("十处布置设施的身份、安装对象与场景位置一致，几何�
     assert.equal(group.userData.entityId, f.id);
     assert.equal(
       group.userData.dataStatus,
-      ["cable-tray", "entrance"].includes(f.kind)
+      ["cable-tray", "entrance", "ceiling-light"].includes(f.kind)
         ? "not-applicable"
         : "not-connected",
     );
@@ -55,12 +65,13 @@ test("十处布置设施的身份、安装对象与场景位置一致，几何�
     assert.ok(Math.abs(f.position[0]) < definition.room.size[0] / 2);
     assert.ok(f.position[1] > 0 && f.position[1] < definition.room.size[1]);
     assert.ok(Math.abs(f.position[2]) < definition.room.size[2] / 2);
-    const point = new THREE.Vector3().fromArray(f.position);
+    const origin = new THREE.Vector3().fromArray(f.position);
+    origin.z = new THREE.Box3().setFromObject(group).max.z + 1;
     assert.ok(
-      new THREE.Raycaster(
-        point.clone().add(new THREE.Vector3(0, 0, 1)),
-        new THREE.Vector3(0, 0, -1),
-      ).intersectObject(group, true).length > 0,
+      new THREE.Raycaster(origin, new THREE.Vector3(0, 0, -1)).intersectObject(
+        group,
+        true,
+      ).length > 0,
     );
     group.traverse((o) => {
       if (o instanceof THREE.Mesh) {
@@ -136,4 +147,66 @@ test("设施预览不改变镜头与设备姿态；跨层定位先归位，再�
   assert.equal(review.pendingId, null);
   assert.equal(review.scene.time, before.time);
   assert.equal(review.scene.coverOpen, false);
+});
+
+test("三条顶灯与两段桥架的投影逐一相交，灯体和吊杆均避开桥架实体", () => {
+  const { fixtures } = makeFixtures();
+  const trays = roomFixtures.filter((f) => f.kind === "cable-tray");
+  const blockers: THREE.Box3[] = [];
+  for (const tray of trays) {
+    const group = fixtures.get(tray.id)!;
+    group.updateWorldMatrix(true, true);
+    for (const mesh of group.children as THREE.InstancedMesh[]) {
+      mesh.geometry.computeBoundingBox();
+      const matrix = new THREE.Matrix4();
+      for (let index = 0; index < mesh.count; index++) {
+        mesh.getMatrixAt(index, matrix);
+        blockers.push(
+          mesh.geometry
+            .boundingBox!.clone()
+            .applyMatrix4(matrix.premultiply(mesh.matrixWorld)),
+        );
+      }
+    }
+    assert.deepEqual(
+      lightTrayRelations(tray.id).map((r) => r.id),
+      ceilingLights.map((l) => l.id),
+    );
+  }
+  for (const light of ceilingLights) {
+    assert.deepEqual(
+      lightTrayRelations(light.id).map((r) => r.id),
+      trays.map((t) => t.id),
+    );
+    const group = fixtures.get(light.id)!;
+    const bounds = new THREE.Box3().setFromObject(group);
+    assert.ok(Math.abs(bounds.max.y - definition.room.size[1]) < 1e-6);
+    assert.ok(
+      Math.abs(bounds.min.y - (light.position[1] + diffuserBottom)) < 1e-6,
+    );
+    for (const part of group.children) {
+      const piece = new THREE.Box3().setFromObject(part);
+      assert.ok(
+        blockers.every((box) => !piece.intersectsBox(box)),
+        light.id,
+      );
+    }
+    // 取灯罩两端内侧的真实向上射线，确认查找到的对象与可见发光面相同。
+    group.updateWorldMatrix(true, true);
+    for (const side of [-1, 1]) {
+      const origin = new THREE.Vector3(
+        light.position[0],
+        bounds.min.y - 0.1,
+        light.position[2] + side * (light.length / 2 - 0.01),
+      );
+      const hit = new THREE.Raycaster(
+        origin,
+        new THREE.Vector3(0, 1, 0),
+        0,
+        0.2,
+      ).intersectObject(group, true)[0];
+      assert.equal(hit?.object.parent?.userData.entityId, light.id);
+      assert.ok(Math.abs(hit.point.y - bounds.min.y) < 1e-6);
+    }
+  }
 });

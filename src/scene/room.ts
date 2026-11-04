@@ -116,29 +116,24 @@ export function buildRoomShell(
     for (const x of [-4.6, 4.6])
       box(room, [0.018, 0.007, 1.15], [x, 0.058, z], "#6c9da9", 0.1);
   }
-  const trayMounts = definition.room.fixtures
-    .filter((fixture) => fixture.kind === "cable-tray")
+  const overheadMounts = [
+    ...definition.room.fixtures,
+    ...definition.room.lights,
+  ]
+    .filter(
+      (fixture) =>
+        fixture.kind === "cable-tray" || fixture.kind === "ceiling-light",
+    )
     .map((fixture) => [fixture.mountId, structure(fixture.mountId)] as const);
   const fixtures = buildRoomFixtures(
     new Map([
       ["room-01", room],
       [leftWall.name, leftWall],
       [backWall.name, backWall],
-      ...trayMounts,
+      ...overheadMounts,
     ]),
     box,
+    glow,
   );
-  for (const lamp of definition.room.lights) {
-    const [x, y, z] = lamp.position;
-    const fixture = structure(`shell-light-${x}`);
-    box(
-      fixture,
-      [0.16, 0.07, lamp.length + 0.12],
-      [x, y + 0.025, z],
-      "#8391a0",
-      0.55,
-    );
-    glow(fixture, [0.105, 0.008, lamp.length], [x, y - 0.016, z], "#d9e7f3");
-  }
   return { occluders, fixtures };
 }

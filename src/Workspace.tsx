@@ -269,7 +269,11 @@ export function Workspace() {
     },
     [state.deviceId],
   );
-  const focus = (id: string) => {
+  const stageRef = useRef<HTMLElement>(null);
+  const focus = (
+    id: string,
+    revealStage = matchMedia("(max-width: 600px)").matches,
+  ) => {
     setNetworkLinkId((current) =>
       networkContextIncludes(id, state.deviceId, current) ? current : null,
     );
@@ -279,14 +283,15 @@ export function Workspace() {
     control({ type: "focus-resource", id });
     setInspector(true);
     if (matchMedia("(max-width: 1099px)").matches) setNav(false);
+    if (revealStage) {
+      stageRef.current?.focus({ preventScroll: true });
+      stageRef.current?.scrollIntoView({ block: "nearest" });
+    }
   };
-  const stageRef = useRef<HTMLElement>(null);
   const locateEventDevice = (id: string) => {
     setQuery("");
     setFilter("all");
-    focus(id);
-    stageRef.current?.focus({ preventScroll: true });
-    stageRef.current?.scrollIntoView({ block: "nearest" });
+    focus(id, true);
   };
   const eventHeading = useRef<HTMLHeadingElement>(null);
   const jumpToEvents = useRef(false);
@@ -623,7 +628,9 @@ export function Workspace() {
                       ? signalText(data)
                       : isCoolingSource(row.id)
                         ? "模拟输入"
-                        : "未接入数据";
+                        : fixtureById(row.id)?.dataStatus === "not-applicable"
+                          ? "结构布置"
+                          : "未接入数据";
                     const locateOnly =
                       row.kind === "part" ||
                       row.kind === "facility" ||

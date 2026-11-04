@@ -100,7 +100,12 @@ export function createRoomLights(room: THREE.Group) {
   RectAreaLightUniformsLib.init();
   const lights: THREE.RectAreaLight[] = [];
   for (const lamp of definition.room.lights) {
-    const light = new THREE.RectAreaLight("#eff5ff", 2.4, 0.105, lamp.length);
+    const light = new THREE.RectAreaLight(
+      "#eff5ff",
+      2.4,
+      definition.room.lightProfile.diffuserWidth,
+      lamp.length,
+    );
     light.position.set(
       lamp.position[0],
       lamp.position[1] - 0.03,

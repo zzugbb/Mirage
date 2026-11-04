@@ -1,3 +1,4 @@
+import { diffuserBottom, lightTrayRelations } from "../ceiling-lights";
 import {
   entranceSettings,
   entranceOpening,
@@ -30,6 +31,7 @@ export function FixtureDetails({
   onPreview: (id: string) => void;
   onLocate: (id: string) => void;
 }) {
+  const light = "length" in fixture ? fixture : null;
   const isEntrance = fixture.kind === "entrance";
   const isTray = fixture.kind === "cable-tray";
   const relations = isTray
@@ -48,20 +50,32 @@ export function FixtureDetails({
               ? "门洞底高"
               : isTray
                 ? "横档底高"
-                : fixture.kind === "leak-cable"
-                  ? "敷设高度"
-                  : "中心高度"}
+                : light
+                  ? "灯罩底高"
+                  : fixture.kind === "leak-cable"
+                    ? "敷设高度"
+                    : "中心高度"}
           </dt>
           <dd>
             {(isEntrance
               ? entranceOpening.bottom
               : isTray
                 ? trayRungBottom(fixture.position[1])
-                : fixture.position[1]
+                : light
+                  ? light.position[1] + diffuserBottom
+                  : fixture.position[1]
             ).toFixed(fixture.kind === "leak-cable" ? 3 : 2)}{" "}
             <small>m</small>
           </dd>
         </div>
+        {light && (
+          <div>
+            <dt>发光面长度</dt>
+            <dd>
+              {light.length.toFixed(2)} <small>m</small>
+            </dd>
+          </div>
+        )}
         {isEntrance && (
           <>
             <div>
@@ -126,6 +140,14 @@ export function FixtureDetails({
       {!analysis && (
         <FixtureRelations
           relations={relations}
+          onPreview={onPreview}
+          onLocate={onLocate}
+        />
+      )}
+      {!analysis && (light || isTray) && (
+        <FixtureRelations
+          title={light ? "投影相交的桥架" : "投影相交的顶灯"}
+          relations={lightTrayRelations(fixture.id)}
           onPreview={onPreview}
           onLocate={onLocate}
         />

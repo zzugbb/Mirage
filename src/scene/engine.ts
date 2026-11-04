@@ -807,7 +807,9 @@ export class SceneEngine {
       level === "room" &&
       focus &&
       (entityById(this.state.selected)?.kind === "rack" ||
-        (fixture && "kind" in fixture && fixture.kind === "cable-tray"))
+        (fixture &&
+          "kind" in fixture &&
+          ["cable-tray", "ceiling-light"].includes(fixture.kind)))
     ) {
       const frame = this.host.getBoundingClientRect();
       const controls = this.host

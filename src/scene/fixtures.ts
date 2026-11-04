@@ -1,3 +1,9 @@
+import definition from "../../assets/public/scenes/room-01.json" with { type: "json" };
+import {
+  lightProfile as lamp,
+  housingLength,
+  diffuserBottom,
+} from "../ceiling-lights.ts";
 import { buildEntrance } from "./entrance.ts";
 import { buildLeakCable } from "./leak-detection.ts";
 import { buildCableTray } from "./cable-trays.ts";
@@ -11,7 +17,11 @@ type Box = (
   color: string,
   metalness?: number,
 ) => THREE.Mesh;
-export function buildRoomFixtures(mounts: Map<string, THREE.Group>, box: Box) {
+export function buildRoomFixtures(
+  mounts: Map<string, THREE.Group>,
+  box: Box,
+  glow: Box = box,
+) {
   const fixtures = new Map<string, THREE.Group>();
   // 结构设施：仅表示布置，不带状态灯、数值或监测覆盖推断。
   for (const fixture of roomFixtures) {
@@ -21,7 +31,35 @@ export function buildRoomFixtures(mounts: Map<string, THREE.Group>, box: Box) {
     group.userData = { entityId: fixture.id, dataStatus: fixture.dataStatus };
     fixtures.set(fixture.id, group);
     mounts.get(fixture.mountId)!.add(group);
-    if (fixture.kind === "entrance") {
+    if ("length" in fixture) {
+      box(
+        group,
+        [lamp.bodyWidth, lamp.bodyHeight, housingLength(fixture)],
+        [0, lamp.bodyCenterY, 0],
+        "#8391a0",
+        0.55,
+      );
+      glow(
+        group,
+        [lamp.diffuserWidth, lamp.diffuserHeight, fixture.length],
+        [0, diffuserBottom + lamp.diffuserHeight / 2, 0],
+        "#d9e7f3",
+      );
+      const housingTop = lamp.bodyCenterY + lamp.bodyHeight / 2;
+      const drop = definition.room.size[1] - fixture.position[1] - housingTop;
+      for (const side of [-1, 1])
+        box(
+          group,
+          [lamp.hangerWidth, drop, lamp.hangerWidth],
+          [
+            0,
+            housingTop + drop / 2,
+            side * (fixture.length / 2 - lamp.hangerInset),
+          ],
+          "#74818b",
+          0.45,
+        );
+    } else if (fixture.kind === "entrance") {
       buildEntrance(group);
     } else if (fixture.kind === "cable-tray") {
       buildCableTray(group);
