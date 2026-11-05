@@ -6,6 +6,13 @@ import {
   useRef,
   useState,
 } from "react";
+import { ReadingSources } from "./components/ReadingSources";
+import {
+  readingSources,
+  sourceMetrics,
+  type SourceCheck,
+  type SourceMetric,
+} from "./reading-sources";
 import { RackInstallation } from "./components/RackInstallation";
 import { rackBlankingUnits, unitRanges } from "./rack-blanking";
 import { fixtureById } from "./fixtures";
@@ -175,6 +182,26 @@ export function Workspace() {
   const [filter, setFilter] = useState<ResourceFilter>("all");
   const [onlyAlarms, setOnlyAlarms] = useState(false);
   const [metric, setMetric] = useState<"temperature" | "power">("temperature");
+  const [sourceCheck, setSourceCheck] = useState<SourceCheck | null>(null);
+  const [sourceVisit, setSourceVisit] = useState<{
+    targetId: string;
+    anchor: string;
+    nav: boolean;
+    analysis: boolean;
+  } | null>(null);
+  const sourceAnchor = `${state.level}:${state.deviceId}:${state.focusRevision}`;
+  useEffect(() => {
+    if (!sourceCheck) return;
+    if (
+      sourceVisit
+        ? selected !== sourceVisit.targetId ||
+          sourceVisit.anchor !== sourceAnchor
+        : selected !== sourceCheck.sourceId
+    ) {
+      setSourceCheck(null);
+      setSourceVisit(null);
+    }
+  }, [selected, sourceCheck, sourceVisit, sourceAnchor]);
   const spatial = useMemo(
     () => spatialSnapshot(state.time, state.replayCycle, state.deviceId),
     [state.time, state.replayCycle, state.deviceId],
@@ -410,6 +437,8 @@ export function Workspace() {
   const load = (next: WorkspaceShot) => {
     setPowerLinkId(null);
     setNetworkLinkId(null);
+    setSourceCheck(null);
+    setSourceVisit(null);
     setExpanded([]);
     setRackView("installation");
     setShot(next);
@@ -440,6 +469,57 @@ export function Workspace() {
       : 0,
   );
   const mainMetric = powerFacility ? "power" : metric;
+  const availableSourceMetrics = sourceMetrics(selected);
+  const activeSourceCheck =
+    sourceCheck?.sourceId === selected ? sourceCheck : null;
+  const sourceMetric =
+    activeSourceCheck?.metric ??
+    (availableSourceMetrics.includes(mainMetric)
+      ? mainMetric
+      : availableSourceMetrics[0]);
+  const sources = useMemo(
+    () =>
+      sourceMetric
+        ? readingSources(selected, sourceMetric, spatial.readings)
+        : null,
+    [selected, sourceMetric, spatial.readings],
+  );
+  const openSourceCheck = (nextMetric: SourceMetric) => {
+    const next = readingSources(selected, nextMetric, spatial.readings);
+    if (!next) return;
+    takeover();
+    setSourceVisit(null);
+    setSourceCheck({
+      sourceId: selected,
+      metric: nextMetric,
+      group: next.excluded ? "excluded" : "included",
+      query: "",
+    });
+  };
+  const sourceInspector = sources && (
+    <ReadingSources
+      sources={sources}
+      sourceName={resource?.name ?? entity.name}
+      metrics={availableSourceMetrics}
+      check={activeSourceCheck}
+      time={state.time}
+      onChange={setSourceCheck}
+      onClose={() => {
+        setSourceCheck(null);
+        setSourceVisit(null);
+      }}
+      onInteract={takeover}
+      onPreview={(id) => {
+        setSourceVisit({
+          targetId: id,
+          anchor: sourceAnchor,
+          nav,
+          analysis: review.analysis,
+        });
+        pick(id);
+      }}
+    />
+  );
   return (
     <div
       className="mirage-workspace workspace-ui"
@@ -1014,6 +1094,7 @@ export function Workspace() {
               onClick={() => {
                 takeover();
                 setInspector(true);
+                if (matchMedia("(max-width: 1099px)").matches) setNav(false);
               }}
             >
               对象详情
@@ -1076,6 +1157,39 @@ export function Workspace() {
                 )}
               </span>
             </div>
+            {sourceVisit &&
+              sourceCheck &&
+              selected === sourceVisit.targetId && (
+                <div className="reading-source-return">
+                  <small>
+                    来自 {entityById(sourceCheck.sourceId)?.name} ·{" "}
+                    {sourceCheck.metric === "temperature" ? "进风" : "功耗"}核对
+                  </small>
+                  <button
+                    onClick={() => {
+                      takeover();
+                      pick(sourceCheck.sourceId);
+                      setNav(sourceVisit.nav);
+                      control({
+                        type: "analysis",
+                        value: sourceVisit.analysis,
+                      });
+                      setSourceVisit(null);
+                    }}
+                  >
+                    ← 返回输入核对
+                  </button>
+                  <button
+                    aria-label="结束输入核对预览"
+                    onClick={() => {
+                      setSourceCheck(null);
+                      setSourceVisit(null);
+                    }}
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
             {review.analysis ? (
               <>
                 <div className="study-time-control">
@@ -1098,6 +1212,7 @@ export function Workspace() {
                     }
                   />
                 </div>
+                {sourceInspector}
                 {inletId && (
                   <InletAssessment
                     reading={spatial.readings.get(inletId)!}
@@ -1192,9 +1307,14 @@ export function Workspace() {
                           {temperature(coolingRange.maximum)}
                           <small>°C</small>
                         </strong>
-                        <small>
-                          有效覆盖 {coolingRange.coverage}/{coolingRange.count}
-                        </small>
+                        <button
+                          className="reading-coverage-link"
+                          aria-label="核对进风温度输入"
+                          onClick={() => openSourceCheck("temperature")}
+                        >
+                          有效覆盖 {coolingRange.coverage}/{coolingRange.count}{" "}
+                          ↗
+                        </button>
                       </div>
                     </div>
                     <div className="cooling-response-summary">
@@ -1229,6 +1349,7 @@ export function Workspace() {
                         对照冷却输入与温度响应 <span>↗</span>
                       </button>
                     </section>
+                    {sourceInspector}
                     <CoolingConnections
                       onInteract={takeover}
                       state={state}
@@ -1262,12 +1383,22 @@ export function Workspace() {
                             <small>°C</small>
                           </strong>
                           {(reading.count > 1 ||
-                            reading.coverageTemperature !== 1) && (
-                            <small>
-                              有效覆盖 {reading.coverageTemperature}/
-                              {reading.count}
-                            </small>
-                          )}
+                            reading.coverageTemperature !== 1) &&
+                            (sources ? (
+                              <button
+                                className="reading-coverage-link"
+                                aria-label="核对进风温度输入"
+                                onClick={() => openSourceCheck("temperature")}
+                              >
+                                有效覆盖 {reading.coverageTemperature}/
+                                {reading.count} ↗
+                              </button>
+                            ) : (
+                              <small>
+                                有效覆盖 {reading.coverageTemperature}/
+                                {reading.count}
+                              </small>
+                            ))}
                         </div>
                       )}
                       <div>
@@ -1278,11 +1409,20 @@ export function Workspace() {
                             {(reading.power ?? 0) >= 1000 ? "kW" : "W"}
                           </small>
                         </strong>
-                        {(reading.count > 1 || reading.coveragePower !== 1) && (
-                          <small>
-                            有效覆盖 {reading.coveragePower}/{reading.count}
-                          </small>
-                        )}
+                        {(reading.count > 1 || reading.coveragePower !== 1) &&
+                          (sources ? (
+                            <button
+                              className="reading-coverage-link"
+                              aria-label="核对输入功耗来源"
+                              onClick={() => openSourceCheck("power")}
+                            >
+                              有效覆盖 {reading.coveragePower}/{reading.count} ↗
+                            </button>
+                          ) : (
+                            <small>
+                              有效覆盖 {reading.coveragePower}/{reading.count}
+                            </small>
+                          ))}
                         {powerFacility && (
                           <small>关联设备汇总 · 非设施或支路计量</small>
                         )}
@@ -1318,6 +1458,7 @@ export function Workspace() {
                         分析曲线与事件 <span>↗</span>
                       </button>
                     </section>
+                    {sourceInspector}
                     {(layer === "power" || powerFacility) && (
                       <PowerConnections
                         activeLinkId={
