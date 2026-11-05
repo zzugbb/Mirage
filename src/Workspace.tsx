@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { RackInstallation } from "./components/RackInstallation";
 import { rackBlankingUnits, unitRanges } from "./rack-blanking";
 import { fixtureById } from "./fixtures";
 import { powerContextIncludes, powerLinkById } from "./power-trace";
@@ -167,6 +168,9 @@ export function Workspace() {
       ? networkLinkId
       : null;
   const [query, setQuery] = useState("");
+  const [rackView, setRackView] = useState<"list" | "installation">(
+    "installation",
+  );
   const [expanded, setExpanded] = useState<string[]>([]);
   const [filter, setFilter] = useState<ResourceFilter>("all");
   const [onlyAlarms, setOnlyAlarms] = useState(false);
@@ -279,7 +283,7 @@ export function Workspace() {
   );
   const takeover = useCallback(() => control({ type: "takeover" }), []);
   const pick = useCallback(
-    (id: string, enter = false) => {
+    (id: string, enter = false, keepNavigation = false) => {
       setPowerLinkId((current) =>
         powerContextIncludes(id, state.deviceId, current) ? current : null,
       );
@@ -288,7 +292,8 @@ export function Workspace() {
       );
       control({ type: enter ? "open-resource" : "pick", id });
       setInspector(true);
-      if (matchMedia("(max-width: 1099px)").matches) setNav(false);
+      if (!keepNavigation && matchMedia("(max-width: 1099px)").matches)
+        setNav(false);
       if (enter && !fixtureById(id)) {
         setQuery("");
         setFilter("all");
@@ -406,6 +411,7 @@ export function Workspace() {
     setPowerLinkId(null);
     setNetworkLinkId(null);
     setExpanded([]);
+    setRackView("installation");
     setShot(next);
     setRevision((n) => n + 1);
     setQuery("");
@@ -634,197 +640,244 @@ export function Workspace() {
                 : "01号机房"}
             </button>
           )}
-          <div
-            className={`study-resource-list ${query.trim() || filter !== "all" ? "is-search" : ""}`}
-            key={`${state.level}:${state.deviceId}`}
-          >
-            {unitQuery && (
-              <section className="study-unit-query" aria-label="U 位安装核对">
-                {unitQuery.error ? (
-                  <p>{unitQuery.error}</p>
-                ) : (
-                  <>
-                    <strong>
-                      {unitQuery.rack?.name ?? "全机房"} · U{unitQuery.first}
-                      {unitQuery.first === unitQuery.last
-                        ? ""
-                        : `–${unitQuery.last}`}
-                    </strong>
-                    {blanking ? (
-                      <>
-                        <span>
-                          设备占用{" "}
-                          {unitQuery.last -
-                            unitQuery.first +
-                            1 -
-                            blanking.length}{" "}
-                          U · 前置盲板 {blanking.length} U
-                        </span>
-                        {blanking.length > 0 && (
-                          <>
-                            <small>
-                              封板位置：{unitRanges(blanking)}
-                              。封板不表示可分配容量。
-                            </small>
-                            <button
-                              disabled={!ready}
-                              onClick={() => focus(unitQuery.rack!.id)}
-                            >
-                              定位 {unitQuery.rack!.name}
-                            </button>
-                          </>
-                        )}
-                      </>
-                    ) : (
-                      <small>
-                        {unitQuery.rack
-                          ? "在此柜的安装范围内查找"
-                          : "在全部机柜的安装范围内查找"}
-                      </small>
-                    )}
-                  </>
-                )}
-              </section>
-            )}
-            {groups.map((group) => (
-              <section key={group}>
-                <h3>
-                  {group}
-                  <span>
-                    {
-                      rows.filter(
-                        (r) =>
-                          groupOf(r) === group && (!browsingParts || !r.parent),
-                      ).length
-                    }
-                  </span>
-                </h3>
-                {visibleRows
-                  .filter((r) => groupOf(r) === group)
-                  .map((row) => {
-                    const text = resourceRowText(
-                        row,
-                        !unitQuery?.rack &&
-                          (!!query.trim() || filter !== "all"),
-                      ),
-                      data = spatial.readings.get(row.id),
-                      style = signalStyles[signalFor(data)];
-                    const rowStatus = data
-                      ? signalText(data)
-                      : isCoolingSource(row.id)
-                        ? "模拟输入"
-                        : fixtureById(row.id)?.dataStatus === "not-applicable"
-                          ? "结构布置"
-                          : "未接入数据";
-                    const locateOnly =
-                      row.kind === "part" ||
-                      row.kind === "facility" ||
-                      (state.level === "device" && row.id === state.deviceId);
-                    return (
-                      <div
-                        className={`study-resource ${row.parent ? "is-child" : ""} ${selected === row.id ? "selected" : ""}`}
-                        key={row.id}
-                      >
-                        <button
-                          className="study-resource-text"
-                          aria-pressed={selected === row.id}
-                          title={`${row.name} · ${row.location} · ${rowStatus}`}
-                          aria-label={`${row.name}，${rowStatus}`}
-                          onClick={() => pick(row.id)}
-                        >
-                          <span className="study-resource-title">
-                            <strong>{text.title}</strong>
-                            <span
-                              className="study-row-status"
-                              style={{ color: style.color }}
-                              title={rowStatus}
-                            >
-                              {data
-                                ? style.icon
-                                : isCoolingSource(row.id)
-                                  ? "◇"
-                                  : "—"}
-                            </span>
+          {state.level === "rack" && (
+            <div
+              className="rack-navigation-view"
+              role="group"
+              aria-label="机柜资源呈现"
+            >
+              <button
+                aria-pressed={rackView === "installation"}
+                onClick={() => setRackView("installation")}
+              >
+                安装图
+              </button>
+              <button
+                aria-pressed={rackView === "list"}
+                onClick={() => setRackView("list")}
+              >
+                列表
+              </button>
+            </div>
+          )}
+          {state.level === "rack" && rackView === "installation" ? (
+            <RackInstallation
+              state={state}
+              selected={selected}
+              layer={layer}
+              readings={spatial.readings}
+              rows={rows}
+              units={unitQuery}
+              filtered={!!query.trim() || filter !== "all" || onlyAlarms}
+              ready={ready}
+              visible={nav}
+              onPick={(id) => pick(id, false, true)}
+              onDetails={(id) => pick(id)}
+              onFocus={(id) => focus(id, { installation: !pduById(id) })}
+              onOpen={(id) => pick(id, true)}
+              onList={() => setRackView("list")}
+              onClear={() => {
+                setQuery("");
+                setFilter("all");
+                setOnlyAlarms(false);
+              }}
+            />
+          ) : (
+            <div
+              className={`study-resource-list ${query.trim() || filter !== "all" ? "is-search" : ""}`}
+              key={`${state.level}:${state.deviceId}`}
+            >
+              {unitQuery && (
+                <section className="study-unit-query" aria-label="U 位安装核对">
+                  {unitQuery.error ? (
+                    <p>{unitQuery.error}</p>
+                  ) : (
+                    <>
+                      <strong>
+                        {unitQuery.rack?.name ?? "全机房"} · U{unitQuery.first}
+                        {unitQuery.first === unitQuery.last
+                          ? ""
+                          : `–${unitQuery.last}`}
+                      </strong>
+                      {blanking ? (
+                        <>
+                          <span>
+                            设备占用{" "}
+                            {unitQuery.last -
+                              unitQuery.first +
+                              1 -
+                              blanking.length}{" "}
+                            U · 前置盲板 {blanking.length} U
                           </span>
-                          <small>{text.detail}</small>
-                        </button>
+                          {blanking.length > 0 && (
+                            <>
+                              <small>
+                                封板位置：{unitRanges(blanking)}
+                                。封板不表示可分配容量。
+                              </small>
+                              <button
+                                disabled={!ready}
+                                onClick={() => focus(unitQuery.rack!.id)}
+                              >
+                                定位 {unitQuery.rack!.name}
+                              </button>
+                            </>
+                          )}
+                        </>
+                      ) : (
+                        <small>
+                          {unitQuery.rack
+                            ? "在此柜的安装范围内查找"
+                            : "在全部机柜的安装范围内查找"}
+                        </small>
+                      )}
+                    </>
+                  )}
+                </section>
+              )}
+              {groups.map((group) => (
+                <section key={group}>
+                  <h3>
+                    {group}
+                    <span>
+                      {
+                        rows.filter(
+                          (r) =>
+                            groupOf(r) === group &&
+                            (!browsingParts || !r.parent),
+                        ).length
+                      }
+                    </span>
+                  </h3>
+                  {visibleRows
+                    .filter((r) => groupOf(r) === group)
+                    .map((row) => {
+                      const text = resourceRowText(
+                          row,
+                          !unitQuery?.rack &&
+                            (!!query.trim() || filter !== "all"),
+                        ),
+                        data = spatial.readings.get(row.id),
+                        style = signalStyles[signalFor(data)];
+                      const rowStatus = data
+                        ? signalText(data)
+                        : isCoolingSource(row.id)
+                          ? "模拟输入"
+                          : fixtureById(row.id)?.dataStatus === "not-applicable"
+                            ? "结构布置"
+                            : "未接入数据";
+                      const locateOnly =
+                        row.kind === "part" ||
+                        row.kind === "facility" ||
+                        (state.level === "device" && row.id === state.deviceId);
+                      return (
                         <div
-                          className="study-row-actions"
-                          aria-label={`${row.name}操作`}
+                          className={`study-resource ${row.parent ? "is-child" : ""} ${selected === row.id ? "selected" : ""}`}
+                          key={row.id}
                         >
                           <button
-                            disabled={
-                              !ready ||
-                              (!unitQuery &&
-                                !locateOnly &&
-                                !canSelectInScene(state, row.id))
-                            }
-                            aria-label={`${unitQuery ? "定位安装位置" : "定位"} ${row.name}`}
-                            onClick={() =>
-                              unitQuery
-                                ? focus(row.id, { installation: true })
-                                : locateOnly
-                                  ? pick(row.id, true)
-                                  : focus(row.id)
-                            }
+                            className="study-resource-text"
+                            aria-pressed={selected === row.id}
+                            title={`${row.name} · ${row.location} · ${rowStatus}`}
+                            aria-label={`${row.name}，${rowStatus}`}
+                            onClick={() => pick(row.id)}
                           >
-                            定位
-                          </button>
-                          {row.kind === "part" &&
-                            rows.some((child) => child.parent === row.id) && (
-                              <button
-                                aria-label={`${expanded.includes(row.id) ? "收起" : "展开"}${row.name}子件`}
-                                aria-expanded={expanded.includes(row.id)}
-                                onClick={() =>
-                                  setExpanded((current) =>
-                                    current.includes(row.id)
-                                      ? current.filter((id) => id !== row.id)
-                                      : [...current, row.id],
-                                  )
-                                }
+                            <span className="study-resource-title">
+                              <strong>{text.title}</strong>
+                              <span
+                                className="study-row-status"
+                                style={{ color: style.color }}
+                                title={rowStatus}
                               >
-                                子件
+                                {data
+                                  ? style.icon
+                                  : isCoolingSource(row.id)
+                                    ? "◇"
+                                    : "—"}
+                              </span>
+                            </span>
+                            <small>{text.detail}</small>
+                          </button>
+                          <div
+                            className="study-row-actions"
+                            aria-label={`${row.name}操作`}
+                          >
+                            <button
+                              disabled={
+                                !ready ||
+                                (!unitQuery &&
+                                  !locateOnly &&
+                                  !canSelectInScene(state, row.id))
+                              }
+                              aria-label={`${unitQuery ? "定位安装位置" : "定位"} ${row.name}`}
+                              onClick={() =>
+                                unitQuery
+                                  ? focus(row.id, { installation: true })
+                                  : locateOnly
+                                    ? pick(row.id, true)
+                                    : focus(row.id)
+                              }
+                            >
+                              定位
+                            </button>
+                            {row.kind === "part" &&
+                              rows.some((child) => child.parent === row.id) && (
+                                <button
+                                  aria-label={`${expanded.includes(row.id) ? "收起" : "展开"}${row.name}子件`}
+                                  aria-expanded={expanded.includes(row.id)}
+                                  onClick={() =>
+                                    setExpanded((current) =>
+                                      current.includes(row.id)
+                                        ? current.filter((id) => id !== row.id)
+                                        : [...current, row.id],
+                                    )
+                                  }
+                                >
+                                  子件
+                                </button>
+                              )}
+                            {!locateOnly && (
+                              <button
+                                disabled={!ready}
+                                aria-label={`${resourceOpenLabel(state, row.id)} · ${row.name}`}
+                                onClick={() => pick(row.id, true)}
+                              >
+                                进入
                               </button>
                             )}
-                          {!locateOnly && (
-                            <button
-                              disabled={!ready}
-                              aria-label={`${resourceOpenLabel(state, row.id)} · ${row.name}`}
-                              onClick={() => pick(row.id, true)}
-                            >
-                              进入
-                            </button>
-                          )}
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
-              </section>
-            ))}
-            {!rows.length && !unitQuery?.error && !blanking?.length && (
-              <p className="study-empty">
-                {onlyAlarms
-                  ? query.trim() || filter !== "all"
-                    ? "没有匹配的告警资源"
-                    : "当前范围没有活动告警"
-                  : "没有匹配的资源"}
-                <button
-                  onClick={() => {
-                    setOnlyAlarms(false);
-                    setQuery("");
-                    setFilter("all");
-                  }}
-                >
-                  查看全部资源
-                </button>
-              </p>
-            )}
-          </div>
-          <footer className="study-nav-caption">
-            {state.level === "device"
-              ? "部件状态为模型评估，非独立告警"
-              : "单击选择 · 定位聚焦 · 进入下一级"}
-          </footer>
+                      );
+                    })}
+                </section>
+              ))}
+              {!rows.length && !unitQuery?.error && !blanking?.length && (
+                <p className="study-empty">
+                  {onlyAlarms
+                    ? query.trim() || filter !== "all"
+                      ? "没有匹配的告警资源"
+                      : "当前范围没有活动告警"
+                    : "没有匹配的资源"}
+                  <button
+                    onClick={() => {
+                      setOnlyAlarms(false);
+                      setQuery("");
+                      setFilter("all");
+                    }}
+                  >
+                    查看全部资源
+                  </button>
+                </p>
+              )}
+            </div>
+          )}
+          {!(state.level === "rack" && rackView === "installation") && (
+            <footer className="study-nav-caption">
+              {state.level === "device"
+                ? "部件状态为模型评估，非独立告警"
+                : "单击选择 · 定位聚焦 · 进入下一级"}
+            </footer>
+          )}
         </aside>
         <section
           ref={stageRef}

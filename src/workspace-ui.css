@@ -2625,3 +2625,208 @@
   margin: 4px 0 10px;
   width: 100%;
 }
+
+.rack-navigation-view {
+  display: flex;
+  gap: 4px;
+  margin: 4px 16px 8px;
+  padding: 3px;
+  border: 1px solid var(--study-line);
+  border-radius: 6px;
+}
+.rack-navigation-view button {
+  flex: 1;
+  font-size: 11px;
+  padding: 5px;
+  color: #8697a2;
+}
+.rack-navigation-view button[aria-pressed="true"] {
+  color: #dce9ed;
+  background: #34454e;
+}
+.rack-installation {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  --installation-unit: 22px;
+}
+.rack-installation-heading {
+  padding: 2px 18px 10px;
+  border-bottom: 1px solid var(--study-line);
+}
+.rack-installation-heading > strong,
+.rack-installation-selection > strong {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 550;
+}
+.rack-installation-heading strong span,
+.rack-installation-selection strong span {
+  color: #92a5af;
+  font-size: 11px;
+  font-weight: 400;
+}
+.rack-installation-heading small,
+.rack-installation-selection small {
+  display: block;
+  margin-top: 5px;
+  color: #8496a2;
+  font-size: 10px;
+  line-height: 1.7;
+}
+.rack-installation-filter {
+  margin-top: 8px;
+  font-size: 11px;
+  color: #bccbd1;
+}
+.rack-installation-filter button {
+  font-size: 10px;
+  color: #a8cdd5;
+  padding: 4px;
+}
+.rack-installation-scroll {
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #3a454f transparent;
+  padding: 10px 16px;
+}
+.rack-installation-grid {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr);
+  position: relative;
+  isolation: isolate;
+}
+.rack-installation-tick {
+  grid-column: 1;
+  align-self: stretch;
+  text-align: right;
+  padding: 4px 6px 0 0;
+  border-top: 1px solid #ffffff0b;
+  font:
+    10px/1.2 ui-monospace,
+    monospace;
+  color: #7c909b;
+}
+.rack-installation-range {
+  grid-column: 1;
+  background: #79bbc624;
+  outline: 1px solid #78b3be;
+  z-index: 2;
+  pointer-events: none;
+}
+.rack-installation-device,
+.rack-installation-blanking {
+  grid-column: 2;
+  min-width: 0;
+  margin: 1px 0;
+  border: 1px solid #ffffff18;
+  border-radius: 2px;
+}
+.rack-installation-device {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  padding: 0 7px !important;
+  background: #29333c !important;
+  color: #ced9df;
+  min-height: 0;
+}
+.rack-installation-device strong {
+  font-size: 11px;
+  font-weight: 550;
+  white-space: nowrap;
+}
+.rack-installation-device small {
+  font-size: 9px;
+  color: #a8bac5;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.rack-installation-device:hover,
+.rack-installation-device:focus-visible {
+  background: #374b55 !important;
+}
+.rack-installation-device[aria-pressed="true"],
+.rack-installation-device.is-selected {
+  border-color: #9bcdd4;
+  box-shadow: inset 3px 0 #9bcdd4;
+  background: #314750 !important;
+}
+.rack-installation-device.is-extracted {
+  border-style: dashed;
+}
+.rack-installation .is-muted {
+  opacity: 0.32;
+}
+.rack-installation-blanking {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: repeating-linear-gradient(
+    to top,
+    #11171c 0,
+    #11171c 20px,
+    #ffffff0b 21px,
+    #11171c 22px
+  );
+  color: #627681;
+  font-size: 9px;
+}
+.rack-installation-pdus {
+  padding-top: 16px;
+  font-size: 10px;
+}
+.rack-installation-pdus > strong {
+  display: block;
+  margin-bottom: 6px;
+  color: #91a4af;
+  font-weight: 400;
+}
+.rack-installation-pdus > button,
+.rack-installation-pdus > span {
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
+  padding: 8px 6px;
+  font-size: 10px;
+  border: 1px solid #ffffff12;
+  margin-top: 4px;
+}
+.rack-installation-pdus small {
+  color: #8195a0;
+}
+.rack-installation-pdus button[aria-pressed="true"] {
+  border-color: #9bcdd4;
+  background: #314750;
+}
+.rack-installation-boundary {
+  margin: 10px 0 0;
+  font-size: 10px;
+  line-height: 1.7;
+  color: #7c909b;
+}
+.rack-installation-selection {
+  padding: 10px 16px;
+  border-top: 1px solid var(--study-line);
+  background: #1c242b;
+}
+.rack-installation-selection > div {
+  display: flex;
+  gap: 5px;
+  margin-top: 8px;
+}
+.rack-installation-selection button {
+  flex: 1;
+  padding: 5px 3px;
+  border: 1px solid #ffffff18;
+  font-size: 10px;
+  white-space: nowrap;
+  color: #adc5ce;
+}
