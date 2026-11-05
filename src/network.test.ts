@@ -310,3 +310,143 @@ test("端点空心标记面向观察镜头，保留遮挡与中心空白，切�
   assert.equal(geometry.root.visible, false);
   geometry.dispose();
 });
+
+function finishEndpoint(state: ReturnType<typeof createReview>) {
+  for (let step = 0; state.pendingEndpoint && step < 6; step++)
+    state = reviewTransition(state, {
+      type: "navigation-ready",
+      key: presentationKey(state.scene),
+    });
+  assert.equal(state.pendingEndpoint, null, "有限阶段后必须完成定位");
+  return state;
+}
+
+test("四机型的网络部件可从机房直接查看，先到安装位再进入并展开，时间不重置", () => {
+  for (const id of ["srv-01", "srv-05", "sw-01", "sto-01"]) {
+    for (const link of networkLinksFor(id, id)) {
+      const endpoint = networkEndpoints(link.id).find(
+        (e) => e.deviceId === id,
+      )!;
+      let state = createReview();
+      state.scene.time = 78;
+      state = reviewTransition(state, {
+        type: "inspect-network-endpoint",
+        linkId: link.id,
+        deviceId: id,
+      });
+      assert.equal(state.scene.level, "rack");
+      assert.equal(state.scene.deviceId, id);
+      assert.equal(state.scene.trayExtended, false);
+      assert.equal(state.scene.explosion, 0);
+      assert.equal(state.selectedId, id);
+      const before = state;
+      state = reviewTransition(state, { type: "navigation-ready", key: "old" });
+      assert.equal(state, before, "旧反馈不得推进结构");
+      state = reviewTransition(state, {
+        type: "navigation-ready",
+        key: presentationKey(state.scene),
+      });
+      assert.equal(state.scene.level, "device");
+      assert.equal(state.scene.explosion, 0, "进入完成前不提前展开");
+      state = finishEndpoint(state);
+      assert.equal(state.selectedId, endpoint.partId);
+      assert.equal(state.scene.selected, endpoint.partId);
+      assert.equal(state.scene.explosion, 1);
+      assert.equal(state.scene.time, 78);
+      assert.equal(
+        networkMarkers(state.scene, state.selectedId, link.id).length,
+        1,
+      );
+    }
+  }
+});
+
+test("跨网络端点与同名部件实例先复原旧设备，安装位操作始终返回机柜", () => {
+  const link = networkLinksFor("sto-01", "sto-01")[0];
+  let state = finishEndpoint(
+    reviewTransition(createReview(), {
+      type: "inspect-network-endpoint",
+      linkId: link.id,
+      deviceId: "sto-01",
+    }),
+  );
+  state = reviewTransition(state, {
+    type: "inspect-network-endpoint",
+    linkId: link.id,
+    deviceId: link.target,
+  });
+  assert.equal(state.scene.deviceId, "sto-01");
+  assert.equal(state.scene.level, "rack");
+  assert.equal(state.scene.explosion, 0);
+  state = finishEndpoint(state);
+  assert.equal(state.scene.deviceId, link.target);
+  assert.equal(state.selectedId, "net-ports");
+  const peer = networkLinksFor("sto-01", "sto-01")[1];
+  state = finishEndpoint(
+    reviewTransition(state, {
+      type: "inspect-network-endpoint",
+      linkId: peer.id,
+      deviceId: peer.target,
+    }),
+  );
+  assert.equal(
+    state.scene.deviceId,
+    peer.target,
+    "共用 net-ports ID 不混淆交换机实例",
+  );
+  assert.equal(state.selectedId, "net-ports");
+  state = reviewTransition(state, {
+    type: "locate-installation",
+    id: "sto-01",
+  });
+  assert.equal(state.pendingId, "sto-01");
+  state = reviewTransition(state, {
+    type: "navigation-ready",
+    key: presentationKey(state.scene),
+  });
+  for (let count = 0; count < 2; count++) {
+    state = reviewTransition(state, {
+      type: "locate-installation",
+      id: "sto-01",
+    });
+    assert.equal(state.scene.level, "rack");
+    assert.equal(state.scene.explosion, 0);
+    assert.equal(state.scene.trayExtended, false);
+  }
+});
+
+test("网络部件导航拒绝非端点并可被资源选择或预设取消，回看不丢失目的地", () => {
+  const base = createReview();
+  assert.equal(
+    reviewTransition(base, {
+      type: "inspect-network-endpoint",
+      linkId: "link-srv-01-0",
+      deviceId: "sto-01",
+    }),
+    base,
+  );
+  const pending = reviewTransition(base, {
+    type: "inspect-network-endpoint",
+    linkId: "link-srv-01-0",
+    deviceId: "srv-01",
+  });
+  const sought = reviewTransition(pending, {
+    type: "scene",
+    action: { type: "seek", time: 35 },
+  });
+  assert.equal(finishEndpoint(sought).scene.time, 35);
+  for (const action of [
+    { type: "pick", id: "rack-a05" },
+    { type: "shot", shot: "overview" },
+    { type: "scene", action: { type: "back" } },
+    { type: "tour-restart" },
+  ] as const) {
+    const canceled = reviewTransition(pending, action);
+    assert.equal(canceled.pendingEndpoint, null);
+    const after = reviewTransition(canceled, {
+      type: "navigation-ready",
+      key: presentationKey(canceled.scene),
+    });
+    assert.notEqual(after.selectedId, "nic-01");
+  }
+});

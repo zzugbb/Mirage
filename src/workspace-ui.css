@@ -2026,7 +2026,7 @@
 }
 .network-trace-endpoint {
   display: grid;
-  grid-template-columns: 16px minmax(0, 1fr) auto;
+  grid-template-columns: 16px minmax(0, 1fr);
   align-items: start;
   gap: 8px;
   padding: 11px 0;
@@ -2037,12 +2037,38 @@
   font-size: 13px;
   line-height: 1.6;
 }
-.network-trace-endpoint > button:last-child {
+.network-endpoint-actions {
+  grid-column: 2;
+  display: flex;
+  gap: 8px;
+}
+.network-endpoint-actions button {
   background: #24313a;
   border: 1px solid #3c4b55;
   border-radius: 4px;
   padding: 4px 7px;
   font-size: 10px;
+}
+.network-trace-branches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 0;
+  font-size: 10px;
+}
+.network-trace-branches > span {
+  flex-basis: 100%;
+  color: #92a9b5;
+}
+.network-trace-branches button {
+  padding: 5px 8px;
+  border: 1px solid #3c4b55;
+  border-radius: 4px;
+}
+.network-trace-branches button[aria-pressed="true"] {
+  background: #304740;
+  border-color: #8aafa2;
+  color: #e1f2eb;
 }
 .workspace-ui .network-trace-preview {
   padding: 0;

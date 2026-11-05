@@ -43,7 +43,7 @@ import {
 import { isPowerFacility, pduById, powerDeviceIds } from "./power-config";
 import { PowerConnections } from "./components/PowerConnections";
 import { NetworkConnections } from "./components/NetworkConnections";
-import { networkContextIncludes } from "./network";
+import { networkContextIncludes, networkLinkById } from "./network";
 import { CoolingConnections } from "./components/CoolingConnections";
 import {
   coolingSource,
@@ -206,6 +206,7 @@ export function Workspace() {
   );
   const ready =
     !review.pendingId &&
+    !review.pendingEndpoint &&
     !!feedback?.settled &&
     feedback.key === presentationKey(state);
   const unitQuery = useMemo(
@@ -357,12 +358,12 @@ export function Workspace() {
   };
   useEffect(() => {
     if (
-      review.pendingId &&
+      (review.pendingId || review.pendingEndpoint) &&
       feedback?.settled &&
       feedback.key === presentationKey(state)
     )
       control({ type: "navigation-ready", key: feedback.key });
-  }, [review.pendingId, feedback, state]);
+  }, [review.pendingId, review.pendingEndpoint, feedback, state]);
   useEffect(() => {
     if (!state.playing) return;
     const timer = setInterval(() => {
@@ -1300,8 +1301,33 @@ export function Workspace() {
                         activeLinkId={activeNetworkLink}
                         ready={ready}
                         onSelect={pick}
-                        onLocate={(id) => pick(id, true)}
-                        onTrace={setNetworkLinkId}
+                        onLocate={(id) => focus(id, { installation: true })}
+                        onInspect={(id) => {
+                          if (!activeNetworkLink) return;
+                          control({
+                            type: "inspect-network-endpoint",
+                            linkId: activeNetworkLink,
+                            deviceId: id,
+                          });
+                          setQuery("");
+                          setFilter("all");
+                          setPowerLinkId(null);
+                          if (matchMedia("(max-width: 1099px)").matches)
+                            setNav(false);
+                        }}
+                        onTrace={(id) => {
+                          const link = networkLinkById(id);
+                          if (
+                            link &&
+                            !networkContextIncludes(
+                              selected,
+                              state.deviceId,
+                              id,
+                            )
+                          )
+                            pick(link.source);
+                          setNetworkLinkId(id);
+                        }}
                         onInteract={takeover}
                       />
                     )}

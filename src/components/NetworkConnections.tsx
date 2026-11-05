@@ -23,6 +23,7 @@ export function NetworkConnections({
   ready,
   onSelect,
   onLocate,
+  onInspect,
   onTrace,
   onInteract,
 }: {
@@ -32,6 +33,7 @@ export function NetworkConnections({
   ready: boolean;
   onSelect: (id: string) => void;
   onLocate: (id: string) => void;
+  onInspect: (id: string) => void;
   onTrace: (id: string | null) => void;
   onInteract: () => void;
 }) {
@@ -86,6 +88,24 @@ export function NetworkConnections({
             <span>{activeLink.speedGbps} Gb/s · 配置接入</span>
             <button onClick={() => onTrace(null)}>结束标记</button>
           </div>
+          <div
+            className="network-trace-branches"
+            role="group"
+            aria-label="同一设备的接入配置"
+          >
+            <span>{deviceById(activeLink.source)!.name} 接入</span>
+            {networkLinksFor(activeLink.source, state.deviceId).map((link) => (
+              <button
+                key={link.id}
+                disabled={!ready}
+                aria-pressed={activeLink.id === link.id}
+                aria-label={`查看 ${deviceById(link.source)!.name} 接入 ${switchRole(link.target)}`}
+                onClick={() => onTrace(link.id)}
+              >
+                {switchRole(link.target)} · {deviceById(link.target)!.name}
+              </button>
+            ))}
+          </div>
           {networkEndpoints(activeLink.id).map((endpoint) => (
             <div className="network-trace-endpoint" key={endpoint.side}>
               <span aria-hidden="true">{endpoint.ordinal}</span>
@@ -97,20 +117,33 @@ export function NetworkConnections({
                 <strong>{endpoint.name}</strong>
                 <small>{endpoint.portLabel}</small>
                 <small>{endpoint.location}</small>
-                {state.level === "device" &&
-                  state.deviceId === endpoint.deviceId && (
-                    <small>所属部件 · {endpoint.partName}</small>
-                  )}
+                <small>所属部件 · {endpoint.partName}</small>
               </button>
-              <button
-                disabled={!ready}
-                aria-label={`定位端点 ${endpoint.name}`}
-                onClick={() => onLocate(endpoint.deviceId)}
-              >
-                定位
-              </button>
+              <div className="network-endpoint-actions">
+                <button
+                  disabled={!ready}
+                  aria-label={`定位安装位 ${endpoint.name}`}
+                  onClick={() => onLocate(endpoint.deviceId)}
+                >
+                  安装位
+                </button>
+                <button
+                  disabled={!ready}
+                  aria-label={`查看 ${endpoint.name} 的${endpoint.partName}`}
+                  onClick={() => onInspect(endpoint.deviceId)}
+                >
+                  查看部件
+                </button>
+              </div>
             </div>
           ))}
+          <p className="network-boundary" role="status">
+            {state.level === "device"
+              ? [activeLink.source, activeLink.target].includes(state.deviceId)
+                ? "当前展示本端部件；可查看另一端部件，或返回安装位。"
+                : "当前结构不含此连接的端点；请定位安装位或查看部件。"
+              : "端点标记对应整机安装位置；查看部件将进入整机并展开。"}
+          </p>
         </section>
       )}
       {rack ? (

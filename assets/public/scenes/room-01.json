@@ -980,6 +980,7 @@
     {
       "id": "nic-01",
       "name": "双口网络适配器",
+      "focusDirection": [0.8, 0.65, -1],
       "node": "adapter",
       "slot": "NIC",
       "position": [

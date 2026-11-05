@@ -21,6 +21,9 @@ import type { DataQuality } from "./status.ts";
 import type { SimulationEvent } from "./simulation.ts";
 import { createExperience, experienceTransition } from "./tour.ts";
 import type { ExperienceAction, TourState } from "./tour.ts";
+import { networkEndpoints } from "./network.ts";
+
+type EndpointTarget = { deviceId: string; partId: string };
 
 export type ReviewLayer = "overview" | "environment" | "power" | "alarms";
 export type ReviewShot = "overview" | "environment" | "assembly" | "time";
@@ -30,6 +33,7 @@ export type ReviewState = {
   analysis: boolean;
   selectedId: string;
   pendingId: string | null;
+  pendingEndpoint: EndpointTarget | null;
   tour: TourState;
   pendingTour: boolean;
 };
@@ -54,6 +58,7 @@ export function createReview(): ReviewState {
     analysis: false,
     selectedId: "room-01",
     pendingId: null,
+    pendingEndpoint: null,
     tour: createExperience(false).tour,
     pendingTour: false,
   };
@@ -73,6 +78,7 @@ export type ReviewAction =
   | { type: "analysis"; value: boolean }
   | { type: "navigation-ready"; key: string }
   | { type: "room-airflow"; id: string }
+  | { type: "inspect-network-endpoint"; linkId: string; deviceId: string }
   | Exclude<ExperienceAction, { type: "scene" }>;
 export type ResourceAction = {
   type:
@@ -107,6 +113,7 @@ export function reviewTransition(
       ...experience,
       selectedId: experience.scene.selected,
       pendingId: null,
+      pendingEndpoint: null,
       pendingTour: false,
       layer: "overview" as const,
       analysis: false,
@@ -134,6 +141,7 @@ export function reviewTransition(
     return {
       ...returning,
       pendingId: "room-01",
+      pendingEndpoint: null,
       pendingTour: true,
       tour: { ...state.tour, mode: "manual" },
     };
@@ -154,6 +162,7 @@ export function reviewTransition(
         ...next,
         selectedId: chapter ? next.scene.selected : state.selectedId,
         pendingId: chapter ? null : state.pendingId,
+        pendingEndpoint: chapter ? null : state.pendingEndpoint,
         analysis: chapter ? false : state.analysis,
         layer: chapter ? "overview" : state.layer,
       };
@@ -167,6 +176,13 @@ export function reviewTransition(
     return next;
   return {
     ...next,
+    pendingEndpoint:
+      action.type === "inspect-network-endpoint" ||
+      action.type === "layer" ||
+      action.type === "analysis" ||
+      (action.type === "scene" && action.action.type === "seek")
+        ? next.pendingEndpoint
+        : null,
     tour: { ...next.tour, mode: "manual" },
     pendingTour: false,
     pendingId:
@@ -180,6 +196,13 @@ function reviewInteractionTransition(
   state: ReviewState,
   action: ReviewAction | ResourceAction,
 ): ReviewState {
+  if (action.type === "inspect-network-endpoint") {
+    if (state.pendingId || state.pendingEndpoint) return state;
+    const endpoint = networkEndpoints(action.linkId).find(
+      (item) => item.deviceId === action.deviceId,
+    );
+    return endpoint ? advanceNetworkEndpoint(state, endpoint) : state;
+  }
   if (action.type === "pick")
     return entityById(action.id)
       ? {
@@ -215,6 +238,10 @@ function reviewInteractionTransition(
     };
   }
   if (action.type === "navigation-ready") {
+    if (state.pendingEndpoint)
+      return action.key === presentationKey(state.scene)
+        ? advanceNetworkEndpoint(state, state.pendingEndpoint)
+        : state;
     if (!state.pendingId || action.key !== presentationKey(state.scene))
       return state;
     if (entityById(state.pendingId)?.kind === "device")
@@ -423,6 +450,51 @@ function reviewInteractionTransition(
   }
   if (action.type === "analysis") return { ...state, analysis: action.value };
   return state;
+}
+
+/** 先归位旧实例，再进入目标整机；待机构就绪后才展开并聚焦所属部件。 */
+function advanceNetworkEndpoint(
+  state: ReviewState,
+  target: EndpointTarget,
+): ReviewState {
+  const current = state.scene;
+  if (current.level === "device" && current.deviceId === target.deviceId) {
+    const next = reviewInteractionTransition(state, {
+      type: "focus-resource",
+      id: target.partId,
+    });
+    return { ...next, pendingEndpoint: null };
+  }
+  let scene: AppState;
+  if (current.level === "device") {
+    scene = transition(current, { type: "back" });
+  } else if (current.level === "rack" && current.deviceId === target.deviceId) {
+    scene = transition(current, {
+      type: "navigate",
+      level: "device",
+      id: target.deviceId,
+    });
+  } else if (current.level === "rack" && current.trayExtended) {
+    scene = { ...current, trayExtended: false, doorOpen: false };
+  } else {
+    scene = {
+      ...transition(current, {
+        type: "navigate",
+        level: "rack",
+        id: target.deviceId,
+      }),
+      selected: target.deviceId,
+      doorOpen: false,
+      trayExtended: false,
+    };
+  }
+  return {
+    ...state,
+    scene,
+    selectedId: target.deviceId,
+    pendingId: null,
+    pendingEndpoint: { deviceId: target.deviceId, partId: target.partId },
+  };
 }
 export type ReviewMetric = "temperature" | "power";
 /** 视图直接决定显示内容，不再通过额外开关隐藏当前指标。 */

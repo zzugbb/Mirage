@@ -802,15 +802,18 @@ export class SceneEngine {
                 ? [0.45, 0.42, 1.5]
                 : [0.85, 0.85, 1.05]) as [number, number, number]),
     ).normalize();
-    if (
-      level === "device" &&
-      focus &&
-      view === "iso" &&
-      object?.userData.focusDirection
-    )
-      direction
-        .fromArray(object.userData.focusDirection)
-        .transformDirection(object.matrixWorld);
+    if (level === "device" && focus && view === "iso" && object) {
+      const part = partsForDevice(this.state.deviceId).find(
+        (part) => part.id === this.state.selected,
+      );
+      const focusDirection =
+        object.userData.focusDirection ??
+        (part && "focusDirection" in part ? part.focusDirection : null);
+      if (focusDirection)
+        direction
+          .fromArray(focusDirection)
+          .transformDirection(object.matrixWorld);
+    }
     if (fixture && view === "iso")
       direction.fromArray(fixture.focus.direction).normalize();
     const minimum = fixture
