@@ -21,6 +21,8 @@ import type { DataQuality } from "./status.ts";
 import type { SimulationEvent } from "./simulation.ts";
 import { createExperience, experienceTransition } from "./tour.ts";
 import type { ExperienceAction, TourState } from "./tour.ts";
+import { powerLinks, inletPart } from "./power-config.ts";
+import { deviceById } from "./installation.ts";
 import { networkEndpoints } from "./network.ts";
 
 type EndpointTarget = { deviceId: string; partId: string };
@@ -79,6 +81,7 @@ export type ReviewAction =
   | { type: "navigation-ready"; key: string }
   | { type: "room-airflow"; id: string }
   | { type: "inspect-network-endpoint"; linkId: string; deviceId: string }
+  | { type: "inspect-power-input"; linkId: string }
   | Exclude<ExperienceAction, { type: "scene" }>;
 export type ResourceAction = {
   type:
@@ -178,6 +181,7 @@ export function reviewTransition(
     ...next,
     pendingEndpoint:
       action.type === "inspect-network-endpoint" ||
+      action.type === "inspect-power-input" ||
       action.type === "layer" ||
       action.type === "analysis" ||
       (action.type === "scene" && action.action.type === "seek")
@@ -196,12 +200,21 @@ function reviewInteractionTransition(
   state: ReviewState,
   action: ReviewAction | ResourceAction,
 ): ReviewState {
+  if (action.type === "inspect-power-input") {
+    if (state.pendingId || state.pendingEndpoint) return state;
+    const link = powerLinks.find((link) => link.id === action.linkId);
+    if (!link) return state;
+    return advanceConnectionEndpoint(state, {
+      deviceId: link.deviceId,
+      partId: inletPart(deviceById(link.deviceId)!.modelId, link.inlet),
+    });
+  }
   if (action.type === "inspect-network-endpoint") {
     if (state.pendingId || state.pendingEndpoint) return state;
     const endpoint = networkEndpoints(action.linkId).find(
       (item) => item.deviceId === action.deviceId,
     );
-    return endpoint ? advanceNetworkEndpoint(state, endpoint) : state;
+    return endpoint ? advanceConnectionEndpoint(state, endpoint) : state;
   }
   if (action.type === "pick")
     return entityById(action.id)
@@ -240,7 +253,7 @@ function reviewInteractionTransition(
   if (action.type === "navigation-ready") {
     if (state.pendingEndpoint)
       return action.key === presentationKey(state.scene)
-        ? advanceNetworkEndpoint(state, state.pendingEndpoint)
+        ? advanceConnectionEndpoint(state, state.pendingEndpoint)
         : state;
     if (!state.pendingId || action.key !== presentationKey(state.scene))
       return state;
@@ -453,7 +466,7 @@ function reviewInteractionTransition(
 }
 
 /** 先归位旧实例，再进入目标整机；待机构就绪后才展开并聚焦所属部件。 */
-function advanceNetworkEndpoint(
+function advanceConnectionEndpoint(
   state: ReviewState,
   target: EndpointTarget,
 ): ReviewState {

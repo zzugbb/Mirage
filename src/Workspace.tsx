@@ -8,7 +8,7 @@ import {
 } from "react";
 import { rackBlankingUnits, unitRanges } from "./rack-blanking";
 import { fixtureById } from "./fixtures";
-import { powerContextIncludes } from "./power-trace";
+import { powerContextIncludes, powerLinkById } from "./power-trace";
 import { rackTrayRelations } from "./cable-trays";
 import { leakRelations } from "./leak-detection";
 import { FixtureDetails, FixtureRelations } from "./components/FixtureDetails";
@@ -1271,9 +1271,23 @@ export function Workspace() {
                           layer === "power" ? activePowerLink : null
                         }
                         onTrace={(id) => {
+                          const link = powerLinkById(id);
+                          if (
+                            link &&
+                            !powerContextIncludes(selected, state.deviceId, id)
+                          )
+                            pick(link.deviceId);
                           setPowerLinkId(id);
                           if (id) control({ type: "layer", layer: "power" });
                           else takeover();
+                        }}
+                        onInspect={(linkId) => {
+                          control({ type: "inspect-power-input", linkId });
+                          setQuery("");
+                          setFilter("all");
+                          setNetworkLinkId(null);
+                          if (matchMedia("(max-width: 1099px)").matches)
+                            setNav(false);
                         }}
                         onInteract={takeover}
                         state={state}

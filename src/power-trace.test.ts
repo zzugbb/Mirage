@@ -214,3 +214,85 @@ test("插座框标与代表圆点互斥，取消或转场收起且资源可释�
   geometry.dispose();
   assert.equal(disposed, 2);
 });
+
+test("168 路已配置输入均能进入所属电源部件，保留共享时间", () => {
+  for (const link of powerLinks) {
+    let review = createReview();
+    review.scene.time = 49;
+    review = reviewTransition(review, {
+      type: "inspect-power-input",
+      linkId: link.id,
+    });
+    assert.equal(review.scene.level, "rack");
+    assert.equal(review.scene.explosion, 0);
+    for (let step = 0; review.pendingEndpoint && step < 6; step++)
+      review = reviewTransition(review, {
+        type: "navigation-ready",
+        key: presentationKey(review.scene),
+      });
+    assert.equal(review.pendingEndpoint, null);
+    assert.equal(review.scene.level, "device");
+    assert.equal(review.scene.deviceId, link.deviceId);
+    assert.equal(
+      review.selectedId,
+      inletPart(deviceById(link.deviceId)!.modelId, link.inlet),
+    );
+    assert.equal(review.scene.explosion, 1);
+    assert.equal(review.scene.time, 49);
+    assert.equal(
+      powerContextIncludes(review.selectedId, review.scene.deviceId, link.id),
+      true,
+    );
+  }
+});
+
+test("供电部件跨实例先归位，旧反馈与未配置输入不能推进，PDU 返回保留时间", () => {
+  const initial = createReview();
+  assert.equal(
+    reviewTransition(initial, {
+      type: "inspect-power-input",
+      linkId: "unknown",
+    }),
+    initial,
+  );
+  let review: ReturnType<typeof createReview> = {
+    ...initial,
+    scene: {
+      ...initial.scene,
+      level: "device" as const,
+      deviceId: "sto-01",
+      selected: "sto-psu-a",
+      explosion: 1,
+      time: 78,
+    },
+  };
+  const link = powerLinks.find(
+    (link) => link.deviceId === "srv-01" && link.inlet === "B",
+  )!;
+  review = reviewTransition(review, {
+    type: "inspect-power-input",
+    linkId: link.id,
+  });
+  assert.equal(review.scene.deviceId, "sto-01");
+  assert.equal(review.scene.explosion, 0);
+  assert.equal(
+    reviewTransition(review, { type: "navigation-ready", key: "stale" }),
+    review,
+  );
+  for (let step = 0; review.pendingEndpoint && step < 6; step++)
+    review = reviewTransition(review, {
+      type: "navigation-ready",
+      key: presentationKey(review.scene),
+    });
+  assert.equal(review.scene.deviceId, "srv-01");
+  review = reviewTransition(review, { type: "focus-resource", id: link.pduId });
+  assert.equal(review.pendingId, link.pduId);
+  assert.equal(review.pendingEndpoint, null);
+  review = reviewTransition(review, {
+    type: "navigation-ready",
+    key: presentationKey(review.scene),
+  });
+  assert.equal(review.scene.level, "rack");
+  assert.equal(review.selectedId, link.pduId);
+  assert.equal(review.scene.time, 78);
+});

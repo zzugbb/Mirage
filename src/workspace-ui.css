@@ -2598,3 +2598,30 @@
   outline: 1px solid #9ec8c2;
   outline-offset: 2px;
 }
+
+.power-input-switch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 0;
+  font-size: 10px;
+}
+.power-input-switch > span {
+  flex-basis: 100%;
+  color: #a8bdc5;
+}
+.workspace-ui .power-input-switch button,
+.workspace-ui .power-inspect-input {
+  padding: 6px 8px;
+  border: 1px solid #52646b;
+  border-radius: 4px;
+  font-size: 10px;
+}
+.power-input-switch button[aria-pressed="true"] {
+  background: #304740;
+  border-color: #8aafa2;
+}
+.workspace-ui .power-inspect-input {
+  margin: 4px 0 10px;
+  width: 100%;
+}

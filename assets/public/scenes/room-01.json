@@ -813,6 +813,7 @@
     },
     {
       "id": "psu-01",
+      "focusDirection": [-0.6, 0.5, -1],
       "name": "电源 01",
       "node": "psu",
       "slot": "PSU-01",
@@ -840,6 +841,7 @@
     },
     {
       "id": "psu-02",
+      "focusDirection": [0.6, 0.5, -1],
       "name": "电源 02",
       "node": "psu",
       "slot": "PSU-02",
@@ -1344,6 +1346,7 @@
     },
     {
       "id": "net-psu-a",
+      "focusDirection": [-0.6, 0.5, -1],
       "name": "电源 A",
       "node": "psu",
       "slot": "PSU-A",
@@ -1372,6 +1375,7 @@
     },
     {
       "id": "net-psu-b",
+      "focusDirection": [0.6, 0.5, -1],
       "name": "电源 B",
       "node": "psu",
       "slot": "PSU-B",
@@ -1540,6 +1544,7 @@
     },
     {
       "id": "sto-psu-a",
+      "focusDirection": [-0.6, 0.5, -1],
       "name": "电源 A",
       "node": "psu",
       "slot": "PSU-A",
@@ -1568,6 +1573,7 @@
     },
     {
       "id": "sto-psu-b",
+      "focusDirection": [0.6, 0.5, -1],
       "name": "电源 B",
       "node": "psu",
       "slot": "PSU-B",

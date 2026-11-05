@@ -15,7 +15,7 @@ import {
 } from "../power-config";
 import type { SpatialReading } from "../spatial";
 import { qualityNames } from "../status";
-import { powerTraceStops } from "../power-trace";
+import { powerLinkById, powerTraceStops } from "../power-trace";
 import { powerScene } from "../power-paths";
 
 const input = (reading?: SpatialReading) =>
@@ -33,6 +33,7 @@ export function PowerConnections({
   onViewPower,
   activeLinkId,
   onTrace,
+  onInspect,
 }: {
   state: AppState;
   selectedId: string;
@@ -44,6 +45,7 @@ export function PowerConnections({
   onViewPower?: () => void;
   activeLinkId: string | null;
   onTrace: (id: string | null) => void;
+  onInspect: (id: string) => void;
 }) {
   const [empty, setEmpty] = useState(false);
   const pdu = pduById(selectedId),
@@ -69,6 +71,7 @@ export function PowerConnections({
         : false,
   );
   const stops = powerTraceStops(activeLinkId);
+  const activeLink = powerLinkById(activeLinkId);
   const canTrace = ready && !!powerScene(state, selectedId);
   return (
     <ConnectionSection
@@ -101,6 +104,28 @@ export function PowerConnections({
               结束追踪
             </button>
           </header>
+          {activeLink && (
+            <div
+              className="power-input-switch"
+              role="group"
+              aria-label="同一设备的供电输入"
+            >
+              <span>{deviceById(activeLink.deviceId)!.name} 输入</span>
+              {powerLinks
+                .filter((link) => link.deviceId === activeLink.deviceId)
+                .map((link) => (
+                  <button
+                    key={link.id}
+                    disabled={!ready}
+                    aria-pressed={link.id === activeLinkId}
+                    aria-label={`查看 ${deviceById(link.deviceId)!.name} 输入 ${link.inlet}`}
+                    onClick={() => onTrace(link.id)}
+                  >
+                    {link.inlet} · {pduName(link.pduId)}
+                  </button>
+                ))}
+            </div>
+          )}
           <ol>
             {stops.map((stop) => (
               <li key={stop.id}>
@@ -124,6 +149,16 @@ export function PowerConnections({
               </li>
             ))}
           </ol>
+          {activeLink && (
+            <button
+              className="power-inspect-input"
+              disabled={!ready}
+              onClick={() => onInspect(activeLink.id)}
+            >
+              查看 {deviceById(activeLink.deviceId)!.name} 电源{" "}
+              {activeLink.inlet}
+            </button>
+          )}
         </section>
       )}
       {selectedId === powerSettings.sourceId ? (
