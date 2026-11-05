@@ -1,3 +1,4 @@
+import { TemperatureDisclosure } from "./TemperatureDisclosure";
 import { SliceDeviceContext } from "./SliceDeviceContext";
 import { SliceInputPreview } from "./SliceInputPreview";
 import { fixtureById, roomFacilityById } from "../fixtures";
@@ -1029,6 +1030,7 @@ export function ReviewScene({
                   <SliceDeviceContext
                     key={`${shotRevision}:${selectedId}`}
                     selectedId={selectedId}
+                    onInteract={onTakeover}
                     controls={sliceControls}
                     slice={slice}
                     readings={readings}
@@ -1038,11 +1040,18 @@ export function ReviewScene({
                     }}
                   />
                   {airflow && (
-                    <details className="review-flow-explanation">
-                      <summary>
-                        气流路径 ·{" "}
-                        {airflow.routes[0]?.animated ? "代表支路" : "静态示意"}
-                      </summary>
+                    <TemperatureDisclosure
+                      className="review-flow-explanation"
+                      onInteract={onTakeover}
+                      summary={
+                        <>
+                          气流路径 ·{" "}
+                          {airflow.routes[0]?.animated
+                            ? "代表支路"
+                            : "静态示意"}
+                        </>
+                      }
+                    >
                       <p>{airflow.label}</p>
                       <ol aria-label="气流端点与读数">
                         {airflow.routes.flatMap((route) =>
@@ -1058,7 +1067,7 @@ export function ReviewScene({
                         当前机柜同向，假设前进后出。柜面细框按设备安装 U
                         位标出前后代表范围，柜外箭头表示方向；被柜体遮挡的路径不透视显示，可切换前/后视或旋转观察。细框不是实际风口。送风沿低位侧通道至柜前格栅，再穿柜并从上方回到制冷单元；未建立架空地板风腔或封闭冷热通道。端点均为代表位置，线宽和脉冲速度不表示风量或风速。暂停可读方向；停机、维护或观测无效时仅保留灰色静态路径。
                       </p>
-                    </details>
+                    </TemperatureDisclosure>
                   )}
                 </div>
               )}

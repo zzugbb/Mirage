@@ -1,3 +1,4 @@
+import { TemperatureDisclosure } from "./TemperatureDisclosure";
 import { useEffect, useState } from "react";
 import type { SliceControls, TemperatureSlice } from "../temperature-slice";
 import type { SpatialReading } from "../spatial";
@@ -9,11 +10,13 @@ export function SliceDeviceContext({
   slice,
   readings,
   onChange,
+  onInteract,
 }: {
   selectedId: string;
   controls: SliceControls;
   slice: TemperatureSlice;
   readings: Map<string, SpatialReading>;
+  onInteract: () => void;
   onChange: (controls: SliceControls) => void;
 }) {
   const context = sliceDeviceContext(selectedId, controls, slice, readings);
@@ -28,8 +31,11 @@ export function SliceDeviceContext({
   }, [visit, returning]);
   if (!context) return null;
   return (
-    <details className="slice-device-context">
-      <summary>对照所查设备 · {context.name}</summary>
+    <TemperatureDisclosure
+      className="slice-device-context"
+      onInteract={onInteract}
+      summary={<>对照所查设备 · {context.name}</>}
+    >
       <p>
         {context.location} · 进风代表高度 {context.height.toFixed(2)} m
       </p>
@@ -71,6 +77,6 @@ export function SliceDeviceContext({
             : "切片对齐设备附近"}
       </button>
       <small>按滑杆步长取邻近高度或柜前距离；读数随共享时间变化。</small>
-    </details>
+    </TemperatureDisclosure>
   );
 }

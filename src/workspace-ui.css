@@ -2585,3 +2585,16 @@
   display: block;
   margin-top: 8px;
 }
+
+.workspace-ui .temperature-disclosure-body {
+  max-height: clamp(100px, calc(100dvh - 570px), 220px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  padding: 4px 5px 4px 0;
+  margin-top: 6px;
+}
+.workspace-ui .temperature-disclosure-body:focus-visible {
+  outline: 1px solid #9ec8c2;
+  outline-offset: 2px;
+}

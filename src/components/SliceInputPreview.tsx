@@ -1,3 +1,4 @@
+import { TemperatureDisclosure } from "./TemperatureDisclosure";
 import { useEffect, useRef, useState } from "react";
 import type { TemperatureSlice } from "../temperature-slice";
 import type { SpatialReading } from "../spatial";
@@ -48,18 +49,25 @@ export function SliceInputPreview({
   };
   return (
     <>
-      <details className="slice-coverage" ref={coverage}>
-        <summary className="review-slice-stats" onClick={onTakeover}>
-          <span>
-            {slice.orientation === "horizontal" ? "本层" : "本排"}有效{" "}
-            {slice.validInputs}/{slice.totalInputs} 台
-          </span>
-          <span>
-            {slice.min === null
-              ? "无有效估计"
-              : `${slice.min.toFixed(1)}–${slice.max!.toFixed(1)} °C`}
-          </span>
-        </summary>
+      <TemperatureDisclosure
+        className="slice-coverage"
+        detailsRef={coverage}
+        onInteract={onTakeover}
+        summaryClassName="review-slice-stats"
+        summary={
+          <>
+            <span>
+              {slice.orientation === "horizontal" ? "本层" : "本排"}有效{" "}
+              {slice.validInputs}/{slice.totalInputs} 台
+            </span>
+            <span>
+              {slice.min === null
+                ? "无有效估计"
+                : `${slice.min.toFixed(1)}–${slice.max!.toFixed(1)} °C`}
+            </span>
+          </>
+        }
+      >
         {slice.unavailableIds.length ? (
           <>
             <p>未参与估计 · {slice.unavailableIds.length} 台</p>
@@ -94,7 +102,7 @@ export function SliceInputPreview({
           </p>
         )}
         <small>超出设备输入的插值范围也会留白。</small>
-      </details>
+      </TemperatureDisclosure>
       <button
         type="button"
         className="slice-peak-preview"
