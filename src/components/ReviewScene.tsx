@@ -1,3 +1,4 @@
+import { SliceDeviceContext } from "./SliceDeviceContext";
 import { SliceInputPreview } from "./SliceInputPreview";
 import { fixtureById, roomFacilityById } from "../fixtures";
 import type { Dispatch, SetStateAction, ReactNode } from "react";
@@ -1023,6 +1024,17 @@ export function ReviewScene({
                         engine.current?.preservePanelView();
                         restore();
                       };
+                    }}
+                  />
+                  <SliceDeviceContext
+                    key={`${shotRevision}:${selectedId}`}
+                    selectedId={selectedId}
+                    controls={sliceControls}
+                    slice={slice}
+                    readings={readings}
+                    onChange={(next) => {
+                      onTakeover();
+                      setSliceControls(next);
                     }}
                   />
                   {airflow && (

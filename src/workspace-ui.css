@@ -2548,3 +2548,40 @@
 .event-location > span {
   flex-basis: 100%;
 }
+
+.slice-device-context {
+  border-top: 1px solid #ffffff16;
+  padding-top: 7px;
+  font-size: 10px;
+}
+.slice-device-context summary {
+  cursor: pointer;
+  color: #b7d5dc;
+}
+.slice-device-context p {
+  margin: 8px 0;
+  color: #9eafb8;
+  line-height: 1.6;
+}
+.slice-device-context dl {
+  margin: 8px 0;
+}
+.slice-device-context dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 6px 0;
+}
+.slice-device-context dd {
+  margin: 0;
+  text-align: right;
+}
+.workspace-ui .slice-device-context button {
+  padding: 6px 8px;
+  border: 1px solid #52646b;
+  border-radius: 4px;
+}
+.slice-device-context small {
+  display: block;
+  margin-top: 8px;
+}
