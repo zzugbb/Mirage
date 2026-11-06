@@ -1,3 +1,4 @@
+import { RackUnitGuide } from "./rack-unit-guide";
 import {
   airflowViewFrame,
   airflowViewSightPoints,
@@ -30,7 +31,7 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
-import { box, buildModels, disposeModels } from "./models";
+import { box, buildModels, disposeModels, text } from "./models";
 import { entityById, parts, presentationKey } from "../domain";
 import type { AppState, Level } from "../domain";
 import {
@@ -77,6 +78,9 @@ export class SceneEngine {
   camera = new THREE.PerspectiveCamera(40, 1, 0.01, 150);
   controls: OrbitControls;
   models = buildModels();
+  unitGuide = new RackUnitGuide((label) =>
+    text(new THREE.Group(), label, [0, 0, 0], 0.075),
+  );
   telemetry = new TelemetryOverlay();
   signals = new SpatialSignals();
   installation: InstallationScene;
@@ -1278,6 +1282,12 @@ export class SceneEngine {
       this.lastFeedback = feedbackKey;
       this.onFeedback(feedback);
     }
+    if (!this.unitGuide.parent) this.models.root.add(this.unitGuide);
+    this.unitGuide.update(
+      this.state,
+      this.camera.position,
+      this.presentation.pose.inspection > 0,
+    );
     this.installation.update(this.state, this.presentation.pose.inspection);
     this.models.root.updateMatrixWorld(true);
     this.telemetry.update(
