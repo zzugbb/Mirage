@@ -1,3 +1,4 @@
+import { rackGrilleRelations } from "./floor-grilles";
 import {
   useCallback,
   useEffect,
@@ -1561,6 +1562,15 @@ export function Workspace() {
                         onLocate={focus}
                       />
                     )}
+                    {(layer === "overview" || layer === "environment") &&
+                      entity.kind === "rack" && (
+                        <FixtureRelations
+                          title="柜前送风格栅"
+                          relations={rackGrilleRelations(selected)}
+                          onPreview={pick}
+                          onLocate={focus}
+                        />
+                      )}
                     {layer === "environment" && (
                       <CoolingConnections
                         onInteract={takeover}

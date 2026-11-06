@@ -1,3 +1,4 @@
+import { floorGrilleSettings, grilleRowRelations } from "../floor-grilles";
 import { diffuserBottom, lightTrayRelations } from "../ceiling-lights";
 import {
   entranceSettings,
@@ -32,11 +33,14 @@ export function FixtureDetails({
   onLocate: (id: string) => void;
 }) {
   const light = "length" in fixture ? fixture : null;
+  const grilleRow = "span" in fixture ? fixture : null;
   const isEntrance = fixture.kind === "entrance";
   const isTray = fixture.kind === "cable-tray";
-  const relations = isTray
-    ? trayRelations(fixture.id)
-    : [...entranceRelations(fixture.id), ...leakRelations(fixture.id)];
+  const relations = grilleRow
+    ? grilleRowRelations(fixture.id)
+    : isTray
+      ? trayRelations(fixture.id)
+      : [...entranceRelations(fixture.id), ...leakRelations(fixture.id)];
   return (
     <section className="fixture-details" aria-label="设施布置">
       <dl>
@@ -46,15 +50,17 @@ export function FixtureDetails({
         </div>
         <div>
           <dt>
-            {isEntrance
-              ? "门洞底高"
-              : isTray
-                ? "横档底高"
-                : light
-                  ? "灯罩底高"
-                  : fixture.kind === "leak-cable"
-                    ? "敷设高度"
-                    : "中心高度"}
+            {grilleRow
+              ? "面框顶高"
+              : isEntrance
+                ? "门洞底高"
+                : isTray
+                  ? "横档底高"
+                  : light
+                    ? "灯罩底高"
+                    : fixture.kind === "leak-cable"
+                      ? "敷设高度"
+                      : "中心高度"}
           </dt>
           <dd>
             {(isEntrance
@@ -68,6 +74,27 @@ export function FixtureDetails({
             <small>m</small>
           </dd>
         </div>
+        {grilleRow && (
+          <>
+            <div>
+              <dt>格栅数量</dt>
+              <dd>{grilleRow.count} 处</dd>
+            </div>
+            <div>
+              <dt>单处宽 × 深</dt>
+              <dd>
+                {floorGrilleSettings.width.toFixed(2)} ×{" "}
+                {floorGrilleSettings.depth.toFixed(2)} <small>m</small>
+              </dd>
+            </div>
+            <div>
+              <dt>整排外缘跨度</dt>
+              <dd>
+                {grilleRow.span.toFixed(2)} <small>m</small>
+              </dd>
+            </div>
+          </>
+        )}
         {light && (
           <div>
             <dt>发光面长度</dt>
@@ -139,6 +166,7 @@ export function FixtureDetails({
       )}
       {!analysis && (
         <FixtureRelations
+          title={grilleRow ? "对应柜排" : "布置关系"}
           relations={relations}
           onPreview={onPreview}
           onLocate={onLocate}

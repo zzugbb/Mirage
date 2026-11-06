@@ -1,3 +1,4 @@
+import { grilleRowForRack } from "../floor-grilles";
 import { airflowViews, type AirflowView } from "../airflow-view";
 import { ModelLoadNotice } from "./ModelLoadNotice";
 import { initialModelLoads, type ModelAssetId } from "../model-loading";
@@ -1122,6 +1123,30 @@ export function ReviewScene({
                             <li key={`${route.id}-${endpoint.kind}`}>
                               <b>{endpoint.title}</b>
                               <span>{endpoint.detail}</span>
+                              {endpoint.kind === "floor" &&
+                                grilleRowForRack(route.rackId) && (
+                                  <div className="grille-row-links">
+                                    <button
+                                      onClick={() =>
+                                        onSelect(
+                                          grilleRowForRack(route.rackId)!.id,
+                                        )
+                                      }
+                                    >
+                                      预览格栅排
+                                    </button>
+                                    <button
+                                      onClick={() =>
+                                        onSelect(
+                                          grilleRowForRack(route.rackId)!.id,
+                                          true,
+                                        )
+                                      }
+                                    >
+                                      定位格栅排
+                                    </button>
+                                  </div>
+                                )}
                             </li>
                           )),
                         )}

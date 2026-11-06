@@ -1,4 +1,9 @@
 import {
+  floorGrilleRows,
+  grilleRowSightOffsets,
+  type FloorGrilleRow,
+} from "./floor-grilles.ts";
+import {
   ceilingLights,
   lightSightOffsets,
   type CeilingLight,
@@ -10,10 +15,11 @@ import { traySightOffsets } from "./cable-trays.ts";
 
 /** 布置对象独立于遥测目录，不能从模型存在推断测量或系统覆盖。 */
 export type RoomFixture =
-  (typeof definition.room.fixtures)[number] | CeilingLight;
+  (typeof definition.room.fixtures)[number] | CeilingLight | FloorGrilleRow;
 export const roomFixtures: RoomFixture[] = [
   ...definition.room.fixtures,
   ...ceilingLights,
+  ...floorGrilleRows,
 ];
 export const fixtureById = (id: string) =>
   roomFixtures.find((f) => f.id === id);
@@ -24,6 +30,8 @@ export const roomFacilityById = (id: string) =>
 // 点状设施取中心；线状设施取端点、转折与段中点，避免只避让接头而挡住另一段。
 const sightOffsets = new Map(
   roomFixtures.map((fixture) => {
+    if ("span" in fixture)
+      return [fixture.id, grilleRowSightOffsets(fixture)] as const;
     if ("length" in fixture)
       return [fixture.id, lightSightOffsets(fixture)] as const;
     if (fixture.kind === "entrance")
@@ -60,16 +68,19 @@ export const fixtureSightOffsets = (id: string) => sightOffsets.get(id) ?? [];
 export const fixtureMountReference = (id: string) =>
   id === leakDetection.cableId ? leakDetection.controllerId : id;
 export const fixtureBoundary = (fixture: RoomFixture) =>
-  fixture.kind === "ceiling-light"
-    ? "灯体和吊杆为布置示意。相交桥架按水平投影识别，高差只比较灯罩底面与桥架侧梁顶面。场景照明仅用于渲染，未接入开关、功率或照度读数。"
-    : fixture.kind === "entrance"
-      ? "门框、门扇与五金仅为静态布置示意；未接入门状态、门锁或门禁联动，洞口尺寸不代表通行净宽或疏散校核。"
-      : fixture.kind === "cable-tray"
-        ? "桥架与下方柜排、上方顶灯均为布置关系。场景未配置实际线缆或桥架互连，强弱电分隔、承载能力与吊装锚固待校核。"
-        : fixture.kind === "access"
-          ? "仅登记读卡器位置；未接入刷卡记录、门状态或门锁控制。"
-          : fixture.kind === "leak-controller" || fixture.kind === "leak-cable"
-            ? "仅登记控制器、引线与感应线路径；未接入漏水信号，不表示探测覆盖或制冷单元已发生泄漏。"
-            : fixture.kind === "smoke"
-              ? "仅登记烟感位置；未定义探测覆盖、消防联动或独立告警。"
-              : "仅登记环境探头位置；未定义温湿度测点、采样或覆盖，不生成露点。";
+  fixture.kind === "floor-grille-row"
+    ? "格栅排为静态布置。气流示意按柜排和最近格栅取代表落点，不代表独占供风范围；未建立地下风腔、实际风口、风量、阻力或工程开孔率，没有独立读数或告警。"
+    : fixture.kind === "ceiling-light"
+      ? "灯体和吊杆为布置示意。相交桥架按水平投影识别，高差只比较灯罩底面与桥架侧梁顶面。场景照明仅用于渲染，未接入开关、功率或照度读数。"
+      : fixture.kind === "entrance"
+        ? "门框、门扇与五金仅为静态布置示意；未接入门状态、门锁或门禁联动，洞口尺寸不代表通行净宽或疏散校核。"
+        : fixture.kind === "cable-tray"
+          ? "桥架与下方柜排、上方顶灯均为布置关系。场景未配置实际线缆或桥架互连，强弱电分隔、承载能力与吊装锚固待校核。"
+          : fixture.kind === "access"
+            ? "仅登记读卡器位置；未接入刷卡记录、门状态或门锁控制。"
+            : fixture.kind === "leak-controller" ||
+                fixture.kind === "leak-cable"
+              ? "仅登记控制器、引线与感应线路径；未接入漏水信号，不表示探测覆盖或制冷单元已发生泄漏。"
+              : fixture.kind === "smoke"
+                ? "仅登记烟感位置；未定义探测覆盖、消防联动或独立告警。"
+                : "仅登记环境探头位置；未定义温湿度测点、采样或覆盖，不生成露点。";

@@ -1,4 +1,4 @@
-import { nearestFloorGrille } from "./floor-grilles.ts";
+import { nearestFloorGrille, grilleRowById } from "./floor-grilles.ts";
 import type { FloorGrille } from "./floor-grilles.ts";
 import definition from "../assets/public/scenes/room-01.json" with { type: "json" };
 import {
@@ -118,7 +118,9 @@ export function airflowSnapshot(
   deviceId = "srv-01",
   rowId: string | null = null,
 ) {
-  const row = sliceRackRows.find((row) => row.id === rowId);
+  const row = sliceRackRows.find(
+    (row) => row.id === (rowId ?? grilleRowById(selectedId)?.rowId),
+  );
   const selected = entityById(selectedId);
   const device =
     deviceById(selectedId) ??

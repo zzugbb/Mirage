@@ -18,6 +18,8 @@ export function createFloorGrilles() {
       count,
     );
     mesh.name = name;
+    mesh.userData.instanceEntityIds = new Array<string>(count);
+    mesh.userData.instanceVisible = Array<boolean>(count).fill(true);
     mesh.castShadow = mesh.receiveShadow = true;
     root.add(mesh);
     return mesh;
@@ -52,7 +54,14 @@ export function createFloorGrilles() {
     transform.updateMatrix();
     mesh.setMatrixAt(index, transform.matrix);
   };
-  floorGrilles.forEach(({ position: [x, y, z] }, index) => {
+  floorGrilles.forEach(({ rowId, position: [x, y, z] }, index) => {
+    for (const [mesh, count] of [
+      [frames, 4],
+      [slats, s.slatCount],
+      [backs, 1],
+    ] as const)
+      for (let i = 0; i < count; i++)
+        mesh.userData.instanceEntityIds[index * count + i] = `grilles-${rowId}`;
     for (const [i, side] of [-1, 1].entries()) {
       place(
         frames,

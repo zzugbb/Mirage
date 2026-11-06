@@ -3064,3 +3064,15 @@
 .airflow-view-actions .airflow-view-return {
   grid-column: 1 / -1;
 }
+
+.grille-row-links {
+  display: flex;
+  gap: 6px;
+  margin: 6px 0;
+}
+.grille-row-links button {
+  padding: 5px;
+  font-size: 10px;
+  border: 1px solid #aac9d237;
+  color: #d5e8ec;
+}

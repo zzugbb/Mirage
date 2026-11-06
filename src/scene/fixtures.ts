@@ -1,3 +1,4 @@
+import { floorGrilleSettings } from "../floor-grilles.ts";
 import definition from "../../assets/public/scenes/room-01.json" with { type: "json" };
 import {
   lightProfile as lamp,
@@ -31,7 +32,20 @@ export function buildRoomFixtures(
     group.userData = { entityId: fixture.id, dataStatus: fixture.dataStatus };
     fixtures.set(fixture.id, group);
     mounts.get(fixture.mountId)!.add(group);
-    if ("length" in fixture) {
+    if ("span" in fixture) {
+      // 可见几何仍由三个实例批次统一绘制；此包围体只用于整排取景和选中角标。
+      const bounds = box(
+        group,
+        [
+          fixture.span,
+          floorGrilleSettings.recessDepth,
+          floorGrilleSettings.depth,
+        ],
+        [0, -floorGrilleSettings.recessDepth / 2, 0],
+        "#84959b",
+      );
+      bounds.visible = false;
+    } else if ("length" in fixture) {
       box(
         group,
         [lamp.bodyWidth, lamp.bodyHeight, housingLength(fixture)],

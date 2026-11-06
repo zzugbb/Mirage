@@ -203,3 +203,66 @@ test("格栅轮廓只跟随当前代表支路，无效数据静态灰显且清�
   assert.equal(geometry.root.visible, false);
   geometry.dispose();
 });
+
+test("34 处格栅的面框、横条与背衬均可射线映射到正确格栅排，保留三个实例批次", async () => {
+  const { floorGrilleRows } = await import("./floor-grilles.ts");
+  const root = createFloorGrilles();
+  root.updateMatrixWorld(true);
+  assert.equal(root.children.length, 3);
+  for (const grille of floorGrilles) {
+    const row = floorGrilleRows.find((r) => r.rowId === grille.rowId)!;
+    const [x, , z] = grille.position;
+    // 三种不同表面均按实例身份拾取，不依赖整排不可见的取景包围体。
+    for (const offset of [
+      s.width / 2 - s.frameWidth / 2,
+      0,
+      s.width / 2 - s.frameWidth - 0.01,
+    ]) {
+      const hits = new THREE.Raycaster(
+        new THREE.Vector3(x + offset, 1, z),
+        new THREE.Vector3(0, -1, 0),
+      ).intersectObject(root, true);
+      assert.ok(hits.length);
+      for (const hit of hits) {
+        const mesh = hit.object as THREE.InstancedMesh;
+        assert.equal(mesh.userData.instanceEntityIds[hit.instanceId!], row.id);
+        assert.equal(mesh.userData.instanceVisible[hit.instanceId!], true);
+      }
+    }
+  }
+  dispose(root);
+});
+
+test("格栅排与机柜双向对应，代表落点沿用最近格栅；切片指定排优先", async () => {
+  const { floorGrilleRows, grilleRowRelations, rackGrilleRelations } =
+    await import("./floor-grilles.ts");
+  assert.equal(floorGrilleRows.length, 2);
+  for (const row of floorGrilleRows) {
+    assert.equal(row.count, 17);
+    assert.equal(grilleRowRelations(row.id).length, 4);
+    for (const rackId of row.rackIds) {
+      const rack = racks.find((r) => r.id === rackId)!;
+      const grille = nearestFloorGrille(row.rowId, rack.position[0])!;
+      assert.equal(rackGrilleRelations(rackId)[0].id, row.id);
+      assert.ok(rackGrilleRelations(rackId)[0].relation.includes(grille.id));
+      assert.ok(
+        grilleRowRelations(row.id)
+          .find((r) => r.id === rackId)!
+          .relation.includes(grille.id),
+      );
+    }
+    const flow = airflowSnapshot(60, spatialSnapshot(60).readings, row.id);
+    assert.equal(flow.routes[0].floorGrille.rowId, row.rowId);
+    assert.ok(row.rackIds.includes(flow.routes[0].rackId));
+  }
+  const overridden = airflowSnapshot(
+    60,
+    spatialSnapshot(60).readings,
+    "grilles-row-b",
+    "srv-01",
+    "row-a",
+  );
+  assert.equal(overridden.routes[0].floorGrille.rowId, "row-a");
+  assert.deepEqual(rackGrilleRelations("missing"), []);
+  assert.deepEqual(grilleRowRelations("missing"), []);
+});
