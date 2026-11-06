@@ -1,3 +1,5 @@
+import { ModelLoadNotice } from "./ModelLoadNotice";
+import { initialModelLoads, type ModelAssetId } from "../model-loading";
 import { TemperatureDisclosure } from "./TemperatureDisclosure";
 import { SliceDeviceContext } from "./SliceDeviceContext";
 import { SliceInputPreview } from "./SliceInputPreview";
@@ -104,7 +106,7 @@ export function ReviewScene({
   callbacks.current = { onSelect, onPhase, onFeedback };
   const [error, setError] = useState("");
   const [retry, setRetry] = useState(0);
-  const [assets, setAssets] = useState("loading");
+  const [assets, setAssets] = useState(initialModelLoads);
   const [view, setView] = useState<View>("interior");
   const [quality, setQuality] = useState(true);
   const [supported, setSupported] = useState(false);
@@ -210,21 +212,22 @@ export function ReviewScene({
       : sliceSettings.height;
   const presentation = reviewPresentation(layer, state.level);
   const model = modelForDevice(state.deviceId);
+  const modelStatus = assets[model.id as ModelAssetId];
   const representation =
-    model.category === "server"
-      ? state.explosion > 0
-        ? "部件展开"
-        : state.coverOpen
-          ? "内部装配 · 上盖已移开"
-          : "完整装配 · 可单独开盖"
-      : assets !== "ready"
-        ? "内部配置示意 · 外观模型尚未就绪"
+    modelStatus !== "ready"
+      ? `${model.category === "server" ? "简化结构 · 详细模型" : "内部配置示意 · 外观模型"}${modelStatus === "loading" ? "加载中" : "暂不可用"}`
+      : model.category === "server"
+        ? state.explosion > 0
+          ? "部件展开"
+          : state.coverOpen
+            ? "内部装配 · 上盖已移开"
+            : "完整装配 · 可单独开盖"
         : state.explosion === 0
           ? "外观模型 · 展开可看配置示意"
           : "内部配置示意";
   useEffect(() => {
     let active: SceneEngine | null = null;
-    setAssets("loading");
+    setAssets(initialModelLoads());
     try {
       active = new SceneEngine(
         host.current!,
@@ -583,6 +586,7 @@ export function ReviewScene({
       data-airflow-grilles={airflow?.routes
         .map((route) => route.floorGrille.id)
         .join(",")}
+      data-model-status={modelStatus}
       data-airflow-input={airflow?.coolingCapacity}
       data-maintenance-rack={maintenance.length ? selectedId : undefined}
       data-maintenance-aisle={comparison?.id}
@@ -805,12 +809,12 @@ export function ReviewScene({
             );
           })}
         </div>
-        {assets !== "ready" && !error && (
-          <div className="review-loading" role="status">
-            {assets === "loading"
-              ? "详细模型加载中 · 可继续浏览"
-              : "部分模型不可用 · 已使用简化结构"}
-          </div>
+        {!error && (
+          <ModelLoadNotice
+            state={assets}
+            onInteract={onTakeover}
+            onRetry={() => engine.current?.retryModels()}
+          />
         )}
         {(selectedFixture ||
           airflow ||

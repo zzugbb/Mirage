@@ -19,8 +19,15 @@ export const hardwareUrls = {
   switch: switchUrl,
   storage: storageUrl,
 };
-export const loadHardware = async (url: string) =>
-  (await new GLTFLoader().loadAsync(url)).scene;
+export const loadHardware = async (url: string, signal: AbortSignal) => {
+  const response = await fetch(url, { signal });
+  if (!response.ok) throw Error("模型请求失败");
+  const data = await response.arrayBuffer();
+  signal.throwIfAborted();
+  return (
+    await new GLTFLoader().parseAsync(data, new URL(".", response.url).href)
+  ).scene;
+};
 export const partNodes: Record<string, string[]> = Object.fromEntries(
   parts
     .filter((part) => part.modelNodes.length)

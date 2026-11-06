@@ -1,3 +1,8 @@
+import {
+  ModelLoading,
+  type ModelLoadState,
+  type ModelAssetId,
+} from "../model-loading";
 import type { MaintenanceAisle } from "../maintenance.ts";
 import { updateRackBlanking } from "./rack-blanking";
 import {
@@ -131,7 +136,8 @@ export class SceneEngine {
   currentView: View = "iso";
   currentFocus = false;
   comparedAisle?: MaintenanceAisle;
-  onAssets: (status: "ready" | "degraded") => void = () => {};
+  onAssets: (state: ModelLoadState) => void = () => {};
+  assetLoader: ModelLoading;
 
   constructor(
     host: HTMLElement,
@@ -292,91 +298,70 @@ export class SceneEngine {
     this.update(state);
     this.controls.autoRotateSpeed = 0.35;
     this.animate(0);
-    void this.loadEnhancedModels();
+    this.assetLoader = new ModelLoading(
+      (id, signal) => this.loadEnhancedModel(id, signal),
+      (status) => {
+        if (this.destroyed) return;
+        this.onAssets(status);
+        if (
+          !this.assetsLoaded &&
+          Object.values(status).every((s) => s !== "loading")
+        ) {
+          this.assetsLoaded = true;
+          if (!this.lastManualInteraction)
+            this.view(this.currentView, this.currentFocus);
+        }
+      },
+    );
+    void this.assetLoader.start();
   }
 
-  async loadEnhancedModels() {
-    let completed = 0;
-    await Promise.allSettled([
-      (async () => {
-        const scene = await loadHardware(hardwareUrls.server);
-        if (this.destroyed) {
-          disposeModels(scene, false);
-          return;
-        }
-        let result;
-        try {
-          result = mapServerParts(scene);
-        } catch (error) {
-          disposeModels(scene, false);
-          throw error;
-        }
-        this.assemblies.set("server-2u", result);
-        this.assemblyModel = "";
-        this.activateAssembly(this.state);
-        completed++;
-      })(),
-      (async () => {
-        const scene = await loadHardware(hardwareUrls.compact);
-        if (this.destroyed) {
-          disposeModels(scene, false);
-          return;
-        }
-        const root = normalizeModel(scene, "width", definition.server.size[0]);
-        let result;
-        try {
-          result = mapCompactServer(root);
-        } catch (error) {
-          disposeModels(root, false);
-          throw error;
-        }
-        const old = this.assemblies.get("server-1u");
-        this.assemblies.set("server-1u", result);
-        if (modelForDevice(this.state.deviceId).id === "server-1u") {
+  retryModels() {
+    void this.assetLoader.retry();
+  }
+
+  async loadEnhancedModel(id: ModelAssetId, signal: AbortSignal) {
+    const urls = {
+      "server-2u": hardwareUrls.server,
+      "server-1u": hardwareUrls.compact,
+      "switch-1u": hardwareUrls.switch,
+      "storage-4u": hardwareUrls.storage,
+      "cooling-01": hardwareUrls.cooling,
+      "power-01": hardwareUrls.power,
+    };
+    const scene = await loadHardware(urls[id], signal);
+    if (this.destroyed || signal.aborted) {
+      disposeModels(scene, false);
+      throw Error("模型加载已结束");
+    }
+    try {
+      if (
+        id === "server-2u" ||
+        id === "server-1u" ||
+        id === "switch-1u" ||
+        id === "storage-4u"
+      ) {
+        const result: ReturnType<typeof createEquipmentAssembly> =
+          id === "server-2u"
+            ? mapServerParts(scene)
+            : id === "server-1u"
+              ? mapCompactServer(
+                  normalizeModel(scene, "width", definition.server.size[0]),
+                )
+              : createExteriorAssembly(id, scene);
+        if (result.representations)
+          this.installation.installExterior(
+            id,
+            result.representations.exterior,
+          );
+        const old = this.assemblies.get(id);
+        this.assemblies.set(id, result);
+        if (modelForDevice(this.state.deviceId).id === id) {
           this.assemblyModel = "";
           this.activateAssembly(this.state);
-        }
-        if (old && modelForDevice(this.state.deviceId).id !== "server-1u")
-          disposeModels(old.root, false);
-        completed++;
-      })(),
-      ...(
-        [
-          ["switch-1u", hardwareUrls.switch],
-          ["storage-4u", hardwareUrls.storage],
-        ] as const
-      ).map(async ([modelId, url]) => {
-        const scene = await loadHardware(url);
-        if (this.destroyed) {
-          disposeModels(scene, false);
-          return;
-        }
-        const result = createExteriorAssembly(modelId, scene);
-        this.installation.installExterior(
-          modelId,
-          result.representations!.exterior,
-        );
-        const old = this.assemblies.get(modelId);
-        this.assemblies.set(modelId, result);
-        if (modelForDevice(this.state.deviceId).id === modelId) {
-          this.assemblyModel = "";
-          this.activateAssembly(this.state);
-        }
-        if (old && modelForDevice(this.state.deviceId).id !== modelId)
-          disposeModels(old.root, false);
-        completed++;
-      }),
-      ...(
-        [
-          ["cooling-01", hardwareUrls.cooling, 1.9],
-          ["power-01", hardwareUrls.power, 1.8],
-        ] as const
-      ).map(async ([id, url, height]) => {
-        const scene = await loadHardware(url);
-        if (this.destroyed) {
-          disposeModels(scene, false);
-          return;
-        }
+        } else if (old) disposeModels(old.root, false);
+      } else {
+        const height = id === "cooling-01" ? 1.9 : 1.8;
         const normalized = normalizeModel(scene, "height", height);
         normalized.rotation.y =
           ((definition.facilities.find((facility) => facility.id === id)
@@ -445,13 +430,10 @@ export class SceneEngine {
             transparent: material.transparent,
             depthWrite: material.depthWrite,
           });
-        completed++;
-      }),
-    ]);
-    if (!this.destroyed) {
-      this.assetsLoaded = true;
-      this.onAssets(completed === 6 ? "ready" : "degraded");
-      this.view(this.currentView, this.currentFocus);
+      }
+    } catch (error) {
+      disposeModels(scene, false);
+      throw error;
     }
   }
 
@@ -1407,6 +1389,7 @@ export class SceneEngine {
   dispose() {
     this.onRenderFrame = null;
     this.destroyed = true;
+    this.assetLoader?.dispose();
     cancelAnimationFrame(this.frame);
     this.observer.disconnect();
     this.controls.dispose();
