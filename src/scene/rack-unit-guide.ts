@@ -1,3 +1,4 @@
+import { inspectRackSpace, type RackUnitRange } from "../rack-space.ts";
 import * as THREE from "three";
 import definition from "../../assets/public/scenes/room-01.json" with { type: "json" };
 import { deviceById, rackForDevice } from "../installation.ts";
@@ -5,7 +6,32 @@ import { modelForDevice, unitLabel } from "../catalog.ts";
 import type { AppState } from "../domain.ts";
 
 /** 安装范围始终来自配置，不跟随抽出中的机箱，也不表示可分配容量。 */
-export function rackUnitSpan(state: AppState) {
+export function rackUnitSpan(
+  state: AppState,
+  range: RackUnitRange | null = null,
+) {
+  if (
+    state.level === "rack" &&
+    range?.rackId === rackForDevice(state.deviceId).id &&
+    inspectRackSpace(range)
+  ) {
+    return {
+      id: `range:${range.first}:${range.last}`,
+      label:
+        range.first === range.last
+          ? `U${range.first}`
+          : `U${range.first}–${range.last}`,
+      rack: rackForDevice(state.deviceId),
+      first: range.first,
+      last: range.last,
+      bottom:
+        definition.rack.unitOrigin +
+        (range.first - 0.5) * definition.rack.unitPitch,
+      top:
+        definition.rack.unitOrigin +
+        (range.last + 0.5) * definition.rack.unitPitch,
+    };
+  }
   const device = deviceById(state.selected);
   if (
     state.level !== "rack" ||
@@ -50,13 +76,18 @@ export class RackUnitGuide extends THREE.Group {
     this.visible = false;
     this.line.raycast = () => {};
   }
-  update(state: AppState, camera: THREE.Vector3, inspecting: boolean) {
-    const span = rackUnitSpan(state);
+  update(
+    state: AppState,
+    camera: THREE.Vector3,
+    inspecting: boolean,
+    range: RackUnitRange | null = null,
+  ) {
+    const span = rackUnitSpan(state, range);
     this.visible = !!span && !inspecting;
     if (!span || inspecting) return;
     const dz = camera.z - span.rack.position[2];
     if (Math.abs(dz) > 0.2) this.rear = dz < 0;
-    const key = `${span.id}:${this.rear}`;
+    const key = `${span.rack.id}:${span.id}:${this.rear}`;
     if (this.key === key) return;
     this.key = key;
     this.position.fromArray(span.rack.position);

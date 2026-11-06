@@ -1,3 +1,4 @@
+import { RackSpaceInspector } from "./components/RackSpaceInspector";
 import { rackGrilleRelations } from "./floor-grilles";
 import {
   activeAirflowInspection,
@@ -199,7 +200,7 @@ export function Workspace() {
       ? networkLinkId
       : null;
   const [query, setQuery] = useState("");
-  const [rackView, setRackView] = useState<"list" | "installation">(
+  const [rackView, setRackView] = useState<"list" | "installation" | "space">(
     "installation",
   );
   const [expanded, setExpanded] = useState<string[]>([]);
@@ -767,9 +768,54 @@ export function Workspace() {
               >
                 列表
               </button>
+              <button
+                aria-pressed={rackView === "space"}
+                onClick={() => {
+                  takeover();
+                  setRackView("space");
+                }}
+              >
+                空间核查
+              </button>
             </div>
           )}
-          {state.level === "rack" && rackView === "installation" ? (
+          {state.level === "rack" && rackView === "space" ? (
+            <RackSpaceInspector
+              key={rackForDevice(state.deviceId).id}
+              rackId={rackForDevice(state.deviceId).id}
+              range={
+                unitQuery &&
+                !unitQuery.error &&
+                !unitQuery.terms.length &&
+                unitQuery.rack?.id === rackForDevice(state.deviceId).id
+                  ? {
+                      rackId: unitQuery.rack.id,
+                      first: unitQuery.first,
+                      last: unitQuery.last,
+                    }
+                  : null
+              }
+              onRange={(range) => {
+                pick(range.rackId, false, true);
+                setQuery(`U${range.first}–${range.last}`);
+                setFilter("all");
+                setOnlyAlarms(false);
+              }}
+              onDevice={(id) => {
+                setRackView("installation");
+                setQuery(id);
+                pick(id, false, true);
+              }}
+              queryMessage={
+                unitQuery?.error ||
+                (unitQuery?.rack &&
+                unitQuery.rack.id !== rackForDevice(state.deviceId).id
+                  ? `当前核查${rackForDevice(state.deviceId).name}；搜索范围属于${unitQuery.rack.name}，可切换列表定位该柜。`
+                  : undefined)
+              }
+              onClear={() => setQuery("")}
+            />
+          ) : state.level === "rack" && rackView === "installation" ? (
             <RackInstallation
               state={state}
               selected={selected}
@@ -980,7 +1026,7 @@ export function Workspace() {
               )}
             </div>
           )}
-          {!(state.level === "rack" && rackView === "installation") && (
+          {!(state.level === "rack" && rackView !== "list") && (
             <footer className="study-nav-caption">
               {state.level === "device"
                 ? "部件状态为模型评估，非独立告警"
@@ -1025,6 +1071,20 @@ export function Workspace() {
           </div>
           <ReviewScene
             state={state}
+            unitRange={
+              layer === "overview" &&
+              state.level === "rack" &&
+              unitQuery &&
+              !unitQuery.error &&
+              !unitQuery.terms.length &&
+              unitQuery.rack?.id === rackForDevice(state.deviceId).id
+                ? {
+                    rackId: unitQuery.rack.id,
+                    first: unitQuery.first,
+                    last: unitQuery.last,
+                  }
+                : null
+            }
             sliceControls={sliceControls}
             setSliceControls={setSliceControls}
             layer={layer}

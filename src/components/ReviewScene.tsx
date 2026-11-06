@@ -1,3 +1,4 @@
+import type { RackUnitRange } from "../rack-space";
 import {
   airflowEndpointObject,
   type AirflowInspection,
@@ -53,6 +54,7 @@ import { NetworkGeometry } from "../scene/network";
 
 export function ReviewScene({
   state,
+  unitRange = null,
   sliceControls,
   setSliceControls,
   layer,
@@ -79,6 +81,7 @@ export function ReviewScene({
   compactTools = false,
 }: {
   state: AppState;
+  unitRange?: RackUnitRange | null;
   sliceControls: SliceControls;
   setSliceControls: Dispatch<SetStateAction<SliceControls>>;
   layer: ReviewLayer;
@@ -349,6 +352,9 @@ export function ReviewScene({
       engine.current = null;
     };
   }, [retry]);
+  useEffect(() => {
+    if (engine.current) engine.current.unitRange = unitRange;
+  }, [unitRange, retry]);
   useEffect(() => {
     const active = engine.current;
     active?.update(state);

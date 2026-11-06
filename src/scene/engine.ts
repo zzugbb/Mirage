@@ -1,3 +1,4 @@
+import type { RackUnitRange } from "../rack-space";
 import { RackUnitGuide } from "./rack-unit-guide";
 import {
   airflowViewFrame,
@@ -78,6 +79,7 @@ export class SceneEngine {
   camera = new THREE.PerspectiveCamera(40, 1, 0.01, 150);
   controls: OrbitControls;
   models = buildModels();
+  unitRange: RackUnitRange | null = null;
   unitGuide = new RackUnitGuide((label) =>
     text(new THREE.Group(), label, [0, 0, 0], 0.075),
   );
@@ -1287,6 +1289,7 @@ export class SceneEngine {
       this.state,
       this.camera.position,
       this.presentation.pose.inspection > 0,
+      this.unitRange,
     );
     this.installation.update(this.state, this.presentation.pose.inspection);
     this.models.root.updateMatrixWorld(true);
