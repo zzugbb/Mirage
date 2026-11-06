@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
-import { GTAOPass } from "three/addons/postprocessing/GTAOPass.js";
+import { AnnotationAwareGTAOPass } from "./annotation-shadows.ts";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { RectAreaLightUniformsLib } from "three/addons/lights/RectAreaLightUniformsLib.js";
 import definition from "../../assets/public/scenes/room-01.json" with { type: "json" };
@@ -19,7 +19,7 @@ export class RenderPipeline {
   enabled = true;
   available: boolean;
   composer: EffectComposer | null = null;
-  ao: GTAOPass | null = null;
+  ao: AnnotationAwareGTAOPass | null = null;
   output: OutputPass | null = null;
   renderer: THREE.WebGLRenderer;
   scene: THREE.Scene;
@@ -43,7 +43,7 @@ export class RenderPipeline {
     this.composer = new EffectComposer(renderer, target);
     this.composer.setPixelRatio(this.ratio);
     this.composer.addPass(new RenderPass(scene, camera));
-    this.ao = new GTAOPass(scene, camera, 1, 1);
+    this.ao = new AnnotationAwareGTAOPass(scene, camera, 1, 1);
     this.ao.blendIntensity = definition.rendering.contactShadows.intensity;
     this.ao.updateGtaoMaterial({
       radius: definition.rendering.contactShadows.roomRadius,
