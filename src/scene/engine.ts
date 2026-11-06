@@ -1,4 +1,10 @@
 import {
+  airflowViewFrame,
+  airflowViewSightPoints,
+  type AirflowView,
+} from "../airflow-view";
+import type { AirflowRoute } from "../airflow";
+import {
   ModelLoading,
   requestedModels,
   type ModelLoadState,
@@ -457,6 +463,115 @@ export class SceneEngine {
       group.add(merged);
     }
   }
+  onAirflowView: (view: AirflowView | null) => void = () => {};
+  private airflowObservation?: {
+    route: AirflowRoute;
+    view: AirflowView;
+    targets: THREE.Vector3[];
+    previous: {
+      position: THREE.Vector3;
+      target: THREE.Vector3;
+      view: View;
+      focus: boolean;
+      interior: boolean;
+      minDistance: number;
+      maxDistance: number;
+      minAzimuthAngle: number;
+      maxAzimuthAngle: number;
+      maxPolarAngle: number;
+    };
+  };
+  clearAirflowView() {
+    if (!this.airflowObservation) return;
+    this.airflowObservation = undefined;
+    this.moving = false;
+    this.onAirflowView(null);
+  }
+  observeAirflow(route: AirflowRoute, view: AirflowView) {
+    if (this.state.level !== "room") return;
+    const previous = this.airflowObservation?.previous ?? {
+      position: this.camera.position.clone(),
+      target: this.controls.target.clone(),
+      view: this.currentView,
+      focus: this.currentFocus,
+      interior: this.interior,
+      minDistance: this.controls.minDistance,
+      maxDistance: this.controls.maxDistance,
+      minAzimuthAngle: this.controls.minAzimuthAngle,
+      maxAzimuthAngle: this.controls.maxAzimuthAngle,
+      maxPolarAngle: this.controls.maxPolarAngle,
+    };
+    this.airflowObservation = {
+      route,
+      view,
+      previous,
+      targets: airflowViewSightPoints(route, view),
+    };
+    this.currentView = "iso";
+    this.currentFocus = false;
+    this.interior = false;
+    this.controls.minAzimuthAngle = -Infinity;
+    this.controls.maxAzimuthAngle = Infinity;
+    this.controls.maxPolarAngle = Math.PI / 2 - 0.03;
+    this.controls.minDistance = 0.8;
+    this.frameAirflow();
+    this.onAirflowView(view);
+  }
+  private frameAirflow() {
+    const observation = this.airflowObservation;
+    if (!observation) return;
+    const frame = this.host.getBoundingClientRect();
+    let left = 20,
+      top = 20;
+    const stage = this.host.closest(".study-stage");
+    const legend = stage?.querySelector<HTMLElement>(".review-legend");
+    if (legend) {
+      const bounds = legend.getBoundingClientRect();
+      if (bounds.width)
+        left = Math.min(frame.width * 0.48, bounds.right - frame.left + 20);
+    }
+    for (const control of stage?.querySelectorAll<HTMLElement>(
+      ".study-layer-control, .review-camera, .review-scene-tools",
+    ) ?? []) {
+      const bounds = control.getBoundingClientRect();
+      if (bounds.height) top = Math.max(top, bounds.bottom - frame.top + 20);
+    }
+    const fit = airflowViewFrame(
+      observation.route,
+      observation.view,
+      frame.width,
+      frame.height,
+      {
+        left,
+        top: Math.min(top, frame.height * 0.35),
+        right: frame.width - 40,
+        bottom: frame.height - 48,
+      },
+    );
+    this.targetPosition.copy(fit.position);
+    this.targetLook.copy(fit.target);
+    this.controls.maxDistance = Math.max(45, fit.distance * 1.2);
+    this.moving = true;
+  }
+  restoreAirflowView() {
+    const previous = this.airflowObservation?.previous;
+    if (!previous) return;
+    this.currentView = previous.view;
+    this.currentFocus = previous.focus;
+    this.interior = previous.interior;
+    for (const key of [
+      "minDistance",
+      "maxDistance",
+      "minAzimuthAngle",
+      "maxAzimuthAngle",
+      "maxPolarAngle",
+    ] as const)
+      this.controls[key] = previous[key];
+    this.targetPosition.copy(previous.position);
+    this.targetLook.copy(previous.target);
+    this.clearAirflowView();
+    this.moving = true;
+  }
   private panelViewport?: { width: number; height: number };
   // 预览打开和还原侧栏时仅更新投影，真实窗口缩放与主动定位仍按目标取景。
   preservePanelView() {
@@ -473,6 +588,10 @@ export class SceneEngine {
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height);
     this.pipeline.resize(width, height);
+    if (this.airflowObservation) {
+      this.frameAirflow();
+      return;
+    }
     if (
       this.lastTime > 0 &&
       !(
@@ -489,6 +608,7 @@ export class SceneEngine {
     this.onError("三维图形上下文已丢失，请重新加载场景。");
   };
   cancelFlight = () => {
+    this.clearAirflowView();
     this.moving = false;
     this.lastManualInteraction = performance.now();
   };
@@ -669,6 +789,7 @@ export class SceneEngine {
     return object.visible && (!object.parent || this.visible(object.parent));
   }
   view(view: View, focus = false) {
+    this.clearAirflowView();
     this.panelViewport = undefined;
     const fixture =
       this.state.level === "room" && focus
@@ -1106,9 +1227,10 @@ export class SceneEngine {
     }
     const cutCount = this.shellCutaway.update(
       this.camera.position,
-      selectedFixture ? this.fixtureTargets : this.shellTargets,
+      this.airflowObservation?.targets ??
+        (selectedFixture ? this.fixtureTargets : this.shellTargets),
       this.models.room.visible,
-      selectedFixture
+      selectedFixture && !this.airflowObservation
         ? this.models.fixtures.get(fixtureMountReference(this.state.selected))
         : undefined,
     );

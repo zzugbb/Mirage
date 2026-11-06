@@ -1,3 +1,4 @@
+import { airflowViews, type AirflowView } from "../airflow-view";
 import { ModelLoadNotice } from "./ModelLoadNotice";
 import { initialModelLoads, type ModelAssetId } from "../model-loading";
 import { TemperatureDisclosure } from "./TemperatureDisclosure";
@@ -107,6 +108,7 @@ export function ReviewScene({
   const [error, setError] = useState("");
   const [retry, setRetry] = useState(0);
   const [assets, setAssets] = useState(initialModelLoads);
+  const [flowView, setFlowView] = useState<AirflowView | null>(null);
   const [view, setView] = useState<View>("interior");
   const [quality, setQuality] = useState(true);
   const [supported, setSupported] = useState(false);
@@ -293,6 +295,11 @@ export function ReviewScene({
           roomReady,
         );
       };
+      active.onAirflowView = (next) => {
+        setFlowView(next);
+        setView(active!.currentView);
+      };
+      setFlowView(null);
       active.onAssets = setAssets;
       setAssets({ ...active.assetLoader.state });
       engine.current = active;
@@ -379,7 +386,10 @@ export function ReviewScene({
     if (engine.current) engine.current.pipeline.enabled = quality;
   }, [quality, retry]);
   useEffect(() => {
-    if (engine.current) engine.current.autoOrbit = orbit;
+    if (engine.current) {
+      if (orbit) engine.current.clearAirflowView();
+      engine.current.autoOrbit = orbit;
+    }
   }, [orbit, retry]);
   useEffect(() => {
     // 层级切换与定位共用场景已经采用的视角，机房内聚焦机柜时同样是等轴近景。
@@ -396,6 +406,16 @@ export function ReviewScene({
   useEffect(() => {
     sliceGeometry.current?.update(slice);
   }, [slice, retry]);
+  useEffect(() => {
+    engine.current?.clearAirflowView();
+  }, [
+    airflow?.routes[0]?.id,
+    selectedId,
+    layer,
+    state.level,
+    shotRevision,
+    retry,
+  ]);
   useEffect(() => {
     airflowGeometry.current?.update(airflow);
   }, [airflow, retry]);
@@ -581,6 +601,7 @@ export function ReviewScene({
       data-slice-orientation={slice?.orientation}
       data-slice-row={slice?.rowId}
       data-slice-position={slice ? (slice.height ?? slice.distance) : undefined}
+      data-airflow-view={flowView ?? ""}
       data-airflow-targets={airflow?.routes
         .map((route) => route.deviceId)
         .join(",")}
@@ -1058,6 +1079,43 @@ export function ReviewScene({
                       }
                     >
                       <p>{airflow.label}</p>
+                      {airflow.routes[0] && (
+                        <div
+                          className="airflow-view-actions"
+                          aria-label="气流观察视角"
+                        >
+                          {airflowViews.map((item) => (
+                            <button
+                              key={item.id}
+                              aria-pressed={flowView === item.id}
+                              onClick={() => {
+                                onTakeover();
+                                setOrbit(false);
+                                engine.current?.observeAirflow(
+                                  airflow.routes[0],
+                                  item.id,
+                                );
+                              }}
+                            >
+                              {item.name}
+                            </button>
+                          ))}
+                          {flowView && (
+                            <button
+                              className="airflow-view-return"
+                              onClick={(event) => {
+                                onTakeover();
+                                event.currentTarget.parentElement
+                                  ?.querySelector("button")
+                                  ?.focus();
+                                engine.current?.restoreAirflowView();
+                              }}
+                            >
+                              返回原视角
+                            </button>
+                          )}
+                        </div>
+                      )}
                       <ol aria-label="气流端点与读数">
                         {airflow.routes.flatMap((route) =>
                           route.endpoints.map((endpoint) => (
