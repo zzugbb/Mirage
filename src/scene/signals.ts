@@ -1,3 +1,4 @@
+import { createAnnotationGroup } from "./annotations.ts";
 import { modelForDevice } from "../catalog.ts";
 import * as THREE from "three";
 import {
@@ -35,7 +36,7 @@ function polygon(points: number[][]) {
 }
 
 export class SpatialSignals {
-  root = new THREE.Group();
+  root = createAnnotationGroup("signals");
   rackMarks: Mark[] = [];
   deviceMarks: Mark[] = [];
   geometries: Record<AlarmSignal, THREE.BufferGeometry> = {

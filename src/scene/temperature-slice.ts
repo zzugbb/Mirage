@@ -1,3 +1,4 @@
+import { createAnnotationGroup } from "./annotations.ts";
 import * as THREE from "three";
 import {
   slicePoint,
@@ -10,7 +11,7 @@ import { temperatureColor } from "./metric-color.ts";
 
 /** 一张可复用纹理与一个平面；保留深度遮挡，切片不参与对象拾取。 */
 export class TemperatureSliceGeometry {
-  root = new THREE.Group();
+  root = createAnnotationGroup("temperature-slice");
   pixels = new Uint8Array(sliceColumns * sliceRows * 4);
   texture = new THREE.DataTexture(this.pixels, sliceColumns, sliceRows);
   plane: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;

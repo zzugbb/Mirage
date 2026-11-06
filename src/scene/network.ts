@@ -1,8 +1,9 @@
+import { createAnnotationGroup } from "./annotations.ts";
 import * as THREE from "three";
 import type { NetworkMarker } from "../network.ts";
 /** 只标记代表端点，不绘制未校核的物理线缆或模拟数据流。 */
 export class NetworkGeometry {
-  root = new THREE.Group();
+  root = createAnnotationGroup("network");
   geometry = new THREE.RingGeometry(0.02, 0.026, 24);
   material = new THREE.MeshBasicMaterial({
     color: "#b9d5cb",

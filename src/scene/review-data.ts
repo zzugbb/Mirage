@@ -1,3 +1,4 @@
+import { createAnnotationGroup } from "./annotations.ts";
 import * as THREE from "three";
 import type { SpatialMark } from "../review-spatial.ts";
 import { observationColor } from "./metric-color.ts";
@@ -11,7 +12,7 @@ type Glyph = {
 };
 /** 空间读数采用两批实例网格；时间变化更新实例属性，不逐秒重建材质。 */
 export class ReviewDataGeometry {
-  root = new THREE.Group();
+  root = createAnnotationGroup("review-data");
   geometry = new THREE.BoxGeometry(1, 1, 1);
   solid = new THREE.InstancedMesh(
     this.geometry,

@@ -1,14 +1,18 @@
 import * as THREE from "three";
 import { GTAOPass } from "three/addons/postprocessing/GTAOPass.js";
 
-/** 文字精灵不是实体遮蔽物。仅在 AO 通道暂时隐藏，保留正常绘制和深度遮挡。 */
+/** 文字精灵与显式标记的数据图形不是实体遮蔽物。仅在 AO 通道暂时隐藏，保留正常绘制和深度遮挡。 */
 export function withoutAnnotationOccluders<T>(
   scene: THREE.Scene,
   render: () => T,
 ): T {
-  const hidden: THREE.Sprite[] = [];
+  const hidden: THREE.Object3D[] = [];
   scene.traverse((object) => {
-    if (object instanceof THREE.Sprite && object.visible) {
+    if (
+      (object instanceof THREE.Sprite ||
+        object.userData.excludeFromContactShadows === true) &&
+      object.visible
+    ) {
       hidden.push(object);
       object.visible = false;
     }
@@ -16,7 +20,7 @@ export function withoutAnnotationOccluders<T>(
   try {
     return render();
   } finally {
-    for (const sprite of hidden) sprite.visible = true;
+    for (const object of hidden) object.visible = true;
   }
 }
 

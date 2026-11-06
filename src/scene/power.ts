@@ -1,10 +1,11 @@
+import { createAnnotationGroup } from "./annotations.ts";
 import * as THREE from "three";
 import { powerSettings } from "../power-config.ts";
 import type { PowerScene } from "../power-paths.ts";
 
 /** 静态配线：B 路分段，保留真实深度；没有电流或支路计量就不演示电能流动。 */
 export class PowerGeometry {
-  root = new THREE.Group();
+  root = createAnnotationGroup("power");
   cylinder = new THREE.CylinderGeometry(1, 1, 1, 6);
   sphere = new THREE.SphereGeometry(0.045, 10, 8);
   bands = new THREE.InstancedMesh(

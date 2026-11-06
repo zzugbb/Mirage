@@ -1,3 +1,4 @@
+import { createAnnotationGroup } from "./annotations.ts";
 import { floorGrilleSettings as grille } from "../floor-grilles.ts";
 import * as THREE from "three";
 import { airflowSettings, flowPoint } from "../airflow.ts";
@@ -14,7 +15,7 @@ type CachedPath = {
 };
 /** 少量实例化箭头和粒子；柜面轮廓与柜外方向标保留真实遮挡，不参与拾取。 */
 export class AirflowGeometry {
-  root = new THREE.Group();
+  root = createAnnotationGroup("airflow");
   cone = new THREE.ConeGeometry(0.065, 0.19, 8);
   sphere = new THREE.SphereGeometry(0.055, 8, 6);
   ribbon = new THREE.CylinderGeometry(1, 1, 1, 6);

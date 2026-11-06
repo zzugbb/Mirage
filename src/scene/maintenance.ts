@@ -1,10 +1,11 @@
+import { createAnnotationGroup } from "./annotations.ts";
 import * as THREE from "three";
 import { maintenanceSettings } from "../maintenance.ts";
 import type { MaintenanceArea, MaintenanceAisle } from "../maintenance.ts";
 
 /** 两个中性地面范围，保留深度测试，不参与对象拾取或运行告警。 */
 export class MaintenanceGeometry {
-  root = new THREE.Group();
+  root = createAnnotationGroup("maintenance");
   enabled = false;
   geometry = new THREE.BoxGeometry(1, 1, 1);
   border = new THREE.InstancedMesh(
