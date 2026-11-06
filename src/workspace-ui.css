@@ -3109,6 +3109,10 @@
 .rack-space-inspector header {
   margin-bottom: 14px;
 }
+.rack-space-inspector header > button {
+  display: block;
+  margin: 0 0 10px;
+}
 .rack-space-inspector p {
   margin: 7px 0;
 }
@@ -3117,6 +3121,74 @@
 .rack-space-boundary {
   color: #93a6b0;
   font-size: 11px;
+}
+
+.room-space-comparison > label {
+  margin: 8px 0;
+}
+.room-space-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 10px;
+  color: #93a6b0;
+  margin: 16px 0 10px;
+}
+.room-space-key i {
+  display: inline-block;
+  width: 12px;
+  height: 9px;
+  margin-right: 4px;
+}
+.room-space-rack {
+  padding: 10px 0 12px;
+  border-top: 1px solid var(--study-line);
+}
+.room-space-rack[data-selected="true"] > .room-space-heading strong {
+  color: #bbebeb;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.room-space-rack .room-space-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  margin: 0 0 8px;
+  padding: 4px 0;
+  background: transparent;
+}
+.room-space-heading span {
+  color: #adbdc4;
+  font-size: 11px;
+}
+.room-space-strip {
+  display: grid;
+  height: 10px;
+}
+.room-space-strip i {
+  margin-right: 1px;
+}
+.room-space-comparison .is-installed {
+  background: #73838d;
+}
+.room-space-comparison .is-blanking {
+  background: repeating-linear-gradient(
+    135deg,
+    #33434d 0 2px,
+    transparent 2px 4px
+  );
+  border: 1px solid #53626c;
+}
+.room-space-comparison .is-candidate {
+  background: #1f363c;
+  border: 1px solid #b7e8e8;
+}
+.room-space-scale {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+  color: #81949f;
 }
 .rack-space-inspector > label,
 .rack-space-inspector form label {

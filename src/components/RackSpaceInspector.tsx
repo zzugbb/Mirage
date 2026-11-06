@@ -15,6 +15,9 @@ export function RackSpaceInspector({
   onDevice,
   onClear,
   queryMessage,
+  size,
+  onSize,
+  onCompare,
 }: {
   rackId: string;
   range: RackUnitRange | null;
@@ -22,9 +25,11 @@ export function RackSpaceInspector({
   onDevice: (id: string) => void;
   onClear: () => void;
   queryMessage?: string;
+  size: number;
+  onSize: (size: number) => void;
+  onCompare: () => void;
 }) {
-  const [size, setSize] = useState(2);
-  const [start, setStart] = useState("1");
+  const [start, setStart] = useState(String(range?.first ?? 1));
   const layout = rackInstallation(rackId)!;
   const candidates = rackSpaceCandidates(rackId, size);
   const result = range ? inspectRackSpace(range) : null;
@@ -38,6 +43,7 @@ export function RackSpaceInspector({
   return (
     <section className="rack-space-inspector" aria-label="安装空间核查">
       <header>
+        <button onClick={onCompare}>← 全机房空间对照</button>
         <strong>{layout.rack.name} · 安装空间</strong>
         <p>
           已安装 {layout.installedUnits} U · 未安装 {layout.blankingUnits} U
@@ -54,7 +60,7 @@ export function RackSpaceInspector({
         <select
           aria-label="核查设备U高度"
           value={size}
-          onChange={(e) => setSize(Number(e.target.value))}
+          onChange={(e) => onSize(Number(e.target.value))}
         >
           {[1, 2, 4].map((n) => (
             <option key={n} value={n}>

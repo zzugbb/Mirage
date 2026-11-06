@@ -1,10 +1,60 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { inspectRackSpace, rackSpaceCandidates } from "./rack-space.ts";
+import {
+  inspectRackSpace,
+  rackSpaceCandidates,
+  roomRackSpace,
+  spaceRows,
+} from "./rack-space.ts";
 import { devices, racks } from "./installation.ts";
 import { modelForDevice } from "./catalog.ts";
 import { createState } from "./domain.ts";
 import { rackUnitSpan } from "./scene/rack-unit-guide.ts";
+
+test("全机房对照覆盖八柜且不合并零散空位，柜排来自显式配置", () => {
+  for (const size of [1, 2, 4, 42]) {
+    const comparison = roomRackSpace(size);
+    assert.deepEqual(
+      comparison.map((r) => r.rack.id),
+      racks.map((r) => r.id),
+    );
+    for (const rack of comparison) {
+      const occupied = new Set(
+        devices
+          .filter((d) => d.rackId === rack.rack.id)
+          .flatMap((d) =>
+            Array.from(
+              { length: modelForDevice(d.id).units },
+              (_, i) => d.startUnit + i,
+            ),
+          ),
+      );
+      let run = 0,
+        longest = 0;
+      for (let u = 1; u <= rack.units; u++) {
+        run = occupied.has(u) ? 0 : run + 1;
+        longest = Math.max(longest, run);
+      }
+      assert.equal(rack.installedUnits, occupied.size);
+      assert.equal(rack.blankingUnits, rack.units - occupied.size);
+      assert.equal(rack.largestGap, longest);
+      assert.equal(rack.candidates.length > 0, longest >= size);
+    }
+    for (const row of spaceRows) {
+      assert.deepEqual(
+        roomRackSpace(size, row.id),
+        comparison.filter((r) => row.rackIds.includes(r.rack.id)),
+      );
+    }
+  }
+  assert.equal(roomRackSpace(42).length, 8);
+  assert.ok(
+    roomRackSpace(42).every(
+      (r) => r.candidates.length === 0 && r.blankingUnits > 0,
+    ),
+  );
+  assert.deepEqual(roomRackSpace(2, "unknown-row"), []);
+});
 
 test("八柜连续空段候选与逐U暴力检查一致，重叠起点不作为可安装台数", () => {
   for (const rack of racks) {

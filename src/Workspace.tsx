@@ -1,4 +1,5 @@
 import { RackSpaceInspector } from "./components/RackSpaceInspector";
+import { RoomSpaceComparison } from "./components/RoomSpaceComparison";
 import { rackGrilleRelations } from "./floor-grilles";
 import {
   activeAirflowInspection,
@@ -50,7 +51,7 @@ import {
   componentGroups,
 } from "./review-resources";
 import type { ResourceFilter } from "./review-resources";
-import { devices, rackForDevice } from "./installation";
+import { devices, rackById, rackForDevice } from "./installation";
 import {
   maintenanceAreas,
   maintenanceAisle,
@@ -203,6 +204,11 @@ export function Workspace() {
   const [rackView, setRackView] = useState<"list" | "installation" | "space">(
     "installation",
   );
+  const [spaceSize, setSpaceSize] = useState(2);
+  const [comparisonSize, setComparisonSize] = useState(2);
+  const [comparisonRow, setComparisonRow] = useState("all");
+  const [comparisonRack, setComparisonRack] = useState<string | null>(null);
+  const comparisonScroll = useRef(0);
   const [expanded, setExpanded] = useState<string[]>([]);
   const [filter, setFilter] = useState<ResourceFilter>("all");
   const [onlyAlarms, setOnlyAlarms] = useState(false);
@@ -470,6 +476,11 @@ export function Workspace() {
     setSourceVisit(null);
     setExpanded([]);
     setRackView("installation");
+    setSpaceSize(2);
+    setComparisonSize(2);
+    setComparisonRow("all");
+    setComparisonRack(null);
+    comparisonScroll.current = 0;
     setShot(next);
     setRevision((n) => n + 1);
     setQuery("");
@@ -703,42 +714,47 @@ export function Workspace() {
               ×
             </button>
           </div>
-          <label className="study-search">
-            <span aria-hidden="true">⌕</span>
-            <input
-              aria-label="查找资源"
-              placeholder="名称、编号或 U 位"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-            />
-            {query && (
-              <button aria-label="清除搜索" onClick={() => setQuery("")}>
-                ×
-              </button>
-            )}
-          </label>
-          <div className="study-filters">
-            <select
-              aria-label="资源类型"
-              value={filter}
-              onChange={(e) => setFilter(e.target.value as ResourceFilter)}
-            >
-              <option value="all">全部类型</option>
-              <option value="server">服务器</option>
-              <option value="switch">交换机</option>
-              <option value="storage">存储</option>
-              <option value="facility">设施</option>
-            </select>
-            {layer === "alarms" && state.level !== "device" && (
-              <button
-                aria-label="仅看告警"
-                aria-pressed={onlyAlarms}
-                onClick={() => setOnlyAlarms((v) => !v)}
-              >
-                <span aria-hidden="true">{onlyAlarms ? "✓ " : ""}</span>仅看告警
-              </button>
-            )}
-          </div>
+          {!(state.level === "room" && rackView === "space") && (
+            <>
+              <label className="study-search">
+                <span aria-hidden="true">⌕</span>
+                <input
+                  aria-label="查找资源"
+                  placeholder="名称、编号或 U 位"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                />
+                {query && (
+                  <button aria-label="清除搜索" onClick={() => setQuery("")}>
+                    ×
+                  </button>
+                )}
+              </label>
+              <div className="study-filters">
+                <select
+                  aria-label="资源类型"
+                  value={filter}
+                  onChange={(e) => setFilter(e.target.value as ResourceFilter)}
+                >
+                  <option value="all">全部类型</option>
+                  <option value="server">服务器</option>
+                  <option value="switch">交换机</option>
+                  <option value="storage">存储</option>
+                  <option value="facility">设施</option>
+                </select>
+                {layer === "alarms" && state.level !== "device" && (
+                  <button
+                    aria-label="仅看告警"
+                    aria-pressed={onlyAlarms}
+                    onClick={() => setOnlyAlarms((v) => !v)}
+                  >
+                    <span aria-hidden="true">{onlyAlarms ? "✓ " : ""}</span>
+                    仅看告警
+                  </button>
+                )}
+              </div>
+            </>
+          )}
           {state.level !== "room" && (
             <button
               className="study-parent"
@@ -750,20 +766,25 @@ export function Workspace() {
                 : "01号机房"}
             </button>
           )}
-          {state.level === "rack" && (
+          {state.level !== "device" && (
             <div
               className="rack-navigation-view"
               role="group"
-              aria-label="机柜资源呈现"
+              aria-label="资源呈现"
             >
+              {state.level === "rack" && (
+                <button
+                  aria-pressed={rackView === "installation"}
+                  onClick={() => setRackView("installation")}
+                >
+                  安装图
+                </button>
+              )}
               <button
-                aria-pressed={rackView === "installation"}
-                onClick={() => setRackView("installation")}
-              >
-                安装图
-              </button>
-              <button
-                aria-pressed={rackView === "list"}
+                aria-pressed={
+                  rackView === "list" ||
+                  (state.level === "room" && rackView !== "space")
+                }
                 onClick={() => setRackView("list")}
               >
                 列表
@@ -779,10 +800,34 @@ export function Workspace() {
               </button>
             </div>
           )}
-          {state.level === "rack" && rackView === "space" ? (
+          {state.level === "room" && rackView === "space" ? (
+            <RoomSpaceComparison
+              size={comparisonSize}
+              rowId={comparisonRow}
+              expandedId={comparisonRack}
+              selected={selected}
+              scroll={comparisonScroll}
+              onSize={setComparisonSize}
+              onRow={setComparisonRow}
+              onExpand={setComparisonRack}
+              onPreview={(id) => pick(id, false, true)}
+              ready={ready}
+              onInspect={(range) => {
+                pick(range.rackId, true, true);
+                setSpaceSize(comparisonSize);
+                setQuery(
+                  `${rackById(range.rackId)!.name.split(" ")[0]} U${range.first}–${range.last}`,
+                );
+                setOnlyAlarms(false);
+              }}
+            />
+          ) : state.level === "rack" && rackView === "space" ? (
             <RackSpaceInspector
               key={rackForDevice(state.deviceId).id}
               rackId={rackForDevice(state.deviceId).id}
+              size={spaceSize}
+              onSize={setSpaceSize}
+              onCompare={() => pick("room-01", true, true)}
               range={
                 unitQuery &&
                 !unitQuery.error &&
@@ -1026,13 +1071,14 @@ export function Workspace() {
               )}
             </div>
           )}
-          {!(state.level === "rack" && rackView !== "list") && (
-            <footer className="study-nav-caption">
-              {state.level === "device"
-                ? "部件状态为模型评估，非独立告警"
-                : "单击选择 · 定位聚焦 · 进入下一级"}
-            </footer>
-          )}
+          {!(state.level !== "device" && rackView === "space") &&
+            !(state.level === "rack" && rackView === "installation") && (
+              <footer className="study-nav-caption">
+                {state.level === "device"
+                  ? "部件状态为模型评估，非独立告警"
+                  : "单击选择 · 定位聚焦 · 进入下一级"}
+              </footer>
+            )}
         </aside>
         <section
           ref={stageRef}

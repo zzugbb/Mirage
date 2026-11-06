@@ -1,6 +1,29 @@
 import { rackInstallation } from "./rack-installation.ts";
+import { racks } from "./installation.ts";
+import definition from "../assets/public/scenes/room-01.json" with { type: "json" };
 
 export type RackUnitRange = { rackId: string; first: number; last: number };
+export const spaceRows = definition.temperatureSlice.vertical.rows;
+
+/** 使用已登记柜排和完整安装配置；没有候选的机柜也保留在比较中。 */
+export function roomRackSpace(size: number, rowId = "all") {
+  const row = spaceRows.find((row) => row.id === rowId);
+  return racks
+    .filter((rack) => rowId === "all" || row?.rackIds.includes(rack.id))
+    .map((rack) => {
+      const layout = rackInstallation(rack.id)!;
+      return {
+        ...layout,
+        largestGap: Math.max(
+          0,
+          ...layout.segments
+            .filter((segment) => segment.kind === "blanking")
+            .map((segment) => segment.last - segment.first + 1),
+        ),
+        candidates: rackSpaceCandidates(rack.id, size),
+      };
+    });
+}
 
 /** 只检查标准 U 位安装配置，不把未安装位置声明为可分配容量。 */
 export function inspectRackSpace(range: RackUnitRange) {
