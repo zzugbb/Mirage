@@ -6,6 +6,7 @@ export function TemperatureDisclosure({
   className,
   summaryClassName,
   summary,
+  actions,
   children,
   onInteract,
   detailsRef,
@@ -13,6 +14,7 @@ export function TemperatureDisclosure({
   className: string;
   summaryClassName?: string;
   summary: ReactNode;
+  actions?: ReactNode;
   children: ReactNode;
   onInteract: () => void;
   detailsRef?: RefObject<HTMLDetailsElement | null>;
@@ -36,6 +38,7 @@ export function TemperatureDisclosure({
       }}
     >
       <summary className={summaryClassName}>{summary}</summary>
+      {actions}
       <div
         className="temperature-disclosure-body"
         tabIndex={0}

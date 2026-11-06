@@ -1,5 +1,11 @@
 import { rackGrilleRelations } from "./floor-grilles";
 import {
+  activeAirflowInspection,
+  airflowInspectionContext,
+  beginAirflowInspection,
+  type AirflowInspection,
+} from "./airflow-inspection";
+import {
   useCallback,
   useEffect,
   useMemo,
@@ -161,6 +167,23 @@ export function Workspace() {
       navigationOpenerRef.current?.focus();
   }, [nav]);
   const [inspector, setInspector] = useState(false);
+  const [airflowVisit, setAirflowVisit] = useState<AirflowInspection | null>(
+    null,
+  );
+  const airflowContext = airflowInspectionContext(
+    state,
+    layer,
+    sliceControls,
+    revision,
+  );
+  const activeAirflowVisit = activeAirflowInspection(
+    airflowVisit,
+    selected,
+    airflowContext,
+  );
+  useEffect(() => {
+    if (airflowVisit && !activeAirflowVisit) setAirflowVisit(null);
+  }, [airflowVisit, activeAirflowVisit]);
   const [networkLinkId, setNetworkLinkId] = useState<string | null>(null);
   const [powerLinkId, setPowerLinkId] = useState<string | null>(null);
   const activePowerLink = powerContextIncludes(
@@ -312,6 +335,7 @@ export function Workspace() {
   const takeover = useCallback(() => control({ type: "takeover" }), []);
   const pick = useCallback(
     (id: string, enter = false, keepNavigation = false) => {
+      setAirflowVisit(null);
       setPowerLinkId((current) =>
         powerContextIncludes(id, state.deviceId, current) ? current : null,
       );
@@ -337,6 +361,7 @@ export function Workspace() {
       installation = false,
     } = {},
   ) => {
+    setAirflowVisit(null);
     setNetworkLinkId((current) =>
       networkContextIncludes(id, state.deviceId, current) ? current : null,
     );
@@ -376,6 +401,7 @@ export function Workspace() {
   const showAirflow = (id: string) => {
     const target = roomAirflowTarget(id, state.deviceId);
     if (!target || !ready) return;
+    setAirflowVisit(null);
     if (review.analysis && state.playing)
       dispatch({ type: "seek", time: state.time });
     setSliceControls((current) => alignAirflowSlice(current, target.rowId));
@@ -436,6 +462,7 @@ export function Workspace() {
     return () => window.removeEventListener("keydown", key);
   }, [selected, review.analysis, nav, inspector, query, dispatch]);
   const load = (next: WorkspaceShot) => {
+    setAirflowVisit(null);
     setPowerLinkId(null);
     setNetworkLinkId(null);
     setSourceCheck(null);
@@ -1002,6 +1029,36 @@ export function Workspace() {
             layer={layer}
             readings={spatial.readings}
             selectedId={selected}
+            airflowVisit={activeAirflowVisit}
+            onPreviewAirflowEndpoint={(route, id) => {
+              const visit = beginAirflowInspection(
+                activeAirflowVisit,
+                route,
+                id,
+                {
+                  originId: selected,
+                  context: airflowContext,
+                  nav,
+                  inspector,
+                  analysis: review.analysis,
+                },
+              );
+              if (!visit) return;
+              pick(id);
+              setAirflowVisit(visit);
+            }}
+            onReturnAirflowEndpoint={() => {
+              if (!activeAirflowVisit) return;
+              pick(activeAirflowVisit.originId);
+              setNav(activeAirflowVisit.nav);
+              setInspector(activeAirflowVisit.inspector);
+              control({ type: "analysis", value: activeAirflowVisit.analysis });
+            }}
+            onLocateAirflowEndpoint={(id) =>
+              focus(id, {
+                installation: entityById(id)?.kind === "device",
+              })
+            }
             aisle={aisle}
             networkLinkId={activeNetworkLink}
             powerLinkId={activePowerLink}

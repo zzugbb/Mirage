@@ -489,6 +489,7 @@ export class SceneEngine {
   }
   observeAirflow(route: AirflowRoute, view: AirflowView) {
     if (this.state.level !== "room") return;
+    this.panelViewport = undefined;
     const previous = this.airflowObservation?.previous ?? {
       position: this.camera.position.clone(),
       target: this.controls.target.clone(),
@@ -556,6 +557,7 @@ export class SceneEngine {
   restoreAirflowView() {
     const previous = this.airflowObservation?.previous;
     if (!previous) return;
+    this.panelViewport = undefined;
     this.currentView = previous.view;
     this.currentFocus = previous.focus;
     this.interior = previous.interior;
@@ -588,16 +590,18 @@ export class SceneEngine {
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height);
     this.pipeline.resize(width, height);
+    if (
+      this.panelViewport?.width === window.innerWidth &&
+      this.panelViewport.height === window.innerHeight
+    )
+      return;
+    this.panelViewport = undefined;
     if (this.airflowObservation) {
       this.frameAirflow();
       return;
     }
     if (
       this.lastTime > 0 &&
-      !(
-        this.panelViewport?.width === window.innerWidth &&
-        this.panelViewport.height === window.innerHeight
-      ) &&
       Math.abs(previousAspect - this.camera.aspect) > 0.1
     )
       this.view(this.currentView, this.currentFocus);

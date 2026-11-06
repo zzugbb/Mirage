@@ -1,4 +1,7 @@
-import { grilleRowForRack } from "../floor-grilles";
+import {
+  airflowEndpointObject,
+  type AirflowInspection,
+} from "../airflow-inspection";
 import { airflowViews, type AirflowView } from "../airflow-view";
 import { ModelLoadNotice } from "./ModelLoadNotice";
 import { initialModelLoads, type ModelAssetId } from "../model-loading";
@@ -8,7 +11,7 @@ import { SliceInputPreview } from "./SliceInputPreview";
 import { fixtureById, roomFacilityById } from "../fixtures";
 import type { Dispatch, SetStateAction, ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { AppState } from "../domain";
+import { entityById, type AppState } from "../domain";
 import type { PresentationPhase, SceneFeedback } from "../mechanics";
 import { SceneEngine } from "../scene/engine";
 import type { View } from "../scene/engine";
@@ -29,7 +32,11 @@ import {
 } from "../temperature-slice";
 import type { SliceOrientation, SliceControls } from "../temperature-slice";
 import { TemperatureSliceGeometry } from "../scene/temperature-slice";
-import { airflowSnapshot, airflowVisualTime } from "../airflow";
+import {
+  airflowSnapshot,
+  airflowVisualTime,
+  type AirflowRoute,
+} from "../airflow";
 import { AirflowGeometry } from "../scene/airflow";
 import { placeFlowLabel } from "../airflow-label-layout";
 import {
@@ -51,6 +58,10 @@ export function ReviewScene({
   layer,
   readings,
   selectedId,
+  airflowVisit,
+  onPreviewAirflowEndpoint,
+  onReturnAirflowEndpoint,
+  onLocateAirflowEndpoint,
   aisle,
   networkLinkId = null,
   powerLinkId = null,
@@ -73,6 +84,10 @@ export function ReviewScene({
   layer: ReviewLayer;
   readings: Map<string, SpatialReading>;
   selectedId: string;
+  airflowVisit: AirflowInspection | null;
+  onPreviewAirflowEndpoint: (route: AirflowRoute, id: string) => void;
+  onReturnAirflowEndpoint: () => void;
+  onLocateAirflowEndpoint: (id: string) => void;
   aisle?: MaintenanceAisle;
   networkLinkId?: string | null;
   powerLinkId?: string | null;
@@ -191,7 +206,7 @@ export function ReviewScene({
         ? airflowSnapshot(
             state.time,
             readings,
-            selectedId,
+            airflowVisit?.deviceId ?? selectedId,
             state.deviceId,
             slice?.rowId,
           )
@@ -203,6 +218,7 @@ export function ReviewScene({
       state.deviceId,
       readings,
       selectedId,
+      airflowVisit?.deviceId,
       slice?.rowId,
     ],
   );
@@ -411,7 +427,7 @@ export function ReviewScene({
     engine.current?.clearAirflowView();
   }, [
     airflow?.routes[0]?.id,
-    selectedId,
+    airflowVisit?.originId ?? selectedId,
     layer,
     state.level,
     shotRevision,
@@ -603,6 +619,7 @@ export function ReviewScene({
       data-slice-row={slice?.rowId}
       data-slice-position={slice ? (slice.height ?? slice.distance) : undefined}
       data-airflow-view={flowView ?? ""}
+      data-airflow-inspection={airflowVisit?.deviceId ?? ""}
       data-airflow-targets={airflow?.routes
         .map((route) => route.deviceId)
         .join(",")}
@@ -1070,16 +1087,46 @@ export function ReviewScene({
                     <TemperatureDisclosure
                       className="review-flow-explanation"
                       onInteract={onTakeover}
+                      actions={
+                        airflowVisit && (
+                          <div className="airflow-inspection-return">
+                            <span>
+                              核对 ·{" "}
+                              {entityById(airflowVisit.deviceId)?.name}{" "}
+                            </span>
+                            <button
+                              onClick={(event) => {
+                                event.currentTarget
+                                  .closest("details")
+                                  ?.querySelector("summary")
+                                  ?.focus({ preventScroll: true });
+                                engine.current?.preservePanelView();
+                                onReturnAirflowEndpoint();
+                              }}
+                            >
+                              ← 返回原对象
+                            </button>
+                            <small>
+                              原对象：{entityById(airflowVisit.originId)?.name}
+                            </small>
+                          </div>
+                        )
+                      }
                       summary={
                         <>
                           气流路径 ·{" "}
-                          {airflow.routes[0]?.animated
-                            ? "代表支路"
-                            : "静态示意"}
+                          {airflowVisit
+                            ? "端点核对"
+                            : airflow.routes[0]?.animated
+                              ? "代表支路"
+                              : "静态示意"}
                         </>
                       }
                     >
                       <p>{airflow.label}</p>
+                      {airflowVisit && (
+                        <p>预览保留本支路；定位结束核对，转为对象观察。</p>
+                      )}
                       {airflow.routes[0] && (
                         <div
                           className="airflow-view-actions"
@@ -1119,36 +1166,41 @@ export function ReviewScene({
                       )}
                       <ol aria-label="气流端点与读数">
                         {airflow.routes.flatMap((route) =>
-                          route.endpoints.map((endpoint) => (
-                            <li key={`${route.id}-${endpoint.kind}`}>
-                              <b>{endpoint.title}</b>
-                              <span>{endpoint.detail}</span>
-                              {endpoint.kind === "floor" &&
-                                grilleRowForRack(route.rackId) && (
-                                  <div className="grille-row-links">
+                          route.endpoints.map((endpoint) => {
+                            const object = airflowEndpointObject(
+                              route,
+                              endpoint.kind,
+                            );
+                            return (
+                              <li key={`${route.id}-${endpoint.kind}`}>
+                                <b>{endpoint.title}</b>
+                                <span>{endpoint.detail}</span>
+                                <div className="airflow-endpoint-actions">
+                                  <button
+                                    disabled={selectedId === object.id}
+                                    onClick={() => {
+                                      engine.current?.preservePanelView();
+                                      onPreviewAirflowEndpoint(
+                                        route,
+                                        object.id,
+                                      );
+                                    }}
+                                  >
+                                    预览{object.name}
+                                  </button>
+                                  {endpoint.kind !== "return" && (
                                     <button
                                       onClick={() =>
-                                        onSelect(
-                                          grilleRowForRack(route.rackId)!.id,
-                                        )
+                                        onLocateAirflowEndpoint(object.id)
                                       }
                                     >
-                                      预览格栅排
+                                      {object.locate}
                                     </button>
-                                    <button
-                                      onClick={() =>
-                                        onSelect(
-                                          grilleRowForRack(route.rackId)!.id,
-                                          true,
-                                        )
-                                      }
-                                    >
-                                      定位格栅排
-                                    </button>
-                                  </div>
-                                )}
-                            </li>
-                          )),
+                                  )}
+                                </div>
+                              </li>
+                            );
+                          }),
                         )}
                       </ol>
                       <p>

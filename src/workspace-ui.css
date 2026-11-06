@@ -3065,14 +3065,35 @@
   grid-column: 1 / -1;
 }
 
-.grille-row-links {
+.airflow-endpoint-actions {
   display: flex;
   gap: 6px;
   margin: 6px 0;
 }
-.grille-row-links button {
+.airflow-endpoint-actions button {
   padding: 5px;
   font-size: 10px;
   border: 1px solid #aac9d237;
   color: #d5e8ec;
+}
+
+.airflow-inspection-return {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  padding: 8px 0;
+  border-block: 1px solid #aac9d237;
+}
+.airflow-inspection-return button {
+  justify-self: start;
+  color: #d5e8ec;
+  border: 1px solid #aac9d237;
+  padding: 5px 8px;
+}
+.airflow-inspection-return small {
+  grid-column: 1 / -1;
+  color: #a7b8bf;
+  line-height: 1.6;
 }
