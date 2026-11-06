@@ -1,4 +1,5 @@
 import { updateRackBlanking } from "./rack-blanking";
+import { createEquipmentRearProxy } from "./equipment-rear-proxy";
 import { equipmentModels, modelForDevice } from "../catalog";
 import * as THREE from "three";
 import { observationColor } from "./metric-color";
@@ -183,6 +184,29 @@ export class InstallationScene {
         0,
         true,
       );
+      const ids = devices
+        .filter((device) => device.modelId === model.id)
+        .map((device) => device.id);
+      const rear = createEquipmentRearProxy(model.id);
+      for (const object of rear.children) {
+        const source = object as THREE.Mesh;
+        const mesh = new THREE.InstancedMesh(
+          source.geometry,
+          source.material,
+          ids.length,
+        );
+        mesh.name = source.name;
+        mesh.userData.instanceEntityIds = ids;
+        mesh.userData.instanceVisible = [];
+        mesh.castShadow = mesh.receiveShadow = true;
+        this.root.add(mesh);
+        this.batches.push({
+          mesh,
+          ids,
+          offsets: ids.map(() => new THREE.Vector3()),
+          light: false,
+        });
+      }
     }
   }
   /** 复用同一份贡献几何与贴图实例化远景，进入设备时再切换详细装配。 */

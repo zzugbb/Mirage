@@ -6654,6 +6654,20 @@
       }
     ]
   },
+  "installationProxy": {
+    "rear": {
+      "panelDepth": 0.003,
+      "detailDepth": 0.002,
+      "panelGap": 0.002,
+      "colors": {
+        "panel": "#65717a",
+        "inset": "#192229",
+        "grip": "#98a99b"
+      },
+      "roughness": 0.58,
+      "metalness": 0.55
+    }
+  },
   "equipmentModels": [
     {
       "id": "server-2u",
@@ -6694,7 +6708,14 @@
         "第二块扩展网卡"
       ],
       "network": "双口 25G",
-      "storage": "8 × 1.92 TB SAS SSD"
+      "storage": "8 × 1.92 TB SAS SSD",
+      "rearPanels": [
+        {"kind": "power", "center": [-0.185, 0], "size": [0.065, 0.06872]},
+        {"kind": "power", "center": [0.185, 0], "size": [0.065, 0.06872]},
+        {"kind": "interface", "center": [-0.06, -0.015462], "size": [0.09, 0.029206]},
+        {"kind": "interface", "center": [0.04, -0.015462], "size": [0.065, 0.029206]},
+        {"kind": "vent", "center": [0, 0.019757], "size": [0.26, 0.02577]}
+      ]
     },
     {
       "id": "server-1u",
@@ -6734,7 +6755,14 @@
         "第二转接架"
       ],
       "network": "双口 25G",
-      "storage": "4 × 1.92 TB SAS SSD"
+      "storage": "4 × 1.92 TB SAS SSD",
+      "rearPanels": [
+        {"kind": "power", "center": [-0.185, 0], "size": [0.065, 0.03316]},
+        {"kind": "power", "center": [0.185, 0], "size": [0.065, 0.03316]},
+        {"kind": "interface", "center": [-0.06, -0.007461], "size": [0.09, 0.014093]},
+        {"kind": "interface", "center": [0.04, -0.007461], "size": [0.065, 0.014093]},
+        {"kind": "vent", "center": [0, 0.009534], "size": [0.26, 0.012435]}
+      ]
     },
     {
       "id": "switch-1u",
@@ -6760,7 +6788,15 @@
         "未使用光模块"
       ],
       "network": "48 × 25G / 6 × 100G",
-      "storage": "无磁盘"
+      "storage": "无磁盘",
+      "rearPanels": [
+        {"kind": "power", "center": [-0.15, 0], "size": [0.07, 0.035]},
+        {"kind": "power", "center": [0.15, 0], "size": [0.07, 0.035]},
+        {"kind": "vent", "center": [-0.081, 0], "size": [0.048, 0.03]},
+        {"kind": "vent", "center": [-0.027, 0], "size": [0.048, 0.03]},
+        {"kind": "vent", "center": [0.027, 0], "size": [0.048, 0.03]},
+        {"kind": "vent", "center": [0.081, 0], "size": [0.048, 0.03]}
+      ]
     },
     {
       "id": "storage-4u",
@@ -6787,7 +6823,13 @@
         "扩展盘柜"
       ],
       "network": "双控制器各双口 25G",
-      "storage": "24 × 12 TB SAS HDD（演示配置）"
+      "storage": "24 × 12 TB SAS HDD（演示配置）",
+      "rearPanels": [
+        {"kind": "power", "center": [-0.17, 0], "size": [0.07, 0.07]},
+        {"kind": "power", "center": [0.17, 0], "size": [0.07, 0.07]},
+        {"kind": "vent", "center": [-0.045, 0], "size": [0.083, 0.065]},
+        {"kind": "vent", "center": [0.045, 0], "size": [0.083, 0.065]}
+      ]
     }
   ]
 }
