@@ -519,6 +519,8 @@
       "doorAngleDegrees": 105,
       "trayTravel": 0.58,
       "doorDuration": 0.7,
+      "rearDoorAngleDegrees": 105,
+      "rearDoorDuration": 0.7,
       "trayDuration": 0.85,
       "inspectionDuration": 0.7
     },

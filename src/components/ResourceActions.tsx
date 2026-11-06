@@ -52,6 +52,16 @@ export function ResourceActions({
           >
             {state.doorOpen ? "关闭前门" : "打开前门"}
           </button>
+          <button
+            disabled={!ready}
+            aria-pressed={state.rearDoorOpen}
+            title="双扇后门结构展示，不代表真实门状态或远程控制"
+            onClick={() =>
+              dispatch({ type: "rear-door", open: !state.rearDoorOpen })
+            }
+          >
+            {state.rearDoorOpen ? "关闭后门" : "打开后门"}
+          </button>
           {entity.kind === "device" ? (
             <>
               {modelForDevice(selected).category !== "switch" && (
@@ -71,7 +81,11 @@ export function ResourceActions({
               </button>
             </>
           ) : null}
-          {pduById(selected) && <small>后侧观察剖切</small>}
+          {pduById(selected) && (
+            <small>
+              {state.rearDoorOpen ? "后立柱观察剖切" : "后侧观察剖切"}
+            </small>
+          )}
         </>
       ) : (
         <>
@@ -137,6 +151,8 @@ export function ResourceActions({
             "closing-cover",
             "assembling",
             "expanding",
+            "opening-rear",
+            "closing-rear",
           ].includes(phase)
             ? "场景切换中…"
             : phaseLabels[phase]}

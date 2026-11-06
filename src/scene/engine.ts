@@ -647,6 +647,8 @@ export class SceneEngine {
   }
   installDevice(state: AppState) {
     const rack = rackForDevice(state.deviceId);
+    if (this.models.rack.userData.entityId !== rack.id)
+      this.presentation.resetRearDoor();
     this.models.rack.position.fromArray(rack.position);
     this.models.rack.userData.entityId = rack.id;
     this.host.dataset.blankingUnits = updateRackBlanking(
@@ -802,8 +804,9 @@ export class SceneEngine {
     if (fixture && view === "interior") view = "iso";
     // 先在当前镜头中完成复原与合盖，再随设备返回机柜。
     if (
-      this.state.level !== "device" &&
-      (this.explosion > 0 || this.cover > 0)
+      (this.state.level !== "device" &&
+        (this.explosion > 0 || this.cover > 0)) ||
+      (this.state.level === "room" && this.presentation.rearDoor > 0)
     ) {
       this.currentView = view;
       this.currentFocus = focus;
@@ -1178,7 +1181,12 @@ export class SceneEngine {
       this.onPhase(phase);
     }
     this.poseParts();
-    if (this.pendingReturnView && this.cover === 0 && this.explosion === 0)
+    if (
+      this.pendingReturnView &&
+      this.cover === 0 &&
+      this.explosion === 0 &&
+      this.presentation.rearDoor === 0
+    )
       this.view(this.currentView, this.currentFocus);
     if (
       this.pendingComponentFocus &&
@@ -1217,7 +1225,12 @@ export class SceneEngine {
       (!!pduById(this.state.selected) || this.telemetry.mode === "power");
     this.models.rack.getObjectByName("rack-rear-shell")!.visible =
       !rearObservation;
+    this.models.rack.getObjectByName("rack-rear-doors")!.visible =
+      !rearObservation ||
+      this.state.rearDoorOpen ||
+      this.presentation.rearDoor > 0;
     this.host.dataset.rearObservation = String(rearObservation);
+    this.host.dataset.rearDoorProgress = String(this.presentation.rearDoor);
     const selectedFixture =
       this.state.level === "room"
         ? (this.models.fixtures.get(this.state.selected) ??

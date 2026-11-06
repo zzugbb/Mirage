@@ -19,7 +19,9 @@ export type PresentationPhase =
   | "device-ready"
   | "to-rack"
   | "retracting"
-  | "closing";
+  | "closing"
+  | "opening-rear"
+  | "closing-rear";
 export type SceneFeedback = {
   key: string;
   phase: PresentationPhase;
@@ -40,6 +42,8 @@ export const phaseLabels: Record<PresentationPhase, string> = {
   "to-rack": "正在返回导轨",
   retracting: "正在推回服务器",
   closing: "正在关闭前门",
+  "opening-rear": "正在展示后门打开",
+  "closing-rear": "正在复原后门",
 };
 export const initialMechanism = (): MechanismPose => ({
   door: 0,
@@ -120,4 +124,26 @@ export function inspectionStaging(progress: number) {
     rackOpacity: 1 - smooth(Math.min(1, p / 0.3)),
     relocation: smooth(Math.max(0, (p - 0.3) / 0.7)),
   };
+}
+
+/** 后门只控制结构展示，与前门、导轨及共享时钟独立。 */
+export function advanceRearDoor(
+  progress: number,
+  open: boolean,
+  delta: number,
+  reducedMotion = false,
+) {
+  if (reducedMotion) return open ? 1 : 0;
+  const dt = Number.isFinite(delta) ? Math.max(0, Math.min(0.1, delta)) : 0;
+  return approach(
+    progress,
+    open ? 1 : 0,
+    dt / definition.rack.motion.rearDoorDuration,
+  );
+}
+export function rearDoorAngle(progress: number) {
+  const p = Number.isFinite(progress) ? Math.max(0, Math.min(1, progress)) : 0;
+  return (
+    (smooth(p) * definition.rack.motion.rearDoorAngleDegrees * Math.PI) / 180
+  );
 }

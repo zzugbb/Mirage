@@ -1227,7 +1227,11 @@ export function ReviewScene({
                     </span>
                   )}
                   <small>
-                    {state.level === "rack" ? "后侧观察剖切 · " : ""}
+                    {state.level === "rack"
+                      ? state.rearDoorOpen
+                        ? "后立柱观察剖切 · "
+                        : "后侧观察剖切 · "
+                      : ""}
                     {supply.traceId
                       ? "配置支路 · 未计量"
                       : "支路未计量 · 不推断独立上游"}

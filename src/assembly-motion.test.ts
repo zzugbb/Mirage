@@ -4,6 +4,7 @@ import { advanceAssembly, assemblyPartPosition } from "./assembly-motion.ts";
 import { createState, transition, parts, presentationKey } from "./domain.ts";
 import { createReview, reviewTransition } from "./review-model.ts";
 import { StructurePresentation } from "./scene/presentation.ts";
+import { createRackRearDoors } from "./scene/rack-enclosure.ts";
 import type { SceneModel } from "./scene/models.ts";
 import * as THREE from "three";
 
@@ -107,6 +108,7 @@ test("自动取盖在先、展开在后；部件复原后再合盖，连续反�
 
 test("返回机柜和切换实例须等待上盖合拢，再离开结构工作台", () => {
   const models = {
+    rack: new THREE.Group().add(createRackRearDoors()),
     server: new THREE.Group(),
     rackDoor: new THREE.Group(),
     rackSlide: new THREE.Group(),

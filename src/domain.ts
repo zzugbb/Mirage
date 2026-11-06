@@ -124,6 +124,7 @@ export type AppState = {
   explosion: number;
   coverOpen: boolean;
   doorOpen: boolean;
+  rearDoorOpen: boolean;
   trayExtended: boolean;
 };
 // 只包含影响镜头与结构的输入，模拟时钟不会使展示就绪信号失效。
@@ -136,6 +137,7 @@ export const presentationKey = (state: AppState) =>
     state.explosion,
     state.coverOpen,
     state.doorOpen,
+    state.rearDoorOpen,
     state.trayExtended,
   ].join(":");
 export type Action =
@@ -144,6 +146,7 @@ export type Action =
   | { type: "explode"; amount: number }
   | { type: "cover"; open: boolean }
   | { type: "door"; open: boolean }
+  | { type: "rear-door"; open: boolean }
   | { type: "tray"; extended: boolean }
   | { type: "seek"; time: number }
   | { type: "rate"; rate: 1 | 2 | 4 }
@@ -172,6 +175,7 @@ export const createState = (): AppState => ({
   explosion: 0,
   coverOpen: false,
   doorOpen: false,
+  rearDoorOpen: false,
   trayExtended: false,
 });
 export const getPath = (state: AppState) => [
@@ -212,6 +216,10 @@ export function transition(state: AppState, action: Action): AppState {
         selected: action.id,
         deviceId,
         coverOpen: deviceId === state.deviceId ? state.coverOpen : false,
+        rearDoorOpen:
+          rackForDevice(deviceId).id === rackForDevice(state.deviceId).id
+            ? state.rearDoorOpen
+            : false,
       };
     }
     case "navigate": {
@@ -243,6 +251,12 @@ export function transition(state: AppState, action: Action): AppState {
             ? state.coverOpen
             : false,
         doorOpen: action.level !== "room",
+        rearDoorOpen:
+          action.level === "rack" &&
+          state.level === "rack" &&
+          rackForDevice(deviceId).id === rackForDevice(state.deviceId).id
+            ? state.rearDoorOpen
+            : false,
         trayExtended: action.level === "device",
         focusRevision: state.focusRevision + 1,
       };
@@ -267,6 +281,10 @@ export function transition(state: AppState, action: Action): AppState {
             doorOpen: action.open,
             trayExtended: action.open ? state.trayExtended : false,
           }
+        : state;
+    case "rear-door":
+      return state.level === "rack"
+        ? { ...state, rearDoorOpen: action.open }
         : state;
     case "tray":
       return state.level === "rack"

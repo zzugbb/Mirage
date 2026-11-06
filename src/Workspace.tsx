@@ -563,6 +563,7 @@ export function Workspace() {
       data-scene-device={state.deviceId}
       data-focus-revision={state.focusRevision}
       data-cover-open={state.coverOpen}
+      data-rear-door-open={state.rearDoorOpen}
       data-explosion={state.explosion}
     >
       <header className="study-header">
@@ -1661,7 +1662,7 @@ export function Workspace() {
                         <p>
                           双扇冲孔后门、顶部刷条进线口与 PDU
                           侧壁支架为结构示意。
-                          后门随供电观察剖切，不提供独立开合；进线口未配置施工线缆，不据此推断散热或布线能力。
+                          后门可对开展示，独立于前门；姿态不代表真实门状态或远程控制。供电观察保留手动打开的门板，后立柱仍按观察剖切。进线口未配置施工线缆，不据此推断散热或布线能力。
                         </p>
                       </>
                     )}

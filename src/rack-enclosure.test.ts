@@ -8,13 +8,67 @@ import {
   createPduMounts,
   createRackRearDoors,
   createRackRoof,
+  poseRackRearDoors,
 } from "./scene/rack-enclosure.ts";
+import { maintenanceAreas } from "./maintenance.ts";
 
 const [width, height, depth] = definition.rack.size;
 const bounds = (object: THREE.Object3D) =>
   new THREE.Box3().setFromObject(object);
 const near = (a: number, b: number) =>
   assert.ok(Math.abs(a - b) < 1e-6, `${a} ≠ ${b}`);
+
+test("双扇后门绕外侧铰轴对开，八柜全行程位于检修预留内且避让PDU和后立柱", () => {
+  const doors = createRackRearDoors();
+  const closed = bounds(doors).clone();
+  const hinges = doors.children.map((leaf) =>
+    leaf.getWorldPosition(new THREE.Vector3()),
+  );
+  for (let step = 0; step <= 100; step++) {
+    poseRackRearDoors(doors, step / 100);
+    doors.updateMatrixWorld(true);
+    const leaves = doors.children.map(bounds);
+    assert.ok(!leaves[0].intersectsBox(leaves[1]), "两扇门不得互相穿插");
+    doors.children.forEach((leaf, i) =>
+      assert.deepEqual(leaf.getWorldPosition(new THREE.Vector3()), hinges[i]),
+    );
+    for (const rack of definition.installation.racks) {
+      const world = bounds(doors).translate(
+        new THREE.Vector3(...rack.position),
+      );
+      const rear = maintenanceAreas(rack.id)[1].bounds;
+      assert.ok(world.min.x >= rear.minX && world.max.x <= rear.maxX);
+      assert.ok(world.min.z >= rear.minZ && world.max.z <= rear.maxZ);
+    }
+    for (const x of [-width / 2 + 0.025, width / 2 - 0.025]) {
+      const post = new THREE.Box3().setFromCenterAndSize(
+        new THREE.Vector3(x, height / 2 + 0.05, -depth / 2 + 0.025),
+        new THREE.Vector3(0.045, height, 0.045),
+      );
+      for (const leaf of leaves) assert.equal(leaf.intersectsBox(post), false);
+    }
+    for (const position of Object.values(powerSettings.layout.positions)) {
+      const pdu = new THREE.Box3().setFromCenterAndSize(
+        new THREE.Vector3(...position),
+        new THREE.Vector3(...powerSettings.layout.size),
+      );
+      for (const leaf of leaves) assert.equal(leaf.intersectsBox(pdu), false);
+    }
+  }
+  // 开启后中央后视线不再被门网拦住，关闭可精确恢复外廓。
+  assert.deepEqual(
+    new THREE.Raycaster(
+      new THREE.Vector3(0, height / 2, -2),
+      new THREE.Vector3(0, 0, 1),
+    ).intersectObject(doors, true),
+    [],
+  );
+  for (let i = 0; i < 20; i++) {
+    poseRackRearDoors(doors, 1);
+    poseRackRearDoors(doors, 0);
+  }
+  assert.deepEqual(bounds(doors), closed);
+});
 
 test("双扇后门留出接缝并位于PDU后方，冲孔面保留深度、阴影和远景过滤", () => {
   const doors = createRackRearDoors();

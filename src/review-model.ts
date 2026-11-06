@@ -105,6 +105,7 @@ export function reviewTransition(
       coverOpen: false,
       explosion: 0,
       doorOpen: false,
+      rearDoorOpen: false,
       trayExtended: false,
     };
     const experience = experienceTransition(
@@ -134,7 +135,8 @@ export function reviewTransition(
     if (
       state.scene.level === "room" &&
       !state.scene.trayExtended &&
-      !state.scene.doorOpen
+      !state.scene.doorOpen &&
+      !state.scene.rearDoorOpen
     )
       return startTour(state);
     const returning = reviewInteractionTransition(state, {
@@ -321,16 +323,30 @@ function reviewInteractionTransition(
         target.id !== rackForDevice(current.deviceId).id) ||
       target.kind === "room" ||
       target.kind === "facility";
+    const targetRack =
+      pduById(target.id)?.rackId ??
+      (target.kind === "rack"
+        ? target.id
+        : target.kind === "device"
+          ? rackForDevice(target.id).id
+          : undefined);
+    const leavesRack = targetRack !== rackForDevice(current.deviceId).id;
     // 先复原并回到原机柜，再切换实例，避免运动中替换几何。
     if (
       elsewhere &&
       (current.level === "device" ||
-        (current.level === "rack" && current.trayExtended))
+        (current.level === "rack" &&
+          (current.trayExtended || (current.rearDoorOpen && leavesRack))))
     ) {
       scene =
         current.level === "device"
           ? transition(current, { type: "back" })
-          : { ...current, trayExtended: false, doorOpen: false };
+          : {
+              ...current,
+              trayExtended: false,
+              doorOpen: false,
+              rearDoorOpen: false,
+            };
       return { ...state, scene, selectedId: action.id, pendingId: action.id };
     }
     if (pduById(target.id)) {
@@ -487,8 +503,16 @@ function advanceConnectionEndpoint(
       level: "device",
       id: target.deviceId,
     });
-  } else if (current.level === "rack" && current.trayExtended) {
-    scene = { ...current, trayExtended: false, doorOpen: false };
+  } else if (
+    current.level === "rack" &&
+    (current.trayExtended || current.rearDoorOpen)
+  ) {
+    scene = {
+      ...current,
+      trayExtended: false,
+      doorOpen: false,
+      rearDoorOpen: false,
+    };
   } else {
     scene = {
       ...transition(current, {

@@ -199,7 +199,7 @@ export function buildModels() {
       "#24272b",
       0.45,
     );
-  rearShell.add(createRackRearDoors());
+  rack.add(createRackRearDoors());
   for (let u = 1; u <= definition.rack.units; u++) {
     const y = definition.rack.unitOrigin + u * definition.rack.unitPitch;
     for (const x of [-0.25, 0.25])

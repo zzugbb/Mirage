@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { rearDoorAngle } from "../mechanics.ts";
 import definition from "../../assets/public/scenes/room-01.json" with { type: "json" };
 import { powerSettings } from "../power-config.ts";
 
@@ -47,7 +48,7 @@ function perforation(panelWidth: number, panelHeight: number) {
   return texture;
 }
 
-/** 后门保持关闭；随现有后部观察剖切，不能误解为新增开门控制。 */
+/** 双扇门沿外侧铰轴向柜后打开，仅用于可逆结构展示。 */
 export function createRackRearDoors() {
   const group = new THREE.Group();
   group.name = "rack-rear-doors";
@@ -79,7 +80,7 @@ export function createRackRearDoors() {
   for (const side of [-1, 1]) {
     const leaf = new THREE.Group();
     leaf.name = `rear-door-${side < 0 ? "left" : "right"}`;
-    leaf.position.x = (side * (leafWidth + s.seam)) / 2;
+    leaf.position.x = (side * s.width) / 2;
     group.add(leaf);
     for (const edge of [-1, 1]) {
       solid(
@@ -118,8 +119,18 @@ export function createRackRearDoors() {
       [(-side * (leafWidth - s.frameWidth)) / 2, 0, -0.014],
       hardware,
     );
+    // 几何仍沿叶片中心布置，再将局部原点移到外侧铰轴；闭合外廓不变。
+    for (const child of leaf.children)
+      child.position.x -= (side * leafWidth) / 2;
   }
   return group;
+}
+
+export function poseRackRearDoors(group: THREE.Object3D, progress: number) {
+  const angle = rearDoorAngle(progress);
+  group.getObjectByName("rear-door-left")!.rotation.y = angle;
+  group.getObjectByName("rear-door-right")!.rotation.y =
+    angle === 0 ? 0 : -angle;
 }
 
 /** 顶板分块围出两个真实开口，刷条位于开口内；不虚构穿过开口的线缆。 */
