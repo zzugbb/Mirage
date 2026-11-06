@@ -16,6 +16,7 @@ export function ModelLoadNotice({
   const loading = modelAssets.filter(
     ({ id }) => state[id] === "loading",
   ).length;
+  const requested = modelAssets.filter(({ id }) => state[id] !== "idle").length;
   if (!failed && !loading && !open) return null;
   return (
     <details
@@ -41,36 +42,40 @@ export function ModelLoadNotice({
     >
       <summary>
         {failed
-          ? `${failed} 项模型未就绪`
+          ? `${failed} 项模型暂不可用`
           : loading
-            ? `模型加载中 · ${modelAssets.length - loading}/${modelAssets.length}`
-            : "模型已全部就绪"}
+            ? `模型加载中 · ${requested - loading}/${requested}`
+            : "已请求模型就绪"}
       </summary>
       <div className="model-load-body">
-        <p>未就绪模型暂用简化结构。设备数据与告警保持原口径。</p>
+        <p>
+          进入设备时加载对应细模，加载期间可操作简化结构。设备数据与告警保持原口径。
+        </p>
         <ul>
           {modelAssets.map(({ id, name }) => (
             <li key={id} data-model-id={id} data-status={state[id]}>
               <span>{name}</span>
               <span>
-                {state[id] === "ready"
-                  ? "已就绪"
-                  : state[id] === "loading"
-                    ? "加载中…"
-                    : "暂不可用"}
+                {state[id] === "idle"
+                  ? "按需加载"
+                  : state[id] === "ready"
+                    ? "已就绪"
+                    : state[id] === "loading"
+                      ? "加载中…"
+                      : "暂不可用"}
               </span>
             </li>
           ))}
         </ul>
         {failed > 0 && (
-          <button onClick={onRetry}>重试未就绪模型（{failed}）</button>
+          <button onClick={onRetry}>重试失败模型（{failed}）</button>
         )}
         <small>
           {loading
             ? "加载期间保留简化结构与现有模拟数据。"
             : failed
               ? "重试保留当前镜头、结构与模拟时间。"
-              : "详细模型已就绪，当前选择与姿态已保留。"}
+              : "已请求模型已就绪；未查看的机型不下载。"}
         </small>
       </div>
     </details>

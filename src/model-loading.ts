@@ -1,3 +1,6 @@
+import type { AppState } from "./domain.ts";
+import { modelForDevice } from "./catalog.ts";
+
 export const modelAssets = [
   { id: "server-2u", name: "2U 服务器" },
   { id: "server-1u", name: "1U 服务器" },
@@ -7,19 +10,28 @@ export const modelAssets = [
   { id: "power-01", name: "配电柜" },
 ] as const;
 export type ModelAssetId = (typeof modelAssets)[number]["id"];
-export type ModelStatus = "loading" | "ready" | "failed";
+export type ModelStatus = "idle" | "loading" | "ready" | "failed";
 export type ModelLoadState = Record<ModelAssetId, ModelStatus>;
 export const initialModelLoads = (): ModelLoadState =>
   Object.fromEntries(
-    modelAssets.map(({ id }) => [id, "loading"]),
+    modelAssets.map(({ id }) => [id, "idle"]),
   ) as ModelLoadState;
+
+/** 机房设施随场景加载；设备细模只在进入结构检视后请求。预览与机柜安装图不触发。 */
+export function requestedModels(
+  state: Pick<AppState, "level" | "deviceId">,
+): ModelAssetId[] {
+  const ids: ModelAssetId[] = ["cooling-01", "power-01"];
+  if (state.level === "device")
+    ids.push(modelForDevice(state.deviceId).id as ModelAssetId);
+  return ids;
+}
 
 /** 每项独立重试；同项请求互斥，关闭后不再通知界面或接纳迟到结果。 */
 export class ModelLoading {
   state = initialModelLoads();
   private requests = new Map<ModelAssetId, AbortController>();
   private closed = false;
-  private started = false;
   private worker: (id: ModelAssetId, signal: AbortSignal) => Promise<void>;
   private notify: (state: ModelLoadState) => void;
   private timeout: number;
@@ -32,10 +44,8 @@ export class ModelLoading {
     this.notify = notify;
     this.timeout = timeout;
   }
-  start() {
-    if (this.started || this.closed) return Promise.resolve();
-    this.started = true;
-    return this.run(modelAssets.map(({ id }) => id));
+  ensure(ids: readonly ModelAssetId[]) {
+    return this.run(ids.filter((id) => this.state[id] === "idle"));
   }
   retry() {
     return this.run(

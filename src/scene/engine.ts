@@ -1,5 +1,6 @@
 import {
   ModelLoading,
+  requestedModels,
   type ModelLoadState,
   type ModelAssetId,
 } from "../model-loading";
@@ -83,7 +84,6 @@ export class SceneEngine {
   onPhase: (phase: PresentationPhase) => void;
   onFeedback: (feedback: SceneFeedback) => void;
   lastFeedback = "";
-  assetsLoaded = false;
   assemblyModel = "server-2u";
   assemblies = new Map<string, ReturnType<typeof createEquipmentAssembly>>();
   paused = false;
@@ -295,6 +295,7 @@ export class SceneEngine {
     this.renderer.domElement.addEventListener("pointerup", this.pointerUp);
     this.renderer.domElement.addEventListener("dblclick", this.doubleClick);
     this.renderer.domElement.addEventListener("pointermove", this.hover);
+    this.activateAssembly(state);
     this.update(state);
     this.controls.autoRotateSpeed = 0.35;
     this.animate(0);
@@ -303,17 +304,9 @@ export class SceneEngine {
       (status) => {
         if (this.destroyed) return;
         this.onAssets(status);
-        if (
-          !this.assetsLoaded &&
-          Object.values(status).every((s) => s !== "loading")
-        ) {
-          this.assetsLoaded = true;
-          if (!this.lastManualInteraction)
-            this.view(this.currentView, this.currentFocus);
-        }
       },
     );
-    void this.assetLoader.start();
+    void this.assetLoader.ensure(requestedModels(state));
   }
 
   retryModels() {
@@ -604,6 +597,7 @@ export class SceneEngine {
       focusChanged ||
       (deviceChanged && state.level === "device");
     this.state = state;
+    void this.assetLoader?.ensure(requestedModels(state));
     this.sample = simulate(state.time, state.replayCycle, state.deviceId);
     if (levelChanged) this.pendingDeviceView = state.level === "device";
     if (focusChanged && entityById(state.selected)?.kind === "part")
@@ -1126,7 +1120,6 @@ export class SceneEngine {
       key: presentationKey(this.state),
       phase,
       settled:
-        this.assetsLoaded &&
         this.contextAvailable &&
         !this.moving &&
         !frame.busy &&

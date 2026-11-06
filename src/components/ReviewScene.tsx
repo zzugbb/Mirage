@@ -215,7 +215,7 @@ export function ReviewScene({
   const modelStatus = assets[model.id as ModelAssetId];
   const representation =
     modelStatus !== "ready"
-      ? `${model.category === "server" ? "简化结构 · 详细模型" : "内部配置示意 · 外观模型"}${modelStatus === "loading" ? "加载中" : "暂不可用"}`
+      ? `${model.category === "server" ? "简化结构 · 详细模型" : "内部配置示意 · 外观模型"}${modelStatus === "idle" ? "进入设备后加载" : modelStatus === "loading" ? "加载中" : "暂不可用"}`
       : model.category === "server"
         ? state.explosion > 0
           ? "部件展开"
@@ -294,6 +294,7 @@ export function ReviewScene({
         );
       };
       active.onAssets = setAssets;
+      setAssets({ ...active.assetLoader.state });
       engine.current = active;
       setSupported(active.pipeline.available);
     } catch {
