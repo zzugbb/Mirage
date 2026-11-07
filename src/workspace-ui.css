@@ -3242,3 +3242,110 @@
   border-top: 1px solid var(--study-line);
   padding-top: 12px;
 }
+
+/* 环境点位沿用温度视图入口，独立于设备进风的切片和色条。 */
+.workspace-ui .environment-details {
+  padding: 0 22px 22px;
+}
+.workspace-ui .environment-time,
+.workspace-ui .environment-boundary,
+.workspace-ui .environment-definition,
+.workspace-ui .environment-last {
+  color: #91a8b7;
+  font-size: 11px;
+  line-height: 1.7;
+}
+.workspace-ui .environment-time {
+  margin-bottom: 14px;
+}
+.workspace-ui .environment-readings {
+  display: grid;
+  gap: 16px;
+}
+.workspace-ui .environment-analysis-link {
+  padding: 9px 0;
+  color: #b7dfdf;
+  font-size: 12px;
+}
+.workspace-ui .environment-definition {
+  border-top: 1px solid #30414a;
+  margin-top: 14px;
+  padding-top: 12px;
+}
+.workspace-ui .environment-definition .fixture-details {
+  padding: 0;
+}
+.workspace-ui .environment-probes {
+  display: grid;
+  gap: 10px;
+}
+.workspace-ui .environment-probes > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.workspace-ui .environment-probes button {
+  text-align: left;
+  padding: 7px;
+  border: 1px solid #40535c;
+  border-radius: 4px;
+  font-size: 11px;
+}
+.workspace-ui .environment-probes button:first-child {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+.workspace-ui .environment-probes button[aria-pressed="true"] {
+  border-color: #91c9cd;
+  background: #27434b;
+}
+.workspace-ui .environment-probes small {
+  white-space: normal;
+  margin-top: 0;
+  line-height: 1.6;
+  font-size: 10px;
+  color: #9fb5c0;
+}
+.workspace-ui .environment-disclosure {
+  margin-top: 10px;
+  border-top: 1px solid #3c5059;
+  padding-top: 8px;
+}
+.workspace-ui[data-layer="environment"]
+  .review-legend:has(.environment-scene-key) {
+  pointer-events: auto;
+  width: 290px;
+  max-width: calc(100% - 36px);
+  padding: 14px;
+}
+.workspace-ui .review-legend > .environment-scene-key {
+  display: grid;
+  gap: 12px;
+  width: 100%;
+  font-size: 11px;
+}
+.workspace-ui .environment-scene-key > button {
+  text-align: left;
+  padding-top: 10px;
+  border-top: 1px solid #3c5059;
+}
+.workspace-ui .review-fixture-anchor small {
+  display: block;
+  padding-top: 4px;
+}
+
+.workspace-ui .environment-preview {
+  margin-top: 18px;
+}
+.workspace-ui .environment-preview > div[role="group"] {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 8px;
+  font-size: 11px;
+}
+.workspace-ui .environment-preview button[aria-pressed="true"] {
+  color: #b7dfdf;
+  border-bottom: 1px solid #8ebcbf;
+}

@@ -1,3 +1,5 @@
+import { environmentProbe } from "./environment-monitoring";
+import { EnvironmentDetails } from "./components/EnvironmentDetails";
 import { RackSpaceInspector } from "./components/RackSpaceInspector";
 import { RoomSpaceComparison } from "./components/RoomSpaceComparison";
 import { isolatedPart } from "./part-inspection";
@@ -250,6 +252,7 @@ export function Workspace() {
   )!;
   const entity = entityById(selected)!;
   const fixture = fixtureById(selected);
+  const environment = environmentProbe(selected);
   const maintenance = useMemo(() => maintenanceAreas(selected), [selected]);
   const aisle =
     layer === "overview" && state.level === "room"
@@ -970,9 +973,12 @@ export function Workspace() {
                         ? signalText(data)
                         : isCoolingSource(row.id)
                           ? "模拟输入"
-                          : fixtureById(row.id)?.dataStatus === "not-applicable"
-                            ? "结构布置"
-                            : "未接入数据";
+                          : environmentProbe(row.id)
+                            ? "环境测点 · 模拟"
+                            : fixtureById(row.id)?.dataStatus ===
+                                "not-applicable"
+                              ? "结构布置"
+                              : "未接入数据";
                       const locateOnly =
                         row.kind === "part" ||
                         row.kind === "facility" ||
@@ -998,7 +1004,8 @@ export function Workspace() {
                               >
                                 {data
                                   ? style.icon
-                                  : isCoolingSource(row.id)
+                                  : isCoolingSource(row.id) ||
+                                      environmentProbe(row.id)
                                     ? "◇"
                                     : "—"}
                               </span>
@@ -1317,7 +1324,9 @@ export function Workspace() {
                       : signal.color,
                 }}
               >
-                {fixture ? (
+                {environment ? (
+                  "◇ 环境测点 · 模拟，未接入真实数据"
+                ) : fixture ? (
                   fixture.dataStatus === "not-applicable" ? (
                     "— 结构布置 · 无运行数据"
                   ) : (
@@ -1403,7 +1412,17 @@ export function Workspace() {
                     onLocate={() => locateEventDevice(inletId)}
                   />
                 )}
-                {fixture ? (
+                {environment && fixture ? (
+                  <EnvironmentDetails
+                    fixture={fixture}
+                    time={state.time}
+                    analysis
+                    onSeek={(time) => dispatch({ type: "seek", time })}
+                    onAnalyze={analyze}
+                    onPreview={pick}
+                    onLocate={focus}
+                  />
+                ) : fixture ? (
                   <FixtureDetails
                     fixture={fixture}
                     analysis
@@ -1462,7 +1481,16 @@ export function Workspace() {
                     </button>
                   </section>
                 )}
-                {fixture ? (
+                {environment && fixture ? (
+                  <EnvironmentDetails
+                    fixture={fixture}
+                    time={state.time}
+                    onSeek={(time) => dispatch({ type: "seek", time })}
+                    onAnalyze={analyze}
+                    onPreview={pick}
+                    onLocate={focus}
+                  />
+                ) : fixture ? (
                   <FixtureDetails
                     fixture={fixture}
                     onPreview={pick}

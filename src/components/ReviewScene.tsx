@@ -1,3 +1,9 @@
+import {
+  environmentObservation,
+  environmentValue,
+  environmentQuality,
+} from "../environment-monitoring";
+import { EnvironmentProbeList } from "./EnvironmentDetails";
 import type { RackUnitRange } from "../rack-space";
 import {
   airflowEndpointObject,
@@ -136,9 +142,14 @@ export function ReviewScene({
   const [orbit, setOrbit] = useState(false);
   const [cutaway, setCutaway] = useState(true);
   const [moreLabels, setMoreLabels] = useState(false);
+  const ambient =
+    layer === "environment" && state.level === "room"
+      ? environmentObservation(selectedId, state.time)
+      : null;
+  const ambientSelected = !!ambient;
   const slice = useMemo(
     () =>
-      layer === "environment" && state.level === "room"
+      layer === "environment" && state.level === "room" && !ambientSelected
         ? sliceControls.orientation === "horizontal"
           ? temperatureSlice(readings, sliceControls.height)
           : verticalTemperatureSlice(
@@ -147,7 +158,7 @@ export function ReviewScene({
               sliceControls.distance,
             )
         : null,
-    [readings, sliceControls, layer, state.level],
+    [readings, sliceControls, layer, state.level, ambientSelected],
   );
   const sliceRow = sliceRackRows.find((row) => row.id === slice?.rowId);
   const supply = useMemo(
@@ -212,7 +223,7 @@ export function ReviewScene({
   }, [maintenance, comparison]);
   const airflow = useMemo(
     () =>
-      layer === "environment" && state.level === "room"
+      layer === "environment" && state.level === "room" && !ambientSelected
         ? airflowSnapshot(
             state.time,
             readings,
@@ -229,6 +240,7 @@ export function ReviewScene({
       readings,
       selectedId,
       airflowVisit?.deviceId,
+      ambientSelected,
       slice?.rowId,
     ],
   );
@@ -239,7 +251,10 @@ export function ReviewScene({
     slice?.orientation === "vertical"
       ? sliceSettings.vertical.distance
       : sliceSettings.height;
-  const presentation = reviewPresentation(layer, state.level);
+  const presentation = reviewPresentation(
+    ambientSelected ? "overview" : layer,
+    state.level,
+  );
   const model = modelForDevice(state.deviceId);
   const modelStatus = assets[model.id as ModelAssetId];
   const representation =
@@ -442,8 +457,10 @@ export function ReviewScene({
     setView(tourShot.view);
   }, [tourShot?.revision, retry]);
   useEffect(() => {
-    dataGeometry.current?.update(reviewSpatialMarks(state, layer, readings));
-  }, [state, layer, readings, retry]);
+    dataGeometry.current?.update(
+      ambientSelected ? [] : reviewSpatialMarks(state, layer, readings),
+    );
+  }, [state, layer, readings, retry, ambientSelected]);
   useEffect(() => {
     sliceGeometry.current?.update(slice);
   }, [slice, retry]);
@@ -493,7 +510,7 @@ export function ReviewScene({
               (p) => p.id === selectedId,
             ),
           ];
-  const labels = sceneLabels(candidates, readings, {
+  const labels = sceneLabels(ambientSelected ? [] : candidates, readings, {
     level: state.level,
     layer,
     selectedId,
@@ -657,6 +674,7 @@ export function ReviewScene({
       data-power-rack={supply?.rackId}
       data-power-device={supply?.deviceId}
       data-power-trace={supply?.traceId ?? undefined}
+      data-environment-probe={ambient?.id}
       data-network-link={network.length ? networkLinkId : undefined}
     >
       <div className="review-viewport">
@@ -683,38 +701,45 @@ export function ReviewScene({
                 : `${model.name} / ${representation}`}
           </span>
           <strong>
-            {slice
-              ? slice.orientation === "horizontal"
-                ? "进风温度水平切片 · 局部插值"
-                : `进风温度垂直切片 · ${sliceRow!.name}`
-              : layer === "overview" && state.level === "rack"
-                ? "机柜总览"
-                : presentation.title}
+            {ambientSelected
+              ? "环境点位 · 温湿度模拟"
+              : slice
+                ? slice.orientation === "horizontal"
+                  ? "进风温度水平切片 · 局部插值"
+                  : `进风温度垂直切片 · ${sliceRow!.name}`
+                : layer === "overview" && state.level === "rack"
+                  ? "机柜总览"
+                  : presentation.title}
           </strong>
-          {state.level !== "device" && !airflow && layer !== "alarms" && (
-            <div className="review-scene-readings" aria-label="场景运行读数">
-              <span>
-                <b>{scope.lifecycleCounts.running}</b>
-                <small>运行设备</small>
-              </span>
-              <span>
-                <b>
-                  {scope.power === null ? "—" : (scope.power / 1000).toFixed(2)}
-                  <i>kW</i>
-                </b>
-                <small>已知输入功耗</small>
-              </span>
-              <span>
-                <b>
-                  {scope.temperature?.toFixed(1) ?? "—"}
-                  <i>°C</i>
-                </b>
-                <small>
-                  最高进风 · {scope.coverageTemperature}/{scope.count}
-                </small>
-              </span>
-            </div>
-          )}
+          {state.level !== "device" &&
+            !airflow &&
+            !ambientSelected &&
+            layer !== "alarms" && (
+              <div className="review-scene-readings" aria-label="场景运行读数">
+                <span>
+                  <b>{scope.lifecycleCounts.running}</b>
+                  <small>运行设备</small>
+                </span>
+                <span>
+                  <b>
+                    {scope.power === null
+                      ? "—"
+                      : (scope.power / 1000).toFixed(2)}
+                    <i>kW</i>
+                  </b>
+                  <small>已知输入功耗</small>
+                </span>
+                <span>
+                  <b>
+                    {scope.temperature?.toFixed(1) ?? "—"}
+                    <i>°C</i>
+                  </b>
+                  <small>
+                    最高进风 · {scope.coverageTemperature}/{scope.count}
+                  </small>
+                </span>
+              </div>
+            )}
           {airflow && (
             <div className="review-airflow-caption" aria-label="气流路径示意">
               <p>
@@ -731,9 +756,11 @@ export function ReviewScene({
           <details className="review-view-explanation">
             <summary>读图说明</summary>
             <p>
-              {slice
-                ? `${slice.orientation === "horizontal" ? "水平切片估计当前高度的进风温度。" : `垂直切片显示${sliceRow!.name}正面 ${sliceSettings.height.min.toFixed(2)}–${sliceSettings.height.max.toFixed(2)} 米高度的进风差异，滑杆调整离柜距离；标签取切面纵向最高估计。俯视时切面呈侧边，可切到前视观察。`}色条仍对应逐台设备。输入为同一时间的有效模拟读数；代表位置按U位中心假设，非独立环境测点。最近位置离线、过期或超出插值范围时留空；不推断机柜排风或整间机房温度。`
-                : presentation.description}
+              {ambientSelected
+                ? "固定探头的环境温湿度，只代表安装位置；与设备进风分开，不生成整间机房温湿度场。选择返回设备进风可继续核对切片与气流。"
+                : slice
+                  ? `${slice.orientation === "horizontal" ? "水平切片估计当前高度的进风温度。" : `垂直切片显示${sliceRow!.name}正面 ${sliceSettings.height.min.toFixed(2)}–${sliceSettings.height.max.toFixed(2)} 米高度的进风差异，滑杆调整离柜距离；标签取切面纵向最高估计。俯视时切面呈侧边，可切到前视观察。`}色条仍对应逐台设备。输入为同一时间的有效模拟读数；代表位置按U位中心假设，非独立环境测点。最近位置离线、过期或超出插值范围时留空；不推断机柜排风或整间机房温度。`
+                  : presentation.description}
               {airflow &&
                 " 气流只示意已登记冷却关系的代表路径，当前同向布置不构成封闭冷热通道。端点为制冷单元逻辑代表位置，穿柜方向为配置假设；线条明暗对照冷却输入，不代表风量、风速或排风温度。选中对象可查看对应路径，停机或数据无效对象仅保留静态方向。"}
             </p>
@@ -811,6 +838,17 @@ export function ReviewScene({
               onDoubleClick={() => onSelect(selectedFixture.id, true)}
             >
               <b>{selectedFixture.name}</b>
+              {ambient && (
+                <small>
+                  {environmentValue(ambient.temperature.value, "°C")}
+                  {ambient.temperature.quality !== "valid" &&
+                    `（${environmentQuality[ambient.temperature.quality]}）`}{" "}
+                  · {environmentValue(ambient.humidity.value, "%RH")}
+                  {ambient.humidity.quality !== "valid" &&
+                    `（${environmentQuality[ambient.humidity.quality]}）`}{" "}
+                  · 模拟
+                </small>
+              )}
             </button>
           )}
           {labels.map((item) => {
@@ -972,6 +1010,21 @@ export function ReviewScene({
                 </>
               )}
             </div>
+          ) : ambientSelected ? (
+            <div className="environment-scene-key">
+              <strong>环境测点 · 模拟</strong>
+              <EnvironmentProbeList
+                time={state.time}
+                selected={selectedId}
+                onSelect={(id, enter) => {
+                  if (!enter) engine.current?.preservePanelView();
+                  onSelect(id, enter);
+                }}
+              />
+              <button onClick={() => onSelect("room-01", true)}>
+                ← 返回设备进风
+              </button>
+            </div>
           ) : (
             <>
               <span className={slice ? "review-slice-heading" : undefined}>
@@ -1107,6 +1160,20 @@ export function ReviewScene({
                       setSliceControls(next);
                     }}
                   />
+                  <TemperatureDisclosure
+                    className="environment-disclosure"
+                    summary="环境测点 · 2 处"
+                    onInteract={onTakeover}
+                  >
+                    <EnvironmentProbeList
+                      time={state.time}
+                      selected={selectedId}
+                      onSelect={(id, enter) => {
+                        if (!enter) engine.current?.preservePanelView();
+                        onSelect(id, enter);
+                      }}
+                    />
+                  </TemperatureDisclosure>
                   {airflow && (
                     <TemperatureDisclosure
                       className="review-flow-explanation"

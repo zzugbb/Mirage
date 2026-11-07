@@ -1,3 +1,4 @@
+import { environmentProbe } from "./environment-monitoring.ts";
 import definition from "../assets/public/scenes/room-01.json" with { type: "json" };
 import { rackBlankingUnits } from "./rack-blanking.ts";
 import { roomFixtures } from "./fixtures.ts";
@@ -125,7 +126,7 @@ export function resourceCatalog(deviceId: string): Resource[] {
       name: fixture.name,
       kind: "facility" as const,
       location: `01号机房 / ${fixture.location}`,
-      detail: `${fixture.location} · ${fixture.dataStatus === "not-applicable" ? "结构示意" : "未接入"}`,
+      detail: `${fixture.location} · ${environmentProbe(fixture.id) ? "温湿度模拟" : fixture.dataStatus === "not-applicable" ? "结构示意" : "未接入"}`,
       group:
         fixture.dataStatus === "not-applicable" ? "建筑与布线" : "环境与安全",
     })),

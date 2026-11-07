@@ -6831,5 +6831,123 @@
         {"kind": "vent", "center": [0.045, 0], "size": [0.083, 0.065]}
       ]
     }
-  ]
+  ],
+  "environmentMonitoring": {
+    "source": "deterministic-demo",
+    "sampleSeconds": 4,
+    "maxAgeSeconds": 8,
+    "description": "两处固定环境探头的温湿度演示序列；未接入真实数据，不代表整间机房、设备进风或设施告警。",
+    "probes": [
+      {
+        "fixtureId": "environment-01",
+        "temperature": [
+          [
+            0,
+            23.4
+          ],
+          [
+            30,
+            24.2
+          ],
+          [
+            60,
+            25.8
+          ],
+          [
+            90,
+            24.9
+          ],
+          [
+            120,
+            24
+          ]
+        ],
+        "humidity": [
+          [
+            0,
+            48
+          ],
+          [
+            30,
+            46
+          ],
+          [
+            60,
+            42
+          ],
+          [
+            90,
+            45
+          ],
+          [
+            120,
+            48
+          ]
+        ],
+        "humidityMissingUntil": 0,
+        "humidityGaps": [],
+        "offline": []
+      },
+      {
+        "fixtureId": "environment-02",
+        "temperature": [
+          [
+            0,
+            22.8
+          ],
+          [
+            30,
+            23.5
+          ],
+          [
+            60,
+            24.7
+          ],
+          [
+            90,
+            24.1
+          ],
+          [
+            120,
+            23.2
+          ]
+        ],
+        "humidity": [
+          [
+            0,
+            50
+          ],
+          [
+            30,
+            48
+          ],
+          [
+            60,
+            44
+          ],
+          [
+            90,
+            47
+          ],
+          [
+            120,
+            50
+          ]
+        ],
+        "humidityMissingUntil": 16,
+        "humidityGaps": [
+          [
+            52,
+            76
+          ]
+        ],
+        "offline": [
+          [
+            96,
+            112
+          ]
+        ]
+      }
+    ]
+  }
 }
