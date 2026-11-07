@@ -55,6 +55,7 @@ import { NetworkGeometry } from "../scene/network";
 export function ReviewScene({
   state,
   unitRange = null,
+  isolatedPartId = null,
   sliceControls,
   setSliceControls,
   layer,
@@ -82,6 +83,7 @@ export function ReviewScene({
 }: {
   state: AppState;
   unitRange?: RackUnitRange | null;
+  isolatedPartId?: string | null;
   sliceControls: SliceControls;
   setSliceControls: Dispatch<SetStateAction<SliceControls>>;
   layer: ReviewLayer;
@@ -150,7 +152,9 @@ export function ReviewScene({
   const sliceRow = sliceRackRows.find((row) => row.id === slice?.rowId);
   const supply = useMemo(
     () =>
-      layer === "power" ? powerScene(state, selectedId, powerLinkId) : null,
+      layer === "power" && !isolatedPartId
+        ? powerScene(state, selectedId, powerLinkId)
+        : null,
     [
       layer,
       state.level,
@@ -158,16 +162,19 @@ export function ReviewScene({
       state.trayExtended,
       selectedId,
       powerLinkId,
+      isolatedPartId,
     ],
   );
   const network = useMemo(
-    () => networkMarkers(state, selectedId, networkLinkId),
+    () =>
+      isolatedPartId ? [] : networkMarkers(state, selectedId, networkLinkId),
     [
       state.level,
       state.deviceId,
       state.trayExtended,
       selectedId,
       networkLinkId,
+      isolatedPartId,
     ],
   );
   const networkLink = networkLinkById(networkLinkId);
@@ -355,6 +362,17 @@ export function ReviewScene({
   useEffect(() => {
     if (engine.current) engine.current.unitRange = unitRange;
   }, [unitRange, retry]);
+  useEffect(() => {
+    const active = engine.current;
+    if (!active) return;
+    active.isolatedPartId = isolatedPartId;
+    if (
+      !isolatedPartId &&
+      state.level === "device" &&
+      active.partInspection?.deviceId === state.deviceId
+    )
+      setView(active.partInspection.previous.view);
+  }, [isolatedPartId, state.level, state.deviceId, retry]);
   useEffect(() => {
     const active = engine.current;
     active?.update(state);

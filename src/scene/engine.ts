@@ -1,5 +1,7 @@
 import type { RackUnitRange } from "../rack-space";
 import { RackUnitGuide } from "./rack-unit-guide";
+import { PartIsolation } from "./part-isolation";
+import { canInspectPart, internalStructureThreshold } from "../part-inspection";
 import {
   airflowViewFrame,
   airflowViewSightPoints,
@@ -80,6 +82,21 @@ export class SceneEngine {
   controls: OrbitControls;
   models = buildModels();
   unitRange: RackUnitRange | null = null;
+  isolatedPartId: string | null = null;
+  partIsolation = new PartIsolation();
+  partInspection: {
+    deviceId: string;
+    targetId: string;
+    previous: {
+      position: THREE.Vector3;
+      target: THREE.Vector3;
+      view: View;
+      focus: boolean;
+      minDistance: number;
+      maxDistance: number;
+      aspect: number;
+    };
+  } | null = null;
   unitGuide = new RackUnitGuide((label) =>
     text(new THREE.Group(), label, [0, 0, 0], 0.075),
   );
@@ -623,6 +640,7 @@ export class SceneEngine {
     this.lastManualInteraction = performance.now();
   };
   activateAssembly(state: AppState) {
+    this.partIsolation.restore();
     const model = modelForDevice(state.deviceId);
     if (model.id === this.assemblyModel) return;
     let assembly = this.assemblies.get(model.id);
@@ -777,7 +795,8 @@ export class SceneEngine {
       const representations = this.assemblies.get(
         this.assemblyModel,
       )?.representations;
-      if (representations && this.state.explosion <= 0.015) continue;
+      if (representations && this.state.explosion <= internalStructureThreshold)
+        continue;
       const base = this.partBases.get(part.id)?.toArray() ?? part.position;
       const target = new THREE.Vector3().fromArray(
         assemblyPartPosition(
@@ -801,6 +820,15 @@ export class SceneEngine {
     return object.visible && (!object.parent || this.visible(object.parent));
   }
   view(view: View, focus = false) {
+    focus =
+      focus ||
+      !!(
+        this.partInspection &&
+        this.isolatedPartId &&
+        this.state.level === "device" &&
+        this.partInspection.deviceId === this.state.deviceId &&
+        this.isolatedPartId === this.state.selected
+      );
     this.clearAirflowView();
     this.panelViewport = undefined;
     const fixture =
@@ -1094,8 +1122,58 @@ export class SceneEngine {
         this.state.level === "device" && this.explosion > 0.05;
     }
   }
+  private updatePartInspection() {
+    const id =
+      canInspectPart(this.state) && this.presentation.pose.inspection === 1
+        ? this.isolatedPartId
+        : null;
+    const target = id ? this.models.parts.get(id) : undefined;
+    const applied =
+      !!id && this.partIsolation.apply(this.models.server, target);
+    if (id && applied) {
+      if (!this.partInspection) {
+        this.partInspection = {
+          deviceId: this.state.deviceId,
+          targetId: "",
+          previous: {
+            position: this.camera.position.clone(),
+            target: this.controls.target.clone(),
+            view: this.currentView,
+            focus: this.currentFocus,
+            minDistance: this.controls.minDistance,
+            maxDistance: this.controls.maxDistance,
+            aspect: this.camera.aspect,
+          },
+        };
+      }
+      if (this.partInspection.targetId !== id) {
+        this.partInspection.targetId = id;
+        target!.updateWorldMatrix(true, true);
+        this.view(this.currentView, true);
+      }
+    } else if (this.partInspection && !id) {
+      const { deviceId, previous } = this.partInspection;
+      this.partInspection = null;
+      // 跨层级或实例导航由原导航流程取景，不把旧设备镜头带到新位置。
+      if (this.state.level === "device" && this.state.deviceId === deviceId) {
+        this.currentView = previous.view;
+        this.currentFocus = previous.focus;
+        this.controls.minDistance = previous.minDistance;
+        this.controls.maxDistance = previous.maxDistance;
+        this.targetLook.copy(previous.target);
+        this.targetPosition
+          .copy(previous.position)
+          .sub(previous.target)
+          .multiplyScalar(Math.max(1, previous.aspect / this.camera.aspect))
+          .add(previous.target);
+        this.moving = true;
+      }
+    }
+    this.host.dataset.isolatedPart = applied ? id! : "";
+  }
   animate = (time: number) => {
     if (this.destroyed) return;
+    this.partIsolation.restore();
     const delta = this.paused
       ? 0
       : Math.min((time - this.lastTime) / 1000 || 0.016, 0.05);
@@ -1187,6 +1265,7 @@ export class SceneEngine {
       this.onPhase(phase);
     }
     this.poseParts();
+    this.updatePartInspection();
     if (
       this.pendingReturnView &&
       this.cover === 0 &&
@@ -1411,7 +1490,7 @@ export class SceneEngine {
                   : this.state.level === "device" &&
                     this.explosion > 0.45 &&
                     ["cpu-01", "memory-01", "fans-01", "psu-02"].includes(id));
-      element.hidden = !show || !target;
+      element.hidden = !show || !target || !this.visible(target);
       if (target && show) {
         if (rackAnchor || deviceAnchor)
           target.getWorldPosition(this.anchorPosition);
@@ -1534,6 +1613,7 @@ export class SceneEngine {
     this.frame = requestAnimationFrame(this.animate);
   };
   dispose() {
+    this.partIsolation.restore();
     this.onRenderFrame = null;
     this.destroyed = true;
     this.assetLoader?.dispose();

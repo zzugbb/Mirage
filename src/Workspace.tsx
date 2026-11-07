@@ -1,5 +1,6 @@
 import { RackSpaceInspector } from "./components/RackSpaceInspector";
 import { RoomSpaceComparison } from "./components/RoomSpaceComparison";
+import { isolatedPart } from "./part-inspection";
 import { rackGrilleRelations } from "./floor-grilles";
 import {
   activeAirflowInspection,
@@ -116,6 +117,11 @@ export function Workspace() {
   );
   const { scene: state, layer, tour } = review;
   const selected = review.selectedId ?? state.selected;
+  const [inspectionDevice, setInspectionDevice] = useState<string | null>(null);
+  const isolatedPartId = isolatedPart(state, selected, inspectionDevice);
+  useEffect(() => {
+    if (inspectionDevice && !isolatedPartId) setInspectionDevice(null);
+  }, [inspectionDevice, isolatedPartId]);
   const [sliceControls, setSliceControls] = useState(initialSliceControls);
   const [shot, setShot] = useState<WorkspaceShot>("overview");
   const [revision, setRevision] = useState(0);
@@ -469,6 +475,7 @@ export function Workspace() {
     return () => window.removeEventListener("keydown", key);
   }, [selected, review.analysis, nav, inspector, query, dispatch]);
   const load = (next: WorkspaceShot) => {
+    setInspectionDevice(null);
     setAirflowVisit(null);
     setPowerLinkId(null);
     setNetworkLinkId(null);
@@ -1116,6 +1123,7 @@ export function Workspace() {
             </nav>
           </div>
           <ReviewScene
+            isolatedPartId={isolatedPartId}
             state={state}
             unitRange={
               layer === "overview" &&
@@ -1197,6 +1205,11 @@ export function Workspace() {
             controls={
               state.level !== "room" ? (
                 <ResourceActions
+                  isolated={!!isolatedPartId}
+                  onIsolation={() => {
+                    takeover();
+                    setInspectionDevice(isolatedPartId ? null : state.deviceId);
+                  }}
                   state={state}
                   selected={selected}
                   ready={ready}

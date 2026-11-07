@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { createEquipmentAssembly } from "./equipment-model.ts";
 import type { Assembly } from "./equipment-model.ts";
+import { internalStructureThreshold } from "../part-inspection.ts";
 
 /** 外观保留原始比例、贴图与材质；没有内部节点的资产不伪装成可拆 CAD。 */
 export function createExteriorAssembly(
@@ -43,6 +44,8 @@ export function createExteriorAssembly(
 /** “展开示意”是明确的表达方式切换，复原后重新呈现原始外观。 */
 export function poseExterior(assembly: Assembly, explosion: number) {
   if (!assembly.representations) return;
-  assembly.representations.exterior.visible = explosion <= 0.015;
-  assembly.representations.schematic.visible = explosion > 0.015;
+  assembly.representations.exterior.visible =
+    explosion <= internalStructureThreshold;
+  assembly.representations.schematic.visible =
+    explosion > internalStructureThreshold;
 }

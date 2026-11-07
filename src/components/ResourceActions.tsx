@@ -5,6 +5,7 @@ import { resourceOpenLabel, resourceCatalog } from "../review-resources";
 import type { PresentationPhase } from "../mechanics";
 import { phaseLabels } from "../mechanics";
 import { pduById } from "../power-config";
+import { canInspectPart } from "../part-inspection";
 
 export function ResourceActions({
   state,
@@ -14,6 +15,8 @@ export function ResourceActions({
   dispatch,
   onOpen,
   onExtract,
+  isolated,
+  onIsolation,
 }: {
   state: AppState;
   selected: string;
@@ -22,6 +25,8 @@ export function ResourceActions({
   dispatch: (action: Action) => void;
   onOpen: (id: string) => void;
   onExtract: (id: string) => void;
+  isolated: boolean;
+  onIsolation: () => void;
 }) {
   const entity = entityById(selected)!;
   const name =
@@ -104,9 +109,23 @@ export function ResourceActions({
             </button>
           )}
           {entity.kind === "part" && (
-            <button disabled={!ready} onClick={() => onOpen(selected)}>
-              定位部件
-            </button>
+            <>
+              <button disabled={!ready} onClick={() => onOpen(selected)}>
+                定位部件
+              </button>
+              <button
+                disabled={!ready || !canInspectPart(state)}
+                aria-pressed={isolated}
+                title={
+                  !canInspectPart(state)
+                    ? "先展开部件，再单独查看"
+                    : "临时隐藏其余结构，保留当前展开姿态"
+                }
+                onClick={onIsolation}
+              >
+                {isolated ? "显示完整结构" : "只看此部件"}
+              </button>
+            </>
           )}
           <button
             disabled={!ready}
@@ -141,6 +160,9 @@ export function ResourceActions({
               <output>{Math.round(state.explosion * 100)}%</output>
             </label>
           </details>
+          {isolated && (
+            <small role="status">单部件检视 · 其余结构及连接标记暂隐</small>
+          )}
         </>
       )}
       {state.level !== "room" && !ready && (
