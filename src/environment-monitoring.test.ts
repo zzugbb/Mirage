@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   dewPoint,
+  environmentComparison,
   environmentProcess,
   environmentDewPoint,
   environmentHistories,
@@ -203,4 +204,44 @@ test("过程回看不泄露未来恢复，初始状态不伪装成变化，重�
   assert.deepEqual(environmentProcess("environment-02", -1), [all[0]]);
   assert.deepEqual(environmentProcess("environment-02", NaN), [all[0]]);
   assert.deepEqual(environmentProcess("unknown", 120), []);
+});
+
+test("两点对照只计算同步有效差值，方向互换取反，湿度用百分点", () => {
+  const a = environmentComparison("environment-01", "environment-02", 40)!;
+  const b = environmentComparison("environment-02", "environment-01", 40)!;
+  for (let i = 0; i < a.length; i++) {
+    assert.notEqual(a[i].delta, null);
+    assert.equal(a[i].delta, -b[i].delta!);
+    assert.equal(a[i].left.observedAt, a[i].right.observedAt);
+  }
+  assert.equal(a[1].unit, "百分点");
+  assert.ok(Math.abs(a[1].delta! + 2) < 1e-10);
+  assert.equal(environmentComparison("unknown", "environment-02", 40), null);
+  assert.equal(
+    environmentComparison("environment-01", "environment-01", 40),
+    null,
+  );
+});
+
+test("对照逐指标隔离缺失、不同步、过期和离线，不使用最后观测补差值", () => {
+  for (const time of [12, 52, 60, 100]) {
+    const rows = environmentComparison(
+      "environment-01",
+      "environment-02",
+      time,
+    )!;
+    assert.equal(rows[1].delta, null);
+    assert.equal(rows[2].delta, null);
+    assert.equal(rows[0].delta === null, time === 100);
+    if (time === 52) {
+      assert.notEqual(rows[1].right.value, null);
+      assert.equal(rows[1].reason, "两侧采样不同步");
+    }
+  }
+  for (const time of [76, 112])
+    assert.ok(
+      environmentComparison("environment-01", "environment-02", time)!.every(
+        (row) => row.delta !== null,
+      ),
+    );
 });

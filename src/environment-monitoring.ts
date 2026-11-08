@@ -215,3 +215,54 @@ export function environmentProcess(
   }
   return events;
 }
+
+/** 两点同秒对照：只比较同一采样时刻的有效输入，不用旧值填补差值。 */
+export function environmentComparison(
+  leftId: string,
+  rightId: string,
+  time: number,
+) {
+  const left = environmentObservation(leftId, time),
+    right = environmentObservation(rightId, time);
+  if (!left || !right || leftId === rightId) return null;
+  return (
+    ["ambientTemperature", "humidity", "dewPoint"] as EnvironmentMetric[]
+  ).map((metric) => {
+    const channel = (
+      reading: NonNullable<ReturnType<typeof environmentObservation>>,
+    ) => {
+      if (metric === "dewPoint")
+        return {
+          value: reading.dewPoint.value,
+          observedAt:
+            reading.dewPoint.value === null
+              ? null
+              : reading.temperature.observedAt,
+          status: reading.dewPoint.value === null ? "不可推导" : "推导值",
+        };
+      const source =
+        metric === "humidity" ? reading.humidity : reading.temperature;
+      return {
+        value: source.value,
+        observedAt: source.observedAt,
+        status: environmentQuality[source.quality],
+      };
+    };
+    const a = channel(left),
+      b = channel(right);
+    const reason =
+      a.value === null || b.value === null
+        ? "两侧均须有可用值"
+        : a.observedAt === null || a.observedAt !== b.observedAt
+          ? "两侧采样不同步"
+          : "同一采样时刻";
+    return {
+      metric,
+      left: a,
+      right: b,
+      delta: reason === "同一采样时刻" ? a.value! - b.value! : null,
+      reason,
+      unit: metric === "humidity" ? "百分点" : "°C",
+    };
+  });
+}

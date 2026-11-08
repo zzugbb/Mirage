@@ -3397,3 +3397,49 @@
 .environment-process li span > span {
   display: block;
 }
+
+.workspace-ui .environment-comparison {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid #30414a;
+  font-size: 11px;
+  line-height: 1.7;
+  color: #a9bdc9;
+}
+.environment-comparison-toggle {
+  color: #b7dfdf;
+}
+.environment-comparison-places,
+.environment-comparison-values {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.environment-comparison small {
+  display: block;
+  color: #91a8b7;
+}
+.environment-comparison-row {
+  margin-top: 16px;
+}
+.environment-comparison-row > strong {
+  display: block;
+  margin-bottom: 5px;
+}
+.environment-comparison-row p {
+  margin: 5px 0;
+}
+.environment-comparison-row p b {
+  color: #c4e1df;
+}
+.environment-comparison-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 14px;
+}
+.environment-comparison-actions button {
+  border: 1px solid #40535c;
+  padding: 6px 8px;
+  border-radius: 4px;
+}

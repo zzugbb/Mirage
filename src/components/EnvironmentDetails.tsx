@@ -1,3 +1,4 @@
+import { EnvironmentComparison } from "./EnvironmentComparison";
 import { EnvironmentProcess } from "./EnvironmentProcess";
 import { useState } from "react";
 import {
@@ -61,6 +62,8 @@ export function EnvironmentDetails({
   fixture,
   time,
   analysis = false,
+  comparisonOpen,
+  onComparisonToggle,
   onSeek,
   onAnalyze,
   onPreview,
@@ -69,6 +72,8 @@ export function EnvironmentDetails({
   fixture: RoomFixture;
   time: number;
   analysis?: boolean;
+  comparisonOpen: boolean;
+  onComparisonToggle: (value: boolean) => void;
   onSeek: (time: number) => void;
   onAnalyze: () => void;
   onPreview: (id: string) => void;
@@ -178,6 +183,14 @@ export function EnvironmentDetails({
           onSeek={onSeek}
         />
       )}
+      <EnvironmentComparison
+        id={fixture.id}
+        time={cursor}
+        open={comparisonOpen}
+        onToggle={onComparisonToggle}
+        onPreview={onPreview}
+        onLocate={onLocate}
+      />
       <details className="environment-definition">
         <summary>位置与数据定义</summary>
         <p>

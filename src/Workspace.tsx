@@ -119,6 +119,8 @@ export function Workspace() {
   );
   const { scene: state, layer, tour } = review;
   const selected = review.selectedId ?? state.selected;
+  const [environmentComparisonOpen, setEnvironmentComparisonOpen] =
+    useState(false);
   const [inspectionDevice, setInspectionDevice] = useState<string | null>(null);
   const isolatedPartId = isolatedPart(state, selected, inspectionDevice);
   useEffect(() => {
@@ -479,6 +481,7 @@ export function Workspace() {
   }, [selected, review.analysis, nav, inspector, query, dispatch]);
   const load = (next: WorkspaceShot) => {
     setInspectionDevice(null);
+    setEnvironmentComparisonOpen(false);
     setAirflowVisit(null);
     setPowerLinkId(null);
     setNetworkLinkId(null);
@@ -1414,6 +1417,8 @@ export function Workspace() {
                 )}
                 {environment && fixture ? (
                   <EnvironmentDetails
+                    comparisonOpen={environmentComparisonOpen}
+                    onComparisonToggle={setEnvironmentComparisonOpen}
                     fixture={fixture}
                     time={state.time}
                     analysis
@@ -1483,6 +1488,8 @@ export function Workspace() {
                 )}
                 {environment && fixture ? (
                   <EnvironmentDetails
+                    comparisonOpen={environmentComparisonOpen}
+                    onComparisonToggle={setEnvironmentComparisonOpen}
                     fixture={fixture}
                     time={state.time}
                     onSeek={(time) => dispatch({ type: "seek", time })}
