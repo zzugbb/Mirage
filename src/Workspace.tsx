@@ -1,3 +1,4 @@
+import { NetworkOverview } from "./components/NetworkOverview";
 import { environmentProbe } from "./environment-monitoring";
 import { EnvironmentDetails } from "./components/EnvironmentDetails";
 import { RackSpaceInspector } from "./components/RackSpaceInspector";
@@ -211,9 +212,15 @@ export function Workspace() {
       ? networkLinkId
       : null;
   const [query, setQuery] = useState("");
-  const [rackView, setRackView] = useState<"list" | "installation" | "space">(
-    "installation",
-  );
+  const [rackView, setRackView] = useState<
+    "list" | "installation" | "space" | "network"
+  >("installation");
+  const [networkMapRack, setNetworkMapRack] = useState("rack-a01");
+  const [networkMapQuery, setNetworkMapQuery] = useState("");
+  const [networkMapLink, setNetworkMapLink] = useState<string | null>(null);
+  const [networkMapSelection, setNetworkMapSelection] = useState("room-01");
+  const networkMapScroll = useRef(0);
+  const [networkMapReturning, setNetworkMapReturning] = useState(false);
   const [spaceSize, setSpaceSize] = useState(2);
   const [comparisonSize, setComparisonSize] = useState(2);
   const [comparisonRow, setComparisonRow] = useState("all");
@@ -282,6 +289,25 @@ export function Workspace() {
     !review.pendingEndpoint &&
     !!feedback?.settled &&
     feedback.key === presentationKey(state);
+  useEffect(() => {
+    if (
+      !networkMapReturning ||
+      state.level !== "room" ||
+      !ready ||
+      review.pendingId
+    )
+      return;
+    control({ type: "pick", id: networkMapSelection });
+    setNetworkLinkId(networkMapLink);
+    setNetworkMapReturning(false);
+  }, [
+    networkMapReturning,
+    state.level,
+    ready,
+    review.pendingId,
+    networkMapLink,
+    networkMapSelection,
+  ]);
   const unitQuery = useMemo(
     () =>
       rackUnitQuery({ level: state.level, deviceId: state.deviceId }, query),
@@ -491,6 +517,12 @@ export function Workspace() {
     setRackView("installation");
     setSpaceSize(2);
     setComparisonSize(2);
+    setNetworkMapRack("rack-a01");
+    setNetworkMapQuery("");
+    setNetworkMapLink(null);
+    setNetworkMapReturning(false);
+    setNetworkMapSelection("room-01");
+    networkMapScroll.current = 0;
     setComparisonRow("all");
     setComparisonRack(null);
     comparisonScroll.current = 0;
@@ -692,7 +724,7 @@ export function Workspace() {
                   温度切片由设备进风代表位置局部插值；气流是按当前布置与风向假设绘制的路径，均非环境实测。门禁、烟感与环境探头仅作布置示意。
                 </p>
                 <p>
-                  交换机、存储内部仍为配置示意；湿度/露点、容量、完整连接与园区入口尚未实施。
+                  交换机、存储内部及环境读数仍为演示；可分配容量、完整连接与园区入口尚未实施。
                 </p>
               </div>
             </details>
@@ -727,7 +759,9 @@ export function Workspace() {
               ×
             </button>
           </div>
-          {!(state.level === "room" && rackView === "space") && (
+          {!(
+            state.level === "room" && ["space", "network"].includes(rackView)
+          ) && (
             <>
               <label className="study-search">
                 <span aria-hidden="true">⌕</span>
@@ -768,6 +802,20 @@ export function Workspace() {
               </div>
             </>
           )}
+          {state.level !== "room" && rackView === "network" && (
+            <button
+              className="study-parent"
+              onClick={() => {
+                setNetworkMapReturning(true);
+                control({ type: "open-resource", id: "room-01" });
+                control({ type: "layer", layer: "overview" });
+                setNetworkLinkId(networkMapLink);
+                setNav(true);
+              }}
+            >
+              ← 返回机房接入图
+            </button>
+          )}
           {state.level !== "room" && (
             <button
               className="study-parent"
@@ -796,7 +844,8 @@ export function Workspace() {
               <button
                 aria-pressed={
                   rackView === "list" ||
-                  (state.level === "room" && rackView !== "space")
+                  (state.level === "room" &&
+                    !["space", "network"].includes(rackView))
                 }
                 onClick={() => setRackView("list")}
               >
@@ -811,9 +860,57 @@ export function Workspace() {
               >
                 空间核查
               </button>
+              {state.level === "room" && (
+                <button
+                  aria-pressed={rackView === "network"}
+                  onClick={() => {
+                    takeover();
+                    setRackView("network");
+                    control({ type: "layer", layer: "overview" });
+                  }}
+                >
+                  网络接入
+                </button>
+              )}
             </div>
           )}
-          {state.level === "room" && rackView === "space" ? (
+          {state.level === "room" && rackView === "network" ? (
+            <NetworkOverview
+              rackId={networkMapRack}
+              query={networkMapQuery}
+              activeLink={activeNetworkLink}
+              selected={selected}
+              scroll={networkMapScroll}
+              ready={ready}
+              onRack={(id) => {
+                setNetworkMapRack(id);
+                networkMapScroll.current = 0;
+              }}
+              onQuery={setNetworkMapQuery}
+              onPreview={(id) => {
+                setNetworkMapSelection(id);
+                setNetworkMapLink(null);
+                pick(id);
+                control({ type: "analysis", value: false });
+              }}
+              onLocate={(id) => {
+                setNetworkMapSelection(id);
+                setNetworkMapLink(null);
+                pick(id, true);
+              }}
+              onTrace={(id) => {
+                const link = networkLinkById(id);
+                if (!link) return;
+                pick(link.source);
+                setNetworkMapSelection(link.source);
+                setNetworkMapLink(id);
+                setNetworkLinkId(id);
+                setPowerLinkId(null);
+                control({ type: "layer", layer: "overview" });
+                control({ type: "analysis", value: false });
+              }}
+            />
+          ) : state.level === "room" && rackView === "space" ? (
             <RoomSpaceComparison
               size={comparisonSize}
               rowId={comparisonRow}
