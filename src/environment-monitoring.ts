@@ -162,3 +162,56 @@ export function environmentHistories(id: string) {
   historyCache.set(id, histories);
   return histories;
 }
+
+export type EnvironmentProcessState =
+  DataQuality | "derived" | "unsynchronized" | "unavailable";
+export const environmentProcessNames: Record<EnvironmentProcessState, string> =
+  {
+    ...environmentQuality,
+    derived: "可推导",
+    unsynchronized: "采样不同步",
+    unavailable: "不可推导",
+  };
+export type EnvironmentProcessEvent = {
+  time: number;
+  changes: {
+    metric: EnvironmentMetric;
+    before: EnvironmentProcessState | null;
+    after: EnvironmentProcessState;
+  }[];
+};
+/** 从已发生的观测提取变化，不用未来恢复时刻补全当前过程。 */
+export function environmentProcess(
+  id: string,
+  time: number,
+): EnvironmentProcessEvent[] {
+  if (!environmentProbe(id)) return [];
+  const events: EnvironmentProcessEvent[] = [];
+  let previous: Record<EnvironmentMetric, EnvironmentProcessState> | null =
+    null;
+  for (let at = 0; at <= second(time); at++) {
+    const reading = environmentObservation(id, at)!;
+    const current: Record<EnvironmentMetric, EnvironmentProcessState> = {
+      ambientTemperature: reading.temperature.quality,
+      humidity: reading.humidity.quality,
+      dewPoint:
+        reading.dewPoint.value !== null
+          ? "derived"
+          : reading.temperature.quality === "valid" &&
+              reading.humidity.quality === "valid" &&
+              reading.temperature.observedAt !== reading.humidity.observedAt
+            ? "unsynchronized"
+            : "unavailable",
+    };
+    const changes = (Object.keys(current) as EnvironmentMetric[])
+      .filter((metric) => previous?.[metric] !== current[metric])
+      .map((metric) => ({
+        metric,
+        before: previous?.[metric] ?? null,
+        after: current[metric],
+      }));
+    if (changes.length) events.push({ time: at, changes });
+    previous = current;
+  }
+  return events;
+}

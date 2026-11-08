@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   dewPoint,
+  environmentProcess,
   environmentDewPoint,
   environmentHistories,
   environmentObservation,
@@ -164,4 +165,42 @@ test("环境历史与逐秒观测一致，三条曲线保留各自空缺，未�
     trendGeometry(history.humidity, "humidity", 15, 280, 82).empty,
     true,
   );
+});
+
+test("数据过程逐时刻合并变化，不把正常采样变成事件，保鲜后失效与恢复分开", () => {
+  const events = environmentProcess("environment-02", 120);
+  assert.deepEqual(
+    events.map((e) => e.time),
+    [0, 16, 52, 57, 76, 96, 112],
+  );
+  assert.deepEqual(events.find((e) => e.time === 52)!.changes, [
+    { metric: "dewPoint", before: "derived", after: "unsynchronized" },
+  ]);
+  assert.deepEqual(
+    events.find((e) => e.time === 57)!.changes.map((c) => [c.metric, c.after]),
+    [
+      ["humidity", "stale"],
+      ["dewPoint", "unavailable"],
+    ],
+  );
+  assert.equal(events.find((e) => e.time === 96)!.changes.length, 3);
+  assert.deepEqual(
+    events.at(-1)!.changes.map((c) => c.after),
+    ["valid", "valid", "derived"],
+  );
+  assert.equal(environmentProcess("environment-01", 120).length, 1);
+});
+
+test("过程回看不泄露未来恢复，初始状态不伪装成变化，重播确定", () => {
+  const all = environmentProcess("environment-02", 120);
+  for (let time = 0; time <= 120; time++) {
+    assert.deepEqual(
+      environmentProcess("environment-02", time),
+      all.filter((event) => event.time <= time),
+    );
+  }
+  assert.ok(all[0].changes.every((change) => change.before === null));
+  assert.deepEqual(environmentProcess("environment-02", -1), [all[0]]);
+  assert.deepEqual(environmentProcess("environment-02", NaN), [all[0]]);
+  assert.deepEqual(environmentProcess("unknown", 120), []);
 });

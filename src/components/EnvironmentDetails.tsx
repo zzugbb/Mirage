@@ -1,3 +1,4 @@
+import { EnvironmentProcess } from "./EnvironmentProcess";
 import { useState } from "react";
 import {
   environmentHistories,
@@ -168,6 +169,14 @@ export function EnvironmentDetails({
         <p className="environment-boundary">
           曲线只绘制已发生的观测；空缺表示没有可用值。悬停核对同一秒，点击或拖动回看。未定义环境阈值，不生成告警或凝露风险判断。
         </p>
+      )}
+      {analysis && (
+        <EnvironmentProcess
+          key={fixture.id}
+          id={fixture.id}
+          time={time}
+          onSeek={onSeek}
+        />
       )}
       <details className="environment-definition">
         <summary>位置与数据定义</summary>

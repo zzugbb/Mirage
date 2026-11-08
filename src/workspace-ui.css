@@ -3349,3 +3349,51 @@
   color: #b7dfdf;
   border-bottom: 1px solid #8ebcbf;
 }
+
+.workspace-ui .environment-process {
+  border-top: 1px solid #30414a;
+  padding-top: 12px;
+  margin-top: 14px;
+  font-size: 11px;
+  line-height: 1.7;
+  color: #a9bdc9;
+}
+.environment-process-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.workspace-ui .environment-process select {
+  background: #25343f;
+  color: #c4e1df;
+  border: 1px solid #40535c;
+  border-radius: 4px;
+  padding: 5px;
+}
+.environment-process ol {
+  list-style: none;
+  padding: 0;
+  max-height: 250px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+.environment-process li > button {
+  display: flex;
+  width: 100%;
+  gap: 10px;
+  padding: 9px 4px;
+  border-bottom: 1px solid #30414a;
+  text-align: left;
+}
+.environment-process li > button[aria-current="true"] {
+  background: #27434b;
+}
+.environment-process time {
+  min-width: 43px;
+  color: #b7dfdf;
+}
+.environment-process li span > span {
+  display: block;
+}
