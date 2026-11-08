@@ -486,6 +486,76 @@ export class SceneEngine {
       group.add(merged);
     }
   }
+  onRoomViewMemory: (saved: boolean) => void = () => {};
+  private roomViewMemory?: {
+    position: THREE.Vector3;
+    target: THREE.Vector3;
+    view: View;
+    focus: boolean;
+    interior: boolean;
+    width: number;
+    height: number;
+    limits: Pick<
+      OrbitControls,
+      | "minDistance"
+      | "maxDistance"
+      | "minAzimuthAngle"
+      | "maxAzimuthAngle"
+      | "maxPolarAngle"
+    >;
+  };
+  clearRoomViewMemory() {
+    this.roomViewMemory = undefined;
+    this.onRoomViewMemory(false);
+  }
+  rememberRoomView() {
+    if (this.state.level !== "room" || this.moving) return false;
+    const { width, height } = this.host.getBoundingClientRect();
+    if (!width || !height) return false;
+    this.autoOrbit = false;
+    this.roomViewMemory = {
+      position: this.camera.position.clone(),
+      target: this.controls.target.clone(),
+      view: this.currentView,
+      focus: this.currentFocus,
+      interior: this.interior,
+      width,
+      height,
+      limits: {
+        minDistance: this.controls.minDistance,
+        maxDistance: this.controls.maxDistance,
+        minAzimuthAngle: this.controls.minAzimuthAngle,
+        maxAzimuthAngle: this.controls.maxAzimuthAngle,
+        maxPolarAngle: this.controls.maxPolarAngle,
+      },
+    };
+    this.onRoomViewMemory(true);
+    return true;
+  }
+  restoreRoomViewMemory() {
+    const saved = this.roomViewMemory;
+    const { width, height } = this.host.getBoundingClientRect();
+    if (
+      !saved ||
+      this.state.level !== "room" ||
+      width !== saved.width ||
+      height !== saved.height
+    ) {
+      this.clearRoomViewMemory();
+      return false;
+    }
+    this.autoOrbit = false;
+    this.clearAirflowView();
+    this.panelViewport = undefined;
+    this.currentView = saved.view;
+    this.currentFocus = saved.focus;
+    this.interior = saved.interior;
+    Object.assign(this.controls, saved.limits);
+    this.targetPosition.copy(saved.position);
+    this.targetLook.copy(saved.target);
+    this.moving = true;
+    return true;
+  }
   onAirflowView: (view: AirflowView | null) => void = () => {};
   private airflowObservation?: {
     route: AirflowRoute;
@@ -608,6 +678,12 @@ export class SceneEngine {
   resize() {
     const { width, height } = this.host.getBoundingClientRect();
     if (!width || !height) return;
+    if (
+      this.roomViewMemory &&
+      (width !== this.roomViewMemory.width ||
+        height !== this.roomViewMemory.height)
+    )
+      this.clearRoomViewMemory();
     const previousAspect = this.camera.aspect;
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
@@ -730,6 +806,8 @@ export class SceneEngine {
           : (this.models.facilities.get(id) ?? this.models.parts.get(id));
   }
   update(state: AppState) {
+    if (state.level !== "room" && this.roomViewMemory)
+      this.clearRoomViewMemory();
     const deviceChanged = state.deviceId !== this.state.deviceId;
     if (deviceChanged) {
       this.installDevice(state);

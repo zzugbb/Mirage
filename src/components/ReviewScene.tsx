@@ -135,6 +135,8 @@ export function ReviewScene({
   const [error, setError] = useState("");
   const [retry, setRetry] = useState(0);
   const [assets, setAssets] = useState(initialModelLoads);
+  const [sceneSettled, setSceneSettled] = useState(false);
+  const [roomViewSaved, setRoomViewSaved] = useState(false);
   const [flowView, setFlowView] = useState<AirflowView | null>(null);
   const [view, setView] = useState<View>("interior");
   const [quality, setQuality] = useState(true);
@@ -279,7 +281,10 @@ export function ReviewScene({
         (id, enter) => callbacks.current.onSelect(id, enter),
         setError,
         (phase) => callbacks.current.onPhase(phase),
-        (feedback) => callbacks.current.onFeedback(feedback),
+        (feedback) => {
+          setSceneSettled(feedback.settled);
+          callbacks.current.onFeedback(feedback);
+        },
       );
       active.autoOrbit = false;
       active.retainMaterials = true;
@@ -342,6 +347,8 @@ export function ReviewScene({
         setView(active!.currentView);
       };
       setFlowView(null);
+      active.onRoomViewMemory = setRoomViewSaved;
+      setRoomViewSaved(false);
       active.onAssets = setAssets;
       setAssets({ ...active.assetLoader.state });
       engine.current = active;
@@ -640,6 +647,9 @@ export function ReviewScene({
     frame = requestAnimationFrame(declutter);
     return () => cancelAnimationFrame(frame);
   }, [labelKey, retry]);
+  useEffect(() => {
+    engine.current?.clearRoomViewMemory();
+  }, [shotRevision, retry]);
   const camera = (next: View) => {
     onTakeover();
     setOrbit(false);
@@ -1409,6 +1419,44 @@ export function ReviewScene({
             <details>
               <summary>{compactTools ? "显示" : "画面"}</summary>
               <div>
+                {state.level === "room" && (
+                  <div className="room-view-memory" aria-label="临时机房视角">
+                    <button
+                      disabled={!sceneSettled}
+                      onClick={() => {
+                        onTakeover();
+                        setOrbit(false);
+                        engine.current?.rememberRoomView();
+                      }}
+                    >
+                      {roomViewSaved ? "替换保存视角" : "保存当前视角"}
+                    </button>
+                    {roomViewSaved && (
+                      <>
+                        <button
+                          disabled={!sceneSettled}
+                          onClick={() => {
+                            onTakeover();
+                            setOrbit(false);
+                            if (engine.current?.restoreRoomViewMemory())
+                              setView(engine.current.currentView);
+                          }}
+                        >
+                          返回保存视角
+                        </button>
+                        <button
+                          disabled={!sceneSettled}
+                          onClick={() => engine.current?.clearRoomViewMemory()}
+                        >
+                          清除保存视角
+                        </button>
+                      </>
+                    )}
+                    <small>
+                      仅恢复镜头。离开机房、载入演示画面或视口尺寸改变后清除。
+                    </small>
+                  </div>
+                )}
                 <label title="按视线剖切挡住机柜的墙体与顶架；取消可恢复完整建筑">
                   <input
                     type="checkbox"
