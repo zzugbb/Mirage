@@ -6,6 +6,10 @@ import { unitLabel } from "../catalog";
 import { qualityNames } from "../status";
 
 export function SliceEvidenceDetails({
+  observing,
+  ready,
+  onObserve,
+  onRestoreView,
   context,
   check,
   readings,
@@ -15,6 +19,10 @@ export function SliceEvidenceDetails({
   onReturn,
   onClose,
 }: {
+  observing: boolean;
+  ready: boolean;
+  onObserve: () => void;
+  onRestoreView: () => void;
   context: SliceDeviceInspection;
   check: SliceCheck;
   readings: Map<string, SpatialReading>;
@@ -59,6 +67,20 @@ export function SliceEvidenceDetails({
           {context.point[1].toFixed(2)} / z {context.point[2].toFixed(2)} m
         </p>
       )}
+      <div className="slice-evidence-view">
+        <button
+          disabled={!ready || !context.point}
+          aria-pressed={observing}
+          onClick={onObserve}
+        >
+          观察估计位置
+        </button>
+        {observing && (
+          <button disabled={!ready} onClick={onRestoreView}>
+            返回核对前视角
+          </button>
+        )}
+      </div>
       <p>
         {!evidence
           ? context.explanation

@@ -1,3 +1,4 @@
+import type { SliceViewCommand } from "./slice-view";
 import { inspectSliceDevice, type SliceCheck } from "./slice-device";
 import { SliceEvidenceDetails } from "./components/SliceEvidenceDetails";
 import { emptyInletProcess, type InletProcessState } from "./inlet-process";
@@ -148,6 +149,14 @@ export function Workspace() {
   }, [inspectionDevice, isolatedPartId]);
   const [sliceControls, setSliceControls] = useState(initialSliceControls);
   const [sliceCheck, setSliceCheck] = useState<SliceCheck | null>(null);
+  const [sliceViewActive, setSliceViewActive] = useState(false);
+  const [sliceViewCommand, setSliceViewCommand] =
+    useState<SliceViewCommand | null>(null);
+  const requestSliceView = (action: SliceViewCommand["action"]) =>
+    setSliceViewCommand((current) => ({
+      action,
+      revision: (current?.revision ?? 0) + 1,
+    }));
   const [shot, setShot] = useState<WorkspaceShot>("overview");
   const [revision, setRevision] = useState(0);
   const [phase, setPhase] = useState<PresentationPhase>("closed");
@@ -723,6 +732,16 @@ export function Workspace() {
   };
   const sliceInspector = sliceCheck && sliceEvidence && (
     <SliceEvidenceDetails
+      observing={sliceViewActive}
+      ready={ready}
+      onObserve={() => {
+        takeover();
+        requestSliceView("observe");
+      }}
+      onRestoreView={() => {
+        takeover();
+        requestSliceView("return");
+      }}
       context={sliceEvidence}
       check={sliceCheck}
       readings={spatial.readings}
@@ -736,6 +755,7 @@ export function Workspace() {
         pick(id);
       }}
       onReturn={() => {
+        requestSliceView("return");
         pick(sliceCheck.deviceId);
         setSliceCheck(null);
       }}
@@ -1552,6 +1572,8 @@ export function Workspace() {
             networkLinkId={activeNetworkLink}
             powerLinkId={activePowerLink}
             pduInspection={pduInspection}
+            sliceViewCommand={sliceViewCommand}
+            onSliceViewChange={setSliceViewActive}
             sliceInspection={
               sliceCheck
                 ? {

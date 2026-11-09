@@ -4153,3 +4153,14 @@
 .slice-evidence-details > button {
   font-size: 11px;
 }
+
+.slice-evidence-view {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-block: 8px;
+}
+.workspace-ui .slice-evidence-view button {
+  padding: 6px 8px;
+  font-size: 11px;
+}

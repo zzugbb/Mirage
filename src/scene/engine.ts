@@ -1,3 +1,5 @@
+import { sliceViewPoints, sliceViewFrame } from "../slice-view";
+import type { SliceDeviceInspection } from "../slice-device";
 import type { RackUnitRange } from "../rack-space";
 import { RackUnitGuide } from "./rack-unit-guide";
 import { PartIsolation } from "./part-isolation";
@@ -61,6 +63,18 @@ import {
 } from "./hardware";
 
 export type View = CameraView;
+type ObservationMemory = {
+  position: THREE.Vector3;
+  target: THREE.Vector3;
+  view: View;
+  focus: boolean;
+  interior: boolean;
+  minDistance: number;
+  maxDistance: number;
+  minAzimuthAngle: number;
+  maxAzimuthAngle: number;
+  maxPolarAngle: number;
+};
 export class SceneEngine {
   renderer: THREE.WebGLRenderer;
   pipeline: RenderPipeline;
@@ -545,6 +559,7 @@ export class SceneEngine {
       return false;
     }
     this.autoOrbit = false;
+    this.clearSliceView();
     this.clearAirflowView();
     this.panelViewport = undefined;
     this.currentView = saved.view;
@@ -561,18 +576,7 @@ export class SceneEngine {
     route: AirflowRoute;
     view: AirflowView;
     targets: THREE.Vector3[];
-    previous: {
-      position: THREE.Vector3;
-      target: THREE.Vector3;
-      view: View;
-      focus: boolean;
-      interior: boolean;
-      minDistance: number;
-      maxDistance: number;
-      minAzimuthAngle: number;
-      maxAzimuthAngle: number;
-      maxPolarAngle: number;
-    };
+    previous: ObservationMemory;
   };
   clearAirflowView() {
     if (!this.airflowObservation) return;
@@ -583,18 +587,9 @@ export class SceneEngine {
   observeAirflow(route: AirflowRoute, view: AirflowView) {
     if (this.state.level !== "room") return;
     this.panelViewport = undefined;
-    const previous = this.airflowObservation?.previous ?? {
-      position: this.camera.position.clone(),
-      target: this.controls.target.clone(),
-      view: this.currentView,
-      focus: this.currentFocus,
-      interior: this.interior,
-      minDistance: this.controls.minDistance,
-      maxDistance: this.controls.maxDistance,
-      minAzimuthAngle: this.controls.minAzimuthAngle,
-      maxAzimuthAngle: this.controls.maxAzimuthAngle,
-      maxPolarAngle: this.controls.maxPolarAngle,
-    };
+    this.clearSliceView();
+    const previous =
+      this.airflowObservation?.previous ?? this.captureObservationView();
     this.airflowObservation = {
       route,
       view,
@@ -614,6 +609,57 @@ export class SceneEngine {
   private frameAirflow() {
     const observation = this.airflowObservation;
     if (!observation) return;
+    const { width, height, rect } = this.observationViewport();
+    const fit = airflowViewFrame(
+      observation.route,
+      observation.view,
+      width,
+      height,
+      rect,
+    );
+    this.targetPosition.copy(fit.position);
+    this.targetLook.copy(fit.target);
+    this.controls.maxDistance = Math.max(45, fit.distance * 1.2);
+    this.moving = true;
+  }
+  restoreAirflowView() {
+    const previous = this.airflowObservation?.previous;
+    if (!previous) return;
+    this.clearAirflowView();
+    this.restoreObservationView(previous);
+  }
+  private captureObservationView(): ObservationMemory {
+    return {
+      position: this.camera.position.clone(),
+      target: this.controls.target.clone(),
+      view: this.currentView,
+      focus: this.currentFocus,
+      interior: this.interior,
+      minDistance: this.controls.minDistance,
+      maxDistance: this.controls.maxDistance,
+      minAzimuthAngle: this.controls.minAzimuthAngle,
+      maxAzimuthAngle: this.controls.maxAzimuthAngle,
+      maxPolarAngle: this.controls.maxPolarAngle,
+    };
+  }
+  private restoreObservationView(previous: ObservationMemory) {
+    this.panelViewport = undefined;
+    this.currentView = previous.view;
+    this.currentFocus = previous.focus;
+    this.interior = previous.interior;
+    for (const key of [
+      "minDistance",
+      "maxDistance",
+      "minAzimuthAngle",
+      "maxAzimuthAngle",
+      "maxPolarAngle",
+    ] as const)
+      this.controls[key] = previous[key];
+    this.targetPosition.copy(previous.position);
+    this.targetLook.copy(previous.target);
+    this.moving = true;
+  }
+  private observationViewport() {
     const frame = this.host.getBoundingClientRect();
     let left = 20,
       top = 20;
@@ -630,42 +676,80 @@ export class SceneEngine {
       const bounds = control.getBoundingClientRect();
       if (bounds.height) top = Math.max(top, bounds.bottom - frame.top + 20);
     }
-    const fit = airflowViewFrame(
-      observation.route,
-      observation.view,
-      frame.width,
-      frame.height,
-      {
+    return {
+      width: frame.width,
+      height: frame.height,
+      rect: {
         left,
         top: Math.min(top, frame.height * 0.35),
         right: frame.width - 40,
         bottom: frame.height - 48,
       },
+    };
+  }
+  onSliceView: (active: boolean) => void = () => {};
+  private sliceObservation?: {
+    targets: THREE.Vector3[];
+    key: string;
+    previous: ObservationMemory;
+  };
+  clearSliceView() {
+    if (!this.sliceObservation) return;
+    this.sliceObservation = undefined;
+    this.moving = false;
+    this.onSliceView(false);
+  }
+  observeSlice(context: SliceDeviceInspection) {
+    if (this.state.level !== "room" || !context.point || this.moving) return;
+    const previous =
+      this.sliceObservation?.previous ?? this.captureObservationView();
+    this.clearAirflowView();
+    this.panelViewport = undefined;
+    const targets = sliceViewPoints(context);
+    this.sliceObservation = { targets, key: JSON.stringify(targets), previous };
+    this.currentView = "front";
+    this.currentFocus = false;
+    this.interior = false;
+    this.controls.minAzimuthAngle = -Infinity;
+    this.controls.maxAzimuthAngle = Infinity;
+    this.controls.maxPolarAngle = Math.PI / 2 - 0.03;
+    this.controls.minDistance = 0.5;
+    this.autoOrbit = false;
+    this.frameSlice();
+    this.onSliceView(true);
+  }
+  updateSliceView(context: SliceDeviceInspection | null) {
+    if (!this.sliceObservation) return;
+    const targets = sliceViewPoints(context);
+    if (!targets.length) {
+      this.clearSliceView();
+      return;
+    }
+    const key = JSON.stringify(targets);
+    if (key === this.sliceObservation.key) return;
+    this.sliceObservation.targets = targets;
+    this.sliceObservation.key = key;
+    this.frameSlice();
+  }
+  private frameSlice() {
+    if (!this.sliceObservation) return;
+    const { width, height, rect } = this.observationViewport();
+    const fit = sliceViewFrame(
+      this.sliceObservation.targets,
+      width,
+      height,
+      rect,
     );
     this.targetPosition.copy(fit.position);
     this.targetLook.copy(fit.target);
     this.controls.maxDistance = Math.max(45, fit.distance * 1.2);
     this.moving = true;
   }
-  restoreAirflowView() {
-    const previous = this.airflowObservation?.previous;
+  restoreSliceView() {
+    const previous = this.sliceObservation?.previous;
     if (!previous) return;
-    this.panelViewport = undefined;
-    this.currentView = previous.view;
-    this.currentFocus = previous.focus;
-    this.interior = previous.interior;
-    for (const key of [
-      "minDistance",
-      "maxDistance",
-      "minAzimuthAngle",
-      "maxAzimuthAngle",
-      "maxPolarAngle",
-    ] as const)
-      this.controls[key] = previous[key];
-    this.targetPosition.copy(previous.position);
-    this.targetLook.copy(previous.target);
-    this.clearAirflowView();
-    this.moving = true;
+    this.clearSliceView();
+    this.restoreObservationView(previous);
   }
   private panelViewport?: { width: number; height: number };
   // 预览打开和还原侧栏时仅更新投影，真实窗口缩放与主动定位仍按目标取景。
@@ -689,6 +773,10 @@ export class SceneEngine {
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height);
     this.pipeline.resize(width, height);
+    if (this.sliceObservation) {
+      this.frameSlice();
+      return;
+    }
     if (
       this.panelViewport?.width === window.innerWidth &&
       this.panelViewport.height === window.innerHeight
@@ -711,6 +799,7 @@ export class SceneEngine {
     this.onError("三维图形上下文已丢失，请重新加载场景。");
   };
   cancelFlight = () => {
+    this.clearSliceView();
     this.clearAirflowView();
     this.moving = false;
     this.lastManualInteraction = performance.now();
@@ -898,6 +987,7 @@ export class SceneEngine {
     return object.visible && (!object.parent || this.visible(object.parent));
   }
   view(view: View, focus = false) {
+    this.clearSliceView();
     focus =
       focus ||
       !!(
@@ -1409,10 +1499,11 @@ export class SceneEngine {
     }
     const cutCount = this.shellCutaway.update(
       this.camera.position,
-      this.airflowObservation?.targets ??
+      this.sliceObservation?.targets ??
+        this.airflowObservation?.targets ??
         (selectedFixture ? this.fixtureTargets : this.shellTargets),
       this.models.room.visible,
-      selectedFixture && !this.airflowObservation
+      selectedFixture && !this.airflowObservation && !this.sliceObservation
         ? this.models.fixtures.get(fixtureMountReference(this.state.selected))
         : undefined,
     );

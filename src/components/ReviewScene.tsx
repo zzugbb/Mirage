@@ -1,3 +1,4 @@
+import type { SliceViewCommand } from "../slice-view";
 import { SliceEvidenceGeometry } from "../scene/slice-evidence";
 import type { SliceDeviceInspection } from "../slice-device";
 import {
@@ -66,6 +67,8 @@ export function ReviewScene({
   state,
   unitRange = null,
   isolatedPartId = null,
+  sliceViewCommand,
+  onSliceViewChange,
   sliceInspection,
   onInspectSlice,
   sliceControls,
@@ -94,6 +97,8 @@ export function ReviewScene({
   controls,
   compactTools = false,
 }: {
+  sliceViewCommand: SliceViewCommand | null;
+  onSliceViewChange: (active: boolean) => void;
   sliceInspection: {
     context: SliceDeviceInspection | null;
     sourceId: string | null;
@@ -145,8 +150,13 @@ export function ReviewScene({
   const previousScene = useRef(state);
   const currentState = useRef(state);
   currentState.current = state;
-  const callbacks = useRef({ onSelect, onPhase, onFeedback });
-  callbacks.current = { onSelect, onPhase, onFeedback };
+  const callbacks = useRef({
+    onSelect,
+    onPhase,
+    onFeedback,
+    onSliceViewChange,
+  });
+  callbacks.current = { onSelect, onPhase, onFeedback, onSliceViewChange };
   const [error, setError] = useState("");
   const [retry, setRetry] = useState(0);
   const [assets, setAssets] = useState(initialModelLoads);
@@ -367,6 +377,11 @@ export function ReviewScene({
           roomReady,
         );
       };
+      active.onSliceView = (observing) => {
+        callbacks.current.onSliceViewChange(observing);
+        setView(active!.currentView);
+      };
+      callbacks.current.onSliceViewChange(false);
       active.onAirflowView = (next) => {
         setFlowView(next);
         if (!next) setFlowSlice(false);
@@ -479,7 +494,10 @@ export function ReviewScene({
   }, [quality, retry]);
   useEffect(() => {
     if (engine.current) {
-      if (orbit) engine.current.clearAirflowView();
+      if (orbit) {
+        engine.current.clearAirflowView();
+        engine.current.clearSliceView();
+      }
       engine.current.autoOrbit = orbit;
     }
   }, [orbit, retry]);
@@ -497,6 +515,21 @@ export function ReviewScene({
       ambientSelected ? [] : reviewSpatialMarks(state, layer, readings),
     );
   }, [state, layer, readings, retry, ambientSelected]);
+  useEffect(() => {
+    const active = engine.current;
+    if (!active || !sliceViewCommand) return;
+    if (sliceViewCommand.action === "return") active.restoreSliceView();
+    else if (sliceInspection?.context && slice && sliceVisible) {
+      setOrbit(false);
+      active.observeSlice(sliceInspection.context);
+    }
+    setView(active.currentView);
+  }, [sliceViewCommand?.revision]);
+  useEffect(() => {
+    engine.current?.updateSliceView(
+      slice && sliceVisible ? (sliceInspection?.context ?? null) : null,
+    );
+  }, [sliceInspection?.context, slice, sliceVisible, shotRevision, retry]);
   useEffect(() => {
     sliceEvidenceGeometry.current?.update(
       slice && sliceVisible ? (sliceInspection?.context ?? null) : null,
