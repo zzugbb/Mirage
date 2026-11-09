@@ -1,3 +1,4 @@
+import { emptyInletProcess, type InletProcessState } from "./inlet-process";
 import { InletPairAnalysis } from "./components/InletPairAnalysis";
 import { InletOverview } from "./components/InletOverview";
 import { NetworkOverview } from "./components/NetworkOverview";
@@ -327,6 +328,19 @@ export function Workspace() {
     : entity.kind === "device"
       ? selected
       : null;
+  const inletProcessKey = `${inletId}:${state.replayCycle}:${revision}`;
+  const [inletProcessReview, setInletProcessReview] = useState<{
+    key: string;
+    value: InletProcessState;
+  } | null>(null);
+  useEffect(() => {
+    if (
+      !review.analysis ||
+      !inletId ||
+      (inletProcessReview && inletProcessReview.key !== inletProcessKey)
+    )
+      setInletProcessReview(null);
+  }, [review.analysis, inletId, inletProcessKey, inletProcessReview]);
   const pairedInlet =
     inletPair &&
     inletId &&
@@ -507,10 +521,11 @@ export function Workspace() {
     focus(id, { revealStage: true, installation: true });
   };
   const eventHeading = useRef<HTMLHeadingElement>(null);
+  const inletHeading = useRef<HTMLElement>(null);
   const jumpToEvents = useRef(false);
   useEffect(() => {
     if (review.analysis && jumpToEvents.current) {
-      eventHeading.current?.focus();
+      (inletHeading.current ?? eventHeading.current)?.focus();
       jumpToEvents.current = false;
     }
   }, [review.analysis]);
@@ -1740,6 +1755,16 @@ export function Workspace() {
                 {sourceInspector}
                 {inletId && !pairedInlet && (
                   <InletAssessment
+                    key={`${inletId}:${state.replayCycle}:${revision}`}
+                    headingRef={inletHeading}
+                    processState={
+                      inletProcessReview?.key === inletProcessKey
+                        ? inletProcessReview.value
+                        : emptyInletProcess
+                    }
+                    onProcessChange={(value) =>
+                      setInletProcessReview({ key: inletProcessKey, value })
+                    }
                     reading={spatial.readings.get(inletId)!}
                     sample={spatial.samples.get(inletId)!}
                     component={component}

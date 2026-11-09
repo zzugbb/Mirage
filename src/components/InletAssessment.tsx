@@ -1,9 +1,14 @@
-import { useEffect, useState } from "react";
+import type { InletProcessState } from "../inlet-process";
+import type { Ref } from "react";
+import { InletProcess } from "./InletProcess";
 import type { SpatialReading } from "../spatial";
 import { inletAssessment } from "../inlet-assessment";
 import type { SimulationSnapshot } from "../simulation";
 
 export function InletAssessment({
+  processState,
+  onProcessChange,
+  headingRef,
   reading,
   sample,
   component,
@@ -13,6 +18,9 @@ export function InletAssessment({
   onAirflow,
   onLocate,
 }: {
+  processState: InletProcessState;
+  onProcessChange: (next: InletProcessState) => void;
+  headingRef: Ref<HTMLElement>;
   reading: SpatialReading;
   sample: SimulationSnapshot;
   component: boolean;
@@ -23,16 +31,13 @@ export function InletAssessment({
   onLocate: () => void;
 }) {
   const { status, detail, since, confirmed } = inletAssessment(reading, sample);
-  const [visit, setVisit] = useState<{ from: number; to: number } | null>(null);
-  useEffect(() => {
-    if (visit && time !== visit.to) setVisit(null);
-  }, [visit, time]);
-  const inspectTime = (target: number) => {
-    setVisit({ from: time, to: target });
-    onSeek(target);
-  };
   return (
-    <section className="inlet-assessment" aria-label="整机进风判定">
+    <section
+      ref={headingRef}
+      tabIndex={-1}
+      className="inlet-assessment"
+      aria-label="整机进风判定"
+    >
       <header>
         <strong>
           {component ? `${reading.name} · 整机进风判定` : "整机进风判定"}
@@ -40,31 +45,15 @@ export function InletAssessment({
         <span>{status}</span>
       </header>
       <p>{detail}</p>
-      {since !== null && (
-        <div className="inlet-times">
-          <button disabled={time === since} onClick={() => inspectTime(since)}>
-            条件起点 {since}s
-          </button>
-          {visit?.to === time && (
-            <button
-              onClick={() => {
-                setVisit(null);
-                onSeek(visit.from);
-              }}
-            >
-              返回 {visit.from}s
-            </button>
-          )}
-          {confirmed !== null && (
-            <button
-              disabled={time === confirmed}
-              onClick={() => inspectTime(confirmed)}
-            >
-              状态变化 {confirmed}s
-            </button>
-          )}
-        </div>
-      )}
+      <InletProcess
+        reviewState={processState}
+        onChange={onProcessChange}
+        id={reading.id}
+        time={time}
+        since={since}
+        confirmed={confirmed}
+        onSeek={onSeek}
+      />
       <div className="inlet-locations">
         <button disabled={!ready} onClick={onAirflow}>
           查看机房气流

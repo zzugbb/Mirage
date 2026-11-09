@@ -4036,3 +4036,54 @@
 .pdu-inspection-return button:last-child {
   margin-left: auto;
 }
+
+.inlet-process details {
+  margin-top: 7px;
+}
+.inlet-process summary {
+  cursor: pointer;
+  padding-block: 6px;
+  color: #c5d8db;
+}
+.inlet-process ol {
+  list-style: none;
+  margin: 8px 0;
+  padding: 0;
+}
+.workspace-ui .inlet-process li button {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  gap: 8px;
+  padding: 7px 6px;
+  border: 0;
+  border-bottom: 1px solid #ffffff12;
+  border-radius: 0;
+  text-align: left;
+}
+.inlet-process li small {
+  display: block;
+  color: #8da6b0;
+  margin-top: 3px;
+  font-size: 10px;
+}
+.inlet-process li button[aria-pressed="true"] {
+  background: #668f982b;
+  box-shadow: inset 2px 0 #9fcbd2;
+}
+.inlet-interval {
+  margin-top: 8px;
+  padding: 9px;
+  background: #ffffff05;
+  border: 1px solid #ffffff12;
+}
+.inlet-interval input {
+  width: 100%;
+  accent-color: #a5d0d4;
+}
+.inlet-interval-steps {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px;
+}
