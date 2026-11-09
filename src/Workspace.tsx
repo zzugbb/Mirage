@@ -63,7 +63,17 @@ import {
   maintenanceAisle,
   reserveGapText,
 } from "./maintenance";
-import { isPowerFacility, pduById, powerDeviceIds } from "./power-config";
+import {
+  isPowerFacility,
+  pduById,
+  pduName,
+  powerDeviceIds,
+} from "./power-config";
+import {
+  pduOutlet,
+  pduInspectionIncludes,
+  type PduInspection,
+} from "./pdu-outlets";
 import { PowerConnections } from "./components/PowerConnections";
 import { NetworkConnections } from "./components/NetworkConnections";
 import { networkContextIncludes, networkLinkById } from "./network";
@@ -208,6 +218,19 @@ export function Workspace() {
     if (airflowVisit && !activeAirflowVisit) setAirflowVisit(null);
   }, [airflowVisit, activeAirflowVisit]);
   const [networkLinkId, setNetworkLinkId] = useState<string | null>(null);
+  const [pduInspection, setPduInspection] = useState<PduInspection | null>(
+    null,
+  );
+  const pduReturnPending = useRef(false);
+  useEffect(() => {
+    if (
+      !pduInspection ||
+      !pduInspectionIncludes(pduInspection, selected, state.deviceId)
+    ) {
+      pduReturnPending.current = false;
+      if (pduInspection) setPduInspection(null);
+    }
+  }, [pduInspection, selected, state.deviceId]);
   const [powerLinkId, setPowerLinkId] = useState<string | null>(null);
   const activePowerLink = powerContextIncludes(
     selected,
@@ -327,6 +350,22 @@ export function Workspace() {
     !review.pendingEndpoint &&
     !!feedback?.settled &&
     feedback.key === presentationKey(state);
+  useEffect(() => {
+    if (
+      !pduReturnPending.current ||
+      !ready ||
+      review.analysis ||
+      selected !== pduInspection?.pduId
+    )
+      return;
+    const panel = document.querySelector<HTMLElement>(".pdu-outlets");
+    if (panel) {
+      pduReturnPending.current = false;
+      panel.scrollIntoView({ block: "start" });
+      panel.focus({ preventScroll: true });
+    }
+  }, [ready, selected, review.analysis, pduInspection?.pduId]);
+
   useEffect(() => {
     if (
       !networkMapReturning ||
@@ -558,6 +597,8 @@ export function Workspace() {
     return () => window.removeEventListener("keydown", key);
   }, [selected, review.analysis, nav, inspector, query, dispatch]);
   const load = (next: WorkspaceShot) => {
+    setPduInspection(null);
+    pduReturnPending.current = false;
     setInspectionDevice(null);
     setEnvironmentComparisonOpen(false);
     setAirflowVisit(null);
@@ -1446,8 +1487,12 @@ export function Workspace() {
             aisle={aisle}
             networkLinkId={activeNetworkLink}
             powerLinkId={activePowerLink}
+            pduInspection={pduInspection}
             onClearPower={() => {
               takeover();
+              setPduInspection((current) =>
+                current ? { ...current, outlet: null } : null,
+              );
               setPowerLinkId(null);
             }}
             onClearNetwork={() => {
@@ -1606,6 +1651,37 @@ export function Workspace() {
                 )}
               </span>
             </div>
+            {pduInspection?.outlet !== null &&
+              pduInspection &&
+              (selected !== pduInspection.pduId || review.analysis) && (
+                <div className="pdu-inspection-return">
+                  <small>
+                    插座核对 · {pduName(pduInspection.pduId)} /{" "}
+                    {String(pduInspection.outlet).padStart(2, "0")}
+                  </small>
+                  <button
+                    disabled={!ready}
+                    onClick={() => {
+                      pduReturnPending.current = true;
+                      focus(pduInspection.pduId);
+                      setPowerLinkId(
+                        pduOutlet(pduInspection.pduId, pduInspection.outlet)
+                          ?.link?.id ?? null,
+                      );
+                      control({ type: "layer", layer: "power" });
+                      control({ type: "analysis", value: false });
+                    }}
+                  >
+                    ← 返回原插座核对
+                  </button>
+                  <button
+                    aria-label="结束插座核对往返"
+                    onClick={() => setPduInspection(null)}
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
             {sourceVisit &&
               sourceCheck &&
               selected === sourceVisit.targetId && (
@@ -1956,6 +2032,26 @@ export function Workspace() {
                     {sourceInspector}
                     {(layer === "power" || powerFacility) && (
                       <PowerConnections
+                        pduInspection={pduInspection}
+                        onPduChange={(visit) => {
+                          takeover();
+                          setPduInspection(visit);
+                          if (visit.outlet === null) setPowerLinkId(null);
+                        }}
+                        onPduSelect={(pduId, outlet) => {
+                          const row = pduOutlet(pduId, outlet);
+                          if (!row) return;
+                          setPduInspection((current) => ({
+                            pduId,
+                            outlet,
+                            query:
+                              current?.pduId === pduId ? current.query : "",
+                            scroll:
+                              current?.pduId === pduId ? current.scroll : 0,
+                          }));
+                          setPowerLinkId(row.link?.id ?? null);
+                          control({ type: "layer", layer: "power" });
+                        }}
                         activeLinkId={
                           layer === "power" ? activePowerLink : null
                         }
@@ -1967,6 +2063,10 @@ export function Workspace() {
                           )
                             pick(link.deviceId);
                           setPowerLinkId(id);
+                          if (!id)
+                            setPduInspection((current) =>
+                              current ? { ...current, outlet: null } : null,
+                            );
                           if (id) control({ type: "layer", layer: "power" });
                           else takeover();
                         }}

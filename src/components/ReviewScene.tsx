@@ -9,6 +9,7 @@ import {
   airflowEndpointObject,
   type AirflowInspection,
 } from "../airflow-inspection";
+import { pduInspectionScene, type PduInspection } from "../pdu-outlets";
 import { airflowStage } from "../airflow-stage";
 import { airflowViews, type AirflowView } from "../airflow-view";
 import { ModelLoadNotice } from "./ModelLoadNotice";
@@ -75,6 +76,7 @@ export function ReviewScene({
   aisle,
   networkLinkId = null,
   powerLinkId = null,
+  pduInspection = null,
   onClearPower,
   onClearNetwork,
   onSelect,
@@ -103,6 +105,7 @@ export function ReviewScene({
   aisle?: MaintenanceAisle;
   networkLinkId?: string | null;
   powerLinkId?: string | null;
+  pduInspection?: PduInspection | null;
   onClearPower?: () => void;
   onClearNetwork?: () => void;
   onSelect: (id: string, enter?: boolean) => void;
@@ -170,7 +173,8 @@ export function ReviewScene({
   const supply = useMemo(
     () =>
       layer === "power" && !isolatedPartId
-        ? powerScene(state, selectedId, powerLinkId)
+        ? (pduInspectionScene(state, selectedId, pduInspection) ??
+          powerScene(state, selectedId, powerLinkId))
         : null,
     [
       layer,
@@ -179,6 +183,7 @@ export function ReviewScene({
       state.trayExtended,
       selectedId,
       powerLinkId,
+      pduInspection,
       isolatedPartId,
     ],
   );
@@ -818,7 +823,9 @@ export function ReviewScene({
               className={`review-flow-anchor review-power-anchor ${supply?.traceId ? "is-traced" : ""}`}
             >
               <b>{label.title}</b>
-              {!supply?.traceId && <small>{label.detail}</small>}
+              {!supply?.traceId && label.kind !== "outlet" && (
+                <small>{label.detail}</small>
+              )}
             </div>
           ))}
           {areaLabels.map((area) => (
@@ -1395,14 +1402,19 @@ export function ReviewScene({
               {layer === "power" && supply && (
                 <div className="power-scene-key" aria-label="供电路径示意">
                   <strong>{supply.caption}</strong>
-                  {supply.traceId && (
-                    <button onClick={onClearPower}>结束追踪</button>
+                  {(supply.traceId ||
+                    (!supply.paths.length && state.level !== "device")) && (
+                    <button onClick={onClearPower}>
+                      {supply.traceId ? "结束追踪" : "清除插座标记"}
+                    </button>
                   )}
                   {!supply.traceId && (
                     <span>
                       {state.level === "device"
                         ? "A/B 配置端点"
-                        : "A 实线 · B 分段"}{" "}
+                        : supply.paths.length
+                          ? "A 实线 · B 分段"
+                          : "仅标记未连接位置"}{" "}
                       · 静态示意
                     </span>
                   )}
@@ -1414,7 +1426,9 @@ export function ReviewScene({
                       : ""}
                     {supply.traceId
                       ? "配置支路 · 未计量"
-                      : "支路未计量 · 不推断独立上游"}
+                      : supply.paths.length
+                        ? "支路未计量 · 不推断独立上游"
+                        : "无配置对端 · 不代表可用容量"}
                   </small>
                 </div>
               )}

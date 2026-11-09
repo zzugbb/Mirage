@@ -1,5 +1,6 @@
 import { ConnectionSection } from "./ConnectionSection";
-import { useState } from "react";
+import { PduOutlets } from "./PduOutlets";
+import type { PduInspection } from "../pdu-outlets";
 import type { AppState } from "../domain";
 import { entityById } from "../domain";
 import { deviceById, racks, rackForDevice } from "../installation";
@@ -14,16 +15,14 @@ import {
   powerDeviceIds,
 } from "../power-config";
 import type { SpatialReading } from "../spatial";
-import { qualityNames } from "../status";
 import { powerLinkById, powerTraceStops } from "../power-trace";
 import { powerScene } from "../power-paths";
 
-const input = (reading?: SpatialReading) =>
-  reading?.quality === "valid" && reading.power !== null
-    ? `${reading.power.toFixed(1)} W`
-    : qualityNames[reading?.quality ?? "missing"];
 export function PowerConnections({
   state,
+  pduInspection,
+  onPduChange,
+  onPduSelect,
   selectedId,
   readings,
   ready,
@@ -35,6 +34,9 @@ export function PowerConnections({
   onTrace,
   onInspect,
 }: {
+  pduInspection: PduInspection | null;
+  onPduChange: (visit: PduInspection) => void;
+  onPduSelect: (pduId: string, outlet: number) => void;
   state: AppState;
   selectedId: string;
   readings: Map<string, SpatialReading>;
@@ -47,7 +49,6 @@ export function PowerConnections({
   onTrace: (id: string | null) => void;
   onInspect: (id: string) => void;
 }) {
-  const [empty, setEmpty] = useState(false);
   const pdu = pduById(selectedId),
     selectedDevice = deviceById(selectedId),
     rack = racks.find((rack) => rack.id === selectedId);
@@ -78,7 +79,7 @@ export function PowerConnections({
       onInteract={onInteract}
       title="供电连接"
       className="power-connections"
-      active={!!activeLinkId}
+      active={!!activeLinkId || pduInspection?.pduId === selectedId}
       summary={
         pdu
           ? `${links.length} / ${powerSettings.outletsPerPdu} 插座已接`
@@ -93,74 +94,79 @@ export function PowerConnections({
       <p className="power-boundary">
         配置示意 · A/B 未定义独立上游；回路与插座未计量，整机输入不分摊。
       </p>
-      {stops.length > 0 && (
-        <section className="power-active-trace" aria-label="当前供电支路">
-          <header>
-            <strong>当前供电支路</strong>
-            <button
-              aria-label="结束当前供电支路追踪"
-              onClick={() => onTrace(null)}
-            >
-              结束追踪
-            </button>
-          </header>
-          {activeLink && (
-            <div
-              className="power-input-switch"
-              role="group"
-              aria-label="同一设备的供电输入"
-            >
-              <span>{deviceById(activeLink.deviceId)!.name} 输入</span>
-              {powerLinks
-                .filter((link) => link.deviceId === activeLink.deviceId)
-                .map((link) => (
+      {stops.length > 0 &&
+        !(
+          pdu &&
+          pduInspection?.pduId === pdu.id &&
+          pduInspection.outlet !== null
+        ) && (
+          <section className="power-active-trace" aria-label="当前供电支路">
+            <header>
+              <strong>当前供电支路</strong>
+              <button
+                aria-label="结束当前供电支路追踪"
+                onClick={() => onTrace(null)}
+              >
+                结束追踪
+              </button>
+            </header>
+            {activeLink && (
+              <div
+                className="power-input-switch"
+                role="group"
+                aria-label="同一设备的供电输入"
+              >
+                <span>{deviceById(activeLink.deviceId)!.name} 输入</span>
+                {powerLinks
+                  .filter((link) => link.deviceId === activeLink.deviceId)
+                  .map((link) => (
+                    <button
+                      key={link.id}
+                      disabled={!ready}
+                      aria-pressed={link.id === activeLinkId}
+                      aria-label={`查看 ${deviceById(link.deviceId)!.name} 输入 ${link.inlet}`}
+                      onClick={() => onTrace(link.id)}
+                    >
+                      {link.inlet} · {pduName(link.pduId)}
+                    </button>
+                  ))}
+              </div>
+            )}
+            <ol>
+              {stops.map((stop) => (
+                <li key={stop.id}>
                   <button
-                    key={link.id}
-                    disabled={!ready}
-                    aria-pressed={link.id === activeLinkId}
-                    aria-label={`查看 ${deviceById(link.deviceId)!.name} 输入 ${link.inlet}`}
-                    onClick={() => onTrace(link.id)}
+                    className="power-stop-preview"
+                    aria-label={`预览支路对象 ${stop.name}`}
+                    onClick={() => onSelect(stop.id)}
+                    aria-pressed={selectedId === stop.id}
                   >
-                    {link.inlet} · {pduName(link.pduId)}
+                    <strong>{stop.name}</strong>
+                    <small>{stop.location}</small>
+                    {stop.input && <small>{stop.input}</small>}
                   </button>
-                ))}
-            </div>
-          )}
-          <ol>
-            {stops.map((stop) => (
-              <li key={stop.id}>
-                <button
-                  className="power-stop-preview"
-                  aria-label={`预览支路对象 ${stop.name}`}
-                  onClick={() => onSelect(stop.id)}
-                  aria-pressed={selectedId === stop.id}
-                >
-                  <strong>{stop.name}</strong>
-                  <small>{stop.location}</small>
-                  {stop.input && <small>{stop.input}</small>}
-                </button>
-                <button
-                  disabled={!ready}
-                  aria-label={`定位支路对象 ${stop.name}`}
-                  onClick={() => onLocate(stop.id)}
-                >
-                  定位
-                </button>
-              </li>
-            ))}
-          </ol>
-          {activeLink && (
-            <button
-              className="power-inspect-input"
-              disabled={!ready}
-              onClick={() => onInspect(activeLink.id)}
-            >
-              查看 {deviceById(activeLink.deviceId)!.name} 电源{" "}
-              {activeLink.inlet}
-            </button>
-          )}
-        </section>
-      )}
+                  <button
+                    disabled={!ready}
+                    aria-label={`定位支路对象 ${stop.name}`}
+                    onClick={() => onLocate(stop.id)}
+                  >
+                    定位
+                  </button>
+                </li>
+              ))}
+            </ol>
+            {activeLink && (
+              <button
+                className="power-inspect-input"
+                disabled={!ready}
+                onClick={() => onInspect(activeLink.id)}
+              >
+                查看 {deviceById(activeLink.deviceId)!.name} 电源{" "}
+                {activeLink.inlet}
+              </button>
+            )}
+          </section>
+        )}
       {selectedId === powerSettings.sourceId ? (
         <>
           <p>
@@ -230,94 +236,22 @@ export function PowerConnections({
             </button>
             <span>→ {pduName(pdu.id)}</span>
           </div>
-          <p>
-            已接 {links.length} / {powerSettings.outletsPerPdu} 插座 · 空闲{" "}
-            {powerSettings.outletsPerPdu - links.length}
-          </p>
-          <div className="power-pdu-actions">
-            <button disabled={!ready} onClick={() => onLocate(pdu.id)}>
-              定位到机柜后侧
-            </button>
-            <label>
-              <input
-                type="checkbox"
-                checked={empty}
-                onChange={(event) => setEmpty(event.target.checked)}
-              />
-              显示空闲插座
-            </label>
-          </div>
-          <div
-            className="power-outlet-table"
-            role="table"
-            aria-label={`${pduName(pdu.id)}插座分配`}
-          >
-            <div role="row" className="power-outlet-heading">
-              <span role="columnheader">插座 / 去向</span>
-              <span role="columnheader">整机输入</span>
-              <span role="columnheader">支路</span>
-            </div>
-            {Array.from(
-              { length: powerSettings.outletsPerPdu },
-              (_, index) => index + 1,
-            )
-              .filter(
-                (outlet) =>
-                  empty || links.some((link) => link.outlet === outlet),
-              )
-              .map((outlet) => {
-                const link = links.find((link) => link.outlet === outlet),
-                  device = link ? deviceById(link.deviceId)! : null;
-                return (
-                  <div
-                    role="row"
-                    key={outlet}
-                    className="power-outlet"
-                    data-traced={!!link && activeLinkId === link.id}
-                  >
-                    <span role="cell">
-                      <b>{String(outlet).padStart(2, "0")}</b>
-                      {device && link ? (
-                        <button onClick={() => onSelect(device.id)}>
-                          {device.name}
-                          <small>
-                            → 输入 {link.inlet} /{" "}
-                            {
-                              entityById(inletPart(device.modelId, link.inlet))!
-                                .name
-                            }
-                          </small>
-                        </button>
-                      ) : (
-                        <small>空闲 · 未连接</small>
-                      )}
-                    </span>
-                    <span role="cell">
-                      {device ? input(readings.get(device.id)) : "—"}
-                    </span>
-                    <span role="cell">
-                      {link ? (
-                        <button
-                          aria-label={`追踪${pduName(pdu.id)}插座${String(outlet).padStart(2, "0")}`}
-                          aria-pressed={activeLinkId === link.id}
-                          disabled={!canTrace}
-                          onClick={() =>
-                            onTrace(activeLinkId === link.id ? null : link.id)
-                          }
-                        >
-                          {activeLinkId === link.id ? "取消" : "追踪"}
-                        </button>
-                      ) : (
-                        "—"
-                      )}
-                    </span>
-                  </div>
-                );
-              })}
-          </div>
-          <small className="power-boundary">
-            表中 W 值属于关联整机，不是本插座或本路负载；两路的关联值不能相加。
-          </small>
+          <button disabled={!ready} onClick={() => onLocate(pdu.id)}>
+            定位到机柜后侧
+          </button>
+          <PduOutlets
+            key={pdu.id}
+            pduId={pdu.id}
+            inScene={!!powerScene(state, pdu.id)}
+            visit={pduInspection}
+            readings={readings}
+            ready={ready}
+            onChange={onPduChange}
+            onSelect={(outlet) => onPduSelect(pdu.id, outlet)}
+            onLocate={() => onLocate(pdu.id)}
+            onPreview={onSelect}
+            onInspect={onInspect}
+          />
         </>
       ) : device && model ? (
         <>
