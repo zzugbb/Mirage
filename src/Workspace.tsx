@@ -1583,6 +1583,16 @@ export function Workspace() {
                   }
                 : null
             }
+            onInspectBudget={
+              availableSourceMetrics.includes("power")
+                ? () => {
+                    openSourceCheck("power");
+                    setInspector(true);
+                    if (matchMedia("(max-width: 1099px)").matches)
+                      setNav(false);
+                  }
+                : null
+            }
             onInspectSlice={(deviceId) => {
               takeover();
               setSliceCheck({ deviceId, sourceId: null, previewId: null });
@@ -2107,6 +2117,15 @@ export function Workspace() {
                               有效覆盖 {reading.coveragePower}/{reading.count}
                             </small>
                           ))}
+                        {sources &&
+                          availableSourceMetrics.includes("power") && (
+                            <button
+                              className="reading-coverage-link"
+                              onClick={() => openSourceCheck("power")}
+                            >
+                              核对功耗预算 ↗
+                            </button>
+                          )}
                         {powerFacility && (
                           <small>关联设备汇总 · 非设施或支路计量</small>
                         )}

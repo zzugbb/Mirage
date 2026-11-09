@@ -2840,6 +2840,7 @@
   text-align: left;
 }
 .reading-sources {
+  scroll-margin-top: 56px;
   border-top: 1px solid var(--study-line);
   padding: 0 22px;
 }
@@ -4163,4 +4164,77 @@
 .workspace-ui .slice-evidence-view button {
   padding: 6px 8px;
   font-size: 11px;
+}
+
+.power-budget-summary {
+  padding: 10px;
+  margin-block: 10px;
+  border: 1px solid #ffffff18;
+  border-radius: 5px;
+  font-size: 10px;
+  color: #a7bac4;
+}
+.power-budget-summary header,
+.power-budget-summary dl > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+.power-budget-summary header strong {
+  font-weight: 500;
+}
+.power-budget-summary header b {
+  color: #e0e9eb;
+  font-size: 19px;
+  font-weight: 500;
+}
+.power-budget-summary p {
+  margin: 6px 0;
+  font-variant-numeric: tabular-nums;
+}
+.power-budget-summary small {
+  display: block;
+  font-size: 10px;
+  line-height: 1.65;
+}
+.power-budget-summary dl {
+  margin: 10px 0;
+}
+.power-budget-summary dl > div {
+  margin: 5px 0;
+}
+.power-budget-summary dd {
+  margin: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.workspace-ui .power-budget-summary button {
+  padding: 2px 0;
+  font-size: 10px;
+  color: #b3d7d7;
+}
+.power-budget-summary button[aria-pressed="true"] {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.power-budget-meter {
+  height: 5px;
+  background: #39434b;
+  margin-top: 8px;
+  overflow: hidden;
+  border-radius: 2px;
+}
+.power-budget-meter i {
+  display: block;
+  height: 100%;
+  background: #9cbec1;
+}
+.workspace-ui .power-budget-entry {
+  pointer-events: auto;
+  display: block;
+  margin-top: 6px;
+  padding: 5px 0;
+  font-size: 11px;
+  color: #c2dedf;
 }

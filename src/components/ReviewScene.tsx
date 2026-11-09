@@ -71,6 +71,7 @@ export function ReviewScene({
   onSliceViewChange,
   sliceInspection,
   onInspectSlice,
+  onInspectBudget,
   sliceControls,
   setSliceControls,
   layer,
@@ -104,6 +105,7 @@ export function ReviewScene({
     sourceId: string | null;
     deviceId: string;
   } | null;
+  onInspectBudget: (() => void) | null;
   onInspectSlice: (id: string) => void;
   state: AppState;
   unitRange?: RackUnitRange | null;
@@ -995,7 +997,7 @@ export function ReviewScene({
                   reading.budget > 0 && (
                     <em>
                       {((reading.power / reading.budget) * 100).toFixed(0)}%
-                      预算
+                      {reading.count > 1 ? "有效设备预算" : "预算"}
                     </em>
                   )}
               </button>
@@ -1180,7 +1182,7 @@ export function ReviewScene({
                             : "U 位色条 · 设备进风温度"
                           : state.level === "device"
                             ? "部件功耗 / 模型预算占比"
-                            : "机柜标尺 · 功耗 / 预算占比"}
+                            : "机柜标尺 · 有效输入 / 对应设备预算"}
                       </>
                     )}
                   </span>
@@ -1466,7 +1468,22 @@ export function ReviewScene({
                   )}
                 </div>
               )}
-              {layer === "power" && <small>灰色：数据或预算未定义</small>}
+              {layer === "power" && (
+                <>
+                  <small>灰色：数据或预算未定义</small>
+                  {onInspectBudget && (
+                    <button
+                      className="power-budget-entry"
+                      onClick={() => {
+                        engine.current?.preservePanelView();
+                        onInspectBudget();
+                      }}
+                    >
+                      核对所查范围功耗预算 ↗
+                    </button>
+                  )}
+                </>
+              )}
               {layer === "power" && supply && (
                 <div className="power-scene-key" aria-label="供电路径示意">
                   <strong>{supply.caption}</strong>

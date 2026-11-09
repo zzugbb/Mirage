@@ -1,3 +1,4 @@
+import { powerBudget, budgetRatio } from "./power-budget.ts";
 import {
   devices,
   deviceById,
@@ -71,6 +72,8 @@ export function readingSources(
           ? `运行状态：${lifecycleNames[reading.lifecycle]}`
           : "没有设备观测";
     return {
+      budget:
+        budgetRatio(0, device.budgetWatts) !== null ? device.budgetWatts : null,
       id: deviceId,
       name: device.name,
       rack: rackForDevice(deviceId).name,
@@ -89,6 +92,7 @@ export function readingSources(
   );
   const included = rows.filter((r) => r.included);
   return {
+    budget: metric === "power" ? powerBudget(rows) : null,
     sourceId: id,
     metric,
     rows,

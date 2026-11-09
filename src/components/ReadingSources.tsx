@@ -1,3 +1,5 @@
+import { budgetRatio } from "../power-budget";
+import { PowerBudgetSummary } from "./PowerBudgetSummary";
 import { useEffect, useRef } from "react";
 import {
   matchingSourceRows,
@@ -31,7 +33,10 @@ export function ReadingSources({
   const root = useRef<HTMLElement>(null);
   const opened = !!check;
   useEffect(() => {
-    if (opened) root.current?.scrollIntoView({ block: "nearest" });
+    if (opened) {
+      root.current?.scrollIntoView({ block: "nearest" });
+      root.current?.focus({ preventScroll: true });
+    }
   }, [opened]);
   const current: SourceCheck = check ?? {
     sourceId: sources.sourceId,
@@ -44,6 +49,7 @@ export function ReadingSources({
   return (
     <section
       ref={root}
+      tabIndex={-1}
       className="reading-sources"
       aria-label="汇总输入核对"
       onPointerDownCapture={onInteract}
@@ -102,6 +108,13 @@ export function ReadingSources({
               ? "整机进风为模拟读数，不含部件模型温度或设施送回风测点。"
               : "整机输入为模拟读数；A/B 关联按设备去重，不拆分到支路，也不是设施计量。"}
           </p>
+          {sources.budget && (
+            <PowerBudgetSummary
+              budget={sources.budget}
+              group={current.group}
+              onGroup={(group) => onChange({ ...current, group })}
+            />
+          )}
           <div
             className="reading-source-groups"
             role="group"
@@ -166,6 +179,14 @@ export function ReadingSources({
                       ? " · 当前最高"
                       : ""}
                   </small>
+                  {sources.metric === "power" && (
+                    <small className="reading-source-budget">
+                      配置预算 {sourceValue(row.budget, "power")}
+                      {budgetRatio(row.value, row.budget) !== null
+                        ? ` · 占比 ${(budgetRatio(row.value, row.budget)! * 100).toFixed(1)}%`
+                        : " · 无当前占比"}
+                    </small>
+                  )}
                   <small>{row.detail}</small>
                 </button>
               ))
