@@ -3861,3 +3861,49 @@
   margin-bottom: 8px;
   padding-inline: 0;
 }
+
+.airflow-stage-reading {
+  display: grid;
+  gap: 6px;
+  margin: 10px 0;
+  padding: 10px;
+  border-left: 2px solid #93c5cc;
+  background: #9dc5ce0c;
+  font-size: 11px;
+}
+.airflow-stage-reading > span {
+  line-height: 1.6;
+  color: #c0d7dc;
+}
+.airflow-stage-reading > small {
+  color: #9fb5bf;
+}
+.workspace-ui .airflow-stage-reading label {
+  justify-content: flex-start;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 4px;
+  cursor: pointer;
+}
+.workspace-ui .airflow-stage-reading input {
+  width: auto;
+  margin: 0;
+  accent-color: #a5d3d3;
+}
+
+.workspace-ui .airflow-observation-heading {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 10px;
+  font-size: 11px;
+}
+.airflow-observation-heading small {
+  color: #9fb5bf;
+  font-size: 10px;
+}
+.workspace-ui
+  .review-legend[data-flow-observation="true"][data-slice-visible="false"]
+  .temperature-disclosure-body {
+  max-height: min(510px, calc(100dvh - 300px));
+}

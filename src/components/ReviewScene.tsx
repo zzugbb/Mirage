@@ -9,6 +9,7 @@ import {
   airflowEndpointObject,
   type AirflowInspection,
 } from "../airflow-inspection";
+import { airflowStage } from "../airflow-stage";
 import { airflowViews, type AirflowView } from "../airflow-view";
 import { ModelLoadNotice } from "./ModelLoadNotice";
 import { initialModelLoads, type ModelAssetId } from "../model-loading";
@@ -138,6 +139,9 @@ export function ReviewScene({
   const [sceneSettled, setSceneSettled] = useState(false);
   const [roomViewSaved, setRoomViewSaved] = useState(false);
   const [flowView, setFlowView] = useState<AirflowView | null>(null);
+  const [flowSlice, setFlowSlice] = useState(false);
+  const stage = airflowStage(flowView);
+  const sliceVisible = !flowView || flowSlice;
   const [view, setView] = useState<View>("interior");
   const [quality, setQuality] = useState(true);
   const [supported, setSupported] = useState(false);
@@ -344,9 +348,11 @@ export function ReviewScene({
       };
       active.onAirflowView = (next) => {
         setFlowView(next);
+        if (!next) setFlowSlice(false);
         setView(active!.currentView);
       };
       setFlowView(null);
+      setFlowSlice(false);
       active.onRoomViewMemory = setRoomViewSaved;
       setRoomViewSaved(false);
       active.onAssets = setAssets;
@@ -469,8 +475,8 @@ export function ReviewScene({
     );
   }, [state, layer, readings, retry, ambientSelected]);
   useEffect(() => {
-    sliceGeometry.current?.update(slice);
-  }, [slice, retry]);
+    sliceGeometry.current?.update(sliceVisible ? slice : null);
+  }, [slice, sliceVisible, retry]);
   useEffect(() => {
     engine.current?.clearAirflowView();
   }, [
@@ -482,8 +488,8 @@ export function ReviewScene({
     retry,
   ]);
   useEffect(() => {
-    airflowGeometry.current?.update(airflow);
-  }, [airflow, retry]);
+    airflowGeometry.current?.update(airflow, flowView);
+  }, [airflow, flowView, retry]);
   useEffect(() => {
     maintenanceGeometry.current?.update(maintenance, comparison);
     if (engine.current) engine.current.comparedAisle = comparison;
@@ -517,20 +523,24 @@ export function ReviewScene({
               (p) => p.id === selectedId,
             ),
           ];
-  const labels = sceneLabels(ambientSelected ? [] : candidates, readings, {
-    level: state.level,
-    layer,
-    selectedId,
-    more: moreLabels,
-    estimates: slice?.rackEstimates,
-    hasPath: !!airflow || !!supply || network.length > 0,
-    annotatedIds: [
-      ...network.map((marker) => marker.partId ?? marker.deviceId),
-      ...(supply?.labels.flatMap((label) =>
-        label.partId ? [label.partId] : [],
-      ) ?? []),
-    ],
-  });
+  const labels = sceneLabels(
+    ambientSelected || !sliceVisible ? [] : candidates,
+    readings,
+    {
+      level: state.level,
+      layer,
+      selectedId,
+      more: moreLabels,
+      estimates: slice?.rackEstimates,
+      hasPath: !!airflow || !!supply || network.length > 0,
+      annotatedIds: [
+        ...network.map((marker) => marker.partId ?? marker.deviceId),
+        ...(supply?.labels.flatMap((label) =>
+          label.partId ? [label.partId] : [],
+        ) ?? []),
+      ],
+    },
+  );
   const selectedFixture =
     state.level === "room" && selectedId === state.selected
       ? layer === "overview"
@@ -541,6 +551,7 @@ export function ReviewScene({
     (selectedFixture?.id ?? "") +
     labels.map((r) => r.id).join(":") +
     (airflow?.routes.map((route) => route.id).join(":") ?? "") +
+    flowView +
     areaLabels.map((label) => label.id).join(":") +
     (supply?.labels.map((label) => label.id).join(":") ?? "") +
     (supply?.deviceId ?? "") +
@@ -670,6 +681,8 @@ export function ReviewScene({
       data-slice-row={slice?.rowId}
       data-slice-position={slice ? (slice.height ?? slice.distance) : undefined}
       data-airflow-view={flowView ?? ""}
+      data-airflow-stage={stage?.kind ?? ""}
+      data-slice-visible={sliceVisible && !!slice}
       data-airflow-inspection={airflowVisit?.deviceId ?? ""}
       data-airflow-targets={airflow?.routes
         .map((route) => route.deviceId)
@@ -822,19 +835,23 @@ export function ReviewScene({
             </div>
           ))}
           {airflow?.routes.flatMap((route) =>
-            route.endpoints.map((endpoint) => (
-              <div
-                key={`${route.id}-${endpoint.kind}`}
-                hidden
-                aria-hidden="true"
-                data-anchor={`${route.id}-${endpoint.kind}`}
-                data-anchor-kind="position"
-                data-anchor-position={endpoint.point.join(",")}
-                className={`review-flow-anchor review-airflow-endpoint flow-${endpoint.kind} ${route.animated ? "" : "is-static"}`}
-              >
-                <b>{endpoint.label}</b>
-              </div>
-            )),
+            route.endpoints
+              .filter(
+                (endpoint) => !stage || stage.endpoints.includes(endpoint.kind),
+              )
+              .map((endpoint) => (
+                <div
+                  key={`${route.id}-${endpoint.kind}`}
+                  hidden
+                  aria-hidden="true"
+                  data-anchor={`${route.id}-${endpoint.kind}`}
+                  data-anchor-kind="position"
+                  data-anchor-position={endpoint.point.join(",")}
+                  className={`review-flow-anchor review-airflow-endpoint flow-${endpoint.kind} ${route.animated ? "" : "is-static"}`}
+                >
+                  <b>{endpoint.label}</b>
+                </div>
+              )),
           )}
           {selectedFixture && (
             <button
@@ -951,18 +968,25 @@ export function ReviewScene({
               <line key={marker.id} data-flow-line={marker.id} />
             ))}
             {airflow?.routes.flatMap((route) =>
-              route.endpoints.map((endpoint) => (
-                <line
-                  key={`${route.id}-${endpoint.kind}`}
-                  data-flow-line={`${route.id}-${endpoint.kind}`}
-                />
-              )),
+              route.endpoints
+                .filter(
+                  (endpoint) =>
+                    !stage || stage.endpoints.includes(endpoint.kind),
+                )
+                .map((endpoint) => (
+                  <line
+                    key={`${route.id}-${endpoint.kind}`}
+                    data-flow-line={`${route.id}-${endpoint.kind}`}
+                  />
+                )),
             )}
           </svg>
         )}
         <div
           className={`review-legend ${slice ? "review-slice-legend" : ""}`}
           aria-label="当前图层图例"
+          data-flow-observation={!!flowView}
+          data-slice-visible={sliceVisible}
         >
           {network.length > 0 && networkLink && (
             <div className="network-scene-key">
@@ -1037,153 +1061,168 @@ export function ReviewScene({
             </div>
           ) : (
             <>
-              <span className={slice ? "review-slice-heading" : undefined}>
-                {slice ? (
-                  <>
-                    <span>进风温度</span>
-                    <select
-                      aria-label="温度切片方向"
-                      value={sliceControls.orientation}
-                      onChange={(event) => {
-                        onTakeover();
-                        setSliceControls((current) => ({
-                          ...current,
-                          orientation: event.target.value as SliceOrientation,
-                        }));
-                      }}
-                    >
-                      <option value="horizontal">水平切片</option>
-                      <option value="vertical">垂直切片</option>
-                    </select>
-                    {slice.orientation === "vertical" && (
-                      <select
-                        aria-label="温度切片机柜排"
-                        value={sliceControls.rowId}
-                        onChange={(event) => {
-                          onTakeover();
-                          setSliceControls((current) => ({
-                            ...current,
-                            rowId: event.target.value,
-                          }));
-                        }}
-                      >
-                        {sliceRackRows.map((row) => (
-                          <option key={row.id} value={row.id}>
-                            {row.name}
-                          </option>
-                        ))}
-                      </select>
+              {!sliceVisible && (
+                <div className="airflow-observation-heading">
+                  <strong>气流分段观察</strong>
+                  <small>进风切片已暂收 · 返回原视角时恢复</small>
+                </div>
+              )}
+              {sliceVisible && (
+                <>
+                  <span className={slice ? "review-slice-heading" : undefined}>
+                    {slice ? (
+                      <>
+                        <span>进风温度</span>
+                        <select
+                          aria-label="温度切片方向"
+                          value={sliceControls.orientation}
+                          onChange={(event) => {
+                            onTakeover();
+                            setSliceControls((current) => ({
+                              ...current,
+                              orientation: event.target
+                                .value as SliceOrientation,
+                            }));
+                          }}
+                        >
+                          <option value="horizontal">水平切片</option>
+                          <option value="vertical">垂直切片</option>
+                        </select>
+                        {slice.orientation === "vertical" && (
+                          <select
+                            aria-label="温度切片机柜排"
+                            value={sliceControls.rowId}
+                            onChange={(event) => {
+                              onTakeover();
+                              setSliceControls((current) => ({
+                                ...current,
+                                rowId: event.target.value,
+                              }));
+                            }}
+                          >
+                            {sliceRackRows.map((row) => (
+                              <option key={row.id} value={row.id}>
+                                {row.name}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        {layer === "environment"
+                          ? state.level === "device"
+                            ? "表面温度 · °C · 模型推导"
+                            : "U 位色条 · 设备进风温度"
+                          : state.level === "device"
+                            ? "部件功耗 / 模型预算占比"
+                            : "机柜标尺 · 功耗 / 预算占比"}
+                      </>
                     )}
-                  </>
-                ) : (
-                  <>
-                    {layer === "environment"
-                      ? state.level === "device"
-                        ? "表面温度 · °C · 模型推导"
-                        : "U 位色条 · 设备进风温度"
-                      : state.level === "device"
-                        ? "部件功耗 / 模型预算占比"
-                        : "机柜标尺 · 功耗 / 预算占比"}
-                  </>
-                )}
-              </span>
-              <i className={`review-scale ${layer}`} />
-              <div>
-                <span>{layer === "environment" ? "20 °C" : "0%"}</span>
-                <span>
-                  {layer === "environment"
-                    ? state.level === "device"
-                      ? "80 °C"
-                      : "45 °C"
-                    : "100%"}
-                </span>
-              </div>
-              {layer === "environment" && (
-                <small>
-                  {slice
-                    ? slice.orientation === "horizontal"
-                      ? "局部插值示意 · 空白无估计"
-                      : `高 ${sliceSettings.height.min.toFixed(2)}–${sliceSettings.height.max.toFixed(2)} m · 插值示意 · 空白无估计`
-                    : "蓝色低温 → 暖色高温"}
-                </small>
+                  </span>
+                  <i className={`review-scale ${layer}`} />
+                  <div>
+                    <span>{layer === "environment" ? "20 °C" : "0%"}</span>
+                    <span>
+                      {layer === "environment"
+                        ? state.level === "device"
+                          ? "80 °C"
+                          : "45 °C"
+                        : "100%"}
+                    </span>
+                  </div>
+                  {layer === "environment" && (
+                    <small>
+                      {slice
+                        ? slice.orientation === "horizontal"
+                          ? "局部插值示意 · 空白无估计"
+                          : `高 ${sliceSettings.height.min.toFixed(2)}–${sliceSettings.height.max.toFixed(2)} m · 插值示意 · 空白无估计`
+                        : "蓝色低温 → 暖色高温"}
+                    </small>
+                  )}
+                </>
               )}
               {slice && (
                 <div
                   className="review-slice-controls"
                   aria-label="温度切片控制"
                 >
-                  <label htmlFor="temperature-slice-position">
-                    {slice.orientation === "horizontal"
-                      ? "切片高度"
-                      : "距机柜正面"}{" "}
-                    <output htmlFor="temperature-slice-position">
-                      {(slice.height ?? slice.distance).toFixed(2)} m
-                    </output>
-                  </label>
-                  <input
-                    id="temperature-slice-position"
-                    type="range"
-                    aria-label={
-                      slice.orientation === "horizontal"
-                        ? "温度切片高度"
-                        : "垂直切片离柜距离"
-                    }
-                    aria-valuetext={`${(slice.height ?? slice.distance).toFixed(2)} 米`}
-                    min={positionSettings.min}
-                    max={positionSettings.max}
-                    step={positionSettings.step}
-                    value={slice.height ?? slice.distance}
-                    onChange={(event) => {
-                      onTakeover();
-                      const value = Number(event.target.value);
-                      setSliceControls((current) =>
-                        slice.orientation === "horizontal"
-                          ? { ...current, height: value }
-                          : { ...current, distance: value },
-                      );
-                    }}
-                  />
-                  <SliceInputPreview
-                    key={`${shotRevision}:${slice.orientation}:${slice.rowId}:${slice.height ?? slice.distance}`}
-                    slice={slice}
-                    readings={readings}
-                    onTakeover={onTakeover}
-                    selectedId={selectedId}
-                    onPreview={(id) => {
-                      engine.current?.preservePanelView();
-                      const restore = onPreviewInput(id);
-                      return () => {
-                        engine.current?.preservePanelView();
-                        restore();
-                      };
-                    }}
-                  />
-                  <SliceDeviceContext
-                    key={`${shotRevision}:${selectedId}`}
-                    selectedId={selectedId}
-                    onInteract={onTakeover}
-                    controls={sliceControls}
-                    slice={slice}
-                    readings={readings}
-                    onChange={(next) => {
-                      onTakeover();
-                      setSliceControls(next);
-                    }}
-                  />
-                  <TemperatureDisclosure
-                    className="environment-disclosure"
-                    summary="环境测点 · 2 处"
-                    onInteract={onTakeover}
-                  >
-                    <EnvironmentProbeList
-                      time={state.time}
-                      selected={selectedId}
-                      onSelect={(id, enter) => {
-                        if (!enter) engine.current?.preservePanelView();
-                        onSelect(id, enter);
-                      }}
-                    />
-                  </TemperatureDisclosure>
+                  {sliceVisible && (
+                    <>
+                      <label htmlFor="temperature-slice-position">
+                        {slice.orientation === "horizontal"
+                          ? "切片高度"
+                          : "距机柜正面"}{" "}
+                        <output htmlFor="temperature-slice-position">
+                          {(slice.height ?? slice.distance).toFixed(2)} m
+                        </output>
+                      </label>
+                      <input
+                        id="temperature-slice-position"
+                        type="range"
+                        aria-label={
+                          slice.orientation === "horizontal"
+                            ? "温度切片高度"
+                            : "垂直切片离柜距离"
+                        }
+                        aria-valuetext={`${(slice.height ?? slice.distance).toFixed(2)} 米`}
+                        min={positionSettings.min}
+                        max={positionSettings.max}
+                        step={positionSettings.step}
+                        value={slice.height ?? slice.distance}
+                        onChange={(event) => {
+                          onTakeover();
+                          const value = Number(event.target.value);
+                          setSliceControls((current) =>
+                            slice.orientation === "horizontal"
+                              ? { ...current, height: value }
+                              : { ...current, distance: value },
+                          );
+                        }}
+                      />
+                      <SliceInputPreview
+                        key={`${shotRevision}:${slice.orientation}:${slice.rowId}:${slice.height ?? slice.distance}`}
+                        slice={slice}
+                        readings={readings}
+                        onTakeover={onTakeover}
+                        selectedId={selectedId}
+                        onPreview={(id) => {
+                          engine.current?.preservePanelView();
+                          const restore = onPreviewInput(id);
+                          return () => {
+                            engine.current?.preservePanelView();
+                            restore();
+                          };
+                        }}
+                      />
+                      <SliceDeviceContext
+                        key={`${shotRevision}:${selectedId}`}
+                        selectedId={selectedId}
+                        onInteract={onTakeover}
+                        controls={sliceControls}
+                        slice={slice}
+                        readings={readings}
+                        onChange={(next) => {
+                          onTakeover();
+                          setSliceControls(next);
+                        }}
+                      />
+                      <TemperatureDisclosure
+                        className="environment-disclosure"
+                        summary="环境测点 · 2 处"
+                        onInteract={onTakeover}
+                      >
+                        <EnvironmentProbeList
+                          time={state.time}
+                          selected={selectedId}
+                          onSelect={(id, enter) => {
+                            if (!enter) engine.current?.preservePanelView();
+                            onSelect(id, enter);
+                          }}
+                        />
+                      </TemperatureDisclosure>
+                    </>
+                  )}
                   {airflow && (
                     <TemperatureDisclosure
                       className="review-flow-explanation"
@@ -1216,15 +1255,22 @@ export function ReviewScene({
                       summary={
                         <>
                           气流路径 ·{" "}
-                          {airflowVisit
-                            ? "端点核对"
-                            : airflow.routes[0]?.animated
-                              ? "代表支路"
-                              : "静态示意"}
+                          {stage
+                            ? stage.title.split(" · ")[1]
+                            : airflowVisit
+                              ? "端点核对"
+                              : airflow.routes[0]?.animated
+                                ? "代表支路"
+                                : "静态示意"}
                         </>
                       }
                     >
                       <p>{airflow.label}</p>
+                      {!flowView && (
+                        <p>
+                          分段观察强调当前段并暂收切片，其他段保留淡线；手动旋转或定位结束观察。
+                        </p>
+                      )}
                       {airflowVisit && (
                         <p>预览保留本支路；定位结束核对，转为对象观察。</p>
                       )}
@@ -1263,6 +1309,39 @@ export function ReviewScene({
                               返回原视角
                             </button>
                           )}
+                        </div>
+                      )}
+                      {flowView && (
+                        <div
+                          className="airflow-stage-reading"
+                          aria-label="当前气流观察段"
+                        >
+                          <strong aria-live="polite">
+                            {stage?.title ?? "全路径 · 送风到回风"}
+                          </strong>
+                          <span>
+                            {stage?.direction ??
+                              "送风 → 格栅 → 设备 → 回风假设"}
+                          </span>
+                          <small>
+                            {entityById(airflow.routes[0].deviceId)?.name} ·{" "}
+                            {airflow.routes[0].status} · t+{state.time}s
+                          </small>
+                          <p>
+                            {stage?.boundary ??
+                              "同一条配置代表支路；送风连续、回风分段，箭头表示假设方向。"}
+                          </p>
+                          <label>
+                            <input
+                              type="checkbox"
+                              checked={flowSlice}
+                              onChange={(event) => {
+                                onTakeover();
+                                setFlowSlice(event.target.checked);
+                              }}
+                            />
+                            叠加进风切片
+                          </label>
                         </div>
                       )}
                       <ol aria-label="气流端点与读数">

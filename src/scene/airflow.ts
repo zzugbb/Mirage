@@ -3,6 +3,8 @@ import { floorGrilleSettings as grille } from "../floor-grilles.ts";
 import * as THREE from "three";
 import { airflowSettings, flowPoint } from "../airflow.ts";
 import type { AirflowSnapshot, FlowKind, FlowPoint } from "../airflow.ts";
+import { airflowStageEmphasis } from "../airflow-stage.ts";
+import type { AirflowView } from "../airflow-view.ts";
 import { sliceRackRows } from "../temperature-slice.ts";
 
 const kinds: FlowKind[] = ["supply", "through", "return"];
@@ -97,6 +99,7 @@ export class AirflowGeometry {
   up = new THREE.Vector3(0, 1, 0);
   key = "";
   enabled = false;
+  view: AirflowView | null = null;
   constructor() {
     this.root.visible = false;
     this.endpoints.count = 0;
@@ -127,7 +130,8 @@ export class AirflowGeometry {
       .fromArray(path.points[index])
       .lerp(this.next.fromArray(path.points[index + 1]), scaled - index);
   }
-  update(snapshot: AirflowSnapshot | null) {
+  update(snapshot: AirflowSnapshot | null, view: AirflowView | null = null) {
+    this.view = view;
     this.enabled = !!snapshot?.routes.length;
     this.root.visible = this.enabled;
     if (!snapshot) {
@@ -146,6 +150,7 @@ export class AirflowGeometry {
           ? airflowSettings.colors.supply
           : airflowSettings.colors.unknown,
       );
+      color.multiplyScalar(airflowStageEmphasis(view, "supply"));
       this.transform.rotation.set(0, 0, 0);
       for (const side of [-1, 1]) {
         for (const horizontal of [false, true]) {
@@ -185,6 +190,12 @@ export class AirflowGeometry {
           route.animated
             ? airflowSettings.colors[index === 0 ? "through" : "return"]
             : airflowSettings.colors.unknown,
+        );
+        faceColor.multiplyScalar(
+          Math.max(
+            airflowStageEmphasis(view, "through"),
+            airflowStageEmphasis(view, index === 0 ? "supply" : "return"),
+          ),
         );
         this.transform.rotation.set(0, 0, 0);
         for (const side of [-1, 1]) {
@@ -229,7 +240,7 @@ export class AirflowGeometry {
             route.animated
               ? airflowSettings.colors[endpoint.kind]
               : airflowSettings.colors.unknown,
-          ),
+          ).multiplyScalar(airflowStageEmphasis(view, endpoint.kind)),
         );
       }
     }
@@ -323,8 +334,12 @@ export class AirflowGeometry {
         batch.arrows.instanceColor.needsUpdate = true;
     }
     this.batches.forEach((batch) => {
+      const emphasis = airflowStageEmphasis(view, batch.kind);
       batch.band.material.opacity =
-        batch.kind === "supply" ? 0.55 + snapshot.coolingCapacity * 0.003 : 0.7;
+        (batch.kind === "supply"
+          ? 0.55 + snapshot.coolingCapacity * 0.003
+          : 0.7) * emphasis;
+      batch.arrows.material.opacity = 0.72 * emphasis;
     });
     this.animate(snapshot.time, false, true);
   }
@@ -335,7 +350,12 @@ export class AirflowGeometry {
       batch.sparks.visible = !reducedMotion;
       let count = 0;
       for (const path of batch.paths) {
-        if (!path.animated || reducedMotion) continue;
+        if (
+          !path.animated ||
+          reducedMotion ||
+          airflowStageEmphasis(this.view, batch.kind) < 1
+        )
+          continue;
         const particles = batch.kind === "through" ? 2 : 3;
         for (let i = 0; i < particles; i++) {
           const t =
