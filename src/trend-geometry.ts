@@ -30,11 +30,17 @@ export function trendGeometry(
   time: number,
   width: number,
   height: number,
+  comparison: ReviewPoint[] = [],
 ) {
   const points = series.filter((point) => point.time <= time);
-  const values = points.flatMap((point) =>
-    point.value === null ? [] : [point.value],
-  );
+  const valid = (point: ReviewPoint) =>
+    point.quality === "valid" &&
+    point.value !== null &&
+    Number.isFinite(point.value);
+  const values = [
+    ...points,
+    ...comparison.filter((point) => point.time <= time),
+  ].flatMap((point) => (valid(point) ? [point.value!] : []));
   const lo = values.length ? Math.min(...values) : 0,
     hi = values.length ? Math.max(...values) : 1;
   const celsius = ["temperature", "ambientTemperature", "dewPoint"].includes(
@@ -52,11 +58,11 @@ export function trendGeometry(
   let path = "",
     connected = false;
   for (const point of points) {
-    if (point.value === null) {
+    if (!valid(point)) {
       connected = false;
       continue;
     }
-    path += `${connected ? "L" : "M"}${x(point.time).toFixed(1)},${y(point.value).toFixed(1)} `;
+    path += `${connected ? "L" : "M"}${x(point.time).toFixed(1)},${y(point.value!).toFixed(1)} `;
     connected = true;
   }
   const kilowatts = metric === "power" && hi >= 1000;

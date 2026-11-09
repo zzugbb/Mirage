@@ -21,7 +21,11 @@ export function ReviewTrend({
   events = [],
   onInspect,
   onSeek,
+  comparison,
+  seriesLabel,
 }: {
+  comparison?: { series: ReviewPoint[]; label: string };
+  seriesLabel?: string;
   series: ReviewPoint[];
   metric: TrendMetric;
   time: number;
@@ -31,24 +35,42 @@ export function ReviewTrend({
   onInspect?: (time: number | null) => void;
   onSeek?: (time: number) => void;
 }) {
+  const compared = !!comparison;
   const scrub = useRef<TrendScrub | null>(null);
   const host = useRef<HTMLDivElement>(null),
     [width, setWidth] = useState(280),
-    [height, setHeight] = useState(compact ? 100 : 82),
+    [height, setHeight] = useState(compared ? 140 : compact ? 100 : 82),
     id = useId();
   useEffect(() => {
     const observer = new ResizeObserver(([entry]) => {
       setWidth(Math.max(180, entry.contentRect.width));
       setHeight(
-        compact ? 100 : matchMedia("(max-width: 600px)").matches ? 110 : 82,
+        compared
+          ? 140
+          : compact
+            ? 100
+            : matchMedia("(max-width: 600px)").matches
+              ? 110
+              : 82,
       );
     });
     observer.observe(host.current!);
     return () => observer.disconnect();
-  }, [compact]);
-  const chart = trendGeometry(series, metric, time, width, height);
+  }, [compact, compared]);
+  const chart = trendGeometry(
+    series,
+    metric,
+    time,
+    width,
+    height,
+    comparison?.series,
+  );
+  const secondChart = comparison
+    ? trendGeometry(comparison.series, metric, time, width, height, series)
+    : null;
   const cursor = Math.max(0, Math.min(time, cursorTime));
   const point = series[cursor];
+  const secondPoint = comparison?.series[cursor];
   const pointerTime = (e: {
     clientX: number;
     currentTarget: SVGSVGElement;
@@ -92,7 +114,9 @@ export function ReviewTrend({
           role={onSeek ? "slider" : "img"}
           tabIndex={onSeek ? 0 : undefined}
           aria-label={
-            onSeek ? `${trendMetricNames[metric]}曲线时间` : undefined
+            onSeek
+              ? `${seriesLabel ?? trendMetricNames[metric]}曲线时间`
+              : undefined
           }
           aria-labelledby={onSeek ? undefined : id}
           aria-describedby={onSeek ? id : undefined}
@@ -157,7 +181,7 @@ export function ReviewTrend({
         >
           <title
             id={id}
-          >{`所选对象${trendMetricNames[metric]}趋势，显示至第 ${time} 秒；空缺不按零值连线。${onSeek ? "点击或横向拖动回看；左右方向键逐秒移动，Shift 加速，Home/End 跳至起止。" : ""}`}</title>
+          >{`${seriesLabel ?? `所选对象${trendMetricNames[metric]}`}趋势，显示至第 ${time} 秒；空缺不按零值连线。${comparison ? `${comparison.label} 为基准虚线，两条曲线共用刻度。` : ""}${onSeek ? "点击或横向拖动回看；左右方向键逐秒移动，Shift 加速，Home/End 跳至起止。" : ""}`}</title>
           {!chart.empty && (
             <>
               {chart.ticks.map((t) => (
@@ -194,6 +218,23 @@ export function ReviewTrend({
             </text>
           ))}
           <path d={chart.path} className="review-series" />
+          {secondChart && (
+            <path
+              d={secondChart.path}
+              className="review-series comparison-series"
+            />
+          )}
+          {secondPoint?.quality === "valid" &&
+            secondPoint.value !== null &&
+            Number.isFinite(secondPoint.value) &&
+            secondChart && (
+              <circle
+                className="comparison-point"
+                cx={chart.x(cursor)}
+                cy={secondChart.y(secondPoint.value)}
+                r="3"
+              />
+            )}
           <line
             className="review-cursor"
             x1={chart.x(time)}
@@ -210,9 +251,11 @@ export function ReviewTrend({
               y2={chart.bottom}
             />
           )}
-          {point?.value != null && (
-            <circle cx={chart.x(cursor)} cy={chart.y(point.value)} r="3" />
-          )}
+          {point?.quality === "valid" &&
+            point.value != null &&
+            Number.isFinite(point.value) && (
+              <circle cx={chart.x(cursor)} cy={chart.y(point.value)} r="3" />
+            )}
           {chart.empty && (
             <text
               className="review-empty-chart"

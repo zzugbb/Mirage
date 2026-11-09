@@ -8,6 +8,8 @@ const valueText = (value: number | null) =>
 
 export function InletOverview({
   readings,
+  visible,
+  restoreRevision,
   rackId,
   query,
   selected,
@@ -20,8 +22,13 @@ export function InletOverview({
   onInspect,
   onDetails,
   onAnalyze,
+  referenceId,
+  onReference,
+  onCompare,
 }: {
   readings: Map<string, SpatialReading>;
+  visible: boolean;
+  restoreRevision: number;
   rackId: string;
   query: string;
   selected: string;
@@ -34,14 +41,20 @@ export function InletOverview({
   onInspect: (id: string, internal: boolean) => void;
   onDetails: () => void;
   onAnalyze: () => void;
+  referenceId: string | null;
+  onReference: (id: string | null) => void;
+  onCompare: (id: string) => void;
 }) {
   const all = useMemo(() => inletOverview(readings, query), [readings, query]);
   const current = all.find((r) => r.rack.id === rackId) ?? all[0];
   const device = all.flatMap((r) => r.rows).find((d) => d.id === selected);
+  const reference = all
+    .flatMap((r) => r.rows)
+    .find((d) => d.id === referenceId);
   const host = useRef<HTMLDivElement>(null);
   const pattern = useId().replace(/:/g, "");
   useLayoutEffect(() => {
-    if (host.current) {
+    if (visible && host.current) {
       host.current.scrollTop = scroll.current;
       const selectedButton =
         host.current.querySelector<HTMLButtonElement>(
@@ -52,14 +65,14 @@ export function InletOverview({
         );
       selectedButton?.focus({ preventScroll: true });
     }
-  }, [scroll]);
+  }, [scroll, visible, restoreRevision]);
   return (
     <section className="inlet-overview" aria-label="机房进风对照">
       <div
         className="inlet-overview-scroll"
         ref={host}
         onScroll={(e) => {
-          scroll.current = e.currentTarget.scrollTop;
+          if (visible) scroll.current = e.currentTarget.scrollTop;
         }}
       >
         <header>
@@ -194,6 +207,17 @@ export function InletOverview({
         </p>
       </div>
       <div className="inlet-overview-selection" aria-label="进风对照当前对象">
+        {reference && (
+          <div className="inlet-reference">
+            <span>基准 {reference.name}</span>
+            <button
+              aria-label="清除进风对照基准"
+              onClick={() => onReference(null)}
+            >
+              ×
+            </button>
+          </div>
+        )}
         {device ? (
           <>
             <strong>
@@ -225,7 +249,25 @@ export function InletOverview({
             </button>
           )}
           <button onClick={onDetails}>详情</button>
-          <button onClick={onAnalyze}>分析</button>
+          {device && reference && device.id !== reference.id ? (
+            <button onClick={() => onCompare(device.id)}>对照分析</button>
+          ) : (
+            <button onClick={onAnalyze}>分析</button>
+          )}
+          {device && (
+            <button
+              aria-pressed={referenceId === device.id}
+              onClick={() =>
+                onReference(referenceId === device.id ? null : device.id)
+              }
+            >
+              {referenceId === device.id
+                ? "取消基准"
+                : reference
+                  ? "替换基准"
+                  : "固定为基准"}
+            </button>
+          )}
         </div>
       </div>
     </section>

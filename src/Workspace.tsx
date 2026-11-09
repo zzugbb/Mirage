@@ -1,3 +1,4 @@
+import { InletPairAnalysis } from "./components/InletPairAnalysis";
 import { InletOverview } from "./components/InletOverview";
 import { NetworkOverview } from "./components/NetworkOverview";
 import { environmentProbe } from "./environment-monitoring";
@@ -74,7 +75,11 @@ import {
   coolingSummary,
   roomAirflowTarget,
 } from "./cooling";
-import { alignAirflowSlice, initialSliceControls } from "./temperature-slice";
+import {
+  alignAirflowSlice,
+  initialSliceControls,
+  type SliceControls,
+} from "./temperature-slice";
 import { coolingCapacityAt } from "./simulation";
 import { ResourceActions } from "./components/ResourceActions";
 import { ReviewScene } from "./components/ReviewScene";
@@ -173,11 +178,15 @@ export function Workspace() {
   const navigationRef = useRef<HTMLElement>(null);
   const navigationOpenerRef = useRef<HTMLButtonElement>(null);
   const previousNav = useRef(nav);
+  const skipNavigationSearch = useRef(false);
   useEffect(() => {
     if (previousNav.current === nav) return;
     previousNav.current = nav;
-    if (nav) navigationRef.current?.querySelector("input")?.focus();
-    else if (navigationRef.current?.contains(document.activeElement))
+    if (nav) {
+      if (!skipNavigationSearch.current)
+        navigationRef.current?.querySelector("input")?.focus();
+      skipNavigationSearch.current = false;
+    } else if (navigationRef.current?.contains(document.activeElement))
       navigationOpenerRef.current?.focus();
   }, [nav]);
   const [inspector, setInspector] = useState(false);
@@ -221,6 +230,14 @@ export function Workspace() {
   const [inletSelection, setInletSelection] = useState("rack-a01");
   const inletScroll = useRef(0);
   const inletSlice = useRef(initialSliceControls());
+  const [inletRestoreRevision, setInletRestoreRevision] = useState(0);
+  const [inletReference, setInletReference] = useState<string | null>(null);
+  const [inletPair, setInletPair] = useState<{
+    firstId: string;
+    secondId: string;
+    slice: SliceControls;
+    scroll: number;
+  } | null>(null);
   const [inletSession, setInletSession] = useState(false);
   useEffect(() => {
     if (state.level !== "room") return;
@@ -287,6 +304,15 @@ export function Workspace() {
     : entity.kind === "device"
       ? selected
       : null;
+  const pairedInlet =
+    inletPair &&
+    inletId &&
+    [inletPair.firstId, inletPair.secondId].includes(inletId)
+      ? inletPair
+      : null;
+  useEffect(() => {
+    if (inletPair && !pairedInlet) setInletPair(null);
+  }, [inletPair, pairedInlet]);
   const powerFacility = isPowerFacility(selected);
   const coolingFacility = isCoolingSource(selected);
   const associatedDevices = useMemo(
@@ -471,6 +497,20 @@ export function Workspace() {
     setInspector(true);
     if (matchMedia("(max-width: 1099px)").matches) setNav(false);
   };
+  const returnInletOverview = () => {
+    skipNavigationSearch.current = !nav;
+    if (inletPair) inletScroll.current = inletPair.scroll;
+    setInletRestoreRevision((value) => value + 1);
+    setRackView("inlet");
+    setSliceControls(inletPair?.slice ?? inletSlice.current);
+    control({ type: "room-airflow", id: inletPair?.firstId ?? inletSelection });
+    if (inletPair) {
+      setInletSelection(inletPair.firstId);
+      setInletPair(null);
+      control({ type: "analysis", value: false });
+    }
+    setNav(true);
+  };
   useEffect(() => {
     if (
       (review.pendingId || review.pendingEndpoint) &&
@@ -529,6 +569,8 @@ export function Workspace() {
     setRackView("installation");
     setSpaceSize(2);
     setComparisonSize(2);
+    setInletReference(null);
+    setInletPair(null);
     setInletSession(false);
     setInletRack("rack-a01");
     setInletQuery("");
@@ -824,12 +866,7 @@ export function Workspace() {
             <button
               className="study-parent"
               disabled={!ready}
-              onClick={() => {
-                setRackView("inlet");
-                setSliceControls(inletSlice.current);
-                control({ type: "room-airflow", id: inletSelection });
-                setNav(true);
-              }}
+              onClick={returnInletOverview}
             >
               ← 返回机房进风对照
             </button>
@@ -928,6 +965,25 @@ export function Workspace() {
           )}
           {state.level === "room" && rackView === "inlet" ? (
             <InletOverview
+              visible={nav}
+              restoreRevision={inletRestoreRevision}
+              referenceId={inletReference}
+              onReference={(id) => {
+                setInletReference(id);
+                setInletPair(null);
+              }}
+              onCompare={(id) => {
+                if (!inletReference || inletReference === id) return;
+                setInletPair({
+                  firstId: id,
+                  secondId: inletReference,
+                  slice: sliceControls,
+                  scroll: inletScroll.current,
+                });
+                setInletSelection(id);
+                inletSlice.current = sliceControls;
+                analyze();
+              }}
               readings={spatial.readings}
               rackId={inletRack}
               query={inletQuery}
@@ -1606,7 +1662,7 @@ export function Workspace() {
                   />
                 </div>
                 {sourceInspector}
-                {inletId && (
+                {inletId && !pairedInlet && (
                   <InletAssessment
                     reading={spatial.readings.get(inletId)!}
                     sample={spatial.samples.get(inletId)!}
@@ -1636,6 +1692,29 @@ export function Workspace() {
                     analysis
                     onPreview={pick}
                     onLocate={focus}
+                  />
+                ) : pairedInlet ? (
+                  <InletPairAnalysis
+                    key={`${pairedInlet.firstId}:${pairedInlet.secondId}`}
+                    firstId={pairedInlet.firstId}
+                    secondId={pairedInlet.secondId}
+                    time={state.time}
+                    cycle={state.replayCycle}
+                    selectedId={inletId}
+                    ready={ready}
+                    eventHeading={eventHeading}
+                    onSeek={(time) => dispatch({ type: "seek", time })}
+                    onPreview={(id) => {
+                      pick(id);
+                      const target = roomAirflowTarget(id, state.deviceId);
+                      setSliceControls((current) =>
+                        alignAirflowSlice(current, target?.rowId ?? null),
+                      );
+                    }}
+                    onLocate={locateEventDevice}
+                    onAirflow={showAirflow}
+                    onClose={() => setInletPair(null)}
+                    onReturn={returnInletOverview}
                   />
                 ) : (
                   <ReviewAnalysis

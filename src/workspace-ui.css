@@ -3732,3 +3732,132 @@
   font-size: 9px;
   white-space: nowrap;
 }
+
+.inlet-overview-selection .inlet-reference {
+  margin: 0 0 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #40535c;
+  padding-bottom: 6px;
+  color: #bbc3db;
+}
+.workspace-ui .inlet-reference button {
+  min-height: 24px;
+  padding: 0 6px;
+  border: 0;
+}
+.inlet-pair-analysis {
+  padding: 0 20px 20px;
+}
+.inlet-pair-analysis > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 10px 0 4px;
+}
+.inlet-pair-analysis > header strong {
+  font-size: 13px;
+}
+.inlet-pair-analysis > header button {
+  color: #a9c9ce;
+  font-size: 11px;
+}
+.workspace-ui .inlet-pair-time {
+  color: #93aab7;
+  font-size: 11px;
+  margin: 0 0 16px;
+}
+.inlet-pair-readings {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.inlet-pair-readings > div {
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid #34434e;
+  border-top: 2px solid #b2d8d6;
+  border-radius: 4px;
+}
+.inlet-pair-readings > .pair-reference {
+  border-top: 2px dashed #b7b9dc;
+}
+.inlet-pair-readings > div[aria-current="true"] {
+  background: #233139;
+}
+.inlet-pair-readings strong,
+.inlet-pair-readings small,
+.inlet-pair-label {
+  display: block;
+}
+.inlet-pair-label {
+  font-size: 10px;
+  color: #9db1bd;
+  margin-bottom: 7px;
+}
+.inlet-pair-readings small {
+  font-size: 10px;
+  color: #a3b4bf;
+  line-height: 1.6;
+}
+.inlet-pair-value {
+  display: block;
+  color: #c1dfde;
+  font-size: 21px;
+  font-weight: 500;
+  margin: 10px 0 6px;
+}
+.pair-reference .inlet-pair-value {
+  color: #c4c5df;
+}
+.inlet-pair-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-top: 8px;
+}
+.workspace-ui .inlet-pair-actions button {
+  padding: 2px 4px;
+  min-height: 28px;
+  font-size: 10px;
+  color: #b4c9d3;
+  border: 1px solid #40515c;
+  border-radius: 3px;
+}
+.inlet-pair-difference {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  margin: 14px 0 8px;
+  font-size: 12px;
+}
+.inlet-pair-difference strong {
+  font-size: 17px;
+  font-weight: 500;
+}
+.inlet-pair-difference small {
+  grid-column: 1/-1;
+  color: #91a9b7;
+  font-size: 10px;
+  margin-top: 4px;
+}
+.workspace-ui .inlet-pair-boundary {
+  color: #91a9b7;
+  line-height: 1.7;
+  font-size: 10px;
+  margin: 8px 0;
+}
+.workspace-ui .review-trend .comparison-series {
+  stroke: #b7b9dc;
+  stroke-dasharray: 5 4;
+}
+.workspace-ui .review-trend .comparison-point {
+  fill: #b7b9dc;
+}
+.workspace-ui .inlet-pair-return {
+  color: #b2d8d6;
+  font-size: 11px;
+  margin-bottom: 8px;
+  padding-inline: 0;
+}
