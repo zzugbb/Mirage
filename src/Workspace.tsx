@@ -1,3 +1,4 @@
+import { InletOverview } from "./components/InletOverview";
 import { NetworkOverview } from "./components/NetworkOverview";
 import { environmentProbe } from "./environment-monitoring";
 import { EnvironmentDetails } from "./components/EnvironmentDetails";
@@ -213,8 +214,19 @@ export function Workspace() {
       : null;
   const [query, setQuery] = useState("");
   const [rackView, setRackView] = useState<
-    "list" | "installation" | "space" | "network"
+    "list" | "installation" | "space" | "network" | "inlet"
   >("installation");
+  const [inletRack, setInletRack] = useState("rack-a01");
+  const [inletQuery, setInletQuery] = useState("");
+  const [inletSelection, setInletSelection] = useState("rack-a01");
+  const inletScroll = useRef(0);
+  const inletSlice = useRef(initialSliceControls());
+  const [inletSession, setInletSession] = useState(false);
+  useEffect(() => {
+    if (state.level !== "room") return;
+    setInletSession(rackView === "inlet");
+    if (rackView === "inlet") inletSlice.current = sliceControls;
+  }, [state.level, rackView, sliceControls]);
   const [networkMapRack, setNetworkMapRack] = useState("rack-a01");
   const [networkMapQuery, setNetworkMapQuery] = useState("");
   const [networkMapLink, setNetworkMapLink] = useState<string | null>(null);
@@ -517,6 +529,11 @@ export function Workspace() {
     setRackView("installation");
     setSpaceSize(2);
     setComparisonSize(2);
+    setInletSession(false);
+    setInletRack("rack-a01");
+    setInletQuery("");
+    setInletSelection("rack-a01");
+    inletScroll.current = 0;
     setNetworkMapRack("rack-a01");
     setNetworkMapQuery("");
     setNetworkMapLink(null);
@@ -760,7 +777,8 @@ export function Workspace() {
             </button>
           </div>
           {!(
-            state.level === "room" && ["space", "network"].includes(rackView)
+            state.level === "room" &&
+            ["space", "network", "inlet"].includes(rackView)
           ) && (
             <>
               <label className="study-search">
@@ -801,6 +819,20 @@ export function Workspace() {
                 )}
               </div>
             </>
+          )}
+          {state.level !== "room" && inletSession && (
+            <button
+              className="study-parent"
+              disabled={!ready}
+              onClick={() => {
+                setRackView("inlet");
+                setSliceControls(inletSlice.current);
+                control({ type: "room-airflow", id: inletSelection });
+                setNav(true);
+              }}
+            >
+              ← 返回机房进风对照
+            </button>
           )}
           {state.level !== "room" && rackView === "network" && (
             <button
@@ -845,7 +877,7 @@ export function Workspace() {
                 aria-pressed={
                   rackView === "list" ||
                   (state.level === "room" &&
-                    !["space", "network"].includes(rackView))
+                    !["space", "network", "inlet"].includes(rackView))
                 }
                 onClick={() => setRackView("list")}
               >
@@ -862,6 +894,26 @@ export function Workspace() {
               </button>
               {state.level === "room" && (
                 <button
+                  aria-pressed={rackView === "inlet"}
+                  onClick={() => {
+                    takeover();
+                    setRackView("inlet");
+                    control({ type: "layer", layer: "environment" });
+                    pick(inletSelection, false, true);
+                    const target = roomAirflowTarget(
+                      inletSelection,
+                      state.deviceId,
+                    );
+                    setSliceControls((current) =>
+                      alignAirflowSlice(current, target?.rowId ?? null),
+                    );
+                  }}
+                >
+                  进风对照
+                </button>
+              )}
+              {state.level === "room" && (
+                <button
                   aria-pressed={rackView === "network"}
                   onClick={() => {
                     takeover();
@@ -874,7 +926,61 @@ export function Workspace() {
               )}
             </div>
           )}
-          {state.level === "room" && rackView === "network" ? (
+          {state.level === "room" && rackView === "inlet" ? (
+            <InletOverview
+              readings={spatial.readings}
+              rackId={inletRack}
+              query={inletQuery}
+              selected={selected}
+              time={state.time}
+              scroll={inletScroll}
+              ready={ready}
+              onRack={(id) => {
+                setInletRack(id);
+                setInletSelection(id);
+                pick(id, false, true);
+                const target = roomAirflowTarget(id, state.deviceId);
+                setSliceControls((current) =>
+                  alignAirflowSlice(current, target?.rowId ?? null),
+                );
+                control({ type: "layer", layer: "environment" });
+              }}
+              onQuery={setInletQuery}
+              onPreview={(id) => {
+                setInletSelection(id);
+                pick(id, false, true);
+                const target = roomAirflowTarget(id, state.deviceId);
+                setSliceControls((current) =>
+                  alignAirflowSlice(current, target?.rowId ?? null),
+                );
+                control({ type: "layer", layer: "environment" });
+              }}
+              onInspect={(id, internal) => {
+                setInletSelection(id);
+                inletSlice.current = sliceControls;
+                if (internal) {
+                  dispatch({ type: "navigate", level: "device", id });
+                  setInspector(true);
+                  if (matchMedia("(max-width: 1099px)").matches) setNav(false);
+                } else if (rackById(id)) pick(id, true);
+                else focus(id, { installation: true });
+              }}
+              onAnalyze={() => {
+                const id = devices.some((d) => d.id === selected)
+                  ? selected
+                  : inletRack;
+                pick(id);
+                analyze();
+              }}
+              onDetails={() => {
+                const id = devices.some((d) => d.id === selected)
+                  ? selected
+                  : inletRack;
+                pick(id);
+                control({ type: "analysis", value: false });
+              }}
+            />
+          ) : state.level === "room" && rackView === "network" ? (
             <NetworkOverview
               rackId={networkMapRack}
               query={networkMapQuery}
