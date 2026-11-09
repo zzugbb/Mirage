@@ -1,3 +1,5 @@
+import { SliceEvidenceGeometry } from "../scene/slice-evidence";
+import type { SliceDeviceInspection } from "../slice-device";
 import {
   environmentObservation,
   environmentValue,
@@ -64,6 +66,8 @@ export function ReviewScene({
   state,
   unitRange = null,
   isolatedPartId = null,
+  sliceInspection,
+  onInspectSlice,
   sliceControls,
   setSliceControls,
   layer,
@@ -90,6 +94,12 @@ export function ReviewScene({
   controls,
   compactTools = false,
 }: {
+  sliceInspection: {
+    context: SliceDeviceInspection | null;
+    sourceId: string | null;
+    deviceId: string;
+  } | null;
+  onInspectSlice: (id: string) => void;
   state: AppState;
   unitRange?: RackUnitRange | null;
   isolatedPartId?: string | null;
@@ -125,6 +135,7 @@ export function ReviewScene({
   const engine = useRef<SceneEngine | null>(null);
   const initial = useRef(state);
   const dataGeometry = useRef<ReviewDataGeometry | null>(null);
+  const sliceEvidenceGeometry = useRef<SliceEvidenceGeometry | null>(null);
   const sliceGeometry = useRef<TemperatureSliceGeometry | null>(null);
   const airflowGeometry = useRef<AirflowGeometry | null>(null);
   const maintenanceGeometry = useRef<MaintenanceGeometry | null>(null);
@@ -255,6 +266,7 @@ export function ReviewScene({
       slice?.rowId,
     ],
   );
+  const visibleAirflow = sliceInspection ? null : airflow;
   useEffect(() => {
     clockEpoch.current = performance.now();
   }, [state.time, state.playing, state.playbackRate]);
@@ -303,6 +315,9 @@ export function ReviewScene({
       const thermal = new TemperatureSliceGeometry();
       active.models.root.add(thermal.root);
       sliceGeometry.current = thermal;
+      const evidence = new SliceEvidenceGeometry();
+      active.models.root.add(evidence.root);
+      sliceEvidenceGeometry.current = evidence;
       const flow = new AirflowGeometry();
       active.models.root.add(flow.root);
       airflowGeometry.current = flow;
@@ -340,6 +355,7 @@ export function ReviewScene({
           active!.models.parts,
           active!.camera,
         );
+        evidence.frame(active!.camera, roomReady);
         areas.setReady(roomReady);
         flow.animate(
           airflowVisualTime(
@@ -378,6 +394,8 @@ export function ReviewScene({
       document.removeEventListener("visibilitychange", visibility);
       dataGeometry.current?.dispose();
       dataGeometry.current = null;
+      sliceEvidenceGeometry.current?.dispose();
+      sliceEvidenceGeometry.current = null;
       sliceGeometry.current?.dispose();
       sliceGeometry.current = null;
       airflowGeometry.current?.dispose();
@@ -480,6 +498,12 @@ export function ReviewScene({
     );
   }, [state, layer, readings, retry, ambientSelected]);
   useEffect(() => {
+    sliceEvidenceGeometry.current?.update(
+      slice && sliceVisible ? (sliceInspection?.context ?? null) : null,
+      sliceInspection?.sourceId ?? null,
+    );
+  }, [slice, sliceVisible, sliceInspection, retry]);
+  useEffect(() => {
     sliceGeometry.current?.update(sliceVisible ? slice : null);
   }, [slice, sliceVisible, retry]);
   useEffect(() => {
@@ -493,8 +517,8 @@ export function ReviewScene({
     retry,
   ]);
   useEffect(() => {
-    airflowGeometry.current?.update(airflow, flowView);
-  }, [airflow, flowView, retry]);
+    airflowGeometry.current?.update(visibleAirflow, flowView);
+  }, [visibleAirflow, flowView, retry]);
   useEffect(() => {
     maintenanceGeometry.current?.update(maintenance, comparison);
     if (engine.current) engine.current.comparedAisle = comparison;
@@ -555,7 +579,7 @@ export function ReviewScene({
   const labelKey =
     (selectedFixture?.id ?? "") +
     labels.map((r) => r.id).join(":") +
-    (airflow?.routes.map((route) => route.id).join(":") ?? "") +
+    (visibleAirflow?.routes.map((route) => route.id).join(":") ?? "") +
     flowView +
     areaLabels.map((label) => label.id).join(":") +
     (supply?.labels.map((label) => label.id).join(":") ?? "") +
@@ -689,14 +713,14 @@ export function ReviewScene({
       data-airflow-stage={stage?.kind ?? ""}
       data-slice-visible={sliceVisible && !!slice}
       data-airflow-inspection={airflowVisit?.deviceId ?? ""}
-      data-airflow-targets={airflow?.routes
+      data-airflow-targets={visibleAirflow?.routes
         .map((route) => route.deviceId)
         .join(",")}
-      data-airflow-grilles={airflow?.routes
+      data-airflow-grilles={visibleAirflow?.routes
         .map((route) => route.floorGrille.id)
         .join(",")}
       data-model-status={modelStatus}
-      data-airflow-input={airflow?.coolingCapacity}
+      data-airflow-input={visibleAirflow?.coolingCapacity}
       data-maintenance-rack={maintenance.length ? selectedId : undefined}
       data-maintenance-aisle={comparison?.id}
       data-power-rack={supply?.rackId}
@@ -740,7 +764,7 @@ export function ReviewScene({
                   : presentation.title}
           </strong>
           {state.level !== "device" &&
-            !airflow &&
+            !visibleAirflow &&
             !ambientSelected &&
             layer !== "alarms" && (
               <div className="review-scene-readings" aria-label="场景运行读数">
@@ -768,17 +792,17 @@ export function ReviewScene({
                 </span>
               </div>
             )}
-          {airflow && (
+          {visibleAirflow && (
             <div className="review-airflow-caption" aria-label="气流路径示意">
               <p>
-                气流示意 · 冷却输入 <b>{airflow.coolingCapacity}%</b>
+                气流示意 · 冷却输入 <b>{visibleAirflow.coolingCapacity}%</b>
               </p>
               <div>
                 <span className="flow-supply">→ 送风</span>
                 <span className="flow-through">⇢ 穿柜</span>
                 <span className="flow-return">⇢ 回风假设</span>
               </div>
-              <small>{airflow.label}</small>
+              <small>{visibleAirflow.label}</small>
             </div>
           )}
           <details className="review-view-explanation">
@@ -789,7 +813,7 @@ export function ReviewScene({
                 : slice
                   ? `${slice.orientation === "horizontal" ? "水平切片估计当前高度的进风温度。" : `垂直切片显示${sliceRow!.name}正面 ${sliceSettings.height.min.toFixed(2)}–${sliceSettings.height.max.toFixed(2)} 米高度的进风差异，滑杆调整离柜距离；标签取切面纵向最高估计。俯视时切面呈侧边，可切到前视观察。`}色条仍对应逐台设备。输入为同一时间的有效模拟读数；代表位置按U位中心假设，非独立环境测点。最近位置离线、过期或超出插值范围时留空；不推断机柜排风或整间机房温度。`
                   : presentation.description}
-              {airflow &&
+              {visibleAirflow &&
                 " 气流只示意已登记冷却关系的代表路径，当前同向布置不构成封闭冷热通道。端点为制冷单元逻辑代表位置，穿柜方向为配置假设；线条明暗对照冷却输入，不代表风量、风速或排风温度。选中对象可查看对应路径，停机或数据无效对象仅保留静态方向。"}
             </p>
           </details>
@@ -841,7 +865,7 @@ export function ReviewScene({
               <b>{area.text}</b>
             </div>
           ))}
-          {airflow?.routes.flatMap((route) =>
+          {visibleAirflow?.routes.flatMap((route) =>
             route.endpoints
               .filter(
                 (endpoint) => !stage || stage.endpoints.includes(endpoint.kind),
@@ -974,7 +998,7 @@ export function ReviewScene({
             {network.map((marker) => (
               <line key={marker.id} data-flow-line={marker.id} />
             ))}
-            {airflow?.routes.flatMap((route) =>
+            {visibleAirflow?.routes.flatMap((route) =>
               route.endpoints
                 .filter(
                   (endpoint) =>
@@ -1203,8 +1227,15 @@ export function ReviewScene({
                         }}
                       />
                       <SliceDeviceContext
-                        key={`${shotRevision}:${selectedId}`}
-                        selectedId={selectedId}
+                        inspecting={!!sliceInspection}
+                        key={`${shotRevision}:${sliceInspection?.deviceId ?? selectedId}`}
+                        selectedId={sliceInspection?.deviceId ?? selectedId}
+                        onInspect={() => {
+                          engine.current?.preservePanelView();
+                          onInspectSlice(
+                            sliceInspection?.deviceId ?? selectedId,
+                          );
+                        }}
                         onInteract={onTakeover}
                         controls={sliceControls}
                         slice={slice}
@@ -1230,7 +1261,7 @@ export function ReviewScene({
                       </TemperatureDisclosure>
                     </>
                   )}
-                  {airflow && (
+                  {visibleAirflow && (
                     <TemperatureDisclosure
                       className="review-flow-explanation"
                       onInteract={onTakeover}
@@ -1266,13 +1297,13 @@ export function ReviewScene({
                             ? stage.title.split(" · ")[1]
                             : airflowVisit
                               ? "端点核对"
-                              : airflow.routes[0]?.animated
+                              : visibleAirflow.routes[0]?.animated
                                 ? "代表支路"
                                 : "静态示意"}
                         </>
                       }
                     >
-                      <p>{airflow.label}</p>
+                      <p>{visibleAirflow.label}</p>
                       {!flowView && (
                         <p>
                           分段观察强调当前段并暂收切片，其他段保留淡线；手动旋转或定位结束观察。
@@ -1281,7 +1312,7 @@ export function ReviewScene({
                       {airflowVisit && (
                         <p>预览保留本支路；定位结束核对，转为对象观察。</p>
                       )}
-                      {airflow.routes[0] && (
+                      {visibleAirflow.routes[0] && (
                         <div
                           className="airflow-view-actions"
                           aria-label="气流观察视角"
@@ -1294,7 +1325,7 @@ export function ReviewScene({
                                 onTakeover();
                                 setOrbit(false);
                                 engine.current?.observeAirflow(
-                                  airflow.routes[0],
+                                  visibleAirflow.routes[0],
                                   item.id,
                                 );
                               }}
@@ -1331,8 +1362,12 @@ export function ReviewScene({
                               "送风 → 格栅 → 设备 → 回风假设"}
                           </span>
                           <small>
-                            {entityById(airflow.routes[0].deviceId)?.name} ·{" "}
-                            {airflow.routes[0].status} · t+{state.time}s
+                            {
+                              entityById(visibleAirflow.routes[0].deviceId)
+                                ?.name
+                            }{" "}
+                            · {visibleAirflow.routes[0].status} · t+{state.time}
+                            s
                           </small>
                           <p>
                             {stage?.boundary ??
@@ -1352,7 +1387,7 @@ export function ReviewScene({
                         </div>
                       )}
                       <ol aria-label="气流端点与读数">
-                        {airflow.routes.flatMap((route) =>
+                        {visibleAirflow.routes.flatMap((route) =>
                           route.endpoints.map((endpoint) => {
                             const object = airflowEndpointObject(
                               route,

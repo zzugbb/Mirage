@@ -4,11 +4,11 @@ import { qualityNames } from "./status.ts";
 import type { SpatialReading } from "./spatial.ts";
 import {
   intakeInputs,
-  localIntakeTemperature,
+  localIntakeEvidence,
   sliceRackRows,
   sliceSettings,
   type SliceControls,
-  type TemperatureSlice,
+  type SlicePlane,
 } from "./temperature-slice.ts";
 
 function nearestStep(
@@ -33,7 +33,7 @@ function nearestStep(
 export function sliceDeviceContext(
   id: string,
   controls: SliceControls,
-  slice: TemperatureSlice,
+  slice: SlicePlane,
   readings: Map<string, SpatialReading>,
 ) {
   const device = deviceById(id);
@@ -69,9 +69,8 @@ export function sliceDeviceContext(
         .find((row) => row.id === slice.rowId)!
         .rackIds.includes(rackForDevice(item.id).id),
   );
-  const estimate = otherRow
-    ? null
-    : localIntakeTemperature(inputs, point).temperature;
+  const evidence = otherRow ? null : localIntakeEvidence(inputs, point);
+  const estimate = evidence?.temperature ?? null;
   const unavailable =
     reading?.quality === "stale"
       ? `已过期 · 最后观测 ${reading.observedAt} 秒`
@@ -87,6 +86,8 @@ export function sliceDeviceContext(
         Math.abs(slice.distance - sliceSettings.frontOffset) <
           sliceSettings.support.z;
   return {
+    point: otherRow ? null : (point as [number, number, number]),
+    evidence,
     name: device.name,
     location: `${rack.name} / ${unitLabel(id)}`,
     height: deviceHeight(id),
@@ -97,11 +98,13 @@ export function sliceDeviceContext(
       ? `所查设备属于${row.name}，不在当前柜排切面。`
       : !near
         ? "当前切面不在该设备进风代表位置的插值范围内。"
-        : input.temperature === null
-          ? "该设备没有当前有效进风输入，不参与估计；切面估计只能来自其他有效输入。"
-          : estimate === null
-            ? "柜前位置没有有效估计；邻近无效输入也会保留局部空缺。"
-            : "切面估计综合附近有效输入，不等于所查设备的独立测点。",
+        : evidence?.reason === "nearest-unavailable"
+          ? "最近的进风代表输入无效，此位置留白，不用有效邻居补值。"
+          : input.temperature === null
+            ? "该设备没有当前有效进风输入，不参与估计；切面估计只能来自其他有效输入。"
+            : estimate === null
+              ? "柜前位置没有有效估计；邻近无效输入也会保留局部空缺。"
+              : "切面估计综合附近有效输入，不等于所查设备的独立测点。",
     target,
     aligned:
       controls.orientation === "horizontal"
@@ -110,3 +113,37 @@ export function sliceDeviceContext(
           controls.distance === target.distance,
   };
 }
+
+/** 依据核对不重建切片纹理，只采样同一个柜前位置。 */
+export function inspectSliceDevice(
+  id: string,
+  controls: SliceControls,
+  readings: Map<string, SpatialReading>,
+) {
+  return sliceDeviceContext(
+    id,
+    controls,
+    controls.orientation === "horizontal"
+      ? {
+          orientation: "horizontal",
+          height: controls.height,
+          distance: null,
+          rowId: null,
+        }
+      : {
+          orientation: "vertical",
+          height: null,
+          distance: controls.distance,
+          rowId: controls.rowId,
+        },
+    readings,
+  );
+}
+export type SliceDeviceInspection = NonNullable<
+  ReturnType<typeof inspectSliceDevice>
+>;
+export type SliceCheck = {
+  deviceId: string;
+  sourceId: string | null;
+  previewId: string | null;
+};

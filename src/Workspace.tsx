@@ -1,3 +1,5 @@
+import { inspectSliceDevice, type SliceCheck } from "./slice-device";
+import { SliceEvidenceDetails } from "./components/SliceEvidenceDetails";
 import { emptyInletProcess, type InletProcessState } from "./inlet-process";
 import { InletPairAnalysis } from "./components/InletPairAnalysis";
 import { InletOverview } from "./components/InletOverview";
@@ -145,6 +147,7 @@ export function Workspace() {
     if (inspectionDevice && !isolatedPartId) setInspectionDevice(null);
   }, [inspectionDevice, isolatedPartId]);
   const [sliceControls, setSliceControls] = useState(initialSliceControls);
+  const [sliceCheck, setSliceCheck] = useState<SliceCheck | null>(null);
   const [shot, setShot] = useState<WorkspaceShot>("overview");
   const [revision, setRevision] = useState(0);
   const [phase, setPhase] = useState<PresentationPhase>("closed");
@@ -328,6 +331,27 @@ export function Workspace() {
     : entity.kind === "device"
       ? selected
       : null;
+  const sliceEvidence = useMemo(
+    () =>
+      sliceCheck
+        ? inspectSliceDevice(
+            sliceCheck.deviceId,
+            sliceControls,
+            spatial.readings,
+          )
+        : null,
+    [sliceCheck?.deviceId, sliceControls, spatial.readings],
+  );
+  useEffect(() => {
+    if (
+      sliceCheck &&
+      (state.level !== "room" ||
+        layer !== "environment" ||
+        !inspector ||
+        ![sliceCheck.deviceId, sliceCheck.previewId].includes(selected))
+    )
+      setSliceCheck(null);
+  }, [sliceCheck, state.level, layer, inspector, selected]);
   const inletProcessKey = `${inletId}:${state.replayCycle}:${revision}`;
   const [inletProcessReview, setInletProcessReview] = useState<{
     key: string;
@@ -612,6 +636,7 @@ export function Workspace() {
     return () => window.removeEventListener("keydown", key);
   }, [selected, review.analysis, nav, inspector, query, dispatch]);
   const load = (next: WorkspaceShot) => {
+    setSliceCheck(null);
     setPduInspection(null);
     pduReturnPending.current = false;
     setInspectionDevice(null);
@@ -696,6 +721,30 @@ export function Workspace() {
       query: "",
     });
   };
+  const sliceInspector = sliceCheck && sliceEvidence && (
+    <SliceEvidenceDetails
+      context={sliceEvidence}
+      check={sliceCheck}
+      readings={spatial.readings}
+      time={state.time}
+      onMark={(id) => {
+        takeover();
+        setSliceCheck({ ...sliceCheck, sourceId: id });
+      }}
+      onPreview={(id) => {
+        setSliceCheck({ ...sliceCheck, sourceId: id, previewId: id });
+        pick(id);
+      }}
+      onReturn={() => {
+        pick(sliceCheck.deviceId);
+        setSliceCheck(null);
+      }}
+      onClose={() => {
+        takeover();
+        setSliceCheck(null);
+      }}
+    />
+  );
   const sourceInspector = sources && (
     <ReadingSources
       sources={sources}
@@ -1503,6 +1552,21 @@ export function Workspace() {
             networkLinkId={activeNetworkLink}
             powerLinkId={activePowerLink}
             pduInspection={pduInspection}
+            sliceInspection={
+              sliceCheck
+                ? {
+                    context: sliceEvidence,
+                    sourceId: sliceCheck.sourceId,
+                    deviceId: sliceCheck.deviceId,
+                  }
+                : null
+            }
+            onInspectSlice={(deviceId) => {
+              takeover();
+              setSliceCheck({ deviceId, sourceId: null, previewId: null });
+              setInspector(true);
+              if (matchMedia("(max-width: 1099px)").matches) setNav(false);
+            }}
             onClearPower={() => {
               takeover();
               setPduInspection((current) =>
@@ -1752,6 +1816,7 @@ export function Workspace() {
                     }
                   />
                 </div>
+                {sliceInspector}
                 {sourceInspector}
                 {inletId && !pairedInlet && (
                   <InletAssessment
@@ -1851,6 +1916,7 @@ export function Workspace() {
               </>
             ) : (
               <>
+                {sliceInspector}
                 {!!reading?.alarm && !component && (
                   <section className="study-alarm-detail">
                     <h2>进风温度异常</h2>

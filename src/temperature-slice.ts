@@ -33,44 +33,108 @@ export function intakeInputs(
   });
 }
 
+export type IntakeEvidenceInput = IntakeInput & {
+  distance: number;
+  share: number | null;
+};
+export type IntakeEvidence = {
+  temperature: number | null;
+  influence: number;
+  reason: "weighted" | "exact" | "nearest-unavailable" | "outside";
+  nearestId: string | null;
+  inputs: IntakeEvidenceInput[];
+};
+
 /** 紧支撑、各向异性反距离插值；不越过柜体正面，不跨空白补值。
- * 最近代表位置无效时保留局部空缺，避免用邻居把离线/过期涂成正常。
+ * 绘制与核对共用计算；只有主动核对时才收集输入明细。
  */
-export function localIntakeTemperature(
+function evaluateIntake(
   inputs: IntakeInput[],
   position: number[],
+  evidence?: IntakeEvidence,
 ) {
   const support = sliceSettings.support;
   let nearest = Infinity,
-    nearestValid = false,
+    nearestInput: IntakeInput | null = null,
+    exact: IntakeInput | null = null,
     weighted = 0,
     weights = 0;
   for (const input of inputs) {
-    const [x, y, z] = input.position;
     if (position[2] < input.front) continue;
     const d2 =
-      ((position[0] - x) / support.x) ** 2 +
-      ((position[1] - y) / support.y) ** 2 +
-      ((position[2] - z) / support.z) ** 2;
+      ((position[0] - input.position[0]) / support.x) ** 2 +
+      ((position[1] - input.position[1]) / support.y) ** 2 +
+      ((position[2] - input.position[2]) / support.z) ** 2;
     if (d2 >= 1) continue;
+    if (evidence) evidence.inputs.push({ ...input, distance: d2, share: null });
     if (d2 < nearest) {
       nearest = d2;
-      nearestValid = input.temperature !== null;
+      nearestInput = input;
     }
-    if (d2 < 1e-12)
-      return {
-        temperature: input.temperature,
-        influence: input.temperature === null ? 0 : 1,
-      };
+    if (d2 < 1e-12) {
+      if (!evidence)
+        return {
+          temperature: input.temperature,
+          influence: input.temperature === null ? 0 : 1,
+        };
+      exact ??= input;
+      continue;
+    }
     if (input.temperature === null) continue;
     const weight = (1 - d2) ** 2 / d2;
     weighted += weight * input.temperature;
     weights += weight;
   }
-  return {
-    temperature: nearestValid && weights > 0 ? weighted / weights : null,
-    influence: nearestValid && weights > 0 ? 1 - nearest : 0,
+  const available = nearestInput?.temperature != null && weights > 0;
+  const result = exact
+    ? {
+        temperature: exact.temperature,
+        influence: exact.temperature === null ? 0 : 1,
+      }
+    : {
+        temperature: available ? weighted / weights : null,
+        influence: available ? 1 - nearest : 0,
+      };
+  if (evidence) {
+    evidence.nearestId = (exact ?? nearestInput)?.id ?? null;
+    evidence.reason = !nearestInput
+      ? "outside"
+      : result.temperature === null
+        ? "nearest-unavailable"
+        : exact
+          ? "exact"
+          : "weighted";
+    for (const input of evidence.inputs) {
+      if (result.temperature !== null && input.temperature !== null)
+        input.share = exact
+          ? Number(input.id === exact.id)
+          : (1 - input.distance) ** 2 / input.distance / weights;
+    }
+    evidence.inputs.sort(
+      (a, b) => a.distance - b.distance || a.id.localeCompare(b.id),
+    );
+  }
+  return result;
+}
+export function localIntakeTemperature(
+  inputs: IntakeInput[],
+  position: number[],
+) {
+  return evaluateIntake(inputs, position);
+}
+export function localIntakeEvidence(
+  inputs: IntakeInput[],
+  position: number[],
+): IntakeEvidence {
+  const evidence: IntakeEvidence = {
+    temperature: null,
+    influence: 0,
+    reason: "outside",
+    nearestId: null,
+    inputs: [],
   };
+  Object.assign(evidence, evaluateIntake(inputs, position, evidence));
+  return evidence;
 }
 
 const xs = racks.map((rack) => rack.position[0]);
@@ -94,7 +158,7 @@ export type SliceFrame = {
   v: [number, number, number];
 };
 export type SliceOrientation = "horizontal" | "vertical";
-type SlicePlane =
+export type SlicePlane =
   | { orientation: "horizontal"; height: number; distance: null; rowId: null }
   | { orientation: "vertical"; height: null; distance: number; rowId: string };
 export type TemperatureSlice = SlicePlane & {

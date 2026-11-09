@@ -1,5 +1,5 @@
 import { TemperatureDisclosure } from "./TemperatureDisclosure";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { SliceControls, TemperatureSlice } from "../temperature-slice";
 import type { SpatialReading } from "../spatial";
 import { sliceDeviceContext } from "../slice-device";
@@ -9,9 +9,13 @@ export function SliceDeviceContext({
   controls,
   slice,
   readings,
+  inspecting,
+  onInspect,
   onChange,
   onInteract,
 }: {
+  inspecting: boolean;
+  onInspect: () => void;
   selectedId: string;
   controls: SliceControls;
   slice: TemperatureSlice;
@@ -19,6 +23,13 @@ export function SliceDeviceContext({
   onInteract: () => void;
   onChange: (controls: SliceControls) => void;
 }) {
+  const details = useRef<HTMLDetailsElement>(null);
+  const wasInspecting = useRef(inspecting);
+  useEffect(() => {
+    if (wasInspecting.current && !inspecting)
+      details.current?.querySelector("summary")?.focus({ preventScroll: true });
+    wasInspecting.current = inspecting;
+  }, [inspecting]);
   const context = sliceDeviceContext(selectedId, controls, slice, readings);
   const [visit, setVisit] = useState<{
     before: SliceControls;
@@ -32,6 +43,7 @@ export function SliceDeviceContext({
   if (!context) return null;
   return (
     <TemperatureDisclosure
+      detailsRef={details}
       className="slice-device-context"
       onInteract={onInteract}
       summary={<>对照所查设备 · {context.name}</>}
@@ -75,6 +87,9 @@ export function SliceDeviceContext({
           : context.aligned
             ? "已在设备附近"
             : "切片对齐设备附近"}
+      </button>
+      <button disabled={inspecting} onClick={onInspect}>
+        {inspecting ? "正在核对估计依据" : "核对估计依据 ↗"}
       </button>
       <small>按滑杆步长取邻近高度或柜前距离；读数随共享时间变化。</small>
     </TemperatureDisclosure>
