@@ -1,3 +1,8 @@
+import {
+  emptyPeakProcess,
+  peakScopeIds,
+  type PeakProcessState,
+} from "./peak-provenance";
 import { networkViewPoints, type NetworkViewCommand } from "./network-view";
 import type { SliceViewCommand } from "./slice-view";
 import { inspectSliceDevice, type SliceCheck } from "./slice-device";
@@ -314,6 +319,31 @@ export function Workspace() {
     analysis: boolean;
   } | null>(null);
   const sourceAnchor = `${state.level}:${state.deviceId}:${state.focusRevision}`;
+  const peakKey = `${state.replayCycle}:${revision}`;
+  const [peakReview, setPeakReview] = useState<{
+    scopeId: string;
+    key: string;
+    value: PeakProcessState;
+  } | null>(null);
+  const [peakVisit, setPeakVisit] = useState<{
+    targetId: string;
+    anchor: string;
+    nav: boolean;
+  } | null>(null);
+  useEffect(() => {
+    if (
+      peakReview &&
+      (!review.analysis ||
+        peakReview.key !== peakKey ||
+        (peakVisit
+          ? selected !== peakVisit.targetId || peakVisit.anchor !== sourceAnchor
+          : selected !== peakReview.scopeId))
+    ) {
+      setPeakReview(null);
+      setPeakVisit(null);
+    }
+  }, [peakReview, peakVisit, review.analysis, peakKey, selected, sourceAnchor]);
+
   useEffect(() => {
     if (!sourceCheck) return;
     if (
@@ -666,6 +696,8 @@ export function Workspace() {
     setNetworkLinkId(null);
     setSourceCheck(null);
     setSourceVisit(null);
+    setPeakReview(null);
+    setPeakVisit(null);
     setExpanded([]);
     setRackView("installation");
     setSpaceSize(2);
@@ -1808,6 +1840,32 @@ export function Workspace() {
                   </button>
                 </div>
               )}
+            {peakVisit && peakReview && selected === peakVisit.targetId && (
+              <div className="reading-source-return">
+                <small>
+                  来自 {entityById(peakReview.scopeId)?.name} · 最高进风来源
+                </small>
+                <button
+                  onClick={() => {
+                    takeover();
+                    pick(peakReview.scopeId);
+                    setNav(peakVisit.nav);
+                    setPeakVisit(null);
+                  }}
+                >
+                  ← 返回最高来源核对
+                </button>
+                <button
+                  aria-label="结束最高来源预览"
+                  onClick={() => {
+                    setPeakReview(null);
+                    setPeakVisit(null);
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+            )}
             {sourceVisit &&
               sourceCheck &&
               selected === sourceVisit.targetId && (
@@ -1931,6 +1989,31 @@ export function Workspace() {
                   />
                 ) : (
                   <ReviewAnalysis
+                    peakProcess={
+                      peakScopeIds(selected)
+                        ? {
+                            state:
+                              peakReview?.scopeId === selected &&
+                              peakReview.key === peakKey
+                                ? peakReview.value
+                                : emptyPeakProcess,
+                            onChange: (value) =>
+                              setPeakReview({
+                                scopeId: selected,
+                                key: peakKey,
+                                value,
+                              }),
+                            onPreview: (id) => {
+                              setPeakVisit({
+                                targetId: id,
+                                anchor: sourceAnchor,
+                                nav,
+                              });
+                              pick(id);
+                            },
+                          }
+                        : undefined
+                    }
                     title={resource?.name ?? entity.name}
                     labels={{
                       temperature: reading?.temperatureLabel ?? "温度",

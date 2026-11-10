@@ -1,3 +1,4 @@
+import { peakScopeIds, maximumSources } from "./peak-provenance.ts";
 import {
   createState,
   transition,
@@ -571,6 +572,7 @@ export function reviewPresentation(
   };
 }
 export type ReviewPoint = {
+  peakSources?: string[];
   time: number;
   value: number | null;
   coverage: number;
@@ -588,6 +590,7 @@ export function reviewHistory(
 
 /** 同一时间快照同时派生两条曲线，避免指标切换改变汇总口径。 */
 export function reviewHistories(id: string, deviceId: string) {
+  const sourceIds = peakScopeIds(id);
   const history: Record<ReviewMetric, ReviewPoint[]> = {
     temperature: [],
     power: [],
@@ -597,6 +600,14 @@ export function reviewHistories(id: string, deviceId: string) {
     const reading = readings.get(id) ?? associatedInputReading(id, readings);
     for (const metric of ["temperature", "power"] as const)
       history[metric].push({
+        ...(metric === "temperature" && sourceIds
+          ? {
+              peakSources:
+                reading?.quality === "valid" && reading.temperature !== null
+                  ? maximumSources(sourceIds, readings)
+                  : [],
+            }
+          : {}),
         time,
         value: reading?.quality === "valid" ? reading[metric] : null,
         coverage: reading
@@ -620,8 +631,10 @@ export function reviewCoolingHistories() {
   };
   const ids = coolingDeviceIds(coolingSource.id);
   for (let time = 0; time <= 120; time++) {
-    const summary = coolingSummary(ids, spatialSnapshot(time).readings);
+    const readings = spatialSnapshot(time).readings;
+    const summary = coolingSummary(ids, readings);
     histories.temperature.push({
+      peakSources: maximumSources(ids, readings),
       time,
       value: summary.maximum,
       coverage: summary.coverage,

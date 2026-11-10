@@ -4260,3 +4260,95 @@
   width: auto;
   height: auto;
 }
+
+.peak-source-cursor {
+  display: block;
+  margin-top: 8px;
+  color: #abc8ce;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+.peak-source-process {
+  margin-top: 8px;
+  border-top: 1px solid #ffffff15;
+  font-size: 11px;
+  line-height: 1.6;
+}
+.peak-source-process summary {
+  padding-block: 9px;
+  color: #c5d8db;
+  cursor: pointer;
+  scroll-margin-top: 56px;
+}
+.peak-source-process p,
+.peak-source-process small {
+  color: #94adb6;
+  font-size: 10px;
+}
+.peak-source-process p {
+  margin: 0 0 8px;
+}
+.peak-source-current {
+  display: grid;
+  gap: 5px;
+  padding: 9px;
+  background: #91bfcb0b;
+  border: 1px solid #a6c7ce24;
+}
+.peak-source-current > strong {
+  color: #d4e2e5;
+  font-weight: 500;
+}
+.workspace-ui .peak-source-current button {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 10px;
+  padding: 5px 0;
+  text-align: left;
+  font-size: 11px;
+}
+.peak-source-current button span {
+  color: #94adb6;
+  font-size: 10px;
+}
+.peak-source-process ol {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0;
+}
+.peak-source-process li {
+  border-bottom: 1px solid #ffffff14;
+}
+.workspace-ui .peak-source-process li > button:first-child {
+  display: grid;
+  gap: 3px;
+  width: 100%;
+  padding: 8px;
+  text-align: left;
+  font-size: 11px;
+  border-radius: 0;
+}
+.peak-source-process li > button > span {
+  display: flex;
+  justify-content: space-between;
+  color: #a6bac3;
+}
+.peak-source-process li b,
+.peak-source-process li strong {
+  font-weight: 500;
+}
+.peak-source-process li button[aria-current="true"] {
+  background: #668f982b;
+  box-shadow: inset 2px 0 #9fcbd2;
+}
+.workspace-ui .peak-source-process .peak-source-end {
+  display: block;
+  margin-left: auto;
+  padding: 5px 8px;
+  font-size: 10px;
+}
+.workspace-ui .peak-source-return-time {
+  margin-bottom: 8px;
+  font-size: 11px;
+}

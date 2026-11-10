@@ -1,3 +1,5 @@
+import { PeakSourceProcess, peakNames } from "./PeakSourceProcess";
+import type { PeakProcessState } from "../peak-provenance";
 import { useState, type Ref } from "react";
 import type { ReviewEvent, ReviewMetric, ReviewPoint } from "../review-model";
 import { qualityNames } from "../status";
@@ -7,6 +9,7 @@ import { AnalysisEvents } from "./AnalysisEvents";
 
 export function ReviewAnalysis({
   title,
+  peakProcess,
   labels,
   histories,
   events,
@@ -24,6 +27,11 @@ export function ReviewAnalysis({
   onRate,
   onClose,
 }: {
+  peakProcess?: {
+    state: PeakProcessState;
+    onChange: (state: PeakProcessState) => void;
+    onPreview: (id: string) => void;
+  };
   title: string;
   labels: Record<ReviewMetric, string>;
   histories: Record<ReviewMetric, ReviewPoint[]>;
@@ -123,6 +131,14 @@ export function ReviewAnalysis({
                     {metric === "cooling" ? "模拟输入 · 非制冷量" : status}
                   </small>
                 </div>
+                {metric === "temperature" && point?.peakSources && (
+                  <small className="peak-source-cursor">
+                    {inspection === null
+                      ? "当前最高来源"
+                      : `游标 t+${cursor}s 来源`}{" "}
+                    · {peakNames(point.peakSources)}
+                  </small>
+                )}
                 <ReviewTrend
                   series={points}
                   metric={metric}
@@ -132,6 +148,19 @@ export function ReviewAnalysis({
                   onInspect={setInspection}
                   onSeek={onSeek}
                 />
+                {metric === "temperature" && peakProcess && (
+                  <PeakSourceProcess
+                    points={points}
+                    time={time}
+                    state={peakProcess.state}
+                    onChange={peakProcess.onChange}
+                    onPreview={peakProcess.onPreview}
+                    onSeek={(target) => {
+                      setInspection(null);
+                      onSeek(target);
+                    }}
+                  />
+                )}
               </div>
             );
           })}
