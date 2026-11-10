@@ -26,7 +26,7 @@ export function lightSightOffsets(light: CeilingLight) {
 }
 
 // 顶灯沿 Z、桥架沿 X，按各自水平投影求交。比较的是灯罩底面与桥架侧梁顶面。
-const crossings = ceilingLights.flatMap((light) =>
+export const lightTrayCrossings = ceilingLights.flatMap((light) =>
   definition.room.fixtures
     .filter((f) => f.kind === "cable-tray")
     .flatMap((tray) => {
@@ -47,7 +47,7 @@ const crossings = ceilingLights.flatMap((light) =>
     }),
 );
 export function lightTrayRelations(id: string) {
-  return crossings
+  return lightTrayCrossings
     .filter(({ light, tray }) => id === light.id || id === tray.id)
     .map(({ light, tray, difference }) => {
       const peer = light.id === id ? tray : light;

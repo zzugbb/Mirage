@@ -1,3 +1,7 @@
+import {
+  crossingViewFrame,
+  type FixtureCrossing,
+} from "../fixture-crossing.ts";
 import { SceneLoop } from "../scene-loop.ts";
 import { AnchorProjection } from "../anchor-projection.ts";
 import { RenderDemand } from "../render-demand.ts";
@@ -581,6 +585,7 @@ export class SceneEngine {
     this.autoOrbit = false;
     this.clearNetworkView();
     this.clearPowerView();
+    this.clearCrossingView();
     this.clearSliceView();
     this.clearAirflowView();
     this.panelViewport = undefined;
@@ -612,6 +617,7 @@ export class SceneEngine {
     this.panelViewport = undefined;
     this.clearNetworkView();
     this.clearPowerView();
+    this.clearCrossingView();
     this.clearSliceView();
     const previous =
       this.airflowObservation?.previous ?? this.captureObservationView();
@@ -729,6 +735,7 @@ export class SceneEngine {
   observeSlice(context: SliceDeviceInspection) {
     this.clearNetworkView();
     this.clearPowerView();
+    this.clearCrossingView();
     if (this.state.level !== "room" || !context.point || this.moving) return;
     const previous =
       this.sliceObservation?.previous ?? this.captureObservationView();
@@ -804,6 +811,7 @@ export class SceneEngine {
     this.clearSliceView();
     this.panelViewport = undefined;
     this.clearPowerView();
+    this.clearCrossingView();
     this.networkObservation = {
       sourceId,
       targets,
@@ -873,6 +881,7 @@ export class SceneEngine {
     this.onPowerView(false);
   }
   observePower(selected: string, linkId: string | null) {
+    this.clearCrossingView();
     const targets = powerViewPoints(this.state, selected, linkId);
     const sourceId = powerViewSource(linkId);
     if (!targets.length || !sourceId || this.moving) return;
@@ -936,6 +945,60 @@ export class SceneEngine {
     this.clearPowerView();
     this.restoreObservationView(previous);
   }
+  onCrossingView: (pair: FixtureCrossing | null) => void = () => {};
+  private crossingObservation?: {
+    pair: FixtureCrossing;
+    previous: ObservationMemory;
+  };
+  clearCrossingView() {
+    if (!this.crossingObservation) return;
+    this.crossingObservation = undefined;
+    this.moving = false;
+    this.onCrossingView(null);
+    this.invalidate();
+  }
+  observeCrossing(pair: FixtureCrossing) {
+    if (this.state.level !== "room" || this.moving) return;
+    const previous =
+      this.crossingObservation?.previous ?? this.captureObservationView();
+    this.clearNetworkView();
+    this.clearPowerView();
+    this.clearSliceView();
+    this.clearAirflowView();
+    this.panelViewport = undefined;
+    this.crossingObservation = { pair, previous };
+    this.currentView = "front";
+    this.currentFocus = false;
+    this.interior = false;
+    this.controls.minAzimuthAngle = -Infinity;
+    this.controls.maxAzimuthAngle = Infinity;
+    this.controls.maxPolarAngle = Math.PI / 2 - 0.03;
+    this.controls.minDistance = 0.5;
+    this.autoOrbit = false;
+    this.onCrossingView(pair);
+    this.frameCrossing();
+  }
+  frameCrossing() {
+    if (!this.crossingObservation) return;
+    const { width, height, rect } = this.observationViewport();
+    const fit = crossingViewFrame(
+      this.crossingObservation.pair.points,
+      width,
+      height,
+      rect,
+    );
+    this.targetPosition.copy(fit.position);
+    this.targetLook.copy(fit.target);
+    this.controls.maxDistance = Math.max(45, fit.distance * 1.2);
+    this.moving = true;
+    this.invalidate();
+  }
+  restoreCrossingView() {
+    const previous = this.crossingObservation?.previous;
+    if (!previous) return;
+    this.clearCrossingView();
+    this.restoreObservationView(previous);
+  }
   private panelViewport?: { width: number; height: number };
   // 预览打开和还原侧栏时仅更新投影，真实窗口缩放与主动定位仍按目标取景。
   preservePanelView() {
@@ -964,6 +1027,10 @@ export class SceneEngine {
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height);
     this.pipeline.resize(width, height);
+    if (this.crossingObservation) {
+      this.frameCrossing();
+      return;
+    }
     if (this.powerObservation) {
       this.framePower();
       return;
@@ -1009,6 +1076,7 @@ export class SceneEngine {
     this.invalidate();
     this.clearNetworkView();
     this.clearPowerView();
+    this.clearCrossingView();
     this.clearSliceView();
     this.clearAirflowView();
     this.moving = false;
@@ -1201,6 +1269,7 @@ export class SceneEngine {
     this.invalidate();
     this.clearNetworkView();
     this.clearPowerView();
+    this.clearCrossingView();
     this.clearSliceView();
     focus =
       focus ||
@@ -1743,19 +1812,29 @@ export class SceneEngine {
     }
     const cutCount = this.shellCutaway.update(
       this.camera.position,
-      this.powerObservation?.targets ??
+      this.crossingObservation?.pair.points ??
+        this.powerObservation?.targets ??
         this.networkObservation?.targets ??
         this.sliceObservation?.targets ??
         this.airflowObservation?.targets ??
         (selectedFixture ? this.fixtureTargets : this.shellTargets),
       this.models.room.visible,
-      selectedFixture &&
-        !this.airflowObservation &&
-        !this.sliceObservation &&
-        !this.networkObservation &&
-        !this.powerObservation
-        ? this.models.fixtures.get(fixtureMountReference(this.state.selected))
-        : undefined,
+      this.crossingObservation
+        ? [
+            this.crossingObservation.pair.light.id,
+            this.crossingObservation.pair.tray.id,
+          ].flatMap((id) => {
+            const object =
+              this.models.fixtures.get(id) ?? this.models.facilities.get(id);
+            return object ? [object] : [];
+          })
+        : selectedFixture &&
+            !this.airflowObservation &&
+            !this.sliceObservation &&
+            !this.networkObservation &&
+            !this.powerObservation
+          ? this.models.fixtures.get(fixtureMountReference(this.state.selected))
+          : undefined,
     );
     this.host.dataset.fixtureTarget = selectedFixture
       ? this.state.selected
@@ -1801,6 +1880,7 @@ export class SceneEngine {
     );
     const object = this.objectFor(this.state.selected);
     const showSelection =
+      !this.crossingObservation &&
       !!object &&
       this.state.selected !== "room-01" &&
       !(

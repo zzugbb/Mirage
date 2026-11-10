@@ -1,3 +1,8 @@
+import {
+  fixtureCrossing,
+  type FixtureCrossing,
+  type CrossingViewCommand,
+} from "./fixture-crossing";
 import { powerViewPoints, type PowerViewCommand } from "./power-view";
 import {
   emptyPeakProcess,
@@ -244,6 +249,16 @@ export function Workspace() {
     takeover();
     setPowerViewCommand((current) => ({
       action,
+      revision: (current?.revision ?? 0) + 1,
+    }));
+  };
+  const [crossing, setCrossing] = useState<FixtureCrossing | null>(null);
+  const [crossingCommand, setCrossingCommand] =
+    useState<CrossingViewCommand | null>(null);
+  const requestCrossing = (pair: FixtureCrossing | null) => {
+    takeover();
+    setCrossingCommand((current) => ({
+      pair,
       revision: (current?.revision ?? 0) + 1,
     }));
   };
@@ -1626,6 +1641,10 @@ export function Workspace() {
             networkLinkId={activeNetworkLink}
             powerViewCommand={powerViewCommand}
             powerViewActive={powerViewActive}
+            crossing={crossing}
+            crossingCommand={crossingCommand}
+            onCrossingChange={setCrossing}
+            onReturnCrossing={() => requestCrossing(null)}
             onPowerViewChange={setPowerViewActive}
             onPowerView={requestPowerView}
             networkViewCommand={networkViewCommand}
@@ -1914,6 +1933,31 @@ export function Workspace() {
                   </button>
                 </div>
               )}
+            {crossing && (
+              <section className="crossing-details" aria-label="交叉高度核对">
+                <strong>交叉高度核对 · 配置</strong>
+                <div>
+                  <button onClick={() => pick(crossing.light.id)}>
+                    ① {crossing.light.name}
+                  </button>
+                  <span>灯罩底面 {crossing.points[0].y.toFixed(3)} m</span>
+                </div>
+                <div>
+                  <button onClick={() => pick(crossing.tray.id)}>
+                    ② {crossing.tray.name}
+                  </button>
+                  <span>侧梁顶面 {crossing.points[1].y.toFixed(3)} m</span>
+                </div>
+                <p>
+                  灯罩底面比侧梁顶面{crossing.difference >= 0 ? "高" : "低"}{" "}
+                  <b>{Math.abs(crossing.difference).toFixed(2)} m</b>
+                  。仅比较交叉处两种配置表面，不含吊杆、横档及附件的最小净距，不作施工或安全判断。
+                </p>
+                <button disabled={!ready} onClick={() => requestCrossing(null)}>
+                  ← 返回核对前视角
+                </button>
+              </section>
+            )}
             {review.analysis ? (
               <>
                 <div className="study-time-control">
@@ -2104,6 +2148,13 @@ export function Workspace() {
                     fixture={fixture}
                     onPreview={pick}
                     onLocate={focus}
+                    comparisonReady={ready}
+                    onCompare={
+                      layer === "overview" && state.level === "room"
+                        ? (peer) =>
+                            requestCrossing(fixtureCrossing(fixture.id, peer))
+                        : undefined
+                    }
                   />
                 ) : coolingRange && coolingHistories ? (
                   <>

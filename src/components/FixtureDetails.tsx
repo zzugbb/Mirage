@@ -24,11 +24,15 @@ import {
 export function FixtureDetails({
   fixture,
   analysis = false,
+  onCompare,
+  comparisonReady = false,
   onPreview,
   onLocate,
 }: {
   fixture: RoomFixture;
   analysis?: boolean;
+  onCompare?: (id: string) => void;
+  comparisonReady?: boolean;
   onPreview: (id: string) => void;
   onLocate: (id: string) => void;
 }) {
@@ -176,6 +180,8 @@ export function FixtureDetails({
         <FixtureRelations
           title={light ? "投影相交的桥架" : "投影相交的顶灯"}
           relations={lightTrayRelations(fixture.id)}
+          onCompare={onCompare}
+          comparisonReady={comparisonReady}
           onPreview={onPreview}
           onLocate={onLocate}
         />
@@ -195,11 +201,15 @@ export function FixtureDetails({
 export function FixtureRelations({
   relations,
   title = "布置关系",
+  onCompare,
+  comparisonReady = false,
   onPreview,
   onLocate,
 }: {
   relations: { id: string; name: string; relation: string }[];
   title?: string;
+  onCompare?: (id: string) => void;
+  comparisonReady?: boolean;
   onPreview: (id: string) => void;
   onLocate: (id: string) => void;
 }) {
@@ -224,6 +234,16 @@ export function FixtureRelations({
           >
             定位
           </button>
+          {onCompare && (
+            <button
+              className="fixture-compare"
+              disabled={!comparisonReady}
+              aria-label={`核对与${relation.name}的交叉高度`}
+              onClick={() => onCompare(relation.id)}
+            >
+              核对交叉高度 ↗
+            </button>
+          )}
         </div>
       ))}
     </details>

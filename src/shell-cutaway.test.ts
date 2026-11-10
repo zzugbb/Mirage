@@ -176,3 +176,23 @@ test("两处柜式设施按各自通道定位，宽窄视口的取景视线均�
     }
   }
 });
+
+test("关系核对同时保留两个目标及其父结构，其他遮挡仍剖切", () => {
+  const first = structure([0, 1, 3]);
+  const second = structure([0, 1, 5]);
+  const wall = structure([0, 1, 7]);
+  const cutaway = new ShellCutaway([first, second, wall]);
+  const camera = vector(0, 1, 10),
+    targets = [vector(0, 1, 0)];
+  assert.equal(
+    cutaway.update(camera, targets, true, [
+      first.children[0],
+      second.children[0],
+    ]),
+    1,
+  );
+  assert.ok(first.visible && second.visible);
+  assert.equal(wall.visible, false);
+  assert.equal(cutaway.update(camera, targets, true), 3);
+  assert.equal(cutaway.update(camera, targets, false), 0);
+});

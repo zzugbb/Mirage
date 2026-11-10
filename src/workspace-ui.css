@@ -4412,3 +4412,61 @@
 .workspace-ui .review-legend .airflow-boundary > .temperature-disclosure-body {
   max-height: clamp(100px, calc(100dvh - 570px), 220px);
 }
+
+.fixture-relations .fixture-compare {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+.workspace-ui .crossing-details {
+  margin: 0 22px 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+  display: grid;
+  gap: 10px;
+}
+.crossing-details > div {
+  display: grid;
+  gap: 4px;
+}
+.crossing-details button,
+.crossing-scene-key button {
+  cursor: pointer;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: inherit;
+  padding: 6px 8px;
+  text-align: left;
+}
+.crossing-details span,
+.crossing-details p {
+  font-size: 11px;
+  line-height: 1.6;
+  margin: 0;
+}
+.workspace-ui .review-legend > .crossing-scene-key {
+  display: grid;
+  width: auto;
+  white-space: normal;
+  gap: 7px;
+  margin-bottom: 10px;
+}
+.crossing-scene-key span {
+  font-size: 11px;
+}
+
+.workspace-ui .review-legend:has(.crossing-scene-key) {
+  pointer-events: auto;
+  width: 190px;
+  max-width: calc(100% - 48px);
+  padding: 12px;
+  border-radius: 7px;
+  background: #1d2931eb;
+}
+.workspace-ui .crossing-scene-key > * {
+  width: auto;
+  white-space: normal;
+}
+.workspace-ui .crossing-scene-key button {
+  position: static;
+  font-size: 11px;
+}

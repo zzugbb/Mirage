@@ -28,18 +28,18 @@ export class ShellCutaway {
     camera: THREE.Vector3,
     targets: THREE.Vector3[],
     roomVisible: boolean,
-    protectedObject?: THREE.Object3D,
+    protectedObject?: THREE.Object3D | THREE.Object3D[],
   ) {
     let count = 0;
     for (const entry of this.entries) {
       // 已剖切的结构保留少量退出余量，避免相机贴着边界移动时反复闪现。
       let containsSelection = false;
-      for (
-        let parent = protectedObject;
-        parent;
-        parent = parent.parent ?? undefined
-      )
-        if (parent === entry.group) containsSelection = true;
+      for (const object of Array.isArray(protectedObject)
+        ? protectedObject
+        : [protectedObject]) {
+        for (let parent = object; parent; parent = parent.parent ?? undefined)
+          if (parent === entry.group) containsSelection = true;
+      }
       const cut =
         !containsSelection &&
         this.enabled &&

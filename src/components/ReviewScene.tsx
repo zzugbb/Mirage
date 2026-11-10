@@ -1,3 +1,5 @@
+import type { FixtureCrossing, CrossingViewCommand } from "../fixture-crossing";
+import { CrossingGeometry } from "../scene/fixture-crossing";
 import {
   focusedPowerScene,
   powerViewPoints,
@@ -91,6 +93,10 @@ export function ReviewScene({
   onLocateAirflowEndpoint,
   aisle,
   networkLinkId = null,
+  crossing,
+  crossingCommand,
+  onCrossingChange,
+  onReturnCrossing,
   powerViewCommand,
   powerViewActive,
   onPowerViewChange,
@@ -114,6 +120,10 @@ export function ReviewScene({
   controls,
   compactTools = false,
 }: {
+  crossing: FixtureCrossing | null;
+  crossingCommand: CrossingViewCommand | null;
+  onCrossingChange: (pair: FixtureCrossing | null) => void;
+  onReturnCrossing: () => void;
   powerViewCommand: PowerViewCommand | null;
   powerViewActive: boolean;
   onPowerViewChange: (active: boolean) => void;
@@ -174,6 +184,7 @@ export function ReviewScene({
   const airflowGeometry = useRef<AirflowGeometry | null>(null);
   const maintenanceGeometry = useRef<MaintenanceGeometry | null>(null);
   const powerGeometry = useRef<PowerGeometry | null>(null);
+  const crossingGeometry = useRef<CrossingGeometry | null>(null);
   const networkGeometry = useRef<NetworkGeometry | null>(null);
   const clockEpoch = useRef(performance.now());
   const previousScene = useRef(state);
@@ -185,6 +196,7 @@ export function ReviewScene({
     onFeedback,
     onSliceViewChange,
     onPowerViewChange,
+    onCrossingChange,
     onNetworkViewChange,
   });
   callbacks.current = {
@@ -193,6 +205,7 @@ export function ReviewScene({
     onFeedback,
     onSliceViewChange,
     onPowerViewChange,
+    onCrossingChange,
     onNetworkViewChange,
   };
   const [error, setError] = useState("");
@@ -395,6 +408,9 @@ export function ReviewScene({
       const supplyGeometry = new PowerGeometry();
       active.models.root.add(supplyGeometry.root);
       powerGeometry.current = supplyGeometry;
+      const crossingLines = new CrossingGeometry();
+      active.models.root.add(crossingLines.root);
+      crossingGeometry.current = crossingLines;
       const networkDots = new NetworkGeometry();
       active.models.root.add(networkDots.root);
       networkGeometry.current = networkDots;
@@ -435,6 +451,12 @@ export function ReviewScene({
           roomReady,
         );
       };
+      active.onCrossingView = (pair) => {
+        callbacks.current.onCrossingChange(pair);
+        crossingLines.update(pair);
+        setView(active!.currentView);
+      };
+      callbacks.current.onCrossingChange(null);
       active.onPowerView = (observing) => {
         callbacks.current.onPowerViewChange(observing);
         setView(active!.currentView);
@@ -490,6 +512,8 @@ export function ReviewScene({
       maintenanceGeometry.current = null;
       powerGeometry.current?.dispose();
       powerGeometry.current = null;
+      crossingGeometry.current?.dispose();
+      crossingGeometry.current = null;
       networkGeometry.current?.dispose();
       networkGeometry.current = null;
       active?.dispose();
@@ -570,6 +594,7 @@ export function ReviewScene({
         engine.current.clearSliceView();
         engine.current.clearNetworkView();
         engine.current.clearPowerView();
+        engine.current.clearCrossingView();
       }
       engine.current.autoOrbit = orbit;
     }
@@ -588,6 +613,28 @@ export function ReviewScene({
       ambientSelected ? [] : reviewSpatialMarks(state, layer, readings),
     );
   }, [state, layer, readings, retry, ambientSelected]);
+  useEffect(() => {
+    const active = engine.current;
+    if (!active || !crossingCommand) return;
+    if (!crossingCommand.pair) active.restoreCrossingView();
+    else if (layer === "overview") {
+      setOrbit(false);
+      active.observeCrossing(crossingCommand.pair);
+    }
+    setView(active.currentView);
+  }, [crossingCommand?.revision]);
+  useEffect(() => {
+    engine.current?.frameCrossing();
+  }, [crossing?.id]);
+  useEffect(() => {
+    if (
+      crossing &&
+      (layer !== "overview" ||
+        state.level !== "room" ||
+        ![crossing.light.id, crossing.tray.id].includes(selectedId))
+    )
+      engine.current?.clearCrossingView();
+  }, [crossing, layer, state.level, selectedId]);
   useEffect(() => {
     const active = engine.current;
     if (!active || !powerViewCommand) return;
@@ -719,6 +766,7 @@ export function ReviewScene({
         : fixtureById(selectedId)
       : undefined;
   const labelKey =
+    (crossing?.id ?? "") +
     (selectedFixture?.id ?? "") +
     labels.map((r) => r.id).join(":") +
     (visibleAirflow?.routes.map((route) => route.id).join(":") ?? "") +
@@ -969,6 +1017,19 @@ export function ReviewScene({
           </details>
         </div>
         <div className="review-anchors" ref={anchors}>
+          {crossing?.markers.map((marker) => (
+            <div
+              key={marker.id}
+              hidden
+              aria-hidden="true"
+              data-anchor={marker.id}
+              data-anchor-kind="position"
+              data-anchor-position={marker.point.toArray().join(",")}
+              className="review-flow-anchor review-crossing-anchor"
+            >
+              <b>{marker.title}</b>
+            </div>
+          ))}
           {network.map((marker) => (
             <div
               key={marker.id}
@@ -1034,7 +1095,7 @@ export function ReviewScene({
                 </div>
               )),
           )}
-          {selectedFixture && (
+          {selectedFixture && !crossing && (
             <button
               hidden
               data-anchor={selectedFixture.id}
@@ -1126,14 +1187,20 @@ export function ReviewScene({
             onRetry={() => engine.current?.retryModels()}
           />
         )}
-        {(selectedFixture ||
+        {(crossing ||
+          selectedFixture ||
           airflow ||
           maintenance.length > 0 ||
           supply ||
           network.length > 0 ||
           labels.some((item) => item.id === selectedId)) && (
           <svg className="review-flow-lines" aria-hidden="true" ref={flowLines}>
-            {selectedFixture && <line data-flow-line={selectedFixture.id} />}
+            {crossing?.markers.map((marker) => (
+              <line key={marker.id} data-flow-line={marker.id} />
+            ))}
+            {selectedFixture && !crossing && (
+              <line data-flow-line={selectedFixture.id} />
+            )}
             {labels
               .filter((item) => item.id === selectedId)
               .map((item) => (
@@ -1169,6 +1236,17 @@ export function ReviewScene({
           data-flow-observation={!!flowView}
           data-slice-visible={sliceVisible}
         >
+          {crossing && (
+            <div className="crossing-scene-key">
+              <strong>交叉高度核对</strong>
+              <span>
+                表面高差 {Math.abs(crossing.difference).toFixed(2)} m · 配置
+              </span>
+              <button disabled={!sceneSettled} onClick={onReturnCrossing}>
+                ← 返回核对前视角
+              </button>
+            </div>
+          )}
           {network.length > 0 && networkLink && (
             <div className="network-scene-key">
               <strong>网络接入 · {networkLink.speedGbps} Gb/s 配置</strong>
