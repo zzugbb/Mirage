@@ -4564,3 +4564,45 @@
 .workspace-ui .review-environment-pair-anchor[aria-pressed="true"] {
   border-left-color: #b5dcd8;
 }
+
+.workspace-ui .review-legend .aisle-legend {
+  max-width: min(290px, calc(100vw - 48px));
+  white-space: normal;
+}
+.maintenance-view-controls {
+  display: grid;
+  gap: 8px;
+}
+.maintenance-view-controls .aisle-actions {
+  flex-wrap: wrap;
+}
+.maintenance-view-controls button[aria-pressed="true"] {
+  background: #3c555d;
+}
+.workspace-ui .maintenance-view-details {
+  display: grid;
+  gap: 10px;
+  margin: 0 22px 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+.maintenance-view-details > div {
+  display: grid;
+  gap: 5px;
+}
+.maintenance-view-details button {
+  background: transparent;
+  color: inherit;
+  border: 1px solid #3d4e59;
+  padding: 6px 8px;
+  border-radius: 4px;
+  text-align: left;
+  cursor: pointer;
+}
+.maintenance-view-details span,
+.maintenance-view-details p {
+  font-size: 11px;
+  line-height: 1.65;
+  margin: 0;
+  color: #a3b6c2;
+}

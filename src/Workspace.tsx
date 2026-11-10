@@ -1,3 +1,4 @@
+import type { MaintenanceInspection } from "./maintenance-view";
 import {
   environmentPair,
   environmentPairIncludes,
@@ -267,6 +268,13 @@ export function Workspace() {
       action,
       revision: (current?.revision ?? 0) + 1,
     }));
+  };
+  const [maintenanceView, setMaintenanceView] =
+    useState<MaintenanceInspection | null>(null);
+  const [maintenanceReturnRevision, setMaintenanceReturnRevision] = useState(0);
+  const returnMaintenanceView = () => {
+    takeover();
+    setMaintenanceReturnRevision((value) => value + 1);
   };
   const [crossing, setCrossing] = useState<FixtureCrossing | null>(null);
   const [crossingCommand, setCrossingCommand] =
@@ -1705,6 +1713,9 @@ export function Workspace() {
             environmentPair={pairedEnvironment}
             environmentPairMetric={environmentPairMetric}
             onReturnEnvironmentPair={returnEnvironmentPair}
+            maintenanceView={maintenanceView}
+            maintenanceReturnRevision={maintenanceReturnRevision}
+            onMaintenanceViewChange={setMaintenanceView}
             crossing={crossing}
             crossingCommand={crossingCommand}
             onCrossingChange={setCrossing}
@@ -1997,6 +2008,41 @@ export function Workspace() {
                   </button>
                 </div>
               )}
+            {maintenanceView && (
+              <section
+                className="maintenance-view-details"
+                aria-label="维护范围核对"
+              >
+                <strong>维护范围 · 配置预留</strong>
+                {maintenanceView.areas.map((area) => (
+                  <div key={area.id}>
+                    <button
+                      aria-pressed={selected === area.rackId}
+                      onClick={() => pick(area.rackId)}
+                    >
+                      {area.rackName} ·{" "}
+                      {area.kind === "front" ? "柜前操作" : "柜后检修"}
+                    </button>
+                    <span>
+                      进深 {area.depth.toFixed(2)} m × 宽{" "}
+                      {area.width.toFixed(2)} m
+                    </span>
+                  </div>
+                ))}
+                {maintenanceView.aisle && (
+                  <p>
+                    柜面间距 {maintenanceView.aisle.faceDistance.toFixed(2)} m ·{" "}
+                    {reserveGapText(maintenanceView.aisle.gap)}
+                  </p>
+                )}
+                <p>
+                  地面轮廓仅表示配置预留，不是实测净距、人员作业条件或通行结论。未包含全部建筑障碍物。
+                </p>
+                <button disabled={!ready} onClick={returnMaintenanceView}>
+                  ← 返回范围观察前视角
+                </button>
+              </section>
+            )}
             {crossing && (
               <section className="crossing-details" aria-label="交叉高度核对">
                 <strong>交叉高度核对 · 配置</strong>

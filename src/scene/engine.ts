@@ -1,4 +1,10 @@
 import {
+  maintenanceInspection,
+  maintenanceViewFrame,
+  type MaintenanceInspection,
+  type MaintenanceView,
+} from "../maintenance-view.ts";
+import {
   crossingViewFrame,
   type FixtureCrossing,
 } from "../fixture-crossing.ts";
@@ -586,6 +592,7 @@ export class SceneEngine {
     this.clearNetworkView();
     this.clearPowerView();
     this.clearCrossingView();
+    this.clearMaintenanceView();
     this.clearSliceView();
     this.clearAirflowView();
     this.panelViewport = undefined;
@@ -618,6 +625,7 @@ export class SceneEngine {
     this.clearNetworkView();
     this.clearPowerView();
     this.clearCrossingView();
+    this.clearMaintenanceView();
     this.clearSliceView();
     const previous =
       this.airflowObservation?.previous ?? this.captureObservationView();
@@ -736,6 +744,7 @@ export class SceneEngine {
     this.clearNetworkView();
     this.clearPowerView();
     this.clearCrossingView();
+    this.clearMaintenanceView();
     if (this.state.level !== "room" || !context.point || this.moving) return;
     const previous =
       this.sliceObservation?.previous ?? this.captureObservationView();
@@ -812,6 +821,7 @@ export class SceneEngine {
     this.panelViewport = undefined;
     this.clearPowerView();
     this.clearCrossingView();
+    this.clearMaintenanceView();
     this.networkObservation = {
       sourceId,
       targets,
@@ -882,6 +892,7 @@ export class SceneEngine {
   }
   observePower(selected: string, linkId: string | null) {
     this.clearCrossingView();
+    this.clearMaintenanceView();
     const targets = powerViewPoints(this.state, selected, linkId);
     const sourceId = powerViewSource(linkId);
     if (!targets.length || !sourceId || this.moving) return;
@@ -959,6 +970,7 @@ export class SceneEngine {
   }
   observeCrossing(pair: FixtureCrossing) {
     if (this.state.level !== "room" || this.moving) return;
+    this.clearMaintenanceView();
     const previous =
       this.crossingObservation?.previous ?? this.captureObservationView();
     this.clearNetworkView();
@@ -999,6 +1011,64 @@ export class SceneEngine {
     this.clearCrossingView();
     this.restoreObservationView(previous);
   }
+  onMaintenanceView: (inspection: MaintenanceInspection | null) => void =
+    () => {};
+  private maintenanceObservation?: {
+    inspection: MaintenanceInspection;
+    previous: ObservationMemory;
+  };
+  clearMaintenanceView() {
+    if (!this.maintenanceObservation) return;
+    this.maintenanceObservation = undefined;
+    this.moving = false;
+    this.onMaintenanceView(null);
+    this.invalidate();
+  }
+  observeMaintenance(rackId: string, view: MaintenanceView) {
+    if (this.state.level !== "room" || this.moving) return;
+    const inspection = maintenanceInspection(rackId, view);
+    if (!inspection) return;
+    const previous =
+      this.maintenanceObservation?.previous ?? this.captureObservationView();
+    this.clearNetworkView();
+    this.clearPowerView();
+    this.clearSliceView();
+    this.clearAirflowView();
+    this.clearCrossingView();
+    this.panelViewport = undefined;
+    this.maintenanceObservation = { inspection, previous };
+    this.currentView = "top";
+    this.currentFocus = false;
+    this.interior = false;
+    this.autoOrbit = false;
+    this.controls.minAzimuthAngle = -Infinity;
+    this.controls.maxAzimuthAngle = Infinity;
+    this.controls.maxPolarAngle = Math.PI / 2 - 0.03;
+    this.controls.minDistance = 0.5;
+    this.onMaintenanceView(inspection);
+    this.frameMaintenance();
+  }
+  frameMaintenance() {
+    if (!this.maintenanceObservation) return;
+    const { width, height, rect } = this.observationViewport();
+    const fit = maintenanceViewFrame(
+      this.maintenanceObservation.inspection,
+      width,
+      height,
+      rect,
+    );
+    this.targetPosition.copy(fit.position);
+    this.targetLook.copy(fit.target);
+    this.controls.maxDistance = Math.max(45, fit.distance * 1.2);
+    this.moving = true;
+    this.invalidate();
+  }
+  restoreMaintenanceView() {
+    const previous = this.maintenanceObservation?.previous;
+    if (!previous) return;
+    this.clearMaintenanceView();
+    this.restoreObservationView(previous);
+  }
   private panelViewport?: { width: number; height: number };
   // 预览打开和还原侧栏时仅更新投影，真实窗口缩放与主动定位仍按目标取景。
   preservePanelView() {
@@ -1027,6 +1097,10 @@ export class SceneEngine {
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height);
     this.pipeline.resize(width, height);
+    if (this.maintenanceObservation) {
+      this.frameMaintenance();
+      return;
+    }
     if (this.crossingObservation) {
       this.frameCrossing();
       return;
@@ -1077,6 +1151,7 @@ export class SceneEngine {
     this.clearNetworkView();
     this.clearPowerView();
     this.clearCrossingView();
+    this.clearMaintenanceView();
     this.clearSliceView();
     this.clearAirflowView();
     this.moving = false;
@@ -1270,6 +1345,7 @@ export class SceneEngine {
     this.clearNetworkView();
     this.clearPowerView();
     this.clearCrossingView();
+    this.clearMaintenanceView();
     this.clearSliceView();
     focus =
       focus ||
@@ -1812,7 +1888,8 @@ export class SceneEngine {
     }
     const cutCount = this.shellCutaway.update(
       this.camera.position,
-      this.crossingObservation?.pair.points ??
+      this.maintenanceObservation?.inspection.points ??
+        this.crossingObservation?.pair.points ??
         this.powerObservation?.targets ??
         this.networkObservation?.targets ??
         this.sliceObservation?.targets ??
@@ -1881,6 +1958,7 @@ export class SceneEngine {
     const object = this.objectFor(this.state.selected);
     const showSelection =
       !this.crossingObservation &&
+      !this.maintenanceObservation &&
       !!object &&
       this.state.selected !== "room-01" &&
       !(
