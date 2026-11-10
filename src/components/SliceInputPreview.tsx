@@ -1,5 +1,5 @@
 import { TemperatureDisclosure } from "./TemperatureDisclosure";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { TemperatureSlice } from "../temperature-slice";
 import type { SpatialReading } from "../spatial";
 import { qualityNames } from "../status";
@@ -28,11 +28,22 @@ export function SliceInputPreview({
   onPreview: (id: string) => () => void;
 }) {
   const coverage = useRef<HTMLDetailsElement>(null);
+  const action = useRef<HTMLButtonElement>(null);
+  const focusAction = useRef(false);
   const [visit, setVisit] = useState<{
     restore: () => void;
     target: string;
   } | null>(null);
   const returning = visit?.target === selectedId;
+  useLayoutEffect(() => {
+    if (!focusAction.current) return;
+    focusAction.current = false;
+    const target =
+      (returning || coverage.current?.open) && !action.current?.disabled
+        ? action.current
+        : coverage.current?.querySelector("summary");
+    target?.focus({ preventScroll: true });
+  }, [returning, selectedId]);
   // 手动选了其他对象，就结束这次往返；时钟推进仍停留在用户预览的设备。
   useEffect(() => {
     if (visit && visit.target !== selectedId) setVisit(null);
@@ -40,6 +51,7 @@ export function SliceInputPreview({
   const peak = slice.highestInput;
   const name = peak?.id.toUpperCase();
   const preview = (id: string) => {
+    focusAction.current = true;
     const restore = onPreview(id);
     setVisit({ target: id, restore: visit?.restore ?? restore });
     if (coverage.current?.open && matchMedia("(max-width: 600px)").matches) {
@@ -47,6 +59,46 @@ export function SliceInputPreview({
       coverage.current.querySelector("summary")?.focus({ preventScroll: true });
     }
   };
+  const peakAction = (
+    <button
+      type="button"
+      ref={action}
+      className="slice-peak-preview"
+      disabled={!returning && (!peak || peak.id === selectedId)}
+      aria-label={
+        returning
+          ? "返回预览前的对象"
+          : peak
+            ? `${peak.id === selectedId ? "已选" : "预览"}切片最高输入 ${name}，${peak.temperature.toFixed(1)} 摄氏度`
+            : "无有效进风输入"
+      }
+      onClick={() => {
+        if (returning && visit) {
+          focusAction.current = true;
+          setVisit(null);
+          visit.restore();
+        } else if (peak) {
+          preview(peak.id);
+        }
+      }}
+    >
+      {returning ? (
+        <>
+          <span>← 返回原选择</span>
+          <span>{selectedId.toUpperCase()}</span>
+        </>
+      ) : (
+        <>
+          <span>最高输入{peak && ` · ${name}`}</span>
+          <span>
+            {peak
+              ? `${peak.temperature.toFixed(1)} °C${peak.id === selectedId ? " · 已选" : " ↗"}`
+              : "暂无有效值"}
+          </span>
+        </>
+      )}
+    </button>
+  );
   return (
     <>
       <TemperatureDisclosure
@@ -68,6 +120,7 @@ export function SliceInputPreview({
           </>
         }
       >
+        {!returning && peakAction}
         {slice.unavailableIds.length ? (
           <>
             <p>未参与估计 · {slice.unavailableIds.length} 台</p>
@@ -103,42 +156,7 @@ export function SliceInputPreview({
         )}
         <small>超出设备输入的插值范围也会留白。</small>
       </TemperatureDisclosure>
-      <button
-        type="button"
-        className="slice-peak-preview"
-        disabled={!returning && (!peak || peak.id === selectedId)}
-        aria-label={
-          returning
-            ? "返回预览前的对象"
-            : peak
-              ? `${peak.id === selectedId ? "已选" : "预览"}切片最高输入 ${name}，${peak.temperature.toFixed(1)} 摄氏度`
-              : "无有效进风输入"
-        }
-        onClick={() => {
-          if (returning && visit) {
-            setVisit(null);
-            visit.restore();
-          } else if (peak) {
-            preview(peak.id);
-          }
-        }}
-      >
-        {returning ? (
-          <>
-            <span>← 返回原选择</span>
-            <span>{selectedId.toUpperCase()}</span>
-          </>
-        ) : (
-          <>
-            <span>最高输入{peak && ` · ${name}`}</span>
-            <span>
-              {peak
-                ? `${peak.temperature.toFixed(1)} °C${peak.id === selectedId ? " · 已选" : " ↗"}`
-                : "暂无有效值"}
-            </span>
-          </>
-        )}
-      </button>
+      {returning && peakAction}
     </>
   );
 }

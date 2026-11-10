@@ -4356,3 +4356,32 @@
   margin-bottom: 8px;
   font-size: 11px;
 }
+
+/* 常驻切片控制；补充核对按需展开，内层说明保持独立滚动。 */
+.workspace-ui .temperature-tools > summary {
+  cursor: pointer;
+  color: #b7d5dc;
+  font-size: 11px;
+  padding-top: 8px;
+  border-top: 1px solid #ffffff16;
+}
+.workspace-ui .temperature-tools > .temperature-disclosure-body {
+  display: grid;
+  gap: 10px;
+  max-height: none;
+  overflow: visible;
+  padding: 0;
+}
+.workspace-ui .temperature-tools .slice-device-context,
+.workspace-ui .temperature-tools .environment-disclosure,
+.workspace-ui .temperature-tools .review-flow-explanation {
+  margin: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+.workspace-ui .review-analysis-body > .inlet-assessment {
+  margin: 0;
+}
+.workspace-ui .review-analysis-body > .reading-sources {
+  padding-inline: 0;
+}

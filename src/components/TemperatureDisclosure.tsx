@@ -1,7 +1,7 @@
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import type { ReactNode, RefObject } from "react";
 
-/** 温度说明共用一个展开组，长内容单独滚动，保留切片主控。 */
+/** 同组说明互斥展开；外层工具使用独立组，避免展开内层时关闭入口。 */
 export function TemperatureDisclosure({
   className,
   summaryClassName,
@@ -10,8 +10,12 @@ export function TemperatureDisclosure({
   children,
   onInteract,
   detailsRef,
+  name = "temperature-context",
+  reveal = false,
 }: {
   className: string;
+  name?: string;
+  reveal?: boolean;
   summaryClassName?: string;
   summary: ReactNode;
   actions?: ReactNode;
@@ -21,10 +25,13 @@ export function TemperatureDisclosure({
 }) {
   const ownRef = useRef<HTMLDetailsElement>(null);
   const ref = detailsRef ?? ownRef;
+  useEffect(() => {
+    if (reveal && ref.current) ref.current.open = true;
+  }, [reveal, ref]);
   return (
     <details
       ref={ref}
-      name="temperature-context"
+      name={name}
       className={className}
       onPointerDownCapture={onInteract}
       onKeyDown={(event) => {

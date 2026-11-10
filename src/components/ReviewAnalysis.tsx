@@ -1,6 +1,6 @@
 import { PeakSourceProcess, peakNames } from "./PeakSourceProcess";
 import type { PeakProcessState } from "../peak-provenance";
-import { useState, type Ref } from "react";
+import { useState, type Ref, type ReactNode } from "react";
 import type { ReviewEvent, ReviewMetric, ReviewPoint } from "../review-model";
 import { qualityNames } from "../status";
 import { ReviewTrend } from "./ReviewTrend";
@@ -10,6 +10,7 @@ import { AnalysisEvents } from "./AnalysisEvents";
 export function ReviewAnalysis({
   title,
   peakProcess,
+  evidence,
   labels,
   histories,
   events,
@@ -27,6 +28,7 @@ export function ReviewAnalysis({
   onRate,
   onClose,
 }: {
+  evidence?: ReactNode;
   peakProcess?: {
     state: PeakProcessState;
     onChange: (state: PeakProcessState) => void;
@@ -148,19 +150,6 @@ export function ReviewAnalysis({
                   onInspect={setInspection}
                   onSeek={onSeek}
                 />
-                {metric === "temperature" && peakProcess && (
-                  <PeakSourceProcess
-                    points={points}
-                    time={time}
-                    state={peakProcess.state}
-                    onChange={peakProcess.onChange}
-                    onPreview={peakProcess.onPreview}
-                    onSeek={(target) => {
-                      setInspection(null);
-                      onSeek(target);
-                    }}
-                  />
-                )}
               </div>
             );
           })}
@@ -188,6 +177,20 @@ export function ReviewAnalysis({
             <small>点击或横拖回看 · 空缺保留</small>
           </div>
         </div>
+        {peakProcess && (
+          <PeakSourceProcess
+            points={histories.temperature}
+            time={time}
+            state={peakProcess.state}
+            onChange={peakProcess.onChange}
+            onPreview={peakProcess.onPreview}
+            onSeek={(target) => {
+              setInspection(null);
+              onSeek(target);
+            }}
+          />
+        )}
+        {evidence}
         <AnalysisEvents
           title={
             cooling

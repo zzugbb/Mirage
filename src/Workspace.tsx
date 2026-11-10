@@ -1937,29 +1937,7 @@ export function Workspace() {
                   />
                 </div>
                 {sliceInspector}
-                {sourceInspector}
-                {inletId && !pairedInlet && (
-                  <InletAssessment
-                    key={`${inletId}:${state.replayCycle}:${revision}`}
-                    headingRef={inletHeading}
-                    processState={
-                      inletProcessReview?.key === inletProcessKey
-                        ? inletProcessReview.value
-                        : emptyInletProcess
-                    }
-                    onProcessChange={(value) =>
-                      setInletProcessReview({ key: inletProcessKey, value })
-                    }
-                    reading={spatial.readings.get(inletId)!}
-                    sample={spatial.samples.get(inletId)!}
-                    component={component}
-                    ready={ready}
-                    time={state.time}
-                    onSeek={(time) => dispatch({ type: "seek", time })}
-                    onAirflow={() => showAirflow(inletId)}
-                    onLocate={() => locateEventDevice(inletId)}
-                  />
-                )}
+                {(fixture || pairedInlet) && sourceInspector}
                 {environment && fixture ? (
                   <EnvironmentDetails
                     comparisonOpen={environmentComparisonOpen}
@@ -2004,6 +1982,36 @@ export function Workspace() {
                   />
                 ) : (
                   <ReviewAnalysis
+                    evidence={
+                      <>
+                        {inletId && !pairedInlet && (
+                          <InletAssessment
+                            key={`${inletId}:${state.replayCycle}:${revision}`}
+                            headingRef={inletHeading}
+                            processState={
+                              inletProcessReview?.key === inletProcessKey
+                                ? inletProcessReview.value
+                                : emptyInletProcess
+                            }
+                            onProcessChange={(value) =>
+                              setInletProcessReview({
+                                key: inletProcessKey,
+                                value,
+                              })
+                            }
+                            reading={spatial.readings.get(inletId)!}
+                            sample={spatial.samples.get(inletId)!}
+                            component={component}
+                            ready={ready}
+                            time={state.time}
+                            onSeek={(time) => dispatch({ type: "seek", time })}
+                            onAirflow={() => showAirflow(inletId)}
+                            onLocate={() => locateEventDevice(inletId)}
+                          />
+                        )}
+                        {sourceInspector}
+                      </>
+                    }
                     peakProcess={
                       peakScopeIds(selected)
                         ? {
