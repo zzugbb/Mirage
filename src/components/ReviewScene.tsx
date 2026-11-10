@@ -1,3 +1,5 @@
+import type { NetworkViewCommand } from "../network-view";
+import { NetworkViewActions } from "./NetworkViewActions";
 import type { SliceViewCommand } from "../slice-view";
 import { SliceEvidenceGeometry } from "../scene/slice-evidence";
 import type { SliceDeviceInspection } from "../slice-device";
@@ -83,6 +85,10 @@ export function ReviewScene({
   onLocateAirflowEndpoint,
   aisle,
   networkLinkId = null,
+  networkViewCommand,
+  networkViewActive,
+  onNetworkViewChange,
+  onNetworkView,
   powerLinkId = null,
   pduInspection = null,
   onClearPower,
@@ -98,6 +104,10 @@ export function ReviewScene({
   controls,
   compactTools = false,
 }: {
+  networkViewCommand: NetworkViewCommand | null;
+  networkViewActive: boolean;
+  onNetworkViewChange: (active: boolean) => void;
+  onNetworkView: (action: NetworkViewCommand["action"]) => void;
   sliceViewCommand: SliceViewCommand | null;
   onSliceViewChange: (active: boolean) => void;
   sliceInspection: {
@@ -157,8 +167,15 @@ export function ReviewScene({
     onPhase,
     onFeedback,
     onSliceViewChange,
+    onNetworkViewChange,
   });
-  callbacks.current = { onSelect, onPhase, onFeedback, onSliceViewChange };
+  callbacks.current = {
+    onSelect,
+    onPhase,
+    onFeedback,
+    onSliceViewChange,
+    onNetworkViewChange,
+  };
   const [error, setError] = useState("");
   const [retry, setRetry] = useState(0);
   const [assets, setAssets] = useState(initialModelLoads);
@@ -379,6 +396,11 @@ export function ReviewScene({
           roomReady,
         );
       };
+      active.onNetworkView = (observing) => {
+        callbacks.current.onNetworkViewChange(observing);
+        setView(active!.currentView);
+      };
+      callbacks.current.onNetworkViewChange(false);
       active.onSliceView = (observing) => {
         callbacks.current.onSliceViewChange(observing);
         setView(active!.currentView);
@@ -499,6 +521,7 @@ export function ReviewScene({
       if (orbit) {
         engine.current.clearAirflowView();
         engine.current.clearSliceView();
+        engine.current.clearNetworkView();
       }
       engine.current.autoOrbit = orbit;
     }
@@ -517,6 +540,22 @@ export function ReviewScene({
       ambientSelected ? [] : reviewSpatialMarks(state, layer, readings),
     );
   }, [state, layer, readings, retry, ambientSelected]);
+  useEffect(() => {
+    const active = engine.current;
+    if (!active || !networkViewCommand) return;
+    if (networkViewCommand.action === "return") active.restoreNetworkView();
+    else if (layer === "overview") {
+      setOrbit(false);
+      active.observeNetwork(selectedId, networkLinkId);
+    }
+    setView(active.currentView);
+  }, [networkViewCommand?.revision]);
+  useEffect(() => {
+    engine.current?.updateNetworkView(
+      selectedId,
+      layer === "overview" && !isolatedPartId ? networkLinkId : null,
+    );
+  }, [network, layer, selectedId, isolatedPartId, shotRevision, retry]);
   useEffect(() => {
     const active = engine.current;
     if (!active || !sliceViewCommand) return;
@@ -1062,6 +1101,15 @@ export function ReviewScene({
                   ? "所属部件示意 · 非物理端口定位"
                   : "设备代表位置 · 非物理端口定位"}
               </small>
+              {network.length === 2 &&
+                network.every((marker) => marker.point) && (
+                  <NetworkViewActions
+                    active={networkViewActive}
+                    ready={sceneSettled}
+                    onObserve={() => onNetworkView("observe")}
+                    onReturn={() => onNetworkView("return")}
+                  />
+                )}
               <button onClick={onClearNetwork} aria-label="关闭网络端点标记">
                 ×
               </button>

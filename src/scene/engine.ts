@@ -1,3 +1,8 @@
+import {
+  networkViewFrame,
+  networkViewPoints,
+  networkViewSource,
+} from "../network-view";
 import { sliceViewPoints, sliceViewFrame } from "../slice-view";
 import type { SliceDeviceInspection } from "../slice-device";
 import type { RackUnitRange } from "../rack-space";
@@ -559,6 +564,7 @@ export class SceneEngine {
       return false;
     }
     this.autoOrbit = false;
+    this.clearNetworkView();
     this.clearSliceView();
     this.clearAirflowView();
     this.panelViewport = undefined;
@@ -587,6 +593,7 @@ export class SceneEngine {
   observeAirflow(route: AirflowRoute, view: AirflowView) {
     if (this.state.level !== "room") return;
     this.panelViewport = undefined;
+    this.clearNetworkView();
     this.clearSliceView();
     const previous =
       this.airflowObservation?.previous ?? this.captureObservationView();
@@ -700,6 +707,7 @@ export class SceneEngine {
     this.onSliceView(false);
   }
   observeSlice(context: SliceDeviceInspection) {
+    this.clearNetworkView();
     if (this.state.level !== "room" || !context.point || this.moving) return;
     const previous =
       this.sliceObservation?.previous ?? this.captureObservationView();
@@ -751,6 +759,81 @@ export class SceneEngine {
     this.clearSliceView();
     this.restoreObservationView(previous);
   }
+  onNetworkView: (active: boolean) => void = () => {};
+  private networkObservation?: {
+    sourceId: string;
+    targets: THREE.Vector3[];
+    key: string;
+    previous: ObservationMemory;
+  };
+  clearNetworkView() {
+    if (!this.networkObservation) return;
+    this.networkObservation = undefined;
+    this.moving = false;
+    this.onNetworkView(false);
+  }
+  observeNetwork(selected: string, linkId: string | null) {
+    const targets = networkViewPoints(this.state, selected, linkId);
+    const sourceId = networkViewSource(linkId);
+    if (!targets.length || !sourceId || this.moving) return;
+    const previous =
+      this.networkObservation?.previous ?? this.captureObservationView();
+    this.clearAirflowView();
+    this.clearSliceView();
+    this.panelViewport = undefined;
+    this.networkObservation = {
+      sourceId,
+      targets,
+      key: JSON.stringify(targets),
+      previous,
+    };
+    this.currentView = "front";
+    this.currentFocus = false;
+    this.interior = false;
+    this.controls.minAzimuthAngle = -Infinity;
+    this.controls.maxAzimuthAngle = Infinity;
+    this.controls.maxPolarAngle = Math.PI / 2 - 0.03;
+    this.controls.minDistance = 0.5;
+    this.autoOrbit = false;
+    this.frameNetwork();
+    this.onNetworkView(true);
+  }
+  updateNetworkView(selected: string, linkId: string | null) {
+    if (!this.networkObservation) return;
+    const targets = networkViewPoints(this.state, selected, linkId);
+    if (
+      !targets.length ||
+      networkViewSource(linkId) !== this.networkObservation.sourceId
+    ) {
+      this.clearNetworkView();
+      return;
+    }
+    const key = JSON.stringify(targets);
+    if (key === this.networkObservation.key) return;
+    this.networkObservation.targets = targets;
+    this.networkObservation.key = key;
+    this.frameNetwork();
+  }
+  private frameNetwork() {
+    if (!this.networkObservation) return;
+    const { width, height, rect } = this.observationViewport();
+    const fit = networkViewFrame(
+      this.networkObservation.targets,
+      width,
+      height,
+      rect,
+    );
+    this.targetPosition.copy(fit.position);
+    this.targetLook.copy(fit.target);
+    this.controls.maxDistance = Math.max(45, fit.distance * 1.2);
+    this.moving = true;
+  }
+  restoreNetworkView() {
+    const previous = this.networkObservation?.previous;
+    if (!previous) return;
+    this.clearNetworkView();
+    this.restoreObservationView(previous);
+  }
   private panelViewport?: { width: number; height: number };
   // 预览打开和还原侧栏时仅更新投影，真实窗口缩放与主动定位仍按目标取景。
   preservePanelView() {
@@ -773,6 +856,10 @@ export class SceneEngine {
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height);
     this.pipeline.resize(width, height);
+    if (this.networkObservation) {
+      this.frameNetwork();
+      return;
+    }
     if (this.sliceObservation) {
       this.frameSlice();
       return;
@@ -799,6 +886,7 @@ export class SceneEngine {
     this.onError("三维图形上下文已丢失，请重新加载场景。");
   };
   cancelFlight = () => {
+    this.clearNetworkView();
     this.clearSliceView();
     this.clearAirflowView();
     this.moving = false;
@@ -987,6 +1075,7 @@ export class SceneEngine {
     return object.visible && (!object.parent || this.visible(object.parent));
   }
   view(view: View, focus = false) {
+    this.clearNetworkView();
     this.clearSliceView();
     focus =
       focus ||
@@ -1499,11 +1588,15 @@ export class SceneEngine {
     }
     const cutCount = this.shellCutaway.update(
       this.camera.position,
-      this.sliceObservation?.targets ??
+      this.networkObservation?.targets ??
+        this.sliceObservation?.targets ??
         this.airflowObservation?.targets ??
         (selectedFixture ? this.fixtureTargets : this.shellTargets),
       this.models.room.visible,
-      selectedFixture && !this.airflowObservation && !this.sliceObservation
+      selectedFixture &&
+        !this.airflowObservation &&
+        !this.sliceObservation &&
+        !this.networkObservation
         ? this.models.fixtures.get(fixtureMountReference(this.state.selected))
         : undefined,
     );

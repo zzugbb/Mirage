@@ -1,3 +1,4 @@
+import { networkViewPoints, type NetworkViewCommand } from "./network-view";
 import type { SliceViewCommand } from "./slice-view";
 import { inspectSliceDevice, type SliceCheck } from "./slice-device";
 import { SliceEvidenceDetails } from "./components/SliceEvidenceDetails";
@@ -230,6 +231,16 @@ export function Workspace() {
   useEffect(() => {
     if (airflowVisit && !activeAirflowVisit) setAirflowVisit(null);
   }, [airflowVisit, activeAirflowVisit]);
+  const [networkViewActive, setNetworkViewActive] = useState(false);
+  const [networkViewCommand, setNetworkViewCommand] =
+    useState<NetworkViewCommand | null>(null);
+  const requestNetworkView = (action: NetworkViewCommand["action"]) => {
+    takeover();
+    setNetworkViewCommand((current) => ({
+      action,
+      revision: (current?.revision ?? 0) + 1,
+    }));
+  };
   const [networkLinkId, setNetworkLinkId] = useState<string | null>(null);
   const [pduInspection, setPduInspection] = useState<PduInspection | null>(
     null,
@@ -1570,6 +1581,10 @@ export function Workspace() {
             }
             aisle={aisle}
             networkLinkId={activeNetworkLink}
+            networkViewCommand={networkViewCommand}
+            networkViewActive={networkViewActive}
+            onNetworkViewChange={setNetworkViewActive}
+            onNetworkView={requestNetworkView}
             powerLinkId={activePowerLink}
             pduInspection={pduInspection}
             sliceViewCommand={sliceViewCommand}
@@ -2234,6 +2249,13 @@ export function Workspace() {
                         state={state}
                         selectedId={selected}
                         activeLinkId={activeNetworkLink}
+                        canObserve={
+                          networkViewPoints(state, selected, activeNetworkLink)
+                            .length === 2
+                        }
+                        observing={networkViewActive}
+                        onObserve={() => requestNetworkView("observe")}
+                        onReturnView={() => requestNetworkView("return")}
                         ready={ready}
                         onSelect={pick}
                         onLocate={(id) => focus(id, { installation: true })}

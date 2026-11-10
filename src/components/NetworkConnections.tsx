@@ -1,3 +1,4 @@
+import { NetworkViewActions } from "./NetworkViewActions";
 import { ConnectionSection } from "./ConnectionSection";
 import { useState } from "react";
 import type { AppState } from "../domain";
@@ -21,6 +22,10 @@ export function NetworkConnections({
   selectedId,
   activeLinkId,
   ready,
+  canObserve,
+  observing,
+  onObserve,
+  onReturnView,
   onSelect,
   onLocate,
   onInspect,
@@ -31,6 +36,10 @@ export function NetworkConnections({
   selectedId: string;
   activeLinkId: string | null;
   ready: boolean;
+  canObserve: boolean;
+  observing: boolean;
+  onObserve: () => void;
+  onReturnView: () => void;
   onSelect: (id: string) => void;
   onLocate: (id: string) => void;
   onInspect: (id: string) => void;
@@ -106,6 +115,14 @@ export function NetworkConnections({
               </button>
             ))}
           </div>
+          {canObserve && (
+            <NetworkViewActions
+              active={observing}
+              ready={ready}
+              onObserve={onObserve}
+              onReturn={onReturnView}
+            />
+          )}
           {networkEndpoints(activeLink.id).map((endpoint) => (
             <div className="network-trace-endpoint" key={endpoint.side}>
               <span aria-hidden="true">{endpoint.ordinal}</span>
