@@ -1,3 +1,4 @@
+import { SceneLoop } from "../scene-loop.ts";
 import { AnchorProjection } from "../anchor-projection.ts";
 import { RenderDemand } from "../render-demand.ts";
 import {
@@ -145,7 +146,7 @@ export class SceneEngine {
   contextAvailable = true;
   state: AppState;
   observer: ResizeObserver;
-  frame = 0;
+  private loop = new SceneLoop((time, delta) => this.animate(time, delta));
   private renderDemand = new RenderDemand();
   private renderView = new Float64Array(32);
   destroyed = false;
@@ -345,6 +346,7 @@ export class SceneEngine {
     this.controls.minDistance = 0.35;
     this.controls.maxDistance = 24;
     this.controls.addEventListener("start", this.cancelFlight);
+    this.controls.addEventListener("change", this.invalidate);
     this.camera.position.set(13, 11, 16);
     this.controls.target.set(0, 0.8, 0);
     this.pipeline = new RenderPipeline(this.renderer, this.scene, this.camera);
@@ -358,7 +360,7 @@ export class SceneEngine {
     this.activateAssembly(state);
     this.update(state);
     this.controls.autoRotateSpeed = 0.35;
-    this.animate(0);
+    this.loop.wake();
     this.assetLoader = new ModelLoading(
       (id, signal) => this.loadEnhancedModel(id, signal),
       (status) => {
@@ -589,6 +591,7 @@ export class SceneEngine {
     this.targetPosition.copy(saved.position);
     this.targetLook.copy(saved.target);
     this.moving = true;
+    this.invalidate();
     return true;
   }
   onAirflowView: (view: AirflowView | null) => void = () => {};
@@ -643,6 +646,7 @@ export class SceneEngine {
     this.targetLook.copy(fit.target);
     this.controls.maxDistance = Math.max(45, fit.distance * 1.2);
     this.moving = true;
+    this.invalidate();
   }
   restoreAirflowView() {
     const previous = this.airflowObservation?.previous;
@@ -680,6 +684,7 @@ export class SceneEngine {
     this.targetPosition.copy(previous.position);
     this.targetLook.copy(previous.target);
     this.moving = true;
+    this.invalidate();
   }
   private observationViewport() {
     const frame = this.host.getBoundingClientRect();
@@ -768,6 +773,7 @@ export class SceneEngine {
     this.targetLook.copy(fit.target);
     this.controls.maxDistance = Math.max(45, fit.distance * 1.2);
     this.moving = true;
+    this.invalidate();
   }
   restoreSliceView() {
     const previous = this.sliceObservation?.previous;
@@ -845,6 +851,7 @@ export class SceneEngine {
     this.targetLook.copy(fit.target);
     this.controls.maxDistance = Math.max(45, fit.distance * 1.2);
     this.moving = true;
+    this.invalidate();
   }
   restoreNetworkView() {
     const previous = this.networkObservation?.previous;
@@ -921,6 +928,7 @@ export class SceneEngine {
     this.targetLook.copy(fit.target);
     this.controls.maxDistance = Math.max(45, fit.distance * 1.2);
     this.moving = true;
+    this.invalidate();
   }
   restorePowerView() {
     const previous = this.powerObservation?.previous;
@@ -936,9 +944,11 @@ export class SceneEngine {
       height: window.innerHeight,
     };
   }
-  invalidate() {
+  invalidate = () => {
     this.renderDemand.invalidate();
-  }
+    this.loop.setEnabled(!this.paused && this.contextAvailable);
+    this.loop.wake();
+  };
   resize() {
     this.invalidate();
     const { width, height } = this.host.getBoundingClientRect();
@@ -985,6 +995,7 @@ export class SceneEngine {
   contextLost = (event: Event) => {
     event.preventDefault();
     this.contextAvailable = false;
+    this.loop.setEnabled(false);
     const feedback: SceneFeedback = {
       key: presentationKey(this.state),
       phase: this.lastPhase ?? "closed",
@@ -995,6 +1006,7 @@ export class SceneEngine {
     this.onError("三维图形上下文已丢失，请重新加载场景。");
   };
   cancelFlight = () => {
+    this.invalidate();
     this.clearNetworkView();
     this.clearPowerView();
     this.clearSliceView();
@@ -1258,6 +1270,7 @@ export class SceneEngine {
       this.controls.minDistance = 0.8;
       this.controls.maxDistance = 45;
       this.moving = true;
+      this.invalidate();
       return;
     }
     const object = this.objectFor(this.state.selected);
@@ -1383,8 +1396,10 @@ export class SceneEngine {
       level === "device" ? 5 : level === "rack" ? 9 : 24,
     );
     this.moving = true;
+    this.invalidate();
   }
   zoom(factor: number) {
+    this.invalidate();
     this.moving = false;
     const offset = this.camera.position.clone().sub(this.controls.target);
     offset.setLength(
@@ -1475,6 +1490,7 @@ export class SceneEngine {
     this.anchorsChanged = true;
   }
   bindAnchors(element: HTMLElement) {
+    this.invalidate();
     this.anchorProjection = new AnchorProjection();
     this.anchors = element;
     this.anchorElements = [
@@ -1482,6 +1498,7 @@ export class SceneEngine {
     ];
   }
   bindAxes(element: HTMLElement) {
+    this.invalidate();
     this.axesElements = [
       ...element.querySelectorAll<HTMLElement>("[data-axis]"),
     ];
@@ -1553,22 +1570,14 @@ export class SceneEngine {
           .multiplyScalar(Math.max(1, previous.aspect / this.camera.aspect))
           .add(previous.target);
         this.moving = true;
+        this.invalidate();
       }
     }
     this.host.dataset.isolatedPart = applied ? id! : "";
   }
-  animate = (time: number) => {
-    if (this.destroyed) return;
-    if (this.paused || !this.contextAvailable) {
-      this.lastTime = time;
-      this.invalidate();
-      this.frame = requestAnimationFrame(this.animate);
-      return;
-    }
+  animate = (time: number, delta: number) => {
+    if (this.destroyed || this.paused || !this.contextAvailable) return false;
     this.partIsolation.restore();
-    const delta = this.paused
-      ? 0
-      : Math.min((time - this.lastTime) / 1000 || 0.016, 0.05);
     const instant = this.reducedMotion && !this.paused;
     this.lastTime = time;
     const frame = this.presentation.step(
@@ -2024,9 +2033,10 @@ export class SceneEngine {
       this.moving ||
       this.models.selection.animating ||
       (this.state.playing && !this.reducedMotion);
-    if (this.renderDemand.consume(this.renderView, animating))
-      this.pipeline.render(delta, frame.relocation, structureBusy);
-    this.frame = requestAnimationFrame(this.animate);
+    const drawn = this.renderDemand.consume(this.renderView, animating);
+    if (drawn) this.pipeline.render(delta, frame.relocation, structureBusy);
+    // 补齐终态并让镜头阻尼收敛后休止。环绕开启时保留手动接管后的等待期。
+    return drawn || animating || (this.autoOrbit && !this.reducedMotion);
   };
   dispose() {
     this.partIsolation.restore();
@@ -2034,8 +2044,10 @@ export class SceneEngine {
     this.onAnchorsProjected = null;
     this.destroyed = true;
     this.assetLoader?.dispose();
-    cancelAnimationFrame(this.frame);
+    this.loop.dispose();
     this.observer.disconnect();
+    this.controls.removeEventListener("start", this.cancelFlight);
+    this.controls.removeEventListener("change", this.invalidate);
     this.controls.dispose();
     this.pipeline.dispose();
     this.surface.dispose();

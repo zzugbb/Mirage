@@ -1,4 +1,4 @@
-/** 只决定是否提交颜色/阴影绘制；机构、拾取与标签仍按原节奏更新。 */
+/** 只决定当前场景帧是否提交颜色/阴影绘制；帧调度由 SceneLoop 管理。 */
 export class RenderDemand {
   private dirty = true;
   private wasAnimating = false;
