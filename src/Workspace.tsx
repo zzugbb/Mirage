@@ -1,3 +1,5 @@
+import { CoolingRange } from "./components/CoolingRange";
+import { coolingRangeIncludes, initialCoolingRange } from "./cooling-range";
 import type { MaintenanceInspection } from "./maintenance-view";
 import {
   environmentPair,
@@ -269,6 +271,29 @@ export function Workspace() {
       revision: (current?.revision ?? 0) + 1,
     }));
   };
+  const [coolingRangeState, setCoolingRangeState] =
+    useState(initialCoolingRange);
+  const [coolingRangeOpen, setCoolingRangeOpen] = useState(false);
+  const coolingRangeScroll = useRef({ list: 0, panel: 0, restore: false });
+  const [coolingVisit, setCoolingVisit] = useState<{
+    rackId: string;
+    layer: ReviewState["layer"];
+    slice: SliceControls;
+    nav: boolean;
+    query: string;
+    filter: ResourceFilter;
+    onlyAlarms: boolean;
+  } | null>(null);
+  const [coolingReturning, setCoolingReturning] = useState(false);
+  useEffect(() => {
+    if (
+      coolingVisit &&
+      !coolingReturning &&
+      (selected === coolingSource.id ||
+        !coolingRangeIncludes(coolingVisit.rackId, selected, state.deviceId))
+    )
+      setCoolingVisit(null);
+  }, [coolingVisit, coolingReturning, selected, state.deviceId]);
   const [maintenanceView, setMaintenanceView] =
     useState<MaintenanceInspection | null>(null);
   const [maintenanceReturnRevision, setMaintenanceReturnRevision] = useState(0);
@@ -719,6 +744,65 @@ export function Workspace() {
     setInspector(true);
     if (matchMedia("(max-width: 1099px)").matches) setNav(false);
   };
+  const returnCoolingRange = () => {
+    if (!coolingVisit || !ready) return;
+    const origin = coolingVisit;
+    setCoolingReturning(true);
+    pick(coolingSource.id, state.level !== "room");
+    control({ type: "layer", layer: origin.layer });
+    control({ type: "analysis", value: false });
+    setSliceControls(origin.slice);
+    setQuery(origin.query);
+    setFilter(origin.filter);
+    setOnlyAlarms(origin.onlyAlarms);
+    setNav(origin.nav);
+    setCoolingRangeOpen(true);
+  };
+  useEffect(() => {
+    if (
+      coolingReturning &&
+      !review.pendingId &&
+      selected !== coolingSource.id
+    ) {
+      setCoolingReturning(false);
+      setCoolingVisit(null);
+      return;
+    }
+    if (
+      !coolingReturning ||
+      !ready ||
+      selected !== coolingSource.id ||
+      state.level !== "room"
+    )
+      return;
+    setCoolingReturning(false);
+    setCoolingVisit(null);
+  }, [coolingReturning, ready, selected, state.level, review.pendingId]);
+  const visitCoolingRange = (id: string, rackId: string, airflow = false) => {
+    setCoolingVisit({
+      rackId,
+      layer,
+      slice: sliceControls,
+      nav,
+      query,
+      filter,
+      onlyAlarms,
+    });
+    if (airflow) showAirflow(id);
+    else pick(id);
+  };
+  const coolingRangeBrowser = (
+    <CoolingRange
+      value={coolingRangeState}
+      readings={spatial.readings}
+      ready={ready}
+      open={coolingRangeOpen}
+      scroll={coolingRangeScroll}
+      onChange={setCoolingRangeState}
+      onPreview={visitCoolingRange}
+      onAirflow={(id, rackId) => visitCoolingRange(id, rackId, true)}
+    />
+  );
   const returnInletOverview = () => {
     skipNavigationSearch.current = !nav;
     if (inletPair) inletScroll.current = inletPair.scroll;
@@ -786,6 +870,11 @@ export function Workspace() {
     setInspectionDevice(null);
     setEnvironmentComparisonOpen(false);
     setEnvironmentPairVisit(null);
+    setCoolingRangeState(initialCoolingRange());
+    setCoolingRangeOpen(false);
+    setCoolingVisit(null);
+    setCoolingReturning(false);
+    coolingRangeScroll.current = { list: 0, panel: 0, restore: false };
     setAirflowVisit(null);
     setPowerLinkId(null);
     setNetworkLinkId(null);
@@ -1918,6 +2007,41 @@ export function Workspace() {
                 )}
               </span>
             </div>
+            {coolingVisit && selected !== coolingSource.id && (
+              <section
+                className="cooling-range-return"
+                aria-label="服务范围检视往返"
+              >
+                <small>
+                  来自制冷服务范围 · {rackById(coolingVisit.rackId)?.name}
+                </small>
+                <button disabled={!ready} onClick={returnCoolingRange}>
+                  ← 返回制冷服务范围
+                </button>
+                {inletId && (
+                  <div>
+                    <button
+                      disabled={!ready}
+                      onClick={() => showAirflow(inletId)}
+                    >
+                      机房气流 ↗
+                    </button>
+                    <button
+                      disabled={!ready}
+                      onClick={() => pick(inletId, true)}
+                    >
+                      {resourceOpenLabel(state, inletId)} ↗
+                    </button>
+                  </div>
+                )}
+                <button
+                  aria-label="结束服务范围检视往返"
+                  onClick={() => setCoolingVisit(null)}
+                >
+                  结束核对
+                </button>
+              </section>
+            )}
             {pduInspection?.outlet !== null &&
               pduInspection &&
               (selected !== pduInspection.pduId || review.analysis) && (
@@ -2343,6 +2467,10 @@ export function Workspace() {
                     </section>
                     {sourceInspector}
                     <CoolingConnections
+                      range={coolingRangeBrowser}
+                      rangeOpen={coolingRangeOpen}
+                      onRangeOpen={setCoolingRangeOpen}
+                      active={!!coolingVisit}
                       onInteract={takeover}
                       state={state}
                       selectedId={selected}
@@ -2351,7 +2479,11 @@ export function Workspace() {
                       airflowVisible={
                         layer === "environment" && state.level === "room"
                       }
-                      onSelect={pick}
+                      onSelect={(id) =>
+                        coolingVisit && id === coolingSource.id
+                          ? returnCoolingRange()
+                          : pick(id)
+                      }
                       onLocateSource={() => pick(coolingSource.id, true)}
                       onViewAirflow={() => showAirflow(selected)}
                     />
@@ -2612,6 +2744,10 @@ export function Workspace() {
                       )}
                     {layer === "environment" && (
                       <CoolingConnections
+                        range={coolingRangeBrowser}
+                        rangeOpen={coolingRangeOpen}
+                        onRangeOpen={setCoolingRangeOpen}
+                        active={!!coolingVisit}
                         onInteract={takeover}
                         state={state}
                         selectedId={selected}
@@ -2620,7 +2756,11 @@ export function Workspace() {
                         airflowVisible={
                           layer === "environment" && state.level === "room"
                         }
-                        onSelect={pick}
+                        onSelect={(id) =>
+                          coolingVisit && id === coolingSource.id
+                            ? returnCoolingRange()
+                            : pick(id)
+                        }
                         onLocateSource={() => pick(coolingSource.id, true)}
                         onViewAirflow={() => showAirflow(selected)}
                       />

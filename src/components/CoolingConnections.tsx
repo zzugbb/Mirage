@@ -1,10 +1,6 @@
+import type { ReactNode } from "react";
 import { ConnectionSection } from "./ConnectionSection";
-import {
-  coolingSource,
-  coolingDeviceIds,
-  coolingSummary,
-  isCoolingSource,
-} from "../cooling";
+import { coolingSource, coolingDeviceIds, isCoolingSource } from "../cooling";
 import { deviceById, racks, rackForDevice } from "../installation";
 import { modelForDevice } from "../catalog";
 import type { AppState } from "../domain";
@@ -21,6 +17,10 @@ export function CoolingConnections({
   onSelect,
   onLocateSource,
   onViewAirflow,
+  range,
+  rangeOpen,
+  onRangeOpen,
+  active = false,
 }: {
   state: AppState;
   selectedId: string;
@@ -31,6 +31,10 @@ export function CoolingConnections({
   onSelect: (id: string) => void;
   onLocateSource: () => void;
   onViewAirflow: () => void;
+  range: ReactNode;
+  rangeOpen: boolean;
+  onRangeOpen: (open: boolean) => void;
+  active?: boolean;
 }) {
   const ids = coolingDeviceIds(selectedId, state.deviceId);
   if (!ids.length) return null;
@@ -41,6 +45,9 @@ export function CoolingConnections({
   return (
     <ConnectionSection
       onInteract={onInteract}
+      open={source ? rangeOpen : undefined}
+      onOpenChange={source ? onRangeOpen : undefined}
+      active={!source && active}
       title={source ? "配置服务范围" : "冷却关联"}
       className="cooling-connections"
       summary={
@@ -75,37 +82,7 @@ export function CoolingConnections({
             }{" "}
             柜 / {ids.length} 台设备；不表示独占覆盖或已校核制冷量。
           </p>
-          <div className="cooling-range-list">
-            {racks.map((rack) => {
-              const range = coolingSummary(
-                ids.filter((id) => deviceById(id)?.rackId === rack.id),
-                readings,
-              );
-              if (!range.count) return null;
-              return (
-                <div key={rack.id} className="cooling-range-row">
-                  <button
-                    onClick={() => onSelect(rack.id)}
-                    aria-label={`预览 ${rack.name}冷却关联`}
-                  >
-                    <strong>{rack.name}</strong>
-                    <small>
-                      进风最高{" "}
-                      {range.maximum === null
-                        ? "—"
-                        : `${range.maximum.toFixed(1)} °C`}{" "}
-                      · 有效 {range.coverage}/{range.count}
-                    </small>
-                  </button>
-                  <span>
-                    {range.alarmIds.length
-                      ? `${range.alarmIds.length} 台告警`
-                      : "无当前告警"}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
+          {range}
         </>
       ) : rack ? (
         <>

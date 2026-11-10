@@ -7,6 +7,8 @@ export function ConnectionSection({
   summary,
   className,
   active = false,
+  open,
+  onOpenChange,
   onInteract,
   children,
 }: {
@@ -14,6 +16,8 @@ export function ConnectionSection({
   summary: string;
   className: string;
   active?: boolean;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
   onInteract?: () => void;
   children: ReactNode;
 }) {
@@ -24,6 +28,8 @@ export function ConnectionSection({
   return (
     <details
       ref={ref}
+      open={open}
+      onToggle={(event) => onOpenChange?.(event.currentTarget.open)}
       className={`connection-section ${className}`}
       onPointerDownCapture={onInteract}
       onKeyDownCapture={onInteract}

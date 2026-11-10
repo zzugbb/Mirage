@@ -4606,3 +4606,108 @@
   margin: 0;
   color: #a3b6c2;
 }
+
+.cooling-range-browser {
+  display: grid;
+  gap: 9px;
+}
+.cooling-range-browser label {
+  display: grid;
+  gap: 5px;
+  font-size: 11px;
+  color: #a3b6c2;
+}
+.cooling-range-browser input,
+.cooling-range-browser select {
+  width: 100%;
+  min-width: 0;
+  padding: 7px;
+  border: 1px solid #3d4e59;
+  border-radius: 4px;
+  background: #151d24;
+  color: #e0e7eb;
+}
+.cooling-range-browser .cooling-range-count {
+  margin: 0;
+  font-size: 11px;
+  color: #a3b6c2;
+}
+.cooling-range-groups {
+  max-height: 360px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+.cooling-range-group {
+  border-top: 1px solid #34424b;
+  padding: 7px 0;
+}
+.cooling-range-browser .cooling-range-toggle {
+  width: 100%;
+  display: grid;
+  gap: 5px;
+  text-align: left;
+}
+.cooling-range-toggle strong {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-weight: 500;
+}
+.cooling-range-toggle strong span,
+.cooling-range-toggle small {
+  font-size: 10px;
+  color: #a3b6c2;
+}
+.cooling-range-actions {
+  display: flex;
+  gap: 8px;
+  padding: 8px 0;
+}
+.cooling-range-device {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  border-top: 1px solid #29343e;
+  padding: 7px 0;
+}
+.cooling-range-device > button:first-child {
+  display: grid;
+  flex: 1;
+  gap: 4px;
+  min-width: 0;
+  text-align: left;
+}
+.cooling-range-device strong {
+  font-size: 12px;
+  font-weight: 500;
+}
+.cooling-range-device small,
+.cooling-range-device span {
+  font-size: 11px;
+  color: #a3b6c2;
+}
+.cooling-range-return {
+  margin: 0 22px 16px;
+  padding: 10px 0;
+  display: grid;
+  gap: 8px;
+  border-bottom: 1px solid var(--line);
+}
+.cooling-range-return small {
+  color: #a3b6c2;
+  font-size: 11px;
+}
+.cooling-range-return > div {
+  display: flex;
+  gap: 8px;
+}
+.cooling-range-return button {
+  background: transparent;
+  border: 1px solid #3d4e59;
+  color: #d1e5e8;
+  border-radius: 4px;
+  padding: 6px 8px;
+  cursor: pointer;
+  text-align: left;
+}
