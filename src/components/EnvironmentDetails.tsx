@@ -68,6 +68,7 @@ export function EnvironmentDetails({
   onAnalyze,
   onPreview,
   onLocate,
+  onAnalyzePair,
 }: {
   fixture: RoomFixture;
   time: number;
@@ -78,6 +79,7 @@ export function EnvironmentDetails({
   onAnalyze: () => void;
   onPreview: (id: string) => void;
   onLocate: (id: string) => void;
+  onAnalyzePair: (id: string) => void;
 }) {
   const [previewMetric, setPreviewMetric] = useState<
     "ambientTemperature" | "humidity"
@@ -188,6 +190,7 @@ export function EnvironmentDetails({
         time={cursor}
         open={comparisonOpen}
         onToggle={onComparisonToggle}
+        onAnalyzePair={onAnalyzePair}
         onPreview={onPreview}
         onLocate={onLocate}
       />

@@ -1,4 +1,11 @@
 import {
+  environmentPair,
+  environmentPairIncludes,
+  type EnvironmentPair,
+} from "./environment-pair";
+import type { EnvironmentMetric } from "./environment-monitoring";
+import { EnvironmentPairAnalysis } from "./components/EnvironmentPairAnalysis";
+import {
   fixtureCrossing,
   type FixtureCrossing,
   type CrossingViewCommand,
@@ -154,6 +161,15 @@ export function Workspace() {
   const selected = review.selectedId ?? state.selected;
   const [environmentComparisonOpen, setEnvironmentComparisonOpen] =
     useState(false);
+  const [environmentPairVisit, setEnvironmentPairVisit] = useState<{
+    pair: EnvironmentPair;
+    layer: typeof layer;
+    analysis: boolean;
+    nav: boolean;
+  } | null>(null);
+  const environmentPairReturning = useRef(false);
+  const [environmentPairMetric, setEnvironmentPairMetric] =
+    useState<EnvironmentMetric>("ambientTemperature");
   const [inspectionDevice, setInspectionDevice] = useState<string | null>(null);
   const isolatedPartId = isolatedPart(state, selected, inspectionDevice);
   useEffect(() => {
@@ -394,6 +410,29 @@ export function Workspace() {
   const entity = entityById(selected)!;
   const fixture = fixtureById(selected);
   const environment = environmentProbe(selected);
+  const pairedEnvironment =
+    environmentPairVisit &&
+    review.analysis &&
+    inspector &&
+    layer === "environment" &&
+    environmentPairIncludes(environmentPairVisit.pair, selected)
+      ? environmentPairVisit.pair
+      : null;
+  useEffect(() => {
+    if (environmentPairVisit && !pairedEnvironment)
+      setEnvironmentPairVisit(null);
+  }, [environmentPairVisit, pairedEnvironment]);
+
+  useEffect(() => {
+    if (environmentPairReturning.current && !pairedEnvironment) {
+      environmentPairReturning.current = false;
+      const button = document.querySelector<HTMLButtonElement>(
+        ".environment-comparison-toggle",
+      );
+      button?.focus({ preventScroll: true });
+      button?.scrollIntoView({ block: "nearest" });
+    }
+  }, [pairedEnvironment]);
   const maintenance = useMemo(() => maintenanceAreas(selected), [selected]);
   const aisle =
     layer === "overview" && state.level === "room"
@@ -614,6 +653,27 @@ export function Workspace() {
       stageRef.current?.scrollIntoView({ block: "nearest" });
     }
   };
+  const analyzeEnvironmentPair = (otherId: string) => {
+    const pair = environmentPair(selected, otherId);
+    if (!pair) return;
+    setEnvironmentPairVisit({ pair, layer, analysis: review.analysis, nav });
+    setEnvironmentPairMetric("ambientTemperature");
+    control({ type: "layer", layer: "environment" });
+    control({ type: "analysis", value: true });
+    setInspector(true);
+    if (matchMedia("(max-width: 1099px)").matches) setNav(false);
+  };
+  const returnEnvironmentPair = () => {
+    if (!environmentPairVisit) return;
+    const origin = environmentPairVisit;
+    environmentPairReturning.current = true;
+    setEnvironmentPairVisit(null);
+    pick(origin.pair.firstId);
+    control({ type: "layer", layer: origin.layer });
+    control({ type: "analysis", value: origin.analysis });
+    setEnvironmentComparisonOpen(true);
+    setNav(origin.nav);
+  };
   const locateEventDevice = (id: string) => {
     setQuery("");
     setFilter("all");
@@ -717,6 +777,7 @@ export function Workspace() {
     pduReturnPending.current = false;
     setInspectionDevice(null);
     setEnvironmentComparisonOpen(false);
+    setEnvironmentPairVisit(null);
     setAirflowVisit(null);
     setPowerLinkId(null);
     setNetworkLinkId(null);
@@ -1641,6 +1702,9 @@ export function Workspace() {
             networkLinkId={activeNetworkLink}
             powerViewCommand={powerViewCommand}
             powerViewActive={powerViewActive}
+            environmentPair={pairedEnvironment}
+            environmentPairMetric={environmentPairMetric}
+            onReturnEnvironmentPair={returnEnvironmentPair}
             crossing={crossing}
             crossingCommand={crossingCommand}
             onCrossingChange={setCrossing}
@@ -1982,8 +2046,23 @@ export function Workspace() {
                 </div>
                 {sliceInspector}
                 {(fixture || pairedInlet) && sourceInspector}
-                {environment && fixture ? (
+                {pairedEnvironment ? (
+                  <EnvironmentPairAnalysis
+                    pair={pairedEnvironment}
+                    metric={environmentPairMetric}
+                    time={state.time}
+                    selected={selected}
+                    ready={ready}
+                    onMetric={setEnvironmentPairMetric}
+                    onSeek={(time) => dispatch({ type: "seek", time })}
+                    onPreview={pick}
+                    onLocate={focus}
+                    onReturn={returnEnvironmentPair}
+                    onClose={() => setEnvironmentPairVisit(null)}
+                  />
+                ) : environment && fixture ? (
                   <EnvironmentDetails
+                    onAnalyzePair={analyzeEnvironmentPair}
                     comparisonOpen={environmentComparisonOpen}
                     onComparisonToggle={setEnvironmentComparisonOpen}
                     fixture={fixture}
@@ -2134,6 +2213,7 @@ export function Workspace() {
                 )}
                 {environment && fixture ? (
                   <EnvironmentDetails
+                    onAnalyzePair={analyzeEnvironmentPair}
                     comparisonOpen={environmentComparisonOpen}
                     onComparisonToggle={setEnvironmentComparisonOpen}
                     fixture={fixture}

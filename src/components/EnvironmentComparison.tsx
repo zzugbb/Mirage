@@ -12,6 +12,7 @@ export function EnvironmentComparison({
   onToggle,
   onPreview,
   onLocate,
+  onAnalyzePair,
 }: {
   id: string;
   time: number;
@@ -19,6 +20,7 @@ export function EnvironmentComparison({
   onToggle: (value: boolean) => void;
   onPreview: (id: string) => void;
   onLocate: (id: string) => void;
+  onAnalyzePair: (id: string) => void;
 }) {
   const other = environmentProbes.find((probe) => probe.fixtureId !== id);
   const selected = environmentProbes.find((probe) => probe.fixtureId === id);
@@ -89,6 +91,12 @@ export function EnvironmentComparison({
               </p>
             </div>
           ))}
+          <button
+            className="environment-analysis-link"
+            onClick={() => onAnalyzePair(other.fixtureId)}
+          >
+            对照两测点历史 →
+          </button>
           <div className="environment-comparison-actions">
             <button onClick={() => onPreview(other.fixtureId)}>
               预览对照测点

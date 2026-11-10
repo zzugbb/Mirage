@@ -1,3 +1,9 @@
+import { trendMetricNames } from "../trend-geometry";
+import {
+  environmentPairMarkers,
+  type EnvironmentPair,
+} from "../environment-pair";
+import type { EnvironmentMetric } from "../environment-monitoring";
 import type { FixtureCrossing, CrossingViewCommand } from "../fixture-crossing";
 import { CrossingGeometry } from "../scene/fixture-crossing";
 import {
@@ -93,6 +99,9 @@ export function ReviewScene({
   onLocateAirflowEndpoint,
   aisle,
   networkLinkId = null,
+  environmentPair,
+  environmentPairMetric,
+  onReturnEnvironmentPair,
   crossing,
   crossingCommand,
   onCrossingChange,
@@ -120,6 +129,9 @@ export function ReviewScene({
   controls,
   compactTools = false,
 }: {
+  environmentPair: EnvironmentPair | null;
+  environmentPairMetric: EnvironmentMetric;
+  onReturnEnvironmentPair: () => void;
   crossing: FixtureCrossing | null;
   crossingCommand: CrossingViewCommand | null;
   onCrossingChange: (pair: FixtureCrossing | null) => void;
@@ -244,6 +256,14 @@ export function ReviewScene({
       ? environmentObservation(selectedId, state.time)
       : null;
   const ambientSelected = !!ambient;
+  const environmentMarkers =
+    environmentPair && state.level === "room" && layer === "environment"
+      ? environmentPairMarkers(
+          environmentPair,
+          environmentPairMetric,
+          state.time,
+        )
+      : [];
   const slice = useMemo(
     () =>
       layer === "environment" && state.level === "room" && !ambientSelected
@@ -766,6 +786,7 @@ export function ReviewScene({
         : fixtureById(selectedId)
       : undefined;
   const labelKey =
+    environmentMarkers.map((marker) => marker.id).join(":") +
     (crossing?.id ?? "") +
     (selectedFixture?.id ?? "") +
     labels.map((r) => r.id).join(":") +
@@ -1017,6 +1038,22 @@ export function ReviewScene({
           </details>
         </div>
         <div className="review-anchors" ref={anchors}>
+          {environmentMarkers.map((marker) => (
+            <button
+              key={marker.id}
+              hidden
+              data-anchor={`pair-${marker.id}`}
+              data-anchor-kind="position"
+              data-anchor-position={marker.position.join(",")}
+              className="review-flow-anchor review-environment-pair-anchor"
+              onClick={() => onSelect(marker.id)}
+              aria-label={`预览对照测点 ${marker.name}`}
+              aria-pressed={selectedId === marker.id}
+            >
+              <b>{marker.title}</b>
+              <small>{marker.value}</small>
+            </button>
+          ))}
           {crossing?.markers.map((marker) => (
             <div
               key={marker.id}
@@ -1095,7 +1132,7 @@ export function ReviewScene({
                 </div>
               )),
           )}
-          {selectedFixture && !crossing && (
+          {selectedFixture && !crossing && !environmentMarkers.length && (
             <button
               hidden
               data-anchor={selectedFixture.id}
@@ -1195,10 +1232,13 @@ export function ReviewScene({
           network.length > 0 ||
           labels.some((item) => item.id === selectedId)) && (
           <svg className="review-flow-lines" aria-hidden="true" ref={flowLines}>
+            {environmentMarkers.map((marker) => (
+              <line key={marker.id} data-flow-line={`pair-${marker.id}`} />
+            ))}
             {crossing?.markers.map((marker) => (
               <line key={marker.id} data-flow-line={marker.id} />
             ))}
-            {selectedFixture && !crossing && (
+            {selectedFixture && !crossing && !environmentMarkers.length && (
               <line data-flow-line={selectedFixture.id} />
             )}
             {labels
@@ -1314,18 +1354,33 @@ export function ReviewScene({
             </div>
           ) : ambientSelected ? (
             <div className="environment-scene-key">
-              <strong>环境测点 · 模拟</strong>
-              <EnvironmentProbeList
-                time={state.time}
-                selected={selectedId}
-                onSelect={(id, enter) => {
-                  if (!enter) engine.current?.preservePanelView();
-                  onSelect(id, enter);
-                }}
-              />
-              <button onClick={() => onSelect("room-01", true)}>
-                ← 返回设备进风
-              </button>
+              <strong>
+                {environmentPair
+                  ? `双测点${trendMetricNames[environmentPairMetric]} · 模拟`
+                  : "环境测点 · 模拟"}
+              </strong>
+              {environmentPair ? (
+                <>
+                  <small>① 起点 · 实线 / ② 对照 · 虚线</small>
+                  <button onClick={onReturnEnvironmentPair}>
+                    ← 返回起点测点
+                  </button>
+                </>
+              ) : (
+                <>
+                  <EnvironmentProbeList
+                    time={state.time}
+                    selected={selectedId}
+                    onSelect={(id, enter) => {
+                      if (!enter) engine.current?.preservePanelView();
+                      onSelect(id, enter);
+                    }}
+                  />
+                  <button onClick={() => onSelect("room-01", true)}>
+                    ← 返回设备进风
+                  </button>
+                </>
+              )}
             </div>
           ) : (
             <>
