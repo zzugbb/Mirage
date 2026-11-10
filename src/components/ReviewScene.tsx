@@ -450,7 +450,10 @@ export function ReviewScene({
     }
     const visibility = () => {
       clockEpoch.current = performance.now();
-      if (active) active.paused = document.hidden;
+      if (active) {
+        active.paused = document.hidden;
+        active.invalidate();
+      }
     };
     visibility();
     document.addEventListener("visibilitychange", visibility);
@@ -648,6 +651,10 @@ export function ReviewScene({
   useEffect(() => {
     if (engine.current) engine.current.shellCutaway.enabled = cutaway;
   }, [cutaway, retry]);
+  // 外部图形、画质和显示选项在本次提交的 effect 中更新；统一使下一帧失效。
+  useEffect(() => {
+    engine.current?.invalidate();
+  });
   const scope = readings.get(
     state.level === "room" ? "room-01" : rackForDevice(state.deviceId).id,
   )!;

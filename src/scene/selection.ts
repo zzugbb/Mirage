@@ -6,6 +6,7 @@ export class SelectionCorners extends THREE.LineSegments<
   THREE.LineBasicMaterial
 > {
   box = new THREE.Box3();
+  animating = false;
   positions = new Float32Array(8 * 3 * 2 * 3);
   private center = new THREE.Vector3();
   private size = new THREE.Vector3();
@@ -42,6 +43,7 @@ export class SelectionCorners extends THREE.LineSegments<
       );
   }
   update(key: string | null, time: number, reduced: boolean, padding = 0.006) {
+    this.animating = false;
     this.visible = !!key && !this.box.isEmpty();
     if (!this.visible) {
       this.lastKey = "";
@@ -54,6 +56,7 @@ export class SelectionCorners extends THREE.LineSegments<
     const progress = reduced
       ? 1
       : THREE.MathUtils.clamp((time - this.started) / 240, 0, 1);
+    this.animating = progress < 1;
     const spread = 1 + 0.12 * (1 - progress) ** 3;
     this.box.getCenter(this.center);
     this.box

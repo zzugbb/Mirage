@@ -1,3 +1,4 @@
+import { RenderDemand } from "../render-demand.ts";
 import {
   powerViewPoints,
   powerViewFrame,
@@ -144,6 +145,8 @@ export class SceneEngine {
   state: AppState;
   observer: ResizeObserver;
   frame = 0;
+  private renderDemand = new RenderDemand();
+  private renderView = new Float64Array(32);
   destroyed = false;
   targetPosition = new THREE.Vector3();
   targetLook = new THREE.Vector3();
@@ -477,6 +480,7 @@ export class SceneEngine {
             depthWrite: material.depthWrite,
           });
       }
+      this.invalidate();
     } catch (error) {
       disposeModels(scene, false);
       throw error;
@@ -928,7 +932,11 @@ export class SceneEngine {
       height: window.innerHeight,
     };
   }
+  invalidate() {
+    this.renderDemand.invalidate();
+  }
   resize() {
+    this.invalidate();
     const { width, height } = this.host.getBoundingClientRect();
     if (!width || !height) return;
     if (
@@ -973,6 +981,13 @@ export class SceneEngine {
   contextLost = (event: Event) => {
     event.preventDefault();
     this.contextAvailable = false;
+    const feedback: SceneFeedback = {
+      key: presentationKey(this.state),
+      phase: this.lastPhase ?? "closed",
+      settled: false,
+    };
+    this.lastFeedback = `${feedback.key}:${feedback.phase}:false`;
+    this.onFeedback(feedback);
     this.onError("三维图形上下文已丢失，请重新加载场景。");
   };
   cancelFlight = () => {
@@ -1074,6 +1089,7 @@ export class SceneEngine {
           : (this.models.facilities.get(id) ?? this.models.parts.get(id));
   }
   update(state: AppState) {
+    this.invalidate();
     if (state.level !== "room" && this.roomViewMemory)
       this.clearRoomViewMemory();
     const deviceChanged = state.deviceId !== this.state.deviceId;
@@ -1166,6 +1182,7 @@ export class SceneEngine {
     return object.visible && (!object.parent || this.visible(object.parent));
   }
   view(view: View, focus = false) {
+    this.invalidate();
     this.clearNetworkView();
     this.clearPowerView();
     this.clearSliceView();
@@ -1522,6 +1539,12 @@ export class SceneEngine {
   }
   animate = (time: number) => {
     if (this.destroyed) return;
+    if (this.paused || !this.contextAvailable) {
+      this.lastTime = time;
+      this.invalidate();
+      this.frame = requestAnimationFrame(this.animate);
+      return;
+    }
     this.partIsolation.restore();
     const delta = this.paused
       ? 0
@@ -1631,9 +1654,9 @@ export class SceneEngine {
       this.pendingComponentFocus = false;
       this.view(this.currentView, true);
     }
-    if (!this.reducedMotion && frame.ready)
+    if (this.state.playing && !this.reducedMotion && frame.ready)
       for (const rotor of this.models.rotors) rotor.rotation.z += delta * 2.4;
-    if (!this.reducedMotion && this.models.room.visible)
+    if (this.state.playing && !this.reducedMotion && this.models.room.visible)
       for (const fan of this.models.fans) fan.rotation.y += delta * 1.5;
     if (this.interior || this.state.level === "rack") {
       const angle = this.controls.getAzimuthalAngle();
@@ -1970,13 +1993,20 @@ export class SceneEngine {
         this.fades.find((fade) => fade.group === this.models.room)!.opacity ===
           1,
     );
-    this.pipeline.render(
-      delta,
-      frame.relocation,
+    const structureBusy =
       frame.busy ||
-        assemblyBusy ||
-        this.fades.some((fade) => fade.opacity > 0 && fade.opacity < 1),
-    );
+      assemblyBusy ||
+      this.fades.some((fade) => fade.opacity > 0 && fade.opacity < 1);
+    this.camera.updateMatrixWorld();
+    this.renderView.set(this.camera.matrixWorld.elements);
+    this.renderView.set(this.camera.projectionMatrix.elements, 16);
+    const animating =
+      structureBusy ||
+      this.moving ||
+      this.models.selection.animating ||
+      (this.state.playing && !this.reducedMotion);
+    if (this.renderDemand.consume(this.renderView, animating))
+      this.pipeline.render(delta, frame.relocation, structureBusy);
     this.frame = requestAnimationFrame(this.animate);
   };
   dispose() {
