@@ -4385,3 +4385,30 @@
 .workspace-ui .review-analysis-body > .reading-sources {
   padding-inline: 0;
 }
+
+/* 观察操作不随补充说明折叠；端点和边界各自按需查阅。 */
+.workspace-ui .airflow-observation-controls .airflow-view-actions {
+  margin: 0;
+}
+.workspace-ui .airflow-observation-controls .airflow-stage-reading {
+  margin: 8px 0 0;
+  padding: 8px;
+  gap: 4px;
+}
+.workspace-ui .airflow-stage-reading p {
+  margin: 0;
+  font-size: 10px;
+  line-height: 1.6;
+}
+.workspace-ui .review-flow-explanation > .temperature-disclosure-body {
+  max-height: none;
+  overflow: visible;
+}
+.workspace-ui .airflow-endpoints,
+.workspace-ui .airflow-boundary {
+  margin-top: 10px;
+}
+.workspace-ui .review-legend .airflow-endpoints > .temperature-disclosure-body,
+.workspace-ui .review-legend .airflow-boundary > .temperature-disclosure-body {
+  max-height: clamp(100px, calc(100dvh - 570px), 220px);
+}

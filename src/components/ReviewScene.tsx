@@ -202,6 +202,22 @@ export function ReviewScene({
   const [roomViewSaved, setRoomViewSaved] = useState(false);
   const [flowView, setFlowView] = useState<AirflowView | null>(null);
   const [flowSlice, setFlowSlice] = useState(false);
+  const temperatureTools = useRef<HTMLDetailsElement>(null);
+  const flowControlsRef = useRef<HTMLDivElement>(null);
+  const flowFocus = useRef<"observation" | "entry" | null>(null);
+  useEffect(() => {
+    if (flowFocus.current === "observation" && flowView) {
+      flowControlsRef.current
+        ?.querySelector<HTMLButtonElement>("[aria-pressed='true']")
+        ?.focus({ preventScroll: true });
+    } else if (flowFocus.current === "entry" && !flowView) {
+      temperatureTools.current
+        ?.querySelector<HTMLElement>(".review-flow-explanation > summary")
+        ?.focus({ preventScroll: true });
+    }
+    flowFocus.current = null;
+  }, [flowView]);
+
   const stage = airflowStage(flowView);
   const sliceVisible = !flowView || flowSlice;
   const [view, setView] = useState<View>("interior");
@@ -752,6 +768,89 @@ export function ReviewScene({
         ?.closest(".study-stage")
         ?.scrollIntoView({ block: "nearest" });
   };
+  const returnFlowView = () => {
+    onTakeover();
+    flowFocus.current = "entry";
+    if (temperatureTools.current) {
+      temperatureTools.current.open = true;
+      const disclosure =
+        temperatureTools.current.querySelector<HTMLDetailsElement>(
+          ".review-flow-explanation",
+        );
+      if (disclosure) disclosure.open = true;
+    }
+    engine.current?.restoreAirflowView();
+  };
+  const flowControls = (
+    <>
+      {visibleAirflow?.routes[0] && (
+        <div
+          className="airflow-view-actions"
+          ref={flowControlsRef}
+          aria-label="气流观察视角"
+        >
+          {airflowViews.map((item) => (
+            <button
+              key={item.id}
+              aria-pressed={flowView === item.id}
+              onClick={() => {
+                onTakeover();
+                setOrbit(false);
+                if (!flowView) {
+                  flowFocus.current = "observation";
+                  if (temperatureTools.current)
+                    temperatureTools.current.open = false;
+                }
+                engine.current?.observeAirflow(
+                  visibleAirflow.routes[0],
+                  item.id,
+                );
+              }}
+            >
+              {item.name}
+            </button>
+          ))}
+          {flowView && (
+            <button
+              className="airflow-view-return"
+              title="返回观察前镜头（Esc）"
+              onClick={returnFlowView}
+            >
+              返回原视角
+            </button>
+          )}
+        </div>
+      )}
+      {flowView && visibleAirflow?.routes[0] && (
+        <div className="airflow-stage-reading" aria-label="当前气流观察段">
+          <strong aria-live="polite">
+            {stage?.title ?? "全路径 · 送风到回风"}
+          </strong>
+          <span>{stage?.direction ?? "送风 → 格栅 → 设备 → 回风假设"}</span>
+          <small>
+            {entityById(visibleAirflow.routes[0].deviceId)?.name} ·{" "}
+            {visibleAirflow.routes[0].status} · t+
+            {state.time}s
+          </small>
+          <p>
+            {stage?.boundary ??
+              "同一条配置代表支路；送风连续、回风分段，箭头表示假设方向。"}
+          </p>
+          <label>
+            <input
+              type="checkbox"
+              checked={flowSlice}
+              onChange={(event) => {
+                onTakeover();
+                setFlowSlice(event.target.checked);
+              }}
+            />
+            叠加进风切片
+          </label>
+        </div>
+      )}
+    </>
+  );
   return (
     <div
       className="review-scene"
@@ -1288,12 +1387,54 @@ export function ReviewScene({
                       />
                     </>
                   )}
+                  {flowView && visibleAirflow && (
+                    <div
+                      className="airflow-observation-controls"
+                      aria-label="气流观察操作"
+                      onKeyDown={(event) => {
+                        if (event.key === "Escape") {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          returnFlowView();
+                        }
+                      }}
+                    >
+                      {flowControls}
+                    </div>
+                  )}
+                  {airflowVisit && (
+                    <div className="airflow-inspection-return">
+                      <span>
+                        核对 · {entityById(airflowVisit.deviceId)?.name}{" "}
+                      </span>
+                      <button
+                        onClick={() => {
+                          if (temperatureTools.current)
+                            temperatureTools.current.open = true;
+                          temperatureTools.current
+                            ?.querySelector<HTMLElement>(
+                              ".review-flow-explanation > summary",
+                            )
+                            ?.focus({ preventScroll: true });
+                          engine.current?.preservePanelView();
+                          onReturnAirflowEndpoint();
+                        }}
+                      >
+                        ← 返回原对象
+                      </button>
+                      <small>
+                        原对象：
+                        {entityById(airflowVisit.originId)?.name}
+                      </small>
+                    </div>
+                  )}
                   <TemperatureDisclosure
                     key={shotRevision}
+                    detailsRef={temperatureTools}
                     className="temperature-tools"
                     name="temperature-tools"
                     summary="观察与核对 · 设备 / 环境 / 气流"
-                    reveal={!!flowView || !!airflowVisit || !!sliceInspection}
+                    reveal={!!airflowVisit || !!sliceInspection}
                     onInteract={onTakeover}
                   >
                     {sliceVisible && (
@@ -1337,32 +1478,6 @@ export function ReviewScene({
                       <TemperatureDisclosure
                         className="review-flow-explanation"
                         onInteract={onTakeover}
-                        actions={
-                          airflowVisit && (
-                            <div className="airflow-inspection-return">
-                              <span>
-                                核对 ·{" "}
-                                {entityById(airflowVisit.deviceId)?.name}{" "}
-                              </span>
-                              <button
-                                onClick={(event) => {
-                                  event.currentTarget
-                                    .closest("details")
-                                    ?.querySelector("summary")
-                                    ?.focus({ preventScroll: true });
-                                  engine.current?.preservePanelView();
-                                  onReturnAirflowEndpoint();
-                                }}
-                              >
-                                ← 返回原对象
-                              </button>
-                              <small>
-                                原对象：
-                                {entityById(airflowVisit.originId)?.name}
-                              </small>
-                            </div>
-                          )
-                        }
                         summary={
                           <>
                             气流路径 ·{" "}
@@ -1378,130 +1493,69 @@ export function ReviewScene({
                       >
                         <p>{visibleAirflow.label}</p>
                         {!flowView && (
-                          <p>
-                            分段观察强调当前段并暂收切片，其他段保留淡线；手动旋转或定位结束观察。
-                          </p>
+                          <p>选择一段近看；旋转或定位会结束观察。</p>
                         )}
                         {airflowVisit && (
                           <p>预览保留本支路；定位结束核对，转为对象观察。</p>
                         )}
-                        {visibleAirflow.routes[0] && (
-                          <div
-                            className="airflow-view-actions"
-                            aria-label="气流观察视角"
-                          >
-                            {airflowViews.map((item) => (
-                              <button
-                                key={item.id}
-                                aria-pressed={flowView === item.id}
-                                onClick={() => {
-                                  onTakeover();
-                                  setOrbit(false);
-                                  engine.current?.observeAirflow(
-                                    visibleAirflow.routes[0],
-                                    item.id,
-                                  );
-                                }}
-                              >
-                                {item.name}
-                              </button>
-                            ))}
-                            {flowView && (
-                              <button
-                                className="airflow-view-return"
-                                onClick={(event) => {
-                                  onTakeover();
-                                  event.currentTarget.parentElement
-                                    ?.querySelector("button")
-                                    ?.focus();
-                                  engine.current?.restoreAirflowView();
-                                }}
-                              >
-                                返回原视角
-                              </button>
-                            )}
-                          </div>
-                        )}
-                        {flowView && (
-                          <div
-                            className="airflow-stage-reading"
-                            aria-label="当前气流观察段"
-                          >
-                            <strong aria-live="polite">
-                              {stage?.title ?? "全路径 · 送风到回风"}
-                            </strong>
-                            <span>
-                              {stage?.direction ??
-                                "送风 → 格栅 → 设备 → 回风假设"}
-                            </span>
-                            <small>
-                              {
-                                entityById(visibleAirflow.routes[0].deviceId)
-                                  ?.name
-                              }{" "}
-                              · {visibleAirflow.routes[0].status} · t+
-                              {state.time}s
-                            </small>
-                            <p>
-                              {stage?.boundary ??
-                                "同一条配置代表支路；送风连续、回风分段，箭头表示假设方向。"}
-                            </p>
-                            <label>
-                              <input
-                                type="checkbox"
-                                checked={flowSlice}
-                                onChange={(event) => {
-                                  onTakeover();
-                                  setFlowSlice(event.target.checked);
-                                }}
-                              />
-                              叠加进风切片
-                            </label>
-                          </div>
-                        )}
-                        <ol aria-label="气流端点与读数">
-                          {visibleAirflow.routes.flatMap((route) =>
-                            route.endpoints.map((endpoint) => {
-                              const object = airflowEndpointObject(
-                                route,
-                                endpoint.kind,
-                              );
-                              return (
-                                <li key={`${route.id}-${endpoint.kind}`}>
-                                  <b>{endpoint.title}</b>
-                                  <span>{endpoint.detail}</span>
-                                  <div className="airflow-endpoint-actions">
-                                    <button
-                                      disabled={selectedId === object.id}
-                                      onClick={() => {
-                                        engine.current?.preservePanelView();
-                                        onPreviewAirflowEndpoint(
-                                          route,
-                                          object.id,
-                                        );
-                                      }}
-                                    >
-                                      预览{object.name}
-                                    </button>
-                                    {endpoint.kind !== "return" && (
+                        {!flowView && flowControls}
+                        <TemperatureDisclosure
+                          className="airflow-endpoints"
+                          name="airflow-detail"
+                          summary="端点与读数 · 4 处"
+                          onInteract={onTakeover}
+                        >
+                          <ol aria-label="气流端点与读数">
+                            {visibleAirflow.routes.flatMap((route) =>
+                              route.endpoints.map((endpoint) => {
+                                const object = airflowEndpointObject(
+                                  route,
+                                  endpoint.kind,
+                                );
+                                return (
+                                  <li key={`${route.id}-${endpoint.kind}`}>
+                                    <b>{endpoint.title}</b>
+                                    <span>{endpoint.detail}</span>
+                                    <div className="airflow-endpoint-actions">
                                       <button
-                                        onClick={() =>
-                                          onLocateAirflowEndpoint(object.id)
-                                        }
+                                        disabled={selectedId === object.id}
+                                        onClick={() => {
+                                          engine.current?.preservePanelView();
+                                          onPreviewAirflowEndpoint(
+                                            route,
+                                            object.id,
+                                          );
+                                        }}
                                       >
-                                        {object.locate}
+                                        预览{object.name}
                                       </button>
-                                    )}
-                                  </div>
-                                </li>
-                              );
-                            }),
-                          )}
-                        </ol>
-                        <p>
-                          当前机柜同向，假设前进后出。柜面细框按设备安装 U
-                          位标出前后代表范围，柜外箭头表示方向；被柜体遮挡的路径不透视显示，可切换前/后视或旋转观察。细框不是实际风口。送风沿低位侧通道至柜前格栅，再穿柜并从上方回到制冷单元；未建立架空地板风腔或封闭冷热通道。端点均为代表位置，线宽和脉冲速度不表示风量或风速。暂停可读方向；停机、维护或观测无效时仅保留灰色静态路径。
-                        </p>
+                                      {endpoint.kind !== "return" && (
+                                        <button
+                                          onClick={() =>
+                                            onLocateAirflowEndpoint(object.id)
+                                          }
+                                        >
+                                          {object.locate}
+                                        </button>
+                                      )}
+                                    </div>
+                                  </li>
+                                );
+                              }),
+                            )}
+                          </ol>
+                        </TemperatureDisclosure>
+                        <TemperatureDisclosure
+                          className="airflow-boundary"
+                          name="airflow-detail"
+                          summary="布置假设与数据边界"
+                          onInteract={onTakeover}
+                        >
+                          <p>
+                            当前机柜同向，假设前进后出。柜面细框按设备安装 U
+                            位标出前后代表范围，柜外箭头表示方向；被柜体遮挡的路径不透视显示，可切换前/后视或旋转观察。细框不是实际风口。送风沿低位侧通道至柜前格栅，再穿柜并从上方回到制冷单元；未建立架空地板风腔或封闭冷热通道。端点均为代表位置，线宽和脉冲速度不表示风量或风速。暂停可读方向；停机、维护或观测无效时仅保留灰色静态路径。
+                          </p>
+                        </TemperatureDisclosure>
                       </TemperatureDisclosure>
                     )}
                   </TemperatureDisclosure>
