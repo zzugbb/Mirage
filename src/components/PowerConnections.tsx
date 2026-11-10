@@ -1,3 +1,4 @@
+import { PowerViewActions } from "./PowerViewActions";
 import { ConnectionSection } from "./ConnectionSection";
 import { PduOutlets } from "./PduOutlets";
 import type { PduInspection } from "../pdu-outlets";
@@ -33,7 +34,15 @@ export function PowerConnections({
   activeLinkId,
   onTrace,
   onInspect,
+  canObserve,
+  observing,
+  onObserve,
+  onReturnView,
 }: {
+  canObserve: boolean;
+  observing: boolean;
+  onObserve: () => void;
+  onReturnView: () => void;
   pduInspection: PduInspection | null;
   onPduChange: (visit: PduInspection) => void;
   onPduSelect: (pduId: string, outlet: number) => void;
@@ -94,6 +103,14 @@ export function PowerConnections({
       <p className="power-boundary">
         配置示意 · A/B 未定义独立上游；回路与插座未计量，整机输入不分摊。
       </p>
+      {canObserve && (
+        <PowerViewActions
+          active={observing}
+          ready={ready}
+          onObserve={onObserve}
+          onReturn={onReturnView}
+        />
+      )}
       {stops.length > 0 &&
         !(
           pdu &&

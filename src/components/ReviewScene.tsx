@@ -1,3 +1,9 @@
+import {
+  focusedPowerScene,
+  powerViewPoints,
+  type PowerViewCommand,
+} from "../power-view";
+import { PowerViewActions } from "./PowerViewActions";
 import type { NetworkViewCommand } from "../network-view";
 import { NetworkViewActions } from "./NetworkViewActions";
 import type { SliceViewCommand } from "../slice-view";
@@ -85,6 +91,10 @@ export function ReviewScene({
   onLocateAirflowEndpoint,
   aisle,
   networkLinkId = null,
+  powerViewCommand,
+  powerViewActive,
+  onPowerViewChange,
+  onPowerView,
   networkViewCommand,
   networkViewActive,
   onNetworkViewChange,
@@ -104,6 +114,10 @@ export function ReviewScene({
   controls,
   compactTools = false,
 }: {
+  powerViewCommand: PowerViewCommand | null;
+  powerViewActive: boolean;
+  onPowerViewChange: (active: boolean) => void;
+  onPowerView: (action: PowerViewCommand["action"]) => void;
   networkViewCommand: NetworkViewCommand | null;
   networkViewActive: boolean;
   onNetworkViewChange: (active: boolean) => void;
@@ -167,6 +181,7 @@ export function ReviewScene({
     onPhase,
     onFeedback,
     onSliceViewChange,
+    onPowerViewChange,
     onNetworkViewChange,
   });
   callbacks.current = {
@@ -174,6 +189,7 @@ export function ReviewScene({
     onPhase,
     onFeedback,
     onSliceViewChange,
+    onPowerViewChange,
     onNetworkViewChange,
   };
   const [error, setError] = useState("");
@@ -210,7 +226,7 @@ export function ReviewScene({
     [readings, sliceControls, layer, state.level, ambientSelected],
   );
   const sliceRow = sliceRackRows.find((row) => row.id === slice?.rowId);
-  const supply = useMemo(
+  const supplyBase = useMemo(
     () =>
       layer === "power" && !isolatedPartId
         ? (pduInspectionScene(state, selectedId, pduInspection) ??
@@ -226,6 +242,10 @@ export function ReviewScene({
       pduInspection,
       isolatedPartId,
     ],
+  );
+  const supply = useMemo(
+    () => focusedPowerScene(supplyBase, powerViewActive),
+    [supplyBase, powerViewActive],
   );
   const network = useMemo(
     () =>
@@ -396,6 +416,11 @@ export function ReviewScene({
           roomReady,
         );
       };
+      active.onPowerView = (observing) => {
+        callbacks.current.onPowerViewChange(observing);
+        setView(active!.currentView);
+      };
+      callbacks.current.onPowerViewChange(false);
       active.onNetworkView = (observing) => {
         callbacks.current.onNetworkViewChange(observing);
         setView(active!.currentView);
@@ -522,6 +547,7 @@ export function ReviewScene({
         engine.current.clearAirflowView();
         engine.current.clearSliceView();
         engine.current.clearNetworkView();
+        engine.current.clearPowerView();
       }
       engine.current.autoOrbit = orbit;
     }
@@ -540,6 +566,22 @@ export function ReviewScene({
       ambientSelected ? [] : reviewSpatialMarks(state, layer, readings),
     );
   }, [state, layer, readings, retry, ambientSelected]);
+  useEffect(() => {
+    const active = engine.current;
+    if (!active || !powerViewCommand) return;
+    if (powerViewCommand.action === "return") active.restorePowerView();
+    else if (layer === "power") {
+      setOrbit(false);
+      active.observePower(selectedId, powerLinkId);
+    }
+    setView(active.currentView);
+  }, [powerViewCommand?.revision]);
+  useEffect(() => {
+    engine.current?.updatePowerView(
+      selectedId,
+      layer === "power" && !isolatedPartId ? powerLinkId : null,
+    );
+  }, [supply, layer, selectedId, isolatedPartId, shotRevision, retry]);
   useEffect(() => {
     const active = engine.current;
     if (!active || !networkViewCommand) return;
@@ -1535,6 +1577,18 @@ export function ReviewScene({
               {layer === "power" && supply && (
                 <div className="power-scene-key" aria-label="供电路径示意">
                   <strong>{supply.caption}</strong>
+                  {powerViewPoints(state, selectedId, supply.traceId).length ===
+                    2 && (
+                    <PowerViewActions
+                      active={powerViewActive}
+                      ready={sceneSettled}
+                      onObserve={() => onPowerView("observe")}
+                      onReturn={() => onPowerView("return")}
+                    />
+                  )}
+                  {powerViewActive && (
+                    <small>柜后同框 · 插座至设备输入代表位置</small>
+                  )}
                   {(supply.traceId ||
                     (!supply.paths.length && state.level !== "device")) && (
                     <button onClick={onClearPower}>
@@ -1552,11 +1606,13 @@ export function ReviewScene({
                     </span>
                   )}
                   <small>
-                    {state.level === "rack"
-                      ? state.rearDoorOpen
-                        ? "后立柱观察剖切 · "
-                        : "后侧观察剖切 · "
-                      : ""}
+                    {powerViewActive && state.level === "room"
+                      ? "本柜后侧观察剖切 · "
+                      : state.level === "rack"
+                        ? state.rearDoorOpen
+                          ? "后立柱观察剖切 · "
+                          : "后侧观察剖切 · "
+                        : ""}
                     {supply.traceId
                       ? "配置支路 · 未计量"
                       : supply.paths.length

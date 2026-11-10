@@ -30,6 +30,7 @@ export type PowerLabel = {
   detail: string;
 };
 export type PowerScene = {
+  closeUp?: boolean;
   rackId: string;
   deviceId: string;
   caption: string;

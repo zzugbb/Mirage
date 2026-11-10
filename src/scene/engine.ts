@@ -1,4 +1,9 @@
 import {
+  powerViewPoints,
+  powerViewFrame,
+  powerViewSource,
+} from "../power-view";
+import {
   networkViewFrame,
   networkViewPoints,
   networkViewSource,
@@ -565,6 +570,7 @@ export class SceneEngine {
     }
     this.autoOrbit = false;
     this.clearNetworkView();
+    this.clearPowerView();
     this.clearSliceView();
     this.clearAirflowView();
     this.panelViewport = undefined;
@@ -594,6 +600,7 @@ export class SceneEngine {
     if (this.state.level !== "room") return;
     this.panelViewport = undefined;
     this.clearNetworkView();
+    this.clearPowerView();
     this.clearSliceView();
     const previous =
       this.airflowObservation?.previous ?? this.captureObservationView();
@@ -708,6 +715,7 @@ export class SceneEngine {
   }
   observeSlice(context: SliceDeviceInspection) {
     this.clearNetworkView();
+    this.clearPowerView();
     if (this.state.level !== "room" || !context.point || this.moving) return;
     const previous =
       this.sliceObservation?.previous ?? this.captureObservationView();
@@ -781,6 +789,7 @@ export class SceneEngine {
     this.clearAirflowView();
     this.clearSliceView();
     this.panelViewport = undefined;
+    this.clearPowerView();
     this.networkObservation = {
       sourceId,
       targets,
@@ -806,6 +815,7 @@ export class SceneEngine {
       networkViewSource(linkId) !== this.networkObservation.sourceId
     ) {
       this.clearNetworkView();
+      this.clearPowerView();
       return;
     }
     const key = JSON.stringify(targets);
@@ -834,6 +844,82 @@ export class SceneEngine {
     this.clearNetworkView();
     this.restoreObservationView(previous);
   }
+  onPowerView: (active: boolean) => void = () => {};
+  private powerObservation?: {
+    sourceId: string;
+    targets: THREE.Vector3[];
+    key: string;
+    previous: ObservationMemory;
+  };
+  clearPowerView() {
+    if (!this.powerObservation) return;
+    this.powerObservation = undefined;
+    this.moving = false;
+    this.onPowerView(false);
+  }
+  observePower(selected: string, linkId: string | null) {
+    const targets = powerViewPoints(this.state, selected, linkId);
+    const sourceId = powerViewSource(linkId);
+    if (!targets.length || !sourceId || this.moving) return;
+    const previous =
+      this.powerObservation?.previous ?? this.captureObservationView();
+    this.clearNetworkView();
+    this.clearAirflowView();
+    this.clearSliceView();
+    this.panelViewport = undefined;
+    this.powerObservation = {
+      sourceId,
+      targets,
+      key: JSON.stringify(targets),
+      previous,
+    };
+    this.currentView = "rear";
+    this.currentFocus = false;
+    this.interior = false;
+    this.controls.minAzimuthAngle = -Infinity;
+    this.controls.maxAzimuthAngle = Infinity;
+    this.controls.maxPolarAngle = Math.PI / 2 - 0.03;
+    this.controls.minDistance = 0.5;
+    this.autoOrbit = false;
+    this.framePower();
+    this.onPowerView(true);
+  }
+  updatePowerView(selected: string, linkId: string | null) {
+    if (!this.powerObservation) return;
+    const targets = powerViewPoints(this.state, selected, linkId);
+    if (
+      !targets.length ||
+      powerViewSource(linkId) !== this.powerObservation.sourceId
+    ) {
+      this.clearPowerView();
+      return;
+    }
+    const key = JSON.stringify(targets);
+    if (key === this.powerObservation.key) return;
+    this.powerObservation.targets = targets;
+    this.powerObservation.key = key;
+    this.framePower();
+  }
+  private framePower() {
+    if (!this.powerObservation) return;
+    const { width, height, rect } = this.observationViewport();
+    const fit = powerViewFrame(
+      this.powerObservation.targets,
+      width,
+      height,
+      rect,
+    );
+    this.targetPosition.copy(fit.position);
+    this.targetLook.copy(fit.target);
+    this.controls.maxDistance = Math.max(45, fit.distance * 1.2);
+    this.moving = true;
+  }
+  restorePowerView() {
+    const previous = this.powerObservation?.previous;
+    if (!previous) return;
+    this.clearPowerView();
+    this.restoreObservationView(previous);
+  }
   private panelViewport?: { width: number; height: number };
   // 预览打开和还原侧栏时仅更新投影，真实窗口缩放与主动定位仍按目标取景。
   preservePanelView() {
@@ -856,6 +942,10 @@ export class SceneEngine {
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height);
     this.pipeline.resize(width, height);
+    if (this.powerObservation) {
+      this.framePower();
+      return;
+    }
     if (this.networkObservation) {
       this.frameNetwork();
       return;
@@ -887,6 +977,7 @@ export class SceneEngine {
   };
   cancelFlight = () => {
     this.clearNetworkView();
+    this.clearPowerView();
     this.clearSliceView();
     this.clearAirflowView();
     this.moving = false;
@@ -1076,6 +1167,7 @@ export class SceneEngine {
   }
   view(view: View, focus = false) {
     this.clearNetworkView();
+    this.clearPowerView();
     this.clearSliceView();
     focus =
       focus ||
@@ -1562,9 +1654,20 @@ export class SceneEngine {
       !this.reducedMotion &&
       time - this.lastManualInteraction > 4000;
     if (!this.paused) this.controls.update();
+    const observedPowerRack =
+      this.powerObservation && this.state.level === "room"
+        ? rackForDevice(this.powerObservation.sourceId).id
+        : null;
     const rearObservation =
-      this.state.level === "rack" &&
-      (!!pduById(this.state.selected) || this.telemetry.mode === "power");
+      (this.state.level === "rack" &&
+        (!!pduById(this.state.selected) || this.telemetry.mode === "power")) ||
+      observedPowerRack === rackForDevice(this.state.deviceId).id;
+    for (const [id, rack] of this.installation.racks) {
+      rack.getObjectByName("rack-rear-shell")!.visible =
+        id !== observedPowerRack;
+      rack.getObjectByName("rack-rear-doors")!.visible =
+        id !== observedPowerRack;
+    }
     this.models.rack.getObjectByName("rack-rear-shell")!.visible =
       !rearObservation;
     this.models.rack.getObjectByName("rack-rear-doors")!.visible =
@@ -1588,7 +1691,8 @@ export class SceneEngine {
     }
     const cutCount = this.shellCutaway.update(
       this.camera.position,
-      this.networkObservation?.targets ??
+      this.powerObservation?.targets ??
+        this.networkObservation?.targets ??
         this.sliceObservation?.targets ??
         this.airflowObservation?.targets ??
         (selectedFixture ? this.fixtureTargets : this.shellTargets),
@@ -1596,7 +1700,8 @@ export class SceneEngine {
       selectedFixture &&
         !this.airflowObservation &&
         !this.sliceObservation &&
-        !this.networkObservation
+        !this.networkObservation &&
+        !this.powerObservation
         ? this.models.fixtures.get(fixtureMountReference(this.state.selected))
         : undefined,
     );

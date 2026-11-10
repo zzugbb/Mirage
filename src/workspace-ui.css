@@ -4239,23 +4239,27 @@
   color: #c2dedf;
 }
 
-.network-view-actions {
+.network-view-actions,
+.power-view-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
   margin-block: 8px;
 }
-.workspace-ui .network-view-actions button {
+.workspace-ui .network-view-actions button,
+.workspace-ui .power-view-actions button {
   padding: 5px 7px;
   font-size: 10px;
   border: 1px solid #ffffff20;
   pointer-events: auto;
 }
-.workspace-ui .network-view-actions button[aria-pressed="true"] {
+.workspace-ui .network-view-actions button[aria-pressed="true"],
+.workspace-ui .power-view-actions button[aria-pressed="true"] {
   background: #344f54;
   color: #daeeee;
 }
-.workspace-ui .network-scene-key .network-view-actions button {
+.workspace-ui .network-scene-key .network-view-actions button,
+.workspace-ui .power-scene-key .power-view-actions button {
   position: static;
   width: auto;
   height: auto;

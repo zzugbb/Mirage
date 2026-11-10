@@ -1,3 +1,4 @@
+import { powerViewPoints, type PowerViewCommand } from "./power-view";
 import {
   emptyPeakProcess,
   peakScopeIds,
@@ -236,6 +237,16 @@ export function Workspace() {
   useEffect(() => {
     if (airflowVisit && !activeAirflowVisit) setAirflowVisit(null);
   }, [airflowVisit, activeAirflowVisit]);
+  const [powerViewActive, setPowerViewActive] = useState(false);
+  const [powerViewCommand, setPowerViewCommand] =
+    useState<PowerViewCommand | null>(null);
+  const requestPowerView = (action: PowerViewCommand["action"]) => {
+    takeover();
+    setPowerViewCommand((current) => ({
+      action,
+      revision: (current?.revision ?? 0) + 1,
+    }));
+  };
   const [networkViewActive, setNetworkViewActive] = useState(false);
   const [networkViewCommand, setNetworkViewCommand] =
     useState<NetworkViewCommand | null>(null);
@@ -1613,6 +1624,10 @@ export function Workspace() {
             }
             aisle={aisle}
             networkLinkId={activeNetworkLink}
+            powerViewCommand={powerViewCommand}
+            powerViewActive={powerViewActive}
+            onPowerViewChange={setPowerViewActive}
+            onPowerView={requestPowerView}
             networkViewCommand={networkViewCommand}
             networkViewActive={networkViewActive}
             onNetworkViewChange={setNetworkViewActive}
@@ -2262,6 +2277,14 @@ export function Workspace() {
                     {sourceInspector}
                     {(layer === "power" || powerFacility) && (
                       <PowerConnections
+                        canObserve={
+                          layer === "power" &&
+                          powerViewPoints(state, selected, activePowerLink)
+                            .length === 2
+                        }
+                        observing={powerViewActive}
+                        onObserve={() => requestPowerView("observe")}
+                        onReturnView={() => requestPowerView("return")}
                         pduInspection={pduInspection}
                         onPduChange={(visit) => {
                           takeover();

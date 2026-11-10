@@ -35,8 +35,14 @@ export class PowerGeometry {
     new THREE.EdgesGeometry(new THREE.BoxGeometry(0.034, 0.048, 0.003)),
     new THREE.LineBasicMaterial({ color: "#d4e9e5", toneMapped: false }),
   );
+  input = new THREE.LineSegments(
+    new THREE.EdgesGeometry(new THREE.BoxGeometry(0.028, 0.028, 0.003)),
+    new THREE.LineBasicMaterial({ color: "#d4e9e5", toneMapped: false }),
+  );
   constructor() {
-    this.root.add(this.bands, this.dots, this.outlet);
+    this.root.add(this.bands, this.dots, this.outlet, this.input);
+    this.input.raycast = () => {};
+    this.input.visible = false;
     this.outlet.raycast = () => {};
     this.outlet.visible = false;
     for (const mesh of [this.bands, this.dots]) {
@@ -51,6 +57,7 @@ export class PowerGeometry {
     this.snapshot = snapshot;
     this.root.visible = !!snapshot;
     this.outlet.visible = false;
+    this.input.visible = false;
     let band = 0,
       dot = 0;
     for (const path of snapshot?.paths ?? []) {
@@ -67,7 +74,11 @@ export class PowerGeometry {
           this.transform.position
             .copy(this.start)
             .addScaledVector(this.direction, (j + 0.5) / steps);
-          const radius = snapshot?.traceId ? 0.008 : 0.014;
+          const radius = snapshot?.closeUp
+            ? 0.003
+            : snapshot?.traceId
+              ? 0.008
+              : 0.014;
           this.transform.scale.set(radius, distance / steps, radius);
           if (distance > 1e-8)
             this.transform.quaternion.setFromUnitVectors(
@@ -86,6 +97,12 @@ export class PowerGeometry {
         this.outlet.position.fromArray(label.point);
         this.outlet.position.z -= 0.002;
         this.outlet.visible = true;
+        continue;
+      }
+      if (snapshot?.closeUp) {
+        this.input.position.fromArray(label.point);
+        this.input.position.z -= 0.002;
+        this.input.visible = true;
         continue;
       }
       this.transform.position.fromArray(label.point);
@@ -121,6 +138,8 @@ export class PowerGeometry {
     if (this.dots.instanceColor) this.dots.instanceColor.needsUpdate = true;
   }
   dispose() {
+    this.input.geometry.dispose();
+    this.input.material.dispose();
     this.outlet.geometry.dispose();
     this.outlet.material.dispose();
     this.cylinder.dispose();
