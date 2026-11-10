@@ -1,3 +1,4 @@
+import { AnchorProjection } from "../anchor-projection.ts";
 import { RenderDemand } from "../render-demand.ts";
 import {
   powerViewPoints,
@@ -176,6 +177,9 @@ export class SceneEngine {
   retainMaterials = false;
   onRenderFrame: ((time: number, roomReady: boolean) => void) | null = null;
   pendingComponentFocus = false;
+  onAnchorsProjected: (() => void) | null = null;
+  private anchorProjection = new AnchorProjection();
+  private anchorsChanged = false;
   anchors: HTMLElement | null = null;
   anchorElements: HTMLElement[] = [];
   anchorPosition = new THREE.Vector3();
@@ -1455,7 +1459,23 @@ export class SceneEngine {
       ? "pointer"
       : "grab";
   };
+  private projectAnchor(
+    element: HTMLElement,
+    x: number,
+    y: number,
+    hidden: boolean,
+  ) {
+    const point = this.anchorProjection.update(element, x, y, hidden);
+    if (!point) return;
+    if (element.dataset.screenX !== String(point.x))
+      element.dataset.screenX = String(point.x);
+    if (element.dataset.screenY !== String(point.y))
+      element.dataset.screenY = String(point.y);
+    if (element.hidden !== point.hidden) element.hidden = point.hidden;
+    this.anchorsChanged = true;
+  }
   bindAnchors(element: HTMLElement) {
+    this.anchorProjection = new AnchorProjection();
     this.anchors = element;
     this.anchorElements = [
       ...element.querySelectorAll<HTMLElement>("[data-anchor]"),
@@ -1815,7 +1835,7 @@ export class SceneEngine {
         ) {
           const part = this.models.parts.get(element.dataset.anchorPart!);
           if (!part) {
-            element.hidden = true;
+            this.projectAnchor(element, 0, 0, true);
             continue;
           }
           this.anchorBounds.setFromObject(part).getCenter(this.anchorPosition);
@@ -1826,12 +1846,10 @@ export class SceneEngine {
         this.anchorPosition.project(this.camera);
         const x = (this.anchorPosition.x * 0.5 + 0.5) * this.host.clientWidth;
         const y = (-this.anchorPosition.y * 0.5 + 0.5) * this.host.clientHeight;
-        element.dataset.screenX = String(x);
-        element.dataset.screenY = String(y);
         const anchorObject = element.dataset.anchorObject
           ? this.objectFor(element.dataset.anchorObject)
           : undefined;
-        element.hidden =
+        const hidden =
           (!!element.dataset.anchorObject &&
             (!anchorObject || !this.visible(anchorObject))) ||
           this.state.level !== (element.dataset.anchorLevel ?? "room") ||
@@ -1844,6 +1862,7 @@ export class SceneEngine {
           x > this.host.clientWidth ||
           y < 0 ||
           y > this.host.clientHeight;
+        this.projectAnchor(element, x, y, hidden);
         continue;
       }
       const rackAnchor = element.dataset.anchorKind === "rack";
@@ -1880,7 +1899,10 @@ export class SceneEngine {
                   : this.state.level === "device" &&
                     this.explosion > 0.45 &&
                     ["cpu-01", "memory-01", "fans-01", "psu-02"].includes(id));
-      element.hidden = !show || !target || !this.visible(target);
+      if (!show || !target || !this.visible(target)) {
+        this.projectAnchor(element, 0, 0, true);
+        continue;
+      }
       if (target && show) {
         if (rackAnchor || deviceAnchor)
           target.getWorldPosition(this.anchorPosition);
@@ -1918,23 +1940,20 @@ export class SceneEngine {
           (this.anchorPosition.x * 0.5 + 0.5) * this.host.clientWidth +
           (deviceAnchor && !selectedLabel ? 80 : 0);
         const y = (-this.anchorPosition.y * 0.5 + 0.5) * this.host.clientHeight;
-        element.dataset.screenX = String(x);
-        element.dataset.screenY = String(y);
-        element.style.transform = `translate(${x}px,${y}px)`;
         // 选中标签交由布局器向内避让；不因文字宽度超出边界而直接消失。
-        element.hidden =
+        const hidden =
           this.anchorPosition.z < -1 ||
           this.anchorPosition.z > 1 ||
           x < 0 ||
           x > this.host.clientWidth ||
           y < 0 ||
-          y > this.host.clientHeight ||
-          (!selectedLabel &&
-            (x < 10 ||
-              x > this.host.clientWidth - element.offsetWidth - 23 ||
-              y < 22 ||
-              y > this.host.clientHeight - 65));
+          y > this.host.clientHeight;
+        this.projectAnchor(element, x, y, hidden);
       }
+    }
+    if (this.anchorsChanged) {
+      this.anchorsChanged = false;
+      this.onAnchorsProjected?.();
     }
     this.axesQuaternion.copy(this.camera.quaternion).invert();
     for (const element of this.axesElements) {
@@ -2012,6 +2031,7 @@ export class SceneEngine {
   dispose() {
     this.partIsolation.restore();
     this.onRenderFrame = null;
+    this.onAnchorsProjected = null;
     this.destroyed = true;
     this.assetLoader?.dispose();
     cancelAnimationFrame(this.frame);

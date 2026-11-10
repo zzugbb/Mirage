@@ -58,7 +58,7 @@ import {
   type AirflowRoute,
 } from "../airflow";
 import { AirflowGeometry } from "../scene/airflow";
-import { placeFlowLabel } from "../airflow-label-layout";
+import { observeLabelLayout } from "../scene/label-layout";
 import {
   maintenanceAreas,
   reserveGapText,
@@ -164,6 +164,9 @@ export function ReviewScene({
   const anchors = useRef<HTMLDivElement>(null);
   const flowLines = useRef<SVGSVGElement>(null);
   const engine = useRef<SceneEngine | null>(null);
+  const labelLayout = useRef<ReturnType<typeof observeLabelLayout> | null>(
+    null,
+  );
   const initial = useRef(state);
   const dataGeometry = useRef<ReviewDataGeometry | null>(null);
   const sliceEvidenceGeometry = useRef<SliceEvidenceGeometry | null>(null);
@@ -710,106 +713,31 @@ export function ReviewScene({
     networkLinkId +
     network.map((marker) => marker.id).join(":");
   useEffect(() => {
-    if (anchors.current) engine.current?.bindAnchors(anchors.current);
-    // 投影先由引擎完成；按选择和异常优先级移除碰撞标签。
-    let frame = 0;
-    const declutter = () => {
-      const sceneRect = host.current?.parentElement?.getBoundingClientRect();
-      const accepted = [
-        ...(host.current
-          ?.closest(".review-workspace, .study-workspace")
-          ?.querySelectorAll<HTMLElement>(
-            ".review-scene-caption, .review-camera, .review-legend, .review-scene-tools, .review-scene-tools details[open] > div, .review-loading, .review-inspector:not([hidden]), .review-object-actions, .study-layer-control, .study-room-summary, .study-alert-caption, .study-show-detail",
-          ) ?? []),
-      ]
-        .filter((element) => element.getClientRects().length)
-        .map((element) => element.getBoundingClientRect());
-      for (const label of anchors.current?.querySelectorAll<HTMLElement>(
-        "[data-anchor]",
-      ) ?? []) {
-        label.style.visibility = "";
-        const line = flowLines.current?.querySelector<SVGLineElement>(
-          `[data-flow-line="${label.dataset.anchor}"]`,
-        );
-        if (line) line.style.visibility = "hidden";
-        if (label.hidden) continue;
-        if (
-          (["position", "power-part", "part-position"].includes(
-            label.dataset.anchorKind ?? "",
-          ) ||
-            label.classList.contains("selected")) &&
-          sceneRect
-        ) {
-          const x = Number(label.dataset.screenX),
-            y = Number(label.dataset.screenY);
-          const rect = placeFlowLabel(
-            x +
-              sceneRect.left +
-              (label.classList.contains("review-fixture-anchor") ? 56 : 0),
-            y + sceneRect.top,
-            label.offsetWidth,
-            label.offsetHeight,
-            sceneRect,
-            accepted,
-          );
-          label.style.visibility = rect ? "" : "hidden";
-          if (rect) {
-            label.style.transform = `translate(${rect.left - sceneRect.left}px,${rect.top - sceneRect.top}px)`;
-            accepted.push(
-              new DOMRect(
-                rect.left,
-                rect.top,
-                rect.right - rect.left,
-                rect.bottom - rect.top,
-              ),
-            );
-            if (line) {
-              line.style.visibility = "";
-              line.setAttribute("x1", String(x));
-              line.setAttribute("y1", String(y));
-              line.setAttribute(
-                "x2",
-                String(
-                  Math.max(
-                    rect.left,
-                    Math.min(rect.right, x + sceneRect.left),
-                  ) - sceneRect.left,
-                ),
-              );
-              line.setAttribute(
-                "y2",
-                String(
-                  Math.max(rect.top, Math.min(rect.bottom, y + sceneRect.top)) -
-                    sceneRect.top,
-                ),
-              );
-            }
-          }
-          continue;
-        }
-        const rect = label.getBoundingClientRect();
-        if (
-          (sceneRect &&
-            (rect.left < sceneRect.left + 8 ||
-              rect.right > sceneRect.right - 8 ||
-              rect.top < sceneRect.top + 8 ||
-              rect.bottom > sceneRect.bottom - 8)) ||
-          accepted.some(
-            (r) =>
-              rect.left < r.right + 8 &&
-              rect.right > r.left - 8 &&
-              rect.top < r.bottom + 8 &&
-              rect.bottom > r.top - 8,
-          )
-        )
-          label.style.visibility = "hidden";
-        else accepted.push(rect);
-      }
-      frame = requestAnimationFrame(declutter);
+    const active = engine.current;
+    const viewport = host.current?.parentElement;
+    const workspace = host.current?.closest<HTMLElement>(
+      ".review-workspace, .study-workspace",
+    );
+    if (!active || !viewport || !workspace || !anchors.current) return;
+    active.bindAnchors(anchors.current);
+    const layout = observeLabelLayout(
+      workspace,
+      viewport,
+      anchors.current,
+      flowLines.current,
+    );
+    labelLayout.current = layout;
+    active.onAnchorsProjected = layout.projected;
+    return () => {
+      layout.dispose();
+      if (labelLayout.current === layout) labelLayout.current = null;
+      if (active.onAnchorsProjected === layout.projected)
+        active.onAnchorsProjected = null;
     };
-    frame = requestAnimationFrame(declutter);
-    return () => cancelAnimationFrame(frame);
   }, [labelKey, retry]);
+  useEffect(() => {
+    labelLayout.current?.invalidate();
+  });
   useEffect(() => {
     engine.current?.clearRoomViewMemory();
   }, [shotRevision, retry]);
