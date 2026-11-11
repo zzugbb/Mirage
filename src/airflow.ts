@@ -95,7 +95,7 @@ export function flowPoint(points: FlowPoint[], progress: number): FlowPoint {
   return [...points.at(-1)!];
 }
 
-function representative(rackId: string) {
+export function representativeAirflowDevice(rackId: string) {
   return devices
     .filter(
       (device) =>
@@ -132,10 +132,10 @@ export function airflowSnapshot(
     device && (!row || row.rackIds.includes(device.rackId))
       ? [device]
       : selectedRack && (!row || row.rackIds.includes(selectedRack.id))
-        ? [representative(selectedRack.id)]
+        ? [representativeAirflowDevice(selectedRack.id)]
         : row
-          ? [representative(row.rackIds[0])]
-          : [representative(sliceRackRows[0].rackIds[0])];
+          ? [representativeAirflowDevice(row.rackIds[0])]
+          : [representativeAirflowDevice(sliceRackRows[0].rackIds[0])];
   const routes: AirflowRoute[] = [];
   for (const target of targets) {
     if (

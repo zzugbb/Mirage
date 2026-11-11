@@ -4711,3 +4711,23 @@
   cursor: pointer;
   text-align: left;
 }
+
+.workspace-ui .grille-branches > p {
+  color: #a3b6c2;
+  font-size: 11px;
+  line-height: 1.6;
+}
+.workspace-ui .grille-branches .grille-branch-device {
+  grid-column: 1 / -1;
+  color: #a3b6c2;
+  font-size: 11px;
+}
+.workspace-ui .grille-branches .grille-branch-open {
+  grid-column: 1 / -1;
+  justify-self: start;
+  border: 1px solid #3d4e59;
+}
+.workspace-ui .grille-branches .grille-branch-open[aria-pressed="true"] {
+  border-color: #9bc8cb;
+  color: #cde9e8;
+}

@@ -1,3 +1,12 @@
+import {
+  GrilleBranches,
+  type GrilleReturnFocus,
+} from "./components/GrilleBranches";
+import {
+  grilleInspectionIncludes,
+  type GrilleInspection,
+  type GrilleBranch,
+} from "./grille-inspection";
 import { CoolingRange } from "./components/CoolingRange";
 import { coolingRangeIncludes, initialCoolingRange } from "./cooling-range";
 import type { MaintenanceInspection } from "./maintenance-view";
@@ -32,7 +41,7 @@ import { EnvironmentDetails } from "./components/EnvironmentDetails";
 import { RackSpaceInspector } from "./components/RackSpaceInspector";
 import { RoomSpaceComparison } from "./components/RoomSpaceComparison";
 import { isolatedPart } from "./part-inspection";
-import { rackGrilleRelations } from "./floor-grilles";
+import { grilleRowById, rackGrilleRelations } from "./floor-grilles";
 import {
   activeAirflowInspection,
   airflowInspectionContext,
@@ -271,6 +280,31 @@ export function Workspace() {
       revision: (current?.revision ?? 0) + 1,
     }));
   };
+  const [grilleVisit, setGrilleVisit] = useState<
+    | (GrilleInspection & {
+        grilleId: string;
+        metric: "temperature" | "power";
+        layer: ReviewState["layer"];
+        slice: SliceControls;
+        nav: boolean;
+        query: string;
+        filter: ResourceFilter;
+        onlyAlarms: boolean;
+        scroll: number;
+      })
+    | null
+  >(null);
+  const [grilleReturning, setGrilleReturning] = useState(false);
+  const grilleReturnFocus = useRef<GrilleReturnFocus>(null);
+  const [grilleRack, setGrilleRack] = useState<Record<string, string>>({});
+  useEffect(() => {
+    if (
+      grilleVisit &&
+      !grilleReturning &&
+      !grilleInspectionIncludes(grilleVisit, selected, state.deviceId)
+    )
+      setGrilleVisit(null);
+  }, [grilleVisit, grilleReturning, selected, state.deviceId]);
   const [coolingRangeState, setCoolingRangeState] =
     useState(initialCoolingRange);
   const [coolingRangeOpen, setCoolingRangeOpen] = useState(false);
@@ -744,6 +778,74 @@ export function Workspace() {
     setInspector(true);
     if (matchMedia("(max-width: 1099px)").matches) setNav(false);
   };
+  const visitGrilleBranch = (branch: GrilleBranch, scroll: number) => {
+    if (!ready) return;
+    grilleReturnFocus.current = null;
+    setGrilleRack((current) => ({
+      ...current,
+      [branch.row.id]: branch.rack.id,
+    }));
+    setGrilleVisit({
+      ...(grilleVisit?.rowId === branch.row.id
+        ? grilleVisit
+        : {
+            layer,
+            metric,
+            slice: sliceControls,
+            nav,
+            query,
+            filter,
+            onlyAlarms,
+            scroll,
+          }),
+      rowId: branch.row.id,
+      grilleId: branch.grille.id,
+      rackId: branch.rack.id,
+      deviceId: branch.device.id,
+    });
+    showAirflow(branch.device.id);
+  };
+  const returnGrille = () => {
+    if (!grilleVisit || !ready) return;
+    const origin = grilleVisit;
+    setGrilleReturning(true);
+    grilleReturnFocus.current = {
+      rowId: origin.rowId,
+      rackId: origin.rackId,
+      scroll: origin.scroll,
+    };
+    focus(origin.rowId);
+    control({ type: "layer", layer: origin.layer });
+    control({ type: "analysis", value: false });
+    setSliceControls(origin.slice);
+    setMetric(origin.metric);
+    setQuery(origin.query);
+    setFilter(origin.filter);
+    setOnlyAlarms(origin.onlyAlarms);
+    setNav(origin.nav);
+  };
+  useEffect(() => {
+    if (!grilleReturning || !grilleVisit) return;
+    if (!review.pendingId && selected !== grilleVisit.rowId) {
+      setGrilleReturning(false);
+      setGrilleVisit(null);
+      grilleReturnFocus.current = null;
+    } else if (
+      ready &&
+      state.level === "room" &&
+      selected === grilleVisit.rowId
+    ) {
+      setGrilleReturning(false);
+      setGrilleVisit(null);
+    }
+  }, [
+    grilleReturning,
+    grilleVisit,
+    ready,
+    selected,
+    state.level,
+    review.pendingId,
+  ]);
   const returnCoolingRange = () => {
     if (!coolingVisit || !ready) return;
     const origin = coolingVisit;
@@ -870,6 +972,10 @@ export function Workspace() {
     setInspectionDevice(null);
     setEnvironmentComparisonOpen(false);
     setEnvironmentPairVisit(null);
+    setGrilleVisit(null);
+    setGrilleReturning(false);
+    grilleReturnFocus.current = null;
+    setGrilleRack({});
     setCoolingRangeState(initialCoolingRange());
     setCoolingRangeOpen(false);
     setCoolingVisit(null);
@@ -2007,6 +2113,44 @@ export function Workspace() {
                 )}
               </span>
             </div>
+            {grilleVisit && !grilleReturning && (
+              <section
+                className="cooling-range-return"
+                aria-label="格栅气流检视往返"
+              >
+                <small>
+                  来自{grilleRowById(grilleVisit.rowId)?.name} ·{" "}
+                  {rackById(grilleVisit.rackId)?.name}
+                </small>
+                <small>
+                  代表支路 · 格栅 {grilleVisit.grilleId.split("-").at(-1)} →{" "}
+                  {grilleVisit.deviceId.toUpperCase()}
+                </small>
+                <button disabled={!ready} onClick={returnGrille}>
+                  ← 返回格栅布置
+                </button>
+                <div>
+                  <button
+                    disabled={!ready}
+                    onClick={() => showAirflow(grilleVisit.deviceId)}
+                  >
+                    机房代表气流 ↗
+                  </button>
+                  <button
+                    disabled={!ready}
+                    onClick={() => pick(grilleVisit.deviceId, true)}
+                  >
+                    {resourceOpenLabel(state, grilleVisit.deviceId)} ↗
+                  </button>
+                </div>
+                <button
+                  aria-label="结束格栅气流检视往返"
+                  onClick={() => setGrilleVisit(null)}
+                >
+                  结束核对
+                </button>
+              </section>
+            )}
             {coolingVisit && selected !== coolingSource.id && (
               <section
                 className="cooling-range-return"
@@ -2398,6 +2542,20 @@ export function Workspace() {
                     fixture={fixture}
                     onPreview={pick}
                     onLocate={focus}
+                    grilleRelations={
+                      grilleRowById(fixture.id) && (
+                        <GrilleBranches
+                          key={fixture.id}
+                          rowId={fixture.id}
+                          ready={ready}
+                          activeRack={grilleRack[fixture.id]}
+                          restore={grilleReturnFocus}
+                          onPreview={pick}
+                          onLocate={focus}
+                          onAirflow={visitGrilleBranch}
+                        />
+                      )
+                    }
                     comparisonReady={ready}
                     onCompare={
                       layer === "overview" && state.level === "room"

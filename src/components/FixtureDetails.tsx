@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { floorGrilleSettings, grilleRowRelations } from "../floor-grilles";
 import { diffuserBottom, lightTrayRelations } from "../ceiling-lights";
 import {
@@ -24,6 +25,7 @@ import {
 export function FixtureDetails({
   fixture,
   analysis = false,
+  grilleRelations,
   onCompare,
   comparisonReady = false,
   onPreview,
@@ -31,6 +33,7 @@ export function FixtureDetails({
 }: {
   fixture: RoomFixture;
   analysis?: boolean;
+  grilleRelations?: ReactNode;
   onCompare?: (id: string) => void;
   comparisonReady?: boolean;
   onPreview: (id: string) => void;
@@ -168,14 +171,17 @@ export function FixtureDetails({
           <p>X / Y / Z 为机房坐标，端点未登记外部连接。</p>
         </details>
       )}
-      {!analysis && (
-        <FixtureRelations
-          title={grilleRow ? "对应柜排" : "布置关系"}
-          relations={relations}
-          onPreview={onPreview}
-          onLocate={onLocate}
-        />
-      )}
+      {!analysis &&
+        (grilleRow && grilleRelations ? (
+          grilleRelations
+        ) : (
+          <FixtureRelations
+            title={grilleRow ? "对应柜排" : "布置关系"}
+            relations={relations}
+            onPreview={onPreview}
+            onLocate={onLocate}
+          />
+        ))}
       {!analysis && (light || isTray) && (
         <FixtureRelations
           title={light ? "投影相交的桥架" : "投影相交的顶灯"}
