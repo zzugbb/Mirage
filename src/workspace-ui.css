@@ -4961,3 +4961,30 @@
   font-size: 11px;
   cursor: pointer;
 }
+
+.part-sequence {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding: 12px 22px;
+  border-block: 1px solid var(--line);
+  background: #26343c66;
+}
+.part-sequence strong,
+.part-sequence small {
+  font-size: 11px;
+  line-height: 1.6;
+}
+.part-sequence small {
+  color: #a9bdc6;
+}
+.part-sequence > div {
+  display: flex;
+  gap: 6px;
+}
+.part-sequence button {
+  border: 1px solid var(--line);
+  padding: 6px 8px;
+  font-size: 11px;
+  cursor: pointer;
+}

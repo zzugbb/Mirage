@@ -1,3 +1,4 @@
+import { PartSequence } from "./components/PartSequence";
 import { emptyComparabilityReview } from "./environment-comparability";
 import type {
   EnvironmentInspection,
@@ -69,7 +70,7 @@ import { environmentProbe } from "./environment-monitoring";
 import { EnvironmentDetails } from "./components/EnvironmentDetails";
 import { RackSpaceInspector } from "./components/RackSpaceInspector";
 import { RoomSpaceComparison } from "./components/RoomSpaceComparison";
-import { isolatedPart } from "./part-inspection";
+import { isolatedPart, partInspectionSequence } from "./part-inspection";
 import { grilleRowById, rackGrilleRelations } from "./floor-grilles";
 import {
   activeAirflowInspection,
@@ -228,6 +229,7 @@ export function Workspace() {
   useEffect(() => {
     setComparability(emptyComparabilityReview);
   }, [environmentPairVisit, environmentPairMetric, state.replayCycle]);
+  const partSequenceFocus = useRef<string | null>(null);
   const [inspectionDevice, setInspectionDevice] = useState<string | null>(null);
   const isolatedPartId = isolatedPart(state, selected, inspectionDevice);
   useEffect(() => {
@@ -697,6 +699,27 @@ export function Workspace() {
     !review.pendingEndpoint &&
     !!feedback?.settled &&
     feedback.key === presentationKey(state);
+  useEffect(() => {
+    if (!ready || !partSequenceFocus.current) return;
+    const frame = requestAnimationFrame(() => {
+      const target = partSequenceFocus.current;
+      const button = inspectorRef.current?.querySelector<HTMLElement>(
+        `[data-part-action="${target}"]`,
+      );
+      const fallback =
+        inspectorRef.current?.querySelector<HTMLElement>(
+          '[data-part-action="heading"]',
+        ) ??
+        document.querySelector<HTMLElement>(".review-object-actions button");
+      (button && !(button instanceof HTMLButtonElement && button.disabled)
+        ? button
+        : fallback
+      )?.focus({ preventScroll: true });
+      partSequenceFocus.current = null;
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [ready, selected, isolatedPartId]);
+
   useEffect(() => {
     if (
       !pduReturnPending.current ||
@@ -2349,6 +2372,12 @@ export function Workspace() {
                   isolated={!!isolatedPartId}
                   onIsolation={() => {
                     takeover();
+                    if (!isolatedPartId) {
+                      partSequenceFocus.current = "heading";
+                      setInspector(true);
+                      if (matchMedia("(max-width: 1099px)").matches)
+                        setNav(false);
+                    }
                     setInspectionDevice(isolatedPartId ? null : state.deviceId);
                   }}
                   state={state}
@@ -2479,6 +2508,25 @@ export function Workspace() {
                 )}
               </span>
             </div>
+            {isolatedPartId && (
+              <PartSequence
+                sequence={partInspectionSequence(
+                  state.deviceId,
+                  isolatedPartId,
+                )!}
+                ready={ready}
+                onSelect={(id, action) => {
+                  partSequenceFocus.current = action;
+                  control({ type: "inspect-adjacent-part", id });
+                  if (matchMedia("(max-width: 1099px)").matches) setNav(false);
+                }}
+                onFinish={() => {
+                  partSequenceFocus.current = "finish";
+                  setInspectionDevice(null);
+                  control({ type: "finish-part-inspection" });
+                }}
+              />
+            )}
             {grilleVisit && !grilleReturning && (
               <section
                 className="cooling-range-return"

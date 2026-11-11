@@ -1,3 +1,4 @@
+import { canInspectPart, partInspectionSequence } from "./part-inspection.ts";
 import { sourceMetrics } from "./reading-sources.ts";
 import { peakScopeIds, maximumSources } from "./peak-provenance.ts";
 import {
@@ -76,6 +77,8 @@ export function createWorkspace(reducedMotion = false): ReviewState {
   };
 }
 export type ReviewAction =
+  | { type: "inspect-adjacent-part"; id: string }
+  | { type: "finish-part-inspection" }
   | { type: "scene"; action: Action }
   | { type: "layer"; layer: ReviewLayer }
   | { type: "shot"; shot: ReviewShot }
@@ -221,6 +224,35 @@ function reviewInteractionTransition(
       (item) => item.deviceId === action.deviceId,
     );
     return endpoint ? advanceConnectionEndpoint(state, endpoint) : state;
+  }
+  if (
+    action.type === "inspect-adjacent-part" ||
+    action.type === "finish-part-inspection"
+  ) {
+    if (
+      !canInspectPart(state.scene) ||
+      state.pendingId ||
+      state.pendingEndpoint
+    )
+      return state;
+    const id =
+      action.type === "finish-part-inspection"
+        ? state.scene.deviceId
+        : action.id;
+    if (
+      action.type === "inspect-adjacent-part" &&
+      !partInspectionSequence(state.scene.deviceId, id)
+    )
+      return state;
+    return {
+      ...state,
+      selectedId: id,
+      // 隔离模式自身会按新部件取景，保留用户当前的前/后视方向。
+      scene:
+        action.type === "finish-part-inspection"
+          ? transition({ ...state.scene, selected: id }, { type: "focus" })
+          : { ...state.scene, selected: id },
+    };
   }
   if (action.type === "pick")
     return entityById(action.id)

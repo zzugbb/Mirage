@@ -2,7 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as THREE from "three";
 import { PartIsolation } from "./scene/part-isolation.ts";
-import { isolatedPart } from "./part-inspection.ts";
+import { isolatedPart, partInspectionSequence } from "./part-inspection.ts";
+import { createReview, reviewTransition } from "./review-model.ts";
 import { createState } from "./domain.ts";
 import { devices } from "./installation.ts";
 import { partsForDevice, subpartsForDevice } from "./catalog.ts";
@@ -114,4 +115,117 @@ test("单部件会话保留部分展开、回看和同机部件切换；复原�
     assert.equal(isolatedPart(state, "missing", device.id), null);
     assert.equal(isolatedPart(state, "psu-01", null), null);
   }
+});
+
+test("逐项检视只遍历当前机型同级配置，子件返回所属模块且首尾不循环", () => {
+  for (const model of ["server-1u", "server-2u", "switch-1u", "storage-4u"]) {
+    const device = devices.find((item) => item.modelId === model)!;
+    const modules = partsForDevice(device.id),
+      children = subpartsForDevice(device.id);
+    for (const part of [...modules, ...children]) {
+      const sequence = partInspectionSequence(device.id, part.id)!;
+      const parent = children.find((item) => item.id === part.id)?.parent;
+      const siblings = parent
+        ? children.filter((item) => item.parent === parent)
+        : modules;
+      assert.deepEqual(sequence.siblings, siblings);
+      assert.equal(sequence.parent?.id, parent);
+      assert.equal(sequence.siblings[sequence.index].id, part.id);
+      assert.equal(sequence.previous, siblings[sequence.index - 1] ?? null);
+      assert.equal(sequence.next, siblings[sequence.index + 1] ?? null);
+      assert.deepEqual(
+        sequence.children,
+        children.filter((item) => item.parent === part.id),
+      );
+    }
+    assert.equal(partInspectionSequence(device.id, "unknown"), null);
+    assert.equal(partInspectionSequence(device.id, device.id), null);
+    for (const part of subpartsForDevice("srv-01")) {
+      if (!children.some((item) => item.id === part.id))
+        assert.equal(partInspectionSequence(device.id, part.id), null);
+    }
+  }
+  assert.equal(partInspectionSequence("unknown", "memory-01"), null);
+});
+
+test("连续检视与完整结构返回聚焦目标，保留部分展开、上盖、分析和共享时间", () => {
+  for (const model of ["server-1u", "server-2u", "switch-1u", "storage-4u"]) {
+    const device = devices.find((item) => item.modelId === model)!;
+    let state = createReview();
+    state = {
+      ...state,
+      analysis: true,
+      layer: "environment",
+      scene: {
+        ...state.scene,
+        deviceId: device.id,
+        level: "device",
+        selected: device.id,
+        time: 89,
+        playing: false,
+        explosion: 0.4,
+        coverOpen: true,
+      },
+    };
+    for (const part of [
+      ...partsForDevice(device.id),
+      ...subpartsForDevice(device.id),
+    ]) {
+      const before = state.scene;
+      state = reviewTransition(state, {
+        type: "inspect-adjacent-part",
+        id: part.id,
+      });
+      assert.equal(state.selectedId, part.id);
+      assert.deepEqual(state.scene, {
+        ...before,
+        selected: part.id,
+      });
+      assert.equal(state.analysis, true);
+      assert.equal(state.layer, "environment");
+    }
+    const before = state.scene;
+    state = reviewTransition(state, { type: "finish-part-inspection" });
+    assert.equal(state.selectedId, device.id);
+    assert.deepEqual(state.scene, {
+      ...before,
+      selected: device.id,
+      focusRevision: before.focusRevision + 1,
+    });
+  }
+});
+
+test("未展开、离开设备或安全归位中拒绝逐项检视，外机型部件不可进入", () => {
+  const base = createReview();
+  const inside = {
+    ...base,
+    scene: { ...base.scene, level: "device" as const, explosion: 0.4 },
+  };
+  for (const state of [
+    base,
+    { ...inside, scene: { ...inside.scene, explosion: 0 } },
+    { ...inside, pendingId: "srv-59" },
+    { ...inside, pendingEndpoint: { deviceId: "srv-59", partId: "psu-01" } },
+  ]) {
+    assert.equal(
+      reviewTransition(state, {
+        type: "inspect-adjacent-part",
+        id: "memory-01",
+      }),
+      state,
+    );
+    assert.equal(
+      reviewTransition(state, { type: "finish-part-inspection" }),
+      state,
+    );
+  }
+  assert.equal(
+    reviewTransition(inside, { type: "inspect-adjacent-part", id: "unknown" }),
+    inside,
+  );
+  const sw = { ...inside, scene: { ...inside.scene, deviceId: "sw-01" } };
+  assert.equal(
+    reviewTransition(sw, { type: "inspect-adjacent-part", id: "memory-01" }),
+    sw,
+  );
 });
