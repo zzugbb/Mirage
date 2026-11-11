@@ -4913,3 +4913,51 @@
   color: #b6cbd3;
   line-height: 1.6;
 }
+
+.environment-comparability {
+  margin-top: 16px;
+  border-block: 1px solid var(--line);
+  padding-block: 12px;
+}
+.environment-comparability summary {
+  cursor: pointer;
+  font-size: 12px;
+}
+.environment-comparability p,
+.environment-comparability small {
+  font-size: 11px;
+  line-height: 1.6;
+  color: #a9bdc6;
+}
+.environment-comparability ol {
+  list-style: none;
+  padding: 0;
+  max-height: 260px;
+  overflow: auto;
+}
+.environment-comparability li {
+  padding: 10px 8px;
+  border-left: 2px solid transparent;
+  border-bottom: 1px solid var(--line);
+}
+.environment-comparability li[aria-current="true"] {
+  border-left-color: #b8d8d2;
+  background: #26343c66;
+}
+.environment-comparability li strong,
+.environment-comparability li small {
+  display: block;
+  font-size: 11px;
+}
+.environment-comparability li div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+.environment-comparability button {
+  border: 1px solid var(--line);
+  padding: 6px 8px;
+  font-size: 11px;
+  cursor: pointer;
+}

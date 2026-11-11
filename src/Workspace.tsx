@@ -1,3 +1,4 @@
+import { emptyComparabilityReview } from "./environment-comparability";
 import type {
   EnvironmentInspection,
   EnvironmentViewCommand,
@@ -220,9 +221,13 @@ export function Workspace() {
       revision: (current?.revision ?? 0) + 1,
     }));
   };
+  const [comparability, setComparability] = useState(emptyComparabilityReview);
   const environmentPairReturning = useRef(false);
   const [environmentPairMetric, setEnvironmentPairMetric] =
     useState<EnvironmentMetric>("ambientTemperature");
+  useEffect(() => {
+    setComparability(emptyComparabilityReview);
+  }, [environmentPairVisit, environmentPairMetric, state.replayCycle]);
   const [inspectionDevice, setInspectionDevice] = useState<string | null>(null);
   const isolatedPartId = isolatedPart(state, selected, inspectionDevice);
   useEffect(() => {
@@ -2827,6 +2832,8 @@ export function Workspace() {
                   <EnvironmentPairAnalysis
                     pair={pairedEnvironment}
                     metric={environmentPairMetric}
+                    comparability={comparability}
+                    onComparability={setComparability}
                     inspection={environmentView}
                     inRoom={state.level === "room"}
                     onObserve={() => requestEnvironmentView("observe")}

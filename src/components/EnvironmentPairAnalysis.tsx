@@ -1,3 +1,5 @@
+import { EnvironmentComparability } from "./EnvironmentComparability";
+import type { ComparabilityReview } from "../environment-comparability";
 import { EnvironmentViewActions } from "./EnvironmentViewActions";
 import type { EnvironmentInspection } from "../environment-view";
 import { useEffect, useRef, useState } from "react";
@@ -22,6 +24,8 @@ export function EnvironmentPairAnalysis({
   inRoom,
   onObserve,
   onRestoreView,
+  comparability,
+  onComparability,
   onMetric,
   onSeek,
   onPreview,
@@ -38,6 +42,8 @@ export function EnvironmentPairAnalysis({
   inRoom: boolean;
   onObserve: () => void;
   onRestoreView: () => void;
+  comparability: ComparabilityReview;
+  onComparability: (state: ComparabilityReview) => void;
   onMetric: (metric: EnvironmentMetric) => void;
   onSeek: (time: number) => void;
   onPreview: (id: string) => void;
@@ -169,6 +175,14 @@ export function EnvironmentPairAnalysis({
         time={time}
         cursorTime={cursor}
         onInspect={setInspection}
+        onSeek={onSeek}
+      />
+      <EnvironmentComparability
+        pair={pair}
+        metric={metric}
+        time={time}
+        state={comparability}
+        onChange={onComparability}
         onSeek={onSeek}
       />
       <p>
