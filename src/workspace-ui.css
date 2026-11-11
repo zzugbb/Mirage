@@ -4731,3 +4731,78 @@
   border-color: #9bc8cb;
   color: #cde9e8;
 }
+
+.workspace-ui .leak-view-details {
+  margin: 0 22px 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+  display: grid;
+  gap: 10px;
+}
+.leak-view-details p,
+.leak-view-details dd,
+.leak-view-details small,
+.leak-scene-key > span {
+  font-size: 11px;
+  line-height: 1.6;
+  margin: 0;
+}
+.leak-view-details dl {
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+.leak-view-details dt {
+  font-size: 11px;
+}
+.leak-view-segments,
+.leak-view-previews {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+}
+.leak-view-previews button:last-child {
+  grid-column: 1 / -1;
+}
+.leak-view-entry {
+  margin: 16px 0;
+}
+.leak-view-entry button,
+.leak-view-details button,
+.leak-scene-key button {
+  cursor: pointer;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: inherit;
+  padding: 6px 8px;
+  text-align: left;
+  font-size: 11px;
+}
+.leak-view-segments button[aria-pressed="true"] {
+  background: #395057;
+  border-color: #a6c6bf;
+}
+.workspace-ui .review-legend:has(.leak-scene-key) {
+  pointer-events: auto;
+  width: 220px;
+  max-width: calc(100% - 48px);
+  padding: 12px;
+  border-radius: 7px;
+  background: #1d2931eb;
+}
+.workspace-ui .review-legend > .leak-scene-key {
+  display: grid;
+  gap: 8px;
+  width: auto;
+  white-space: normal;
+}
+.workspace-ui .leak-scene-key > * {
+  width: auto;
+  white-space: normal;
+}
+.workspace-ui .leak-scene-key button {
+  position: static;
+}
+.workspace-ui .leak-scene-key .leak-view-segments {
+  display: grid;
+}

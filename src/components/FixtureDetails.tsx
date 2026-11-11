@@ -26,6 +26,8 @@ export function FixtureDetails({
   fixture,
   analysis = false,
   grilleRelations,
+  onInspectLeak,
+  leakViewActive = false,
   onCompare,
   comparisonReady = false,
   onPreview,
@@ -34,6 +36,8 @@ export function FixtureDetails({
   fixture: RoomFixture;
   analysis?: boolean;
   grilleRelations?: ReactNode;
+  onInspectLeak?: () => void;
+  leakViewActive?: boolean;
   onCompare?: (id: string) => void;
   comparisonReady?: boolean;
   onPreview: (id: string) => void;
@@ -170,6 +174,17 @@ export function FixtureDetails({
           </dl>
           <p>X / Y / Z 为机房坐标，端点未登记外部连接。</p>
         </details>
+      )}
+      {!analysis && isLeakFixture(fixture.id) && !leakViewActive && (
+        <div className="leak-view-entry">
+          {onInspectLeak ? (
+            <button disabled={!comparisonReady} onClick={onInspectLeak}>
+              核对检漏路径 ↗
+            </button>
+          ) : (
+            <small>在机房总览中定位此设施后，可分段核对检漏路径。</small>
+          )}
+        </div>
       )}
       {!analysis &&
         (grilleRow && grilleRelations ? (

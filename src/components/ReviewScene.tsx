@@ -1,4 +1,12 @@
 import {
+  leakViewIncludes,
+  type LeakInspection,
+  type LeakView,
+  type LeakViewCommand,
+} from "../leak-view";
+import { LeakViewGeometry } from "../scene/leak-view";
+import { LeakViewActions } from "./LeakViewActions";
+import {
   maintenanceViews,
   maintenanceViewIncludes,
   type MaintenanceView,
@@ -111,6 +119,10 @@ export function ReviewScene({
   maintenanceView,
   maintenanceReturnRevision,
   onMaintenanceViewChange,
+  leakView,
+  leakViewCommand,
+  onLeakViewChange,
+  onLeakView,
   crossing,
   crossingCommand,
   onCrossingChange,
@@ -144,6 +156,10 @@ export function ReviewScene({
   maintenanceView: MaintenanceInspection | null;
   maintenanceReturnRevision: number;
   onMaintenanceViewChange: (inspection: MaintenanceInspection | null) => void;
+  leakView: LeakInspection | null;
+  leakViewCommand: LeakViewCommand | null;
+  onLeakViewChange: (inspection: LeakInspection | null) => void;
+  onLeakView: (view: LeakView | null) => void;
   crossing: FixtureCrossing | null;
   crossingCommand: CrossingViewCommand | null;
   onCrossingChange: (pair: FixtureCrossing | null) => void;
@@ -208,6 +224,10 @@ export function ReviewScene({
   const airflowGeometry = useRef<AirflowGeometry | null>(null);
   const maintenanceGeometry = useRef<MaintenanceGeometry | null>(null);
   const powerGeometry = useRef<PowerGeometry | null>(null);
+  const leakGeometry = useRef<LeakViewGeometry | null>(null);
+  const leakEntry = useRef<HTMLElement | null>(null);
+  const leakReturning = useRef(false);
+  const leakFocusTarget = useRef<string | null>(null);
   const crossingGeometry = useRef<CrossingGeometry | null>(null);
   const networkGeometry = useRef<NetworkGeometry | null>(null);
   const clockEpoch = useRef(performance.now());
@@ -221,6 +241,7 @@ export function ReviewScene({
     onSliceViewChange,
     onPowerViewChange,
     onMaintenanceViewChange,
+    onLeakViewChange,
     onCrossingChange,
     onNetworkViewChange,
   });
@@ -231,6 +252,7 @@ export function ReviewScene({
     onSliceViewChange,
     onPowerViewChange,
     onMaintenanceViewChange,
+    onLeakViewChange,
     onCrossingChange,
     onNetworkViewChange,
   };
@@ -454,6 +476,9 @@ export function ReviewScene({
       const supplyGeometry = new PowerGeometry();
       active.models.root.add(supplyGeometry.root);
       powerGeometry.current = supplyGeometry;
+      const leakLines = new LeakViewGeometry();
+      active.models.root.add(leakLines.root);
+      leakGeometry.current = leakLines;
       const crossingLines = new CrossingGeometry();
       active.models.root.add(crossingLines.root);
       crossingGeometry.current = crossingLines;
@@ -502,6 +527,12 @@ export function ReviewScene({
         if (inspection) setView(active!.currentView);
       };
       callbacks.current.onMaintenanceViewChange(null);
+      active.onLeakView = (inspection) => {
+        callbacks.current.onLeakViewChange(inspection);
+        leakLines.update(inspection);
+        setView(active!.currentView);
+      };
+      callbacks.current.onLeakViewChange(null);
       active.onCrossingView = (pair) => {
         callbacks.current.onCrossingChange(pair);
         crossingLines.update(pair);
@@ -563,6 +594,8 @@ export function ReviewScene({
       maintenanceGeometry.current = null;
       powerGeometry.current?.dispose();
       powerGeometry.current = null;
+      leakGeometry.current?.dispose();
+      leakGeometry.current = null;
       crossingGeometry.current?.dispose();
       crossingGeometry.current = null;
       networkGeometry.current?.dispose();
@@ -645,6 +678,7 @@ export function ReviewScene({
         engine.current.clearSliceView();
         engine.current.clearNetworkView();
         engine.current.clearPowerView();
+        engine.current.clearLeakView();
         engine.current.clearCrossingView();
         engine.current.clearMaintenanceView();
       }
@@ -719,6 +753,83 @@ export function ReviewScene({
     )
       engine.current?.clearMaintenanceView();
   }, [maintenanceView, layer, state.level, networkLinkId, selectedId]);
+  useEffect(() => {
+    const active = engine.current;
+    if (!active || !leakViewCommand) return;
+    if (!leakViewCommand.view) {
+      leakReturning.current = !!leakView;
+      active.restoreLeakView();
+    } else if (layer === "overview") {
+      if (!leakView) leakEntry.current = document.activeElement as HTMLElement;
+      leakReturning.current = false;
+      leakFocusTarget.current = document.activeElement?.closest(
+        ".leak-scene-key",
+      )
+        ? ".leak-scene-key"
+        : ".leak-view-details";
+      setOrbit(false);
+      active.observeLeak(leakViewCommand.view);
+    }
+    setView(active.currentView);
+  }, [leakViewCommand?.revision]);
+  useEffect(() => {
+    engine.current?.frameLeak();
+  }, [leakView?.view]);
+  useEffect(() => {
+    if (
+      leakView &&
+      (layer !== "overview" ||
+        state.level !== "room" ||
+        !leakViewIncludes(selectedId))
+    )
+      engine.current?.clearLeakView();
+  }, [leakView, layer, state.level, selectedId]);
+  useEffect(() => {
+    if (!leakView || !leakFocusTarget.current) return;
+    let frame = 0;
+    const focus = () => {
+      const button = host.current
+        ?.closest(".workspace-ui")
+        ?.querySelector<HTMLButtonElement>(
+          `${leakFocusTarget.current} button[aria-pressed="true"]`,
+        );
+      if (!button) {
+        leakFocusTarget.current = null;
+        return;
+      }
+      if (engine.current?.moving || button.disabled) {
+        frame = requestAnimationFrame(focus);
+        return;
+      }
+      button.focus();
+      leakFocusTarget.current = null;
+    };
+    frame = requestAnimationFrame(focus);
+    return () => cancelAnimationFrame(frame);
+  }, [leakView, sceneSettled]);
+  useEffect(() => {
+    if (leakView || !leakReturning.current) return;
+    let frame = 0;
+    const focus = () => {
+      if (engine.current?.moving) {
+        frame = requestAnimationFrame(focus);
+        return;
+      }
+      const workspace = host.current?.closest(".workspace-ui");
+      const entry = leakEntry.current?.isConnected
+        ? leakEntry.current
+        : (workspace?.querySelector<HTMLElement>(".leak-view-entry button") ??
+          workspace?.querySelector<HTMLElement>(".review-camera button"));
+      if (entry instanceof HTMLButtonElement && entry.disabled) {
+        frame = requestAnimationFrame(focus);
+        return;
+      }
+      entry?.focus({ preventScroll: true });
+      leakReturning.current = false;
+    };
+    frame = requestAnimationFrame(focus);
+    return () => cancelAnimationFrame(frame);
+  }, [leakView, sceneSettled]);
   useEffect(() => {
     const active = engine.current;
     if (!active || !crossingCommand) return;
@@ -874,6 +985,7 @@ export function ReviewScene({
   const labelKey =
     environmentMarkers.map((marker) => marker.id).join(":") +
     (maintenanceView?.view ?? "") +
+    (leakView?.view ?? "") +
     (crossing?.id ?? "") +
     (selectedFixture?.id ?? "") +
     labels.map((r) => r.id).join(":") +
@@ -1141,6 +1253,19 @@ export function ReviewScene({
               <small>{marker.value}</small>
             </button>
           ))}
+          {leakView?.markers.map((marker) => (
+            <div
+              key={marker.id}
+              hidden
+              aria-hidden="true"
+              data-anchor={marker.id}
+              data-anchor-kind="position"
+              data-anchor-position={marker.point.toArray().join(",")}
+              className="review-flow-anchor review-crossing-anchor"
+            >
+              <b>{marker.title}</b>
+            </div>
+          ))}
           {crossing?.markers.map((marker) => (
             <div
               key={marker.id}
@@ -1219,31 +1344,34 @@ export function ReviewScene({
                 </div>
               )),
           )}
-          {selectedFixture && !crossing && !environmentMarkers.length && (
-            <button
-              hidden
-              data-anchor={selectedFixture.id}
-              data-anchor-kind="position"
-              data-anchor-position={selectedFixture.position.join(",")}
-              data-anchor-object={selectedFixture.id}
-              className="review-anchor review-fixture-anchor selected"
-              onClick={() => onSelect(selectedFixture.id)}
-              onDoubleClick={() => onSelect(selectedFixture.id, true)}
-            >
-              <b>{selectedFixture.name}</b>
-              {ambient && (
-                <small>
-                  {environmentValue(ambient.temperature.value, "°C")}
-                  {ambient.temperature.quality !== "valid" &&
-                    `（${environmentQuality[ambient.temperature.quality]}）`}{" "}
-                  · {environmentValue(ambient.humidity.value, "%RH")}
-                  {ambient.humidity.quality !== "valid" &&
-                    `（${environmentQuality[ambient.humidity.quality]}）`}{" "}
-                  · 模拟
-                </small>
-              )}
-            </button>
-          )}
+          {selectedFixture &&
+            !leakView &&
+            !crossing &&
+            !environmentMarkers.length && (
+              <button
+                hidden
+                data-anchor={selectedFixture.id}
+                data-anchor-kind="position"
+                data-anchor-position={selectedFixture.position.join(",")}
+                data-anchor-object={selectedFixture.id}
+                className="review-anchor review-fixture-anchor selected"
+                onClick={() => onSelect(selectedFixture.id)}
+                onDoubleClick={() => onSelect(selectedFixture.id, true)}
+              >
+                <b>{selectedFixture.name}</b>
+                {ambient && (
+                  <small>
+                    {environmentValue(ambient.temperature.value, "°C")}
+                    {ambient.temperature.quality !== "valid" &&
+                      `（${environmentQuality[ambient.temperature.quality]}）`}{" "}
+                    · {environmentValue(ambient.humidity.value, "%RH")}
+                    {ambient.humidity.quality !== "valid" &&
+                      `（${environmentQuality[ambient.humidity.quality]}）`}{" "}
+                    · 模拟
+                  </small>
+                )}
+              </button>
+            )}
           {labels.map((item) => {
             const reading = readings.get(item.id)!;
             return (
@@ -1311,7 +1439,8 @@ export function ReviewScene({
             onRetry={() => engine.current?.retryModels()}
           />
         )}
-        {(crossing ||
+        {(leakView ||
+          crossing ||
           selectedFixture ||
           airflow ||
           maintenance.length > 0 ||
@@ -1322,12 +1451,18 @@ export function ReviewScene({
             {environmentMarkers.map((marker) => (
               <line key={marker.id} data-flow-line={`pair-${marker.id}`} />
             ))}
+            {leakView?.markers.map((marker) => (
+              <line key={marker.id} data-flow-line={marker.id} />
+            ))}
             {crossing?.markers.map((marker) => (
               <line key={marker.id} data-flow-line={marker.id} />
             ))}
-            {selectedFixture && !crossing && !environmentMarkers.length && (
-              <line data-flow-line={selectedFixture.id} />
-            )}
+            {selectedFixture &&
+              !leakView &&
+              !crossing &&
+              !environmentMarkers.length && (
+                <line data-flow-line={selectedFixture.id} />
+              )}
             {labels
               .filter((item) => item.id === selectedId)
               .map((item) => (
@@ -1363,6 +1498,13 @@ export function ReviewScene({
           data-flow-observation={!!flowView}
           data-slice-visible={sliceVisible}
         >
+          {leakView && (
+            <LeakViewActions
+              inspection={leakView}
+              ready={sceneSettled}
+              onView={onLeakView}
+            />
+          )}
           {crossing && (
             <div className="crossing-scene-key">
               <strong>交叉高度核对</strong>

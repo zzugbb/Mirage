@@ -1,4 +1,10 @@
 import {
+  type LeakInspection,
+  type LeakView,
+  type LeakViewCommand,
+} from "./leak-view";
+import { LeakViewActions } from "./components/LeakViewActions";
+import {
   GrilleBranches,
   type GrilleReturnFocus,
 } from "./components/GrilleBranches";
@@ -334,6 +340,16 @@ export function Workspace() {
   const returnMaintenanceView = () => {
     takeover();
     setMaintenanceReturnRevision((value) => value + 1);
+  };
+  const [leakView, setLeakView] = useState<LeakInspection | null>(null);
+  const [leakViewCommand, setLeakViewCommand] =
+    useState<LeakViewCommand | null>(null);
+  const requestLeakView = (view: LeakView | null) => {
+    takeover();
+    setLeakViewCommand((current) => ({
+      view,
+      revision: (current?.revision ?? 0) + 1,
+    }));
   };
   const [crossing, setCrossing] = useState<FixtureCrossing | null>(null);
   const [crossingCommand, setCrossingCommand] =
@@ -1911,6 +1927,10 @@ export function Workspace() {
             maintenanceView={maintenanceView}
             maintenanceReturnRevision={maintenanceReturnRevision}
             onMaintenanceViewChange={setMaintenanceView}
+            leakView={leakView}
+            leakViewCommand={leakViewCommand}
+            onLeakViewChange={setLeakView}
+            onLeakView={requestLeakView}
             crossing={crossing}
             crossingCommand={crossingCommand}
             onCrossingChange={setCrossing}
@@ -2311,6 +2331,15 @@ export function Workspace() {
                 </button>
               </section>
             )}
+            {leakView && (
+              <LeakViewActions
+                inspection={leakView}
+                compact={review.analysis}
+                ready={ready}
+                onView={requestLeakView}
+                onPreview={pick}
+              />
+            )}
             {crossing && (
               <section className="crossing-details" aria-label="交叉高度核对">
                 <strong>交叉高度核对 · 配置</strong>
@@ -2540,6 +2569,12 @@ export function Workspace() {
                 ) : fixture ? (
                   <FixtureDetails
                     fixture={fixture}
+                    onInspectLeak={
+                      layer === "overview" && state.level === "room"
+                        ? () => requestLeakView("all")
+                        : undefined
+                    }
+                    leakViewActive={!!leakView}
                     onPreview={pick}
                     onLocate={focus}
                     grilleRelations={
