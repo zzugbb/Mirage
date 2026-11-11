@@ -1,3 +1,9 @@
+import type {
+  EnvironmentInspection,
+  EnvironmentViewCommand,
+} from "../environment-view";
+import { EnvironmentViewGeometry } from "../scene/environment-view";
+import { EnvironmentViewActions } from "./EnvironmentViewActions";
 import {
   entranceViewIncludes,
   type EntranceInspection,
@@ -123,6 +129,10 @@ export function ReviewScene({
   networkLinkId = null,
   environmentPair,
   environmentPairMetric,
+  environmentView,
+  environmentViewCommand,
+  onEnvironmentViewChange,
+  onEnvironmentView,
   onReturnEnvironmentPair,
   maintenanceView,
   maintenanceReturnRevision,
@@ -164,6 +174,10 @@ export function ReviewScene({
 }: {
   environmentPair: EnvironmentPair | null;
   environmentPairMetric: EnvironmentMetric;
+  environmentView: EnvironmentInspection | null;
+  environmentViewCommand: EnvironmentViewCommand | null;
+  onEnvironmentViewChange: (inspection: EnvironmentInspection | null) => void;
+  onEnvironmentView: (action: EnvironmentViewCommand["action"]) => void;
   onReturnEnvironmentPair: () => void;
   maintenanceView: MaintenanceInspection | null;
   maintenanceReturnRevision: number;
@@ -240,6 +254,10 @@ export function ReviewScene({
   const airflowGeometry = useRef<AirflowGeometry | null>(null);
   const maintenanceGeometry = useRef<MaintenanceGeometry | null>(null);
   const powerGeometry = useRef<PowerGeometry | null>(null);
+  const environmentGeometry = useRef<EnvironmentViewGeometry | null>(null);
+  const environmentEntry = useRef<HTMLElement | null>(null);
+  const environmentEntryArea = useRef(".environment-pair-analysis");
+  const environmentReturning = useRef(false);
   const entranceGeometry = useRef<EntranceViewGeometry | null>(null);
   const entranceEntry = useRef<HTMLElement | null>(null);
   const entranceReturning = useRef(false);
@@ -261,6 +279,7 @@ export function ReviewScene({
     onSliceViewChange,
     onPowerViewChange,
     onMaintenanceViewChange,
+    onEnvironmentViewChange,
     onEntranceViewChange,
     onLeakViewChange,
     onCrossingChange,
@@ -273,6 +292,7 @@ export function ReviewScene({
     onSliceViewChange,
     onPowerViewChange,
     onMaintenanceViewChange,
+    onEnvironmentViewChange,
     onEntranceViewChange,
     onLeakViewChange,
     onCrossingChange,
@@ -498,6 +518,9 @@ export function ReviewScene({
       const supplyGeometry = new PowerGeometry();
       active.models.root.add(supplyGeometry.root);
       powerGeometry.current = supplyGeometry;
+      const environmentLines = new EnvironmentViewGeometry();
+      active.models.root.add(environmentLines.root);
+      environmentGeometry.current = environmentLines;
       const entranceLines = new EntranceViewGeometry();
       active.models.root.add(entranceLines.root);
       entranceGeometry.current = entranceLines;
@@ -552,6 +575,12 @@ export function ReviewScene({
         if (inspection) setView(active!.currentView);
       };
       callbacks.current.onMaintenanceViewChange(null);
+      active.onEnvironmentView = (inspection) => {
+        callbacks.current.onEnvironmentViewChange(inspection);
+        environmentLines.update(inspection);
+        setView(active!.currentView);
+      };
+      callbacks.current.onEnvironmentViewChange(null);
       active.onEntranceView = (inspection) => {
         callbacks.current.onEntranceViewChange(inspection);
         entranceLines.update(inspection);
@@ -625,6 +654,8 @@ export function ReviewScene({
       maintenanceGeometry.current = null;
       powerGeometry.current?.dispose();
       powerGeometry.current = null;
+      environmentGeometry.current?.dispose();
+      environmentGeometry.current = null;
       entranceGeometry.current?.dispose();
       entranceGeometry.current = null;
       leakGeometry.current?.dispose();
@@ -711,6 +742,7 @@ export function ReviewScene({
         engine.current.clearSliceView();
         engine.current.clearNetworkView();
         engine.current.clearPowerView();
+        engine.current.clearEnvironmentView();
         engine.current.clearEntranceView();
         engine.current.clearLeakView();
         engine.current.clearCrossingView();
@@ -787,6 +819,66 @@ export function ReviewScene({
     )
       engine.current?.clearMaintenanceView();
   }, [maintenanceView, layer, state.level, networkLinkId, selectedId]);
+  useEffect(() => {
+    const active = engine.current;
+    if (!active || !environmentViewCommand) return;
+    if (environmentViewCommand.action === "return") {
+      environmentReturning.current = !!environmentView;
+      active.restoreEnvironmentView();
+    } else if (environmentPair && layer === "environment") {
+      if (!environmentView) {
+        environmentEntry.current = document.activeElement as HTMLElement;
+        environmentEntryArea.current = document.activeElement?.closest(
+          ".environment-scene-key",
+        )
+          ? ".environment-scene-key"
+          : ".environment-pair-analysis";
+      }
+      environmentReturning.current = false;
+      setOrbit(false);
+      active.observeEnvironment(environmentPair);
+    }
+    setView(active.currentView);
+  }, [environmentViewCommand?.revision]);
+  useEffect(() => {
+    engine.current?.frameEnvironment();
+  }, [environmentView]);
+  useEffect(() => {
+    if (
+      environmentView &&
+      (!environmentPair || state.level !== "room" || layer !== "environment")
+    )
+      engine.current?.clearEnvironmentView();
+  }, [environmentView, environmentPair, state.level, layer]);
+  useEffect(() => {
+    if (environmentView || !environmentReturning.current) return;
+    let frame = 0;
+    const focus = () => {
+      const workspace = host.current?.closest(".workspace-ui");
+      const entry = environmentEntry.current?.isConnected
+        ? environmentEntry.current
+        : (workspace?.querySelector<HTMLElement>(
+            `${environmentEntryArea.current} .environment-view-actions button`,
+          ) ??
+          workspace?.querySelector<HTMLElement>(
+            ".environment-comparison-toggle",
+          ) ??
+          workspace?.querySelector<HTMLElement>(
+            ".review-camera button, .review-camera select",
+          ));
+      if (
+        engine.current?.moving ||
+        (entry instanceof HTMLButtonElement && entry.disabled)
+      ) {
+        frame = requestAnimationFrame(focus);
+        return;
+      }
+      entry?.focus({ preventScroll: true });
+      environmentReturning.current = false;
+    };
+    frame = requestAnimationFrame(focus);
+    return () => cancelAnimationFrame(frame);
+  }, [environmentView, sceneSettled]);
   useEffect(() => {
     const active = engine.current;
     if (!active || !entranceViewCommand) return;
@@ -1258,6 +1350,7 @@ export function ReviewScene({
       data-airflow-input={visibleAirflow?.coolingCapacity}
       data-maintenance-rack={maintenance.length ? selectedId : undefined}
       data-maintenance-aisle={comparison?.id}
+      data-environment-view={!!environmentView}
       data-power-rack={supply?.rackId}
       data-power-device={supply?.deviceId}
       data-power-trace={supply?.traceId ?? undefined}
@@ -1802,6 +1895,16 @@ export function ReviewScene({
               {environmentPair ? (
                 <>
                   <small>① 起点 · 实线 / ② 对照 · 虚线</small>
+                  <EnvironmentViewActions
+                    inspection={environmentView}
+                    ready={sceneSettled}
+                    available={state.level === "room"}
+                    onObserve={() => onEnvironmentView("observe")}
+                    onReturn={() => onEnvironmentView("return")}
+                  />
+                  {environmentView && (
+                    <small>竖线为各自高度参考，不是探测覆盖。</small>
+                  )}
                   <button onClick={onReturnEnvironmentPair}>
                     ← 返回起点测点
                   </button>

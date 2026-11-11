@@ -1,3 +1,7 @@
+import type {
+  EnvironmentInspection,
+  EnvironmentViewCommand,
+} from "./environment-view";
 import {
   beginSourceInspection,
   sourceInspectionIncludes,
@@ -205,6 +209,17 @@ export function Workspace() {
     analysis: boolean;
     nav: boolean;
   } | null>(null);
+  const [environmentView, setEnvironmentView] =
+    useState<EnvironmentInspection | null>(null);
+  const [environmentViewCommand, setEnvironmentViewCommand] =
+    useState<EnvironmentViewCommand | null>(null);
+  const requestEnvironmentView = (action: EnvironmentViewCommand["action"]) => {
+    control({ type: "takeover" });
+    setEnvironmentViewCommand((current) => ({
+      action,
+      revision: (current?.revision ?? 0) + 1,
+    }));
+  };
   const environmentPairReturning = useRef(false);
   const [environmentPairMetric, setEnvironmentPairMetric] =
     useState<EnvironmentMetric>("ambientTemperature");
@@ -840,6 +855,7 @@ export function Workspace() {
   const returnEnvironmentPair = () => {
     if (!environmentPairVisit) return;
     const origin = environmentPairVisit;
+    if (environmentView) requestEnvironmentView("return");
     environmentPairReturning.current = true;
     setEnvironmentPairVisit(null);
     pick(origin.pair.firstId);
@@ -2239,6 +2255,10 @@ export function Workspace() {
             powerViewActive={powerViewActive}
             environmentPair={pairedEnvironment}
             environmentPairMetric={environmentPairMetric}
+            environmentView={environmentView}
+            environmentViewCommand={environmentViewCommand}
+            onEnvironmentViewChange={setEnvironmentView}
+            onEnvironmentView={requestEnvironmentView}
             onReturnEnvironmentPair={returnEnvironmentPair}
             maintenanceView={maintenanceView}
             maintenanceReturnRevision={maintenanceReturnRevision}
@@ -2807,6 +2827,10 @@ export function Workspace() {
                   <EnvironmentPairAnalysis
                     pair={pairedEnvironment}
                     metric={environmentPairMetric}
+                    inspection={environmentView}
+                    inRoom={state.level === "room"}
+                    onObserve={() => requestEnvironmentView("observe")}
+                    onRestoreView={() => requestEnvironmentView("return")}
                     time={state.time}
                     selected={selected}
                     ready={ready}

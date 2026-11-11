@@ -4888,3 +4888,28 @@
 .entrance-view-segments button:last-child {
   grid-column: 1 / -1;
 }
+
+.environment-view-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-block: 10px;
+}
+.environment-view-actions button {
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  font-size: 11px;
+  cursor: pointer;
+}
+.environment-view-actions button[aria-pressed="true"] {
+  background: #32454e;
+  color: #d3e5e9;
+}
+.environment-view-actions small {
+  flex-basis: 100%;
+  color: #91aab7;
+}
+.environment-view-description {
+  color: #b6cbd3;
+  line-height: 1.6;
+}

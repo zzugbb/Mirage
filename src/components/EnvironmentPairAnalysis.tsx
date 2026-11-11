@@ -1,3 +1,5 @@
+import { EnvironmentViewActions } from "./EnvironmentViewActions";
+import type { EnvironmentInspection } from "../environment-view";
 import { useEffect, useRef, useState } from "react";
 import type { EnvironmentPair } from "../environment-pair";
 import {
@@ -16,6 +18,10 @@ export function EnvironmentPairAnalysis({
   time,
   selected,
   ready,
+  inspection: viewInspection,
+  inRoom,
+  onObserve,
+  onRestoreView,
   onMetric,
   onSeek,
   onPreview,
@@ -28,6 +34,10 @@ export function EnvironmentPairAnalysis({
   time: number;
   selected: string;
   ready: boolean;
+  inspection: EnvironmentInspection | null;
+  inRoom: boolean;
+  onObserve: () => void;
+  onRestoreView: () => void;
   onMetric: (metric: EnvironmentMetric) => void;
   onSeek: (time: number) => void;
   onPreview: (id: string) => void;
@@ -81,6 +91,25 @@ export function EnvironmentPairAnalysis({
           </button>
         ))}
       </div>
+      <EnvironmentViewActions
+        inspection={viewInspection}
+        ready={ready}
+        available={inRoom}
+        onObserve={onObserve}
+        onReturn={onRestoreView}
+      />
+      {viewInspection && (
+        <p className="environment-view-description">
+          两点配置直线间距 {viewInspection.distance.toFixed(2)} m；
+          {viewInspection.probes
+            .map(
+              (probe, index) =>
+                `${index ? "②" : "①"} 中心高 ${probe.point.y.toFixed(2)} m`,
+            )
+            .join("，")}
+          。 高度以机房 Y=0 为参考；间距不表示覆盖、布线长度或区域梯度。
+        </p>
+      )}
       <div className="environment-pair-readings">
         {[first, second].map((probe, index) => {
           const reading = index ? row.right : row.left;
