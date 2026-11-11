@@ -1,4 +1,10 @@
 import {
+  beginPeakInspection,
+  peakInspectionIncludes,
+  peakInspectionStatus,
+  type PeakInspection,
+} from "./peak-inspection";
+import {
   type LeakInspection,
   type LeakView,
   type LeakViewCommand,
@@ -98,7 +104,7 @@ import {
   componentGroups,
 } from "./review-resources";
 import type { ResourceFilter } from "./review-resources";
-import { devices, rackById, rackForDevice } from "./installation";
+import { devices, deviceById, rackById, rackForDevice } from "./installation";
 import {
   maintenanceAreas,
   maintenanceAisle,
@@ -450,24 +456,51 @@ export function Workspace() {
     key: string;
     value: PeakProcessState;
   } | null>(null);
-  const [peakVisit, setPeakVisit] = useState<{
-    targetId: string;
-    anchor: string;
-    nav: boolean;
+  const [peakVisit, setPeakVisit] = useState<
+    | (PeakInspection & {
+        anchor: string;
+        level: "room" | "rack";
+        nav: boolean;
+        layer: ReviewState["layer"];
+        metric: "temperature" | "power";
+        slice: SliceControls;
+        query: string;
+        filter: ResourceFilter;
+        onlyAlarms: boolean;
+        scroll: number;
+      })
+    | null
+  >(null);
+  const [peakReturning, setPeakReturning] = useState(false);
+  const inspectorRef = useRef<HTMLElement>(null);
+  const peakReturnFocus = useRef<{
+    scopeId: string;
+    deviceId: string;
+    scroll: number;
   } | null>(null);
   useEffect(() => {
     if (
       peakReview &&
-      (!review.analysis ||
-        peakReview.key !== peakKey ||
-        (peakVisit
-          ? selected !== peakVisit.targetId || peakVisit.anchor !== sourceAnchor
-          : selected !== peakReview.scopeId))
+      (peakReview.key !== peakKey ||
+        (!peakReturning &&
+          (peakVisit
+            ? !peakInspectionIncludes(peakVisit, selected, state.deviceId)
+            : !review.analysis || selected !== peakReview.scopeId)))
     ) {
       setPeakReview(null);
       setPeakVisit(null);
+      setPeakReturning(false);
+      peakReturnFocus.current = null;
     }
-  }, [peakReview, peakVisit, review.analysis, peakKey, selected, sourceAnchor]);
+  }, [
+    peakReview,
+    peakVisit,
+    peakReturning,
+    review.analysis,
+    peakKey,
+    selected,
+    state.deviceId,
+  ]);
 
   useEffect(() => {
     if (!sourceCheck) return;
@@ -794,6 +827,115 @@ export function Workspace() {
     setInspector(true);
     if (matchMedia("(max-width: 1099px)").matches) setNav(false);
   };
+  const visitPeakSource = (id: string) => {
+    const target = beginPeakInspection(
+      selected,
+      id,
+      state.time,
+      spatial.readings,
+    );
+    if (!target) return;
+    peakReturnFocus.current = null;
+    setPeakReview((current) => ({
+      scopeId: selected,
+      key: peakKey,
+      value:
+        current?.scopeId === selected && current.key === peakKey
+          ? current.value
+          : { ...emptyPeakProcess, open: true },
+    }));
+    setPeakVisit({
+      ...(peakVisit?.scopeId === selected
+        ? peakVisit
+        : {
+            anchor: sourceAnchor,
+            level:
+              state.level === "rack" && rackById(selected)
+                ? ("rack" as const)
+                : ("room" as const),
+            nav,
+            layer,
+            metric,
+            slice: sliceControls,
+            query,
+            filter,
+            onlyAlarms,
+            scroll: inspectorRef.current?.scrollTop ?? 0,
+          }),
+      ...target,
+    });
+    pick(id);
+  };
+  const returnPeakSource = () => {
+    if (!peakVisit || !ready) return;
+    const origin = peakVisit;
+    setPeakReturning(true);
+    peakReturnFocus.current = {
+      scopeId: origin.scopeId,
+      deviceId: origin.deviceId,
+      scroll: origin.scroll,
+    };
+    setAirflowVisit(null);
+    if (sourceAnchor === origin.anchor) pick(origin.scopeId);
+    else
+      control({
+        type: "return-analysis-scope",
+        id: origin.scopeId,
+        level: origin.level,
+      });
+    control({ type: "layer", layer: origin.layer });
+    control({ type: "analysis", value: true });
+    setInspector(true);
+    setSliceControls(origin.slice);
+    setMetric(origin.metric);
+    setQuery(origin.query);
+    setFilter(origin.filter);
+    setOnlyAlarms(origin.onlyAlarms);
+    skipNavigationSearch.current = origin.nav && origin.nav !== nav;
+    setNav(origin.nav);
+  };
+  useEffect(() => {
+    if (!peakReturning || !peakVisit) return;
+    if (!review.pendingId && selected !== peakVisit.scopeId) {
+      setPeakReturning(false);
+      setPeakVisit(null);
+      setPeakReview(null);
+      peakReturnFocus.current = null;
+    } else if (ready && selected === peakVisit.scopeId) {
+      setPeakReturning(false);
+      setPeakVisit(null);
+    }
+  }, [peakReturning, peakVisit, ready, selected, review.pendingId]);
+  useEffect(() => {
+    const target = peakReturnFocus.current;
+    if (
+      !target ||
+      peakReturning ||
+      peakVisit ||
+      !ready ||
+      selected !== target.scopeId ||
+      !review.analysis
+    )
+      return;
+    const frame = requestAnimationFrame(() => {
+      const panel = inspectorRef.current;
+      const process = panel?.querySelector<HTMLDetailsElement>(
+        ".peak-source-process",
+      );
+      if (!panel || !process) return;
+      const sourceButton = process.querySelector<HTMLElement>(
+        `[data-peak-source="${target.deviceId}"]`,
+      );
+      const button =
+        sourceButton ?? process.querySelector<HTMLElement>("summary");
+      button?.focus({ preventScroll: true });
+      panel.scrollTop = target.scroll;
+      // 原设备已不是当前最高来源时，列表不再有它的按钮，回到可见的过程标题。
+      if (!sourceButton) button?.scrollIntoView({ block: "nearest" });
+      peakReturnFocus.current = null;
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [peakReturning, peakVisit, ready, selected, review.analysis]);
   const visitGrilleBranch = (branch: GrilleBranch, scroll: number) => {
     if (!ready) return;
     grilleReturnFocus.current = null;
@@ -1004,6 +1146,8 @@ export function Workspace() {
     setSourceVisit(null);
     setPeakReview(null);
     setPeakVisit(null);
+    setPeakReturning(false);
+    peakReturnFocus.current = null;
     setExpanded([]);
     setRackView("installation");
     setSpaceSize(2);
@@ -2077,6 +2221,7 @@ export function Workspace() {
         </section>
         {inspector && (
           <aside
+            ref={inspectorRef}
             className={`study-inspector ${review.analysis ? "is-analysis" : ""}`}
             key={`${selected}:${review.analysis}`}
             aria-label={review.analysis ? "时间分析面板" : "对象详情"}
@@ -2237,31 +2382,55 @@ export function Workspace() {
                   </button>
                 </div>
               )}
-            {peakVisit && peakReview && selected === peakVisit.targetId && (
-              <div className="reading-source-return">
+            {peakVisit && peakReview && !peakReturning && (
+              <section
+                className="peak-inspection-return"
+                aria-label="最高来源检视往返"
+              >
                 <small>
-                  来自 {entityById(peakReview.scopeId)?.name} · 最高进风来源
+                  来自 {entityById(peakVisit.scopeId)?.name} · t+
+                  {peakVisit.time}s 最高来源
+                  {peakVisit.sources.length > 1 ? "之一" : ""}
                 </small>
-                <button
-                  onClick={() => {
-                    takeover();
-                    pick(peakReview.scopeId);
-                    setNav(peakVisit.nav);
-                    setPeakVisit(null);
-                  }}
-                >
+                <small>
+                  {deviceById(peakVisit.deviceId)?.name} ·{" "}
+                  {peakVisit.temperature.toFixed(1)} °C · 当时覆盖{" "}
+                  {peakVisit.coverage}/{peakVisit.count}
+                </small>
+                <small>
+                  {peakInspectionStatus(peakVisit, spatial.readings)}
+                  ；不表示故障根因。
+                </small>
+                <button disabled={!ready} onClick={returnPeakSource}>
                   ← 返回最高来源核对
                 </button>
-                <button
-                  aria-label="结束最高来源预览"
-                  onClick={() => {
-                    setPeakReview(null);
-                    setPeakVisit(null);
-                  }}
-                >
-                  ×
-                </button>
-              </div>
+                <div>
+                  <button
+                    disabled={!ready}
+                    onClick={() => showAirflow(peakVisit.deviceId)}
+                  >
+                    机房气流 ↗
+                  </button>
+                  <button
+                    disabled={!ready}
+                    onClick={() => {
+                      control({ type: "analysis", value: false });
+                      pick(peakVisit.deviceId, true);
+                    }}
+                  >
+                    {resourceOpenLabel(state, peakVisit.deviceId)} ↗
+                  </button>
+                  <button
+                    aria-label="结束最高来源检视往返"
+                    onClick={() => {
+                      setPeakReview(null);
+                      setPeakVisit(null);
+                    }}
+                  >
+                    结束核对
+                  </button>
+                </div>
+              </section>
             )}
             {sourceVisit &&
               sourceCheck &&
@@ -2479,7 +2648,7 @@ export function Workspace() {
                       </>
                     }
                     peakProcess={
-                      peakScopeIds(selected)
+                      peakScopeIds(selected) && (!peakVisit || peakReturning)
                         ? {
                             state:
                               peakReview?.scopeId === selected &&
@@ -2492,14 +2661,7 @@ export function Workspace() {
                                 key: peakKey,
                                 value,
                               }),
-                            onPreview: (id) => {
-                              setPeakVisit({
-                                targetId: id,
-                                anchor: sourceAnchor,
-                                nav,
-                              });
-                              pick(id);
-                            },
+                            onPreview: visitPeakSource,
                           }
                         : undefined
                     }

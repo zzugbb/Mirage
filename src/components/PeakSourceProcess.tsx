@@ -86,6 +86,7 @@ export function PeakSourceProcess({
         {current?.peakSources?.map((id) => (
           <button
             key={id}
+            data-peak-source={id}
             onClick={() => onPreview(id)}
             aria-label={`预览最高来源 ${deviceById(id)!.name}`}
           >

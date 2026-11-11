@@ -4806,3 +4806,30 @@
 .workspace-ui .leak-scene-key .leak-view-segments {
   display: grid;
 }
+
+.peak-inspection-return {
+  padding: 12px 22px;
+  margin-bottom: 14px;
+  border-block: 1px solid var(--line);
+  display: grid;
+  gap: 7px;
+  background: #26343c66;
+}
+.peak-inspection-return small {
+  line-height: 1.6;
+  font-size: 11px;
+}
+.peak-inspection-return > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.peak-inspection-return button {
+  cursor: pointer;
+  border: 1px solid var(--line);
+  padding: 6px 8px;
+  background: transparent;
+  color: inherit;
+  font-size: 11px;
+  text-align: left;
+}

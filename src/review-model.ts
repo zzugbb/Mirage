@@ -81,6 +81,7 @@ export type ReviewAction =
   | { type: "analysis"; value: boolean }
   | { type: "navigation-ready"; key: string }
   | { type: "room-airflow"; id: string }
+  | { type: "return-analysis-scope"; id: string; level: "room" | "rack" }
   | { type: "inspect-network-endpoint"; linkId: string; deviceId: string }
   | { type: "inspect-power-input"; linkId: string }
   | Exclude<ExperienceAction, { type: "scene" }>;
@@ -230,6 +231,33 @@ function reviewInteractionTransition(
             : state.scene,
         }
       : state;
+  if (action.type === "return-analysis-scope") {
+    if (
+      !peakScopeIds(action.id) ||
+      state.pendingId ||
+      state.pendingEndpoint ||
+      (action.level === "rack" && entityById(action.id)?.kind !== "rack")
+    )
+      return state;
+    if (action.level === "rack")
+      return reviewInteractionTransition(state, {
+        type: "open-resource",
+        id: action.id,
+      });
+    // 房间范围和从机房预览的机柜均返回机房；复用机构归位与 pendingId，不恢复旧结构。
+    const next = reviewInteractionTransition(state, {
+      type: "open-resource",
+      id: "room-01",
+    });
+    return {
+      ...next,
+      selectedId: action.id,
+      scene:
+        next.scene.level === "room"
+          ? { ...next.scene, selected: action.id }
+          : next.scene,
+    };
+  }
   if (action.type === "room-airflow") {
     const target = roomAirflowTarget(action.id, state.scene.deviceId);
     if (!target || state.pendingId) return state;
