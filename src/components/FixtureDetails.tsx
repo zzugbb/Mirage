@@ -1,3 +1,4 @@
+import { entranceViewIncludes } from "../entrance-view";
 import type { ReactNode } from "react";
 import { floorGrilleSettings, grilleRowRelations } from "../floor-grilles";
 import { diffuserBottom, lightTrayRelations } from "../ceiling-lights";
@@ -26,6 +27,8 @@ export function FixtureDetails({
   fixture,
   analysis = false,
   grilleRelations,
+  onInspectEntrance,
+  entranceViewActive = false,
   onInspectLeak,
   leakViewActive = false,
   onCompare,
@@ -36,6 +39,8 @@ export function FixtureDetails({
   fixture: RoomFixture;
   analysis?: boolean;
   grilleRelations?: ReactNode;
+  onInspectEntrance?: () => void;
+  entranceViewActive?: boolean;
   onInspectLeak?: () => void;
   leakViewActive?: boolean;
   onCompare?: (id: string) => void;
@@ -174,6 +179,17 @@ export function FixtureDetails({
           </dl>
           <p>X / Y / Z 为机房坐标，端点未登记外部连接。</p>
         </details>
+      )}
+      {!analysis && entranceViewIncludes(fixture.id) && !entranceViewActive && (
+        <div className="entrance-view-entry">
+          {onInspectEntrance ? (
+            <button disabled={!comparisonReady} onClick={onInspectEntrance}>
+              核对入口布置 ↗
+            </button>
+          ) : (
+            <small>在机房总览中定位此设施后，可分段核对入口布置。</small>
+          )}
+        </div>
       )}
       {!analysis && isLeakFixture(fixture.id) && !leakViewActive && (
         <div className="leak-view-entry">

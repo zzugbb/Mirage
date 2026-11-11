@@ -4833,3 +4833,79 @@
   font-size: 11px;
   text-align: left;
 }
+
+.workspace-ui .entrance-view-details {
+  margin: 0 22px 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+  display: grid;
+  gap: 10px;
+}
+.entrance-view-details p,
+.entrance-view-details dd,
+.entrance-view-details small,
+.entrance-scene-key > span {
+  font-size: 11px;
+  line-height: 1.6;
+  margin: 0;
+}
+.entrance-view-details dl {
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+.entrance-view-details dt {
+  font-size: 11px;
+}
+.entrance-view-segments,
+.entrance-view-previews {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+}
+.entrance-view-entry {
+  margin: 16px 0;
+}
+.entrance-view-entry button,
+.entrance-view-details button,
+.entrance-scene-key button {
+  cursor: pointer;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: inherit;
+  padding: 6px 8px;
+  text-align: left;
+  font-size: 11px;
+}
+.entrance-view-segments button[aria-pressed="true"] {
+  background: #395057;
+  border-color: #a6c6bf;
+}
+.workspace-ui .review-legend:has(.entrance-scene-key) {
+  pointer-events: auto;
+  width: 220px;
+  max-width: calc(100% - 48px);
+  padding: 12px;
+  border-radius: 7px;
+  background: #1d2931eb;
+}
+.workspace-ui .review-legend > .entrance-scene-key {
+  display: grid;
+  gap: 8px;
+  width: auto;
+  white-space: normal;
+}
+.workspace-ui .entrance-scene-key > * {
+  width: auto;
+  white-space: normal;
+}
+.workspace-ui .entrance-scene-key button {
+  position: static;
+}
+.workspace-ui .entrance-scene-key .entrance-view-segments {
+  display: grid;
+}
+
+.entrance-view-segments button:last-child {
+  grid-column: 1 / -1;
+}

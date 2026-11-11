@@ -1,4 +1,10 @@
 import {
+  type EntranceInspection,
+  type EntranceView,
+  type EntranceViewCommand,
+} from "./entrance-view";
+import { EntranceViewActions } from "./components/EntranceViewActions";
+import {
   beginPeakInspection,
   peakInspectionIncludes,
   peakInspectionStatus,
@@ -346,6 +352,18 @@ export function Workspace() {
   const returnMaintenanceView = () => {
     takeover();
     setMaintenanceReturnRevision((value) => value + 1);
+  };
+  const [entranceView, setEntranceView] = useState<EntranceInspection | null>(
+    null,
+  );
+  const [entranceViewCommand, setEntranceViewCommand] =
+    useState<EntranceViewCommand | null>(null);
+  const requestEntranceView = (view: EntranceView | null) => {
+    takeover();
+    setEntranceViewCommand((current) => ({
+      view,
+      revision: (current?.revision ?? 0) + 1,
+    }));
   };
   const [leakView, setLeakView] = useState<LeakInspection | null>(null);
   const [leakViewCommand, setLeakViewCommand] =
@@ -2071,6 +2089,10 @@ export function Workspace() {
             maintenanceView={maintenanceView}
             maintenanceReturnRevision={maintenanceReturnRevision}
             onMaintenanceViewChange={setMaintenanceView}
+            entranceView={entranceView}
+            entranceViewCommand={entranceViewCommand}
+            onEntranceViewChange={setEntranceView}
+            onEntranceView={requestEntranceView}
             leakView={leakView}
             leakViewCommand={leakViewCommand}
             onLeakViewChange={setLeakView}
@@ -2500,6 +2522,15 @@ export function Workspace() {
                 </button>
               </section>
             )}
+            {entranceView && (
+              <EntranceViewActions
+                inspection={entranceView}
+                compact={review.analysis}
+                ready={ready}
+                onView={requestEntranceView}
+                onPreview={pick}
+              />
+            )}
             {leakView && (
               <LeakViewActions
                 inspection={leakView}
@@ -2731,6 +2762,12 @@ export function Workspace() {
                 ) : fixture ? (
                   <FixtureDetails
                     fixture={fixture}
+                    onInspectEntrance={
+                      layer === "overview" && state.level === "room"
+                        ? () => requestEntranceView("all")
+                        : undefined
+                    }
+                    entranceViewActive={!!entranceView}
                     onInspectLeak={
                       layer === "overview" && state.level === "room"
                         ? () => requestLeakView("all")

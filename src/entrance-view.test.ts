@@ -1,0 +1,177 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import {
+  Box3,
+  Group,
+  LineSegments,
+  Mesh,
+  PerspectiveCamera,
+  Ray,
+  Vector3,
+} from "three";
+import definition from "../assets/public/scenes/room-01.json" with { type: "json" };
+import {
+  entranceFixture,
+  entranceOpening,
+  entranceSettings,
+} from "./entrance.ts";
+import {
+  entranceHandlePoint,
+  entranceInspection,
+  entranceViewFrame,
+  entranceViews,
+  entranceViewIncludes,
+} from "./entrance-view.ts";
+import { buildEntrance } from "./scene/entrance.ts";
+import { EntranceViewGeometry } from "./scene/entrance-view.ts";
+
+test("入口核对仅延续门与读卡器，洞口与高度来自既有配置且不修改静态门扇", () => {
+  const before = JSON.stringify(definition.room);
+  for (const id of [entranceSettings.fixtureId, entranceSettings.readerId])
+    assert.equal(entranceViewIncludes(id), true);
+  for (const id of ["room-01", "power-01", "rack-a08", "smoke-01", "unknown"])
+    assert.equal(entranceViewIncludes(id), false);
+  const all = entranceInspection("all"),
+    opening = entranceInspection("opening"),
+    access = entranceInspection("access");
+  assert.equal(all.markers.length, 3);
+  assert.equal(opening.markers.length, 1);
+  assert.equal(access.markers.length, 2);
+  assert.ok(
+    Math.abs(
+      opening.paths[1][0].distanceTo(opening.paths[1][1]) -
+        entranceSettings.openingWidth,
+    ) < 1e-10,
+  );
+  assert.ok(
+    Math.abs(
+      opening.paths[2][0].distanceTo(opening.paths[2][1]) -
+        entranceSettings.openingHeight,
+    ) < 1e-10,
+  );
+  assert.equal(access.paths.length, 2);
+  for (const path of access.paths) {
+    assert.equal(path[0].x, path[1].x);
+    assert.equal(path[0].z, path[1].z);
+    assert.equal(path[0].y, 0);
+  }
+  assert.equal(access.readerHeight, 1.35);
+  assert.ok(
+    Math.abs(
+      access.handleHeight -
+        entranceOpening.bottom -
+        entranceSettings.handleHeight,
+    ) < 1e-10,
+  );
+  all.points[0].set(0, 0, 0);
+  assert.equal(JSON.stringify(definition.room), before);
+});
+
+test("把手标记与实际参数化门扇的室内侧把手轴重合，不使用未旋转的位置", () => {
+  const root = new Group();
+  root.position.fromArray(entranceFixture.position);
+  const pivot = buildEntrance(root);
+  root.updateMatrixWorld(true);
+  const handle = root.getObjectByName("entrance-handle-1")!;
+  const axis = handle.localToWorld(
+    new Vector3(entranceSettings.handleSize[0] / 2, 0, 0),
+  );
+  assert.ok(entranceHandlePoint().distanceTo(axis) < 1e-10);
+  assert.equal(pivot.rotation.y, entranceSettings.displayAngle);
+  for (const { id } of entranceViews) entranceInspection(id);
+  assert.equal(pivot.rotation.y, entranceSettings.displayAngle);
+  root.traverse((o) => {
+    if (o instanceof Mesh) {
+      o.geometry.dispose();
+      for (const material of Array.isArray(o.material)
+        ? o.material
+        : [o.material])
+        material.dispose();
+    }
+  });
+});
+
+test("入口三段取景适配桌面侧栏和分析画幅，已登记机柜及设施不遮住核对位置", () => {
+  const blockers = [
+    ...definition.installation.racks.map((r) =>
+      new Box3().setFromCenterAndSize(
+        new Vector3(
+          r.position[0],
+          r.position[1] + definition.rack.size[1] / 2,
+          r.position[2],
+        ),
+        new Vector3(...definition.rack.size),
+      ),
+    ),
+    ...definition.facilities.map((f) =>
+      new Box3().setFromCenterAndSize(
+        new Vector3(...f.position),
+        new Vector3(...f.size),
+      ),
+    ),
+  ];
+  for (const { id } of entranceViews)
+    for (const [width, height] of [
+      [852, 836],
+      [732, 836],
+      [744, 704],
+      [644, 704],
+      [1152, 836],
+      [1024, 704],
+    ]) {
+      const rect = {
+        left: 264,
+        right: width - 40,
+        top: 100,
+        bottom: height - 48,
+      };
+      const inspection = entranceInspection(id),
+        fit = entranceViewFrame(inspection, width, height, rect);
+      const camera = new PerspectiveCamera(40, width / height, 0.01, 100);
+      camera.position.copy(fit.position);
+      camera.lookAt(fit.target);
+      camera.updateMatrixWorld(true);
+      for (const point of inspection.points) {
+        const p = point.clone().project(camera),
+          x = ((p.x + 1) * width) / 2,
+          y = ((1 - p.y) * height) / 2;
+        assert.ok(
+          x > rect.left && x < rect.right && y > rect.top && y < rect.bottom,
+          `${id}/${width}: outside frame`,
+        );
+        for (const blocker of blockers) {
+          const hit = new Ray(
+            fit.position,
+            point.clone().sub(fit.position).normalize(),
+          ).intersectBox(blocker, new Vector3());
+          assert.ok(
+            !hit ||
+              hit.distanceTo(fit.position) > point.distanceTo(fit.position),
+            `${id}/${width}: obstructed`,
+          );
+        }
+      }
+    }
+});
+
+test("入口轮廓与端点切换不残留，保留深度遮挡并独立释放", () => {
+  const drawing = new EntranceViewGeometry(),
+    parent = new Group();
+  parent.add(drawing.root);
+  const lines = drawing.root.children[0] as LineSegments;
+  for (const id of ["all", "access", "opening", "all"] as const) {
+    const inspection = entranceInspection(id);
+    drawing.update(inspection);
+    assert.equal(drawing.root.visible, true);
+    const count =
+      inspection.paths.reduce((n, path) => n + (path.length - 1) * 2, 0) +
+      inspection.markers.length * 48;
+    assert.equal(lines.geometry.getAttribute("position").count, count);
+    assert.equal(lines.geometry.drawRange.count, count);
+    assert.equal((lines.material as { depthTest: boolean }).depthTest, true);
+  }
+  drawing.update(null);
+  assert.equal(drawing.root.visible, false);
+  drawing.dispose();
+  assert.equal(parent.children.length, 0);
+});

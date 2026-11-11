@@ -1,4 +1,12 @@
 import {
+  entranceViewIncludes,
+  type EntranceInspection,
+  type EntranceView,
+  type EntranceViewCommand,
+} from "../entrance-view";
+import { EntranceViewGeometry } from "../scene/entrance-view";
+import { EntranceViewActions } from "./EntranceViewActions";
+import {
   leakViewIncludes,
   type LeakInspection,
   type LeakView,
@@ -119,6 +127,10 @@ export function ReviewScene({
   maintenanceView,
   maintenanceReturnRevision,
   onMaintenanceViewChange,
+  entranceView,
+  entranceViewCommand,
+  onEntranceViewChange,
+  onEntranceView,
   leakView,
   leakViewCommand,
   onLeakViewChange,
@@ -156,6 +168,10 @@ export function ReviewScene({
   maintenanceView: MaintenanceInspection | null;
   maintenanceReturnRevision: number;
   onMaintenanceViewChange: (inspection: MaintenanceInspection | null) => void;
+  entranceView: EntranceInspection | null;
+  entranceViewCommand: EntranceViewCommand | null;
+  onEntranceViewChange: (inspection: EntranceInspection | null) => void;
+  onEntranceView: (view: EntranceView | null) => void;
   leakView: LeakInspection | null;
   leakViewCommand: LeakViewCommand | null;
   onLeakViewChange: (inspection: LeakInspection | null) => void;
@@ -224,6 +240,10 @@ export function ReviewScene({
   const airflowGeometry = useRef<AirflowGeometry | null>(null);
   const maintenanceGeometry = useRef<MaintenanceGeometry | null>(null);
   const powerGeometry = useRef<PowerGeometry | null>(null);
+  const entranceGeometry = useRef<EntranceViewGeometry | null>(null);
+  const entranceEntry = useRef<HTMLElement | null>(null);
+  const entranceReturning = useRef(false);
+  const entranceFocusTarget = useRef<string | null>(null);
   const leakGeometry = useRef<LeakViewGeometry | null>(null);
   const leakEntry = useRef<HTMLElement | null>(null);
   const leakReturning = useRef(false);
@@ -241,6 +261,7 @@ export function ReviewScene({
     onSliceViewChange,
     onPowerViewChange,
     onMaintenanceViewChange,
+    onEntranceViewChange,
     onLeakViewChange,
     onCrossingChange,
     onNetworkViewChange,
@@ -252,6 +273,7 @@ export function ReviewScene({
     onSliceViewChange,
     onPowerViewChange,
     onMaintenanceViewChange,
+    onEntranceViewChange,
     onLeakViewChange,
     onCrossingChange,
     onNetworkViewChange,
@@ -476,6 +498,9 @@ export function ReviewScene({
       const supplyGeometry = new PowerGeometry();
       active.models.root.add(supplyGeometry.root);
       powerGeometry.current = supplyGeometry;
+      const entranceLines = new EntranceViewGeometry();
+      active.models.root.add(entranceLines.root);
+      entranceGeometry.current = entranceLines;
       const leakLines = new LeakViewGeometry();
       active.models.root.add(leakLines.root);
       leakGeometry.current = leakLines;
@@ -527,6 +552,12 @@ export function ReviewScene({
         if (inspection) setView(active!.currentView);
       };
       callbacks.current.onMaintenanceViewChange(null);
+      active.onEntranceView = (inspection) => {
+        callbacks.current.onEntranceViewChange(inspection);
+        entranceLines.update(inspection);
+        setView(active!.currentView);
+      };
+      callbacks.current.onEntranceViewChange(null);
       active.onLeakView = (inspection) => {
         callbacks.current.onLeakViewChange(inspection);
         leakLines.update(inspection);
@@ -594,6 +625,8 @@ export function ReviewScene({
       maintenanceGeometry.current = null;
       powerGeometry.current?.dispose();
       powerGeometry.current = null;
+      entranceGeometry.current?.dispose();
+      entranceGeometry.current = null;
       leakGeometry.current?.dispose();
       leakGeometry.current = null;
       crossingGeometry.current?.dispose();
@@ -678,6 +711,7 @@ export function ReviewScene({
         engine.current.clearSliceView();
         engine.current.clearNetworkView();
         engine.current.clearPowerView();
+        engine.current.clearEntranceView();
         engine.current.clearLeakView();
         engine.current.clearCrossingView();
         engine.current.clearMaintenanceView();
@@ -753,6 +787,88 @@ export function ReviewScene({
     )
       engine.current?.clearMaintenanceView();
   }, [maintenanceView, layer, state.level, networkLinkId, selectedId]);
+  useEffect(() => {
+    const active = engine.current;
+    if (!active || !entranceViewCommand) return;
+    if (!entranceViewCommand.view) {
+      entranceReturning.current = !!entranceView;
+      active.restoreEntranceView();
+    } else if (layer === "overview") {
+      if (!entranceView)
+        entranceEntry.current = document.activeElement as HTMLElement;
+      entranceReturning.current = false;
+      entranceFocusTarget.current = document.activeElement?.closest(
+        ".entrance-scene-key",
+      )
+        ? ".entrance-scene-key"
+        : ".entrance-view-details";
+      setOrbit(false);
+      active.observeEntrance(entranceViewCommand.view);
+    }
+    setView(active.currentView);
+  }, [entranceViewCommand?.revision]);
+  useEffect(() => {
+    engine.current?.frameEntrance();
+  }, [entranceView?.view]);
+  useEffect(() => {
+    if (
+      entranceView &&
+      (layer !== "overview" ||
+        state.level !== "room" ||
+        !entranceViewIncludes(selectedId))
+    )
+      engine.current?.clearEntranceView();
+  }, [entranceView, layer, state.level, selectedId]);
+  useEffect(() => {
+    if (!entranceView || !entranceFocusTarget.current) return;
+    let frame = 0;
+    const focus = () => {
+      const button = host.current
+        ?.closest(".workspace-ui")
+        ?.querySelector<HTMLButtonElement>(
+          `${entranceFocusTarget.current} button[aria-pressed="true"]`,
+        );
+      if (!button) {
+        entranceFocusTarget.current = null;
+        return;
+      }
+      if (engine.current?.moving || button.disabled) {
+        frame = requestAnimationFrame(focus);
+        return;
+      }
+      button.focus();
+      entranceFocusTarget.current = null;
+    };
+    frame = requestAnimationFrame(focus);
+    return () => cancelAnimationFrame(frame);
+  }, [entranceView, sceneSettled]);
+  useEffect(() => {
+    if (entranceView || !entranceReturning.current) return;
+    let frame = 0;
+    const focus = () => {
+      if (engine.current?.moving) {
+        frame = requestAnimationFrame(focus);
+        return;
+      }
+      const workspace = host.current?.closest(".workspace-ui");
+      const entry = entranceEntry.current?.isConnected
+        ? entranceEntry.current
+        : (workspace?.querySelector<HTMLElement>(
+            ".entrance-view-entry button",
+          ) ??
+          workspace?.querySelector<HTMLElement>(
+            ".review-camera button, .review-camera select",
+          ));
+      if (entry instanceof HTMLButtonElement && entry.disabled) {
+        frame = requestAnimationFrame(focus);
+        return;
+      }
+      entry?.focus({ preventScroll: true });
+      entranceReturning.current = false;
+    };
+    frame = requestAnimationFrame(focus);
+    return () => cancelAnimationFrame(frame);
+  }, [entranceView, sceneSettled]);
   useEffect(() => {
     const active = engine.current;
     if (!active || !leakViewCommand) return;
@@ -985,6 +1101,7 @@ export function ReviewScene({
   const labelKey =
     environmentMarkers.map((marker) => marker.id).join(":") +
     (maintenanceView?.view ?? "") +
+    (entranceView?.view ?? "") +
     (leakView?.view ?? "") +
     (crossing?.id ?? "") +
     (selectedFixture?.id ?? "") +
@@ -1253,6 +1370,19 @@ export function ReviewScene({
               <small>{marker.value}</small>
             </button>
           ))}
+          {entranceView?.markers.map((marker) => (
+            <div
+              key={marker.id}
+              hidden
+              aria-hidden="true"
+              data-anchor={marker.id}
+              data-anchor-kind="position"
+              data-anchor-position={marker.point.toArray().join(",")}
+              className="review-flow-anchor review-crossing-anchor"
+            >
+              <b>{marker.title}</b>
+            </div>
+          ))}
           {leakView?.markers.map((marker) => (
             <div
               key={marker.id}
@@ -1345,6 +1475,7 @@ export function ReviewScene({
               )),
           )}
           {selectedFixture &&
+            !entranceView &&
             !leakView &&
             !crossing &&
             !environmentMarkers.length && (
@@ -1439,7 +1570,8 @@ export function ReviewScene({
             onRetry={() => engine.current?.retryModels()}
           />
         )}
-        {(leakView ||
+        {(entranceView ||
+          leakView ||
           crossing ||
           selectedFixture ||
           airflow ||
@@ -1451,6 +1583,9 @@ export function ReviewScene({
             {environmentMarkers.map((marker) => (
               <line key={marker.id} data-flow-line={`pair-${marker.id}`} />
             ))}
+            {entranceView?.markers.map((marker) => (
+              <line key={marker.id} data-flow-line={marker.id} />
+            ))}
             {leakView?.markers.map((marker) => (
               <line key={marker.id} data-flow-line={marker.id} />
             ))}
@@ -1458,6 +1593,7 @@ export function ReviewScene({
               <line key={marker.id} data-flow-line={marker.id} />
             ))}
             {selectedFixture &&
+              !entranceView &&
               !leakView &&
               !crossing &&
               !environmentMarkers.length && (
@@ -1498,6 +1634,13 @@ export function ReviewScene({
           data-flow-observation={!!flowView}
           data-slice-visible={sliceVisible}
         >
+          {entranceView && (
+            <EntranceViewActions
+              inspection={entranceView}
+              ready={sceneSettled}
+              onView={onEntranceView}
+            />
+          )}
           {leakView && (
             <LeakViewActions
               inspection={leakView}

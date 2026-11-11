@@ -1,3 +1,10 @@
+import {
+  entranceInspection,
+  entranceViewFrame,
+  type EntranceInspection,
+  type EntranceView,
+} from "../entrance-view.ts";
+import { entranceSettings } from "../entrance.ts";
 import { leakDetection } from "../leak-detection.ts";
 import {
   leakInspection,
@@ -600,6 +607,7 @@ export class SceneEngine {
     this.clearPowerView();
     this.clearCrossingView();
     this.clearLeakView();
+    this.clearEntranceView();
     this.clearMaintenanceView();
     this.clearSliceView();
     this.clearAirflowView();
@@ -634,6 +642,7 @@ export class SceneEngine {
     this.clearPowerView();
     this.clearCrossingView();
     this.clearLeakView();
+    this.clearEntranceView();
     this.clearMaintenanceView();
     this.clearSliceView();
     const previous =
@@ -754,6 +763,7 @@ export class SceneEngine {
     this.clearPowerView();
     this.clearCrossingView();
     this.clearLeakView();
+    this.clearEntranceView();
     this.clearMaintenanceView();
     if (this.state.level !== "room" || !context.point || this.moving) return;
     const previous =
@@ -832,6 +842,7 @@ export class SceneEngine {
     this.clearPowerView();
     this.clearCrossingView();
     this.clearLeakView();
+    this.clearEntranceView();
     this.clearMaintenanceView();
     this.networkObservation = {
       sourceId,
@@ -904,6 +915,7 @@ export class SceneEngine {
   observePower(selected: string, linkId: string | null) {
     this.clearCrossingView();
     this.clearLeakView();
+    this.clearEntranceView();
     this.clearMaintenanceView();
     const targets = powerViewPoints(this.state, selected, linkId);
     const sourceId = powerViewSource(linkId);
@@ -984,6 +996,7 @@ export class SceneEngine {
     if (this.state.level !== "room" || this.moving) return;
     this.clearMaintenanceView();
     this.clearLeakView();
+    this.clearEntranceView();
     const previous =
       this.crossingObservation?.previous ?? this.captureObservationView();
     this.clearNetworkView();
@@ -1024,6 +1037,64 @@ export class SceneEngine {
     this.clearCrossingView();
     this.restoreObservationView(previous);
   }
+  onEntranceView: (pair: EntranceInspection | null) => void = () => {};
+  private entranceObservation?: {
+    pair: EntranceInspection;
+    previous: ObservationMemory;
+  };
+  clearEntranceView() {
+    if (!this.entranceObservation) return;
+    this.entranceObservation = undefined;
+    this.moving = false;
+    this.onEntranceView(null);
+    this.invalidate();
+  }
+  observeEntrance(view: EntranceView) {
+    const pair = entranceInspection(view);
+    if (this.state.level !== "room" || this.moving) return;
+    this.clearLeakView();
+    this.clearMaintenanceView();
+    this.clearCrossingView();
+    const previous =
+      this.entranceObservation?.previous ?? this.captureObservationView();
+    this.clearNetworkView();
+    this.clearPowerView();
+    this.clearSliceView();
+    this.clearAirflowView();
+    this.panelViewport = undefined;
+    this.entranceObservation = { pair, previous };
+    this.currentView = "iso";
+    this.currentFocus = false;
+    this.interior = false;
+    this.controls.minAzimuthAngle = -Infinity;
+    this.controls.maxAzimuthAngle = Infinity;
+    this.controls.maxPolarAngle = Math.PI / 2 - 0.03;
+    this.controls.minDistance = 0.5;
+    this.autoOrbit = false;
+    this.onEntranceView(pair);
+    this.frameEntrance();
+  }
+  frameEntrance() {
+    if (!this.entranceObservation) return;
+    const { width, height, rect } = this.observationViewport();
+    const fit = entranceViewFrame(
+      this.entranceObservation.pair,
+      width,
+      height,
+      rect,
+    );
+    this.targetPosition.copy(fit.position);
+    this.targetLook.copy(fit.target);
+    this.controls.maxDistance = Math.max(45, fit.distance * 1.2);
+    this.moving = true;
+    this.invalidate();
+  }
+  restoreEntranceView() {
+    const previous = this.entranceObservation?.previous;
+    if (!previous) return;
+    this.clearEntranceView();
+    this.restoreObservationView(previous);
+  }
   onLeakView: (pair: LeakInspection | null) => void = () => {};
   private leakObservation?: {
     pair: LeakInspection;
@@ -1039,6 +1110,7 @@ export class SceneEngine {
   observeLeak(view: LeakView) {
     const pair = leakInspection(view);
     if (this.state.level !== "room" || this.moving) return;
+    this.clearEntranceView();
     this.clearMaintenanceView();
     this.clearCrossingView();
     const previous =
@@ -1101,6 +1173,7 @@ export class SceneEngine {
     this.clearAirflowView();
     this.clearCrossingView();
     this.clearLeakView();
+    this.clearEntranceView();
     this.panelViewport = undefined;
     this.maintenanceObservation = { inspection, previous };
     this.currentView = "top";
@@ -1167,6 +1240,10 @@ export class SceneEngine {
       this.frameMaintenance();
       return;
     }
+    if (this.entranceObservation) {
+      this.frameEntrance();
+      return;
+    }
     if (this.leakObservation) {
       this.frameLeak();
       return;
@@ -1222,6 +1299,7 @@ export class SceneEngine {
     this.clearPowerView();
     this.clearCrossingView();
     this.clearLeakView();
+    this.clearEntranceView();
     this.clearMaintenanceView();
     this.clearSliceView();
     this.clearAirflowView();
@@ -1417,6 +1495,7 @@ export class SceneEngine {
     this.clearPowerView();
     this.clearCrossingView();
     this.clearLeakView();
+    this.clearEntranceView();
     this.clearMaintenanceView();
     this.clearSliceView();
     focus =
@@ -1960,7 +2039,8 @@ export class SceneEngine {
     }
     const cutCount = this.shellCutaway.update(
       this.camera.position,
-      this.leakObservation?.pair.sightPoints ??
+      this.entranceObservation?.pair.points ??
+        this.leakObservation?.pair.sightPoints ??
         this.maintenanceObservation?.inspection.points ??
         this.crossingObservation?.pair.points ??
         this.powerObservation?.targets ??
@@ -1969,26 +2049,29 @@ export class SceneEngine {
         this.airflowObservation?.targets ??
         (selectedFixture ? this.fixtureTargets : this.shellTargets),
       this.models.room.visible,
-      this.leakObservation
-        ? this.models.fixtures.get(leakDetection.controllerId)
-        : this.crossingObservation
-          ? [
-              this.crossingObservation.pair.light.id,
-              this.crossingObservation.pair.tray.id,
-            ].flatMap((id) => {
-              const object =
-                this.models.fixtures.get(id) ?? this.models.facilities.get(id);
-              return object ? [object] : [];
-            })
-          : selectedFixture &&
-              !this.airflowObservation &&
-              !this.sliceObservation &&
-              !this.networkObservation &&
-              !this.powerObservation
-            ? this.models.fixtures.get(
-                fixtureMountReference(this.state.selected),
-              )
-            : undefined,
+      this.entranceObservation
+        ? this.models.fixtures.get(entranceSettings.fixtureId)
+        : this.leakObservation
+          ? this.models.fixtures.get(leakDetection.controllerId)
+          : this.crossingObservation
+            ? [
+                this.crossingObservation.pair.light.id,
+                this.crossingObservation.pair.tray.id,
+              ].flatMap((id) => {
+                const object =
+                  this.models.fixtures.get(id) ??
+                  this.models.facilities.get(id);
+                return object ? [object] : [];
+              })
+            : selectedFixture &&
+                !this.airflowObservation &&
+                !this.sliceObservation &&
+                !this.networkObservation &&
+                !this.powerObservation
+              ? this.models.fixtures.get(
+                  fixtureMountReference(this.state.selected),
+                )
+              : undefined,
     );
     this.host.dataset.fixtureTarget = selectedFixture
       ? this.state.selected
@@ -2034,6 +2117,7 @@ export class SceneEngine {
     );
     const object = this.objectFor(this.state.selected);
     const showSelection =
+      !this.entranceObservation &&
       !this.leakObservation &&
       !this.crossingObservation &&
       !this.maintenanceObservation &&
