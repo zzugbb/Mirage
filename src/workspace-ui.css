@@ -2973,31 +2973,6 @@
   display: block;
   padding-top: 8px;
 }
-.reading-source-return {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 5px;
-  padding: 12px 22px;
-  background: #263b444d;
-  border-top: 1px solid #abcdd21a;
-  border-bottom: 1px solid #abcdd21a;
-}
-.reading-source-return small {
-  flex-basis: 100%;
-  color: #91a9b5;
-  font-size: 10px;
-}
-.reading-source-return button {
-  padding: 5px 0;
-  color: #bddce3;
-  font-size: 11px;
-}
-.reading-source-return button:last-child {
-  margin-left: auto;
-  padding: 5px;
-}
-
 .model-load-notice {
   z-index: 15;
   max-width: min(280px, calc(100% - 44px));
@@ -4807,7 +4782,8 @@
   display: grid;
 }
 
-.peak-inspection-return {
+.peak-inspection-return,
+.source-inspection-return {
   padding: 12px 22px;
   margin-bottom: 14px;
   border-block: 1px solid var(--line);
@@ -4815,16 +4791,19 @@
   gap: 7px;
   background: #26343c66;
 }
-.peak-inspection-return small {
+.peak-inspection-return small,
+.source-inspection-return small {
   line-height: 1.6;
   font-size: 11px;
 }
-.peak-inspection-return > div {
+.peak-inspection-return > div,
+.source-inspection-return > div {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
 }
-.peak-inspection-return button {
+.peak-inspection-return button,
+.source-inspection-return button {
   cursor: pointer;
   border: 1px solid var(--line);
   padding: 6px 8px;

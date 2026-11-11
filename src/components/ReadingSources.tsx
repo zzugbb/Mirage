@@ -159,6 +159,7 @@ export function ReadingSources({
                 <button
                   key={row.id}
                   className="reading-source-row"
+                  data-source-device={row.id}
                   aria-label={`预览汇总输入 ${row.name}，${row.reason}`}
                   onClick={() => onPreview(row.id)}
                 >

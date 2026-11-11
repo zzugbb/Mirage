@@ -1,3 +1,4 @@
+import { sourceMetrics } from "./reading-sources.ts";
 import { peakScopeIds, maximumSources } from "./peak-provenance.ts";
 import {
   createState,
@@ -82,6 +83,7 @@ export type ReviewAction =
   | { type: "navigation-ready"; key: string }
   | { type: "room-airflow"; id: string }
   | { type: "return-analysis-scope"; id: string; level: "room" | "rack" }
+  | { type: "return-input-scope"; id: string; level: "room" | "rack" }
   | { type: "inspect-network-endpoint"; linkId: string; deviceId: string }
   | { type: "inspect-power-input"; linkId: string }
   | Exclude<ExperienceAction, { type: "scene" }>;
@@ -231,12 +233,20 @@ function reviewInteractionTransition(
             : state.scene,
         }
       : state;
-  if (action.type === "return-analysis-scope") {
+  if (
+    action.type === "return-analysis-scope" ||
+    action.type === "return-input-scope"
+  ) {
+    const inputScope = action.type === "return-input-scope";
     if (
-      !peakScopeIds(action.id) ||
+      !(inputScope
+        ? sourceMetrics(action.id).length
+        : peakScopeIds(action.id)) ||
       state.pendingId ||
       state.pendingEndpoint ||
-      (action.level === "rack" && entityById(action.id)?.kind !== "rack")
+      (action.level === "rack" &&
+        entityById(action.id)?.kind !== "rack" &&
+        !(inputScope && pduById(action.id)))
     )
       return state;
     if (action.level === "rack")

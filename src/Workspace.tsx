@@ -1,4 +1,10 @@
 import {
+  beginSourceInspection,
+  sourceInspectionIncludes,
+  sourceInspectionRow,
+  type SourceInspection,
+} from "./source-inspection";
+import {
   type EntranceInspection,
   type EntranceView,
   type EntranceViewCommand,
@@ -77,6 +83,7 @@ import {
 import { ReadingSources } from "./components/ReadingSources";
 import {
   readingSources,
+  sourceValue,
   sourceMetrics,
   type SourceCheck,
   type SourceMetric,
@@ -121,6 +128,7 @@ import {
   pduById,
   pduName,
   powerDeviceIds,
+  powerLinks,
 } from "./power-config";
 import {
   pduOutlet,
@@ -461,11 +469,33 @@ export function Workspace() {
   const [onlyAlarms, setOnlyAlarms] = useState(false);
   const [metric, setMetric] = useState<"temperature" | "power">("temperature");
   const [sourceCheck, setSourceCheck] = useState<SourceCheck | null>(null);
-  const [sourceVisit, setSourceVisit] = useState<{
-    targetId: string;
-    anchor: string;
-    nav: boolean;
-    analysis: boolean;
+  const [sourceVisit, setSourceVisit] = useState<
+    | (SourceInspection & {
+        key: string;
+        anchor: string;
+        level: "room" | "rack";
+        nav: boolean;
+        analysis: boolean;
+        layer: ReviewState["layer"];
+        metric: SourceMetric;
+        slice: SliceControls;
+        query: string;
+        filter: ResourceFilter;
+        onlyAlarms: boolean;
+        rackView: typeof rackView;
+        powerLinkId: string | null;
+        networkLinkId: string | null;
+        scroll: number;
+        listScroll: number;
+      })
+    | null
+  >(null);
+  const [sourceReturning, setSourceReturning] = useState(false);
+  const sourceReturnFocus = useRef<{
+    scopeId: string;
+    deviceId: string;
+    scroll: number;
+    listScroll: number;
   } | null>(null);
   const sourceAnchor = `${state.level}:${state.deviceId}:${state.focusRevision}`;
   const peakKey = `${state.replayCycle}:${revision}`;
@@ -523,15 +553,25 @@ export function Workspace() {
   useEffect(() => {
     if (!sourceCheck) return;
     if (
-      sourceVisit
-        ? selected !== sourceVisit.targetId ||
-          sourceVisit.anchor !== sourceAnchor
-        : selected !== sourceCheck.sourceId
+      (sourceVisit && sourceVisit.key !== peakKey) ||
+      (!sourceReturning &&
+        (sourceVisit
+          ? !sourceInspectionIncludes(sourceVisit, selected, state.deviceId)
+          : selected !== sourceCheck.sourceId))
     ) {
       setSourceCheck(null);
       setSourceVisit(null);
+      setSourceReturning(false);
+      sourceReturnFocus.current = null;
     }
-  }, [selected, sourceCheck, sourceVisit, sourceAnchor]);
+  }, [
+    selected,
+    sourceCheck,
+    sourceVisit,
+    sourceReturning,
+    state.deviceId,
+    peakKey,
+  ]);
   const spatial = useMemo(
     () => spatialSnapshot(state.time, state.replayCycle, state.deviceId),
     [state.time, state.replayCycle, state.deviceId],
@@ -845,6 +885,117 @@ export function Workspace() {
     setInspector(true);
     if (matchMedia("(max-width: 1099px)").matches) setNav(false);
   };
+  const visitSource = (id: string) => {
+    if (!sourceCheck) return;
+    const target = beginSourceInspection(
+      sourceCheck,
+      id,
+      state.time,
+      spatial.readings,
+    );
+    if (!target) return;
+    sourceReturnFocus.current = null;
+    setPeakReview(null);
+    setPeakVisit(null);
+    setPeakReturning(false);
+    peakReturnFocus.current = null;
+    setSourceVisit({
+      ...target,
+      key: peakKey,
+      anchor: sourceAnchor,
+      level:
+        state.level === "rack" && (rackById(selected) || pduById(selected))
+          ? "rack"
+          : "room",
+      nav,
+      analysis: review.analysis,
+      layer,
+      metric,
+      slice: sliceControls,
+      query,
+      filter,
+      onlyAlarms,
+      rackView,
+      powerLinkId,
+      networkLinkId,
+      scroll: inspectorRef.current?.scrollTop ?? 0,
+      listScroll:
+        inspectorRef.current?.querySelector(".reading-source-list")
+          ?.scrollTop ?? 0,
+    });
+    pick(id);
+  };
+  const returnSource = () => {
+    if (!sourceVisit || !ready) return;
+    const origin = sourceVisit;
+    setSourceReturning(true);
+    sourceReturnFocus.current = {
+      scopeId: origin.check.sourceId,
+      deviceId: origin.deviceId,
+      scroll: origin.scroll,
+      listScroll: origin.listScroll,
+    };
+    setAirflowVisit(null);
+    if (sourceAnchor === origin.anchor) pick(origin.check.sourceId);
+    else
+      control({
+        type: "return-input-scope",
+        id: origin.check.sourceId,
+        level: origin.level,
+      });
+    control({ type: "layer", layer: origin.layer });
+    control({ type: "analysis", value: origin.analysis });
+    setInspector(true);
+    setSourceCheck(origin.check);
+    setMetric(origin.metric);
+    setSliceControls(origin.slice);
+    setQuery(origin.query);
+    setFilter(origin.filter);
+    setOnlyAlarms(origin.onlyAlarms);
+    setRackView(origin.rackView);
+    setPowerLinkId(origin.powerLinkId);
+    setNetworkLinkId(origin.networkLinkId);
+    skipNavigationSearch.current = origin.nav && origin.nav !== nav;
+    setNav(origin.nav);
+  };
+  useEffect(() => {
+    if (!sourceReturning || !sourceVisit) return;
+    if (!review.pendingId && selected !== sourceVisit.check.sourceId) {
+      setSourceReturning(false);
+      setSourceVisit(null);
+      setSourceCheck(null);
+      sourceReturnFocus.current = null;
+    } else if (ready && selected === sourceVisit.check.sourceId) {
+      setSourceReturning(false);
+      setSourceVisit(null);
+    }
+  }, [sourceReturning, sourceVisit, ready, selected, review.pendingId]);
+  useEffect(() => {
+    const target = sourceReturnFocus.current;
+    if (
+      !target ||
+      sourceReturning ||
+      sourceVisit ||
+      !ready ||
+      selected !== target.scopeId
+    )
+      return;
+    const frame = requestAnimationFrame(() => {
+      const panel = inspectorRef.current,
+        section = panel?.querySelector<HTMLElement>(".reading-sources");
+      if (!panel || !section) return;
+      const row = section.querySelector<HTMLElement>(
+        `[data-source-device="${target.deviceId}"]`,
+      );
+      const list = section.querySelector<HTMLElement>(".reading-source-list");
+      (row ?? section).focus({ preventScroll: true });
+      panel.scrollTop = target.scroll;
+      if (list) list.scrollTop = target.listScroll;
+      if (!row) section.scrollIntoView({ block: "nearest" });
+      sourceReturnFocus.current = null;
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [sourceReturning, sourceVisit, ready, selected, review.analysis]);
   const visitPeakSource = (id: string) => {
     const target = beginPeakInspection(
       selected,
@@ -854,6 +1005,10 @@ export function Workspace() {
     );
     if (!target) return;
     peakReturnFocus.current = null;
+    setSourceVisit(null);
+    setSourceCheck(null);
+    setSourceReturning(false);
+    sourceReturnFocus.current = null;
     setPeakReview((current) => ({
       scopeId: selected,
       key: peakKey,
@@ -1162,6 +1317,8 @@ export function Workspace() {
     setNetworkLinkId(null);
     setSourceCheck(null);
     setSourceVisit(null);
+    setSourceReturning(false);
+    sourceReturnFocus.current = null;
     setPeakReview(null);
     setPeakVisit(null);
     setPeakReturning(false);
@@ -1234,6 +1391,8 @@ export function Workspace() {
     if (!next) return;
     takeover();
     setSourceVisit(null);
+    setSourceReturning(false);
+    sourceReturnFocus.current = null;
     setSourceCheck({
       sourceId: selected,
       metric: nextMetric,
@@ -1276,7 +1435,10 @@ export function Workspace() {
       }}
     />
   );
-  const sourceInspector = sources && (
+  const currentSourceRow = sourceVisit
+    ? sourceInspectionRow(sourceVisit, spatial.readings)
+    : null;
+  const sourceInspector = sources && (!sourceVisit || sourceReturning) && (
     <ReadingSources
       sources={sources}
       sourceName={resource?.name ?? entity.name}
@@ -1289,15 +1451,7 @@ export function Workspace() {
         setSourceVisit(null);
       }}
       onInteract={takeover}
-      onPreview={(id) => {
-        setSourceVisit({
-          targetId: id,
-          anchor: sourceAnchor,
-          nav,
-          analysis: review.analysis,
-        });
-        pick(id);
-      }}
+      onPreview={visitSource}
     />
   );
   return (
@@ -2456,36 +2610,96 @@ export function Workspace() {
             )}
             {sourceVisit &&
               sourceCheck &&
-              selected === sourceVisit.targetId && (
-                <div className="reading-source-return">
+              currentSourceRow &&
+              !sourceReturning && (
+                <section
+                  className="source-inspection-return"
+                  aria-label="输入检视往返"
+                >
                   <small>
-                    来自 {entityById(sourceCheck.sourceId)?.name} ·{" "}
-                    {sourceCheck.metric === "temperature" ? "进风" : "功耗"}核对
+                    来自 {entityById(sourceVisit.check.sourceId)?.name} ·{" "}
+                    {sourceVisit.check.metric === "temperature"
+                      ? "进风"
+                      : "功耗"}
+                    输入核对
                   </small>
-                  <button
-                    onClick={() => {
-                      takeover();
-                      pick(sourceCheck.sourceId);
-                      setNav(sourceVisit.nav);
-                      control({
-                        type: "analysis",
-                        value: sourceVisit.analysis,
-                      });
-                      setSourceVisit(null);
-                    }}
-                  >
+                  <small>
+                    t+{sourceVisit.time}s · {sourceVisit.row.name} ·{" "}
+                    {sourceVisit.row.reason}
+                    {sourceVisit.row.included
+                      ? ` · ${sourceValue(sourceVisit.row.value, sourceVisit.check.metric)}`
+                      : ""}
+                  </small>
+                  <small>
+                    当时覆盖 {sourceVisit.coverage}/{sourceVisit.count} · 当前
+                    {currentSourceRow.included ? "已计入" : "未计入"}：
+                    {currentSourceRow.reason}
+                    {currentSourceRow.included
+                      ? ` · ${sourceValue(currentSourceRow.value, sourceVisit.check.metric)}`
+                      : ""}
+                  </small>
+                  {!currentSourceRow.included && (
+                    <small>{currentSourceRow.detail}</small>
+                  )}
+                  <button disabled={!ready} onClick={returnSource}>
                     ← 返回输入核对
                   </button>
-                  <button
-                    aria-label="结束输入核对预览"
-                    onClick={() => {
-                      setSourceCheck(null);
-                      setSourceVisit(null);
-                    }}
-                  >
-                    ×
-                  </button>
-                </div>
+                  <div>
+                    {sourceVisit.check.metric === "temperature" ? (
+                      <button
+                        disabled={!ready}
+                        onClick={() => showAirflow(sourceVisit.deviceId)}
+                      >
+                        机房气流 ↗
+                      </button>
+                    ) : (
+                      powerLinks
+                        .filter(
+                          (link) => link.deviceId === sourceVisit.deviceId,
+                        )
+                        .map((link) => (
+                          <button
+                            key={link.id}
+                            disabled={!ready}
+                            onClick={() => {
+                              control({ type: "layer", layer: "power" });
+                              control({ type: "analysis", value: false });
+                              focus(sourceVisit.deviceId, {
+                                installation: true,
+                              });
+                              setPowerLinkId(link.id);
+                            }}
+                          >
+                            追踪输入 {link.inlet} ↗
+                          </button>
+                        ))
+                    )}
+                    <button
+                      disabled={!ready}
+                      onClick={() => {
+                        control({ type: "analysis", value: false });
+                        pick(sourceVisit.deviceId, true);
+                      }}
+                    >
+                      {resourceOpenLabel(state, sourceVisit.deviceId)} ↗
+                    </button>
+                    <button
+                      aria-label="结束输入检视往返"
+                      onClick={() => {
+                        setSourceVisit(null);
+                        setSourceCheck(null);
+                        sourceReturnFocus.current = null;
+                      }}
+                    >
+                      结束核对
+                    </button>
+                  </div>
+                  <small>
+                    {sourceVisit.check.metric === "temperature"
+                      ? "整机进风口径；部件推导不加入汇总。"
+                      : "整机输入按设备去重；A/B 未拆分计量，预算不是剩余容量。"}
+                  </small>
+                </section>
               )}
             {maintenanceView && (
               <section
