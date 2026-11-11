@@ -1,15 +1,16 @@
 import * as THREE from "three";
+import { fetchModelBytes, type ModelTransport } from "../model-transport";
 import { completeServerAssembly } from "./equipment-model";
 import { mapSubparts } from "./component-map";
 import { parts } from "../domain";
 import definition from "../../assets/public/scenes/room-01.json" with { type: "json" };
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-import compactUrl from "../../assets/public/models/server-1u.glb?url";
-import serverUrl from "../../assets/public/models/server-2u.glb?url";
-import coolingUrl from "../../assets/public/models/cooling-unit.glb?url";
-import powerUrl from "../../assets/public/models/power-cabinet.glb?url";
-import switchUrl from "../../assets/public/models/switch-1u.glb?url";
-import storageUrl from "../../assets/public/models/storage-4u.glb?url";
+import compactUrl from "../../assets/public/models/server-1u.glb?packed";
+import serverUrl from "../../assets/public/models/server-2u.glb?packed";
+import coolingUrl from "../../assets/public/models/cooling-unit.glb?packed";
+import powerUrl from "../../assets/public/models/power-cabinet.glb?packed";
+import switchUrl from "../../assets/public/models/switch-1u.glb?packed";
+import storageUrl from "../../assets/public/models/storage-4u.glb?packed";
 
 export const hardwareUrls = {
   server: serverUrl,
@@ -19,14 +20,12 @@ export const hardwareUrls = {
   switch: switchUrl,
   storage: storageUrl,
 };
-export const loadHardware = async (url: string, signal: AbortSignal) => {
-  const response = await fetch(url, { signal });
-  if (!response.ok) throw Error("模型请求失败");
-  const data = await response.arrayBuffer();
-  signal.throwIfAborted();
-  return (
-    await new GLTFLoader().parseAsync(data, new URL(".", response.url).href)
-  ).scene;
+export const loadHardware = async (
+  asset: ModelTransport,
+  signal: AbortSignal,
+) => {
+  const { data, baseUrl } = await fetchModelBytes(asset, signal);
+  return (await new GLTFLoader().parseAsync(data, baseUrl)).scene;
 };
 export const partNodes: Record<string, string[]> = Object.fromEntries(
   parts

@@ -1,9 +1,13 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { modelDelivery } from "./scripts/model-delivery";
+const delivery = modelDelivery(fileURLToPath(new URL(".", import.meta.url)));
 
 export default defineConfig({
   plugins: [
+    delivery.plugin,
     react(),
     {
       name: "mirage-asset-licenses",
@@ -12,6 +16,7 @@ export default defineConfig({
           readFileSync(new URL(path, import.meta.url));
         const manifest = JSON.parse(read("assets/manifest.json").toString());
         for (const record of manifest.assets) {
+          record.transport = delivery.transportFor(record.path);
           const name = record.path.split("/").at(-1);
           const emitted = Object.values(bundle).find(
             (item) => item.type === "asset" && item.names.includes(name),
