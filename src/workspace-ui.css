@@ -5123,3 +5123,33 @@
   border: 1px solid var(--line);
   font-size: 11px;
 }
+
+.space-inspection-return {
+  border-block: 1px solid var(--line);
+  padding: 14px 20px;
+  font-size: 11px;
+  line-height: 1.6;
+}
+.space-inspection-return p {
+  margin-block: 8px;
+}
+.space-inspection-return small {
+  display: block;
+  color: #a6b6c0;
+  margin-bottom: 7px;
+}
+.space-inspection-return > div {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-block: 10px;
+}
+.workspace-ui .space-inspection-return button {
+  font-size: 11px;
+  padding: 6px 8px;
+  border: 1px solid #3a4d58;
+}
+.workspace-ui .space-inspection-end {
+  margin-left: 6px;
+  color: #a6b6c0;
+}

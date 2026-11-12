@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useLayoutEffect, useRef } from "react";
 import { rackInstallation } from "../rack-installation";
 import {
   inspectRackSpace,
@@ -9,6 +9,8 @@ import {
 const label = (first: number, last: number) =>
   first === last ? `U${first}` : `U${first}–${last}`;
 export function RackSpaceInspector({
+  restore,
+  ready,
   rackId,
   range,
   onRange,
@@ -19,17 +21,33 @@ export function RackSpaceInspector({
   onSize,
   onCompare,
 }: {
+  restore: {
+    rackId: string;
+    deviceId: string;
+    start: string;
+    scroll: number;
+  } | null;
+  ready: boolean;
   rackId: string;
   range: RackUnitRange | null;
   onRange: (range: RackUnitRange) => void;
-  onDevice: (id: string) => void;
+  onDevice: (id: string, start: string, scroll: number) => void;
   onClear: () => void;
   queryMessage?: string;
   size: number;
   onSize: (size: number) => void;
   onCompare: () => void;
 }) {
+  const panel = useRef<HTMLElement>(null);
   const [start, setStart] = useState(String(range?.first ?? 1));
+  useLayoutEffect(() => {
+    if (!restore || restore.rackId !== rackId || !panel.current) return;
+    setStart(restore.start);
+    panel.current
+      .querySelector<HTMLElement>(`[data-space-device="${restore.deviceId}"]`)
+      ?.focus({ preventScroll: true });
+    panel.current.scrollTop = restore.scroll;
+  }, [restore, rackId]);
   const layout = rackInstallation(rackId)!;
   const candidates = rackSpaceCandidates(rackId, size);
   const result = range ? inspectRackSpace(range) : null;
@@ -41,7 +59,11 @@ export function RackSpaceInspector({
   const valid = start.trim() !== "" && inspectRackSpace(proposed) !== null;
   const gaps = layout.segments.filter((s) => s.kind === "blanking");
   return (
-    <section className="rack-space-inspector" aria-label="安装空间核查">
+    <section
+      ref={panel}
+      className="rack-space-inspector"
+      aria-label="安装空间核查"
+    >
       <header>
         <button onClick={onCompare}>← 全机房空间对照</button>
         <strong>{layout.rack.name} · 安装空间</strong>
@@ -108,7 +130,11 @@ export function RackSpaceInspector({
           {result.conflicts.map((d) => (
             <button
               key={d.id}
-              onClick={() => onDevice(d.id)}
+              disabled={!ready}
+              data-space-device={d.id}
+              onClick={() =>
+                onDevice(d.id, start, panel.current?.scrollTop ?? 0)
+              }
               aria-label={`查看冲突设备 ${d.name}`}
             >
               {d.name} <span>{label(d.first, d.last)} ↗</span>

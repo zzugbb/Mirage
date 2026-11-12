@@ -1,3 +1,9 @@
+import {
+  beginSpaceInspection,
+  spaceInspectionIncludes,
+  spaceRangeLabel,
+  type SpaceInspection,
+} from "./space-inspection";
 import { emptyInletDifferenceReview } from "./inlet-difference";
 import type { InletInspection, InletViewCommand } from "./inlet-view";
 import { AirflowResponseAnalysis } from "./components/AirflowResponseAnalysis";
@@ -534,6 +540,36 @@ export function Workspace() {
   const networkMapScroll = useRef(0);
   const [networkMapReturning, setNetworkMapReturning] = useState(false);
   const [spaceSize, setSpaceSize] = useState(2);
+  const [spaceVisit, setSpaceVisit] = useState<
+    | (SpaceInspection & {
+        query: string;
+        filter: ResourceFilter;
+        onlyAlarms: boolean;
+        size: number;
+        start: string;
+        scroll: number;
+        layer: ReviewState["layer"];
+        analysis: boolean;
+        metric: "temperature" | "power";
+        slice: SliceControls;
+      })
+    | null
+  >(null);
+  const [spaceReturning, setSpaceReturning] = useState(false);
+  const [spaceRestore, setSpaceRestore] = useState<{
+    rackId: string;
+    deviceId: string;
+    start: string;
+    scroll: number;
+  } | null>(null);
+  useEffect(() => {
+    if (
+      spaceVisit &&
+      !spaceReturning &&
+      !spaceInspectionIncludes(spaceVisit, selected, state.deviceId)
+    )
+      setSpaceVisit(null);
+  }, [spaceVisit, spaceReturning, selected, state.deviceId]);
   const [comparisonSize, setComparisonSize] = useState(2);
   const [comparisonRow, setComparisonRow] = useState("all");
   const [comparisonRack, setComparisonRack] = useState<string | null>(null);
@@ -812,6 +848,18 @@ export function Workspace() {
       rackUnitQuery({ level: state.level, deviceId: state.deviceId }, query),
     [state.level, state.deviceId, query],
   );
+  const spaceRange =
+    state.level === "rack" &&
+    unitQuery &&
+    !unitQuery.error &&
+    !unitQuery.terms.length &&
+    unitQuery.rack?.id === rackForDevice(state.deviceId).id
+      ? {
+          rackId: unitQuery.rack.id,
+          first: unitQuery.first,
+          last: unitQuery.last,
+        }
+      : null;
   const blanking =
     filter === "all" && !(onlyAlarms && state.level !== "device")
       ? unitQuery?.blanking
@@ -1363,6 +1411,57 @@ export function Workspace() {
       onAirflow={(id, rackId) => visitCoolingRange(id, rackId, true)}
     />
   );
+  const returnSpaceInspection = () => {
+    if (!spaceVisit || !ready) return;
+    const origin = spaceVisit;
+    setSpaceReturning(true);
+    setAirflowVisit(null);
+    setPowerLinkId(null);
+    setNetworkLinkId(null);
+    control({ type: "open-resource", id: origin.range.rackId });
+    control({ type: "layer", layer: origin.layer });
+    control({ type: "analysis", value: origin.analysis });
+    setRackView("space");
+    setSpaceSize(origin.size);
+    setQuery(origin.query);
+    setFilter(origin.filter);
+    setOnlyAlarms(origin.onlyAlarms);
+    setMetric(origin.metric);
+    setSliceControls(origin.slice);
+    skipNavigationSearch.current = true;
+    setNav(true);
+    setInspector(true);
+  };
+  useEffect(() => {
+    if (!spaceReturning) return;
+    if (
+      !spaceVisit ||
+      (!review.pendingId && selected !== spaceVisit.range.rackId)
+    ) {
+      setSpaceReturning(false);
+      setSpaceVisit(null);
+    } else if (
+      ready &&
+      state.level === "rack" &&
+      selected === spaceVisit.range.rackId
+    ) {
+      setSpaceRestore({
+        rackId: spaceVisit.range.rackId,
+        deviceId: spaceVisit.deviceId,
+        start: spaceVisit.start,
+        scroll: spaceVisit.scroll,
+      });
+      setSpaceReturning(false);
+      setSpaceVisit(null);
+    }
+  }, [
+    spaceReturning,
+    spaceVisit,
+    ready,
+    state.level,
+    selected,
+    review.pendingId,
+  ]);
   const returnInletOverview = () => {
     skipNavigationSearch.current = !nav;
     if (inletPair) inletScroll.current = inletPair.scroll;
@@ -1453,6 +1552,9 @@ export function Workspace() {
     setExpanded([]);
     setRackView("installation");
     setSpaceSize(2);
+    setSpaceVisit(null);
+    setSpaceReturning(false);
+    setSpaceRestore(null);
     setComparisonSize(2);
     setInletReference(null);
     setInletPair(null);
@@ -1841,6 +1943,8 @@ export function Workspace() {
                 aria-pressed={rackView === "space"}
                 onClick={() => {
                   takeover();
+                  setSpaceVisit(null);
+                  setSpaceRestore(null);
                   setRackView("space");
                 }}
               >
@@ -2022,28 +2126,42 @@ export function Workspace() {
               size={spaceSize}
               onSize={setSpaceSize}
               onCompare={() => pick("room-01", true, true)}
-              range={
-                unitQuery &&
-                !unitQuery.error &&
-                !unitQuery.terms.length &&
-                unitQuery.rack?.id === rackForDevice(state.deviceId).id
-                  ? {
-                      rackId: unitQuery.rack.id,
-                      first: unitQuery.first,
-                      last: unitQuery.last,
-                    }
-                  : null
-              }
+              restore={spaceRestore}
+              ready={ready}
+              range={spaceRange}
               onRange={(range) => {
+                setSpaceVisit(null);
+                setSpaceRestore(null);
                 pick(range.rackId, false, true);
                 setQuery(`U${range.first}–${range.last}`);
                 setFilter("all");
                 setOnlyAlarms(false);
               }}
-              onDevice={(id) => {
+              onDevice={(id, start, scroll) => {
+                const visit =
+                  spaceRange && beginSpaceInspection(spaceRange, id);
+                if (!visit || !ready) return;
+                setSpaceRestore(null);
+                setSpaceVisit({
+                  ...visit,
+                  query,
+                  filter,
+                  onlyAlarms,
+                  size: spaceSize,
+                  start,
+                  scroll,
+                  layer,
+                  analysis: review.analysis,
+                  metric,
+                  slice: sliceControls,
+                });
                 setRackView("installation");
                 setQuery(id);
-                pick(id, false, true);
+                setFilter("all");
+                setOnlyAlarms(false);
+                pick(id);
+                control({ type: "layer", layer: "overview" });
+                control({ type: "analysis", value: false });
               }}
               queryMessage={
                 unitQuery?.error ||
@@ -2052,7 +2170,11 @@ export function Workspace() {
                   ? `当前核查${rackForDevice(state.deviceId).name}；搜索范围属于${unitQuery.rack.name}，可切换列表定位该柜。`
                   : undefined)
               }
-              onClear={() => setQuery("")}
+              onClear={() => {
+                setSpaceVisit(null);
+                setSpaceRestore(null);
+                setQuery("");
+              }}
             />
           ) : state.level === "rack" && rackView === "installation" ? (
             <RackInstallation
@@ -2317,17 +2439,12 @@ export function Workspace() {
             isolatedPartId={isolatedPartId}
             state={state}
             unitRange={
-              layer === "overview" &&
-              state.level === "rack" &&
-              unitQuery &&
-              !unitQuery.error &&
-              !unitQuery.terms.length &&
-              unitQuery.rack?.id === rackForDevice(state.deviceId).id
-                ? {
-                    rackId: unitQuery.rack.id,
-                    first: unitQuery.first,
-                    last: unitQuery.last,
-                  }
+              layer === "overview" && state.level === "rack"
+                ? spaceVisit &&
+                  !spaceReturning &&
+                  rackForDevice(state.deviceId).id === spaceVisit.range.rackId
+                  ? spaceVisit.range
+                  : spaceRange
                 : null
             }
             sliceControls={sliceControls}
@@ -2644,6 +2761,59 @@ export function Workspace() {
                   control({ type: "finish-part-inspection" });
                 }}
               />
+            )}
+            {spaceVisit && !spaceReturning && (
+              <section
+                className="space-inspection-return"
+                aria-label="范围占用检视往返"
+              >
+                <strong>
+                  {rackById(spaceVisit.range.rackId)?.name} · 核查{" "}
+                  {spaceRangeLabel(spaceVisit.range)}
+                </strong>
+                <p>
+                  {spaceVisit.device.name} 完整安装{" "}
+                  {spaceRangeLabel(spaceVisit.device)}；与原范围相交{" "}
+                  {spaceRangeLabel(spaceVisit.overlap)}，占{" "}
+                  {spaceVisit.overlap.units} U。
+                </p>
+                <small>
+                  原范围设备占用 {spaceVisit.occupied} U · 未安装{" "}
+                  {spaceVisit.blanked} U。仅核对配置，不代表可分配容量。
+                </small>
+                <small>
+                  {state.level === "rack" && layer === "overview"
+                    ? "三维括线保留原核查范围，选择轮廓对应整台设备；抽出不释放原安装位。"
+                    : "范围括线仅在所属机柜的总览显示；当前检视不改变原安装配置。"}
+                </small>
+                <div>
+                  <button
+                    disabled={!ready}
+                    onClick={() =>
+                      focus(spaceVisit.deviceId, { installation: true })
+                    }
+                  >
+                    查看占用设备安装位
+                  </button>
+                  {state.level === "rack" && (
+                    <button
+                      disabled={!ready}
+                      onClick={() => pick(spaceVisit.deviceId, true)}
+                    >
+                      {resourceOpenLabel(state, spaceVisit.deviceId)} ↗
+                    </button>
+                  )}
+                </div>
+                <button disabled={!ready} onClick={returnSpaceInspection}>
+                  ← 返回原范围核查
+                </button>
+                <button
+                  className="space-inspection-end"
+                  onClick={() => setSpaceVisit(null)}
+                >
+                  结束范围检视
+                </button>
+              </section>
             )}
             {grilleVisit && !grilleReturning && (
               <section
