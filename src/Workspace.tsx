@@ -1,3 +1,4 @@
+import { emptyBudgetReview } from "./budget-process";
 import {
   beginSpaceInspection,
   spaceInspectionIncludes,
@@ -1615,6 +1616,10 @@ export function Workspace() {
         : null,
     [selected, sourceMetric, spatial.readings],
   );
+  const [budgetReview, setBudgetReview] = useState(emptyBudgetReview);
+  useEffect(() => {
+    setBudgetReview(emptyBudgetReview);
+  }, [selected, sourceMetric, state.replayCycle, revision]);
   const openSourceCheck = (nextMetric: SourceMetric) => {
     const next = readingSources(selected, nextMetric, spatial.readings);
     if (!next) return;
@@ -1669,6 +1674,9 @@ export function Workspace() {
     : null;
   const sourceInspector = sources && (!sourceVisit || sourceReturning) && (
     <ReadingSources
+      budgetReview={budgetReview}
+      onBudgetReview={setBudgetReview}
+      onSeek={(time) => dispatch({ type: "seek", time })}
       sources={sources}
       sourceName={resource?.name ?? entity.name}
       metrics={availableSourceMetrics}
@@ -1676,6 +1684,7 @@ export function Workspace() {
       time={state.time}
       onChange={setSourceCheck}
       onClose={() => {
+        setBudgetReview(emptyBudgetReview);
         setSourceCheck(null);
         setSourceVisit(null);
       }}

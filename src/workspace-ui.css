@@ -5192,3 +5192,40 @@
 .airflow-interval-review small {
   color: #a6b6c0;
 }
+
+.budget-process {
+  border-block: 1px solid var(--line);
+  padding-block: 12px;
+  font-size: 11px;
+  line-height: 1.6;
+}
+.budget-process summary {
+  cursor: pointer;
+}
+.budget-process ol {
+  list-style: none;
+  padding: 0;
+}
+.budget-process li {
+  margin-block: 12px;
+  border-left: 2px solid #7c9ba2;
+  padding-left: 8px;
+}
+.budget-process small {
+  display: block;
+  color: #a6b6c0;
+}
+.budget-process-points {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+}
+.budget-process-points button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  text-align: left;
+  padding: 8px;
+  border: 1px solid var(--line);
+}

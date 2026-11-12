@@ -1,3 +1,5 @@
+import { BudgetProcess } from "./BudgetProcess";
+import type { BudgetReview } from "../budget-process";
 import { budgetRatio } from "../power-budget";
 import { PowerBudgetSummary } from "./PowerBudgetSummary";
 import { useEffect, useRef } from "react";
@@ -10,6 +12,9 @@ import {
 } from "../reading-sources";
 
 export function ReadingSources({
+  budgetReview,
+  onBudgetReview,
+  onSeek,
   sources,
   sourceName,
   metrics,
@@ -20,6 +25,9 @@ export function ReadingSources({
   onPreview,
   onInteract,
 }: {
+  budgetReview: BudgetReview;
+  onBudgetReview: (state: BudgetReview) => void;
+  onSeek: (time: number) => void;
   sources: Sources;
   sourceName: string;
   metrics: SourceMetric[];
@@ -113,6 +121,15 @@ export function ReadingSources({
               budget={sources.budget}
               group={current.group}
               onGroup={(group) => onChange({ ...current, group })}
+            />
+          )}
+          {sources.budget && (
+            <BudgetProcess
+              sourceId={sources.sourceId}
+              time={time}
+              state={budgetReview}
+              onChange={onBudgetReview}
+              onSeek={onSeek}
             />
           )}
           <div
