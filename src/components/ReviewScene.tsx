@@ -122,6 +122,8 @@ export function ReviewScene({
   readings,
   selectedId,
   airflowVisit,
+  airflowResponseActive,
+  onCompareAirflow,
   onPreviewAirflowEndpoint,
   onReturnAirflowEndpoint,
   onLocateAirflowEndpoint,
@@ -220,6 +222,8 @@ export function ReviewScene({
   readings: Map<string, SpatialReading>;
   selectedId: string;
   airflowVisit: AirflowInspection | null;
+  airflowResponseActive: boolean;
+  onCompareAirflow: (route: AirflowRoute, preserveView: () => void) => void;
   onPreviewAirflowEndpoint: (route: AirflowRoute, id: string) => void;
   onReturnAirflowEndpoint: () => void;
   onLocateAirflowEndpoint: (id: string) => void;
@@ -304,6 +308,8 @@ export function ReviewScene({
   const [sceneSettled, setSceneSettled] = useState(false);
   const [roomViewSaved, setRoomViewSaved] = useState(false);
   const [flowView, setFlowView] = useState<AirflowView | null>(null);
+  const latestFlowView = useRef(flowView);
+  latestFlowView.current = flowView;
   const [flowSlice, setFlowSlice] = useState(false);
   const temperatureTools = useRef<HTMLDetailsElement>(null);
   const flowControlsRef = useRef<HTMLDivElement>(null);
@@ -458,6 +464,29 @@ export function ReviewScene({
     ],
   );
   const visibleAirflow = sliceInspection ? null : airflow;
+  const airflowResponseControl = visibleAirflow?.routes[0] && (
+    <button
+      data-airflow-response-entry
+      disabled={!sceneSettled || airflowResponseActive}
+      onClick={() => {
+        const toolsOpen = temperatureTools.current?.open ?? false;
+        const preserve = () => {
+          // 近景由分段观察适配新画幅；普通浏览只保留当前镜头。
+          if (!latestFlowView.current) engine.current?.preservePanelView();
+        };
+        preserve();
+        if (temperatureTools.current) temperatureTools.current.open = false;
+        onCompareAirflow(visibleAirflow.routes[0], () => {
+          preserve();
+          if (temperatureTools.current)
+            temperatureTools.current.open = toolsOpen;
+        });
+      }}
+    >
+      {airflowResponseActive ? "正在对照输入与进风" : "对照输入与进风 ↗"}
+    </button>
+  );
+
   useEffect(() => {
     clockEpoch.current = performance.now();
   }, [state.time, state.playing, state.playbackRate]);
@@ -2076,6 +2105,7 @@ export function ReviewScene({
                       }}
                     >
                       {flowControls}
+                      {airflowResponseControl}
                     </div>
                   )}
                   {airflowVisit && (
@@ -2175,6 +2205,7 @@ export function ReviewScene({
                           <p>预览保留本支路；定位结束核对，转为对象观察。</p>
                         )}
                         {!flowView && flowControls}
+                        {!flowView && airflowResponseControl}
                         <TemperatureDisclosure
                           className="airflow-endpoints"
                           name="airflow-detail"

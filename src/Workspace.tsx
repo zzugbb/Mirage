@@ -1,3 +1,9 @@
+import { AirflowResponseAnalysis } from "./components/AirflowResponseAnalysis";
+import {
+  airflowResponseContext,
+  airflowResponseTarget,
+  type AirflowResponseTarget,
+} from "./airflow-response";
 import { PartSequence } from "./components/PartSequence";
 import { emptyComparabilityReview } from "./environment-comparability";
 import type {
@@ -318,6 +324,34 @@ export function Workspace() {
   useEffect(() => {
     if (airflowVisit && !activeAirflowVisit) setAirflowVisit(null);
   }, [airflowVisit, activeAirflowVisit]);
+  const responseContext = airflowResponseContext(airflowContext, selected);
+  const [airflowResponse, setAirflowResponse] = useState<{
+    target: AirflowResponseTarget;
+    context: string;
+    analysis: boolean;
+    inspector: boolean;
+    nav: boolean;
+    scroll: number;
+  } | null>(null);
+  const responsePreserveView = useRef<(() => void) | null>(null);
+  const responseReturnScroll = useRef<number | null>(null);
+  const activeAirflowResponse =
+    airflowResponse?.context === responseContext && review.analysis && inspector
+      ? airflowResponse
+      : null;
+  useEffect(() => {
+    if (airflowResponse && !activeAirflowResponse) setAirflowResponse(null);
+  }, [airflowResponse, activeAirflowResponse]);
+  useEffect(() => {
+    if (!activeAirflowResponse) return;
+    const medium = matchMedia("(max-width: 1099px)");
+    const adapt = () => {
+      if (medium.matches) setNav(false);
+    };
+    adapt();
+    medium.addEventListener("change", adapt);
+    return () => medium.removeEventListener("change", adapt);
+  }, [activeAirflowResponse]);
   const [powerViewActive, setPowerViewActive] = useState(false);
   const [powerViewCommand, setPowerViewCommand] =
     useState<PowerViewCommand | null>(null);
@@ -819,6 +853,37 @@ export function Workspace() {
     [selected, state.deviceId, state.time, state.replayCycle],
   );
   const signal = signalStyles[signalFor(reading)];
+  const returnAirflowResponse = () => {
+    if (!activeAirflowResponse || !ready) return;
+    const origin = activeAirflowResponse;
+    responsePreserveView.current?.();
+    responsePreserveView.current = null;
+    responseReturnScroll.current = origin.scroll;
+    setAirflowResponse(null);
+    control({ type: "analysis", value: origin.analysis });
+    setInspector(origin.inspector);
+    setNav(origin.nav);
+  };
+  useEffect(() => {
+    if (!ready || responseReturnScroll.current === null) return;
+    const timer = window.setTimeout(() => {
+      if (inspectorRef.current)
+        inspectorRef.current.scrollTop = responseReturnScroll.current ?? 0;
+      const entry = document.querySelector<HTMLElement>(
+        "[data-airflow-response-entry]",
+      );
+      if (entry) {
+        let parent = entry.parentElement;
+        while (parent) {
+          if (parent instanceof HTMLDetailsElement) parent.open = true;
+          parent = parent.parentElement;
+        }
+        entry.focus({ preventScroll: true });
+      }
+      responseReturnScroll.current = null;
+    }, 120);
+    return () => clearTimeout(timer);
+  }, [ready, activeAirflowResponse, inspector, nav]);
   const dispatch = useCallback(
     (action: Action) => control({ type: "scene", action }),
     [],
@@ -2248,6 +2313,23 @@ export function Workspace() {
             readings={spatial.readings}
             selectedId={selected}
             airflowVisit={activeAirflowVisit}
+            airflowResponseActive={!!activeAirflowResponse}
+            onCompareAirflow={(route, preserveView) => {
+              const target = airflowResponseTarget(route);
+              if (!target || !ready) return;
+              responsePreserveView.current = preserveView;
+              setAirflowResponse({
+                target,
+                context: responseContext,
+                analysis: review.analysis,
+                inspector,
+                nav,
+                scroll: inspectorRef.current?.scrollTop ?? 0,
+              });
+              control({ type: "analysis", value: true });
+              setInspector(true);
+              if (matchMedia("(max-width: 1099px)").matches) setNav(false);
+            }}
             onPreviewAirflowEndpoint={(route, id) => {
               const visit = beginAirflowInspection(
                 activeAirflowVisit,
@@ -2477,37 +2559,45 @@ export function Workspace() {
                 ×
               </button>
             </div>
-            <div className="study-identity">
-              <small>{resource?.location}</small>
-              <h1>{resource?.name ?? entity.name}</h1>
-              <span
-                style={{
-                  color:
-                    powerFacility || coolingFacility || fixture
-                      ? "#9caebc"
-                      : signal.color,
-                }}
-              >
-                {environment ? (
-                  "◇ 环境测点 · 模拟，未接入真实数据"
-                ) : fixture ? (
-                  fixture.dataStatus === "not-applicable" ? (
-                    "— 结构布置 · 无运行数据"
+            {activeAirflowResponse ? (
+              <div className="study-identity">
+                <small>气流代表支路 · 模拟对照</small>
+                <h1>冷却输入与设备进风</h1>
+                <span>保留三维观察 · 与场景共享时间</span>
+              </div>
+            ) : (
+              <div className="study-identity">
+                <small>{resource?.location}</small>
+                <h1>{resource?.name ?? entity.name}</h1>
+                <span
+                  style={{
+                    color:
+                      powerFacility || coolingFacility || fixture
+                        ? "#9caebc"
+                        : signal.color,
+                  }}
+                >
+                  {environment ? (
+                    "◇ 环境测点 · 模拟，未接入真实数据"
+                  ) : fixture ? (
+                    fixture.dataStatus === "not-applicable" ? (
+                      "— 结构布置 · 无运行数据"
+                    ) : (
+                      "— 布置示意 · 未接入数据"
+                    )
+                  ) : coolingFacility ? (
+                    "◇ 冷却输入 · 模拟"
+                  ) : powerFacility ? (
+                    "◇ 连接示意 · 未计量"
                   ) : (
-                    "— 布置示意 · 未接入数据"
-                  )
-                ) : coolingFacility ? (
-                  "◇ 冷却输入 · 模拟"
-                ) : powerFacility ? (
-                  "◇ 连接示意 · 未计量"
-                ) : (
-                  <>
-                    {signal.icon} {component ? "模型评估 · " : ""}
-                    {component ? signal.label : signalText(reading)}
-                  </>
-                )}
-              </span>
-            </div>
+                    <>
+                      {signal.icon} {component ? "模型评估 · " : ""}
+                      {component ? signal.label : signalText(reading)}
+                    </>
+                  )}
+                </span>
+              </div>
+            )}
             {isolatedPartId && (
               <PartSequence
                 sequence={partInspectionSequence(
@@ -2876,7 +2966,22 @@ export function Workspace() {
                 </div>
                 {sliceInspector}
                 {(fixture || pairedInlet) && sourceInspector}
-                {pairedEnvironment ? (
+                {activeAirflowResponse ? (
+                  <AirflowResponseAnalysis
+                    target={activeAirflowResponse.target}
+                    time={state.time}
+                    cycle={state.replayCycle}
+                    reading={spatial.readings.get(
+                      activeAirflowResponse.target.deviceId,
+                    )!}
+                    ready={ready}
+                    playbackRate={state.playbackRate}
+                    onSeek={(time) => dispatch({ type: "seek", time })}
+                    onReplay={() => dispatch({ type: "replay" })}
+                    onRate={(rate) => dispatch({ type: "rate", rate })}
+                    onReturn={returnAirflowResponse}
+                  />
+                ) : pairedEnvironment ? (
                   <EnvironmentPairAnalysis
                     pair={pairedEnvironment}
                     metric={environmentPairMetric}

@@ -20,6 +20,7 @@ export function ReviewAnalysis({
   component,
   powerOnly = false,
   cooling,
+  coolingTarget = "scope",
   onLocateDevice,
   onViewDeviceAirflow,
   ready,
@@ -44,6 +45,7 @@ export function ReviewAnalysis({
   component: boolean;
   powerOnly?: boolean;
   cooling?: ReviewPoint[];
+  coolingTarget?: "scope" | "device";
   onLocateDevice?: (id: string) => void;
   onViewDeviceAirflow: (id: string) => void;
   ready: boolean;
@@ -63,7 +65,8 @@ export function ReviewAnalysis({
         { metric: "cooling", label: "演示冷却输入", points: cooling },
         {
           metric: "temperature",
-          label: "关联设备最高进风",
+          label:
+            coolingTarget === "device" ? "支路设备进风" : "关联设备最高进风",
           points: histories.temperature,
         },
       ]
@@ -155,7 +158,9 @@ export function ReviewAnalysis({
           })}
           {cooling && (
             <p className="cooling-analysis-boundary">
-              输入百分比用于驱动演示温度响应，不是风量或设施功率。最高进风仅取有效设备，覆盖变化也会影响曲线；相关事件不等于已证实根因。
+              {coolingTarget === "device"
+                ? "输入百分比用于驱动演示温度响应，不是风量、制冷量或设施功率。进风只取本支路整机的有效模拟读数，过期、离线与缺失留空；不表示排风温度，也不据曲线先后判断冷却效果或故障根因。"
+                : "输入百分比用于驱动演示温度响应，不是风量或设施功率。最高进风仅取有效设备，覆盖变化也会影响曲线；相关事件不等于已证实根因。"}
             </p>
           )}
           <div className="review-playback">
@@ -194,7 +199,9 @@ export function ReviewAnalysis({
         <AnalysisEvents
           title={
             cooling
-              ? "输入与关联设备事件"
+              ? coolingTarget === "device"
+                ? "输入与本设备事件"
+                : "输入与关联设备事件"
               : powerOnly
                 ? "关联设备事件"
                 : component

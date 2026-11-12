@@ -4988,3 +4988,25 @@
   font-size: 11px;
   cursor: pointer;
 }
+
+.airflow-response-context {
+  display: grid;
+  gap: 8px;
+  margin: 0 22px 18px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.airflow-response-context span,
+.airflow-response-context small {
+  color: #a9bdc6;
+}
+.airflow-response-context button,
+[data-airflow-response-entry] {
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  font-size: 11px;
+  cursor: pointer;
+}
