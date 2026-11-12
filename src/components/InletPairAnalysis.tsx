@@ -1,3 +1,5 @@
+import type { InletDifferenceReview } from "../inlet-difference";
+import { InletDifferenceProcess } from "./InletDifferenceProcess";
 import { InletViewActions } from "./InletViewActions";
 import { useMemo, useState, type Ref } from "react";
 import { inletHistory, inletPairSnapshot } from "../inlet-pair";
@@ -9,6 +11,8 @@ const valueText = (value: number | null) =>
   value === null ? "—" : `${value.toFixed(1)} °C`;
 
 export function InletPairAnalysis({
+  differenceReview,
+  onDifferenceReview,
   viewActive,
   viewAvailable,
   onObserve,
@@ -27,6 +31,8 @@ export function InletPairAnalysis({
   onReturn,
   onClose,
 }: {
+  differenceReview: InletDifferenceReview;
+  onDifferenceReview: (state: InletDifferenceReview) => void;
   viewActive: boolean;
   viewAvailable: boolean;
   onObserve: () => void;
@@ -143,6 +149,17 @@ export function InletPairAnalysis({
         events={events}
         onInspect={setInspection}
         onSeek={onSeek}
+      />
+      <InletDifferenceProcess
+        firstId={firstId}
+        secondId={secondId}
+        time={time}
+        state={differenceReview}
+        onChange={onDifferenceReview}
+        onSeek={(target) => {
+          setInspection(null);
+          onSeek(target);
+        }}
       />
       <p className="inlet-pair-boundary">
         同框轮廓对应两台设备的完整安装跨度，不代表真实风口或供风覆盖；柜前标签跟随场景时间，图表游标不改动场景。两条曲线共用温度刻度，只绘制已发生的有效读数。预览不改变镜头与结构；定位后可检视设备，再返回原对照。差值不表示异常阈值、冷却效果或故障根因。

@@ -1,3 +1,4 @@
+import { emptyInletDifferenceReview } from "./inlet-difference";
 import type { InletInspection, InletViewCommand } from "./inlet-view";
 import { AirflowResponseAnalysis } from "./components/AirflowResponseAnalysis";
 import {
@@ -514,6 +515,12 @@ export function Workspace() {
     slice: SliceControls;
     scroll: number;
   } | null>(null);
+  const [inletDifferenceReview, setInletDifferenceReview] = useState(
+    emptyInletDifferenceReview,
+  );
+  useEffect(() => {
+    setInletDifferenceReview(emptyInletDifferenceReview);
+  }, [inletPair, state.replayCycle]);
   const [inletSession, setInletSession] = useState(false);
   useEffect(() => {
     if (state.level !== "room") return;
@@ -3045,6 +3052,8 @@ export function Workspace() {
                 ) : pairedInlet ? (
                   <InletPairAnalysis
                     key={`${pairedInlet.firstId}:${pairedInlet.secondId}`}
+                    differenceReview={inletDifferenceReview}
+                    onDifferenceReview={setInletDifferenceReview}
                     viewActive={!!inletView}
                     viewAvailable={
                       state.level === "room" && layer === "environment"

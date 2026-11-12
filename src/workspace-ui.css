@@ -5059,3 +5059,67 @@
 .workspace-ui .review-inlet-pair-anchor.pair-reference {
   border-left: 3px dashed #b7b9dc;
 }
+
+.inlet-difference-process {
+  border-block: 1px solid var(--line);
+  padding-block: 12px;
+  margin-block: 12px;
+  font-size: 11px;
+  line-height: 1.6;
+}
+.inlet-difference-process summary {
+  cursor: pointer;
+  color: #b2d8d6;
+}
+.inlet-difference-process p,
+.inlet-difference-process small {
+  color: #a6b6c0;
+}
+.inlet-difference-process small {
+  display: block;
+}
+.inlet-difference-extremes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.inlet-difference-extremes > p {
+  grid-column: 1 / -1;
+}
+.workspace-ui .inlet-difference-extremes button {
+  display: grid;
+  gap: 4px;
+  text-align: left;
+  padding: 9px;
+  border: 1px solid #3a4d58;
+  background: #26343c66;
+}
+.inlet-difference-extremes strong {
+  font-size: 16px;
+  font-weight: 500;
+}
+.inlet-difference-process ol {
+  padding: 0;
+  list-style: none;
+}
+.inlet-difference-process li {
+  padding: 10px;
+  border-left: 2px solid transparent;
+  border-bottom: 1px solid var(--line);
+}
+.inlet-difference-process li[aria-current="true"] {
+  border-left-color: #b2d8d6;
+  background: #26343c66;
+}
+.inlet-difference-process li div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+.inlet-difference-process li button,
+.inlet-difference-return {
+  padding: 6px 9px;
+  border: 1px solid var(--line);
+  font-size: 11px;
+}
