@@ -1,4 +1,12 @@
 import type {
+  InletInspection,
+  InletViewCommand,
+  InletViewPair,
+} from "../inlet-view";
+import { inletPairSnapshot } from "../inlet-pair";
+import { InletViewGeometry } from "../scene/inlet-view";
+import { InletViewActions } from "./InletViewActions";
+import type {
   EnvironmentInspection,
   EnvironmentViewCommand,
 } from "../environment-view";
@@ -129,6 +137,11 @@ export function ReviewScene({
   onLocateAirflowEndpoint,
   aisle,
   networkLinkId = null,
+  inletPair,
+  inletView,
+  inletViewCommand,
+  onInletViewChange,
+  onInletView,
   environmentPair,
   environmentPairMetric,
   environmentView,
@@ -174,6 +187,11 @@ export function ReviewScene({
   controls,
   compactTools = false,
 }: {
+  inletPair: InletViewPair | null;
+  inletView: InletInspection | null;
+  inletViewCommand: InletViewCommand | null;
+  onInletViewChange: (inspection: InletInspection | null) => void;
+  onInletView: (action: InletViewCommand["action"]) => void;
   environmentPair: EnvironmentPair | null;
   environmentPairMetric: EnvironmentMetric;
   environmentView: EnvironmentInspection | null;
@@ -258,6 +276,9 @@ export function ReviewScene({
   const airflowGeometry = useRef<AirflowGeometry | null>(null);
   const maintenanceGeometry = useRef<MaintenanceGeometry | null>(null);
   const powerGeometry = useRef<PowerGeometry | null>(null);
+  const inletGeometry = useRef<InletViewGeometry | null>(null);
+  const inletEntry = useRef<HTMLElement | null>(null);
+  const inletReturning = useRef(false);
   const environmentGeometry = useRef<EnvironmentViewGeometry | null>(null);
   const environmentEntry = useRef<HTMLElement | null>(null);
   const environmentEntryArea = useRef(".environment-pair-analysis");
@@ -283,6 +304,7 @@ export function ReviewScene({
     onSliceViewChange,
     onPowerViewChange,
     onMaintenanceViewChange,
+    onInletViewChange,
     onEnvironmentViewChange,
     onEntranceViewChange,
     onLeakViewChange,
@@ -296,6 +318,7 @@ export function ReviewScene({
     onSliceViewChange,
     onPowerViewChange,
     onMaintenanceViewChange,
+    onInletViewChange,
     onEnvironmentViewChange,
     onEntranceViewChange,
     onLeakViewChange,
@@ -328,7 +351,14 @@ export function ReviewScene({
   }, [flowView]);
 
   const stage = airflowStage(flowView);
-  const sliceVisible = !flowView || flowSlice;
+  const sliceVisible = !inletView && (!flowView || flowSlice);
+  const inletSnapshot = inletView
+    ? inletPairSnapshot(
+        inletView.pair.firstId,
+        inletView.pair.secondId,
+        state.time,
+      )
+    : null;
   const [view, setView] = useState<View>("interior");
   const [quality, setQuality] = useState(true);
   const [supported, setSupported] = useState(false);
@@ -463,7 +493,7 @@ export function ReviewScene({
       slice?.rowId,
     ],
   );
-  const visibleAirflow = sliceInspection ? null : airflow;
+  const visibleAirflow = sliceInspection || inletView ? null : airflow;
   const airflowResponseControl = visibleAirflow?.routes[0] && (
     <button
       data-airflow-response-entry
@@ -547,6 +577,9 @@ export function ReviewScene({
       const supplyGeometry = new PowerGeometry();
       active.models.root.add(supplyGeometry.root);
       powerGeometry.current = supplyGeometry;
+      const inletLines = new InletViewGeometry();
+      active.models.root.add(inletLines.root);
+      inletGeometry.current = inletLines;
       const environmentLines = new EnvironmentViewGeometry();
       active.models.root.add(environmentLines.root);
       environmentGeometry.current = environmentLines;
@@ -604,6 +637,12 @@ export function ReviewScene({
         if (inspection) setView(active!.currentView);
       };
       callbacks.current.onMaintenanceViewChange(null);
+      active.onInletView = (inspection) => {
+        callbacks.current.onInletViewChange(inspection);
+        inletLines.update(inspection);
+        setView(active!.currentView);
+      };
+      callbacks.current.onInletViewChange(null);
       active.onEnvironmentView = (inspection) => {
         callbacks.current.onEnvironmentViewChange(inspection);
         environmentLines.update(inspection);
@@ -683,6 +722,8 @@ export function ReviewScene({
       maintenanceGeometry.current = null;
       powerGeometry.current?.dispose();
       powerGeometry.current = null;
+      inletGeometry.current?.dispose();
+      inletGeometry.current = null;
       environmentGeometry.current?.dispose();
       environmentGeometry.current = null;
       entranceGeometry.current?.dispose();
@@ -771,6 +812,7 @@ export function ReviewScene({
         engine.current.clearSliceView();
         engine.current.clearNetworkView();
         engine.current.clearPowerView();
+        engine.current.clearInletView();
         engine.current.clearEnvironmentView();
         engine.current.clearEntranceView();
         engine.current.clearLeakView();
@@ -848,6 +890,59 @@ export function ReviewScene({
     )
       engine.current?.clearMaintenanceView();
   }, [maintenanceView, layer, state.level, networkLinkId, selectedId]);
+  useEffect(() => {
+    const active = engine.current;
+    if (!active || !inletViewCommand) return;
+    if (inletViewCommand.action === "return") {
+      inletReturning.current = !!inletView;
+      active.restoreInletView();
+    } else if (inletPair && layer === "environment") {
+      if (!inletView)
+        inletEntry.current = document.activeElement as HTMLElement;
+      inletReturning.current = false;
+      setOrbit(false);
+      active.observeInlet(inletPair);
+    }
+    setView(active.currentView);
+  }, [inletViewCommand?.revision]);
+  useEffect(() => {
+    engine.current?.frameInlet();
+  }, [inletView]);
+  useEffect(() => {
+    if (
+      inletView &&
+      (!inletPair ||
+        state.level !== "room" ||
+        layer !== "environment" ||
+        inletPair.firstId !== inletView.pair.firstId ||
+        inletPair.secondId !== inletView.pair.secondId)
+    )
+      engine.current?.clearInletView();
+  }, [inletView, inletPair, state.level, layer]);
+  useEffect(() => {
+    if (inletView || !inletReturning.current) return;
+    let frame = 0;
+    const focus = () => {
+      const entry = inletEntry.current?.isConnected
+        ? inletEntry.current
+        : host.current
+            ?.closest(".workspace-ui")
+            ?.querySelector<HTMLElement>(
+              ".inlet-pair-analysis .inlet-view-actions button",
+            );
+      if (
+        engine.current?.moving ||
+        (entry instanceof HTMLButtonElement && entry.disabled)
+      ) {
+        frame = requestAnimationFrame(focus);
+        return;
+      }
+      entry?.focus({ preventScroll: true });
+      inletReturning.current = false;
+    };
+    frame = requestAnimationFrame(focus);
+    return () => cancelAnimationFrame(frame);
+  }, [inletView, sceneSettled]);
   useEffect(() => {
     const active = engine.current;
     if (!active || !environmentViewCommand) return;
@@ -1220,6 +1315,7 @@ export function ReviewScene({
         : fixtureById(selectedId)
       : undefined;
   const labelKey =
+    (inletView?.devices.map((device) => device.id).join(":") ?? "") +
     environmentMarkers.map((marker) => marker.id).join(":") +
     (maintenanceView?.view ?? "") +
     (entranceView?.view ?? "") +
@@ -1379,6 +1475,7 @@ export function ReviewScene({
       data-airflow-input={visibleAirflow?.coolingCapacity}
       data-maintenance-rack={maintenance.length ? selectedId : undefined}
       data-maintenance-aisle={comparison?.id}
+      data-inlet-view={!!inletView}
       data-environment-view={!!environmentView}
       data-power-rack={supply?.rackId}
       data-power-device={supply?.deviceId}
@@ -1465,17 +1562,46 @@ export function ReviewScene({
           <details className="review-view-explanation">
             <summary>读图说明</summary>
             <p>
-              {ambientSelected
-                ? "固定探头的环境温湿度，只代表安装位置；与设备进风分开，不生成整间机房温湿度场。选择返回设备进风可继续核对切片与气流。"
-                : slice
-                  ? `${slice.orientation === "horizontal" ? "水平切片估计当前高度的进风温度。" : `垂直切片显示${sliceRow!.name}正面 ${sliceSettings.height.min.toFixed(2)}–${sliceSettings.height.max.toFixed(2)} 米高度的进风差异，滑杆调整离柜距离；标签取切面纵向最高估计。俯视时切面呈侧边，可切到前视观察。`}色条仍对应逐台设备。输入为同一时间的有效模拟读数；代表位置按U位中心假设，非独立环境测点。最近位置离线、过期或超出插值范围时留空；不推断机柜排风或整间机房温度。`
-                  : presentation.description}
+              {inletView
+                ? "柜前实线与虚线分别标出所查和基准设备的安装跨度。标签沿用当前共享时刻的整机进风模拟，无效状态不显示旧值；两台设备之间没有新增供风关系或温度插值。"
+                : ambientSelected
+                  ? "固定探头的环境温湿度，只代表安装位置；与设备进风分开，不生成整间机房温湿度场。选择返回设备进风可继续核对切片与气流。"
+                  : slice
+                    ? `${slice.orientation === "horizontal" ? "水平切片估计当前高度的进风温度。" : `垂直切片显示${sliceRow!.name}正面 ${sliceSettings.height.min.toFixed(2)}–${sliceSettings.height.max.toFixed(2)} 米高度的进风差异，滑杆调整离柜距离；标签取切面纵向最高估计。俯视时切面呈侧边，可切到前视观察。`}色条仍对应逐台设备。输入为同一时间的有效模拟读数；代表位置按U位中心假设，非独立环境测点。最近位置离线、过期或超出插值范围时留空；不推断机柜排风或整间机房温度。`
+                    : presentation.description}
               {visibleAirflow &&
                 " 气流只示意已登记冷却关系的代表路径，当前同向布置不构成封闭冷热通道。端点为制冷单元逻辑代表位置，穿柜方向为配置假设；线条明暗对照冷却输入，不代表风量、风速或排风温度。选中对象可查看对应路径，停机或数据无效对象仅保留静态方向。"}
             </p>
           </details>
         </div>
         <div className="review-anchors" ref={anchors}>
+          {inletView?.devices.map((device, index) => {
+            const reading = index
+              ? inletSnapshot!.second
+              : inletSnapshot!.first;
+            return (
+              <button
+                key={device.id}
+                hidden
+                data-anchor={`inlet-pair-${device.id}`}
+                data-anchor-kind="position"
+                data-anchor-position={device.point.toArray().join(",")}
+                className={`review-flow-anchor review-inlet-pair-anchor ${index ? "pair-reference" : "pair-primary"}`}
+                onClick={() => onSelect(device.id)}
+                aria-label={`预览同框设备 ${device.name}`}
+                aria-pressed={selectedId === device.id}
+              >
+                <b>
+                  {index ? "② 基准" : "① 所查"} · {device.name}
+                </b>
+                <small>
+                  {reading.value === null
+                    ? reading.reason
+                    : `${reading.value.toFixed(1)} °C`}
+                </small>
+              </button>
+            );
+          })}
           {environmentMarkers.map((marker) => (
             <button
               key={marker.id}
@@ -1692,7 +1818,8 @@ export function ReviewScene({
             onRetry={() => engine.current?.retryModels()}
           />
         )}
-        {(entranceView ||
+        {(inletView ||
+          entranceView ||
           leakView ||
           crossing ||
           selectedFixture ||
@@ -1702,6 +1829,12 @@ export function ReviewScene({
           network.length > 0 ||
           labels.some((item) => item.id === selectedId)) && (
           <svg className="review-flow-lines" aria-hidden="true" ref={flowLines}>
+            {inletView?.devices.map((device) => (
+              <line
+                key={device.id}
+                data-flow-line={`inlet-pair-${device.id}`}
+              />
+            ))}
             {environmentMarkers.map((marker) => (
               <line key={marker.id} data-flow-line={`pair-${marker.id}`} />
             ))}
@@ -1913,6 +2046,20 @@ export function ReviewScene({
                   <span className="legend-critical">◆ 严重</span>
                 </>
               )}
+            </div>
+          ) : inletView ? (
+            <div className="inlet-scene-key">
+              <strong>双设备进风 · t+{state.time}s</strong>
+              <small>① 所查 · 实线 / ② 基准 · 虚线</small>
+              <InletViewActions
+                active
+                ready={sceneSettled}
+                available
+                onObserve={() => onInletView("observe")}
+                onReturn={() => onInletView("return")}
+              />
+              <small>柜前轮廓为安装跨度 · 非真实风口</small>
+              <small>切片与代表气流已暂收，结束观察后恢复。</small>
             </div>
           ) : ambientSelected ? (
             <div className="environment-scene-key">

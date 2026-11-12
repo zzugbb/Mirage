@@ -1,3 +1,4 @@
+import type { InletInspection, InletViewCommand } from "./inlet-view";
 import { AirflowResponseAnalysis } from "./components/AirflowResponseAnalysis";
 import {
   airflowResponseContext,
@@ -217,6 +218,16 @@ export function Workspace() {
     analysis: boolean;
     nav: boolean;
   } | null>(null);
+  const [inletView, setInletView] = useState<InletInspection | null>(null);
+  const [inletViewCommand, setInletViewCommand] =
+    useState<InletViewCommand | null>(null);
+  const requestInletView = (action: InletViewCommand["action"]) => {
+    control({ type: "takeover" });
+    setInletViewCommand((current) => ({
+      action,
+      revision: (current?.revision ?? 0) + 1,
+    }));
+  };
   const [environmentView, setEnvironmentView] =
     useState<EnvironmentInspection | null>(null);
   const [environmentViewCommand, setEnvironmentViewCommand] =
@@ -1904,6 +1915,11 @@ export function Workspace() {
               onPreview={(id) => {
                 setInletSelection(id);
                 pick(id, false, true);
+                if (
+                  inletView &&
+                  [inletView.pair.firstId, inletView.pair.secondId].includes(id)
+                )
+                  return;
                 const target = roomAirflowTarget(id, state.deviceId);
                 setSliceControls((current) =>
                   alignAirflowSlice(current, target?.rowId ?? null),
@@ -2363,6 +2379,11 @@ export function Workspace() {
             networkLinkId={activeNetworkLink}
             powerViewCommand={powerViewCommand}
             powerViewActive={powerViewActive}
+            inletPair={pairedInlet}
+            inletView={inletView}
+            inletViewCommand={inletViewCommand}
+            onInletViewChange={setInletView}
+            onInletView={requestInletView}
             environmentPair={pairedEnvironment}
             environmentPairMetric={environmentPairMetric}
             environmentView={environmentView}
@@ -3024,6 +3045,12 @@ export function Workspace() {
                 ) : pairedInlet ? (
                   <InletPairAnalysis
                     key={`${pairedInlet.firstId}:${pairedInlet.secondId}`}
+                    viewActive={!!inletView}
+                    viewAvailable={
+                      state.level === "room" && layer === "environment"
+                    }
+                    onObserve={() => requestInletView("observe")}
+                    onRestoreView={() => requestInletView("return")}
                     firstId={pairedInlet.firstId}
                     secondId={pairedInlet.secondId}
                     time={state.time}
@@ -3034,6 +3061,7 @@ export function Workspace() {
                     onSeek={(time) => dispatch({ type: "seek", time })}
                     onPreview={(id) => {
                       pick(id);
+                      if (inletView) return;
                       const target = roomAirflowTarget(id, state.deviceId);
                       setSliceControls((current) =>
                         alignAirflowSlice(current, target?.rowId ?? null),

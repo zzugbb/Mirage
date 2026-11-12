@@ -1,3 +1,4 @@
+import { InletViewActions } from "./InletViewActions";
 import { useMemo, useState, type Ref } from "react";
 import { inletHistory, inletPairSnapshot } from "../inlet-pair";
 import { reviewEvents } from "../review-model";
@@ -8,6 +9,10 @@ const valueText = (value: number | null) =>
   value === null ? "—" : `${value.toFixed(1)} °C`;
 
 export function InletPairAnalysis({
+  viewActive,
+  viewAvailable,
+  onObserve,
+  onRestoreView,
   firstId,
   secondId,
   time,
@@ -22,6 +27,10 @@ export function InletPairAnalysis({
   onReturn,
   onClose,
 }: {
+  viewActive: boolean;
+  viewAvailable: boolean;
+  onObserve: () => void;
+  onRestoreView: () => void;
   firstId: string;
   secondId: string;
   time: number;
@@ -57,6 +66,13 @@ export function InletPairAnalysis({
           : `游标 t+${cursor}s · 场景 t+${time}s`}{" "}
         · 整机进风模拟
       </p>
+      <InletViewActions
+        active={viewActive}
+        available={viewAvailable}
+        ready={ready}
+        onObserve={onObserve}
+        onReturn={onRestoreView}
+      />
       <div className="inlet-pair-readings">
         {[pair.first, pair.second].map((point, index) => (
           <div
@@ -129,7 +145,7 @@ export function InletPairAnalysis({
         onSeek={onSeek}
       />
       <p className="inlet-pair-boundary">
-        两条曲线共用温度刻度，只绘制已发生的有效读数。预览不改变镜头与结构；定位后可检视设备，再返回原对照。差值不表示异常阈值、冷却效果或故障根因。
+        同框轮廓对应两台设备的完整安装跨度，不代表真实风口或供风覆盖；柜前标签跟随场景时间，图表游标不改动场景。两条曲线共用温度刻度，只绘制已发生的有效读数。预览不改变镜头与结构；定位后可检视设备，再返回原对照。差值不表示异常阈值、冷却效果或故障根因。
       </p>
       <button
         className="inlet-pair-return"

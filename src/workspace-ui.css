@@ -5010,3 +5010,52 @@
   font-size: 11px;
   cursor: pointer;
 }
+
+.inlet-view-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 10px 0;
+}
+.inlet-view-actions button {
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: #26343c;
+  color: inherit;
+  padding: 7px 9px;
+  font-size: 11px;
+}
+.inlet-view-actions button[aria-pressed="true"] {
+  border-color: #a2e1df;
+}
+.inlet-view-actions small {
+  flex-basis: 100%;
+}
+.workspace-ui .review-legend > .inlet-scene-key {
+  display: grid;
+  gap: 7px;
+}
+.inlet-scene-key .inlet-view-actions {
+  max-width: 250px;
+  margin: 0;
+}
+
+.workspace-ui .review-legend:has(.inlet-scene-key) {
+  pointer-events: auto;
+  width: 285px;
+  max-width: calc(100% - 36px);
+  padding: 14px;
+  white-space: normal;
+}
+.workspace-ui .review-inlet-pair-anchor {
+  pointer-events: auto;
+  cursor: pointer;
+  text-align: left;
+  background: #18242ded;
+}
+.workspace-ui .review-inlet-pair-anchor.pair-primary {
+  border-left: 3px solid #a2e1df;
+}
+.workspace-ui .review-inlet-pair-anchor.pair-reference {
+  border-left: 3px dashed #b7b9dc;
+}

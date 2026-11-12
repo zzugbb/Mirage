@@ -1,4 +1,10 @@
 import {
+  inletInspection,
+  inletViewFrame,
+  type InletInspection,
+  type InletViewPair,
+} from "../inlet-view.ts";
+import {
   environmentInspection,
   environmentViewFrame,
   type EnvironmentInspection,
@@ -615,6 +621,7 @@ export class SceneEngine {
     this.clearLeakView();
     this.clearEntranceView();
     this.clearEnvironmentView();
+    this.clearInletView();
     this.clearMaintenanceView();
     this.clearSliceView();
     this.clearAirflowView();
@@ -651,6 +658,7 @@ export class SceneEngine {
     this.clearLeakView();
     this.clearEntranceView();
     this.clearEnvironmentView();
+    this.clearInletView();
     this.clearMaintenanceView();
     this.clearSliceView();
     const previous =
@@ -773,6 +781,7 @@ export class SceneEngine {
     this.clearLeakView();
     this.clearEntranceView();
     this.clearEnvironmentView();
+    this.clearInletView();
     this.clearMaintenanceView();
     if (this.state.level !== "room" || !context.point || this.moving) return;
     const previous =
@@ -853,6 +862,7 @@ export class SceneEngine {
     this.clearLeakView();
     this.clearEntranceView();
     this.clearEnvironmentView();
+    this.clearInletView();
     this.clearMaintenanceView();
     this.networkObservation = {
       sourceId,
@@ -927,6 +937,7 @@ export class SceneEngine {
     this.clearLeakView();
     this.clearEntranceView();
     this.clearEnvironmentView();
+    this.clearInletView();
     this.clearMaintenanceView();
     const targets = powerViewPoints(this.state, selected, linkId);
     const sourceId = powerViewSource(linkId);
@@ -1009,6 +1020,7 @@ export class SceneEngine {
     this.clearLeakView();
     this.clearEntranceView();
     this.clearEnvironmentView();
+    this.clearInletView();
     const previous =
       this.crossingObservation?.previous ?? this.captureObservationView();
     this.clearNetworkView();
@@ -1076,6 +1088,7 @@ export class SceneEngine {
     this.clearSliceView();
     this.clearAirflowView();
     this.panelViewport = undefined;
+    this.clearInletView();
     this.environmentObservation = { inspection, previous };
     this.currentView = "iso";
     this.currentFocus = false;
@@ -1120,6 +1133,70 @@ export class SceneEngine {
     const previous = this.environmentObservation?.previous;
     if (!previous) return;
     this.clearEnvironmentView();
+    this.clearInletView();
+    this.restoreObservationView(previous);
+  }
+  onInletView: (inspection: InletInspection | null) => void = () => {};
+  private inletObservation?: {
+    inspection: InletInspection;
+    previous: ObservationMemory;
+  };
+  clearInletView() {
+    if (!this.inletObservation) return;
+    this.inletObservation = undefined;
+    this.moving = false;
+    this.onInletView(null);
+    this.invalidate();
+  }
+  observeInlet(pair: InletViewPair) {
+    const inspection = inletInspection(pair);
+    if (!inspection || this.state.level !== "room" || this.moving) return;
+    const previous =
+      this.inletObservation?.previous ?? this.captureObservationView();
+    this.clearEntranceView();
+    this.clearLeakView();
+    this.clearMaintenanceView();
+    this.clearCrossingView();
+    this.clearNetworkView();
+    this.clearPowerView();
+    this.clearSliceView();
+    this.clearAirflowView();
+    this.panelViewport = undefined;
+    this.clearEnvironmentView();
+    this.inletObservation = { inspection, previous };
+    this.currentView = "iso";
+    this.currentFocus = false;
+    this.interior = false;
+    this.controls.minAzimuthAngle = -Infinity;
+    this.controls.maxAzimuthAngle = Infinity;
+    this.controls.maxPolarAngle = Math.PI / 2 - 0.03;
+    this.controls.minDistance = 0.5;
+    this.autoOrbit = false;
+    this.onInletView(inspection);
+    this.frameInlet();
+  }
+  frameInlet() {
+    if (!this.inletObservation) return;
+    const { width, height, rect } = this.observationViewport();
+    rect.left = 90;
+    rect.right = width - 140;
+    rect.bottom = Math.min(rect.bottom, height - 210);
+    const fit = inletViewFrame(
+      this.inletObservation.inspection,
+      width,
+      height,
+      rect,
+    );
+    this.targetPosition.copy(fit.position);
+    this.targetLook.copy(fit.target);
+    this.controls.maxDistance = Math.max(45, fit.distance * 1.2);
+    this.moving = true;
+    this.invalidate();
+  }
+  restoreInletView() {
+    const previous = this.inletObservation?.previous;
+    if (!previous) return;
+    this.clearInletView();
     this.restoreObservationView(previous);
   }
   onEntranceView: (pair: EntranceInspection | null) => void = () => {};
@@ -1136,6 +1213,7 @@ export class SceneEngine {
   }
   observeEntrance(view: EntranceView) {
     this.clearEnvironmentView();
+    this.clearInletView();
     const pair = entranceInspection(view);
     if (this.state.level !== "room" || this.moving) return;
     this.clearLeakView();
@@ -1180,6 +1258,7 @@ export class SceneEngine {
     if (!previous) return;
     this.clearEntranceView();
     this.clearEnvironmentView();
+    this.clearInletView();
     this.restoreObservationView(previous);
   }
   onLeakView: (pair: LeakInspection | null) => void = () => {};
@@ -1199,6 +1278,7 @@ export class SceneEngine {
     if (this.state.level !== "room" || this.moving) return;
     this.clearEntranceView();
     this.clearEnvironmentView();
+    this.clearInletView();
     this.clearMaintenanceView();
     this.clearCrossingView();
     const previous =
@@ -1263,6 +1343,7 @@ export class SceneEngine {
     this.clearLeakView();
     this.clearEntranceView();
     this.clearEnvironmentView();
+    this.clearInletView();
     this.panelViewport = undefined;
     this.maintenanceObservation = { inspection, previous };
     this.currentView = "top";
@@ -1327,6 +1408,10 @@ export class SceneEngine {
     this.pipeline.resize(width, height);
     if (this.maintenanceObservation) {
       this.frameMaintenance();
+      return;
+    }
+    if (this.inletObservation) {
+      this.frameInlet();
       return;
     }
     if (this.environmentObservation) {
@@ -1394,6 +1479,7 @@ export class SceneEngine {
     this.clearLeakView();
     this.clearEntranceView();
     this.clearEnvironmentView();
+    this.clearInletView();
     this.clearMaintenanceView();
     this.clearSliceView();
     this.clearAirflowView();
@@ -1591,6 +1677,7 @@ export class SceneEngine {
     this.clearLeakView();
     this.clearEntranceView();
     this.clearEnvironmentView();
+    this.clearInletView();
     this.clearMaintenanceView();
     this.clearSliceView();
     focus =
@@ -2140,7 +2227,8 @@ export class SceneEngine {
     }
     const cutCount = this.shellCutaway.update(
       this.camera.position,
-      this.environmentObservation?.inspection.points ??
+      this.inletObservation?.inspection.points ??
+        this.environmentObservation?.inspection.points ??
         this.entranceObservation?.pair.points ??
         this.leakObservation?.pair.sightPoints ??
         this.maintenanceObservation?.inspection.points ??
@@ -2225,6 +2313,7 @@ export class SceneEngine {
     );
     const object = this.objectFor(this.state.selected);
     const showSelection =
+      !this.inletObservation &&
       !this.environmentObservation &&
       !this.entranceObservation &&
       !this.leakObservation &&
