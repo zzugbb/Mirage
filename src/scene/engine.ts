@@ -1,3 +1,4 @@
+import { rangeObservationTarget } from "../range-segments.ts";
 import {
   rangeViewPoints,
   rangeViewFrame,
@@ -771,6 +772,7 @@ export class SceneEngine {
   }
   onRangeView: (side: RangeView | null) => void = () => {};
   private rangeObservation?: {
+    range: RackUnitRange;
     targets: THREE.Vector3[];
     side: RangeView;
     previous: ObservationMemory;
@@ -781,14 +783,20 @@ export class SceneEngine {
     this.moving = false;
     this.onRangeView(null);
   }
-  observeRange(range: RackUnitRange, side: RangeView) {
+  observeRange(
+    range: RackUnitRange,
+    side: RangeView,
+    segmentId: string | null = null,
+  ) {
     if (
       this.state.level !== "rack" ||
       this.moving ||
       range.rackId !== rackForDevice(this.state.deviceId).id
     )
       return;
-    const targets = rangeViewPoints(range, side);
+    const target = rangeObservationTarget(range, segmentId);
+    if (!target) return;
+    const targets = rangeViewPoints(target, side);
     if (!targets.length) return;
     const previous =
       this.rangeObservation?.previous ?? this.captureObservationView();
@@ -797,7 +805,7 @@ export class SceneEngine {
     this.clearSliceView();
     this.clearAirflowView();
     this.panelViewport = undefined;
-    this.rangeObservation = { targets, side, previous };
+    this.rangeObservation = { range: target, targets, side, previous };
     this.currentView = side;
     this.currentFocus = false;
     this.interior = false;
@@ -2382,7 +2390,7 @@ export class SceneEngine {
       this.state,
       this.camera.position,
       this.presentation.pose.inspection > 0,
-      this.unitRange,
+      this.rangeObservation?.range ?? this.unitRange,
     );
     this.installation.update(this.state, this.presentation.pose.inspection);
     this.models.root.updateMatrixWorld(true);

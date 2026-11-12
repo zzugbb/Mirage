@@ -7,6 +7,7 @@ import { observationFrame, type FrameRect } from "./observation-frame.ts";
 export type RangeView = "front" | "rear";
 export type RangeViewCommand = {
   revision: number;
+  segmentId?: string | null;
   action: RangeView | "return";
 };
 

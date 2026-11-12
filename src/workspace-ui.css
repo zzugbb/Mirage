@@ -5254,3 +5254,48 @@
   color: #a6b8c2;
   line-height: 1.6;
 }
+
+.range-segments {
+  margin: 12px 0;
+  padding: 10px 0;
+  border-block: 1px solid var(--study-line);
+  font-size: 12px;
+}
+.range-segments label {
+  display: grid;
+  gap: 7px;
+}
+.range-segments select {
+  width: 100%;
+  min-width: 0;
+  padding: 6px;
+  background: #18242b;
+  color: inherit;
+  border: 1px solid #40535d;
+  border-radius: 4px;
+}
+.range-segment-step {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin: 8px 0;
+}
+.range-segments p {
+  line-height: 1.6;
+  margin: 8px 0;
+  color: #b1c2ca;
+}
+.range-view-details.is-compact > p,
+.range-view-details.is-compact > small {
+  display: none;
+}
+
+.range-segments-disclosure {
+  margin-top: 10px;
+}
+.range-segments-disclosure > summary {
+  cursor: pointer;
+  color: #b1d2d7;
+  padding: 6px 0;
+}

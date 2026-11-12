@@ -769,7 +769,11 @@ export function ReviewScene({
     if (rangeViewCommand.action === "return") active.restoreRangeView();
     else if (unitRange && layer === "overview") {
       setOrbit(false);
-      active.observeRange(unitRange, rangeViewCommand.action);
+      active.observeRange(
+        unitRange,
+        rangeViewCommand.action,
+        rangeViewCommand.segmentId ?? null,
+      );
     }
     setView(active.currentView);
   }, [rangeViewCommand?.revision]);

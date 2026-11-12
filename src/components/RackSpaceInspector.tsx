@@ -1,3 +1,5 @@
+import { RangeSegments } from "./RangeSegments";
+import type { RangeSegment } from "../range-segments";
 import { RangeViewActions } from "./RangeViewActions";
 import type { RangeView, RangeViewCommand } from "../range-view";
 import { useState, useLayoutEffect, useRef } from "react";
@@ -11,6 +13,9 @@ import {
 const label = (first: number, last: number) =>
   first === last ? `U${first}` : `U${first}–${last}`;
 export function RackSpaceInspector({
+  segments,
+  segmentId,
+  onSegment,
   view,
   onView,
   restore,
@@ -25,6 +30,9 @@ export function RackSpaceInspector({
   onSize,
   onCompare,
 }: {
+  segments: RangeSegment[];
+  segmentId: string | null;
+  onSegment: (id: string | null) => void;
   view: RangeView | null;
   onView: (action: RangeViewCommand["action"]) => void;
   restore: {
@@ -134,6 +142,17 @@ export function RackSpaceInspector({
             设备占用 {result.occupied} U · 未安装 {result.blanked} U
           </p>
           <RangeViewActions active={view} ready={ready} onView={onView} />
+          <RangeSegments
+            segments={segments}
+            currentId={segmentId}
+            observing={!!view}
+            onReturn={() => onView("return")}
+            ready={ready}
+            onSegment={onSegment}
+            onDevice={(id) =>
+              onDevice(id, start, panel.current?.scrollTop ?? 0)
+            }
+          />
           {result.conflicts.map((d) => (
             <button
               key={d.id}

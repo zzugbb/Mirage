@@ -1,3 +1,5 @@
+import { rangeSegments } from "./range-segments";
+import { RangeSegments } from "./components/RangeSegments";
 import type { RangeView, RangeViewCommand } from "./range-view";
 import { RangeViewActions } from "./components/RangeViewActions";
 import { emptyBudgetReview } from "./budget-process";
@@ -267,14 +269,20 @@ export function Workspace() {
   const [rangeView, setRangeView] = useState<RangeView | null>(null);
   const [rangeViewCommand, setRangeViewCommand] =
     useState<RangeViewCommand | null>(null);
+  const [rangeSegmentId, setRangeSegmentId] = useState<string | null>(null);
   const rangeEntry = useRef<HTMLElement | null>(null);
   const rangeReturning = useRef(false);
-  const requestRangeView = (action: RangeViewCommand["action"]) => {
+  const requestRangeView = (
+    action: RangeViewCommand["action"],
+    segmentId = rangeSegmentId,
+  ) => {
     if (action === "return") rangeReturning.current = true;
-    else if (!rangeView)
+    else setRangeSegmentId(segmentId);
+    if (action !== "return" && !rangeView)
       rangeEntry.current = document.activeElement as HTMLElement;
     if (action !== "return") control({ type: "layer", layer: "overview" });
     setRangeViewCommand((current) => ({
+      segmentId,
       action,
       revision: (current?.revision ?? 0) + 1,
     }));
@@ -889,6 +897,48 @@ export function Workspace() {
         .querySelector<HTMLElement>('[aria-label="展开资源导航"]')
         ?.focus();
   }, [rangeView, ready]);
+  const segments = useMemo(
+    () => rangeSegments(spaceRange),
+    [spaceRange?.rackId, spaceRange?.first, spaceRange?.last],
+  );
+  const activeSegmentId =
+    rangeView && segments.some((segment) => segment.id === rangeSegmentId)
+      ? rangeSegmentId
+      : null;
+  const requestRangeSegment = (id: string | null) =>
+    requestRangeView(rangeView ?? "front", id);
+  const inspectRangeDevice = (id: string, start?: string, scroll?: number) => {
+    const visit = spaceRange && beginSpaceInspection(spaceRange, id);
+    if (!visit || !ready) return;
+    const panel = navigationRef.current?.querySelector<HTMLElement>(
+      ".rack-space-inspector",
+    );
+    setSpaceRestore(null);
+    setSpaceVisit({
+      ...visit,
+      query,
+      filter,
+      onlyAlarms,
+      size: spaceSize,
+      start:
+        start ??
+        panel?.querySelector<HTMLInputElement>('[aria-label="核查起始U位"]')
+          ?.value ??
+        String(spaceRange!.first),
+      scroll: scroll ?? panel?.scrollTop ?? 0,
+      layer,
+      analysis: review.analysis,
+      metric,
+      slice: sliceControls,
+    });
+    setRackView("installation");
+    setQuery(id);
+    setFilter("all");
+    setOnlyAlarms(false);
+    pick(id);
+    control({ type: "layer", layer: "overview" });
+    control({ type: "analysis", value: false });
+  };
   const blanking =
     filter === "all" && !(onlyAlarms && state.level !== "device")
       ? unitQuery?.blanking
@@ -2158,6 +2208,9 @@ export function Workspace() {
             />
           ) : state.level === "rack" && rackView === "space" ? (
             <RackSpaceInspector
+              segments={segments}
+              segmentId={activeSegmentId}
+              onSegment={requestRangeSegment}
               view={rangeView}
               onView={requestRangeView}
               key={rackForDevice(state.deviceId).id}
@@ -2176,32 +2229,7 @@ export function Workspace() {
                 setFilter("all");
                 setOnlyAlarms(false);
               }}
-              onDevice={(id, start, scroll) => {
-                const visit =
-                  spaceRange && beginSpaceInspection(spaceRange, id);
-                if (!visit || !ready) return;
-                setSpaceRestore(null);
-                setSpaceVisit({
-                  ...visit,
-                  query,
-                  filter,
-                  onlyAlarms,
-                  size: spaceSize,
-                  start,
-                  scroll,
-                  layer,
-                  analysis: review.analysis,
-                  metric,
-                  slice: sliceControls,
-                });
-                setRackView("installation");
-                setQuery(id);
-                setFilter("all");
-                setOnlyAlarms(false);
-                pick(id);
-                control({ type: "layer", layer: "overview" });
-                control({ type: "analysis", value: false });
-              }}
+              onDevice={inspectRangeDevice}
               queryMessage={
                 unitQuery?.error ||
                 (unitQuery?.rack &&
@@ -2476,7 +2504,10 @@ export function Workspace() {
           </div>
           <ReviewScene
             rangeViewCommand={rangeViewCommand}
-            onRangeViewChange={setRangeView}
+            onRangeViewChange={(side) => {
+              setRangeView(side);
+              if (!side) setRangeSegmentId(null);
+            }}
             isolatedPartId={isolatedPartId}
             state={state}
             unitRange={
@@ -3104,7 +3135,10 @@ export function Workspace() {
                 </section>
               )}
             {rangeView && spaceRange && (
-              <section className="range-view-details" aria-label="安装范围近景">
+              <section
+                className={`range-view-details ${review.analysis ? "is-compact" : ""}`}
+                aria-label="安装范围近景"
+              >
                 <strong>
                   {rackById(spaceRange.rackId)?.name} · U{spaceRange.first}
                   {spaceRange.last !== spaceRange.first
@@ -3113,12 +3147,23 @@ export function Workspace() {
                 </strong>
                 <p>
                   当前从{rangeView === "front" ? "前" : "后"}
-                  侧观察。括线指向柜面安装范围，不随设备抽出移动；占用设备仍按完整跨度选择。
+                  侧观察。括线指向{activeSegmentId ? "当前分段" : "核查范围"}
+                  ，不随设备抽出移动；占用设备仍按完整跨度选择。
                 </p>
                 <RangeViewActions
                   active={rangeView}
                   ready={ready}
                   onView={requestRangeView}
+                />
+                <RangeSegments
+                  segments={segments}
+                  currentId={activeSegmentId}
+                  observing={!!rangeView}
+                  onReturn={() => requestRangeView("return")}
+                  compact={review.analysis}
+                  ready={ready}
+                  onSegment={requestRangeSegment}
+                  onDevice={inspectRangeDevice}
                 />
                 <small>
                   门扇可用场景操作打开。未安装位置有前置盲板，不代表可分配容量。
