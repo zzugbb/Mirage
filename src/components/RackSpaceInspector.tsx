@@ -1,3 +1,5 @@
+import { RangeViewActions } from "./RangeViewActions";
+import type { RangeView, RangeViewCommand } from "../range-view";
 import { useState, useLayoutEffect, useRef } from "react";
 import { rackInstallation } from "../rack-installation";
 import {
@@ -9,6 +11,8 @@ import {
 const label = (first: number, last: number) =>
   first === last ? `U${first}` : `U${first}–${last}`;
 export function RackSpaceInspector({
+  view,
+  onView,
   restore,
   ready,
   rackId,
@@ -21,6 +25,8 @@ export function RackSpaceInspector({
   onSize,
   onCompare,
 }: {
+  view: RangeView | null;
+  onView: (action: RangeViewCommand["action"]) => void;
   restore: {
     rackId: string;
     deviceId: string;
@@ -127,6 +133,7 @@ export function RackSpaceInspector({
           <p>
             设备占用 {result.occupied} U · 未安装 {result.blanked} U
           </p>
+          <RangeViewActions active={view} ready={ready} onView={onView} />
           {result.conflicts.map((d) => (
             <button
               key={d.id}

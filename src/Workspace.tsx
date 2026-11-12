@@ -1,3 +1,5 @@
+import type { RangeView, RangeViewCommand } from "./range-view";
+import { RangeViewActions } from "./components/RangeViewActions";
 import { emptyBudgetReview } from "./budget-process";
 import {
   beginSpaceInspection,
@@ -262,6 +264,21 @@ export function Workspace() {
   }, [inspectionDevice, isolatedPartId]);
   const [sliceControls, setSliceControls] = useState(initialSliceControls);
   const [sliceCheck, setSliceCheck] = useState<SliceCheck | null>(null);
+  const [rangeView, setRangeView] = useState<RangeView | null>(null);
+  const [rangeViewCommand, setRangeViewCommand] =
+    useState<RangeViewCommand | null>(null);
+  const rangeEntry = useRef<HTMLElement | null>(null);
+  const rangeReturning = useRef(false);
+  const requestRangeView = (action: RangeViewCommand["action"]) => {
+    if (action === "return") rangeReturning.current = true;
+    else if (!rangeView)
+      rangeEntry.current = document.activeElement as HTMLElement;
+    if (action !== "return") control({ type: "layer", layer: "overview" });
+    setRangeViewCommand((current) => ({
+      action,
+      revision: (current?.revision ?? 0) + 1,
+    }));
+  };
   const [sliceViewActive, setSliceViewActive] = useState(false);
   const [sliceViewCommand, setSliceViewCommand] =
     useState<SliceViewCommand | null>(null);
@@ -861,6 +878,17 @@ export function Workspace() {
           last: unitQuery.last,
         }
       : null;
+  useEffect(() => {
+    if (!rangeReturning.current || rangeView || !ready) return;
+    rangeReturning.current = false;
+    const entry = rangeEntry.current;
+    if (entry?.isConnected && entry.getClientRects().length)
+      entry.focus({ preventScroll: true });
+    else
+      document
+        .querySelector<HTMLElement>('[aria-label="展开资源导航"]')
+        ?.focus();
+  }, [rangeView, ready]);
   const blanking =
     filter === "all" && !(onlyAlarms && state.level !== "device")
       ? unitQuery?.blanking
@@ -2130,6 +2158,8 @@ export function Workspace() {
             />
           ) : state.level === "rack" && rackView === "space" ? (
             <RackSpaceInspector
+              view={rangeView}
+              onView={requestRangeView}
               key={rackForDevice(state.deviceId).id}
               rackId={rackForDevice(state.deviceId).id}
               size={spaceSize}
@@ -2445,6 +2475,8 @@ export function Workspace() {
             </nav>
           </div>
           <ReviewScene
+            rangeViewCommand={rangeViewCommand}
+            onRangeViewChange={setRangeView}
             isolatedPartId={isolatedPartId}
             state={state}
             unitRange={
@@ -3071,6 +3103,28 @@ export function Workspace() {
                   </small>
                 </section>
               )}
+            {rangeView && spaceRange && (
+              <section className="range-view-details" aria-label="安装范围近景">
+                <strong>
+                  {rackById(spaceRange.rackId)?.name} · U{spaceRange.first}
+                  {spaceRange.last !== spaceRange.first
+                    ? `–${spaceRange.last}`
+                    : ""}
+                </strong>
+                <p>
+                  当前从{rangeView === "front" ? "前" : "后"}
+                  侧观察。括线指向柜面安装范围，不随设备抽出移动；占用设备仍按完整跨度选择。
+                </p>
+                <RangeViewActions
+                  active={rangeView}
+                  ready={ready}
+                  onView={requestRangeView}
+                />
+                <small>
+                  门扇可用场景操作打开。未安装位置有前置盲板，不代表可分配容量。
+                </small>
+              </section>
+            )}
             {maintenanceView && (
               <section
                 className="maintenance-view-details"

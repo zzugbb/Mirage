@@ -5229,3 +5229,28 @@
   padding: 8px;
   border: 1px solid var(--line);
 }
+
+.range-view-actions > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.range-view-actions {
+  display: grid;
+  gap: 6px;
+  margin: 8px 0;
+}
+.range-view-actions button[aria-pressed="true"] {
+  background: #36565c;
+  box-shadow: inset 0 0 0 1px #84b8ba;
+}
+.range-view-details {
+  padding: 16px 22px;
+  border-bottom: 1px solid #ffffff10;
+  font-size: 12px;
+}
+.range-view-details p,
+.range-view-details small {
+  color: #a6b8c2;
+  line-height: 1.6;
+}

@@ -1,4 +1,9 @@
 import {
+  rangeViewPoints,
+  rangeViewFrame,
+  type RangeView,
+} from "../range-view.ts";
+import {
   inletInspection,
   inletViewFrame,
   type InletInspection,
@@ -624,6 +629,7 @@ export class SceneEngine {
     this.clearInletView();
     this.clearMaintenanceView();
     this.clearSliceView();
+    this.clearRangeView();
     this.clearAirflowView();
     this.panelViewport = undefined;
     this.currentView = saved.view;
@@ -661,6 +667,7 @@ export class SceneEngine {
     this.clearInletView();
     this.clearMaintenanceView();
     this.clearSliceView();
+    this.clearRangeView();
     const previous =
       this.airflowObservation?.previous ?? this.captureObservationView();
     this.airflowObservation = {
@@ -762,6 +769,68 @@ export class SceneEngine {
       },
     };
   }
+  onRangeView: (side: RangeView | null) => void = () => {};
+  private rangeObservation?: {
+    targets: THREE.Vector3[];
+    side: RangeView;
+    previous: ObservationMemory;
+  };
+  clearRangeView() {
+    if (!this.rangeObservation) return;
+    this.rangeObservation = undefined;
+    this.moving = false;
+    this.onRangeView(null);
+  }
+  observeRange(range: RackUnitRange, side: RangeView) {
+    if (
+      this.state.level !== "rack" ||
+      this.moving ||
+      range.rackId !== rackForDevice(this.state.deviceId).id
+    )
+      return;
+    const targets = rangeViewPoints(range, side);
+    if (!targets.length) return;
+    const previous =
+      this.rangeObservation?.previous ?? this.captureObservationView();
+    this.clearNetworkView();
+    this.clearPowerView();
+    this.clearSliceView();
+    this.clearAirflowView();
+    this.panelViewport = undefined;
+    this.rangeObservation = { targets, side, previous };
+    this.currentView = side;
+    this.currentFocus = false;
+    this.interior = false;
+    this.controls.minAzimuthAngle = -Infinity;
+    this.controls.maxAzimuthAngle = Infinity;
+    this.controls.maxPolarAngle = Math.PI / 2;
+    this.controls.minDistance = 0.5;
+    this.autoOrbit = false;
+    this.frameRange();
+    this.onRangeView(side);
+  }
+  private frameRange() {
+    if (!this.rangeObservation) return;
+    const { width, height, rect } = this.observationViewport();
+    const fit = rangeViewFrame(
+      this.rangeObservation.targets,
+      this.rangeObservation.side,
+      width,
+      height,
+      rect,
+    );
+    this.targetPosition.copy(fit.position);
+    this.targetLook.copy(fit.target);
+    this.controls.maxDistance = Math.max(45, fit.distance * 1.2);
+    this.moving = true;
+    this.invalidate();
+  }
+  restoreRangeView() {
+    const previous = this.rangeObservation?.previous;
+    if (!previous) return;
+    this.clearRangeView();
+    this.restoreObservationView(previous);
+  }
   onSliceView: (active: boolean) => void = () => {};
   private sliceObservation?: {
     targets: THREE.Vector3[];
@@ -856,6 +925,7 @@ export class SceneEngine {
       this.networkObservation?.previous ?? this.captureObservationView();
     this.clearAirflowView();
     this.clearSliceView();
+    this.clearRangeView();
     this.panelViewport = undefined;
     this.clearPowerView();
     this.clearCrossingView();
@@ -947,6 +1017,7 @@ export class SceneEngine {
     this.clearNetworkView();
     this.clearAirflowView();
     this.clearSliceView();
+    this.clearRangeView();
     this.panelViewport = undefined;
     this.powerObservation = {
       sourceId,
@@ -1026,6 +1097,7 @@ export class SceneEngine {
     this.clearNetworkView();
     this.clearPowerView();
     this.clearSliceView();
+    this.clearRangeView();
     this.clearAirflowView();
     this.panelViewport = undefined;
     this.crossingObservation = { pair, previous };
@@ -1086,6 +1158,7 @@ export class SceneEngine {
     this.clearNetworkView();
     this.clearPowerView();
     this.clearSliceView();
+    this.clearRangeView();
     this.clearAirflowView();
     this.panelViewport = undefined;
     this.clearInletView();
@@ -1160,6 +1233,7 @@ export class SceneEngine {
     this.clearNetworkView();
     this.clearPowerView();
     this.clearSliceView();
+    this.clearRangeView();
     this.clearAirflowView();
     this.panelViewport = undefined;
     this.clearEnvironmentView();
@@ -1224,6 +1298,7 @@ export class SceneEngine {
     this.clearNetworkView();
     this.clearPowerView();
     this.clearSliceView();
+    this.clearRangeView();
     this.clearAirflowView();
     this.panelViewport = undefined;
     this.entranceObservation = { pair, previous };
@@ -1286,6 +1361,7 @@ export class SceneEngine {
     this.clearNetworkView();
     this.clearPowerView();
     this.clearSliceView();
+    this.clearRangeView();
     this.clearAirflowView();
     this.panelViewport = undefined;
     this.leakObservation = { pair, previous };
@@ -1338,6 +1414,7 @@ export class SceneEngine {
     this.clearNetworkView();
     this.clearPowerView();
     this.clearSliceView();
+    this.clearRangeView();
     this.clearAirflowView();
     this.clearCrossingView();
     this.clearLeakView();
@@ -1438,6 +1515,10 @@ export class SceneEngine {
       this.frameNetwork();
       return;
     }
+    if (this.rangeObservation) {
+      this.frameRange();
+      return;
+    }
     if (this.sliceObservation) {
       this.frameSlice();
       return;
@@ -1482,6 +1563,7 @@ export class SceneEngine {
     this.clearInletView();
     this.clearMaintenanceView();
     this.clearSliceView();
+    this.clearRangeView();
     this.clearAirflowView();
     this.moving = false;
     this.lastManualInteraction = performance.now();
@@ -1680,6 +1762,7 @@ export class SceneEngine {
     this.clearInletView();
     this.clearMaintenanceView();
     this.clearSliceView();
+    this.clearRangeView();
     focus =
       focus ||
       !!(

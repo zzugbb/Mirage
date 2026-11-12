@@ -1,3 +1,4 @@
+import type { RangeView, RangeViewCommand } from "../range-view";
 import type {
   InletInspection,
   InletViewCommand,
@@ -118,6 +119,8 @@ import { NetworkGeometry } from "../scene/network";
 export function ReviewScene({
   state,
   unitRange = null,
+  rangeViewCommand,
+  onRangeViewChange,
   isolatedPartId = null,
   sliceViewCommand,
   onSliceViewChange,
@@ -233,6 +236,8 @@ export function ReviewScene({
   onInspectSlice: (id: string) => void;
   state: AppState;
   unitRange?: RackUnitRange | null;
+  rangeViewCommand: RangeViewCommand | null;
+  onRangeViewChange: (side: RangeView | null) => void;
   isolatedPartId?: string | null;
   sliceControls: SliceControls;
   setSliceControls: Dispatch<SetStateAction<SliceControls>>;
@@ -302,6 +307,7 @@ export function ReviewScene({
     onPhase,
     onFeedback,
     onSliceViewChange,
+    onRangeViewChange,
     onPowerViewChange,
     onMaintenanceViewChange,
     onInletViewChange,
@@ -316,6 +322,7 @@ export function ReviewScene({
     onPhase,
     onFeedback,
     onSliceViewChange,
+    onRangeViewChange,
     onPowerViewChange,
     onMaintenanceViewChange,
     onInletViewChange,
@@ -677,6 +684,11 @@ export function ReviewScene({
         setView(active!.currentView);
       };
       callbacks.current.onNetworkViewChange(false);
+      active.onRangeView = (side) => {
+        callbacks.current.onRangeViewChange(side);
+        setView(active!.currentView);
+      };
+      callbacks.current.onRangeViewChange(null);
       active.onSliceView = (observing) => {
         callbacks.current.onSliceViewChange(observing);
         setView(active!.currentView);
@@ -738,6 +750,29 @@ export function ReviewScene({
       engine.current = null;
     };
   }, [retry]);
+  useEffect(() => {
+    engine.current?.clearRangeView();
+  }, [
+    unitRange?.rackId,
+    unitRange?.first,
+    unitRange?.last,
+    state.level,
+    state.deviceId,
+    selectedId,
+    layer,
+    shotRevision,
+    retry,
+  ]);
+  useEffect(() => {
+    const active = engine.current;
+    if (!active || !rangeViewCommand) return;
+    if (rangeViewCommand.action === "return") active.restoreRangeView();
+    else if (unitRange && layer === "overview") {
+      setOrbit(false);
+      active.observeRange(unitRange, rangeViewCommand.action);
+    }
+    setView(active.currentView);
+  }, [rangeViewCommand?.revision]);
   useEffect(() => {
     if (engine.current) engine.current.unitRange = unitRange;
   }, [unitRange, retry]);
@@ -810,6 +845,7 @@ export function ReviewScene({
       if (orbit) {
         engine.current.clearAirflowView();
         engine.current.clearSliceView();
+        engine.current.clearRangeView();
         engine.current.clearNetworkView();
         engine.current.clearPowerView();
         engine.current.clearInletView();
