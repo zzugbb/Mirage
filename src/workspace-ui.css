@@ -5153,3 +5153,42 @@
   margin-left: 6px;
   color: #a6b6c0;
 }
+
+.airflow-interval-review {
+  border-top: 1px solid var(--line);
+  padding-block: 14px;
+  font-size: 11px;
+  line-height: 1.6;
+}
+.airflow-interval-review summary {
+  cursor: pointer;
+}
+.airflow-interval-review ol {
+  list-style: none;
+  padding: 0;
+}
+.airflow-interval-review li {
+  border-left: 2px solid var(--line);
+  padding: 8px;
+  margin-block: 10px;
+}
+.airflow-interval-review li[aria-current="true"] {
+  border-color: #b7e8e8;
+}
+.airflow-interval-points {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-top: 8px;
+}
+.airflow-interval-points button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 8px;
+  text-align: left;
+}
+.airflow-interval-review small {
+  color: #a6b6c0;
+}

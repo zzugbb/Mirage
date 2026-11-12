@@ -1,3 +1,4 @@
+import { AirflowIntervalReview } from "./AirflowIntervalReview";
 import { useEffect, useMemo, useRef } from "react";
 import {
   airflowResponseHistory,
@@ -72,6 +73,14 @@ export function AirflowResponseAnalysis({
         </button>
       </div>
       <ReviewAnalysis
+        evidence={
+          <AirflowIntervalReview
+            key={`${target.id}:${cycle}`}
+            target={target}
+            time={time}
+            onSeek={onSeek}
+          />
+        }
         title="支路输入与进风"
         labels={{ temperature: "设备进风温度", power: "" }}
         histories={{ temperature: histories.temperature, power: [] }}
