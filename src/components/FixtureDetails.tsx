@@ -32,6 +32,7 @@ export function FixtureDetails({
   onInspectLeak,
   leakViewActive = false,
   onCompare,
+  onCompareRack,
   comparisonReady = false,
   onPreview,
   onLocate,
@@ -44,6 +45,7 @@ export function FixtureDetails({
   onInspectLeak?: () => void;
   leakViewActive?: boolean;
   onCompare?: (id: string) => void;
+  onCompareRack?: (id: string) => void;
   comparisonReady?: boolean;
   onPreview: (id: string) => void;
   onLocate: (id: string) => void;
@@ -209,6 +211,9 @@ export function FixtureDetails({
           <FixtureRelations
             title={grilleRow ? "对应柜排" : "布置关系"}
             relations={relations}
+            onCompare={isTray ? onCompareRack : undefined}
+            compareLabel="核对柜顶高差"
+            comparisonReady={comparisonReady}
             onPreview={onPreview}
             onLocate={onLocate}
           />
@@ -239,6 +244,7 @@ export function FixtureRelations({
   relations,
   title = "布置关系",
   onCompare,
+  compareLabel = "核对交叉高度",
   comparisonReady = false,
   onPreview,
   onLocate,
@@ -246,6 +252,7 @@ export function FixtureRelations({
   relations: { id: string; name: string; relation: string }[];
   title?: string;
   onCompare?: (id: string) => void;
+  compareLabel?: string;
   comparisonReady?: boolean;
   onPreview: (id: string) => void;
   onLocate: (id: string) => void;
@@ -275,10 +282,14 @@ export function FixtureRelations({
             <button
               className="fixture-compare"
               disabled={!comparisonReady}
-              aria-label={`核对与${relation.name}的交叉高度`}
+              aria-label={
+                compareLabel === "核对交叉高度"
+                  ? `核对与${relation.name}的交叉高度`
+                  : `${compareLabel} · ${relation.name}`
+              }
               onClick={() => onCompare(relation.id)}
             >
-              核对交叉高度 ↗
+              {compareLabel} ↗
             </button>
           )}
         </div>

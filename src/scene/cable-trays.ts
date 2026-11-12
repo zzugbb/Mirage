@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import definition from "../../assets/public/scenes/room-01.json" with { type: "json" };
-import { cableTraySettings as s } from "../cable-trays.ts";
+import { cableTraySettings as s, trayRungXs } from "../cable-trays.ts";
 
 type Piece = { size: number[]; position: number[] };
 /** 原创梯式桥架：两种材质各一个实例批次，不逐横档增加绘制调用。 */
@@ -22,11 +22,10 @@ export function buildCableTray(root: THREE.Group) {
         ],
       });
   }
-  const steps = Math.floor((s.length - s.rungSize[0]) / s.rungPitch);
-  for (let i = 0; i <= steps; i++)
+  for (const x of trayRungXs())
     tray.push({
       size: s.rungSize,
-      position: [(i - steps / 2) * s.rungPitch, 0, 0],
+      position: [x, 0, 0],
     });
   // 横托架承接连续侧梁，不依赖横档刚好落在吊点的 X 坐标。
   const supportY = s.railCenterY - s.railSize[1] / 2 - s.supportHeight / 2;

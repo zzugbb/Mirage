@@ -5,6 +5,17 @@ export const trayOuterWidth =
   cableTraySettings.railSpacing +
   cableTraySettings.railSize[0] +
   cableTraySettings.capOverhang * 2;
+/** 横档位置与实际生成模型共用，避免把空隙当成可核对表面。 */
+export function trayRungXs() {
+  const steps = Math.floor(
+    (cableTraySettings.length - cableTraySettings.rungSize[0]) /
+      cableTraySettings.rungPitch,
+  );
+  return Array.from(
+    { length: steps + 1 },
+    (_, i) => (i - steps / 2) * cableTraySettings.rungPitch,
+  );
+}
 export const trayRow = (id: string) =>
   cableTraySettings.rows.find((row) => row.fixtureId === id);
 /** 只有空间对应，不表示电气/网络连接或桥架服务范围。 */

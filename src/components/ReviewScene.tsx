@@ -1220,7 +1220,7 @@ export function ReviewScene({
       crossing &&
       (layer !== "overview" ||
         state.level !== "room" ||
-        ![crossing.light.id, crossing.tray.id].includes(selectedId))
+        ![crossing.upper.id, crossing.lower.id].includes(selectedId))
     )
       engine.current?.clearCrossingView();
   }, [crossing, layer, state.level, selectedId]);
@@ -1944,8 +1944,17 @@ export function ReviewScene({
             />
           )}
           {crossing && (
-            <div className="crossing-scene-key">
-              <strong>交叉高度核对</strong>
+            <div
+              className="crossing-scene-key"
+              onKeyDown={(event) => {
+                if (event.key === "Escape" && sceneSettled) {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  onReturnCrossing();
+                }
+              }}
+            >
+              <strong>{crossing.title}</strong>
               <span>
                 表面高差 {Math.abs(crossing.difference).toFixed(2)} m · 配置
               </span>

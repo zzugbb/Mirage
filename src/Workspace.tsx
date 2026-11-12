@@ -486,7 +486,22 @@ export function Workspace() {
   const [crossing, setCrossing] = useState<FixtureCrossing | null>(null);
   const [crossingCommand, setCrossingCommand] =
     useState<CrossingViewCommand | null>(null);
+  const crossingEntry = useRef<{ element: HTMLElement; scroll: number } | null>(
+    null,
+  );
+  const crossingReturning = useRef(false);
+  const crossingInspectPending = useRef(false);
   const requestCrossing = (pair: FixtureCrossing | null) => {
+    if (pair && !crossing) {
+      const element = document.activeElement as HTMLElement;
+      crossingEntry.current = {
+        element,
+        scroll:
+          element.closest<HTMLElement>(".study-inspector")?.scrollTop ?? 0,
+      };
+    }
+    if (!pair) crossingReturning.current = true;
+    crossingInspectPending.current = !!pair;
     takeover();
     setCrossingCommand((current) => ({
       pair,
@@ -869,6 +884,37 @@ export function Workspace() {
     networkMapLink,
     networkMapSelection,
   ]);
+  useEffect(() => {
+    if (!crossingInspectPending.current || !crossing || !ready) return;
+    const details = document.querySelector<HTMLElement>(".crossing-details");
+    if (!details) return;
+    const panel = details.closest<HTMLElement>(".study-inspector");
+    if (panel) {
+      const heading = panel.querySelector<HTMLElement>(".study-panel-heading");
+      panel.scrollTop +=
+        details.getBoundingClientRect().top -
+        panel.getBoundingClientRect().top -
+        (heading?.getBoundingClientRect().height ?? 0) -
+        12;
+    }
+    details.focus({ preventScroll: true });
+    crossingInspectPending.current = false;
+  }, [crossing, ready]);
+  useEffect(() => {
+    if (!crossingReturning.current || crossing || !ready) return;
+    crossingReturning.current = false;
+    const entry = crossingEntry.current?.element;
+    if (entry?.isConnected && entry.getClientRects().length) {
+      entry.focus({ preventScroll: true });
+      const panel = entry.closest<HTMLElement>(".study-inspector");
+      if (panel) panel.scrollTop = crossingEntry.current!.scroll;
+    } else
+      document
+        .querySelector<HTMLElement>(
+          ".review-camera select, .review-camera button",
+        )
+        ?.focus();
+  }, [crossing, ready]);
   const unitQuery = useMemo(
     () =>
       rackUnitQuery({ level: state.level, deviceId: state.deviceId }, query),
@@ -3224,24 +3270,40 @@ export function Workspace() {
               />
             )}
             {crossing && (
-              <section className="crossing-details" aria-label="交叉高度核对">
-                <strong>交叉高度核对 · 配置</strong>
+              <section
+                className="crossing-details"
+                aria-label={crossing.title}
+                tabIndex={-1}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape" && ready) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    requestCrossing(null);
+                  }
+                }}
+              >
+                <strong>{crossing.title} · 配置</strong>
                 <div>
-                  <button onClick={() => pick(crossing.light.id)}>
-                    ① {crossing.light.name}
+                  <button onClick={() => pick(crossing.upper.id)}>
+                    ① {crossing.upper.name}
                   </button>
-                  <span>灯罩底面 {crossing.points[0].y.toFixed(3)} m</span>
+                  <span>
+                    {crossing.upper.surface} {crossing.points[0].y.toFixed(3)} m
+                  </span>
                 </div>
                 <div>
-                  <button onClick={() => pick(crossing.tray.id)}>
-                    ② {crossing.tray.name}
+                  <button onClick={() => pick(crossing.lower.id)}>
+                    ② {crossing.lower.name}
                   </button>
-                  <span>侧梁顶面 {crossing.points[1].y.toFixed(3)} m</span>
+                  <span>
+                    {crossing.lower.surface} {crossing.points[1].y.toFixed(3)} m
+                  </span>
                 </div>
                 <p>
-                  灯罩底面比侧梁顶面{crossing.difference >= 0 ? "高" : "低"}{" "}
-                  <b>{Math.abs(crossing.difference).toFixed(2)} m</b>
-                  。仅比较交叉处两种配置表面，不含吊杆、横档及附件的最小净距，不作施工或安全判断。
+                  {crossing.upper.surface}比{crossing.lower.surface}
+                  {crossing.difference >= 0 ? "高" : "低"}{" "}
+                  <b>{Math.abs(crossing.difference).toFixed(2)} m</b>。
+                  {crossing.boundary}
                 </p>
                 <button disabled={!ready} onClick={() => requestCrossing(null)}>
                   ← 返回核对前视角
@@ -3504,6 +3566,12 @@ export function Workspace() {
                       )
                     }
                     comparisonReady={ready}
+                    onCompareRack={
+                      layer === "overview" && state.level === "room"
+                        ? (peer) =>
+                            requestCrossing(fixtureCrossing(fixture.id, peer))
+                        : undefined
+                    }
                     onCompare={
                       layer === "overview" && state.level === "room"
                         ? (peer) =>
@@ -3834,6 +3902,14 @@ export function Workspace() {
                       <FixtureRelations
                         title="上方桥架"
                         relations={rackTrayRelations(selected)}
+                        onCompare={
+                          state.level === "room"
+                            ? (peer) =>
+                                requestCrossing(fixtureCrossing(selected, peer))
+                            : undefined
+                        }
+                        compareLabel="核对柜顶高差"
+                        comparisonReady={ready}
                         onPreview={pick}
                         onLocate={focus}
                       />

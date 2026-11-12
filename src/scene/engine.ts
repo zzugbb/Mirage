@@ -2342,8 +2342,8 @@ export class SceneEngine {
             ? this.models.fixtures.get(leakDetection.controllerId)
             : this.crossingObservation
               ? [
-                  this.crossingObservation.pair.light.id,
-                  this.crossingObservation.pair.tray.id,
+                  this.crossingObservation.pair.upper.id,
+                  this.crossingObservation.pair.lower.id,
                 ].flatMap((id) => {
                   const object =
                     this.models.fixtures.get(id) ??
