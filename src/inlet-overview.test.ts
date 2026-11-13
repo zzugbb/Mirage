@@ -113,7 +113,7 @@ test("从机房对照进入四种整机，展开后经就绪信号归位返回�
       action: { type: "seek", time: 30 },
     });
     const returning = reviewTransition(state, {
-      type: "room-airflow",
+      type: "room-inlet",
       id: device.id,
     });
     assert.equal(returning.scene.level, "rack");
@@ -129,6 +129,7 @@ test("从机房对照进入四种整机，展开后经就绪信号归位返回�
       key: presentationKey(returning.scene),
     });
     assert.equal(room.scene.level, "room");
+    assert.equal(room.layer, "environment");
     assert.equal(room.selectedId, device.id);
     assert.equal(room.scene.time, 30);
     assert.equal(room.scene.trayExtended, false);

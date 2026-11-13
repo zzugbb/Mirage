@@ -1,6 +1,5 @@
 import type { AirflowRoute, FlowEndpoint } from "./airflow.ts";
 import type { AppState } from "./domain.ts";
-import type { SliceControls } from "./temperature-slice.ts";
 import { grilleRowForRack } from "./floor-grilles.ts";
 
 export function airflowEndpointObject(
@@ -32,23 +31,13 @@ export type AirflowInspection = {
   analysis: boolean;
 };
 
-/** 回看与播放不改变核对范围；定位、切片、图层和演示预设会结束往返。 */
+/** 回看与播放不改变核对范围；定位、图层和演示预设会结束往返。 */
 export function airflowInspectionContext(
   state: Pick<AppState, "level" | "focusRevision">,
   layer: string,
-  slice: SliceControls,
   revision: number,
 ) {
-  return JSON.stringify([
-    state.level,
-    state.focusRevision,
-    layer,
-    revision,
-    slice.orientation,
-    slice.height,
-    slice.rowId,
-    slice.distance,
-  ]);
+  return JSON.stringify([state.level, state.focusRevision, layer, revision]);
 }
 
 export function activeAirflowInspection(

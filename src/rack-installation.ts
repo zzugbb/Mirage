@@ -75,7 +75,7 @@ export function installationMetric(
   reading: SpatialReading | undefined,
   layer: ReviewLayer,
 ) {
-  if (layer === "overview") return null;
+  if (layer === "overview" || layer === "airflow") return null;
   if (!reading) return { text: "未配置", detail: "未配置设备观测" };
   if (layer === "alarms")
     return {

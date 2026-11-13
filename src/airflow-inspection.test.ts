@@ -9,7 +9,6 @@ import {
 import { airflowSnapshot } from "./airflow.ts";
 import { devices } from "./installation.ts";
 import { spatialSnapshot } from "./spatial.ts";
-import { initialSliceControls } from "./temperature-slice.ts";
 import { createWorkspace, reviewTransition } from "./review-model.ts";
 import { entityById } from "./domain.ts";
 
@@ -30,12 +29,7 @@ test("全部设备气流端点只关联既有制冷单元、格栅排和本机�
 
 test("连续端点预览保持首次对象与面板状态，同一设备支路随回看更新且过期仍静态", () => {
   const state = createWorkspace(true).scene;
-  const context = airflowInspectionContext(
-    state,
-    "environment",
-    initialSliceControls(),
-    0,
-  );
+  const context = airflowInspectionContext(state, "airflow", 0);
   for (const deviceId of ["srv-27", "srv-59"]) {
     const route = airflowSnapshot(60, spatialSnapshot(60).readings, deviceId)
       .routes[0];
@@ -86,27 +80,12 @@ test("连续端点预览保持首次对象与面板状态，同一设备支路�
   }
 });
 
-test("切片、定位、图层与预设结束核对，时间和分析切换不结束；垂直切片沿当前排开始", () => {
+test("独立气流按显式设备固定支路，回看保留端点核对；定位、图层和预设结束核对", () => {
   const workspace = createWorkspace(true);
-  const slice = {
-    ...initialSliceControls(),
-    orientation: "vertical" as const,
-    rowId: "row-b",
-  };
-  const context = airflowInspectionContext(
-    workspace.scene,
-    "environment",
-    slice,
-    0,
-  );
-  const route = airflowSnapshot(
-    60,
-    spatialSnapshot(60).readings,
-    "srv-01",
-    "srv-01",
-    slice.rowId,
-  ).routes[0];
-  assert.notEqual(route.deviceId, "srv-01");
+  const context = airflowInspectionContext(workspace.scene, "airflow", 0);
+  const route = airflowSnapshot(60, spatialSnapshot(60).readings, "srv-01")
+    .routes[0];
+  assert.equal(route.deviceId, "srv-01");
   const visit = beginAirflowInspection(null, route, route.sourceId, {
     originId: "srv-01",
     context,
@@ -114,56 +93,25 @@ test("切片、定位、图层与预设结束核对，时间和分析切换不�
     inspector: true,
     analysis: false,
   })!;
-  assert.equal(visit.deviceId, route.deviceId);
-  assert.equal(visit.originId, "srv-01");
   let review = reviewTransition(workspace, {
     type: "scene",
     action: { type: "seek", time: 120 },
   });
   review = reviewTransition(review, { type: "analysis", value: true });
-  assert.equal(
-    airflowInspectionContext(review.scene, "environment", slice, 0),
-    context,
-  );
+  assert.equal(airflowInspectionContext(review.scene, "airflow", 0), context);
   for (const changed of [
     airflowInspectionContext(
       { ...workspace.scene, focusRevision: 1 },
-      "environment",
-      slice,
+      "airflow",
       0,
     ),
     airflowInspectionContext(
       { ...workspace.scene, level: "rack" },
-      "environment",
-      slice,
+      "airflow",
       0,
     ),
-    airflowInspectionContext(workspace.scene, "overview", slice, 0),
-    airflowInspectionContext(workspace.scene, "environment", slice, 1),
-    airflowInspectionContext(
-      workspace.scene,
-      "environment",
-      { ...slice, rowId: "row-a" },
-      0,
-    ),
-    airflowInspectionContext(
-      workspace.scene,
-      "environment",
-      { ...slice, distance: 0.8 },
-      0,
-    ),
-    airflowInspectionContext(
-      workspace.scene,
-      "environment",
-      { ...slice, orientation: "horizontal" },
-      0,
-    ),
-    airflowInspectionContext(
-      workspace.scene,
-      "environment",
-      { ...slice, height: 0.8 },
-      0,
-    ),
+    airflowInspectionContext(workspace.scene, "environment", 0),
+    airflowInspectionContext(workspace.scene, "airflow", 1),
   ])
     assert.equal(activeAirflowInspection(visit, visit.targetId, changed), null);
   assert.equal(activeAirflowInspection(visit, "room-01", context), null);

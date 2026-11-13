@@ -17,6 +17,12 @@ export function sceneLabels<T extends { id: string }>(
   },
 ): T[] {
   const { level, layer, selectedId, more, estimates } = options;
+  // 气流由端点说明读数，仅补当前对象身份，不误用功耗或整柜温度。
+  if (layer === "airflow")
+    return candidates.filter(
+      (item) =>
+        item.id === selectedId && !options.annotatedIds?.includes(item.id),
+    );
   const selected = (item: T) => item.id === selectedId;
   const value = (item: T) => {
     const reading = readings.get(item.id);

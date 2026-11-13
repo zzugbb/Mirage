@@ -239,7 +239,7 @@ test("机柜及设备气流均使用显式目标，水平切片保留高度，�
     const room = reviewTransition(state, { type: "room-airflow", id });
     assert.equal(room.scene.level, "room");
     assert.equal(room.scene.selected, id);
-    assert.equal(room.layer, "environment");
+    assert.equal(room.layer, "airflow");
     const target = roomAirflowTarget(id, state.scene.deviceId)!;
     const horizontal = { ...initialSliceControls(), height: 0.75 };
     assert.equal(alignAirflowSlice(horizontal, target.rowId), horizontal);

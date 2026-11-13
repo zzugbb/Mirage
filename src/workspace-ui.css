@@ -3037,9 +3037,6 @@
   background: #416069;
   border-color: #91b8bb;
 }
-.airflow-view-actions .airflow-view-return {
-  grid-column: 1 / -1;
-}
 
 .airflow-endpoint-actions {
   display: flex;
@@ -3838,52 +3835,6 @@
   padding-inline: 0;
 }
 
-.airflow-stage-reading {
-  display: grid;
-  gap: 6px;
-  margin: 10px 0;
-  padding: 10px;
-  border-left: 2px solid #93c5cc;
-  background: #9dc5ce0c;
-  font-size: 11px;
-}
-.airflow-stage-reading > span {
-  line-height: 1.6;
-  color: #c0d7dc;
-}
-.airflow-stage-reading > small {
-  color: #9fb5bf;
-}
-.workspace-ui .airflow-stage-reading label {
-  justify-content: flex-start;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  margin-top: 4px;
-  cursor: pointer;
-}
-.workspace-ui .airflow-stage-reading input {
-  width: auto;
-  margin: 0;
-  accent-color: #a5d3d3;
-}
-
-.workspace-ui .airflow-observation-heading {
-  display: grid;
-  gap: 6px;
-  margin-bottom: 10px;
-  font-size: 11px;
-}
-.airflow-observation-heading small {
-  color: #9fb5bf;
-  font-size: 10px;
-}
-.workspace-ui
-  .review-legend[data-flow-observation="true"][data-slice-visible="false"]
-  .temperature-disclosure-body {
-  max-height: min(510px, calc(100dvh - 300px));
-}
-
 .pdu-outlets {
   scroll-margin-top: 76px;
   margin-top: 14px;
@@ -4348,8 +4299,7 @@
   padding: 0;
 }
 .workspace-ui .temperature-tools .slice-device-context,
-.workspace-ui .temperature-tools .environment-disclosure,
-.workspace-ui .temperature-tools .review-flow-explanation {
+.workspace-ui .temperature-tools .environment-disclosure {
   margin: 0;
   padding-top: 0;
   border-top: 0;
@@ -4361,31 +4311,8 @@
   padding-inline: 0;
 }
 
-/* 观察操作不随补充说明折叠；端点和边界各自按需查阅。 */
-.workspace-ui .airflow-observation-controls .airflow-view-actions {
-  margin: 0;
-}
-.workspace-ui .airflow-observation-controls .airflow-stage-reading {
-  margin: 8px 0 0;
-  padding: 8px;
-  gap: 4px;
-}
-.workspace-ui .airflow-stage-reading p {
-  margin: 0;
-  font-size: 10px;
-  line-height: 1.6;
-}
-.workspace-ui .review-flow-explanation > .temperature-disclosure-body {
-  max-height: none;
-  overflow: visible;
-}
-.workspace-ui .airflow-endpoints,
 .workspace-ui .airflow-boundary {
   margin-top: 10px;
-}
-.workspace-ui .review-legend .airflow-endpoints > .temperature-disclosure-body,
-.workspace-ui .review-legend .airflow-boundary > .temperature-disclosure-body {
-  max-height: clamp(100px, calc(100dvh - 570px), 220px);
 }
 
 .fixture-relations .fixture-compare {
@@ -5298,4 +5225,43 @@
   cursor: pointer;
   color: #b1d2d7;
   padding: 6px 0;
+}
+
+/* 气流操作独立于温度工具；长解释与端点清单留在对象详情。 */
+.workspace-ui .airflow-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  font-size: 11px;
+}
+.workspace-ui .airflow-panel > strong {
+  color: #d5e9e9;
+}
+.workspace-ui .airflow-panel > small,
+.workspace-ui .airflow-direction {
+  color: #a8c0c6;
+  line-height: 1.5;
+}
+.workspace-ui .airflow-panel .airflow-view-actions {
+  margin: 0;
+}
+.workspace-ui .airflow-panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.workspace-ui .airflow-panel label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.workspace-ui .airflow-panel + .review-slice-heading {
+  margin-top: 12px;
+}
+.workspace-ui .airflow-details .review-flow-explanation {
+  border: 0;
+  padding: 0;
+}
+.workspace-ui .airflow-details .airflow-endpoint-actions {
+  flex-wrap: wrap;
 }

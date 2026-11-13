@@ -30,7 +30,8 @@ import { networkEndpoints } from "./network.ts";
 
 type EndpointTarget = { deviceId: string; partId: string };
 
-export type ReviewLayer = "overview" | "environment" | "power" | "alarms";
+export type ReviewLayer =
+  "overview" | "environment" | "airflow" | "power" | "alarms";
 export type ReviewShot = "overview" | "environment" | "assembly" | "time";
 export type ReviewState = {
   scene: AppState;
@@ -48,6 +49,11 @@ export const reviewLayers = [
     id: "environment",
     name: "温度",
     description: "设备进风温度；部件为模型温度",
+  },
+  {
+    id: "airflow",
+    name: "气流",
+    description: "代表送回风路径、端点与输入对照",
   },
   { id: "power", name: "功耗", description: "设备输入功耗与预算占比" },
   {
@@ -84,7 +90,7 @@ export type ReviewAction =
   | { type: "shot"; shot: ReviewShot }
   | { type: "analysis"; value: boolean }
   | { type: "navigation-ready"; key: string }
-  | { type: "room-airflow"; id: string }
+  | { type: "room-airflow" | "room-inlet"; id: string }
   | { type: "return-analysis-scope"; id: string; level: "room" | "rack" }
   | { type: "return-input-scope"; id: string; level: "room" | "rack" }
   | { type: "inspect-network-endpoint"; linkId: string; deviceId: string }
@@ -300,10 +306,13 @@ function reviewInteractionTransition(
           : next.scene,
     };
   }
-  if (action.type === "room-airflow") {
+  if (action.type === "room-airflow" || action.type === "room-inlet") {
     const target = roomAirflowTarget(action.id, state.scene.deviceId);
     if (!target || state.pendingId) return state;
-    const thermal: ReviewState = { ...state, layer: "environment" };
+    const thermal: ReviewState = {
+      ...state,
+      layer: action.type === "room-airflow" ? "airflow" : "environment",
+    };
     if (state.scene.level === "room")
       return reviewInteractionTransition(thermal, {
         type: "pick",
@@ -624,6 +633,13 @@ export function reviewPresentation(
       description: detail
         ? "部件为模型表面温度，机箱采用整机进风温度。"
         : "色条对应设备 U 位与进风温度；机柜标签取有效设备最高进风值。",
+    };
+  if (layer === "airflow")
+    return {
+      mode: "status" as const,
+      title: "代表气流 · 配置示意",
+      description:
+        "送风、格栅、设备进风与回风假设；端点沿用已有冷却输入和进风模拟值，不表示实测风量或风速。",
     };
   if (layer === "power")
     return {

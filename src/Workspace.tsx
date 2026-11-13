@@ -1,3 +1,6 @@
+import type { AirflowView } from "./airflow-view";
+import { airflowSnapshot, type AirflowRoute } from "./airflow";
+import { AirflowDetails } from "./components/AirflowDetails";
 import { SlicePlaneDetails } from "./components/SlicePlaneDetails";
 import { rangeSegments } from "./range-segments";
 import { RangeSegments } from "./components/RangeSegments";
@@ -356,12 +359,7 @@ export function Workspace() {
   const [airflowVisit, setAirflowVisit] = useState<AirflowInspection | null>(
     null,
   );
-  const airflowContext = airflowInspectionContext(
-    state,
-    layer,
-    sliceControls,
-    revision,
-  );
+  const airflowContext = airflowInspectionContext(state, layer, revision);
   const activeAirflowVisit = activeAirflowInspection(
     airflowVisit,
     selected,
@@ -729,6 +727,30 @@ export function Workspace() {
     () => spatialSnapshot(state.time, state.replayCycle, state.deviceId),
     [state.time, state.replayCycle, state.deviceId],
   );
+  const airflow = useMemo(
+    () =>
+      layer === "airflow" && state.level === "room"
+        ? airflowSnapshot(
+            state.time,
+            spatial.readings,
+            activeAirflowVisit?.deviceId ?? selected,
+            state.deviceId,
+          )
+        : null,
+    [
+      layer,
+      state.level,
+      state.time,
+      state.deviceId,
+      spatial.readings,
+      activeAirflowVisit?.deviceId,
+      selected,
+    ],
+  );
+  const [airflowStageView, setAirflowStageView] = useState<AirflowView | null>(
+    null,
+  );
+  const [airflowExplanation, setAirflowExplanation] = useState(0);
   const reading = selectedReading({ ...state, selected }, spatial.readings);
   const room = spatial.readings.get("room-01")!;
   const resource = resourceCatalog(state.deviceId).find(
@@ -1176,7 +1198,6 @@ export function Workspace() {
     setAirflowVisit(null);
     if (review.analysis && state.playing)
       dispatch({ type: "seek", time: state.time });
-    setSliceControls((current) => alignAirflowSlice(current, target.rowId));
     control({ type: "room-airflow", id: target.id });
     if (state.level !== "room") {
       setQuery("");
@@ -1595,7 +1616,7 @@ export function Workspace() {
     setInletRestoreRevision((value) => value + 1);
     setRackView("inlet");
     setSliceControls(inletPair?.slice ?? inletSlice.current);
-    control({ type: "room-airflow", id: inletPair?.firstId ?? inletSelection });
+    control({ type: "room-inlet", id: inletPair?.firstId ?? inletSelection });
     if (inletPair) {
       setInletSelection(inletPair.firstId);
       setInletPair(null);
@@ -1760,6 +1781,32 @@ export function Workspace() {
       query: "",
     });
   };
+  const previewAirflowEndpoint = (route: AirflowRoute, id: string) => {
+    const visit = beginAirflowInspection(activeAirflowVisit, route, id, {
+      originId: selected,
+      context: airflowContext,
+      nav,
+      inspector,
+      analysis: review.analysis,
+    });
+    if (!visit) return;
+    pick(id);
+    setAirflowVisit(visit);
+  };
+  const locateAirflowEndpoint = (id: string) =>
+    focus(id, { installation: entityById(id)?.kind === "device" });
+  const airflowInspector = airflow && (
+    <AirflowDetails
+      view={airflowStageView}
+      snapshot={airflow}
+      selected={selected}
+      ready={ready}
+      compact={review.analysis}
+      focusRevision={airflowExplanation}
+      onPreview={previewAirflowEndpoint}
+      onLocate={locateAirflowEndpoint}
+    />
+  );
   const slicePlaneInspector = slicePlaneActive &&
     sliceControls.orientation === "vertical" && (
       <SlicePlaneDetails
@@ -2587,6 +2634,15 @@ export function Workspace() {
             layer={layer}
             readings={spatial.readings}
             selectedId={selected}
+            airflow={airflow}
+            onAirflowViewChange={setAirflowStageView}
+            onExplainAirflow={() => {
+              takeover();
+              control({ type: "analysis", value: false });
+              setInspector(true);
+              if (matchMedia("(max-width: 1099px)").matches) setNav(false);
+              setAirflowExplanation((value) => value + 1);
+            }}
             airflowVisit={activeAirflowVisit}
             airflowResponseActive={!!activeAirflowResponse}
             onCompareAirflow={(route, preserveView) => {
@@ -2605,23 +2661,6 @@ export function Workspace() {
               setInspector(true);
               if (matchMedia("(max-width: 1099px)").matches) setNav(false);
             }}
-            onPreviewAirflowEndpoint={(route, id) => {
-              const visit = beginAirflowInspection(
-                activeAirflowVisit,
-                route,
-                id,
-                {
-                  originId: selected,
-                  context: airflowContext,
-                  nav,
-                  inspector,
-                  analysis: review.analysis,
-                },
-              );
-              if (!visit) return;
-              pick(id);
-              setAirflowVisit(visit);
-            }}
             onReturnAirflowEndpoint={() => {
               if (!activeAirflowVisit) return;
               pick(activeAirflowVisit.originId);
@@ -2629,11 +2668,6 @@ export function Workspace() {
               setInspector(activeAirflowVisit.inspector);
               control({ type: "analysis", value: activeAirflowVisit.analysis });
             }}
-            onLocateAirflowEndpoint={(id) =>
-              focus(id, {
-                installation: entityById(id)?.kind === "device",
-              })
-            }
             aisle={aisle}
             networkLinkId={activeNetworkLink}
             powerViewCommand={powerViewCommand}
@@ -2692,6 +2726,7 @@ export function Workspace() {
                   }
                 : null
             }
+            onShowRoomAirflow={() => showAirflow(state.deviceId)}
             onInspectBudget={
               availableSourceMetrics.includes("power")
                 ? () => {
@@ -3357,6 +3392,7 @@ export function Workspace() {
                     }
                   />
                 </div>
+                {airflowInspector}
                 {slicePlaneInspector}
                 {sliceInspector}
                 {(fixture || pairedInlet) && sourceInspector}
@@ -3529,6 +3565,7 @@ export function Workspace() {
               </>
             ) : (
               <>
+                {airflowInspector}
                 {slicePlaneInspector}
                 {sliceInspector}
                 {!!reading?.alarm && !component && (
@@ -3677,7 +3714,7 @@ export function Workspace() {
                       readings={spatial.readings}
                       ready={ready}
                       airflowVisible={
-                        layer === "environment" && state.level === "room"
+                        layer === "airflow" && state.level === "room"
                       }
                       onSelect={(id) =>
                         coolingVisit && id === coolingSource.id
@@ -3941,7 +3978,9 @@ export function Workspace() {
                         onLocate={focus}
                       />
                     )}
-                    {(layer === "overview" || layer === "environment") &&
+                    {(layer === "overview" ||
+                      layer === "environment" ||
+                      layer === "airflow") &&
                       entity.kind === "rack" && (
                         <FixtureRelations
                           title="柜前送风格栅"
@@ -3950,7 +3989,7 @@ export function Workspace() {
                           onLocate={focus}
                         />
                       )}
-                    {layer === "environment" && (
+                    {(layer === "environment" || layer === "airflow") && (
                       <CoolingConnections
                         range={coolingRangeBrowser}
                         rangeOpen={coolingRangeOpen}
@@ -3962,7 +4001,7 @@ export function Workspace() {
                         readings={spatial.readings}
                         ready={ready}
                         airflowVisible={
-                          layer === "environment" && state.level === "room"
+                          layer === "airflow" && state.level === "room"
                         }
                         onSelect={(id) =>
                           coolingVisit && id === coolingSource.id

@@ -1,3 +1,5 @@
+import { AirflowPanel } from "./AirflowPanel";
+import { useAirflowWorkspace } from "../use-airflow-workspace";
 import type { RangeView, RangeViewCommand } from "../range-view";
 import type {
   InletInspection,
@@ -61,13 +63,9 @@ import {
 } from "../environment-monitoring";
 import { EnvironmentProbeList } from "./EnvironmentDetails";
 import type { RackUnitRange } from "../rack-space";
-import {
-  airflowEndpointObject,
-  type AirflowInspection,
-} from "../airflow-inspection";
+import { type AirflowInspection } from "../airflow-inspection";
 import { pduInspectionScene, type PduInspection } from "../pdu-outlets";
 import { airflowStage } from "../airflow-stage";
-import { airflowViews, type AirflowView } from "../airflow-view";
 import { ModelLoadNotice } from "./ModelLoadNotice";
 import { initialModelLoads, type ModelAssetId } from "../model-loading";
 import { TemperatureDisclosure } from "./TemperatureDisclosure";
@@ -76,7 +74,7 @@ import { SliceInputPreview } from "./SliceInputPreview";
 import { fixtureById, roomFacilityById } from "../fixtures";
 import type { Dispatch, SetStateAction, ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { entityById, type AppState } from "../domain";
+import { type AppState } from "../domain";
 import type { PresentationPhase, SceneFeedback } from "../mechanics";
 import { SceneEngine } from "../scene/engine";
 import type { View } from "../scene/engine";
@@ -98,7 +96,7 @@ import {
 import type { SliceOrientation, SliceControls } from "../temperature-slice";
 import { TemperatureSliceGeometry } from "../scene/temperature-slice";
 import {
-  airflowSnapshot,
+  type AirflowSnapshot,
   airflowVisualTime,
   type AirflowRoute,
 } from "../airflow";
@@ -129,17 +127,19 @@ export function ReviewScene({
   sliceInspection,
   onInspectSlice,
   onInspectBudget,
-  sliceControls,
-  setSliceControls,
+  sliceControls: temperatureSliceControls,
+  setSliceControls: setTemperatureSliceControls,
   layer,
   readings,
   selectedId,
+  airflow,
+  onExplainAirflow,
+  onAirflowViewChange,
+  onShowRoomAirflow,
   airflowVisit,
   airflowResponseActive,
   onCompareAirflow,
-  onPreviewAirflowEndpoint,
   onReturnAirflowEndpoint,
-  onLocateAirflowEndpoint,
   aisle,
   networkLinkId = null,
   inletPair,
@@ -249,11 +249,15 @@ export function ReviewScene({
   readings: Map<string, SpatialReading>;
   selectedId: string;
   airflowVisit: AirflowInspection | null;
+  airflow: AirflowSnapshot | null;
+  onExplainAirflow: () => void;
+  onAirflowViewChange: (
+    view: import("../airflow-view").AirflowView | null,
+  ) => void;
+  onShowRoomAirflow: () => void;
   airflowResponseActive: boolean;
   onCompareAirflow: (route: AirflowRoute, preserveView: () => void) => void;
-  onPreviewAirflowEndpoint: (route: AirflowRoute, id: string) => void;
   onReturnAirflowEndpoint: () => void;
-  onLocateAirflowEndpoint: (id: string) => void;
   aisle?: MaintenanceAisle;
   networkLinkId?: string | null;
   powerLinkId?: string | null;
@@ -310,6 +314,7 @@ export function ReviewScene({
     onSelect,
     onPhase,
     onFeedback,
+    onAirflowViewChange,
     onSlicePlaneChange,
     onSliceViewChange,
     onRangeViewChange,
@@ -326,6 +331,7 @@ export function ReviewScene({
     onSelect,
     onPhase,
     onFeedback,
+    onAirflowViewChange,
     onSlicePlaneChange,
     onSliceViewChange,
     onRangeViewChange,
@@ -376,28 +382,7 @@ export function ReviewScene({
     frame = requestAnimationFrame(restoreFocus);
     return () => cancelAnimationFrame(frame);
   }, [slicePlaneActive]);
-  const [flowView, setFlowView] = useState<AirflowView | null>(null);
-  const latestFlowView = useRef(flowView);
-  latestFlowView.current = flowView;
-  const [flowSlice, setFlowSlice] = useState(false);
   const temperatureTools = useRef<HTMLDetailsElement>(null);
-  const flowControlsRef = useRef<HTMLDivElement>(null);
-  const flowFocus = useRef<"observation" | "entry" | null>(null);
-  useEffect(() => {
-    if (flowFocus.current === "observation" && flowView) {
-      flowControlsRef.current
-        ?.querySelector<HTMLButtonElement>("[aria-pressed='true']")
-        ?.focus({ preventScroll: true });
-    } else if (flowFocus.current === "entry" && !flowView) {
-      temperatureTools.current
-        ?.querySelector<HTMLElement>(".review-flow-explanation > summary")
-        ?.focus({ preventScroll: true });
-    }
-    flowFocus.current = null;
-  }, [flowView]);
-
-  const stage = airflowStage(flowView);
-  const sliceVisible = !inletView && (!flowView || flowSlice);
   const inletSnapshot = inletView
     ? inletPairSnapshot(
         inletView.pair.firstId,
@@ -411,6 +396,33 @@ export function ReviewScene({
   const [orbit, setOrbit] = useState(false);
   const [cutaway, setCutaway] = useState(true);
   const [moreLabels, setMoreLabels] = useState(false);
+  const airflowWorkspace = useAirflowWorkspace({
+    engine,
+    scope: `${layer}:${state.level}:${shotRevision}:${retry}`,
+    resetKey: `${shotRevision}:${retry}`,
+    onTakeover,
+    onView: setView,
+    onStopOrbit: () => setOrbit(false),
+  });
+  const flowView = airflowWorkspace.view;
+  const stage = airflowStage(flowView);
+  const sliceControls =
+    layer === "airflow"
+      ? {
+          ...airflowWorkspace.sliceControls,
+          rowId:
+            sliceRackRows.find((row) =>
+              row.rackIds.includes(airflow?.routes[0]?.rackId ?? ""),
+            )?.id ?? airflowWorkspace.sliceControls.rowId,
+        }
+      : temperatureSliceControls;
+  const setSliceControls =
+    layer === "airflow"
+      ? airflowWorkspace.setSliceControls
+      : setTemperatureSliceControls;
+  const sliceVisible =
+    !inletView && (layer !== "airflow" || airflowWorkspace.sliceEnabled);
+
   const ambient =
     layer === "environment" && state.level === "room"
       ? environmentObservation(selectedId, state.time)
@@ -426,7 +438,10 @@ export function ReviewScene({
       : [];
   const slice = useMemo(
     () =>
-      layer === "environment" && state.level === "room" && !ambientSelected
+      (layer === "environment" ||
+        (layer === "airflow" && airflowWorkspace.sliceEnabled)) &&
+      state.level === "room" &&
+      !ambientSelected
         ? sliceControls.orientation === "horizontal"
           ? temperatureSlice(readings, sliceControls.height)
           : verticalTemperatureSlice(
@@ -435,7 +450,14 @@ export function ReviewScene({
               sliceControls.distance,
             )
         : null,
-    [readings, sliceControls, layer, state.level, ambientSelected],
+    [
+      readings,
+      sliceControls,
+      layer,
+      state.level,
+      ambientSelected,
+      airflowWorkspace.sliceEnabled,
+    ],
   );
   const sliceRow = sliceRackRows.find((row) => row.id === slice?.rowId);
   const supplyBase = useMemo(
@@ -516,48 +538,17 @@ export function ReviewScene({
       });
     return labels;
   }, [maintenance, comparison]);
-  const airflow = useMemo(
-    () =>
-      layer === "environment" && state.level === "room" && !ambientSelected
-        ? airflowSnapshot(
-            state.time,
-            readings,
-            airflowVisit?.deviceId ?? selectedId,
-            state.deviceId,
-            slice?.rowId,
-          )
-        : null,
-    [
-      layer,
-      state.level,
-      state.time,
-      state.deviceId,
-      readings,
-      selectedId,
-      airflowVisit?.deviceId,
-      ambientSelected,
-      slice?.rowId,
-    ],
-  );
-  const visibleAirflow =
-    sliceInspection || inletView || slicePlaneActive ? null : airflow;
+  const visibleAirflow = airflow;
   const airflowResponseControl = visibleAirflow?.routes[0] && (
     <button
       data-airflow-response-entry
       disabled={!sceneSettled || airflowResponseActive}
       onClick={() => {
-        const toolsOpen = temperatureTools.current?.open ?? false;
         const preserve = () => {
-          // 近景由分段观察适配新画幅；普通浏览只保留当前镜头。
-          if (!latestFlowView.current) engine.current?.preservePanelView();
+          if (!flowView) engine.current?.preservePanelView();
         };
         preserve();
-        if (temperatureTools.current) temperatureTools.current.open = false;
-        onCompareAirflow(visibleAirflow.routes[0], () => {
-          preserve();
-          if (temperatureTools.current)
-            temperatureTools.current.open = toolsOpen;
-        });
+        onCompareAirflow(visibleAirflow.routes[0], preserve);
       }}
     >
       {airflowResponseActive ? "正在对照输入与进风" : "对照输入与进风 ↗"}
@@ -740,12 +731,12 @@ export function ReviewScene({
       };
       callbacks.current.onSliceViewChange(false);
       active.onAirflowView = (next) => {
-        setFlowView(next);
-        if (!next) setFlowSlice(false);
+        airflowWorkspace.setView(next);
+        callbacks.current.onAirflowViewChange(next);
         setView(active!.currentView);
       };
-      setFlowView(null);
-      setFlowSlice(false);
+      airflowWorkspace.setView(null);
+      callbacks.current.onAirflowViewChange(null);
       active.onRoomViewMemory = setRoomViewSaved;
       setRoomViewSaved(false);
       active.onAssets = setAssets;
@@ -873,10 +864,10 @@ export function ReviewScene({
   useEffect(() => {
     // 演示预设使用相同的空间构图，便于直接比较图层；普通操作不触发。
     const next = currentState.current.level === "room" ? "interior" : "iso";
-    setSliceControls(initialSliceControls());
+    setTemperatureSliceControls(initialSliceControls());
     engine.current?.view(next);
     setView(next);
-  }, [shotRevision, retry, setSliceControls]);
+  }, [shotRevision, retry, setTemperatureSliceControls]);
   useEffect(() => {
     if (engine.current) {
       engine.current.telemetry.mode = presentation.mode;
@@ -1473,89 +1464,6 @@ export function ReviewScene({
         ?.closest(".study-stage")
         ?.scrollIntoView({ block: "nearest" });
   };
-  const returnFlowView = () => {
-    onTakeover();
-    flowFocus.current = "entry";
-    if (temperatureTools.current) {
-      temperatureTools.current.open = true;
-      const disclosure =
-        temperatureTools.current.querySelector<HTMLDetailsElement>(
-          ".review-flow-explanation",
-        );
-      if (disclosure) disclosure.open = true;
-    }
-    engine.current?.restoreAirflowView();
-  };
-  const flowControls = (
-    <>
-      {visibleAirflow?.routes[0] && (
-        <div
-          className="airflow-view-actions"
-          ref={flowControlsRef}
-          aria-label="气流观察视角"
-        >
-          {airflowViews.map((item) => (
-            <button
-              key={item.id}
-              aria-pressed={flowView === item.id}
-              onClick={() => {
-                onTakeover();
-                setOrbit(false);
-                if (!flowView) {
-                  flowFocus.current = "observation";
-                  if (temperatureTools.current)
-                    temperatureTools.current.open = false;
-                }
-                engine.current?.observeAirflow(
-                  visibleAirflow.routes[0],
-                  item.id,
-                );
-              }}
-            >
-              {item.name}
-            </button>
-          ))}
-          {flowView && (
-            <button
-              className="airflow-view-return"
-              title="返回观察前镜头（Esc）"
-              onClick={returnFlowView}
-            >
-              返回原视角
-            </button>
-          )}
-        </div>
-      )}
-      {flowView && visibleAirflow?.routes[0] && (
-        <div className="airflow-stage-reading" aria-label="当前气流观察段">
-          <strong aria-live="polite">
-            {stage?.title ?? "全路径 · 送风到回风"}
-          </strong>
-          <span>{stage?.direction ?? "送风 → 格栅 → 设备 → 回风假设"}</span>
-          <small>
-            {entityById(visibleAirflow.routes[0].deviceId)?.name} ·{" "}
-            {visibleAirflow.routes[0].status} · t+
-            {state.time}s
-          </small>
-          <p>
-            {stage?.boundary ??
-              "同一条配置代表支路；送风连续、回风分段，箭头表示假设方向。"}
-          </p>
-          <label>
-            <input
-              type="checkbox"
-              checked={flowSlice}
-              onChange={(event) => {
-                onTakeover();
-                setFlowSlice(event.target.checked);
-              }}
-            />
-            叠加进风切片
-          </label>
-        </div>
-      )}
-    </>
-  );
   return (
     <div
       className="review-scene"
@@ -1668,7 +1576,7 @@ export function ReviewScene({
               {inletView
                 ? "柜前实线与虚线分别标出所查和基准设备的安装跨度。标签沿用当前共享时刻的整机进风模拟，无效状态不显示旧值；两台设备之间没有新增供风关系或温度插值。"
                 : ambientSelected
-                  ? "固定探头的环境温湿度，只代表安装位置；与设备进风分开，不生成整间机房温湿度场。选择返回设备进风可继续核对切片与气流。"
+                  ? "固定探头的环境温湿度，只代表安装位置；与设备进风分开，不生成整间机房温湿度场。选择返回设备进风可继续核对温度切片。"
                   : slice
                     ? `${slice.orientation === "horizontal" ? "水平切片估计当前高度的进风温度。" : `垂直切片显示${sliceRow!.name}正面 ${sliceSettings.height.min.toFixed(2)}–${sliceSettings.height.max.toFixed(2)} 米高度的进风差异，滑杆调整离柜距离；标签取切面纵向最高估计。俯视时切面呈侧边，可切到前视观察。`}色条仍对应逐台设备。输入为同一时间的有效模拟读数；代表位置按U位中心假设，非独立环境测点。最近位置离线、过期或超出插值范围时留空；不推断机柜排风或整间机房温度。`
                     : presentation.description}
@@ -1882,29 +1790,31 @@ export function ReviewScene({
                     ? item.name
                     : item.name.split(" ")[0]}
                 </b>
-                {layer !== "overview" && layer !== "alarms" && (
-                  <span>
-                    {reading.quality !== "valid"
-                      ? reading.quality === "stale"
-                        ? "数据过期"
-                        : "无有效数据"
-                      : layer === "environment"
-                        ? slice
-                          ? slice.rackEstimates.get(item.id) == null
-                            ? slice.orientation === "horizontal"
-                              ? "本层无估计"
-                              : "切面无估计"
-                            : `${slicePlaneActive ? "约" : slice.orientation === "horizontal" ? "本层约" : "切面最高约"} ${slice.rackEstimates.get(item.id)!.toFixed(1)} °C`
-                          : reading.temperature === null
+                {layer !== "overview" &&
+                  layer !== "alarms" &&
+                  layer !== "airflow" && (
+                    <span>
+                      {reading.quality !== "valid"
+                        ? reading.quality === "stale"
+                          ? "数据过期"
+                          : "无有效数据"
+                        : layer === "environment"
+                          ? slice
+                            ? slice.rackEstimates.get(item.id) == null
+                              ? slice.orientation === "horizontal"
+                                ? "本层无估计"
+                                : "切面无估计"
+                              : `${slicePlaneActive ? "约" : slice.orientation === "horizontal" ? "本层约" : "切面最高约"} ${slice.rackEstimates.get(item.id)!.toFixed(1)} °C`
+                            : reading.temperature === null
+                              ? "—"
+                              : `${reading.count > 1 ? "最高 " : ""}${reading.temperature.toFixed(1)} °C`
+                          : reading.power === null
                             ? "—"
-                            : `${reading.count > 1 ? "最高 " : ""}${reading.temperature.toFixed(1)} °C`
-                        : reading.power === null
-                          ? "—"
-                          : reading.power >= 1000
-                            ? `${(reading.power / 1000).toFixed(2)} kW`
-                            : `${reading.power.toFixed(0)} W`}
-                  </span>
-                )}
+                            : reading.power >= 1000
+                              ? `${(reading.power / 1000).toFixed(2)} kW`
+                              : `${reading.power.toFixed(0)} W`}
+                    </span>
+                  )}
                 {layer === "power" &&
                   reading.quality === "valid" &&
                   reading.power !== null &&
@@ -1992,7 +1902,7 @@ export function ReviewScene({
           </svg>
         )}
         <div
-          className={`review-legend ${slice ? "review-slice-legend" : ""}`}
+          className={`review-legend ${slice || layer === "airflow" ? "review-slice-legend" : ""}`}
           aria-label="当前图层图例"
           data-flow-observation={!!flowView}
           data-slice-visible={sliceVisible}
@@ -2176,7 +2086,7 @@ export function ReviewScene({
                 onReturn={() => onInletView("return")}
               />
               <small>柜前轮廓为安装跨度 · 非真实风口</small>
-              <small>切片与代表气流已暂收，结束观察后恢复。</small>
+              <small>切片已暂收，结束观察后恢复。</small>
             </div>
           ) : ambientSelected ? (
             <div className="environment-scene-key">
@@ -2220,13 +2130,37 @@ export function ReviewScene({
             </div>
           ) : (
             <>
-              {!sliceVisible && (
-                <div className="airflow-observation-heading">
-                  <strong>气流分段观察</strong>
-                  <small>进风切片已暂收 · 返回原视角时恢复</small>
-                </div>
+              {layer === "airflow" && (
+                <AirflowPanel
+                  snapshot={airflow}
+                  view={flowView}
+                  visit={airflowVisit}
+                  time={state.time}
+                  ready={sceneSettled}
+                  panelRef={airflowWorkspace.panel}
+                  sliceEnabled={airflowWorkspace.sliceEnabled}
+                  onSlice={(value) => {
+                    onTakeover();
+                    airflowWorkspace.setSliceEnabled(value);
+                  }}
+                  onObserve={(view) => {
+                    if (airflow?.routes[0])
+                      airflowWorkspace.observe(airflow.routes[0], view);
+                  }}
+                  onReturn={airflowWorkspace.restore}
+                  onReturnEndpoint={() => {
+                    engine.current?.preservePanelView();
+                    onReturnAirflowEndpoint();
+                  }}
+                  onExplain={() => {
+                    engine.current?.preservePanelView();
+                    onExplainAirflow();
+                  }}
+                  onRoom={onShowRoomAirflow}
+                  analysisControl={airflowResponseControl}
+                />
               )}
-              {sliceVisible && (
+              {sliceVisible && (layer !== "airflow" || !!slice) && (
                 <>
                   <span className={slice ? "review-slice-heading" : undefined}>
                     {slice ? (
@@ -2247,25 +2181,26 @@ export function ReviewScene({
                           <option value="horizontal">水平切片</option>
                           <option value="vertical">垂直切片</option>
                         </select>
-                        {slice.orientation === "vertical" && (
-                          <select
-                            aria-label="温度切片机柜排"
-                            value={sliceControls.rowId}
-                            onChange={(event) => {
-                              onTakeover();
-                              setSliceControls((current) => ({
-                                ...current,
-                                rowId: event.target.value,
-                              }));
-                            }}
-                          >
-                            {sliceRackRows.map((row) => (
-                              <option key={row.id} value={row.id}>
-                                {row.name}
-                              </option>
-                            ))}
-                          </select>
-                        )}
+                        {slice.orientation === "vertical" &&
+                          layer === "environment" && (
+                            <select
+                              aria-label="温度切片机柜排"
+                              value={sliceControls.rowId}
+                              onChange={(event) => {
+                                onTakeover();
+                                setSliceControls((current) => ({
+                                  ...current,
+                                  rowId: event.target.value,
+                                }));
+                              }}
+                            >
+                              {sliceRackRows.map((row) => (
+                                <option key={row.id} value={row.id}>
+                                  {row.name}
+                                </option>
+                              ))}
+                            </select>
+                          )}
                       </>
                     ) : (
                       <>
@@ -2279,18 +2214,24 @@ export function ReviewScene({
                       </>
                     )}
                   </span>
-                  <i className={`review-scale ${layer}`} />
+                  <i
+                    className={`review-scale ${layer === "airflow" ? "environment" : layer}`}
+                  />
                   <div>
-                    <span>{layer === "environment" ? "20 °C" : "0%"}</span>
                     <span>
-                      {layer === "environment"
+                      {layer === "environment" || layer === "airflow"
+                        ? "20 °C"
+                        : "0%"}
+                    </span>
+                    <span>
+                      {layer === "environment" || layer === "airflow"
                         ? state.level === "device"
                           ? "80 °C"
                           : "45 °C"
                         : "100%"}
                     </span>
                   </div>
-                  {layer === "environment" && (
+                  {(layer === "environment" || layer === "airflow") && (
                     <small>
                       {slice
                         ? slice.orientation === "horizontal"
@@ -2339,47 +2280,48 @@ export function ReviewScene({
                           );
                         }}
                       />
-                      {slice.orientation === "vertical" && (
-                        <div
-                          className="slice-plane-actions"
-                          onKeyDown={(event) => {
-                            if (
-                              event.key === "Escape" &&
-                              slicePlaneActive &&
-                              sceneSettled
-                            ) {
-                              event.preventDefault();
-                              event.stopPropagation();
-                              planeReturning.current = true;
-                              engine.current?.restoreSliceView();
-                            }
-                          }}
-                        >
-                          <button
-                            ref={planeEntry}
-                            disabled={!sceneSettled || !!sliceInspection}
-                            onClick={() => {
-                              onTakeover();
-                              if (slicePlaneActive) {
+                      {slice.orientation === "vertical" &&
+                        layer === "environment" && (
+                          <div
+                            className="slice-plane-actions"
+                            onKeyDown={(event) => {
+                              if (
+                                event.key === "Escape" &&
+                                slicePlaneActive &&
+                                sceneSettled
+                              ) {
+                                event.preventDefault();
+                                event.stopPropagation();
                                 planeReturning.current = true;
                                 engine.current?.restoreSliceView();
-                              } else {
-                                setOrbit(false);
-                                if (temperatureTools.current)
-                                  temperatureTools.current.open = false;
-                                engine.current?.observeSlicePlane(slice);
                               }
                             }}
                           >
-                            {slicePlaneActive
-                              ? "← 返回整排观察前视角"
-                              : "观察整排切片"}
-                          </button>
-                          {slicePlaneActive && (
-                            <small>柜旁约值为切面最高估计 · 气流暂收</small>
-                          )}
-                        </div>
-                      )}
+                            <button
+                              ref={planeEntry}
+                              disabled={!sceneSettled || !!sliceInspection}
+                              onClick={() => {
+                                onTakeover();
+                                if (slicePlaneActive) {
+                                  planeReturning.current = true;
+                                  engine.current?.restoreSliceView();
+                                } else {
+                                  setOrbit(false);
+                                  if (temperatureTools.current)
+                                    temperatureTools.current.open = false;
+                                  engine.current?.observeSlicePlane(slice);
+                                }
+                              }}
+                            >
+                              {slicePlaneActive
+                                ? "← 返回整排观察前视角"
+                                : "观察整排切片"}
+                            </button>
+                            {slicePlaneActive && (
+                              <small>柜旁约值为切面最高估计 · 气流暂收</small>
+                            )}
+                          </div>
+                        )}
                       <SliceInputPreview
                         key={`${shotRevision}:${slice.orientation}:${slice.rowId}:${slice.height ?? slice.distance}`}
                         slice={slice}
@@ -2397,180 +2339,55 @@ export function ReviewScene({
                       />
                     </>
                   )}
-                  {flowView && visibleAirflow && (
-                    <div
-                      className="airflow-observation-controls"
-                      aria-label="气流观察操作"
-                      onKeyDown={(event) => {
-                        if (event.key === "Escape") {
-                          event.preventDefault();
-                          event.stopPropagation();
-                          returnFlowView();
-                        }
-                      }}
+                  {layer === "environment" && (
+                    <TemperatureDisclosure
+                      key={shotRevision}
+                      detailsRef={temperatureTools}
+                      className="temperature-tools"
+                      name="temperature-tools"
+                      summary="观察与核对 · 设备 / 环境"
+                      reveal={!!sliceInspection}
+                      onInteract={onTakeover}
                     >
-                      {flowControls}
-                      {airflowResponseControl}
-                    </div>
-                  )}
-                  {airflowVisit && (
-                    <div className="airflow-inspection-return">
-                      <span>
-                        核对 · {entityById(airflowVisit.deviceId)?.name}{" "}
-                      </span>
-                      <button
-                        onClick={() => {
-                          if (temperatureTools.current)
-                            temperatureTools.current.open = true;
-                          temperatureTools.current
-                            ?.querySelector<HTMLElement>(
-                              ".review-flow-explanation > summary",
-                            )
-                            ?.focus({ preventScroll: true });
-                          engine.current?.preservePanelView();
-                          onReturnAirflowEndpoint();
-                        }}
-                      >
-                        ← 返回原对象
-                      </button>
-                      <small>
-                        原对象：
-                        {entityById(airflowVisit.originId)?.name}
-                      </small>
-                    </div>
-                  )}
-                  <TemperatureDisclosure
-                    key={shotRevision}
-                    detailsRef={temperatureTools}
-                    className="temperature-tools"
-                    name="temperature-tools"
-                    summary="观察与核对 · 设备 / 环境 / 气流"
-                    reveal={!!airflowVisit || !!sliceInspection}
-                    onInteract={onTakeover}
-                  >
-                    {sliceVisible && (
-                      <>
-                        <SliceDeviceContext
-                          inspecting={!!sliceInspection}
-                          key={`${shotRevision}:${sliceInspection?.deviceId ?? selectedId}`}
-                          selectedId={sliceInspection?.deviceId ?? selectedId}
-                          onInspect={() => {
-                            engine.current?.preservePanelView();
-                            onInspectSlice(
-                              sliceInspection?.deviceId ?? selectedId,
-                            );
-                          }}
-                          onInteract={onTakeover}
-                          controls={sliceControls}
-                          slice={slice}
-                          readings={readings}
-                          onChange={(next) => {
-                            onTakeover();
-                            setSliceControls(next);
-                          }}
-                        />
-                        <TemperatureDisclosure
-                          className="environment-disclosure"
-                          summary="环境测点 · 2 处"
-                          onInteract={onTakeover}
-                        >
-                          <EnvironmentProbeList
-                            time={state.time}
-                            selected={selectedId}
-                            onSelect={(id, enter) => {
-                              if (!enter) engine.current?.preservePanelView();
-                              onSelect(id, enter);
+                      {sliceVisible && (
+                        <>
+                          <SliceDeviceContext
+                            inspecting={!!sliceInspection}
+                            key={`${shotRevision}:${sliceInspection?.deviceId ?? selectedId}`}
+                            selectedId={sliceInspection?.deviceId ?? selectedId}
+                            onInspect={() => {
+                              engine.current?.preservePanelView();
+                              onInspectSlice(
+                                sliceInspection?.deviceId ?? selectedId,
+                              );
+                            }}
+                            onInteract={onTakeover}
+                            controls={sliceControls}
+                            slice={slice}
+                            readings={readings}
+                            onChange={(next) => {
+                              onTakeover();
+                              setSliceControls(next);
                             }}
                           />
-                        </TemperatureDisclosure>
-                      </>
-                    )}
-                    {visibleAirflow && (
-                      <TemperatureDisclosure
-                        className="review-flow-explanation"
-                        onInteract={onTakeover}
-                        summary={
-                          <>
-                            气流路径 ·{" "}
-                            {stage
-                              ? stage.title.split(" · ")[1]
-                              : airflowVisit
-                                ? "端点核对"
-                                : visibleAirflow.routes[0]?.animated
-                                  ? "代表支路"
-                                  : "静态示意"}
-                          </>
-                        }
-                      >
-                        <p>{visibleAirflow.label}</p>
-                        {!flowView && (
-                          <p>选择一段近看；旋转或定位会结束观察。</p>
-                        )}
-                        {airflowVisit && (
-                          <p>预览保留本支路；定位结束核对，转为对象观察。</p>
-                        )}
-                        {!flowView && flowControls}
-                        {!flowView && airflowResponseControl}
-                        <TemperatureDisclosure
-                          className="airflow-endpoints"
-                          name="airflow-detail"
-                          summary="端点与读数 · 4 处"
-                          onInteract={onTakeover}
-                        >
-                          <ol aria-label="气流端点与读数">
-                            {visibleAirflow.routes.flatMap((route) =>
-                              route.endpoints.map((endpoint) => {
-                                const object = airflowEndpointObject(
-                                  route,
-                                  endpoint.kind,
-                                );
-                                return (
-                                  <li key={`${route.id}-${endpoint.kind}`}>
-                                    <b>{endpoint.title}</b>
-                                    <span>{endpoint.detail}</span>
-                                    <div className="airflow-endpoint-actions">
-                                      <button
-                                        disabled={selectedId === object.id}
-                                        onClick={() => {
-                                          engine.current?.preservePanelView();
-                                          onPreviewAirflowEndpoint(
-                                            route,
-                                            object.id,
-                                          );
-                                        }}
-                                      >
-                                        预览{object.name}
-                                      </button>
-                                      {endpoint.kind !== "return" && (
-                                        <button
-                                          onClick={() =>
-                                            onLocateAirflowEndpoint(object.id)
-                                          }
-                                        >
-                                          {object.locate}
-                                        </button>
-                                      )}
-                                    </div>
-                                  </li>
-                                );
-                              }),
-                            )}
-                          </ol>
-                        </TemperatureDisclosure>
-                        <TemperatureDisclosure
-                          className="airflow-boundary"
-                          name="airflow-detail"
-                          summary="布置假设与数据边界"
-                          onInteract={onTakeover}
-                        >
-                          <p>
-                            当前机柜同向，假设前进后出。柜面细框按设备安装 U
-                            位标出前后代表范围，柜外箭头表示方向；被柜体遮挡的路径不透视显示，可切换前/后视或旋转观察。细框不是实际风口。送风沿低位侧通道至柜前格栅，再穿柜并从上方回到制冷单元；未建立架空地板风腔或封闭冷热通道。端点均为代表位置，线宽和脉冲速度不表示风量或风速。暂停可读方向；停机、维护或观测无效时仅保留灰色静态路径。
-                          </p>
-                        </TemperatureDisclosure>
-                      </TemperatureDisclosure>
-                    )}
-                  </TemperatureDisclosure>
+                          <TemperatureDisclosure
+                            className="environment-disclosure"
+                            summary="环境测点 · 2 处"
+                            onInteract={onTakeover}
+                          >
+                            <EnvironmentProbeList
+                              time={state.time}
+                              selected={selectedId}
+                              onSelect={(id, enter) => {
+                                if (!enter) engine.current?.preservePanelView();
+                                onSelect(id, enter);
+                              }}
+                            />
+                          </TemperatureDisclosure>
+                        </>
+                      )}
+                    </TemperatureDisclosure>
+                  )}
                 </div>
               )}
               {layer === "power" && (

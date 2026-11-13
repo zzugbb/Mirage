@@ -12,7 +12,6 @@ import { spatialSnapshot } from "./spatial.ts";
 import { devices } from "./installation.ts";
 import { coolingCapacityAt, simulate } from "./simulation.ts";
 import { createState } from "./domain.ts";
-import { initialSliceControls } from "./temperature-slice.ts";
 const routeFor = (id: string) =>
   airflowSnapshot(60, spatialSnapshot(60).readings, id).routes[0];
 
@@ -125,28 +124,16 @@ test("输入事件独立回看，设备过期后不编造新设备事件，所�
   }
 });
 
-test("回看不改变对照会话，切片、主动定位、对象或固定画面变化结束旧会话", () => {
+test("回看和重播保留气流对照，主动定位、对象或固定画面结束旧会话", () => {
   const state = createState();
-  const key = (
-    s = state,
-    selected = "room-01",
-    slice = initialSliceControls(),
-    revision = 0,
-  ) =>
+  const key = (s = state, selected = "room-01", revision = 0) =>
     airflowResponseContext(
-      airflowInspectionContext(s, "environment", slice, revision),
+      airflowInspectionContext(s, "airflow", revision),
       selected,
     );
   assert.equal(key(), key({ ...state, time: 89, playing: true }));
-  assert.notEqual(key(), key({ ...state, focusRevision: 1 }));
   assert.equal(key(), key({ ...state, replayCycle: 1 }));
+  assert.notEqual(key(), key({ ...state, focusRevision: 1 }));
   assert.notEqual(key(), key(state, "srv-01"));
-  assert.notEqual(
-    key(),
-    key(state, "room-01", {
-      ...initialSliceControls(),
-      orientation: "vertical",
-    }),
-  );
-  assert.notEqual(key(), key(state, "room-01", initialSliceControls(), 1));
+  assert.notEqual(key(), key(state, "room-01", 1));
 });
