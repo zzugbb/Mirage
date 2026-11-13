@@ -1,3 +1,4 @@
+import { RoomLayout } from "./components/RoomLayout";
 import type { AirflowView } from "./airflow-view";
 import { airflowSnapshot, type AirflowRoute } from "./airflow";
 import { AirflowDetails } from "./components/AirflowDetails";
@@ -547,8 +548,19 @@ export function Workspace() {
       : null;
   const [query, setQuery] = useState("");
   const [rackView, setRackView] = useState<
-    "list" | "installation" | "space" | "network" | "inlet"
+    "list" | "installation" | "space" | "network" | "inlet" | "layout"
   >("installation");
+  const [layoutViewRevision, setLayoutViewRevision] = useState(0);
+  const [layoutBoundary, setLayoutBoundary] = useState(false);
+  const [layoutQuery, setLayoutQuery] = useState("");
+  const layoutScroll = useRef(0);
+  const [layoutRestore, setLayoutRestore] = useState(0);
+  const [layoutVisit, setLayoutVisit] = useState<{
+    id: string;
+    layer: ReviewState["layer"];
+    metric: "temperature" | "power";
+  } | null>(null);
+  const [layoutReturning, setLayoutReturning] = useState(false);
   const [inletRack, setInletRack] = useState("rack-a01");
   const [inletQuery, setInletQuery] = useState("");
   const [inletSelection, setInletSelection] = useState("rack-a01");
@@ -852,6 +864,27 @@ export function Workspace() {
     !review.pendingEndpoint &&
     !!feedback?.settled &&
     feedback.key === presentationKey(state);
+  useEffect(() => {
+    if (
+      !layoutReturning ||
+      !layoutVisit ||
+      state.level !== "room" ||
+      !ready ||
+      review.pendingId
+    )
+      return;
+    control({ type: "pick", id: layoutVisit.id });
+    control({ type: "layer", layer: layoutVisit.layer });
+    control({ type: "analysis", value: false });
+    setMetric(layoutVisit.metric);
+    setRackView("layout");
+    skipNavigationSearch.current = true;
+    setNav(true);
+    if (matchMedia("(max-width: 1099px)").matches) setInspector(false);
+    setLayoutRestore((value) => value + 1);
+    setLayoutReturning(false);
+    setLayoutVisit(null);
+  }, [layoutReturning, layoutVisit, state.level, ready, review.pendingId]);
   useEffect(() => {
     if (!ready || !partSequenceFocus.current) return;
     const frame = requestAnimationFrame(() => {
@@ -1671,6 +1704,12 @@ export function Workspace() {
     return () => window.removeEventListener("keydown", key);
   }, [selected, review.analysis, nav, inspector, query, dispatch]);
   const load = (next: WorkspaceShot) => {
+    setLayoutBoundary(false);
+    setLayoutQuery("");
+    layoutScroll.current = 0;
+    setLayoutRestore(0);
+    setLayoutVisit(null);
+    setLayoutReturning(false);
     setSliceCheck(null);
     setPduInspection(null);
     pduReturnPending.current = false;
@@ -2036,7 +2075,7 @@ export function Workspace() {
           </div>
           {!(
             state.level === "room" &&
-            ["space", "network", "inlet"].includes(rackView)
+            ["space", "network", "inlet", "layout"].includes(rackView)
           ) && (
             <>
               <label className="study-search">
@@ -2087,6 +2126,30 @@ export function Workspace() {
               ← 返回机房进风对照
             </button>
           )}
+          {layoutVisit && (
+            <div className="room-layout-return" aria-label="布置导览往返">
+              <button
+                className="study-parent"
+                disabled={!ready || layoutReturning}
+                onClick={() => {
+                  setLayoutReturning(true);
+                  control({ type: "open-resource", id: "room-01" });
+                }}
+              >
+                ← 返回机房布置
+              </button>
+              <button
+                aria-label="结束布置导览往返"
+                disabled={layoutReturning}
+                onClick={() => {
+                  setLayoutVisit(null);
+                  setLayoutReturning(false);
+                }}
+              >
+                ×
+              </button>
+            </div>
+          )}
           {state.level !== "room" && rackView === "network" && (
             <button
               className="study-parent"
@@ -2114,7 +2177,7 @@ export function Workspace() {
           )}
           {state.level !== "device" && (
             <div
-              className="rack-navigation-view"
+              className={`rack-navigation-view ${state.level === "room" ? "is-room" : ""}`}
               role="group"
               aria-label="资源呈现"
             >
@@ -2130,12 +2193,25 @@ export function Workspace() {
                 aria-pressed={
                   rackView === "list" ||
                   (state.level === "room" &&
-                    !["space", "network", "inlet"].includes(rackView))
+                    !["space", "network", "inlet", "layout"].includes(rackView))
                 }
                 onClick={() => setRackView("list")}
               >
                 列表
               </button>
+              {state.level === "room" && (
+                <button
+                  aria-pressed={rackView === "layout"}
+                  onClick={() => {
+                    takeover();
+                    setRackView("layout");
+                    setLayoutVisit(null);
+                    setLayoutReturning(false);
+                  }}
+                >
+                  布置图
+                </button>
+              )}
               <button
                 aria-pressed={rackView === "space"}
                 onClick={() => {
@@ -2181,7 +2257,41 @@ export function Workspace() {
               )}
             </div>
           )}
-          {state.level === "room" && rackView === "inlet" ? (
+          {state.level === "room" && rackView === "layout" ? (
+            <RoomLayout
+              selected={selected}
+              deviceId={state.deviceId}
+              query={layoutQuery}
+              boundaryOpen={layoutBoundary}
+              onBoundaryOpen={setLayoutBoundary}
+              onQuery={setLayoutQuery}
+              ready={ready}
+              visible={nav}
+              onPlan={() => {
+                takeover();
+                setLayoutViewRevision((value) => value + 1);
+              }}
+              restoreRevision={layoutRestore}
+              scroll={layoutScroll}
+              onPreview={(id) => {
+                pick(id, false, true);
+              }}
+              onLocate={(id) => focus(id)}
+              onDetails={() => {
+                setInspector(true);
+                control({ type: "analysis", value: false });
+                if (matchMedia("(max-width: 1099px)").matches) setNav(false);
+              }}
+              onEnter={(id) => {
+                setLayoutVisit({ id, layer, metric });
+                setLayoutReturning(false);
+                setLayoutRestore(0);
+                pick(id, true, true);
+                setRackView("installation");
+                setOnlyAlarms(false);
+              }}
+            />
+          ) : state.level === "room" && rackView === "inlet" ? (
             <InletOverview
               visible={nav}
               restoreRevision={inletRestoreRevision}
@@ -2568,7 +2678,8 @@ export function Workspace() {
               )}
             </div>
           )}
-          {!(state.level !== "device" && rackView === "space") &&
+          {!(state.level === "room" && rackView === "layout") &&
+            !(state.level !== "device" && rackView === "space") &&
             !(state.level === "rack" && rackView === "installation") && (
               <footer className="study-nav-caption">
                 {state.level === "device"
@@ -2632,6 +2743,7 @@ export function Workspace() {
             sliceControls={sliceControls}
             setSliceControls={setSliceControls}
             layer={layer}
+            layoutViewRevision={layoutViewRevision}
             readings={spatial.readings}
             selectedId={selected}
             airflow={airflow}

@@ -130,6 +130,7 @@ export function ReviewScene({
   sliceControls: temperatureSliceControls,
   setSliceControls: setTemperatureSliceControls,
   layer,
+  layoutViewRevision,
   readings,
   selectedId,
   airflow,
@@ -246,6 +247,7 @@ export function ReviewScene({
   sliceControls: SliceControls;
   setSliceControls: Dispatch<SetStateAction<SliceControls>>;
   layer: ReviewLayer;
+  layoutViewRevision: number;
   readings: Map<string, SpatialReading>;
   selectedId: string;
   airflowVisit: AirflowInspection | null;
@@ -404,6 +406,13 @@ export function ReviewScene({
     onView: setView,
     onStopOrbit: () => setOrbit(false),
   });
+  useEffect(() => {
+    if (layoutViewRevision && currentState.current.level === "room") {
+      setOrbit(false);
+      engine.current?.view("top");
+      setView("top");
+    }
+  }, [layoutViewRevision]);
   const flowView = airflowWorkspace.view;
   const stage = airflowStage(flowView);
   const sliceControls =

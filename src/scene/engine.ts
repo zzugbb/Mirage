@@ -1,3 +1,4 @@
+import { roomLayoutCameraDirection } from "../room-layout.ts";
 import { rangeObservationTarget } from "../range-segments.ts";
 import {
   rangeViewPoints,
@@ -1906,7 +1907,13 @@ export class SceneEngine {
       ? bounds.getCenter(new THREE.Vector3())
       : new THREE.Vector3(
           0,
-          level === "room" ? 0.5 : level === "rack" ? 1.1 : 0.65,
+          level === "room"
+            ? view === "top"
+              ? definition.room.size[1] / 2
+              : 0.5
+            : level === "rack"
+              ? 1.1
+              : 0.65,
           0,
         );
     const size = bounds
@@ -1923,7 +1930,9 @@ export class SceneEngine {
       ...((view === "top"
         ? aisle
           ? [0, 1, 0.025]
-          : [0.001, 1, 0.001]
+          : level === "room"
+            ? roomLayoutCameraDirection
+            : [0.001, 1, 0.001]
         : view === "rear"
           ? [0, 0.13, -1]
           : view === "front"
@@ -1992,7 +2001,15 @@ export class SceneEngine {
             minimum,
             topInsetFraction,
           )
-        : frameDistance(size, this.camera.aspect, minimum);
+        : level === "room" && view === "top"
+          ? boundsFrameDistance(
+              definition.room.size,
+              direction.toArray(),
+              this.camera.aspect,
+              minimum,
+              0.1,
+            )
+          : frameDistance(size, this.camera.aspect, minimum);
     if (!bounds && level === "rack") {
       center.x = rackForDevice(this.state.deviceId).position[0];
       center.z = rackForDevice(this.state.deviceId).position[2];

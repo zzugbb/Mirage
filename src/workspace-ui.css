@@ -5265,3 +5265,161 @@
 .workspace-ui .airflow-details .airflow-endpoint-actions {
   flex-wrap: wrap;
 }
+
+/* 布置图仅辅助查找位置，三维继续承担定位与结构检视。 */
+.room-layout {
+  flex: 1;
+  overflow: auto;
+  min-height: 0;
+  padding: 12px 16px 20px;
+  font-size: 11px;
+}
+.room-layout header p,
+.room-layout > p,
+.room-layout-selection p,
+.room-layout details p {
+  color: #9eafb9;
+  line-height: 1.6;
+  margin: 8px 0;
+}
+.room-layout > label {
+  display: grid;
+  gap: 7px;
+  margin-top: 14px;
+}
+.room-layout input {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 8px;
+  border: 1px solid #c2dde51c;
+  border-radius: 4px;
+  background: #ffffff03;
+  color: #d5e7eb;
+}
+.room-layout-map {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 280 / 252;
+  margin-top: 12px;
+}
+.room-layout-map svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.room-layout-map text {
+  font-size: 10px;
+  fill: #96adb6;
+}
+.room-layout-boundary {
+  fill: #ffffff02;
+  stroke: #b3c9d447;
+  stroke-width: 1;
+}
+.room-layout-footprint {
+  fill: #6b85912e;
+  stroke: #88a2ac;
+  stroke-width: 1;
+}
+.room-layout-front {
+  stroke: #c9e0e3;
+  stroke-width: 2.5;
+}
+.room-layout-map [data-selected="true"] .room-layout-footprint {
+  stroke: #d4f1ef;
+  fill: #a6d8d955;
+  stroke-width: 2;
+}
+.room-layout-map [data-match="false"] {
+  opacity: 0.3;
+}
+.room-layout-map button {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 32px;
+  height: 42px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: transparent;
+  padding: 0;
+  font-size: 10px;
+  color: #becdd3;
+}
+.room-layout-map button span {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+.room-layout-map button[data-kind="facility"] {
+  width: 38px;
+  height: 32px;
+}
+.room-layout-map button[data-kind="entrance"] {
+  width: 32px;
+  height: 26px;
+  transform: translate(-50%, -100%);
+}
+.room-layout-map button:hover,
+.room-layout-map button:focus-visible {
+  opacity: 1;
+  border-color: #acd9dc;
+  background: #9fc6cf16;
+  outline: none;
+}
+.room-layout-map button[aria-pressed="true"] {
+  opacity: 1;
+  color: #e0f7f5;
+}
+.room-layout-selection {
+  margin: 14px 0;
+  padding-top: 12px;
+  border-top: 1px solid #ffffff12;
+}
+.room-layout-selection > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+.room-layout-selection button,
+.room-layout > button {
+  padding: 6px 8px;
+  font-size: 11px;
+  border: 1px solid #b6d2dc2e;
+  border-radius: 4px;
+}
+.room-layout details {
+  border-top: 1px solid #ffffff12;
+  padding-top: 12px;
+  color: #9eafb9;
+}
+.room-layout summary {
+  cursor: pointer;
+}
+.room-layout-return {
+  display: flex;
+  align-items: center;
+}
+.room-layout-return .study-parent {
+  flex: 1;
+}
+.room-layout-return > button:last-child {
+  padding: 8px 16px;
+  color: #9fb5bf;
+}
+.rack-navigation-view.is-room {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+.rack-navigation-view.is-room button {
+  grid-column: span 2;
+}
+.rack-navigation-view.is-room button:nth-child(-n + 2) {
+  grid-column: span 3;
+}
+.room-layout > button {
+  margin-top: 8px;
+}
