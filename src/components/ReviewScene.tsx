@@ -123,6 +123,8 @@ export function ReviewScene({
   onRangeViewChange,
   isolatedPartId = null,
   sliceViewCommand,
+  onSlicePlaneChange,
+  slicePlaneActive,
   onSliceViewChange,
   sliceInspection,
   onInspectSlice,
@@ -226,6 +228,8 @@ export function ReviewScene({
   onNetworkViewChange: (active: boolean) => void;
   onNetworkView: (action: NetworkViewCommand["action"]) => void;
   sliceViewCommand: SliceViewCommand | null;
+  slicePlaneActive: boolean;
+  onSlicePlaneChange: (active: boolean) => void;
   onSliceViewChange: (active: boolean) => void;
   sliceInspection: {
     context: SliceDeviceInspection | null;
@@ -306,6 +310,7 @@ export function ReviewScene({
     onSelect,
     onPhase,
     onFeedback,
+    onSlicePlaneChange,
     onSliceViewChange,
     onRangeViewChange,
     onPowerViewChange,
@@ -321,6 +326,7 @@ export function ReviewScene({
     onSelect,
     onPhase,
     onFeedback,
+    onSlicePlaneChange,
     onSliceViewChange,
     onRangeViewChange,
     onPowerViewChange,
@@ -337,6 +343,39 @@ export function ReviewScene({
   const [assets, setAssets] = useState(initialModelLoads);
   const [sceneSettled, setSceneSettled] = useState(false);
   const [roomViewSaved, setRoomViewSaved] = useState(false);
+  const planeEntry = useRef<HTMLButtonElement>(null);
+  const planeReturning = useRef(false);
+  useEffect(() => {
+    if (!slicePlaneActive) return;
+    const legend = planeEntry.current?.closest(".review-legend");
+    if (!legend) return;
+    const observer = new ResizeObserver(() =>
+      engine.current?.refitSlicePlane(),
+    );
+    observer.observe(legend);
+    return () => observer.disconnect();
+  }, [slicePlaneActive]);
+  useEffect(() => {
+    if (slicePlaneActive || !planeReturning.current) return;
+    let frame = 0;
+    const restoreFocus = () => {
+      const entry = planeEntry.current;
+      if (!entry) {
+        planeReturning.current = false;
+        return;
+      }
+      // 减少动态效果可能直接落到终态，不依赖中间的 settled=false 通知。
+      if (engine.current?.moving || entry.disabled) {
+        frame = requestAnimationFrame(restoreFocus);
+        return;
+      }
+      planeReturning.current = false;
+      if (engine.current) setView(engine.current.currentView);
+      entry.focus({ preventScroll: true });
+    };
+    frame = requestAnimationFrame(restoreFocus);
+    return () => cancelAnimationFrame(frame);
+  }, [slicePlaneActive]);
   const [flowView, setFlowView] = useState<AirflowView | null>(null);
   const latestFlowView = useRef(flowView);
   latestFlowView.current = flowView;
@@ -500,7 +539,8 @@ export function ReviewScene({
       slice?.rowId,
     ],
   );
-  const visibleAirflow = sliceInspection || inletView ? null : airflow;
+  const visibleAirflow =
+    sliceInspection || inletView || slicePlaneActive ? null : airflow;
   const airflowResponseControl = visibleAirflow?.routes[0] && (
     <button
       data-airflow-response-entry
@@ -689,6 +729,11 @@ export function ReviewScene({
         setView(active!.currentView);
       };
       callbacks.current.onRangeViewChange(null);
+      active.onSlicePlaneView = (observing) => {
+        callbacks.current.onSlicePlaneChange(observing);
+        setView(active!.currentView);
+      };
+      callbacks.current.onSlicePlaneChange(false);
       active.onSliceView = (observing) => {
         callbacks.current.onSliceViewChange(observing);
         setView(active!.currentView);
@@ -1259,8 +1304,10 @@ export function ReviewScene({
   useEffect(() => {
     const active = engine.current;
     if (!active || !sliceViewCommand) return;
-    if (sliceViewCommand.action === "return") active.restoreSliceView();
-    else if (sliceInspection?.context && slice && sliceVisible) {
+    if (sliceViewCommand.action === "return") {
+      planeReturning.current = slicePlaneActive;
+      active.restoreSliceView();
+    } else if (sliceInspection?.context && slice && sliceVisible) {
       setOrbit(false);
       active.observeSlice(sliceInspection.context);
     }
@@ -1277,6 +1324,22 @@ export function ReviewScene({
       sliceInspection?.sourceId ?? null,
     );
   }, [slice, sliceVisible, sliceInspection, retry]);
+  useEffect(() => {
+    // 换排保留原选择；只有主动换到无关对象时结束观察。
+    if (!slicePlaneActive || selectedId === "room-01") return;
+    const row = sliceRackRows.find((item) => item.id === sliceControls.rowId);
+    const rackId =
+      devices.find((item) => item.id === selectedId)?.rackId ?? selectedId;
+    if (!row?.rackIds.includes(rackId)) engine.current?.clearSliceView();
+  }, [selectedId]);
+  useEffect(() => {
+    engine.current?.updateSlicePlane(
+      sliceVisible && !sliceInspection ? slice : null,
+    );
+  }, [slice, sliceVisible, sliceInspection, retry]);
+  useEffect(() => {
+    engine.current?.clearSliceView();
+  }, [shotRevision]);
   useEffect(() => {
     sliceGeometry.current?.update(sliceVisible ? slice : null);
   }, [slice, sliceVisible, retry]);
@@ -1339,7 +1402,7 @@ export function ReviewScene({
       selectedId,
       more: moreLabels,
       estimates: slice?.rackEstimates,
-      hasPath: !!airflow || !!supply || network.length > 0,
+      hasPath: !!visibleAirflow || !!supply || network.length > 0,
       annotatedIds: [
         ...network.map((marker) => marker.partId ?? marker.deviceId),
         ...(supply?.labels.flatMap((label) =>
@@ -1797,6 +1860,11 @@ export function ReviewScene({
               <button
                 hidden
                 key={item.id}
+                title={
+                  slicePlaneActive
+                    ? "柜旁读数为该柜切面最高估计，不是整柜输入最高值"
+                    : undefined
+                }
                 data-anchor={item.id}
                 data-anchor-kind={
                   state.level === "room"
@@ -1826,7 +1894,7 @@ export function ReviewScene({
                             ? slice.orientation === "horizontal"
                               ? "本层无估计"
                               : "切面无估计"
-                            : `${slice.orientation === "horizontal" ? "本层约" : "切面最高约"} ${slice.rackEstimates.get(item.id)!.toFixed(1)} °C`
+                            : `${slicePlaneActive ? "约" : slice.orientation === "horizontal" ? "本层约" : "切面最高约"} ${slice.rackEstimates.get(item.id)!.toFixed(1)} °C`
                           : reading.temperature === null
                             ? "—"
                             : `${reading.count > 1 ? "最高 " : ""}${reading.temperature.toFixed(1)} °C`
@@ -2271,6 +2339,47 @@ export function ReviewScene({
                           );
                         }}
                       />
+                      {slice.orientation === "vertical" && (
+                        <div
+                          className="slice-plane-actions"
+                          onKeyDown={(event) => {
+                            if (
+                              event.key === "Escape" &&
+                              slicePlaneActive &&
+                              sceneSettled
+                            ) {
+                              event.preventDefault();
+                              event.stopPropagation();
+                              planeReturning.current = true;
+                              engine.current?.restoreSliceView();
+                            }
+                          }}
+                        >
+                          <button
+                            ref={planeEntry}
+                            disabled={!sceneSettled || !!sliceInspection}
+                            onClick={() => {
+                              onTakeover();
+                              if (slicePlaneActive) {
+                                planeReturning.current = true;
+                                engine.current?.restoreSliceView();
+                              } else {
+                                setOrbit(false);
+                                if (temperatureTools.current)
+                                  temperatureTools.current.open = false;
+                                engine.current?.observeSlicePlane(slice);
+                              }
+                            }}
+                          >
+                            {slicePlaneActive
+                              ? "← 返回整排观察前视角"
+                              : "观察整排切片"}
+                          </button>
+                          {slicePlaneActive && (
+                            <small>柜旁约值为切面最高估计 · 气流暂收</small>
+                          )}
+                        </div>
+                      )}
                       <SliceInputPreview
                         key={`${shotRevision}:${slice.orientation}:${slice.rowId}:${slice.height ?? slice.distance}`}
                         slice={slice}

@@ -53,6 +53,8 @@ import {
   networkViewPoints,
   networkViewSource,
 } from "../network-view";
+import { slicePlanePoints, slicePlaneFrame } from "../slice-plane-view";
+import type { TemperatureSlice } from "../temperature-slice";
 import { sliceViewPoints, sliceViewFrame } from "../slice-view";
 import type { SliceDeviceInspection } from "../slice-device";
 import type { RackUnitRange } from "../rack-space";
@@ -839,8 +841,10 @@ export class SceneEngine {
     this.clearRangeView();
     this.restoreObservationView(previous);
   }
+  onSlicePlaneView: (active: boolean) => void = () => {};
   onSliceView: (active: boolean) => void = () => {};
   private sliceObservation?: {
+    plane: boolean;
     targets: THREE.Vector3[];
     key: string;
     previous: ObservationMemory;
@@ -850,8 +854,18 @@ export class SceneEngine {
     this.sliceObservation = undefined;
     this.moving = false;
     this.onSliceView(false);
+    this.onSlicePlaneView(false);
   }
   observeSlice(context: SliceDeviceInspection) {
+    if (!context.point) return;
+    this.startSliceView(sliceViewPoints(context), false);
+  }
+  observeSlicePlane(slice: TemperatureSlice) {
+    this.startSliceView(slicePlanePoints(slice), true);
+  }
+  private startSliceView(targets: THREE.Vector3[], plane: boolean) {
+    if (this.state.level !== "room" || !targets.length || this.moving) return;
+    if (this.sliceObservation?.plane !== plane) this.clearSliceView();
     this.clearNetworkView();
     this.clearPowerView();
     this.clearCrossingView();
@@ -860,13 +874,16 @@ export class SceneEngine {
     this.clearEnvironmentView();
     this.clearInletView();
     this.clearMaintenanceView();
-    if (this.state.level !== "room" || !context.point || this.moving) return;
     const previous =
       this.sliceObservation?.previous ?? this.captureObservationView();
     this.clearAirflowView();
     this.panelViewport = undefined;
-    const targets = sliceViewPoints(context);
-    this.sliceObservation = { targets, key: JSON.stringify(targets), previous };
+    this.sliceObservation = {
+      plane,
+      targets,
+      key: JSON.stringify(targets),
+      previous,
+    };
     this.currentView = "front";
     this.currentFocus = false;
     this.interior = false;
@@ -876,11 +893,19 @@ export class SceneEngine {
     this.controls.minDistance = 0.5;
     this.autoOrbit = false;
     this.frameSlice();
-    this.onSliceView(true);
+    this.onSliceView(!plane);
+    this.onSlicePlaneView(plane);
   }
   updateSliceView(context: SliceDeviceInspection | null) {
+    if (this.sliceObservation?.plane) return;
+    this.updateSliceTargets(sliceViewPoints(context));
+  }
+  updateSlicePlane(slice: TemperatureSlice | null) {
+    if (!this.sliceObservation?.plane) return;
+    this.updateSliceTargets(slicePlanePoints(slice));
+  }
+  private updateSliceTargets(targets: THREE.Vector3[]) {
     if (!this.sliceObservation) return;
-    const targets = sliceViewPoints(context);
     if (!targets.length) {
       this.clearSliceView();
       return;
@@ -891,15 +916,32 @@ export class SceneEngine {
     this.sliceObservation.key = key;
     this.frameSlice();
   }
+  refitSlicePlane() {
+    if (this.sliceObservation?.plane) this.frameSlice();
+  }
   private frameSlice() {
     if (!this.sliceObservation) return;
     const { width, height, rect } = this.observationViewport();
-    const fit = sliceViewFrame(
-      this.sliceObservation.targets,
-      width,
-      height,
-      rect,
-    );
+    if (this.sliceObservation.plane) {
+      const frame = this.host.getBoundingClientRect();
+      const legend = this.host
+        .closest(".study-stage")
+        ?.querySelector(".review-legend")
+        ?.getBoundingClientRect();
+      const bottom = Math.min(
+        height - 48,
+        (legend?.top ?? frame.bottom) - frame.top - 20,
+      );
+      // 长覆盖说明展开后，上方不足以容纳整排时改用图例右侧画幅。
+      if (bottom - rect.top >= 160) {
+        rect.left = 24;
+        rect.right = width - 24;
+        rect.bottom = bottom;
+      }
+    }
+    const fit = (
+      this.sliceObservation.plane ? slicePlaneFrame : sliceViewFrame
+    )(this.sliceObservation.targets, width, height, rect);
     this.targetPosition.copy(fit.position);
     this.targetLook.copy(fit.target);
     this.controls.maxDistance = Math.max(45, fit.distance * 1.2);

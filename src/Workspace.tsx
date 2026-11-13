@@ -1,3 +1,4 @@
+import { SlicePlaneDetails } from "./components/SlicePlaneDetails";
 import { rangeSegments } from "./range-segments";
 import { RangeSegments } from "./components/RangeSegments";
 import type { RangeView, RangeViewCommand } from "./range-view";
@@ -287,6 +288,7 @@ export function Workspace() {
       revision: (current?.revision ?? 0) + 1,
     }));
   };
+  const [slicePlaneActive, setSlicePlaneActive] = useState(false);
   const [sliceViewActive, setSliceViewActive] = useState(false);
   const [sliceViewCommand, setSliceViewCommand] =
     useState<SliceViewCommand | null>(null);
@@ -1758,6 +1760,21 @@ export function Workspace() {
       query: "",
     });
   };
+  const slicePlaneInspector = slicePlaneActive &&
+    sliceControls.orientation === "vertical" && (
+      <SlicePlaneDetails
+        controls={sliceControls}
+        readings={spatial.readings}
+        time={state.time}
+        selected={selected}
+        ready={ready}
+        onPreview={(id) => pick(id)}
+        onReturn={() => {
+          takeover();
+          requestSliceView("return");
+        }}
+      />
+    );
   const sliceInspector = sliceCheck && sliceEvidence && (
     <SliceEvidenceDetails
       observing={sliceViewActive}
@@ -2657,6 +2674,14 @@ export function Workspace() {
             powerLinkId={activePowerLink}
             pduInspection={pduInspection}
             sliceViewCommand={sliceViewCommand}
+            slicePlaneActive={slicePlaneActive}
+            onSlicePlaneChange={(active) => {
+              setSlicePlaneActive(active);
+              if (active) {
+                setInspector(true);
+                if (matchMedia("(max-width: 1099px)").matches) setNav(false);
+              }
+            }}
             onSliceViewChange={setSliceViewActive}
             sliceInspection={
               sliceCheck
@@ -3332,6 +3357,7 @@ export function Workspace() {
                     }
                   />
                 </div>
+                {slicePlaneInspector}
                 {sliceInspector}
                 {(fixture || pairedInlet) && sourceInspector}
                 {activeAirflowResponse ? (
@@ -3503,6 +3529,7 @@ export function Workspace() {
               </>
             ) : (
               <>
+                {slicePlaneInspector}
                 {sliceInspector}
                 {!!reading?.alarm && !component && (
                   <section className="study-alarm-detail">
