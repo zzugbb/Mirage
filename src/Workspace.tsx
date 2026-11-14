@@ -1,3 +1,9 @@
+import { AlarmQueue } from "./components/AlarmQueue";
+import {
+  alarmVisitIncludes,
+  type AlarmSeverity,
+  type AlarmVisit,
+} from "./alarm-queue";
 import { RoomLayout } from "./components/RoomLayout";
 import type { AirflowView } from "./airflow-view";
 import { airflowSnapshot, type AirflowRoute } from "./airflow";
@@ -550,6 +556,13 @@ export function Workspace() {
   const [rackView, setRackView] = useState<
     "list" | "installation" | "space" | "network" | "inlet" | "layout"
   >("installation");
+  const [alarmQuery, setAlarmQuery] = useState("");
+  const [alarmSeverity, setAlarmSeverity] = useState<AlarmSeverity>("all");
+  const [alarmVisit, setAlarmVisit] = useState<AlarmVisit | null>(null);
+  const [alarmReturned, setAlarmReturned] = useState<AlarmVisit | null>(null);
+  const [alarmReturning, setAlarmReturning] = useState(false);
+  const [alarmRestore, setAlarmRestore] = useState(0);
+  const alarmScroll = useRef(0);
   const [layoutViewRevision, setLayoutViewRevision] = useState(0);
   const [layoutBoundary, setLayoutBoundary] = useState(false);
   const [layoutQuery, setLayoutQuery] = useState("");
@@ -864,6 +877,37 @@ export function Workspace() {
     !review.pendingEndpoint &&
     !!feedback?.settled &&
     feedback.key === presentationKey(state);
+  const alarmQueueVisible =
+    state.level === "room" &&
+    layer === "alarms" &&
+    onlyAlarms &&
+    ["list", "installation"].includes(rackView);
+  useEffect(() => {
+    if (
+      alarmVisit &&
+      !alarmReturning &&
+      ready &&
+      !alarmVisitIncludes(alarmVisit, selected, state.deviceId)
+    )
+      setAlarmVisit(null);
+  }, [alarmVisit, alarmReturning, ready, selected, state.deviceId]);
+  useEffect(() => {
+    if (!alarmReturning || !alarmVisit || state.level !== "room" || !ready)
+      return;
+    control({ type: "pick", id: alarmVisit.id });
+    control({ type: "layer", layer: "alarms" });
+    control({ type: "analysis", value: false });
+    setMetric("temperature");
+    setRackView("list");
+    setOnlyAlarms(true);
+    skipNavigationSearch.current = true;
+    setNav(true);
+    if (matchMedia("(max-width: 1099px)").matches) setInspector(false);
+    setAlarmReturned(alarmVisit);
+    setAlarmRestore((value) => value + 1);
+    setAlarmReturning(false);
+    setAlarmVisit(null);
+  }, [alarmReturning, alarmVisit, state.level, ready]);
   useEffect(() => {
     if (
       !layoutReturning ||
@@ -1224,6 +1268,37 @@ export function Workspace() {
     control({ type: "analysis", value: true });
     setInspector(true);
     if (matchMedia("(max-width: 1099px)").matches) setNav(false);
+  };
+  const beginAlarmInspection = (
+    id: string,
+    action: "installation" | "internal" | "analysis",
+  ) => {
+    const reading = spatial.readings.get(id);
+    if (!ready || !reading?.alarm || reading.quality !== "valid") return;
+    setAlarmVisit({ id, time: state.time, severity: reading.alarm });
+    setAlarmReturned(null);
+    setAlarmRestore(0);
+    setLayoutVisit(null);
+    control({ type: "analysis", value: false });
+    if (action === "analysis") {
+      pick(id);
+      jumpToEvents.current = true;
+      analyze();
+      if (review.analysis) {
+        jumpToEvents.current = false;
+        requestAnimationFrame(() => eventHeading.current?.focus());
+      }
+    } else {
+      setQuery("");
+      setFilter("all");
+      setRackView("installation");
+      if (action === "installation") focus(id, { installation: true });
+      else {
+        dispatch({ type: "navigate", level: "device", id });
+        setInspector(true);
+        if (matchMedia("(max-width: 1099px)").matches) setNav(false);
+      }
+    }
   };
   const showAirflow = (id: string) => {
     const target = roomAirflowTarget(id, state.deviceId);
@@ -1704,6 +1779,13 @@ export function Workspace() {
     return () => window.removeEventListener("keydown", key);
   }, [selected, review.analysis, nav, inspector, query, dispatch]);
   const load = (next: WorkspaceShot) => {
+    setAlarmQuery("");
+    setAlarmSeverity("all");
+    setAlarmVisit(null);
+    setAlarmReturned(null);
+    setAlarmReturning(false);
+    setAlarmRestore(0);
+    alarmScroll.current = 0;
     setLayoutBoundary(false);
     setLayoutQuery("");
     layoutScroll.current = 0;
@@ -2073,50 +2155,53 @@ export function Workspace() {
               ×
             </button>
           </div>
-          {!(
-            state.level === "room" &&
-            ["space", "network", "inlet", "layout"].includes(rackView)
-          ) && (
-            <>
-              <label className="study-search">
-                <span aria-hidden="true">⌕</span>
-                <input
-                  aria-label="查找资源"
-                  placeholder="名称、编号或 U 位"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                />
-                {query && (
-                  <button aria-label="清除搜索" onClick={() => setQuery("")}>
-                    ×
-                  </button>
-                )}
-              </label>
-              <div className="study-filters">
-                <select
-                  aria-label="资源类型"
-                  value={filter}
-                  onChange={(e) => setFilter(e.target.value as ResourceFilter)}
-                >
-                  <option value="all">全部类型</option>
-                  <option value="server">服务器</option>
-                  <option value="switch">交换机</option>
-                  <option value="storage">存储</option>
-                  <option value="facility">设施</option>
-                </select>
-                {layer === "alarms" && state.level !== "device" && (
-                  <button
-                    aria-label="仅看告警"
-                    aria-pressed={onlyAlarms}
-                    onClick={() => setOnlyAlarms((v) => !v)}
+          {!alarmQueueVisible &&
+            !(
+              state.level === "room" &&
+              ["space", "network", "inlet", "layout"].includes(rackView)
+            ) && (
+              <>
+                <label className="study-search">
+                  <span aria-hidden="true">⌕</span>
+                  <input
+                    aria-label="查找资源"
+                    placeholder="名称、编号或 U 位"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                  />
+                  {query && (
+                    <button aria-label="清除搜索" onClick={() => setQuery("")}>
+                      ×
+                    </button>
+                  )}
+                </label>
+                <div className="study-filters">
+                  <select
+                    aria-label="资源类型"
+                    value={filter}
+                    onChange={(e) =>
+                      setFilter(e.target.value as ResourceFilter)
+                    }
                   >
-                    <span aria-hidden="true">{onlyAlarms ? "✓ " : ""}</span>
-                    仅看告警
-                  </button>
-                )}
-              </div>
-            </>
-          )}
+                    <option value="all">全部类型</option>
+                    <option value="server">服务器</option>
+                    <option value="switch">交换机</option>
+                    <option value="storage">存储</option>
+                    <option value="facility">设施</option>
+                  </select>
+                  {layer === "alarms" && state.level !== "device" && (
+                    <button
+                      aria-label="仅看告警"
+                      aria-pressed={onlyAlarms}
+                      onClick={() => setOnlyAlarms((v) => !v)}
+                    >
+                      <span aria-hidden="true">{onlyAlarms ? "✓ " : ""}</span>
+                      仅看告警
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
           {state.level !== "room" && inletSession && (
             <button
               className="study-parent"
@@ -2125,6 +2210,27 @@ export function Workspace() {
             >
               ← 返回机房进风对照
             </button>
+          )}
+          {alarmVisit && (
+            <div className="room-layout-return" aria-label="告警排查往返">
+              <button
+                className="study-parent"
+                disabled={!ready || alarmReturning}
+                onClick={() => {
+                  setAlarmReturning(true);
+                  control({ type: "open-resource", id: "room-01" });
+                }}
+              >
+                ← 返回告警设备
+              </button>
+              <button
+                aria-label="结束告警排查"
+                disabled={alarmReturning}
+                onClick={() => setAlarmVisit(null)}
+              >
+                ×
+              </button>
+            </div>
           )}
           {layoutVisit && (
             <div className="room-layout-return" aria-label="布置导览往返">
@@ -2257,7 +2363,35 @@ export function Workspace() {
               )}
             </div>
           )}
-          {state.level === "room" && rackView === "layout" ? (
+          {alarmQueueVisible ? (
+            <AlarmQueue
+              readings={spatial.readings}
+              query={alarmQuery}
+              onQuery={setAlarmQuery}
+              severity={alarmSeverity}
+              onSeverity={setAlarmSeverity}
+              selected={selected}
+              time={state.time}
+              ready={ready}
+              visible={nav}
+              scroll={alarmScroll}
+              restoreRevision={alarmRestore}
+              returned={alarmReturned}
+              onPreview={(id) => {
+                pick(id);
+                control({ type: "analysis", value: false });
+              }}
+              onInspect={(id, internal) =>
+                beginAlarmInspection(id, internal ? "internal" : "installation")
+              }
+              onAnalyze={(id) => beginAlarmInspection(id, "analysis")}
+              onAll={() => {
+                setOnlyAlarms(false);
+                setQuery("");
+                setFilter("all");
+              }}
+            />
+          ) : state.level === "room" && rackView === "layout" ? (
             <RoomLayout
               selected={selected}
               deviceId={state.deviceId}
@@ -2678,7 +2812,8 @@ export function Workspace() {
               )}
             </div>
           )}
-          {!(state.level === "room" && rackView === "layout") &&
+          {!alarmQueueVisible &&
+            !(state.level === "room" && rackView === "layout") &&
             !(state.level !== "device" && rackView === "space") &&
             !(state.level === "rack" && rackView === "installation") && (
               <footer className="study-nav-caption">
@@ -2951,6 +3086,18 @@ export function Workspace() {
                 <small>台设备</small>
               </strong>
               <p>点击空间标记查看对应对象</p>
+              <button
+                onClick={() => {
+                  takeover();
+                  setRackView("list");
+                  setOnlyAlarms(true);
+                  setNav(true);
+                  if (matchMedia("(max-width: 1099px)").matches)
+                    setInspector(false);
+                }}
+              >
+                逐台查看告警
+              </button>
             </div>
           )}
           {!inspector && (
