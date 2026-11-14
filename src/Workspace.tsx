@@ -1,3 +1,8 @@
+import { PowerOverview } from "./components/PowerOverview";
+import {
+  powerOverviewIncludes,
+  type PowerOverviewFilter,
+} from "./power-overview";
 import {
   switchPortRows,
   switchPortIncludes,
@@ -538,7 +543,13 @@ export function Workspace() {
     query: string;
     filter: ResourceFilter;
     rackView:
-      "list" | "installation" | "space" | "network" | "inlet" | "layout";
+      | "list"
+      | "installation"
+      | "space"
+      | "network"
+      | "inlet"
+      | "power"
+      | "layout";
     nav: boolean;
     onlyAlarms: boolean;
     metric: "temperature" | "power";
@@ -574,7 +585,7 @@ export function Workspace() {
       : null;
   const [query, setQuery] = useState("");
   const [rackView, setRackView] = useState<
-    "list" | "installation" | "space" | "network" | "inlet" | "layout"
+    "list" | "installation" | "space" | "network" | "inlet" | "power" | "layout"
   >("installation");
   const [alarmQuery, setAlarmQuery] = useState("");
   const [alarmSeverity, setAlarmSeverity] = useState<AlarmSeverity>("all");
@@ -594,6 +605,18 @@ export function Workspace() {
     metric: "temperature" | "power";
   } | null>(null);
   const [layoutReturning, setLayoutReturning] = useState(false);
+  const [powerRack, setPowerRack] = useState("rack-a01");
+  const [powerQuery, setPowerQuery] = useState("");
+  const [powerFilter, setPowerFilter] = useState<PowerOverviewFilter>("all");
+  const powerScroll = useRef(0);
+  const [powerRestore, setPowerRestore] = useState(0);
+  const [powerOverviewVisit, setPowerOverviewVisit] = useState<{
+    id: string;
+    query: string;
+    filter: ResourceFilter;
+    onlyAlarms: boolean;
+  } | null>(null);
+  const [powerOverviewReturning, setPowerOverviewReturning] = useState(false);
   const [inletRack, setInletRack] = useState("rack-a01");
   const [inletQuery, setInletQuery] = useState("");
   const [inletSelection, setInletSelection] = useState("rack-a01");
@@ -935,6 +958,44 @@ export function Workspace() {
     setPortReturning(false);
     setPortVisit(null);
   }, [portReturning, portVisit, ready, state.level]);
+  useEffect(() => {
+    if (
+      powerOverviewVisit &&
+      !powerOverviewReturning &&
+      ready &&
+      !powerOverviewIncludes(powerOverviewVisit.id, selected, state.deviceId)
+    )
+      setPowerOverviewVisit(null);
+  }, [
+    powerOverviewVisit,
+    powerOverviewReturning,
+    ready,
+    selected,
+    state.deviceId,
+  ]);
+  useEffect(() => {
+    if (
+      !powerOverviewReturning ||
+      !powerOverviewVisit ||
+      !ready ||
+      state.level !== "room"
+    )
+      return;
+    control({ type: "pick", id: powerOverviewVisit.id });
+    control({ type: "layer", layer: "power" });
+    control({ type: "analysis", value: false });
+    setMetric("power");
+    setRackView("power");
+    setQuery(powerOverviewVisit.query);
+    setFilter(powerOverviewVisit.filter);
+    setOnlyAlarms(powerOverviewVisit.onlyAlarms);
+    skipNavigationSearch.current = true;
+    setNav(true);
+    if (matchMedia("(max-width: 1099px)").matches) setInspector(false);
+    setPowerRestore((value) => value + 1);
+    setPowerOverviewReturning(false);
+    setPowerOverviewVisit(null);
+  }, [powerOverviewReturning, powerOverviewVisit, ready, state.level]);
   const alarmQueueVisible =
     state.level === "room" &&
     layer === "alarms" &&
@@ -1352,6 +1413,33 @@ export function Workspace() {
       setRackView("installation");
       if (action === "installation") focus(id, { installation: true });
       else {
+        dispatch({ type: "navigate", level: "device", id });
+        setInspector(true);
+        if (matchMedia("(max-width: 1099px)").matches) setNav(false);
+      }
+    }
+  };
+  const inspectPowerOverview = (
+    id: string,
+    action: "installation" | "internal" | "analysis" | "details",
+  ) => {
+    if (!ready) return;
+    setPowerOverviewVisit({ id, query, filter, onlyAlarms });
+    setPowerRestore(0);
+    control({ type: "analysis", value: false });
+    setMetric("power");
+    if (action === "details" || action === "analysis") {
+      pick(id);
+      if (action === "analysis") analyze();
+    } else {
+      setRackView("installation");
+      setQuery("");
+      setFilter("all");
+      setOnlyAlarms(false);
+      if (action === "installation") {
+        if (rackById(id)) pick(id, true);
+        else focus(id, { installation: true });
+      } else {
         dispatch({ type: "navigate", level: "device", id });
         setInspector(true);
         if (matchMedia("(max-width: 1099px)").matches) setNav(false);
@@ -1837,6 +1925,13 @@ export function Workspace() {
     return () => window.removeEventListener("keydown", key);
   }, [selected, review.analysis, nav, inspector, query, dispatch]);
   const load = (next: WorkspaceShot) => {
+    setPowerRack("rack-a01");
+    setPowerQuery("");
+    setPowerFilter("all");
+    powerScroll.current = 0;
+    setPowerRestore(0);
+    setPowerOverviewVisit(null);
+    setPowerOverviewReturning(false);
     setPortCheck(null);
     setPortVisit(null);
     setPortReturning(false);
@@ -2220,7 +2315,9 @@ export function Workspace() {
           {!alarmQueueVisible &&
             !(
               state.level === "room" &&
-              ["space", "network", "inlet", "layout"].includes(rackView)
+              ["space", "network", "inlet", "power", "layout"].includes(
+                rackView,
+              )
             ) && (
               <>
                 <label className="study-search">
@@ -2272,6 +2369,27 @@ export function Workspace() {
             >
               ← 返回机房进风对照
             </button>
+          )}
+          {powerOverviewVisit && (
+            <div className="room-layout-return" aria-label="功耗对照往返">
+              <button
+                className="study-parent"
+                disabled={!ready || powerOverviewReturning}
+                onClick={() => {
+                  setPowerOverviewReturning(true);
+                  control({ type: "open-resource", id: "room-01" });
+                }}
+              >
+                ← 返回机房功耗对照
+              </button>
+              <button
+                aria-label="结束功耗对照往返"
+                disabled={powerOverviewReturning}
+                onClick={() => setPowerOverviewVisit(null)}
+              >
+                ×
+              </button>
+            </div>
           )}
           {portVisit && (
             <div className="room-layout-return" aria-label="端口核对往返">
@@ -2389,7 +2507,9 @@ export function Workspace() {
                 aria-pressed={
                   rackView === "list" ||
                   (state.level === "room" &&
-                    !["space", "network", "inlet", "layout"].includes(rackView))
+                    !["space", "network", "inlet", "power", "layout"].includes(
+                      rackView,
+                    ))
                 }
                 onClick={() => setRackView("list")}
               >
@@ -2421,9 +2541,17 @@ export function Workspace() {
               </button>
               {state.level === "room" && (
                 <button
-                  aria-pressed={rackView === "inlet"}
+                  aria-pressed={rackView === "inlet" || rackView === "power"}
                   onClick={() => {
                     takeover();
+                    if (layer === "power" || rackView === "power") {
+                      setRackView("power");
+                      control({ type: "layer", layer: "power" });
+                      setMetric("power");
+                      setOnlyAlarms(false);
+                      pick(powerRack, false, true);
+                      return;
+                    }
                     setRackView("inlet");
                     control({ type: "layer", layer: "environment" });
                     pick(inletSelection, false, true);
@@ -2436,7 +2564,9 @@ export function Workspace() {
                     );
                   }}
                 >
-                  进风对照
+                  {layer === "power" || rackView === "power"
+                    ? "功耗对照"
+                    : "进风对照"}
                 </button>
               )}
               {state.level === "room" && (
@@ -2480,6 +2610,31 @@ export function Workspace() {
                 setQuery("");
                 setFilter("all");
               }}
+            />
+          ) : state.level === "room" && rackView === "power" ? (
+            <PowerOverview
+              readings={spatial.readings}
+              query={powerQuery}
+              onQuery={setPowerQuery}
+              filter={powerFilter}
+              onFilter={setPowerFilter}
+              rackId={powerRack}
+              selected={selected}
+              time={state.time}
+              visible={nav}
+              ready={ready}
+              scroll={powerScroll}
+              restoreRevision={powerRestore}
+              onRack={(id) => {
+                setPowerRack(id);
+                pick(id, false, true);
+              }}
+              onPreview={(id) => pick(id, false, true)}
+              onInspect={(id, internal) =>
+                inspectPowerOverview(id, internal ? "internal" : "installation")
+              }
+              onDetails={(id) => inspectPowerOverview(id, "details")}
+              onAnalyze={(id) => inspectPowerOverview(id, "analysis")}
             />
           ) : state.level === "room" && rackView === "layout" ? (
             <RoomLayout
@@ -2903,6 +3058,7 @@ export function Workspace() {
             </div>
           )}
           {!alarmQueueVisible &&
+            !(state.level === "room" && rackView === "power") &&
             !(state.level === "room" && rackView === "layout") &&
             !(state.level !== "device" && rackView === "space") &&
             !(state.level === "rack" && rackView === "installation") && (
@@ -2939,6 +3095,13 @@ export function Workspace() {
                   aria-pressed={layer === l.id}
                   onClick={() => {
                     control({ type: "layer", layer: l.id });
+                    if (
+                      state.level === "room" &&
+                      ["inlet", "power"].includes(rackView)
+                    ) {
+                      if (l.id === "power") setRackView("power");
+                      else if (l.id === "environment") setRackView("inlet");
+                    }
                     setOnlyAlarms(l.id === "alarms");
                     setMetric(l.id === "power" ? "power" : "temperature");
                   }}
