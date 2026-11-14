@@ -1,3 +1,5 @@
+import { SwitchPorts } from "./SwitchPorts";
+import type { SwitchPortCheck } from "../switch-ports";
 import { NetworkViewActions } from "./NetworkViewActions";
 import { ConnectionSection } from "./ConnectionSection";
 import { useState } from "react";
@@ -18,6 +20,10 @@ import {
 } from "../network";
 
 export function NetworkConnections({
+  portCheck,
+  onPortChange,
+  onPortLeave,
+  portRestore,
   state,
   selectedId,
   activeLinkId,
@@ -32,6 +38,15 @@ export function NetworkConnections({
   onTrace,
   onInteract,
 }: {
+  portCheck: SwitchPortCheck | null;
+  portRestore: number;
+  onPortChange: (check: SwitchPortCheck) => void;
+  onPortLeave: (
+    check: SwitchPortCheck,
+    id: string,
+    action: "preview" | "locate" | "inspect",
+    linkId: string,
+  ) => void;
   state: AppState;
   selectedId: string;
   activeLinkId: string | null;
@@ -88,10 +103,63 @@ export function NetworkConnections({
           ? `${switchesForRack(rack.id).length} 台交换机 · 配置`
           : `${links.length} / ${ports.length} 口已配置`
       }
-      active={!!activeLinkId}
+      active={!!activeLinkId || portCheck?.switchId === id}
       onInteract={onInteract}
     >
-      {activeLink && (
+      {isSwitch && selectedId !== device?.id && (
+        <p className="network-boundary">
+          以下为所属整机逻辑端口，不把当前部件作为独立链路。
+        </p>
+      )}
+      {isSwitch &&
+        device &&
+        (() => {
+          const check: SwitchPortCheck = {
+            switchId: device.id,
+            query: portCheck?.switchId === device.id ? portCheck.query : "",
+            port:
+              activeLink?.target === device.id
+                ? activeLink.targetPort
+                : portCheck?.switchId === device.id
+                  ? portCheck.port
+                  : null,
+          };
+          return (
+            <SwitchPorts
+              check={check}
+              ready={ready}
+              canObserve={canObserve}
+              observing={observing}
+              traced={activeLink?.target === device.id}
+              restoreRevision={portRestore}
+              onChange={onPortChange}
+              onSelect={(port) => {
+                onPortChange({ ...check, port });
+                onTrace(
+                  links.find((link) => link.targetPort === port)?.id ?? null,
+                );
+              }}
+              onPreview={(id) => {
+                const link = links.find(
+                  (link) => link.targetPort === check.port,
+                );
+                if (link) onPortLeave(check, id, "preview", link.id);
+              }}
+              onLocate={(id) => {
+                const link = links.find(
+                  (link) => link.targetPort === check.port,
+                );
+                if (link) onPortLeave(check, id, "locate", link.id);
+              }}
+              onInspect={(id, linkId) =>
+                onPortLeave(check, id, "inspect", linkId)
+              }
+              onObserve={onObserve}
+              onReturnView={onReturnView}
+            />
+          );
+        })()}
+      {activeLink && !isSwitch && (
         <section className="network-trace" aria-label="当前网络连接">
           <div className="network-trace-heading">
             <span>{activeLink.speedGbps} Gb/s · 配置接入</span>
@@ -186,7 +254,7 @@ export function NetworkConnections({
             );
           })}
         </div>
-      ) : device ? (
+      ) : device && !isSwitch ? (
         <>
           {!activeLink && (
             <div className="network-device-context">

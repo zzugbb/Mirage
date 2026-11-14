@@ -1,3 +1,8 @@
+import {
+  switchPortRows,
+  switchPortIncludes,
+  type SwitchPortCheck,
+} from "./switch-ports";
 import { AlarmQueue } from "./components/AlarmQueue";
 import {
   alarmVisitIncludes,
@@ -526,6 +531,21 @@ export function Workspace() {
     }));
   };
   const [networkLinkId, setNetworkLinkId] = useState<string | null>(null);
+  const [portCheck, setPortCheck] = useState<SwitchPortCheck | null>(null);
+  const [portVisit, setPortVisit] = useState<{
+    check: SwitchPortCheck;
+    level: "room" | "rack";
+    query: string;
+    filter: ResourceFilter;
+    rackView:
+      "list" | "installation" | "space" | "network" | "inlet" | "layout";
+    nav: boolean;
+    onlyAlarms: boolean;
+    metric: "temperature" | "power";
+  } | null>(null);
+  const [portReturning, setPortReturning] = useState(false);
+  const [portRestore, setPortRestore] = useState(0);
+
   const [pduInspection, setPduInspection] = useState<PduInspection | null>(
     null,
   );
@@ -877,6 +897,44 @@ export function Workspace() {
     !review.pendingEndpoint &&
     !!feedback?.settled &&
     feedback.key === presentationKey(state);
+  useEffect(() => {
+    if (
+      portVisit &&
+      !portReturning &&
+      ready &&
+      !switchPortIncludes(portVisit.check, selected, state.deviceId)
+    )
+      setPortVisit(null);
+  }, [portVisit, portReturning, ready, selected, state.deviceId]);
+  useEffect(() => {
+    if (
+      !portReturning ||
+      !portVisit ||
+      !ready ||
+      state.level !== portVisit.level
+    )
+      return;
+    control({ type: "pick", id: portVisit.check.switchId });
+    control({ type: "layer", layer: "overview" });
+    control({ type: "analysis", value: false });
+    setNetworkLinkId(
+      switchPortRows(portVisit.check.switchId).find(
+        (row) => row.port === portVisit.check.port,
+      )?.link?.id ?? null,
+    );
+    setPortCheck(portVisit.check);
+    setQuery(portVisit.query);
+    setFilter(portVisit.filter);
+    setOnlyAlarms(portVisit.onlyAlarms);
+    setMetric(portVisit.metric);
+    setRackView(portVisit.rackView);
+    setInspector(true);
+    skipNavigationSearch.current = true;
+    setNav(matchMedia("(max-width: 1099px)").matches ? false : portVisit.nav);
+    setPortRestore((value) => value + 1);
+    setPortReturning(false);
+    setPortVisit(null);
+  }, [portReturning, portVisit, ready, state.level]);
   const alarmQueueVisible =
     state.level === "room" &&
     layer === "alarms" &&
@@ -1779,6 +1837,10 @@ export function Workspace() {
     return () => window.removeEventListener("keydown", key);
   }, [selected, review.analysis, nav, inspector, query, dispatch]);
   const load = (next: WorkspaceShot) => {
+    setPortCheck(null);
+    setPortVisit(null);
+    setPortReturning(false);
+    setPortRestore(0);
     setAlarmQuery("");
     setAlarmSeverity("all");
     setAlarmVisit(null);
@@ -2210,6 +2272,34 @@ export function Workspace() {
             >
               ← 返回机房进风对照
             </button>
+          )}
+          {portVisit && (
+            <div className="room-layout-return" aria-label="端口核对往返">
+              <button
+                className="study-parent"
+                disabled={!ready || portReturning}
+                onClick={() => {
+                  setPortReturning(true);
+                  control(
+                    portVisit.level === "room"
+                      ? { type: "open-resource", id: "room-01" }
+                      : {
+                          type: "locate-installation",
+                          id: portVisit.check.switchId,
+                        },
+                  );
+                }}
+              >
+                ← 返回交换机端口
+              </button>
+              <button
+                aria-label="结束端口核对"
+                disabled={portReturning}
+                onClick={() => setPortVisit(null)}
+              >
+                ×
+              </button>
+            </div>
           )}
           {alarmVisit && (
             <div className="room-layout-return" aria-label="告警排查往返">
@@ -4164,6 +4254,43 @@ export function Workspace() {
                     )}
                     {layer === "overview" && (
                       <NetworkConnections
+                        portCheck={portCheck}
+                        portRestore={portRestore}
+                        onPortChange={(check) => {
+                          setPortCheck(check);
+                          setPortRestore(0);
+                        }}
+                        onPortLeave={(check, id, action, linkId) => {
+                          if (!ready) return;
+                          setPortCheck(check);
+                          setPortRestore(0);
+                          setPortVisit({
+                            check,
+                            level: state.level === "room" ? "room" : "rack",
+                            query,
+                            filter,
+                            rackView,
+                            nav,
+                            onlyAlarms,
+                            metric,
+                          });
+                          setNetworkLinkId(linkId);
+                          if (action === "preview") pick(id);
+                          else if (action === "locate")
+                            focus(id, { installation: true });
+                          else {
+                            control({
+                              type: "inspect-network-endpoint",
+                              linkId,
+                              deviceId: id,
+                            });
+                            setQuery("");
+                            setFilter("all");
+                            setPowerLinkId(null);
+                            if (matchMedia("(max-width: 1099px)").matches)
+                              setNav(false);
+                          }
+                        }}
                         key={selected}
                         state={state}
                         selectedId={selected}
