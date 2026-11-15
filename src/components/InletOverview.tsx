@@ -34,6 +34,7 @@ export function InletOverview({
   onInspect,
   onDetails,
   onAnalyze,
+  onAirflow,
   referenceId,
   onReference,
   onCompare,
@@ -59,6 +60,7 @@ export function InletOverview({
   onInspect: (id: string, internal: boolean) => void;
   onDetails: () => void;
   onAnalyze: () => void;
+  onAirflow: (id: string) => void;
   referenceId: string | null;
   onReference: (id: string | null) => void;
   onCompare: (id: string) => void;
@@ -325,6 +327,11 @@ export function InletOverview({
               onClick={() => onInspect(device.id, true)}
             >
               查看内部
+            </button>
+          )}
+          {device && (
+            <button disabled={!ready} onClick={() => onAirflow(device.id)}>
+              机房气流
             </button>
           )}
           <button onClick={onDetails}>详情</button>

@@ -1,3 +1,4 @@
+import { inletAirflowIncludes } from "./inlet-airflow";
 import { SmokeInspection } from "./components/SmokeInspection";
 import { isSmokeFixture } from "./smoke-inspection";
 import { PowerOverview } from "./components/PowerOverview";
@@ -663,6 +664,20 @@ export function Workspace() {
   useEffect(() => {
     setInletDifferenceReview(emptyInletDifferenceReview);
   }, [inletPair, state.replayCycle]);
+  const [inletAirflowVisit, setInletAirflowVisit] = useState<{
+    id: string;
+    rack: string;
+    query: string;
+    scope: InletOverviewScope;
+    order: InletOverviewOrder;
+    filter: InletOverviewFilter;
+    slice: SliceControls;
+    scroll: number;
+    resourceQuery: string;
+    resourceFilter: ResourceFilter;
+    onlyAlarms: boolean;
+  } | null>(null);
+  const [inletAirflowReturning, setInletAirflowReturning] = useState(false);
   const [inletSession, setInletSession] = useState(false);
   useEffect(() => {
     if (state.level !== "room") return;
@@ -1063,6 +1078,51 @@ export function Workspace() {
     });
     return () => cancelAnimationFrame(frame);
   }, [smokeRestore, ready, review.analysis, inspector]);
+  useEffect(() => {
+    if (
+      inletAirflowVisit &&
+      !inletAirflowReturning &&
+      ready &&
+      !inletAirflowIncludes(inletAirflowVisit.id, selected, state.deviceId)
+    )
+      setInletAirflowVisit(null);
+  }, [
+    inletAirflowVisit,
+    inletAirflowReturning,
+    ready,
+    selected,
+    state.deviceId,
+  ]);
+  useEffect(() => {
+    if (
+      !inletAirflowVisit ||
+      !inletAirflowReturning ||
+      !ready ||
+      state.level !== "room" ||
+      selected !== inletAirflowVisit.id
+    )
+      return;
+    setRackView("inlet");
+    setInletSelection(inletAirflowVisit.id);
+    setInletRack(inletAirflowVisit.rack);
+    setInletQuery(inletAirflowVisit.query);
+    setInletScope(inletAirflowVisit.scope);
+    setInletOrder(inletAirflowVisit.order);
+    setInletFilter(inletAirflowVisit.filter);
+    setSliceControls(inletAirflowVisit.slice);
+    inletScroll.current = inletAirflowVisit.scroll;
+    setQuery(inletAirflowVisit.resourceQuery);
+    setFilter(inletAirflowVisit.resourceFilter);
+    setOnlyAlarms(inletAirflowVisit.onlyAlarms);
+    skipNavigationSearch.current = true;
+    control({ type: "analysis", value: false });
+    setMetric("temperature");
+    setNav(true);
+    setInspector(!matchMedia("(max-width: 1099px)").matches);
+    setInletRestoreRevision((value) => value + 1);
+    setInletAirflowVisit(null);
+    setInletAirflowReturning(false);
+  }, [inletAirflowVisit, inletAirflowReturning, ready, state.level, selected]);
   const alarmQueueVisible =
     state.level === "room" &&
     layer === "alarms" &&
@@ -1513,6 +1573,43 @@ export function Workspace() {
       }
     }
   };
+  const returnInletAirflow = () => {
+    if (!inletAirflowVisit || !ready || inletAirflowReturning) return;
+    setInletAirflowReturning(true);
+    setAirflowVisit(null);
+    setAirflowResponse(null);
+    control({ type: "room-inlet", id: inletAirflowVisit.id });
+  };
+  const inletAirflowReturn = inletAirflowVisit && (
+    <section
+      className="inlet-airflow-return"
+      aria-label="进风查找气流往返"
+      onKeyDown={(event) => {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          event.stopPropagation();
+          returnInletAirflow();
+        }
+      }}
+    >
+      <strong>{deviceById(inletAirflowVisit.id)!.name} · 从进风查找进入</strong>
+      <p>
+        可核对本支路端点与设备。返回先安全归位，恢复原查找与切片，保留最新时间。
+      </p>
+      <button
+        disabled={!ready || inletAirflowReturning}
+        onClick={returnInletAirflow}
+      >
+        ← 返回进风查找
+      </button>
+      <button
+        disabled={inletAirflowReturning}
+        onClick={() => setInletAirflowVisit(null)}
+      >
+        结束气流往返
+      </button>
+    </section>
+  );
   const showAirflow = (id: string) => {
     const target = roomAirflowTarget(id, state.deviceId);
     if (!target || !ready) return;
@@ -2054,6 +2151,8 @@ export function Workspace() {
     setSpaceReturning(false);
     setSpaceRestore(null);
     setComparisonSize(2);
+    setInletAirflowVisit(null);
+    setInletAirflowReturning(false);
     setInletReference(null);
     setInletPair(null);
     setInletSession(false);
@@ -2436,7 +2535,8 @@ export function Workspace() {
                 </div>
               </>
             )}
-          {state.level !== "room" && inletSession && (
+          {inletAirflowReturn}
+          {state.level !== "room" && inletSession && !inletAirflowVisit && (
             <button
               className="study-parent"
               disabled={!ready}
@@ -2776,6 +2876,28 @@ export function Workspace() {
                 analyze();
               }}
               readings={spatial.readings}
+              onAirflow={(id) => {
+                if (!ready) return;
+                setInletAirflowVisit({
+                  id,
+                  rack: inletRack,
+                  query: inletQuery,
+                  scope: inletScope,
+                  order: inletOrder,
+                  filter: inletFilter,
+                  slice: sliceControls,
+                  scroll: inletScroll.current,
+                  resourceQuery: query,
+                  resourceFilter: filter,
+                  onlyAlarms,
+                });
+                setInletAirflowReturning(false);
+                setInletSelection(id);
+                setInletPair(null);
+                setRackView("installation");
+                control({ type: "analysis", value: false });
+                showAirflow(id);
+              }}
               scope={inletScope}
               order={inletOrder}
               filter={inletFilter}
@@ -3525,6 +3647,7 @@ export function Workspace() {
                 </span>
               </div>
             )}
+            {!nav && inletAirflowReturn}
             {isolatedPartId && (
               <PartSequence
                 sequence={partInspectionSequence(
