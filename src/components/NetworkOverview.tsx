@@ -1,9 +1,21 @@
 import { useLayoutEffect, useMemo, useRef, type RefObject } from "react";
-import { networkOverview } from "../network-overview";
+import {
+  networkOverview,
+  networkConnectionRows,
+  type NetworkOverviewScope,
+  type NetworkOverviewRole,
+} from "../network-overview";
 import { switchRole } from "../network";
 import { unitLabel } from "../catalog";
 
 export function NetworkOverview({
+  scope,
+  role,
+  visible,
+  restoreRevision,
+  focusKey,
+  onScope,
+  onRole,
   rackId,
   query,
   activeLink,
@@ -16,6 +28,13 @@ export function NetworkOverview({
   onPreview,
   onLocate,
 }: {
+  scope: NetworkOverviewScope;
+  role: NetworkOverviewRole;
+  visible: boolean;
+  restoreRevision: number;
+  focusKey: RefObject<string | null>;
+  onScope: (scope: NetworkOverviewScope) => void;
+  onRole: (role: NetworkOverviewRole) => void;
   rackId: string;
   query: string;
   activeLink: string | null;
@@ -29,18 +48,39 @@ export function NetworkOverview({
   onLocate: (id: string) => void;
 }) {
   const all = useMemo(() => networkOverview(query), [query]);
+  const rows = useMemo(() => networkConnectionRows(query, role), [query, role]);
   const current = all.find((item) => item.rack.id === rackId) ?? all[0];
   const host = useRef<HTMLElement>(null);
+  const restorePending = useRef(true);
   useLayoutEffect(() => {
     if (host.current) host.current.scrollTop = scroll.current;
-  }, [rackId, scroll]);
+  }, [rackId, scope, scroll]);
+  useLayoutEffect(() => {
+    restorePending.current = true;
+  }, [visible, restoreRevision]);
+  useLayoutEffect(() => {
+    if (!visible || !ready || !restorePending.current || !host.current) return;
+    restorePending.current = false;
+    host.current.scrollTop = scroll.current;
+    const entry =
+      [
+        ...host.current.querySelectorAll<HTMLElement>("[data-network-focus]"),
+      ].find((el) => el.dataset.networkFocus === focusKey.current) ??
+      host.current.querySelector<HTMLElement>("input");
+    entry?.focus({ preventScroll: true });
+    if (restoreRevision) entry?.scrollIntoView({ block: "nearest" });
+  }, [visible, restoreRevision, ready, scroll, focusKey]);
   return (
     <section
       ref={host}
       className="network-overview"
       aria-label="机房网络接入图"
+      onFocusCapture={(e) => {
+        const key = (e.target as HTMLElement).dataset.networkFocus;
+        if (key) focusKey.current = key;
+      }}
       onScroll={(e) => {
-        scroll.current = e.currentTarget.scrollTop;
+        if (visible) scroll.current = e.currentTarget.scrollTop;
       }}
     >
       <header>
@@ -50,105 +90,192 @@ export function NetworkOverview({
           台交换机 · {all.reduce((n, r) => n + r.links.length, 0)} 条配置接入
         </p>
       </header>
+      <div className="network-map-controls">
+        <label>
+          查找范围
+          <select
+            aria-label="接入图查找范围"
+            value={scope}
+            onChange={(e) => onScope(e.target.value as NetworkOverviewScope)}
+          >
+            <option value="rack">逐柜接入图</option>
+            <option value="room">全机房连接</option>
+          </select>
+        </label>
+        {scope === "room" && (
+          <label>
+            接入分支
+            <select
+              aria-label="接入图分支"
+              value={role}
+              onChange={(e) => onRole(e.target.value as NetworkOverviewRole)}
+            >
+              <option value="all">全部 A/B</option>
+              <option value="A">接入 A</option>
+              <option value="B">接入 B</option>
+            </select>
+          </label>
+        )}
+      </div>
       <label className="network-map-search">
         查找设备或对端
         <input
           aria-label="接入图查找设备或对端"
+          data-network-focus="query"
           value={query}
           onChange={(e) => onQuery(e.target.value)}
-          placeholder="SRV、STO 或交换机编号"
+          placeholder="如 B03 STO 或 SRV-01 SW-02"
         />
       </label>
-      <div className="network-rack-grid" role="group" aria-label="接入图机柜">
-        {all.map((item) => (
-          <button
-            key={item.rack.id}
-            aria-pressed={item.rack.id === current.rack.id}
-            onClick={() => onRack(item.rack.id)}
-          >
-            <b>{item.rack.name.split(" ")[0]}</b>
-            <small>
-              {item.matching.length}/{item.sources.length} 台
-            </small>
-          </button>
-        ))}
-      </div>
-      <div className="network-map-heading">
-        <strong>{current.rack.name}</strong>
-        <button disabled={!ready} onClick={() => onLocate(current.rack.id)}>
-          检视机柜
-        </button>
-      </div>
-      <div className="network-map-switches">
-        {current.switches.map((sw) => (
-          <button
-            key={sw.device.id}
-            aria-pressed={selected === sw.device.id}
-            onClick={() => onPreview(sw.device.id)}
-          >
-            <b>
-              接入 {sw.role} · {sw.device.name}
-            </b>
-            <small>
-              {unitLabel(sw.device.id)} · {sw.configured}/{sw.ports} 口已配置
-            </small>
-            <small>{sw.uplinks} 个 100G 口未配置上联</small>
-          </button>
-        ))}
-      </div>
-      <p className="network-map-hint">
-        左右为 A/B
-        交换机逻辑口。点端口标记两端，点设备仅预览；安装位与部件在详情中继续。
-      </p>
-      <div className="network-map-columns" aria-hidden="true">
-        <span>A 端口</span>
-        <span>设备 / U 位</span>
-        <span>B 端口</span>
-      </div>
-      <div className="network-map-nodes">
-        {current.matching.map(({ device, connections }) => (
-          <div className="network-map-node" key={device.id}>
-            {(["A", "device", "B"] as const).map((role) => {
-              if (role === "device")
-                return (
-                  <button
-                    className="network-map-device"
-                    key={role}
-                    aria-pressed={selected === device.id}
-                    onClick={() => onPreview(device.id)}
-                  >
-                    <b>{device.name}</b>
-                    <small>{unitLabel(device.id)}</small>
-                  </button>
-                );
-              const link = connections.find(
-                (item) => switchRole(item.target) === role,
-              );
-              return link ? (
-                <button
-                  className="network-map-port"
-                  key={role}
-                  disabled={!ready}
-                  aria-pressed={activeLink === link.id}
-                  aria-label={`标记 ${device.name} 接入 ${role} 端口 ${link.targetPort}`}
-                  onClick={() => onTrace(link.id)}
-                >
-                  {String(link.targetPort).padStart(2, "0")}
-                </button>
-              ) : (
-                <span key={role} className="network-map-unconfigured">
-                  未配置
+      {scope === "room" ? (
+        <>
+          <p role="status">
+            {rows.length} / {all.reduce((n, r) => n + r.links.length, 0)}{" "}
+            条配置接入 · 按机柜 / U 位排列
+          </p>
+          <p className="network-map-hint">
+            空格组合机柜、设备、对端或端口名称；各词须匹配同一条连接。点连接标记三维两端，在详情中同框观察或继续检视。
+          </p>
+          <div className="network-connection-list" aria-label="全机房连接结果">
+            {rows.map(({ rack, link, role: branch, endpoints }) => (
+              <button
+                key={link.id}
+                data-network-focus={link.id}
+                aria-pressed={activeLink === link.id}
+                disabled={!ready}
+                onClick={() => onTrace(link.id)}
+              >
+                <b>
+                  {endpoints[0].name} · {endpoints[1].name}
+                </b>
+                <span>
+                  {rack.name.split(" ")[0]} · 接入 {branch} · {link.speedGbps}G
+                  配置
                 </span>
-              );
-            })}
+                <small>
+                  ① {unitLabel(link.source)} · {endpoints[0].portLabel}
+                </small>
+                <small>
+                  ② {unitLabel(link.target)} · {endpoints[1].portLabel}
+                </small>
+              </button>
+            ))}
           </div>
-        ))}
-      </div>
-      {!current.matching.length && (
-        <p role="status">
-          本柜没有匹配设备。可切换机柜或
-          <button onClick={() => onQuery("")}>清除查找</button>。
-        </p>
+          {!rows.length && (
+            <p role="status">
+              没有匹配的配置连接。可调整分支或
+              <button onClick={() => onQuery("")}>清除查找</button>。
+            </p>
+          )}
+          {activeLink && !rows.some(({ link }) => link.id === activeLink) && (
+            <p role="status">
+              当前标记连接不在查找结果中；调整条件不会改动已登记配置。
+            </p>
+          )}
+        </>
+      ) : (
+        <>
+          <div
+            className="network-rack-grid"
+            role="group"
+            aria-label="接入图机柜"
+          >
+            {all.map((item) => (
+              <button
+                key={item.rack.id}
+                data-network-focus={item.rack.id}
+                aria-pressed={item.rack.id === current.rack.id}
+                onClick={() => onRack(item.rack.id)}
+              >
+                <b>{item.rack.name.split(" ")[0]}</b>
+                <small>
+                  {item.matching.length}/{item.sources.length} 台
+                </small>
+              </button>
+            ))}
+          </div>
+          <div className="network-map-heading">
+            <strong>{current.rack.name}</strong>
+            <button disabled={!ready} onClick={() => onLocate(current.rack.id)}>
+              检视机柜
+            </button>
+          </div>
+          <div className="network-map-switches">
+            {current.switches.map((sw) => (
+              <button
+                key={sw.device.id}
+                data-network-focus={sw.device.id}
+                aria-pressed={selected === sw.device.id}
+                onClick={() => onPreview(sw.device.id)}
+              >
+                <b>
+                  接入 {sw.role} · {sw.device.name}
+                </b>
+                <small>
+                  {unitLabel(sw.device.id)} · {sw.configured}/{sw.ports}{" "}
+                  口已配置
+                </small>
+                <small>{sw.uplinks} 个 100G 口未配置上联</small>
+              </button>
+            ))}
+          </div>
+          <p className="network-map-hint">
+            左右为 A/B
+            交换机逻辑口。点端口标记两端，点设备仅预览；安装位与部件在详情中继续。
+          </p>
+          <div className="network-map-columns" aria-hidden="true">
+            <span>A 端口</span>
+            <span>设备 / U 位</span>
+            <span>B 端口</span>
+          </div>
+          <div className="network-map-nodes">
+            {current.matching.map(({ device, connections }) => (
+              <div className="network-map-node" key={device.id}>
+                {(["A", "device", "B"] as const).map((role) => {
+                  if (role === "device")
+                    return (
+                      <button
+                        className="network-map-device"
+                        data-network-focus={device.id}
+                        key={role}
+                        aria-pressed={selected === device.id}
+                        onClick={() => onPreview(device.id)}
+                      >
+                        <b>{device.name}</b>
+                        <small>{unitLabel(device.id)}</small>
+                      </button>
+                    );
+                  const link = connections.find(
+                    (item) => switchRole(item.target) === role,
+                  );
+                  return link ? (
+                    <button
+                      className="network-map-port"
+                      data-network-focus={link.id}
+                      key={role}
+                      disabled={!ready}
+                      aria-pressed={activeLink === link.id}
+                      aria-label={`标记 ${device.name} 接入 ${role} 端口 ${link.targetPort}`}
+                      onClick={() => onTrace(link.id)}
+                    >
+                      {String(link.targetPort).padStart(2, "0")}
+                    </button>
+                  ) : (
+                    <span key={role} className="network-map-unconfigured">
+                      未配置
+                    </span>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+          {!current.matching.length && (
+            <p role="status">
+              本柜没有匹配设备。可切换机柜或
+              <button onClick={() => onQuery("")}>清除查找</button>。
+            </p>
+          )}
+        </>
       )}
       <p className="network-map-hint">
         仅展示柜内已登记的 25G

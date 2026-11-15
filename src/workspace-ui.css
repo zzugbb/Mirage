@@ -5906,3 +5906,44 @@
   padding: 6px 8px;
   margin: 4px 4px 4px 0;
 }
+
+.network-map-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 10px 0;
+}
+.network-map-controls label {
+  display: grid;
+  gap: 6px;
+}
+.workspace-ui .network-map-controls select {
+  width: 100%;
+  min-width: 0;
+  padding: 7px 3px;
+  background: #202c34;
+  border: 1px solid #40535c;
+  color: #d1e4e5;
+  border-radius: 4px;
+}
+.network-connection-list {
+  display: grid;
+  gap: 7px;
+}
+.network-connection-list button {
+  display: grid;
+  gap: 3px;
+  text-align: left;
+  padding: 9px;
+  border: 1px solid #40535c;
+  border-radius: 4px;
+  background: #202c34;
+}
+.network-connection-list button[aria-pressed="true"] {
+  background: #31545b;
+  border-color: #a6d8d8;
+}
+.network-connection-list span {
+  color: #a9bdc9;
+  font-size: 10px;
+}

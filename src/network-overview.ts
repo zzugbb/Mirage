@@ -5,11 +5,53 @@ import {
   switchRole,
   switchesForRack,
   switchPorts,
+  type NetworkLink,
 } from "./network.ts";
+
+export type NetworkOverviewScope = "rack" | "room";
+export type NetworkOverviewRole = "all" | "A" | "B";
+
+/** 多个查找词必须落在同一条配置上，不能拼接两条 A/B 接入凑出结果。 */
+function connectionMatches(link: NetworkLink, query: string) {
+  const rack = racks.find(
+    (item) => item.id === devices.find((d) => d.id === link.source)?.rackId,
+  )!;
+  const text = `${rack.id} ${rack.name} ${networkEndpoints(link.id)
+    .map((e) => `${e.deviceId} ${e.name} ${e.portLabel} ${e.location}`)
+    .join(" ")}`.toLowerCase();
+  return query
+    .trim()
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean)
+    .every((term) => text.includes(term));
+}
+
+/** 全机房按安装顺序列出既有连接；未配置口不生成结果。 */
+export function networkConnectionRows(
+  query = "",
+  role: NetworkOverviewRole = "all",
+) {
+  return networkOverview().flatMap(({ rack, sources }) =>
+    sources.flatMap(({ connections }) =>
+      connections
+        .filter(
+          (link) =>
+            (role === "all" || switchRole(link.target) === role) &&
+            connectionMatches(link, query),
+        )
+        .map((link) => ({
+          rack,
+          link,
+          role: switchRole(link.target),
+          endpoints: networkEndpoints(link.id),
+        })),
+    ),
+  );
+}
 
 /** 从已登记接入生成柜内关系，不把未配置端口当作可用容量。 */
 export function networkOverview(query = "") {
-  const term = query.trim().toLowerCase();
   return racks.map((rack) => {
     const links = networkLinks.filter(
       (link) => devices.find((d) => d.id === link.source)?.rackId === rack.id,
@@ -25,11 +67,7 @@ export function networkOverview(query = "") {
         return {
           device,
           connections,
-          matches:
-            !term ||
-            `${device.id} ${device.name} ${connections.flatMap((link) => networkEndpoints(link.id).map((e) => `${e.name} ${e.portLabel}`)).join(" ")}`
-              .toLowerCase()
-              .includes(term),
+          matches: connections.some((link) => connectionMatches(link, query)),
         };
       });
     return {

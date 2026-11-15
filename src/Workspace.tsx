@@ -1,3 +1,7 @@
+import type {
+  NetworkOverviewScope,
+  NetworkOverviewRole,
+} from "./network-overview";
 import { inletAirflowIncludes } from "./inlet-airflow";
 import { SmokeInspection } from "./components/SmokeInspection";
 import { isSmokeFixture } from "./smoke-inspection";
@@ -684,6 +688,12 @@ export function Workspace() {
     setInletSession(rackView === "inlet");
     if (rackView === "inlet") inletSlice.current = sliceControls;
   }, [state.level, rackView, sliceControls]);
+  const [networkMapScope, setNetworkMapScope] =
+    useState<NetworkOverviewScope>("rack");
+  const [networkMapRole, setNetworkMapRole] =
+    useState<NetworkOverviewRole>("all");
+  const networkMapFocus = useRef<string | null>(null);
+  const [networkMapRestore, setNetworkMapRestore] = useState(0);
   const [networkMapRack, setNetworkMapRack] = useState("rack-a01");
   const [networkMapQuery, setNetworkMapQuery] = useState("");
   const [networkMapLink, setNetworkMapLink] = useState<string | null>(null);
@@ -1222,6 +1232,7 @@ export function Workspace() {
       return;
     control({ type: "pick", id: networkMapSelection });
     setNetworkLinkId(networkMapLink);
+    setNetworkMapRestore((n) => n + 1);
     setNetworkMapReturning(false);
   }, [
     networkMapReturning,
@@ -1573,6 +1584,22 @@ export function Workspace() {
       }
     }
   };
+  const networkMapReturn = state.level !== "room" && rackView === "network" && (
+    <button
+      className="study-parent"
+      disabled={!ready || networkMapReturning}
+      onClick={() => {
+        setNetworkMapReturning(true);
+        control({ type: "analysis", value: false });
+        control({ type: "open-resource", id: "room-01" });
+        control({ type: "layer", layer: "overview" });
+        setNetworkLinkId(networkMapLink);
+        setNav(true);
+      }}
+    >
+      ← 返回机房接入图
+    </button>
+  );
   const returnInletAirflow = () => {
     if (!inletAirflowVisit || !ready || inletAirflowReturning) return;
     setInletAirflowReturning(true);
@@ -2163,6 +2190,10 @@ export function Workspace() {
     setInletFilter("all");
     setInletSelection("rack-a01");
     inletScroll.current = 0;
+    setNetworkMapScope("rack");
+    setNetworkMapRole("all");
+    networkMapFocus.current = null;
+    setNetworkMapRestore(0);
     setNetworkMapRack("rack-a01");
     setNetworkMapQuery("");
     setNetworkMapLink(null);
@@ -2639,20 +2670,7 @@ export function Workspace() {
               </button>
             </div>
           )}
-          {state.level !== "room" && rackView === "network" && (
-            <button
-              className="study-parent"
-              onClick={() => {
-                setNetworkMapReturning(true);
-                control({ type: "open-resource", id: "room-01" });
-                control({ type: "layer", layer: "overview" });
-                setNetworkLinkId(networkMapLink);
-                setNav(true);
-              }}
-            >
-              ← 返回机房接入图
-            </button>
-          )}
+          {networkMapReturn}
           {state.level !== "room" && (
             <button
               className="study-parent"
@@ -2964,6 +2982,16 @@ export function Workspace() {
             />
           ) : state.level === "room" && rackView === "network" ? (
             <NetworkOverview
+              scope={networkMapScope}
+              role={networkMapRole}
+              visible={nav}
+              restoreRevision={networkMapRestore}
+              focusKey={networkMapFocus}
+              onScope={(scope) => {
+                setNetworkMapScope(scope);
+                networkMapScroll.current = 0;
+              }}
+              onRole={setNetworkMapRole}
               rackId={networkMapRack}
               query={networkMapQuery}
               activeLink={activeNetworkLink}
@@ -3647,6 +3675,7 @@ export function Workspace() {
                 </span>
               </div>
             )}
+            {!nav && networkMapReturn}
             {!nav && inletAirflowReturn}
             {isolatedPartId && (
               <PartSequence
