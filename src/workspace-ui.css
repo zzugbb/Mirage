@@ -5834,3 +5834,35 @@
   stroke-dasharray: 2 4;
   opacity: 0.8;
 }
+
+.smoke-inspection {
+  margin: 0;
+  padding: 16px 22px;
+  border-block: 1px solid #ffffff14;
+  font-size: 11px;
+}
+.smoke-inspection article {
+  padding: 10px;
+  margin: 8px 0;
+  background: #ffffff04;
+  border: 1px solid transparent;
+  border-radius: 4px;
+}
+.smoke-inspection article[aria-current="true"] {
+  border-color: #b1e1df;
+  background: #29434c;
+}
+.smoke-inspection small {
+  display: block;
+  color: #9eafb9;
+  line-height: 1.7;
+}
+.smoke-inspection p {
+  color: #9eafb9;
+  line-height: 1.6;
+}
+.smoke-inspection button {
+  border: 1px solid #ffffff20;
+  padding: 6px 8px;
+  margin: 4px 4px 4px 0;
+}

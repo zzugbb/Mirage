@@ -1,3 +1,5 @@
+import { SmokeInspection } from "./components/SmokeInspection";
+import { isSmokeFixture } from "./smoke-inspection";
 import { PowerOverview } from "./components/PowerOverview";
 import {
   powerOverviewIncludes,
@@ -607,6 +609,17 @@ export function Workspace() {
     metric: "temperature" | "power";
   } | null>(null);
   const [layoutReturning, setLayoutReturning] = useState(false);
+  const [smokeVisit, setSmokeVisit] = useState<{
+    id: string;
+    layer: ReviewState["layer"];
+    analysis: boolean;
+    nav: boolean;
+    query: string;
+    filter: ResourceFilter;
+    onlyAlarms: boolean;
+  } | null>(null);
+  const [smokeReturning, setSmokeReturning] = useState(false);
+  const [smokeRestore, setSmokeRestore] = useState(false);
   const [powerRack, setPowerRack] = useState("rack-a01");
   const [powerQuery, setPowerQuery] = useState("");
   const [powerFilter, setPowerFilter] = useState<PowerOverviewFilter>("all");
@@ -1001,6 +1014,46 @@ export function Workspace() {
     setPowerOverviewReturning(false);
     setPowerOverviewVisit(null);
   }, [powerOverviewReturning, powerOverviewVisit, ready, state.level]);
+  useEffect(() => {
+    if (
+      smokeVisit &&
+      !smokeReturning &&
+      ready &&
+      (!isSmokeFixture(selected) || layer !== "overview")
+    )
+      setSmokeVisit(null);
+  }, [smokeVisit, smokeReturning, ready, selected, layer]);
+  useEffect(() => {
+    if (
+      !smokeVisit ||
+      !smokeReturning ||
+      !ready ||
+      state.level !== "room" ||
+      selected !== smokeVisit.id
+    )
+      return;
+    control({ type: "layer", layer: smokeVisit.layer });
+    control({ type: "analysis", value: smokeVisit.analysis });
+    setQuery(smokeVisit.query);
+    setFilter(smokeVisit.filter);
+    setOnlyAlarms(smokeVisit.onlyAlarms);
+    skipNavigationSearch.current = true;
+    setNav(matchMedia("(max-width: 1099px)").matches ? false : smokeVisit.nav);
+    setInspector(true);
+    setSmokeVisit(null);
+    setSmokeReturning(false);
+    setSmokeRestore(true);
+  }, [smokeVisit, smokeReturning, ready, state.level, selected]);
+  useEffect(() => {
+    if (!smokeRestore || !ready) return;
+    const frame = requestAnimationFrame(() => {
+      document
+        .querySelector<HTMLButtonElement>("[data-smoke-start]")
+        ?.focus({ preventScroll: true });
+      setSmokeRestore(false);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [smokeRestore, ready, review.analysis, inspector]);
   const alarmQueueVisible =
     state.level === "room" &&
     layer === "alarms" &&
@@ -1930,6 +1983,9 @@ export function Workspace() {
     return () => window.removeEventListener("keydown", key);
   }, [selected, review.analysis, nav, inspector, query, dispatch]);
   const load = (next: WorkspaceShot) => {
+    setSmokeVisit(null);
+    setSmokeReturning(false);
+    setSmokeRestore(false);
     setPowerScope("rack");
     setPowerOrder("installation");
     setPowerRack("rack-a01");
@@ -3838,6 +3894,40 @@ export function Workspace() {
                   ← 返回范围观察前视角
                 </button>
               </section>
+            )}
+            {isSmokeFixture(selected) && (
+              <SmokeInspection
+                origin={smokeVisit?.id ?? null}
+                selected={selected}
+                ready={ready}
+                returning={smokeReturning}
+                onStart={() => {
+                  setSmokeVisit({
+                    id: selected,
+                    layer,
+                    analysis: review.analysis,
+                    nav,
+                    query,
+                    filter,
+                    onlyAlarms,
+                  });
+                  setSmokeRestore(false);
+                  control({ type: "layer", layer: "overview" });
+                  control({ type: "analysis", value: false });
+                  focus(selected);
+                }}
+                onPreview={pick}
+                onLocate={focus}
+                onReturn={() => {
+                  if (!smokeVisit || !ready) return;
+                  setSmokeReturning(true);
+                  focus(smokeVisit.id);
+                }}
+                onEnd={() => {
+                  setSmokeVisit(null);
+                  setSmokeRestore(true);
+                }}
+              />
             )}
             {entranceView && (
               <EntranceViewActions
