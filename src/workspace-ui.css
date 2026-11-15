@@ -3645,6 +3645,29 @@
   align-items: center;
   margin: 16px 0 8px;
 }
+.inlet-overview-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin: 8px 0;
+}
+.inlet-overview-options select {
+  min-width: 0;
+  width: 100%;
+  padding: 6px;
+  background: #202c34;
+  border: 1px solid #40535c;
+  border-radius: 4px;
+  color: #d1e4e5;
+  font: inherit;
+}
+.inlet-overview-options select:last-child {
+  grid-column: 1 / -1;
+}
+.inlet-rack-summary summary {
+  cursor: pointer;
+  padding: 8px 0;
+}
 .inlet-list-heading span {
   font-size: 10px;
 }

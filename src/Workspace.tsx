@@ -108,6 +108,11 @@ import { inspectSliceDevice, type SliceCheck } from "./slice-device";
 import { SliceEvidenceDetails } from "./components/SliceEvidenceDetails";
 import { emptyInletProcess, type InletProcessState } from "./inlet-process";
 import { InletPairAnalysis } from "./components/InletPairAnalysis";
+import type {
+  InletOverviewScope,
+  InletOverviewOrder,
+  InletOverviewFilter,
+} from "./inlet-overview";
 import { InletOverview } from "./components/InletOverview";
 import { NetworkOverview } from "./components/NetworkOverview";
 import { environmentProbe } from "./environment-monitoring";
@@ -637,6 +642,10 @@ export function Workspace() {
   const [powerOverviewReturning, setPowerOverviewReturning] = useState(false);
   const [inletRack, setInletRack] = useState("rack-a01");
   const [inletQuery, setInletQuery] = useState("");
+  const [inletScope, setInletScope] = useState<InletOverviewScope>("rack");
+  const [inletOrder, setInletOrder] =
+    useState<InletOverviewOrder>("installation");
+  const [inletFilter, setInletFilter] = useState<InletOverviewFilter>("all");
   const [inletSelection, setInletSelection] = useState("rack-a01");
   const inletScroll = useRef(0);
   const inletSlice = useRef(initialSliceControls());
@@ -2050,6 +2059,9 @@ export function Workspace() {
     setInletSession(false);
     setInletRack("rack-a01");
     setInletQuery("");
+    setInletScope("rack");
+    setInletOrder("installation");
+    setInletFilter("all");
     setInletSelection("rack-a01");
     inletScroll.current = 0;
     setNetworkMapRack("rack-a01");
@@ -2764,6 +2776,12 @@ export function Workspace() {
                 analyze();
               }}
               readings={spatial.readings}
+              scope={inletScope}
+              order={inletOrder}
+              filter={inletFilter}
+              onScope={setInletScope}
+              onOrder={setInletOrder}
+              onFilter={setInletFilter}
               rackId={inletRack}
               query={inletQuery}
               selected={selected}
@@ -2772,6 +2790,7 @@ export function Workspace() {
               ready={ready}
               onRack={(id) => {
                 setInletRack(id);
+                setInletScope("rack");
                 setInletSelection(id);
                 pick(id, false, true);
                 const target = roomAirflowTarget(id, state.deviceId);
@@ -2782,6 +2801,7 @@ export function Workspace() {
               }}
               onQuery={setInletQuery}
               onPreview={(id) => {
+                setInletRack(rackForDevice(id).id);
                 setInletSelection(id);
                 pick(id, false, true);
                 if (
