@@ -5762,3 +5762,9 @@
 .power-overview details {
   margin-top: 14px;
 }
+
+.power-overview-options {
+  display: grid;
+  grid-template-columns: 1fr 1.35fr;
+  gap: 6px;
+}

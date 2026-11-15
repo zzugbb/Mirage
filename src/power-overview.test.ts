@@ -1,6 +1,11 @@
+import { budgetRatio } from "./power-budget.ts";
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { powerOverview, powerOverviewIncludes } from "./power-overview.ts";
+import {
+  powerOverview,
+  powerOverviewIncludes,
+  powerOverviewRows,
+} from "./power-overview.ts";
 import { spatialSnapshot } from "./spatial.ts";
 import { deviceById } from "./installation.ts";
 import { powerLinks } from "./power-config.ts";
@@ -110,4 +115,56 @@ test("功耗对照往返只沿原柜/设备及其供电端点，不把无关网�
   }
   assert.ok(powerOverviewIncludes("rack-a01", "srv-08", "srv-08"));
   assert.equal(powerOverviewIncludes("rack-a01", "sto-01", "sto-01"), false);
+});
+
+test("全机房排序覆盖84台，功耗与预算占比分别比较且不改变柜汇总", () => {
+  for (let time = 0; time <= 120; time++) {
+    const all = powerOverview(spatialSnapshot(time).readings);
+    const before = JSON.stringify(all);
+    for (const order of ["power", "budget"] as const) {
+      const rows = powerOverviewRows(all, "rack-a01", "room", order);
+      assert.equal(rows.length, 84);
+      assert.equal(new Set(rows.map((row) => row.id)).size, 84);
+      const value = (row: (typeof rows)[number]) =>
+        order === "power" ? row.value : budgetRatio(row.value, row.budget);
+      for (let i = 1; i < rows.length; i++) {
+        const a = value(rows[i - 1]),
+          b = value(rows[i]);
+        assert.ok(b === null || (a !== null && a >= b));
+      }
+      assert.ok(
+        rows.findIndex((row) => row.id === "srv-63") <
+          rows.findIndex((row) => row.id === "srv-25"),
+      );
+    }
+    assert.equal(JSON.stringify(all), before);
+  }
+});
+test("跨柜查找、并列顺序与范围切换保持身份和质量边界", () => {
+  const all = powerOverview(spatialSnapshot(60).readings);
+  const installation = powerOverviewRows(
+    all,
+    "rack-a01",
+    "room",
+    "installation",
+  );
+  const tied = all.map((item) => ({
+    ...item,
+    matching: item.matching.map((row) => ({ ...row, value: 10, budget: 100 })),
+  }));
+  assert.deepEqual(
+    powerOverviewRows(tied, "rack-a01", "room", "budget").map((row) => row.id),
+    installation.map((row) => row.id),
+  );
+  assert.equal(powerOverviewRows(all, "rack-a01", "rack", "power").length, 10);
+  const query = powerOverview(spatialSnapshot(60).readings, "B04 SRV-59");
+  assert.deepEqual(
+    powerOverviewRows(query, "rack-a01", "room", "power").map((row) => row.id),
+    ["srv-59"],
+  );
+  assert.equal(powerOverviewRows(query, "rack-a01", "rack", "power").length, 0);
+  assert.equal(
+    powerOverviewRows(query, "rack-a01", "room", "power")[0].value,
+    null,
+  );
 });

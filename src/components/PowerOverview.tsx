@@ -1,5 +1,11 @@
 import { useLayoutEffect, useRef, type RefObject } from "react";
-import { powerOverview, type PowerOverviewFilter } from "../power-overview";
+import {
+  powerOverview,
+  powerOverviewRows,
+  type PowerOverviewScope,
+  type PowerOverviewOrder,
+  type PowerOverviewFilter,
+} from "../power-overview";
 import { budgetRatio } from "../power-budget";
 import { sourceValue } from "../reading-sources";
 import type { SpatialReading } from "../spatial";
@@ -9,6 +15,10 @@ export function PowerOverview({
   query,
   filter,
   rackId,
+  scope,
+  order,
+  onScope,
+  onOrder,
   selected,
   time,
   visible,
@@ -27,6 +37,10 @@ export function PowerOverview({
   query: string;
   filter: PowerOverviewFilter;
   rackId: string;
+  scope: PowerOverviewScope;
+  order: PowerOverviewOrder;
+  onScope: (scope: PowerOverviewScope) => void;
+  onOrder: (order: PowerOverviewOrder) => void;
   selected: string;
   time: number;
   visible: boolean;
@@ -46,6 +60,7 @@ export function PowerOverview({
   const device = all
     .flatMap((item) => item.rows)
     .find((row) => row.id === selected);
+  const rows = powerOverviewRows(all, rackId, scope, order);
   const target = device?.id ?? current.rack.id;
   const host = useRef<HTMLDivElement>(null);
   const ratioText = (ratio: number | null) =>
@@ -61,9 +76,46 @@ export function PowerOverview({
       host.current.querySelector<HTMLButtonElement>(
         `[data-power-id="${current.rack.id}"]`,
       );
+    const disclosure = button?.closest("details");
+    if (disclosure) disclosure.open = true;
     button?.focus({ preventScroll: true });
     button?.scrollIntoView({ block: "nearest" });
   }, [visible, restoreRevision, scroll]);
+  const rackGrid = (
+    <div className="power-rack-grid" role="group" aria-label="功耗对照机柜">
+      {all.map((item) => (
+        <button
+          key={item.rack.id}
+          data-power-id={item.rack.id}
+          aria-pressed={item.rack.id === current.rack.id}
+          title={`${item.rack.name} · ${sourceValue(item.value, "power")}`}
+          onClick={() => onRack(item.rack.id)}
+        >
+          <b>{item.rack.name.split(" ")[0]}</b>
+          <strong>
+            {item.value === null ? "—" : `${(item.value / 1000).toFixed(2)} kW`}
+          </strong>
+          <span
+            className="power-overview-meter"
+            data-known={item.budget!.ratio !== null}
+          >
+            <i
+              style={{
+                width: `${Math.min(100, (item.budget!.ratio ?? 0) * 100)}%`,
+              }}
+            />
+          </span>
+          <small>{ratioText(item.budget!.ratio)}</small>
+          <small>
+            {item.coverage}/{item.count} 有效
+          </small>
+          {(query || filter !== "all") && (
+            <small>{item.matching.length} 台匹配</small>
+          )}
+        </button>
+      ))}
+    </div>
+  );
   return (
     <section className="power-overview" aria-label="机房功耗对照">
       <div
@@ -84,41 +136,14 @@ export function PowerOverview({
         <p>
           柜卡列有效输入小计；条形为同一批有效设备的预算占比，非容量余量；斜线表示占比不可计算。
         </p>
-        <div className="power-rack-grid" role="group" aria-label="功耗对照机柜">
-          {all.map((item) => (
-            <button
-              key={item.rack.id}
-              data-power-id={item.rack.id}
-              aria-pressed={item.rack.id === current.rack.id}
-              title={`${item.rack.name} · ${sourceValue(item.value, "power")}`}
-              onClick={() => onRack(item.rack.id)}
-            >
-              <b>{item.rack.name.split(" ")[0]}</b>
-              <strong>
-                {item.value === null
-                  ? "—"
-                  : `${(item.value / 1000).toFixed(2)} kW`}
-              </strong>
-              <span
-                className="power-overview-meter"
-                data-known={item.budget!.ratio !== null}
-              >
-                <i
-                  style={{
-                    width: `${Math.min(100, (item.budget!.ratio ?? 0) * 100)}%`,
-                  }}
-                />
-              </span>
-              <small>{ratioText(item.budget!.ratio)}</small>
-              <small>
-                {item.coverage}/{item.count} 有效
-              </small>
-              {(query || filter !== "all") && (
-                <small>{item.matching.length} 台匹配</small>
-              )}
-            </button>
-          ))}
-        </div>
+        {scope === "room" ? (
+          <details className="power-rack-summary">
+            <summary>八柜汇总与切换</summary>
+            {rackGrid}
+          </details>
+        ) : (
+          rackGrid
+        )}
         <label>
           查找设备、柜位或数据状态
           <input
@@ -146,12 +171,41 @@ export function PowerOverview({
           <option value="excluded">未计入输入</option>
           <option value="zero">有效零值</option>
         </select>
+        <div className="power-overview-options">
+          <select
+            aria-label="功耗对照查找范围"
+            value={scope}
+            onChange={(event) =>
+              onScope(event.target.value as PowerOverviewScope)
+            }
+          >
+            <option value="rack">当前机柜</option>
+            <option value="room">整间机房</option>
+          </select>
+          <select
+            aria-label="功耗对照排列"
+            value={order}
+            onChange={(event) =>
+              onOrder(event.target.value as PowerOverviewOrder)
+            }
+          >
+            <option value="installation">安装位置</option>
+            <option value="power">功耗从高到低</option>
+            <option value="budget">预算占比从高到低</option>
+          </select>
+        </div>
+        {order !== "installation" && (
+          <p>
+            按当前有效{order === "power" ? "整机功耗" : "功耗 / 配置预算"}
+            排序，未知值置后；顺序随共享时间更新，选择保持。高占比不等于高功耗或告警。
+          </p>
+        )}
         <div className="power-overview-heading">
-          <strong>{current.rack.name}</strong>
-          <small>按安装 U 位排列</small>
+          <strong>{scope === "room" ? "整间机房" : current.rack.name}</strong>
+          <small>{rows.length} 台匹配</small>
         </div>
         <div className="power-overview-devices">
-          {current.matching.map((row) => {
+          {rows.map((row) => {
             const ratio = budgetRatio(row.value, row.budget);
             return (
               <button
@@ -165,7 +219,10 @@ export function PowerOverview({
                   <strong>{sourceValue(row.value, "power")}</strong>
                 </span>
                 <small>
-                  {row.location.split(" / ")[1]} · {row.reason}
+                  {scope === "room"
+                    ? row.location
+                    : row.location.split(" / ")[1]}{" "}
+                  · {row.reason}
                 </small>
                 <span
                   className="power-overview-meter"
@@ -183,9 +240,9 @@ export function PowerOverview({
             );
           })}
         </div>
-        {!current.matching.length && (
+        {!rows.length && (
           <p role="status">
-            本柜没有匹配设备；可切换机柜或
+            当前范围没有匹配设备；可调整范围或
             <button
               onClick={() => {
                 onQuery("");

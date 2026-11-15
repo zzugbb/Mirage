@@ -2,6 +2,8 @@ import { PowerOverview } from "./components/PowerOverview";
 import {
   powerOverviewIncludes,
   type PowerOverviewFilter,
+  type PowerOverviewScope,
+  type PowerOverviewOrder,
 } from "./power-overview";
 import {
   switchPortRows,
@@ -608,6 +610,9 @@ export function Workspace() {
   const [powerRack, setPowerRack] = useState("rack-a01");
   const [powerQuery, setPowerQuery] = useState("");
   const [powerFilter, setPowerFilter] = useState<PowerOverviewFilter>("all");
+  const [powerScope, setPowerScope] = useState<PowerOverviewScope>("rack");
+  const [powerOrder, setPowerOrder] =
+    useState<PowerOverviewOrder>("installation");
   const powerScroll = useRef(0);
   const [powerRestore, setPowerRestore] = useState(0);
   const [powerOverviewVisit, setPowerOverviewVisit] = useState<{
@@ -1925,6 +1930,8 @@ export function Workspace() {
     return () => window.removeEventListener("keydown", key);
   }, [selected, review.analysis, nav, inspector, query, dispatch]);
   const load = (next: WorkspaceShot) => {
+    setPowerScope("rack");
+    setPowerOrder("installation");
     setPowerRack("rack-a01");
     setPowerQuery("");
     setPowerFilter("all");
@@ -2619,6 +2626,10 @@ export function Workspace() {
               filter={powerFilter}
               onFilter={setPowerFilter}
               rackId={powerRack}
+              scope={powerScope}
+              order={powerOrder}
+              onScope={setPowerScope}
+              onOrder={setPowerOrder}
               selected={selected}
               time={state.time}
               visible={nav}
@@ -2626,10 +2637,15 @@ export function Workspace() {
               scroll={powerScroll}
               restoreRevision={powerRestore}
               onRack={(id) => {
+                setPowerScope("rack");
                 setPowerRack(id);
                 pick(id, false, true);
               }}
-              onPreview={(id) => pick(id, false, true)}
+              onPreview={(id) => {
+                const device = deviceById(id);
+                if (device) setPowerRack(device.rackId);
+                pick(id, false, true);
+              }}
               onInspect={(id, internal) =>
                 inspectPowerOverview(id, internal ? "internal" : "installation")
               }

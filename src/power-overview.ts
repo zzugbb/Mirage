@@ -2,6 +2,7 @@ import { racks, devices, deviceById, rackById } from "./installation.ts";
 import { partsForDevice, subpartsForDevice } from "./catalog.ts";
 import { readingSources } from "./reading-sources.ts";
 import { powerDeviceIds } from "./power-config.ts";
+import { budgetRatio } from "./power-budget.ts";
 import type { SpatialReading } from "./spatial.ts";
 export type PowerOverviewFilter = "all" | "included" | "excluded" | "zero";
 /** 柜卡和三维共用有效整机输入与对应预算，查找只影响名单。 */
@@ -56,4 +57,28 @@ export function powerOverviewIncludes(
       ...subpartsForDevice(activeDeviceId),
     ].some((part) => part.id === selected)
   );
+}
+
+export type PowerOverviewOrder = "installation" | "power" | "budget";
+export type PowerOverviewScope = "rack" | "room";
+/** 无效值排在有效零值之后；并列沿用柜序和 U 位，不创造质量排名。 */
+export function powerOverviewRows(
+  all: ReturnType<typeof powerOverview>,
+  rackId: string,
+  scope: PowerOverviewScope,
+  order: PowerOverviewOrder,
+) {
+  const rows = all
+    .filter((item) => scope === "room" || item.rack.id === rackId)
+    .flatMap((item) => item.matching);
+  if (order === "installation") return rows;
+  const value = (row: (typeof rows)[number]) =>
+    order === "power" ? row.value : budgetRatio(row.value, row.budget);
+  return rows.sort((a, b) => {
+    const av = value(a),
+      bv = value(b);
+    if (av === null) return bv === null ? 0 : 1;
+    if (bv === null) return -1;
+    return bv - av;
+  });
 }
