@@ -5768,3 +5768,25 @@
   grid-template-columns: 1fr 1.35fr;
   gap: 6px;
 }
+
+.power-history-budget {
+  margin: 12px 0;
+  font-size: 11px;
+}
+.power-history-budget button {
+  border: 1px solid #ffffff20;
+  padding: 6px 8px;
+}
+.power-history-budget button[aria-pressed="true"] {
+  background: #29434c;
+  border-color: #b1e1df;
+}
+.power-history-budget p,
+.power-history-budget small {
+  color: #9eafb9;
+  line-height: 1.6;
+}
+.power-history-budget small {
+  display: block;
+  margin-top: 4px;
+}

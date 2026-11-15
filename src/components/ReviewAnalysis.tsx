@@ -1,3 +1,4 @@
+import { budgetRatio } from "../power-budget";
 import { PeakSourceProcess, peakNames } from "./PeakSourceProcess";
 import type { PeakProcessState } from "../peak-provenance";
 import { useState, type Ref, type ReactNode } from "react";
@@ -55,6 +56,7 @@ export function ReviewAnalysis({
   onClose: () => void;
 }) {
   const [inspection, setInspection] = useState<number | null>(null);
+  const [showBudget, setShowBudget] = useState(false);
   const cursor = Math.min(time, inspection ?? time);
   const series: {
     metric: TrendMetric;
@@ -122,6 +124,11 @@ export function ReviewAnalysis({
                   : point.count > 1
                     ? `有效覆盖 ${point.coverage}/${point.count}`
                     : "有效";
+            const hasBudget =
+              metric === "power" &&
+              points.some((point) => point.budget !== undefined);
+            const budget = point?.budget ?? null;
+            const ratio = budgetRatio(value, budget);
             return (
               <div className={`review-compare-metric ${metric}`} key={metric}>
                 <div className="review-compare-reading">
@@ -144,7 +151,43 @@ export function ReviewAnalysis({
                     · {peakNames(point.peakSources)}
                   </small>
                 )}
+                {hasBudget && (
+                  <div className="power-history-budget">
+                    <button
+                      aria-pressed={showBudget}
+                      onClick={() => setShowBudget((value) => !value)}
+                    >
+                      对照有效设备预算
+                    </button>
+                    {showBudget && (
+                      <>
+                        <p>实线：有效输入 · 虚线：对应设备配置预算</p>
+                        <strong>
+                          {budget === null ? "—" : `${budget.toFixed(1)} W`} ·{" "}
+                          {ratio === null
+                            ? "占比不可计算"
+                            : `${(ratio * 100).toFixed(1)}%`}
+                        </strong>
+                        <small>
+                          游标有效覆盖 {point?.coverage ?? 0}/
+                          {point?.count ?? 0} 台
+                        </small>
+                      </>
+                    )}
+                  </div>
+                )}
                 <ReviewTrend
+                  comparison={
+                    hasBudget && showBudget
+                      ? {
+                          label: "有效设备配置预算",
+                          series: points.map((point) => ({
+                            ...point,
+                            value: point.budget ?? null,
+                          })),
+                        }
+                      : undefined
+                  }
                   series={points}
                   metric={metric}
                   time={time}
@@ -153,6 +196,13 @@ export function ReviewAnalysis({
                   onInspect={setInspection}
                   onSeek={onSeek}
                 />
+                {hasBudget && showBudget && (
+                  <p className="cooling-analysis-boundary">
+                    预算随有效设备集合变化，未计入设备的预算不补进虚线；有效零值保留预算。两线共用
+                    W
+                    刻度和时间，差距不代表可用容量或节能空间，设施仍是关联整机去重汇总，部件推导不参与。
+                  </p>
+                )}
               </div>
             );
           })}

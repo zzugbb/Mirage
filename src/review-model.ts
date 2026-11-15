@@ -1,3 +1,4 @@
+import { budgetReference } from "./budget-reference.ts";
 import { canInspectPart, partInspectionSequence } from "./part-inspection.ts";
 import { sourceMetrics } from "./reading-sources.ts";
 import { peakScopeIds, maximumSources } from "./peak-provenance.ts";
@@ -658,6 +659,7 @@ export function reviewPresentation(
   };
 }
 export type ReviewPoint = {
+  budget?: number | null;
   peakSources?: string[];
   time: number;
   value: number | null;
@@ -686,6 +688,9 @@ export function reviewHistories(id: string, deviceId: string) {
     const reading = readings.get(id) ?? associatedInputReading(id, readings);
     for (const metric of ["temperature", "power"] as const)
       history[metric].push({
+        ...(metric === "power"
+          ? { budget: budgetReference(id, readings) }
+          : {}),
         ...(metric === "temperature" && sourceIds
           ? {
               peakSources:
