@@ -4013,6 +4013,7 @@ export function Workspace() {
                   />
                 ) : (
                   <ReviewAnalysis
+                    key={`${state.replayCycle}:${revision}`}
                     evidence={
                       <>
                         {inletId && !pairedInlet && (

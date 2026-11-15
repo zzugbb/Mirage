@@ -5790,3 +5790,47 @@
   display: block;
   margin-top: 4px;
 }
+
+.time-comparison {
+  margin: 8px 0 16px;
+  font-size: 11px;
+}
+.time-comparison-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.time-comparison button {
+  padding: 6px 8px;
+  border: 1px solid #ffffff20;
+}
+.time-comparison button[aria-pressed="true"] {
+  background: #29434c;
+  border-color: #b1e1df;
+}
+.time-comparison article {
+  margin: 12px 0;
+  padding: 10px 0;
+  border-bottom: 1px solid #ffffff14;
+}
+.time-comparison-values {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin-top: 8px;
+}
+.time-comparison-values b,
+.time-comparison small {
+  display: block;
+  margin-top: 4px;
+}
+.time-comparison p,
+.time-comparison small {
+  color: #9eafb9;
+  line-height: 1.6;
+}
+.review-trend .review-reference-time {
+  stroke: #b1e1df;
+  stroke-dasharray: 2 4;
+  opacity: 0.8;
+}

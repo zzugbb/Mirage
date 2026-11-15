@@ -1,3 +1,4 @@
+import { TimeComparison } from "./TimeComparison";
 import { budgetRatio } from "../power-budget";
 import { PeakSourceProcess, peakNames } from "./PeakSourceProcess";
 import type { PeakProcessState } from "../peak-provenance";
@@ -57,6 +58,7 @@ export function ReviewAnalysis({
 }) {
   const [inspection, setInspection] = useState<number | null>(null);
   const [showBudget, setShowBudget] = useState(false);
+  const [referenceTime, setReferenceTime] = useState<number | null>(null);
   const cursor = Math.min(time, inspection ?? time);
   const series: {
     metric: TrendMetric;
@@ -188,6 +190,7 @@ export function ReviewAnalysis({
                         }
                       : undefined
                   }
+                  referenceTime={referenceTime}
                   series={points}
                   metric={metric}
                   time={time}
@@ -232,6 +235,18 @@ export function ReviewAnalysis({
             <small>点击或横拖回看 · 空缺保留</small>
           </div>
         </div>
+        <TimeComparison
+          series={series}
+          time={time}
+          cursor={cursor}
+          reference={referenceTime}
+          onReference={setReferenceTime}
+          component={component}
+          onSeek={(target) => {
+            setInspection(null);
+            onSeek(target);
+          }}
+        />
         {peakProcess && (
           <PeakSourceProcess
             points={histories.temperature}

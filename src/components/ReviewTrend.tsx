@@ -23,9 +23,11 @@ export function ReviewTrend({
   onSeek,
   comparison,
   seriesLabel,
+  referenceTime,
 }: {
   comparison?: { series: ReviewPoint[]; label: string };
   seriesLabel?: string;
+  referenceTime?: number | null;
   series: ReviewPoint[];
   metric: TrendMetric;
   time: number;
@@ -201,6 +203,17 @@ export function ReviewTrend({
                 {chart.unit}
               </text>
             </>
+          )}
+          {referenceTime != null && referenceTime <= time && (
+            <line
+              className="review-reference-time"
+              x1={chart.x(referenceTime)}
+              x2={chart.x(referenceTime)}
+              y1={chart.top}
+              y2={chart.bottom}
+            >
+              <title>固定基准 {referenceTime}s</title>
+            </line>
           )}
           {markers.map((t) => (
             <line
