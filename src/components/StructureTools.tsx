@@ -1,0 +1,108 @@
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+
+export type StructureTool = "fans" | "storage";
+
+/** 未开始的核对工具按需展开；明确结束后才恢复入口，不跟随回看抢焦点。 */
+export function StructureTools({
+  fans,
+  slots,
+  ready,
+  restore,
+  onRestored,
+  onStart,
+}: {
+  fans: number;
+  slots: number;
+  ready: boolean;
+  restore: StructureTool | null;
+  onRestored: () => void;
+  onStart: (tool: StructureTool) => void;
+}) {
+  const [open, setOpen] = useState(!!restore);
+  const host = useRef<HTMLDetailsElement>(null);
+  const pendingFocus = useRef<StructureTool | null>(restore);
+  useEffect(() => {
+    const release = () => {
+      pendingFocus.current = null;
+    };
+    document.addEventListener("pointerdown", release, true);
+    document.addEventListener("keydown", release, true);
+    document.addEventListener("wheel", release, {
+      capture: true,
+      passive: true,
+    });
+    return () => {
+      document.removeEventListener("pointerdown", release, true);
+      document.removeEventListener("keydown", release, true);
+      document.removeEventListener("wheel", release, true);
+    };
+  }, []);
+  useLayoutEffect(() => {
+    if (!restore) return;
+    pendingFocus.current = restore;
+    setOpen(true);
+  }, [restore]);
+  useLayoutEffect(() => {
+    if (!ready || !open || !pendingFocus.current) return;
+    const entry = host.current?.querySelector<HTMLButtonElement>(
+      `[data-structure-tool="${pendingFocus.current}"]`,
+    );
+    if (!entry || entry.disabled) return;
+    entry.focus({ preventScroll: true });
+    entry.scrollIntoView({ block: "nearest" });
+    if (restore) onRestored();
+  }, [ready, open, restore]);
+  return (
+    <details
+      className="structure-tools"
+      ref={host}
+      open={open}
+      onToggle={(event) => setOpen(event.currentTarget.open)}
+      onKeyDown={(event) => {
+        if (event.key !== "Escape" || !open) return;
+        event.preventDefault();
+        event.stopPropagation();
+        setOpen(false);
+        host.current?.querySelector("summary")?.focus({ preventScroll: true });
+      }}
+    >
+      <summary>
+        <strong>结构核对</strong>
+        <small>
+          {[fans ? "风扇组" : "", slots ? "盘位" : ""]
+            .filter(Boolean)
+            .join(" · ")}
+        </small>
+      </summary>
+      <div role="group" aria-label="结构核对工具">
+        {fans > 0 && (
+          <button
+            data-structure-tool="fans"
+            disabled={!ready}
+            onClick={() => onStart("fans")}
+            aria-label={`核对风扇组 · ${fans} 子件 ↗`}
+          >
+            <strong>
+              核对风扇组 · {fans} 子件 <span>↗</span>
+            </strong>
+            <small>整组前后侧观察、逐件检视与返回</small>
+          </button>
+        )}
+        {slots > 0 && (
+          <button
+            data-structure-tool="storage"
+            disabled={!ready}
+            onClick={() => onStart("storage")}
+            aria-label={`核对 ${slots} 个盘位 ↗`}
+          >
+            <strong>
+              核对 {slots} 个盘位 <span>↗</span>
+            </strong>
+            <small>正面盘组、单盘检视与中板接点</small>
+          </button>
+        )}
+        <p>沿用当前机型的维护子件与配置示意。</p>
+      </div>
+    </details>
+  );
+}

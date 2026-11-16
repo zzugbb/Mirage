@@ -6026,3 +6026,66 @@
   background: #31545b;
   border-color: #a6d8d8;
 }
+
+.structure-tools {
+  border-top: 1px solid #29363e;
+  border-bottom: 1px solid #29363e;
+  font-size: 11px;
+}
+.structure-tools > summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 22px;
+  cursor: pointer;
+  list-style: none;
+}
+.structure-tools > summary::-webkit-details-marker {
+  display: none;
+}
+.structure-tools > summary strong {
+  color: #dae5e9;
+}
+.structure-tools > summary small {
+  color: #9db4c2;
+  margin-left: auto;
+}
+.structure-tools > summary::after {
+  content: "+";
+  font-size: 17px;
+  color: #9db4c2;
+}
+.structure-tools[open] > summary::after {
+  content: "−";
+}
+.structure-tools > div {
+  padding: 0 22px 14px;
+  display: grid;
+  gap: 7px;
+}
+.structure-tools button {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  text-align: left;
+  padding: 10px;
+  border: 1px solid #40535c;
+  border-radius: 4px;
+  background: #ffffff04;
+}
+.structure-tools button strong {
+  font-weight: 500;
+  color: #d0e2e8;
+}
+.structure-tools button span {
+  float: right;
+}
+.structure-tools button small,
+.structure-tools p {
+  color: #9db4c2;
+  font-size: 10px;
+  line-height: 1.6;
+}
+.structure-tools p {
+  margin: 2px 0 0;
+}

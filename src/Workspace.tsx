@@ -1,3 +1,7 @@
+import {
+  StructureTools,
+  type StructureTool,
+} from "./components/StructureTools";
 import { FanInspection } from "./components/FanInspection";
 import {
   fanAssembly,
@@ -320,6 +324,19 @@ export function Workspace() {
   const [fanViewRevision, setFanViewRevision] = useState(0);
   const [fanFocusRevision, setFanFocusRevision] = useState(0);
   const activeFanVisit = activeFanInspection(fanVisit, state, selected);
+  const [structureReturn, setStructureReturn] = useState<{
+    deviceId: string;
+    tool: StructureTool;
+  } | null>(null);
+  useEffect(() => {
+    if (
+      structureReturn &&
+      (state.level !== "device" ||
+        state.deviceId !== structureReturn.deviceId ||
+        selected !== structureReturn.deviceId)
+    )
+      setStructureReturn(null);
+  }, [structureReturn, state.level, state.deviceId, selected]);
   const isolatedPartId =
     activeFanVisit && !activeFanVisit.pending
       ? activeFanVisit.mode === "group"
@@ -1677,6 +1694,50 @@ export function Workspace() {
       }
     }
   };
+  const startStructureTool = (tool: StructureTool) => {
+    if (!ready || state.level !== "device") return;
+    setStructureReturn(null);
+    if (tool === "fans") {
+      takeover();
+      const assembly = fanAssembly(state.deviceId)!;
+      const fanId =
+        assembly.fans.find((fan) => fan.id === selected)?.id ??
+        assembly.fans[0].id;
+      setInspectionDevice(null);
+      setStorageVisit(null);
+      setFanVisit({
+        deviceId: state.deviceId,
+        mode: "group",
+        fanId,
+        side: "front",
+        pending: true,
+      });
+      control({ type: "pick", id: fanId });
+      control({ type: "analysis", value: false });
+      if (!canInspectPart(state)) dispatch({ type: "explode", amount: 1 });
+      setInspector(true);
+      if (matchMedia("(max-width: 1099px)").matches) setNav(false);
+    } else {
+      takeover();
+      setInspectionDevice(null);
+      setFanVisit(null);
+      setStorageVisit({
+        deviceId: state.deviceId,
+        mode: "group",
+        diskId: storageSlots(state.deviceId).some(
+          (slot) => slot.id === selected,
+        )
+          ? selected
+          : null,
+        pending: true,
+      });
+      control({ type: "pick", id: storageDriveGroup });
+      control({ type: "analysis", value: false });
+      if (!canInspectPart(state)) dispatch({ type: "explode", amount: 1 });
+      setInspector(true);
+      if (matchMedia("(max-width: 1099px)").matches) setNav(false);
+    }
+  };
   const returnFanGroup = () => {
     if (!activeFanVisit || !ready) return;
     setFanVisit({ ...activeFanVisit, mode: "group" });
@@ -1686,11 +1747,12 @@ export function Workspace() {
     setFanFocusRevision((n) => n + 1);
   };
   const finishFanInspection = () => {
-    if (!ready) return;
+    if (!ready || !activeFanVisit) return;
+    setStructureReturn({ deviceId: state.deviceId, tool: "fans" });
+    control({ type: "analysis", value: false });
     setFanVisit(null);
     setInspectionDevice(null);
     control({ type: "finish-part-inspection" });
-    setFanFocusRevision((n) => n + 1);
   };
   const returnStorageGroup = () => {
     if (!activeStorageVisit || !ready) return;
@@ -1702,11 +1764,12 @@ export function Workspace() {
     setStorageFocusRevision((n) => n + 1);
   };
   const finishStorageSlots = () => {
-    if (!ready) return;
+    if (!ready || !activeStorageVisit) return;
+    setStructureReturn({ deviceId: state.deviceId, tool: "storage" });
+    control({ type: "analysis", value: false });
     setStorageVisit(null);
     setInspectionDevice(null);
     control({ type: "finish-part-inspection" });
-    setStorageFocusRevision((n) => n + 1);
   };
   const networkMapReturn = state.level !== "room" && rackView === "network" && (
     <button
@@ -2316,6 +2379,7 @@ export function Workspace() {
     inletScroll.current = 0;
     setStorageVisit(null);
     setFanVisit(null);
+    setStructureReturn(null);
     setFanViewRevision(0);
     setFanFocusRevision(0);
     setStorageViewRevision(0);
@@ -3827,113 +3891,64 @@ export function Workspace() {
             )}
             {!nav && networkMapReturn}
             {!nav && inletAirflowReturn}
-            {state.level === "device" &&
-              (activeFanVisit ||
-                fanInspectionContext(state.deviceId, selected)) && (
-                <FanInspection
-                  deviceId={state.deviceId}
-                  visit={activeFanVisit}
-                  ready={ready}
-                  analysis={review.analysis}
-                  focusRevision={fanFocusRevision}
-                  onStart={() => {
-                    takeover();
-                    const assembly = fanAssembly(state.deviceId)!;
-                    const fanId =
-                      assembly.fans.find((fan) => fan.id === selected)?.id ??
-                      assembly.fans[0].id;
-                    setInspectionDevice(null);
-                    setStorageVisit(null);
-                    setFanVisit({
-                      deviceId: state.deviceId,
-                      mode: "group",
-                      fanId,
-                      side: "front",
-                      pending: true,
-                    });
-                    control({ type: "pick", id: fanId });
-                    control({ type: "analysis", value: false });
-                    if (!canInspectPart(state))
-                      dispatch({ type: "explode", amount: 1 });
-                    setInspector(true);
-                    if (matchMedia("(max-width: 1099px)").matches)
-                      setNav(false);
-                  }}
-                  onSelect={pick}
-                  onInspect={() => {
-                    if (!activeFanVisit || !ready) return;
-                    setFanVisit({ ...activeFanVisit, mode: "single" });
-                    pick(activeFanVisit.fanId);
-                  }}
-                  onSide={(side) => {
-                    if (!activeFanVisit || !ready) return;
-                    takeover();
-                    setFanVisit({ ...activeFanVisit, side });
-                    setFanViewRevision((n) => n + 1);
-                  }}
-                  onGroup={returnFanGroup}
-                  onFinish={finishFanInspection}
-                />
-              )}
-            {state.level === "device" &&
-              (activeStorageVisit ||
-                storageSlotContext(state.deviceId, selected)) && (
-                <StorageSlots
-                  deviceId={state.deviceId}
-                  selected={selected}
-                  visit={activeStorageVisit}
-                  ready={ready}
-                  analysis={review.analysis}
-                  focusRevision={storageFocusRevision}
-                  onStart={() => {
-                    takeover();
-                    setInspectionDevice(null);
-                    setFanVisit(null);
-                    setStorageVisit({
-                      deviceId: state.deviceId,
-                      mode: "group",
-                      diskId: storageSlots(state.deviceId).some(
-                        (slot) => slot.id === selected,
-                      )
-                        ? selected
-                        : null,
-                      pending: true,
-                    });
-                    control({ type: "pick", id: storageDriveGroup });
-                    control({ type: "analysis", value: false });
-                    if (!canInspectPart(state))
-                      dispatch({ type: "explode", amount: 1 });
-                    setInspector(true);
-                    if (matchMedia("(max-width: 1099px)").matches)
-                      setNav(false);
-                  }}
-                  onSelect={(id) => {
-                    pick(id);
-                  }}
-                  onInspect={(id) => {
-                    if (!activeStorageVisit || !ready) return;
-                    setStorageVisit({
-                      ...activeStorageVisit,
-                      mode: "disk",
-                      diskId: id,
-                    });
-                    pick(id);
-                  }}
-                  onContact={(id) => {
-                    if (!activeStorageVisit || !ready) return;
-                    takeover();
-                    setStorageVisit({
-                      ...activeStorageVisit,
-                      mode: "contact",
-                      diskId: id,
-                    });
-                    pick(id);
-                    setStorageViewRevision((n) => n + 1);
-                  }}
-                  onGroup={returnStorageGroup}
-                  onFinish={finishStorageSlots}
-                />
-              )}
+            {activeFanVisit && (
+              <FanInspection
+                deviceId={state.deviceId}
+                visit={activeFanVisit}
+                ready={ready}
+                analysis={review.analysis}
+                focusRevision={fanFocusRevision}
+                onSelect={pick}
+                onInspect={() => {
+                  if (!activeFanVisit || !ready) return;
+                  setFanVisit({ ...activeFanVisit, mode: "single" });
+                  pick(activeFanVisit.fanId);
+                }}
+                onSide={(side) => {
+                  if (!activeFanVisit || !ready) return;
+                  takeover();
+                  setFanVisit({ ...activeFanVisit, side });
+                  setFanViewRevision((n) => n + 1);
+                }}
+                onGroup={returnFanGroup}
+                onFinish={finishFanInspection}
+              />
+            )}
+            {activeStorageVisit && (
+              <StorageSlots
+                deviceId={state.deviceId}
+                selected={selected}
+                visit={activeStorageVisit}
+                ready={ready}
+                analysis={review.analysis}
+                focusRevision={storageFocusRevision}
+                onSelect={(id) => {
+                  pick(id);
+                }}
+                onInspect={(id) => {
+                  if (!activeStorageVisit || !ready) return;
+                  setStorageVisit({
+                    ...activeStorageVisit,
+                    mode: "disk",
+                    diskId: id,
+                  });
+                  pick(id);
+                }}
+                onContact={(id) => {
+                  if (!activeStorageVisit || !ready) return;
+                  takeover();
+                  setStorageVisit({
+                    ...activeStorageVisit,
+                    mode: "contact",
+                    diskId: id,
+                  });
+                  pick(id);
+                  setStorageViewRevision((n) => n + 1);
+                }}
+                onGroup={returnStorageGroup}
+                onFinish={finishStorageSlots}
+              />
+            )}
             {isolatedPartId && !activeStorageVisit && !activeFanVisit && (
               <PartSequence
                 sequence={partInspectionSequence(
@@ -4876,6 +4891,33 @@ export function Workspace() {
                         分析曲线与事件 <span>↗</span>
                       </button>
                     </section>
+                    {state.level === "device" &&
+                      !activeFanVisit &&
+                      !activeStorageVisit &&
+                      (fanInspectionContext(state.deviceId, selected) ||
+                        storageSlotContext(state.deviceId, selected)) && (
+                        <StructureTools
+                          key={`${revision}:${state.deviceId}:${selected}`}
+                          fans={
+                            fanInspectionContext(state.deviceId, selected)
+                              ? fanAssembly(state.deviceId)!.fans.length
+                              : 0
+                          }
+                          slots={
+                            storageSlotContext(state.deviceId, selected)
+                              ? storageSlots(state.deviceId).length
+                              : 0
+                          }
+                          ready={ready}
+                          restore={
+                            structureReturn?.deviceId === state.deviceId
+                              ? structureReturn.tool
+                              : null
+                          }
+                          onRestored={() => setStructureReturn(null)}
+                          onStart={startStructureTool}
+                        />
+                      )}
                     {sourceInspector}
                     {(layer === "power" || powerFacility) && (
                       <PowerConnections

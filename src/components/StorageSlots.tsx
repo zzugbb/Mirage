@@ -14,7 +14,6 @@ export function StorageSlots({
   ready,
   analysis,
   focusRevision,
-  onStart,
   onSelect,
   onInspect,
   onContact,
@@ -23,11 +22,10 @@ export function StorageSlots({
 }: {
   deviceId: string;
   selected: string;
-  visit: StorageSlotInspection | null;
+  visit: StorageSlotInspection;
   ready: boolean;
   analysis: boolean;
   focusRevision: number;
-  onStart: () => void;
   onSelect: (id: string) => void;
   onInspect: (id: string) => void;
   onContact: (id: string) => void;
@@ -37,7 +35,7 @@ export function StorageSlots({
   const slots = storageSlots(deviceId),
     current =
       slots.find((slot) => slot.id === selected) ??
-      slots.find((slot) => slot.id === visit?.diskId);
+      slots.find((slot) => slot.id === visit.diskId);
   const host = useRef<HTMLElement>(null),
     pendingFocus = useRef(false);
   // 返回可能先重建按钮、再开始镜头适配；保留焦点意图直到下一次主动操作。
@@ -56,29 +54,14 @@ export function StorageSlots({
     pendingFocus.current = focusRevision > 0;
   }, [focusRevision]);
   useLayoutEffect(() => {
-    if (!ready || visit?.pending || !pendingFocus.current || !host.current)
+    if (!ready || visit.pending || !pendingFocus.current || !host.current)
       return;
     const entry = host.current.querySelector<HTMLElement>(
-      visit && !analysis
-        ? `[data-slot-id="${current?.id ?? slots[0].id}"]`
-        : "button",
+      !analysis ? `[data-slot-id="${current?.id ?? slots[0].id}"]` : "button",
     );
     entry?.focus({ preventScroll: true });
     if (focusRevision) entry?.scrollIntoView({ block: "nearest" });
-  }, [ready, visit?.pending, focusRevision, analysis]);
-  if (!visit)
-    return (
-      <section
-        ref={host}
-        className="storage-slot-check"
-        aria-label="存储盘位核对"
-      >
-        <button disabled={!ready} onClick={onStart}>
-          核对 {slots.length} 个盘位 ↗
-        </button>
-        <small>正面位置与硬盘子件对应 · 配置示意</small>
-      </section>
-    );
+  }, [ready, visit.pending, focusRevision, analysis]);
   return (
     <section
       ref={host}
