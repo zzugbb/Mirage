@@ -121,6 +121,8 @@ export function ReviewScene({
   rangeViewCommand,
   onRangeViewChange,
   isolatedPartId = null,
+  fanViewRevision = 0,
+  fanViewSide = "front",
   storageViewRevision = 0,
   storageContact = false,
   sliceViewCommand,
@@ -249,6 +251,8 @@ export function ReviewScene({
   rangeViewCommand: RangeViewCommand | null;
   onRangeViewChange: (side: RangeView | null) => void;
   isolatedPartId?: string | null;
+  fanViewRevision?: number;
+  fanViewSide?: "front" | "rear";
   storageViewRevision?: number;
   storageContact?: boolean;
   sliceControls: SliceControls;
@@ -850,6 +854,12 @@ export function ReviewScene({
     )
       setView(active.partInspection.previous.view);
   }, [isolatedPartId, storageContact, state.level, state.deviceId, retry]);
+  useEffect(() => {
+    if (!fanViewRevision || currentState.current.level !== "device") return;
+    setOrbit(false);
+    engine.current?.view(fanViewSide, true);
+    setView(fanViewSide);
+  }, [fanViewRevision]);
   useEffect(() => {
     if (!storageViewRevision || currentState.current.level !== "device") return;
     setOrbit(false);

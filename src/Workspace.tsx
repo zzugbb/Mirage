@@ -1,3 +1,10 @@
+import { FanInspection } from "./components/FanInspection";
+import {
+  fanAssembly,
+  fanInspectionContext,
+  activeFanInspection,
+  type FanInspection as FanVisit,
+} from "./fan-inspection";
 import { StorageSlots } from "./components/StorageSlots";
 import {
   activeStorageSlots,
@@ -309,12 +316,20 @@ export function Workspace() {
   const [storageViewRevision, setStorageViewRevision] = useState(0);
   const [storageFocusRevision, setStorageFocusRevision] = useState(0);
   const activeStorageVisit = activeStorageSlots(storageVisit, state, selected);
+  const [fanVisit, setFanVisit] = useState<FanVisit | null>(null);
+  const [fanViewRevision, setFanViewRevision] = useState(0);
+  const [fanFocusRevision, setFanFocusRevision] = useState(0);
+  const activeFanVisit = activeFanInspection(fanVisit, state, selected);
   const isolatedPartId =
-    activeStorageVisit && !activeStorageVisit.pending
-      ? activeStorageVisit.mode === "group"
-        ? storageDriveGroup
-        : activeStorageVisit.diskId
-      : isolatedPart(state, selected, inspectionDevice);
+    activeFanVisit && !activeFanVisit.pending
+      ? activeFanVisit.mode === "group"
+        ? fanAssembly(state.deviceId)!.group.id
+        : activeFanVisit.fanId
+      : activeStorageVisit && !activeStorageVisit.pending
+        ? activeStorageVisit.mode === "group"
+          ? storageDriveGroup
+          : activeStorageVisit.diskId
+        : isolatedPart(state, selected, inspectionDevice);
   useEffect(() => {
     if (inspectionDevice && !isolatedPartId) setInspectionDevice(null);
   }, [inspectionDevice, isolatedPartId]);
@@ -447,7 +462,7 @@ export function Workspace() {
     return () => medium.removeEventListener("change", adapt);
   }, [activeAirflowResponse]);
   useEffect(() => {
-    if (!activeStorageVisit) return;
+    if (!activeStorageVisit && !activeFanVisit) return;
     const medium = matchMedia("(max-width: 1099px)");
     const adapt = () => {
       if (medium.matches) setNav(false);
@@ -455,7 +470,7 @@ export function Workspace() {
     adapt();
     medium.addEventListener("change", adapt);
     return () => medium.removeEventListener("change", adapt);
-  }, [activeStorageVisit?.deviceId]);
+  }, [activeStorageVisit?.deviceId, activeFanVisit?.deviceId]);
   const [powerViewActive, setPowerViewActive] = useState(false);
   const [powerViewCommand, setPowerViewCommand] =
     useState<PowerViewCommand | null>(null);
@@ -1003,6 +1018,30 @@ export function Workspace() {
     !review.pendingEndpoint &&
     !!feedback?.settled &&
     feedback.key === presentationKey(state);
+  useEffect(() => {
+    if (!fanVisit) return;
+    if (!activeFanVisit) {
+      setFanVisit(null);
+      return;
+    }
+    if (fanVisit.pending && ready && canInspectPart(state)) {
+      setFanVisit({ ...fanVisit, pending: false });
+      setFanViewRevision((n) => n + 1);
+      setFanFocusRevision((n) => n + 1);
+    } else if (
+      fanAssembly(state.deviceId)!.fans.some((fan) => fan.id === selected) &&
+      fanVisit.fanId !== selected
+    ) {
+      setFanVisit({ ...fanVisit, fanId: selected });
+    } else if (
+      fanVisit.mode === "single" &&
+      (selected === state.deviceId ||
+        selected === fanAssembly(state.deviceId)!.group.id)
+    ) {
+      setFanVisit({ ...fanVisit, mode: "group" });
+      setFanViewRevision((n) => n + 1);
+    }
+  }, [fanVisit, activeFanVisit, ready, state, selected]);
   useEffect(() => {
     if (!storageVisit) return;
     if (!activeStorageVisit) {
@@ -1638,6 +1677,21 @@ export function Workspace() {
       }
     }
   };
+  const returnFanGroup = () => {
+    if (!activeFanVisit || !ready) return;
+    setFanVisit({ ...activeFanVisit, mode: "group" });
+    control({ type: "pick", id: activeFanVisit.fanId });
+    control({ type: "analysis", value: false });
+    setFanViewRevision((n) => n + 1);
+    setFanFocusRevision((n) => n + 1);
+  };
+  const finishFanInspection = () => {
+    if (!ready) return;
+    setFanVisit(null);
+    setInspectionDevice(null);
+    control({ type: "finish-part-inspection" });
+    setFanFocusRevision((n) => n + 1);
+  };
   const returnStorageGroup = () => {
     if (!activeStorageVisit || !ready) return;
     setStorageVisit({ ...activeStorageVisit, mode: "group" });
@@ -2261,6 +2315,9 @@ export function Workspace() {
     setInletSelection("rack-a01");
     inletScroll.current = 0;
     setStorageVisit(null);
+    setFanVisit(null);
+    setFanViewRevision(0);
+    setFanFocusRevision(0);
     setStorageViewRevision(0);
     setStorageFocusRevision(0);
     setNetworkMapScope("rack");
@@ -3432,6 +3489,8 @@ export function Workspace() {
               setRangeView(side);
               if (!side) setRangeSegmentId(null);
             }}
+            fanViewRevision={fanViewRevision}
+            fanViewSide={activeFanVisit?.side ?? "front"}
             storageViewRevision={storageViewRevision}
             storageContact={activeStorageVisit?.mode === "contact"}
             isolatedPartId={isolatedPartId}
@@ -3594,12 +3653,18 @@ export function Workspace() {
                 <ResourceActions
                   isolated={!!isolatedPartId}
                   isolationLabel={
-                    activeStorageVisit?.mode === "contact"
-                      ? "接点核对 · 硬盘与中板的装配对应"
-                      : undefined
+                    activeFanVisit
+                      ? "风扇核对 · 沿用当前机型的子件配置"
+                      : activeStorageVisit?.mode === "contact"
+                        ? "接点核对 · 硬盘与中板的装配对应"
+                        : undefined
                   }
                   onIsolation={() => {
                     takeover();
+                    if (activeFanVisit) {
+                      finishFanInspection();
+                      return;
+                    }
                     if (activeStorageVisit) {
                       finishStorageSlots();
                       return;
@@ -3763,6 +3828,54 @@ export function Workspace() {
             {!nav && networkMapReturn}
             {!nav && inletAirflowReturn}
             {state.level === "device" &&
+              (activeFanVisit ||
+                fanInspectionContext(state.deviceId, selected)) && (
+                <FanInspection
+                  deviceId={state.deviceId}
+                  visit={activeFanVisit}
+                  ready={ready}
+                  analysis={review.analysis}
+                  focusRevision={fanFocusRevision}
+                  onStart={() => {
+                    takeover();
+                    const assembly = fanAssembly(state.deviceId)!;
+                    const fanId =
+                      assembly.fans.find((fan) => fan.id === selected)?.id ??
+                      assembly.fans[0].id;
+                    setInspectionDevice(null);
+                    setStorageVisit(null);
+                    setFanVisit({
+                      deviceId: state.deviceId,
+                      mode: "group",
+                      fanId,
+                      side: "front",
+                      pending: true,
+                    });
+                    control({ type: "pick", id: fanId });
+                    control({ type: "analysis", value: false });
+                    if (!canInspectPart(state))
+                      dispatch({ type: "explode", amount: 1 });
+                    setInspector(true);
+                    if (matchMedia("(max-width: 1099px)").matches)
+                      setNav(false);
+                  }}
+                  onSelect={pick}
+                  onInspect={() => {
+                    if (!activeFanVisit || !ready) return;
+                    setFanVisit({ ...activeFanVisit, mode: "single" });
+                    pick(activeFanVisit.fanId);
+                  }}
+                  onSide={(side) => {
+                    if (!activeFanVisit || !ready) return;
+                    takeover();
+                    setFanVisit({ ...activeFanVisit, side });
+                    setFanViewRevision((n) => n + 1);
+                  }}
+                  onGroup={returnFanGroup}
+                  onFinish={finishFanInspection}
+                />
+              )}
+            {state.level === "device" &&
               (activeStorageVisit ||
                 storageSlotContext(state.deviceId, selected)) && (
                 <StorageSlots
@@ -3775,6 +3888,7 @@ export function Workspace() {
                   onStart={() => {
                     takeover();
                     setInspectionDevice(null);
+                    setFanVisit(null);
                     setStorageVisit({
                       deviceId: state.deviceId,
                       mode: "group",
@@ -3820,7 +3934,7 @@ export function Workspace() {
                   onFinish={finishStorageSlots}
                 />
               )}
-            {isolatedPartId && !activeStorageVisit && (
+            {isolatedPartId && !activeStorageVisit && !activeFanVisit && (
               <PartSequence
                 sequence={partInspectionSequence(
                   state.deviceId,
