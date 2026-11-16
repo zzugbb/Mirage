@@ -121,6 +121,7 @@ export function ReviewScene({
   onRangeViewChange,
   isolatedPartId = null,
   storageViewRevision = 0,
+  storageContact = false,
   sliceViewCommand,
   onSlicePlaneChange,
   slicePlaneActive,
@@ -246,6 +247,7 @@ export function ReviewScene({
   onRangeViewChange: (side: RangeView | null) => void;
   isolatedPartId?: string | null;
   storageViewRevision?: number;
+  storageContact?: boolean;
   sliceControls: SliceControls;
   setSliceControls: Dispatch<SetStateAction<SliceControls>>;
   layer: ReviewLayer;
@@ -831,18 +833,21 @@ export function ReviewScene({
     const active = engine.current;
     if (!active) return;
     active.isolatedPartId = isolatedPartId;
+    active.storageContact = storageContact;
+    active.invalidate();
     if (
       !isolatedPartId &&
       state.level === "device" &&
       active.partInspection?.deviceId === state.deviceId
     )
       setView(active.partInspection.previous.view);
-  }, [isolatedPartId, state.level, state.deviceId, retry]);
+  }, [isolatedPartId, storageContact, state.level, state.deviceId, retry]);
   useEffect(() => {
     if (!storageViewRevision || currentState.current.level !== "device") return;
     setOrbit(false);
-    engine.current?.view("front", true);
-    setView("front");
+    const next = storageContact ? "iso" : "front";
+    engine.current?.view(next, true);
+    setView(next);
   }, [storageViewRevision]);
   useEffect(() => {
     const active = engine.current;

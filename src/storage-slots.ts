@@ -21,7 +21,7 @@ export function storageSlots(deviceId: string) {
 }
 export type StorageSlotInspection = {
   deviceId: string;
-  mode: "group" | "disk";
+  mode: "group" | "disk" | "contact";
   diskId: string | null;
   pending: boolean;
 };
@@ -42,7 +42,8 @@ export function activeStorageSlots(
   return visit &&
     state.level === "device" &&
     visit.deviceId === state.deviceId &&
-    storageSlotContext(state.deviceId, selected) &&
+    (storageSlotContext(state.deviceId, selected) ||
+      (visit.mode === "contact" && selected === "sto-midplane")) &&
     (visit.pending || canInspectPart(state))
     ? visit
     : null;

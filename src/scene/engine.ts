@@ -61,6 +61,7 @@ import type { SliceDeviceInspection } from "../slice-device";
 import type { RackUnitRange } from "../rack-space";
 import { RackUnitGuide } from "./rack-unit-guide";
 import { PartIsolation } from "./part-isolation";
+import { StorageContactGuide, storageContactObjects } from "./storage-contact";
 import { canInspectPart, internalStructureThreshold } from "../part-inspection";
 import {
   airflowViewFrame,
@@ -155,6 +156,8 @@ export class SceneEngine {
   models = buildModels();
   unitRange: RackUnitRange | null = null;
   isolatedPartId: string | null = null;
+  storageContact = false;
+  storageContactGuide = new StorageContactGuide();
   partIsolation = new PartIsolation();
   partInspection: {
     deviceId: string;
@@ -359,6 +362,7 @@ export class SceneEngine {
     this.shellCutaway = new ShellCutaway(this.models.shellOccluders);
     this.scene.add(this.models.root);
     this.scene.add(this.telemetry.root, this.signals.root);
+    this.scene.add(this.storageContactGuide.root);
     this.installation = new InstallationScene(this.models);
     this.models.root.add(this.installation.root);
     this.installDevice(state);
@@ -1747,8 +1751,12 @@ export class SceneEngine {
               entityById(state.selected)?.kind ?? "",
             )),
       );
-    if (state.level === "device" && (explosionChanged || coverChanged))
+    if (state.level === "device" && (explosionChanged || coverChanged)) {
       this.view(this.currentView);
+      // 接点核对的两分支会随展开分别移动，完成机构动作后按终态重新适配。
+      if (this.storageContact && this.isolatedPartId)
+        this.pendingComponentFocus = true;
+    }
   }
   deviceBounds(points?: THREE.Vector3[]) {
     const include = (box: THREE.Box3) => {
@@ -1891,6 +1899,15 @@ export class SceneEngine {
         : level === "device"
           ? this.deviceBounds(framingPoints)
           : null;
+    const contactPair =
+      inspectionTarget && this.storageContact
+        ? storageContactObjects(
+            this.state.deviceId,
+            inspectionTarget,
+            this.models.parts,
+          )
+        : null;
+    if (contactPair && bounds) bounds.expandByObject(contactPair.board);
     const aisle =
       level === "room" && focus && view === "top"
         ? this.comparedAisle
@@ -1952,6 +1969,8 @@ export class SceneEngine {
         direction
           .fromArray(focusDirection)
           .transformDirection(object.matrixWorld);
+      // 从侧前方看清分离的接触面和中板；仍保留实体遮挡。
+      if (contactPair) direction.set(0.8, 0.7, 0.12).normalize();
     }
     if (fixture && view === "iso")
       direction.fromArray(fixture.focus.direction).normalize();
@@ -2013,7 +2032,9 @@ export class SceneEngine {
       center.z = rackForDevice(this.state.deviceId).position[2];
     }
     this.targetLook.copy(center);
-    this.targetPosition.copy(center).addScaledVector(direction, distance);
+    this.targetPosition
+      .copy(center)
+      .addScaledVector(direction, contactPair ? distance * 1.15 : distance);
     // 柜式设施的初始取景给工具栏和周边设施留出空间，随后仍可手动拉近。
     this.controls.minDistance =
       fixture && "size" in fixture ? cameraMinimumDistance[level] : minimum;
@@ -2157,8 +2178,20 @@ export class SceneEngine {
         ? this.isolatedPartId
         : null;
     const target = id ? this.models.parts.get(id) : undefined;
+    const pair =
+      id && this.storageContact
+        ? storageContactObjects(this.state.deviceId, id, this.models.parts)
+        : null;
     const applied =
-      !!id && this.partIsolation.apply(this.models.server, target);
+      !!id &&
+      (pair
+        ? this.partIsolation.applyMany(this.models.server, [
+            pair.disk,
+            pair.board,
+          ])
+        : this.partIsolation.apply(this.models.server, target));
+    this.storageContactGuide.update(applied ? pair : null);
+    const inspectionKey = pair ? `${id}:contact` : id;
     if (id && applied) {
       if (!this.partInspection) {
         this.partInspection = {
@@ -2175,8 +2208,8 @@ export class SceneEngine {
           },
         };
       }
-      if (this.partInspection.targetId !== id) {
-        this.partInspection.targetId = id;
+      if (this.partInspection.targetId !== inspectionKey) {
+        this.partInspection.targetId = inspectionKey!;
         target!.updateWorldMatrix(true, true);
         this.view(this.currentView, true);
       }

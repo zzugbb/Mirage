@@ -17,6 +17,7 @@ export function StorageSlots({
   onStart,
   onSelect,
   onInspect,
+  onContact,
   onGroup,
   onFinish,
 }: {
@@ -29,6 +30,7 @@ export function StorageSlots({
   onStart: () => void;
   onSelect: (id: string) => void;
   onInspect: (id: string) => void;
+  onContact: (id: string) => void;
   onGroup: () => void;
   onFinish: () => void;
 }) {
@@ -86,7 +88,7 @@ export function StorageSlots({
         if (event.key === "Escape") {
           event.preventDefault();
           event.stopPropagation();
-          if (visit.mode === "disk" || analysis) onGroup();
+          if (visit.mode !== "group" || analysis) onGroup();
           else onFinish();
         }
       }}
@@ -95,9 +97,17 @@ export function StorageSlots({
         {deviceById(deviceId)!.name} · {slots.length} 盘位
       </strong>
       {analysis ? (
-        <button disabled={!ready} onClick={onGroup}>
-          ← 返回盘位总览
-        </button>
+        <>
+          {visit.mode === "contact" && current && (
+            <small>
+              {current.slot} ↔ 中板第 {current.row} 行 / 第 {current.column}{" "}
+              列接点 · 装配对应示意，非电气接线。
+            </small>
+          )}
+          <button disabled={!ready} onClick={onGroup}>
+            ← 返回盘位总览
+          </button>
+        </>
       ) : (
         <>
           <p>
@@ -117,7 +127,7 @@ export function StorageSlots({
                 key={slot.id}
                 data-slot-id={slot.id}
                 disabled={!ready || visit.pending}
-                aria-pressed={selected === slot.id}
+                aria-pressed={current?.id === slot.id}
                 aria-label={`${slot.slot}，第 ${slot.row} 行第 ${slot.column} 列`}
                 onClick={() => onSelect(slot.id)}
                 onKeyDown={(event) => {
@@ -151,8 +161,19 @@ export function StorageSlots({
             {current
               ? `${current.slot} · 第 ${current.row} 行 / 第 ${current.column} 列`
               : "选择盘位，在三维中查看对应硬盘。"}
-            {visit.mode === "disk" ? " · 单盘检视" : " · 完整盘组"}
+            {visit.mode === "contact"
+              ? " · 中板接点对应"
+              : visit.mode === "disk"
+                ? " · 单盘检视"
+                : " · 完整盘组"}
           </p>
+          {visit.mode === "contact" && current && (
+            <p>
+              硬盘后部接触面 ↔ 中板第 {current.row} 行 / 第 {current.column}{" "}
+              列接点。
+              两端轮廓与虚线仅表示装配对应；展开间隔不是线缆长度，不表示真实电路、接通状态或拔插步骤。
+            </p>
+          )}
           <div className="storage-slot-actions">
             <button
               disabled={!ready || visit.pending || !current}
@@ -160,8 +181,15 @@ export function StorageSlots({
             >
               只看此硬盘
             </button>
+            <button
+              disabled={!ready || visit.pending || !current}
+              aria-pressed={visit.mode === "contact"}
+              onClick={() => current && onContact(current.id)}
+            >
+              核对中板接点
+            </button>
             <button disabled={!ready || visit.pending} onClick={onGroup}>
-              {visit.mode === "disk" ? "← 返回盘位总览" : "正面观察盘组"}
+              {visit.mode !== "group" ? "← 返回盘位总览" : "正面观察盘组"}
             </button>
           </div>
           <small>

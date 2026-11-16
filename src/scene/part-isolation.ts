@@ -10,26 +10,34 @@ export class PartIsolation {
   }
 
   apply(root: Object3D, target: Object3D | undefined) {
+    return this.applyMany(root, target ? [target] : []);
+  }
+
+  /** 保留多个明确分支的并集；先校验全部路径，避免半途隐藏。 */
+  applyMany(root: Object3D, targets: Object3D[]) {
     this.restore();
-    if (!target || target === root) return false;
-    const path: Object3D[] = [];
-    let current: Object3D | null = target;
-    while (current && current !== root) {
-      if (!current.visible) return false;
-      path.push(current);
-      current = current.parent;
+    if (!targets.length || targets.includes(root)) return false;
+    const paths = new Set<Object3D>();
+    for (const target of targets) {
+      let current: Object3D | null = target;
+      while (current && current !== root) {
+        if (!current.visible) return false;
+        paths.add(current);
+        current = current.parent;
+      }
+      if (current !== root) return false;
     }
-    if (current !== root) return false;
-    let parent = root;
-    for (const child of path.reverse()) {
+    const visit = (parent: Object3D) => {
+      if (targets.includes(parent)) return;
       for (const sibling of parent.children) {
-        if (sibling !== child && sibling.visible) {
+        if (paths.has(sibling)) visit(sibling);
+        else if (sibling.visible) {
           sibling.visible = false;
           this.hidden.push(sibling);
         }
       }
-      parent = child;
-    }
+    };
+    visit(root);
     return true;
   }
 }

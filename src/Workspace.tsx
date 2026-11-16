@@ -1012,6 +1012,12 @@ export function Workspace() {
       setStorageViewRevision((n) => n + 1);
       setStorageFocusRevision((n) => n + 1);
     } else if (
+      storageVisit.mode === "contact" &&
+      (selected === state.deviceId || selected === storageDriveGroup)
+    ) {
+      setStorageVisit({ ...storageVisit, mode: "group" });
+      setStorageViewRevision((n) => n + 1);
+    } else if (
       storageSlots(state.deviceId).some((slot) => slot.id === selected) &&
       storageVisit.diskId !== selected
     ) {
@@ -1633,6 +1639,8 @@ export function Workspace() {
   const returnStorageGroup = () => {
     if (!activeStorageVisit || !ready) return;
     setStorageVisit({ ...activeStorageVisit, mode: "group" });
+    if (selected === "sto-midplane" && activeStorageVisit.diskId)
+      control({ type: "pick", id: activeStorageVisit.diskId });
     control({ type: "analysis", value: false });
     setStorageViewRevision((n) => n + 1);
     setStorageFocusRevision((n) => n + 1);
@@ -3423,6 +3431,7 @@ export function Workspace() {
               if (!side) setRangeSegmentId(null);
             }}
             storageViewRevision={storageViewRevision}
+            storageContact={activeStorageVisit?.mode === "contact"}
             isolatedPartId={isolatedPartId}
             state={state}
             unitRange={
@@ -3581,6 +3590,11 @@ export function Workspace() {
               state.level !== "room" ? (
                 <ResourceActions
                   isolated={!!isolatedPartId}
+                  isolationLabel={
+                    activeStorageVisit?.mode === "contact"
+                      ? "接点核对 · 硬盘与中板的装配对应"
+                      : undefined
+                  }
                   onIsolation={() => {
                     takeover();
                     if (activeStorageVisit) {
@@ -3746,7 +3760,8 @@ export function Workspace() {
             {!nav && networkMapReturn}
             {!nav && inletAirflowReturn}
             {state.level === "device" &&
-              storageSlotContext(state.deviceId, selected) && (
+              (activeStorageVisit ||
+                storageSlotContext(state.deviceId, selected)) && (
                 <StorageSlots
                   deviceId={state.deviceId}
                   selected={selected}
@@ -3786,6 +3801,17 @@ export function Workspace() {
                       diskId: id,
                     });
                     pick(id);
+                  }}
+                  onContact={(id) => {
+                    if (!activeStorageVisit || !ready) return;
+                    takeover();
+                    setStorageVisit({
+                      ...activeStorageVisit,
+                      mode: "contact",
+                      diskId: id,
+                    });
+                    pick(id);
+                    setStorageViewRevision((n) => n + 1);
                   }}
                   onGroup={returnStorageGroup}
                   onFinish={finishStorageSlots}

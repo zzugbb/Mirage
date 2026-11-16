@@ -16,6 +16,7 @@ export function ResourceActions({
   onOpen,
   onExtract,
   isolated,
+  isolationLabel = "单部件检视 · 其余结构及连接标记暂隐",
   onIsolation,
 }: {
   state: AppState;
@@ -26,6 +27,7 @@ export function ResourceActions({
   onOpen: (id: string) => void;
   onExtract: (id: string) => void;
   isolated: boolean;
+  isolationLabel?: string;
   onIsolation: () => void;
 }) {
   const entity = entityById(selected)!;
@@ -160,9 +162,7 @@ export function ResourceActions({
               <output>{Math.round(state.explosion * 100)}%</output>
             </label>
           </details>
-          {isolated && (
-            <small role="status">单部件检视 · 其余结构及连接标记暂隐</small>
-          )}
+          {isolated && <small role="status">{isolationLabel}</small>}
         </>
       )}
       {state.level !== "room" && !ready && (
