@@ -1,6 +1,7 @@
 import { Vector3 } from "three";
 import { powerScene, type PowerScene } from "./power-paths.ts";
 import { powerLinkById } from "./power-trace.ts";
+import { powerLinks } from "./power-config.ts";
 import type { AppState } from "./domain.ts";
 import { observationFrame, type FrameRect } from "./observation-frame.ts";
 
@@ -9,8 +10,18 @@ export function powerViewPoints(
   state: AppState,
   selected: string,
   linkId: string | null,
+  paired = false,
 ) {
   if (!linkId || state.level === "device") return [];
+  if (paired) {
+    const scene = pairedPowerScene(state, selected, linkId);
+    return (
+      scene?.paths.flatMap((path) => [
+        new Vector3(...path.points[0]),
+        new Vector3(...path.points.at(-1)!),
+      ]) ?? []
+    );
+  }
   const scene = powerScene(state, selected, linkId);
   if (scene?.traceId !== linkId) return [];
   const branch = scene.paths.at(-1);
@@ -20,6 +31,39 @@ export function powerViewPoints(
 }
 export const powerViewSource = (linkId: string | null) =>
   powerLinkById(linkId)?.deviceId ?? null;
+export function powerPairLinks(linkId: string | null) {
+  const deviceId = powerViewSource(linkId);
+  const links = powerLinks.filter((link) => link.deviceId === deviceId);
+  return links.length === 2 &&
+    links.some((link) => link.inlet === "A") &&
+    links.some((link) => link.inlet === "B")
+    ? links.toSorted((a, b) => a.inlet.localeCompare(b.inlet))
+    : [];
+}
+
+/** 显式扩展当前设备的两路配置，只保留柜内插座至输入；不推断上游独立性。 */
+export function pairedPowerScene(
+  state: AppState,
+  selected: string,
+  linkId: string | null,
+): PowerScene | null {
+  const source = powerScene(state, selected, linkId);
+  if (!linkId || state.level === "device" || source?.traceId !== linkId)
+    return null;
+  const links = powerPairLinks(linkId);
+  if (links.length !== 2) return null;
+  const scenes = links.map((link) =>
+    focusedPowerScene(powerScene(state, source.deviceId, link.id), true),
+  );
+  if (scenes.some((scene) => !scene?.closeUp)) return null;
+  return {
+    ...source,
+    closeUp: true,
+    caption: `${source.caption.split(" · ")[0]} · A/B 双输入核对`,
+    paths: scenes.flatMap((scene) => scene!.paths),
+    labels: scenes.flatMap((scene) => scene!.labels),
+  };
+}
 export function powerViewFrame(
   points: Vector3[],
   width: number,
@@ -66,5 +110,5 @@ export function focusedPowerScene(
 }
 export type PowerViewCommand = {
   revision: number;
-  action: "observe" | "return";
+  action: "observe" | "observe-pair" | "return";
 };

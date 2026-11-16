@@ -18,6 +18,7 @@ import {
 import type { SpatialReading } from "../spatial";
 import { powerLinkById, powerTraceStops } from "../power-trace";
 import { powerScene } from "../power-paths";
+import { powerPairLinks } from "../power-view";
 
 export function PowerConnections({
   state,
@@ -36,12 +37,16 @@ export function PowerConnections({
   onInspect,
   canObserve,
   observing,
+  paired,
   onObserve,
+  onObservePair,
   onReturnView,
 }: {
   canObserve: boolean;
   observing: boolean;
+  paired: boolean;
   onObserve: () => void;
+  onObservePair: () => void;
   onReturnView: () => void;
   pduInspection: PduInspection | null;
   onPduChange: (visit: PduInspection) => void;
@@ -106,12 +111,52 @@ export function PowerConnections({
       {canObserve && (
         <PowerViewActions
           active={observing}
+          paired={paired}
           ready={ready}
           onObserve={onObserve}
+          onObservePair={onObservePair}
           onReturn={onReturnView}
         />
       )}
+      {paired && activeLink && (
+        <section className="power-active-trace" aria-label="双输入供电核对">
+          <strong>
+            {deviceById(activeLink.deviceId)!.name} · A/B 配置对应
+          </strong>
+          <p>A 实线 · B 分段。两路同时显示，不表示冗余保障或分路功率。</p>
+          {powerPairLinks(activeLinkId).map((link) => (
+            <div className="power-link" key={link.id}>
+              <strong>
+                {pduName(link.pduId)} / 插座{" "}
+                {String(link.outlet).padStart(2, "0")} → 输入 {link.inlet}
+              </strong>
+              <div>
+                <button
+                  disabled={!ready}
+                  aria-pressed={link.id === activeLinkId}
+                  onClick={() => onTrace(link.id)}
+                >
+                  核对输入 {link.inlet}
+                </button>
+                <button
+                  disabled={!ready}
+                  onClick={() => {
+                    onTrace(link.id);
+                    onInspect(link.id);
+                  }}
+                >
+                  查看电源 {link.inlet}
+                </button>
+              </div>
+            </div>
+          ))}
+          <small>
+            输入端点为配置代表位置。进入电源部件结束同框观察，原支路仍可沿安装位继续查看。
+          </small>
+        </section>
+      )}
       {stops.length > 0 &&
+        !paired &&
         !(
           pdu &&
           pduInspection?.pduId === pdu.id &&
@@ -270,7 +315,7 @@ export function PowerConnections({
             onInspect={onInspect}
           />
         </>
-      ) : device && model ? (
+      ) : device && model && !paired ? (
         <>
           <button
             className="power-upstream"

@@ -1046,6 +1046,7 @@ export class SceneEngine {
   }
   onPowerView: (active: boolean) => void = () => {};
   private powerObservation?: {
+    paired: boolean;
     sourceId: string;
     targets: THREE.Vector3[];
     key: string;
@@ -1057,14 +1058,14 @@ export class SceneEngine {
     this.moving = false;
     this.onPowerView(false);
   }
-  observePower(selected: string, linkId: string | null) {
+  observePower(selected: string, linkId: string | null, paired = false) {
     this.clearCrossingView();
     this.clearLeakView();
     this.clearEntranceView();
     this.clearEnvironmentView();
     this.clearInletView();
     this.clearMaintenanceView();
-    const targets = powerViewPoints(this.state, selected, linkId);
+    const targets = powerViewPoints(this.state, selected, linkId, paired);
     const sourceId = powerViewSource(linkId);
     if (!targets.length || !sourceId || this.moving) return;
     const previous =
@@ -1075,6 +1076,7 @@ export class SceneEngine {
     this.clearRangeView();
     this.panelViewport = undefined;
     this.powerObservation = {
+      paired,
       sourceId,
       targets,
       key: JSON.stringify(targets),
@@ -1093,7 +1095,12 @@ export class SceneEngine {
   }
   updatePowerView(selected: string, linkId: string | null) {
     if (!this.powerObservation) return;
-    const targets = powerViewPoints(this.state, selected, linkId);
+    const targets = powerViewPoints(
+      this.state,
+      selected,
+      linkId,
+      this.powerObservation.paired,
+    );
     if (
       !targets.length ||
       powerViewSource(linkId) !== this.powerObservation.sourceId
@@ -1121,6 +1128,9 @@ export class SceneEngine {
     this.controls.maxDistance = Math.max(45, fit.distance * 1.2);
     this.moving = true;
     this.invalidate();
+  }
+  refitPowerView() {
+    this.framePower();
   }
   restorePowerView() {
     const previous = this.powerObservation?.previous;

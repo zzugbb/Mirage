@@ -459,6 +459,8 @@ export function Workspace() {
   const [powerViewActive, setPowerViewActive] = useState(false);
   const [powerViewCommand, setPowerViewCommand] =
     useState<PowerViewCommand | null>(null);
+  const powerViewPaired =
+    powerViewActive && powerViewCommand?.action === "observe-pair";
   const requestPowerView = (action: PowerViewCommand["action"]) => {
     takeover();
     setPowerViewCommand((current) => ({
@@ -3487,6 +3489,7 @@ export function Workspace() {
             networkLinkId={activeNetworkLink}
             powerViewCommand={powerViewCommand}
             powerViewActive={powerViewActive}
+            powerViewPaired={powerViewPaired}
             inletPair={pairedInlet}
             inletView={inletView}
             inletViewCommand={inletViewCommand}
@@ -4768,7 +4771,9 @@ export function Workspace() {
                             .length === 2
                         }
                         observing={powerViewActive}
+                        paired={powerViewPaired}
                         onObserve={() => requestPowerView("observe")}
+                        onObservePair={() => requestPowerView("observe-pair")}
                         onReturnView={() => requestPowerView("return")}
                         pduInspection={pduInspection}
                         onPduChange={(visit) => {

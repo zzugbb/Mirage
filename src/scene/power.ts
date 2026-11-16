@@ -39,12 +39,14 @@ export class PowerGeometry {
     new THREE.EdgesGeometry(new THREE.BoxGeometry(0.028, 0.028, 0.003)),
     new THREE.LineBasicMaterial({ color: "#d4e9e5", toneMapped: false }),
   );
+  outlets = [this.outlet, this.outlet.clone()];
+  inputs = [this.input, this.input.clone()];
   constructor() {
-    this.root.add(this.bands, this.dots, this.outlet, this.input);
-    this.input.raycast = () => {};
-    this.input.visible = false;
-    this.outlet.raycast = () => {};
-    this.outlet.visible = false;
+    this.root.add(this.bands, this.dots, ...this.outlets, ...this.inputs);
+    for (const endpoint of [...this.outlets, ...this.inputs]) {
+      endpoint.raycast = () => {};
+      endpoint.visible = false;
+    }
     for (const mesh of [this.bands, this.dots]) {
       mesh.count = 0;
       mesh.raycast = () => {};
@@ -56,10 +58,12 @@ export class PowerGeometry {
   update(snapshot: PowerScene | null) {
     this.snapshot = snapshot;
     this.root.visible = !!snapshot;
-    this.outlet.visible = false;
-    this.input.visible = false;
+    for (const endpoint of [...this.outlets, ...this.inputs])
+      endpoint.visible = false;
     let band = 0,
-      dot = 0;
+      dot = 0,
+      outletIndex = 0,
+      inputIndex = 0;
     for (const path of snapshot?.paths ?? []) {
       this.color.set(powerSettings.routing.colors[path.feed]);
       for (let i = 1; i < path.points.length; i++) {
@@ -94,15 +98,19 @@ export class PowerGeometry {
     for (const label of snapshot?.labels ?? []) {
       if (!label.point) continue;
       if (label.kind === "outlet") {
-        this.outlet.position.fromArray(label.point);
-        this.outlet.position.z -= 0.002;
-        this.outlet.visible = true;
+        const outlet = this.outlets[outletIndex++];
+        if (!outlet) continue;
+        outlet.position.fromArray(label.point);
+        outlet.position.z -= 0.002;
+        outlet.visible = true;
         continue;
       }
       if (snapshot?.closeUp) {
-        this.input.position.fromArray(label.point);
-        this.input.position.z -= 0.002;
-        this.input.visible = true;
+        const input = this.inputs[inputIndex++];
+        if (!input) continue;
+        input.position.fromArray(label.point);
+        input.position.z -= 0.002;
+        input.visible = true;
         continue;
       }
       this.transform.position.fromArray(label.point);

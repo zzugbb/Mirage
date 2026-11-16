@@ -47,6 +47,7 @@ import type { FixtureCrossing, CrossingViewCommand } from "../fixture-crossing";
 import { CrossingGeometry } from "../scene/fixture-crossing";
 import {
   focusedPowerScene,
+  pairedPowerScene,
   powerViewPoints,
   type PowerViewCommand,
 } from "../power-view";
@@ -174,6 +175,7 @@ export function ReviewScene({
   onReturnCrossing,
   powerViewCommand,
   powerViewActive,
+  powerViewPaired,
   onPowerViewChange,
   onPowerView,
   networkViewCommand,
@@ -224,6 +226,7 @@ export function ReviewScene({
   onReturnCrossing: () => void;
   powerViewCommand: PowerViewCommand | null;
   powerViewActive: boolean;
+  powerViewPaired: boolean;
   onPowerViewChange: (active: boolean) => void;
   onPowerView: (action: PowerViewCommand["action"]) => void;
   networkViewCommand: NetworkViewCommand | null;
@@ -311,6 +314,8 @@ export function ReviewScene({
   const leakReturning = useRef(false);
   const leakFocusTarget = useRef<string | null>(null);
   const crossingGeometry = useRef<CrossingGeometry | null>(null);
+  const powerEntry = useRef<HTMLButtonElement | null>(null);
+  const powerReturning = useRef(false);
   const networkGeometry = useRef<NetworkGeometry | null>(null);
   const clockEpoch = useRef(performance.now());
   const previousScene = useRef(state);
@@ -491,8 +496,11 @@ export function ReviewScene({
     ],
   );
   const supply = useMemo(
-    () => focusedPowerScene(supplyBase, powerViewActive),
-    [supplyBase, powerViewActive],
+    () =>
+      powerViewPaired && supplyBase
+        ? pairedPowerScene(state, selectedId, powerLinkId)
+        : focusedPowerScene(supplyBase, powerViewActive),
+    [supplyBase, powerViewActive, powerViewPaired],
   );
   const network = useMemo(
     () =>
@@ -1285,13 +1293,60 @@ export function ReviewScene({
   useEffect(() => {
     const active = engine.current;
     if (!active || !powerViewCommand) return;
-    if (powerViewCommand.action === "return") active.restorePowerView();
-    else if (layer === "power") {
+    if (powerViewCommand.action === "return") {
+      powerReturning.current = true;
+      active.restorePowerView();
+    } else if (layer === "power") {
+      if (!powerViewActive)
+        powerEntry.current =
+          document.activeElement instanceof HTMLButtonElement
+            ? document.activeElement
+            : null;
+      powerReturning.current = false;
       setOrbit(false);
-      active.observePower(selectedId, powerLinkId);
+      active.observePower(
+        selectedId,
+        powerLinkId,
+        powerViewCommand.action === "observe-pair",
+      );
     }
     setView(active.currentView);
   }, [powerViewCommand?.revision]);
+  useEffect(() => {
+    if (!powerViewActive) return;
+    const legend = host.current
+      ?.closest(".study-stage")
+      ?.querySelector(".review-legend");
+    if (!legend) return;
+    const observer = new ResizeObserver(() => engine.current?.refitPowerView());
+    observer.observe(legend);
+    return () => observer.disconnect();
+  }, [powerViewActive, powerViewPaired]);
+  useEffect(() => {
+    if (powerViewActive || !powerReturning.current) return;
+    let frame = 0;
+    const restoreFocus = () => {
+      if (engine.current?.moving) {
+        frame = requestAnimationFrame(restoreFocus);
+        return;
+      }
+      const original = powerEntry.current;
+      const entry =
+        original?.isConnected && original.getClientRects().length
+          ? original
+          : host.current
+              ?.closest(".study-stage")
+              ?.querySelector<HTMLButtonElement>(".power-view-actions button");
+      if (entry?.disabled) {
+        frame = requestAnimationFrame(restoreFocus);
+        return;
+      }
+      powerReturning.current = false;
+      entry?.focus({ preventScroll: true });
+    };
+    frame = requestAnimationFrame(restoreFocus);
+    return () => cancelAnimationFrame(frame);
+  }, [powerViewActive]);
   useEffect(() => {
     engine.current?.updatePowerView(
       selectedId,
@@ -2435,13 +2490,19 @@ export function ReviewScene({
                     2 && (
                     <PowerViewActions
                       active={powerViewActive}
+                      paired={powerViewPaired}
                       ready={sceneSettled}
                       onObserve={() => onPowerView("observe")}
+                      onObservePair={() => onPowerView("observe-pair")}
                       onReturn={() => onPowerView("return")}
                     />
                   )}
                   {powerViewActive && (
-                    <small>柜后同框 · 插座至设备输入代表位置</small>
+                    <small>
+                      {powerViewPaired
+                        ? "A 实线 · B 分段 · 双输入配置对应"
+                        : "柜后同框 · 插座至设备输入代表位置"}
+                    </small>
                   )}
                   {(supply.traceId ||
                     (!supply.paths.length && state.level !== "device")) && (
@@ -2468,7 +2529,9 @@ export function ReviewScene({
                           : "后侧观察剖切 · "
                         : ""}
                     {supply.traceId
-                      ? "配置支路 · 未计量"
+                      ? powerViewPaired
+                        ? "两路未计量 · 不证明独立上游或冗余"
+                        : "配置支路 · 未计量"
                       : supply.paths.length
                         ? "支路未计量 · 不推断独立上游"
                         : "无配置对端 · 不代表可用容量"}
