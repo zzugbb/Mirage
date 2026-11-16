@@ -1814,15 +1814,13 @@ export class SceneEngine {
     this.clearMaintenanceView();
     this.clearSliceView();
     this.clearRangeView();
-    focus =
-      focus ||
-      !!(
-        this.partInspection &&
-        this.isolatedPartId &&
-        this.state.level === "device" &&
-        this.partInspection.deviceId === this.state.deviceId &&
-        this.isolatedPartId === this.state.selected
-      );
+    // 隔离盘组时允许选择其硬盘子件，画幅始终覆盖可见隔离范围。
+    const inspectionTarget =
+      this.state.level === "device" &&
+      this.partInspection?.deviceId === this.state.deviceId
+        ? this.isolatedPartId
+        : null;
+    focus = focus || !!inspectionTarget;
     this.clearAirflowView();
     this.panelViewport = undefined;
     const fixture =
@@ -1885,7 +1883,7 @@ export class SceneEngine {
       this.invalidate();
       return;
     }
-    const object = this.objectFor(this.state.selected);
+    const object = this.objectFor(inspectionTarget ?? this.state.selected);
     const framingPoints: THREE.Vector3[] = [];
     const bounds =
       object && focus

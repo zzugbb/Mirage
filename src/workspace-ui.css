@@ -5947,3 +5947,45 @@
   color: #a9bdc9;
   font-size: 10px;
 }
+
+.storage-slot-check {
+  padding: 16px 22px;
+  border-bottom: 1px solid #29363e;
+  font-size: 11px;
+  color: #a9bdc9;
+}
+.storage-slot-check > strong {
+  display: block;
+  color: #dae5e9;
+}
+.storage-slot-check p,
+.storage-slot-check small {
+  line-height: 1.6;
+}
+.storage-slot-check small {
+  display: block;
+  margin: 8px 0;
+  font-size: 10px;
+}
+.storage-slot-check button {
+  padding: 7px 8px;
+  border: 1px solid #40535c;
+  border-radius: 4px;
+}
+.storage-slot-grid {
+  display: grid;
+  gap: 5px;
+  margin: 10px 0;
+}
+.storage-slot-grid button {
+  background: #202c34;
+}
+.storage-slot-grid button[aria-pressed="true"] {
+  background: #31545b;
+  border-color: #a6d8d8;
+}
+.storage-slot-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}

@@ -1,3 +1,12 @@
+import { StorageSlots } from "./components/StorageSlots";
+import {
+  activeStorageSlots,
+  storageSlots,
+  storageSlotContext,
+  storageDriveGroup,
+  type StorageSlotInspection,
+} from "./storage-slots";
+import { canInspectPart } from "./part-inspection";
 import type {
   NetworkOverviewScope,
   NetworkOverviewRole,
@@ -295,7 +304,17 @@ export function Workspace() {
   }, [environmentPairVisit, environmentPairMetric, state.replayCycle]);
   const partSequenceFocus = useRef<string | null>(null);
   const [inspectionDevice, setInspectionDevice] = useState<string | null>(null);
-  const isolatedPartId = isolatedPart(state, selected, inspectionDevice);
+  const [storageVisit, setStorageVisit] =
+    useState<StorageSlotInspection | null>(null);
+  const [storageViewRevision, setStorageViewRevision] = useState(0);
+  const [storageFocusRevision, setStorageFocusRevision] = useState(0);
+  const activeStorageVisit = activeStorageSlots(storageVisit, state, selected);
+  const isolatedPartId =
+    activeStorageVisit && !activeStorageVisit.pending
+      ? activeStorageVisit.mode === "group"
+        ? storageDriveGroup
+        : activeStorageVisit.diskId
+      : isolatedPart(state, selected, inspectionDevice);
   useEffect(() => {
     if (inspectionDevice && !isolatedPartId) setInspectionDevice(null);
   }, [inspectionDevice, isolatedPartId]);
@@ -427,6 +446,16 @@ export function Workspace() {
     medium.addEventListener("change", adapt);
     return () => medium.removeEventListener("change", adapt);
   }, [activeAirflowResponse]);
+  useEffect(() => {
+    if (!activeStorageVisit) return;
+    const medium = matchMedia("(max-width: 1099px)");
+    const adapt = () => {
+      if (medium.matches) setNav(false);
+    };
+    adapt();
+    medium.addEventListener("change", adapt);
+    return () => medium.removeEventListener("change", adapt);
+  }, [activeStorageVisit?.deviceId]);
   const [powerViewActive, setPowerViewActive] = useState(false);
   const [powerViewCommand, setPowerViewCommand] =
     useState<PowerViewCommand | null>(null);
@@ -972,6 +1001,23 @@ export function Workspace() {
     !review.pendingEndpoint &&
     !!feedback?.settled &&
     feedback.key === presentationKey(state);
+  useEffect(() => {
+    if (!storageVisit) return;
+    if (!activeStorageVisit) {
+      setStorageVisit(null);
+      return;
+    }
+    if (storageVisit.pending && ready && canInspectPart(state)) {
+      setStorageVisit({ ...storageVisit, pending: false });
+      setStorageViewRevision((n) => n + 1);
+      setStorageFocusRevision((n) => n + 1);
+    } else if (
+      storageSlots(state.deviceId).some((slot) => slot.id === selected) &&
+      storageVisit.diskId !== selected
+    ) {
+      setStorageVisit({ ...storageVisit, diskId: selected });
+    }
+  }, [storageVisit, activeStorageVisit, ready, state, selected]);
   useEffect(() => {
     if (
       portVisit &&
@@ -1584,6 +1630,20 @@ export function Workspace() {
       }
     }
   };
+  const returnStorageGroup = () => {
+    if (!activeStorageVisit || !ready) return;
+    setStorageVisit({ ...activeStorageVisit, mode: "group" });
+    control({ type: "analysis", value: false });
+    setStorageViewRevision((n) => n + 1);
+    setStorageFocusRevision((n) => n + 1);
+  };
+  const finishStorageSlots = () => {
+    if (!ready) return;
+    setStorageVisit(null);
+    setInspectionDevice(null);
+    control({ type: "finish-part-inspection" });
+    setStorageFocusRevision((n) => n + 1);
+  };
   const networkMapReturn = state.level !== "room" && rackView === "network" && (
     <button
       className="study-parent"
@@ -2190,6 +2250,9 @@ export function Workspace() {
     setInletFilter("all");
     setInletSelection("rack-a01");
     inletScroll.current = 0;
+    setStorageVisit(null);
+    setStorageViewRevision(0);
+    setStorageFocusRevision(0);
     setNetworkMapScope("rack");
     setNetworkMapRole("all");
     networkMapFocus.current = null;
@@ -3359,6 +3422,7 @@ export function Workspace() {
               setRangeView(side);
               if (!side) setRangeSegmentId(null);
             }}
+            storageViewRevision={storageViewRevision}
             isolatedPartId={isolatedPartId}
             state={state}
             unitRange={
@@ -3519,6 +3583,10 @@ export function Workspace() {
                   isolated={!!isolatedPartId}
                   onIsolation={() => {
                     takeover();
+                    if (activeStorageVisit) {
+                      finishStorageSlots();
+                      return;
+                    }
                     if (!isolatedPartId) {
                       partSequenceFocus.current = "heading";
                       setInspector(true);
@@ -3677,7 +3745,53 @@ export function Workspace() {
             )}
             {!nav && networkMapReturn}
             {!nav && inletAirflowReturn}
-            {isolatedPartId && (
+            {state.level === "device" &&
+              storageSlotContext(state.deviceId, selected) && (
+                <StorageSlots
+                  deviceId={state.deviceId}
+                  selected={selected}
+                  visit={activeStorageVisit}
+                  ready={ready}
+                  analysis={review.analysis}
+                  focusRevision={storageFocusRevision}
+                  onStart={() => {
+                    takeover();
+                    setInspectionDevice(null);
+                    setStorageVisit({
+                      deviceId: state.deviceId,
+                      mode: "group",
+                      diskId: storageSlots(state.deviceId).some(
+                        (slot) => slot.id === selected,
+                      )
+                        ? selected
+                        : null,
+                      pending: true,
+                    });
+                    control({ type: "pick", id: storageDriveGroup });
+                    control({ type: "analysis", value: false });
+                    if (!canInspectPart(state))
+                      dispatch({ type: "explode", amount: 1 });
+                    setInspector(true);
+                    if (matchMedia("(max-width: 1099px)").matches)
+                      setNav(false);
+                  }}
+                  onSelect={(id) => {
+                    pick(id);
+                  }}
+                  onInspect={(id) => {
+                    if (!activeStorageVisit || !ready) return;
+                    setStorageVisit({
+                      ...activeStorageVisit,
+                      mode: "disk",
+                      diskId: id,
+                    });
+                    pick(id);
+                  }}
+                  onGroup={returnStorageGroup}
+                  onFinish={finishStorageSlots}
+                />
+              )}
+            {isolatedPartId && !activeStorageVisit && (
               <PartSequence
                 sequence={partInspectionSequence(
                   state.deviceId,
