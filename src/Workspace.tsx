@@ -44,6 +44,7 @@ import {
   type AlarmVisit,
 } from "./alarm-queue";
 import { RoomLayout } from "./components/RoomLayout";
+import type { RoomLayoutScope } from "./room-layout";
 import type { AirflowView } from "./airflow-view";
 import { airflowSnapshot, type AirflowRoute } from "./airflow";
 import { AirflowDetails } from "./components/AirflowDetails";
@@ -673,6 +674,7 @@ export function Workspace() {
   const alarmScroll = useRef(0);
   const [layoutViewRevision, setLayoutViewRevision] = useState(0);
   const [layoutBoundary, setLayoutBoundary] = useState(false);
+  const [layoutScope, setLayoutScope] = useState<RoomLayoutScope>("equipment");
   const [layoutQuery, setLayoutQuery] = useState("");
   const layoutScroll = useRef(0);
   const [layoutRestore, setLayoutRestore] = useState(0);
@@ -2328,6 +2330,7 @@ export function Workspace() {
     alarmScroll.current = 0;
     setLayoutBoundary(false);
     setLayoutQuery("");
+    setLayoutScope("equipment");
     layoutScroll.current = 0;
     setLayoutRestore(0);
     setLayoutVisit(null);
@@ -2556,6 +2559,30 @@ export function Workspace() {
       onInteract={takeover}
       onPreview={visitSource}
     />
+  );
+  const layoutReturn = layoutVisit && (
+    <div className="room-layout-return" aria-label="布置导览往返">
+      <button
+        className="study-parent"
+        disabled={!ready || layoutReturning}
+        onClick={() => {
+          setLayoutReturning(true);
+          control({ type: "open-resource", id: "room-01" });
+        }}
+      >
+        ← 返回机房布置
+      </button>
+      <button
+        aria-label="结束布置导览往返"
+        disabled={layoutReturning}
+        onClick={() => {
+          setLayoutVisit(null);
+          setLayoutReturning(false);
+        }}
+      >
+        ×
+      </button>
+    </div>
   );
   return (
     <div
@@ -2840,30 +2867,7 @@ export function Workspace() {
               </button>
             </div>
           )}
-          {layoutVisit && (
-            <div className="room-layout-return" aria-label="布置导览往返">
-              <button
-                className="study-parent"
-                disabled={!ready || layoutReturning}
-                onClick={() => {
-                  setLayoutReturning(true);
-                  control({ type: "open-resource", id: "room-01" });
-                }}
-              >
-                ← 返回机房布置
-              </button>
-              <button
-                aria-label="结束布置导览往返"
-                disabled={layoutReturning}
-                onClick={() => {
-                  setLayoutVisit(null);
-                  setLayoutReturning(false);
-                }}
-              >
-                ×
-              </button>
-            </div>
-          )}
+          {layoutReturn}
           {networkMapReturn}
           {state.level !== "room" && (
             <button
@@ -3037,6 +3041,15 @@ export function Workspace() {
               selected={selected}
               deviceId={state.deviceId}
               query={layoutQuery}
+              scope={layoutScope}
+              onScope={(scope) => {
+                takeover();
+                setLayoutScope(scope);
+                setLayoutVisit(null);
+                setLayoutReturning(false);
+                setLayoutRestore(0);
+                layoutScroll.current = 0;
+              }}
               boundaryOpen={layoutBoundary}
               onBoundaryOpen={setLayoutBoundary}
               onQuery={setLayoutQuery}
@@ -3051,8 +3064,16 @@ export function Workspace() {
               onPreview={(id) => {
                 pick(id, false, true);
               }}
-              onLocate={(id) => focus(id)}
-              onDetails={() => {
+              onLocate={(id) => {
+                setLayoutVisit({ id, layer, metric });
+                setLayoutReturning(false);
+                setLayoutRestore(0);
+                focus(id);
+              }}
+              onDetails={(id) => {
+                setLayoutVisit({ id, layer, metric });
+                setLayoutReturning(false);
+                setLayoutRestore(0);
                 setInspector(true);
                 control({ type: "analysis", value: false });
                 if (matchMedia("(max-width: 1099px)").matches) setNav(false);
@@ -3850,6 +3871,7 @@ export function Workspace() {
                 ×
               </button>
             </div>
+            {!nav && layoutReturn}
             {activeAirflowResponse ? (
               <div className="study-identity">
                 <small>气流代表支路 · 模拟对照</small>

@@ -5,6 +5,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   roomLayoutItems,
+  roomLayoutFixtures,
+  roomLayoutScopeItems,
+  roomLayoutLeakPath,
   roomLayoutSize,
   roomLayoutObject,
   roomLayoutMatches,
@@ -48,7 +51,7 @@ test("84台设备、16个PDU及四机型子件回溯明确柜位，无关设施�
     for (const part of [...partsForDevice(id), ...subpartsForDevice(id)])
       assert.equal(roomLayoutObject(part.id, id), rackId);
   }
-  for (const id of ["room-01", "environment-01", "smoke-01", "unknown"])
+  for (const id of ["room-01", "ceiling-light-01", "cable-tray-a", "unknown"])
     assert.equal(roomLayoutObject(id, "srv-01"), null);
 });
 
@@ -113,4 +116,62 @@ test("三维机房俯视与布置图同向，桌面可用画幅容纳配置边�
         new Vector3(...racks[4].position).project(camera).y,
     );
   }
+});
+
+test("环境与安全层仅复用七处配置中心、位置和高度，不生成占地或覆盖", () => {
+  assert.equal(roomLayoutFixtures.length, 7);
+  assert.equal(roomLayoutScopeItems("fixtures"), roomLayoutFixtures);
+  assert.equal(roomLayoutScopeItems("equipment"), roomLayoutItems);
+  for (const item of roomLayoutFixtures) {
+    const fixture = definition.room.fixtures.find(
+      (source) => source.id === item.id,
+    )!;
+    assert.ok(fixture);
+    assert.deepEqual([item.x, item.height, item.z], fixture.position);
+    assert.equal(item.location, fixture.location);
+    assert.equal(item.width, 0);
+    assert.equal(item.depth, 0);
+    assert.equal(roomLayoutObject(item.id, "srv-01"), item.id);
+  }
+  assert.deepEqual(
+    roomLayoutLeakPath.lead,
+    definition.room.leakDetection.leadPoints.map(([x, , z]) => [x, z]),
+  );
+  assert.deepEqual(
+    roomLayoutLeakPath.sensing,
+    definition.room.leakDetection.sensingPoints.map(([x, , z]) => [x, z]),
+  );
+});
+
+test("设施查找为同一位置多词交集，方向键只在设施层移动", () => {
+  assert.deepEqual(
+    roomLayoutFixtures
+      .filter((item) => roomLayoutMatches(item, "环境 左墙 后段"))
+      .map((item) => item.id),
+    ["environment-02"],
+  );
+  assert.equal(
+    roomLayoutFixtures.filter((item) => roomLayoutMatches(item, "环境 烟感"))
+      .length,
+    0,
+  );
+  assert.equal(
+    roomLayoutNeighbor("environment-01", "ArrowUp", "fixtures"),
+    "environment-02",
+  );
+  assert.equal(
+    roomLayoutNeighbor("environment-01", "ArrowRight", "fixtures"),
+    "smoke-01",
+  );
+  assert.equal(
+    roomLayoutNeighbor("smoke-01", "ArrowLeft", "fixtures"),
+    "environment-01",
+  );
+  for (const item of roomLayoutFixtures)
+    for (const key of ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"])
+      assert.ok(
+        roomLayoutFixtures.some(
+          (point) => point.id === roomLayoutNeighbor(item.id, key, "fixtures"),
+        ),
+      );
 });

@@ -5413,6 +5413,59 @@
   opacity: 1;
   color: #e0f7f5;
 }
+.room-layout-scopes {
+  display: flex;
+  gap: 6px;
+}
+.room-layout-scopes button {
+  flex: 1;
+}
+.room-layout-scopes button[aria-pressed="true"] {
+  background: #3d535c;
+  color: #e0f7f5;
+}
+.room-layout-context {
+  opacity: 0.35;
+}
+.room-layout-point line {
+  stroke: #79959d;
+  stroke-width: 0.7;
+}
+.room-layout-point circle {
+  fill: #263c45;
+  stroke: #bdd4d8;
+  stroke-width: 1.2;
+}
+.room-layout-point[data-selected="true"] circle {
+  fill: #e0f7f5;
+  stroke-width: 2;
+}
+.room-layout-leak polyline {
+  fill: none;
+  stroke: #9a9180;
+  stroke-width: 1.6;
+}
+.room-layout-leak .room-layout-lead {
+  stroke-dasharray: 2 2;
+}
+.room-layout-leak[data-selected="true"] polyline {
+  stroke: #e0f7f5;
+  stroke-width: 2;
+}
+.room-layout-map button[data-kind="point"] {
+  width: 58px;
+  height: 24px;
+  min-height: 24px;
+  background: #1a262d;
+}
+.room-layout-map button[data-kind="point"] span {
+  position: static;
+  transform: none;
+}
+.room-layout-map button[data-kind="point"][aria-pressed="true"] {
+  border-color: #acd9dc;
+  background: #30454e;
+}
 .room-layout-selection {
   margin: 14px 0;
   padding-top: 12px;

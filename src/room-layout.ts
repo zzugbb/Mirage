@@ -11,7 +11,10 @@ export type RoomLayoutItem = {
   id: string;
   name: string;
   short: string;
-  kind: "rack" | "facility" | "entrance";
+  kind: "rack" | "facility" | "entrance" | "point";
+  location?: string;
+  height?: number;
+  labelOffset?: readonly [number, number];
   x: number;
   z: number;
   width: number;
@@ -59,8 +62,60 @@ export const roomLayoutItems: RoomLayoutItem[] = [
     depth: definition.room.wallThickness,
   },
 ];
+export type RoomLayoutScope = "equipment" | "fixtures";
+/** 点位只投影配置中心；按钮偏移以避让相邻点，不表示占地或覆盖。 */
+export const roomLayoutFixtures: RoomLayoutItem[] = definition.room.fixtures
+  .filter((item) =>
+    [
+      "environment",
+      "smoke",
+      "access",
+      "leak-controller",
+      "leak-cable",
+    ].includes(item.kind),
+  )
+  .map((item) => ({
+    id: item.id,
+    name: item.name,
+    short: item.name
+      .replace("环境探头", "环境")
+      .replace("门禁读卡器", "门禁")
+      .replace("漏水检测控制器", "检漏控制")
+      .replace("漏水感应线", "感应线"),
+    kind: "point",
+    x: item.position[0],
+    z: item.position[2],
+    width: 0,
+    depth: 0,
+    height: item.position[1],
+    location: item.location,
+    labelOffset:
+      item.kind === "environment"
+        ? [40, 20]
+        : item.kind === "leak-controller"
+          ? [70, -15]
+          : item.kind === "leak-cable"
+            ? [70, 18]
+            : item.id === "smoke-01"
+              ? [52, 16]
+              : [0, 16],
+  }));
+export const roomLayoutLeakPath = {
+  id: definition.room.leakDetection.cableId,
+  lead: definition.room.leakDetection.leadPoints.map(([x, , z]) => [x, z]),
+  sensing: definition.room.leakDetection.sensingPoints.map(([x, , z]) => [
+    x,
+    z,
+  ]),
+};
+export function roomLayoutScopeItems(scope: RoomLayoutScope) {
+  return scope === "fixtures" ? roomLayoutFixtures : roomLayoutItems;
+}
 export function roomLayoutObject(id: string, deviceId: string) {
-  if (roomLayoutItems.some((item) => item.id === id)) return id;
+  if (
+    [...roomLayoutItems, ...roomLayoutFixtures].some((item) => item.id === id)
+  )
+    return id;
   const device = deviceById(id);
   if (device) return device.rackId;
   const pdu = pduById(id);
@@ -78,6 +133,7 @@ export function roomLayoutMatches(item: RoomLayoutItem, query: string) {
     item.id,
     item.name,
     item.short,
+    item.location ?? "",
     ...devices
       .filter((d) => d.rackId === item.id)
       .flatMap((d) => [d.id, d.name, modelForDevice(d.id).name]),
@@ -91,8 +147,13 @@ export function roomLayoutMatches(item: RoomLayoutItem, query: string) {
     .every((word) => content.includes(word));
 }
 /** 图上方向按固定 X/Z 投影，不声称地理朝向；键盘只移动焦点，Enter 才选择。 */
-export function roomLayoutNeighbor(id: string, key: string) {
-  const current = roomLayoutItems.find((item) => item.id === id);
+export function roomLayoutNeighbor(
+  id: string,
+  key: string,
+  scope: RoomLayoutScope = "equipment",
+) {
+  const items = roomLayoutScopeItems(scope);
+  const current = items.find((item) => item.id === id);
   const axis = key === "ArrowLeft" || key === "ArrowRight" ? "x" : "z";
   const sign = key === "ArrowLeft" || key === "ArrowUp" ? -1 : 1;
   if (
@@ -102,7 +163,7 @@ export function roomLayoutNeighbor(id: string, key: string) {
     return id;
   const other = axis === "x" ? "z" : "x";
   return (
-    roomLayoutItems
+    items
       .filter((item) => (item[axis] - current[axis]) * sign > 0.01)
       .sort(
         (a, b) =>

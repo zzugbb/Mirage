@@ -1,6 +1,9 @@
 import { useLayoutEffect, useRef, type RefObject } from "react";
 import {
   roomLayoutItems,
+  roomLayoutScopeItems,
+  roomLayoutLeakPath,
+  type RoomLayoutScope,
   roomLayoutMatches,
   roomLayoutNeighbor,
   roomLayoutObject,
@@ -12,6 +15,8 @@ export function RoomLayout({
   selected,
   deviceId,
   query,
+  scope,
+  onScope,
   onQuery,
   ready,
   visible,
@@ -28,6 +33,8 @@ export function RoomLayout({
   selected: string;
   deviceId: string;
   query: string;
+  scope: RoomLayoutScope;
+  onScope: (scope: RoomLayoutScope) => void;
   onQuery: (value: string) => void;
   ready: boolean;
   visible: boolean;
@@ -36,15 +43,16 @@ export function RoomLayout({
   onPreview: (id: string) => void;
   onLocate: (id: string) => void;
   onEnter: (id: string) => void;
-  onDetails: () => void;
+  onDetails: (id: string) => void;
   onPlan: () => void;
   boundaryOpen: boolean;
   onBoundaryOpen: (open: boolean) => void;
 }) {
   const host = useRef<HTMLElement>(null),
     map = useRef<HTMLDivElement>(null);
+  const items = roomLayoutScopeItems(scope);
   const active = roomLayoutObject(selected, deviceId);
-  const current = roomLayoutItems.find((item) => item.id === active);
+  const current = items.find((item) => item.id === active);
   useLayoutEffect(() => {
     if (!visible || !host.current) return;
     host.current.scrollTop = scroll.current;
@@ -58,9 +66,7 @@ export function RoomLayout({
   }, [visible, restoreRevision, scroll]);
   const x = (value: number) => 140 + value * 16;
   const z = (value: number) => 126 + value * 16;
-  const matches = roomLayoutItems.filter((item) =>
-    roomLayoutMatches(item, query),
-  );
+  const matches = items.filter((item) => roomLayoutMatches(item, query));
   return (
     <section
       ref={host}
@@ -72,14 +78,35 @@ export function RoomLayout({
     >
       <header>
         <strong>机房布置</strong>
-        <p>八柜与主要设施 · 固定俯视方向</p>
+        <p>
+          {scope === "fixtures" ? "七处环境与安全设施" : "八柜与主要设施"} ·
+          固定俯视方向
+        </p>
       </header>
+      <div className="room-layout-scopes" role="group" aria-label="布置图范围">
+        <button
+          aria-pressed={scope === "equipment"}
+          onClick={() => onScope("equipment")}
+        >
+          机柜与设备
+        </button>
+        <button
+          aria-pressed={scope === "fixtures"}
+          onClick={() => onScope("fixtures")}
+        >
+          环境与安全
+        </button>
+      </div>
       <label>
-        查找位置或柜内设备
+        {scope === "fixtures" ? "查找设施或配置位置" : "查找位置或柜内设备"}
         <input
           aria-label="布置图查找"
           value={query}
-          placeholder="B03、SRV-01、存储、入口"
+          placeholder={
+            scope === "fixtures"
+              ? "烟感、环境、左墙、感应线"
+              : "B03、SRV-01、存储、入口"
+          }
           onChange={(event) => {
             scroll.current = 0;
             onQuery(event.target.value);
@@ -99,10 +126,10 @@ export function RoomLayout({
           if (!id) return;
           const next =
             event.key === "Home"
-              ? roomLayoutItems[0].id
+              ? items[0].id
               : event.key === "End"
-                ? roomLayoutItems.at(-1)!.id
-                : roomLayoutNeighbor(id, event.key);
+                ? items.at(-1)!.id
+                : roomLayoutNeighbor(id, event.key, scope);
           if (
             [
               "ArrowUp",
@@ -129,7 +156,7 @@ export function RoomLayout({
             width={roomLayoutSize.width * 16}
             height={roomLayoutSize.depth * 16}
           />
-          <text x="140" y="18" textAnchor="middle">
+          <text x="140" y={scope === "fixtures" ? 10 : 18} textAnchor="middle">
             入口侧 · −Z
           </text>
           <text x="140" y="244" textAnchor="middle">
@@ -138,8 +165,13 @@ export function RoomLayout({
           {roomLayoutItems.map((item) => (
             <g
               key={item.id}
-              data-selected={active === item.id}
-              data-match={roomLayoutMatches(item, query)}
+              className={
+                scope === "fixtures" ? "room-layout-context" : undefined
+              }
+              data-selected={scope === "equipment" && active === item.id}
+              data-match={
+                scope === "fixtures" || roomLayoutMatches(item, query)
+              }
             >
               <rect
                 className="room-layout-footprint"
@@ -156,8 +188,44 @@ export function RoomLayout({
               )}
             </g>
           ))}
+          {scope === "fixtures" && (
+            <>
+              <g
+                className="room-layout-leak"
+                data-selected={active === roomLayoutLeakPath.id}
+              >
+                <polyline
+                  className="room-layout-lead"
+                  points={roomLayoutLeakPath.lead
+                    .map(([px, pz]) => `${x(px)},${z(pz)}`)
+                    .join(" ")}
+                />
+                <polyline
+                  points={roomLayoutLeakPath.sensing
+                    .map(([px, pz]) => `${x(px)},${z(pz)}`)
+                    .join(" ")}
+                />
+              </g>
+              {items.map((item) => (
+                <g
+                  key={item.id}
+                  className="room-layout-point"
+                  data-selected={active === item.id}
+                  data-match={roomLayoutMatches(item, query)}
+                >
+                  <line
+                    x1={x(item.x)}
+                    y1={z(item.z)}
+                    x2={x(item.x) + item.labelOffset![0]}
+                    y2={z(item.z) + item.labelOffset![1]}
+                  />
+                  <circle cx={x(item.x)} cy={z(item.z)} r={3} />
+                </g>
+              ))}
+            </>
+          )}
         </svg>
-        {roomLayoutItems.map((item) => (
+        {items.map((item) => (
           <button
             key={item.id}
             type="button"
@@ -168,8 +236,8 @@ export function RoomLayout({
             aria-label={`预览布置 ${item.name}`}
             title={item.name}
             style={{
-              left: `${(x(item.x) / 280) * 100}%`,
-              top: `${(z(item.z) / 252) * 100}%`,
+              left: `${((x(item.x) + (item.labelOffset?.[0] ?? 0)) / 280) * 100}%`,
+              top: `${((z(item.z) + (item.labelOffset?.[1] ?? 0)) / 252) * 100}%`,
             }}
             onClick={() => onPreview(item.id)}
           >
@@ -179,8 +247,10 @@ export function RoomLayout({
       </div>
       <p className="room-layout-result" role="status">
         {query.trim()
-          ? `匹配 ${matches.length} / ${roomLayoutItems.length} 处；其余位置保留`
-          : `${roomLayoutSize.width} × ${roomLayoutSize.depth} m · 线框按配置尺寸投影`}
+          ? `匹配 ${matches.length} / ${items.length} 处；其余位置保留`
+          : scope === "fixtures"
+            ? "圆点为配置中心 · 实线为感应线，虚线为引线"
+            : `${roomLayoutSize.width} × ${roomLayoutSize.depth} m · 线框按配置尺寸投影`}
       </p>
       {!!query.trim() && (
         <button onClick={() => onQuery("")}>清除布置查找</button>
@@ -193,7 +263,9 @@ export function RoomLayout({
               ? `${devices.filter((device) => device.rackId === current.id).length} 台设备 · 柜前朝 +Z`
               : current.kind === "entrance"
                 ? "门洞位置 · 非通行净宽"
-                : "柜体配置位置 · 非监测覆盖"}
+                : current.kind === "point"
+                  ? `${current.location} · 配置 Y ${current.height!.toFixed(3)} m`
+                  : "柜体配置位置 · 非监测覆盖"}
           </p>
           {selected !== current.id && (
             <small>当前对象所属位置；进入后可继续查找设备。</small>
@@ -202,7 +274,7 @@ export function RoomLayout({
             <button disabled={!ready} onClick={() => onLocate(current.id)}>
               定位此处
             </button>
-            <button onClick={onDetails}>详情</button>
+            <button onClick={() => onDetails(current.id)}>详情</button>
             {current.kind === "rack" && (
               <button disabled={!ready} onClick={() => onEnter(current.id)}>
                 进入机柜 ↗
@@ -220,7 +292,9 @@ export function RoomLayout({
         <summary>方向与布置边界</summary>
         <p>
           图上横向为 X、纵向为
-          Z，不表示地理南北。细框为配置占地，名称按钮仅供选择；不随三维镜头旋转。亮边标记柜前，空白不代表通行净距或可用容量。此图仅列八柜、制冷单元、配电柜与入口；探头、格栅和高位设施仍从资源列表查找。
+          Z，不表示地理南北。细框为配置占地，名称按钮仅供选择；不随三维镜头旋转。亮边标记柜前，空白不代表通行净距或可用容量。环境与安全层投影七处既有设施的配置中心与检漏路径，标签通过细线连接原位置；配置
+          Y
+          为场景坐标，不是离地净高。点位和路径不代表监测覆盖或设施状态；两处环境探头仅有演示读数。格栅、桥架和顶灯仍从资源列表查找。
         </p>
       </details>
     </section>
