@@ -20,7 +20,6 @@ export function RackInstallation({
   visible,
   onPick,
   onFocus,
-  onOpen,
   onDetails,
   onBlanking,
   restoreBlanking,
@@ -39,7 +38,6 @@ export function RackInstallation({
   visible: boolean;
   onPick: (id: string) => void;
   onFocus: (id: string) => void;
-  onOpen: (id: string) => void;
   onBlanking: (first: number, last: number, scroll: number) => void;
   onBlankingFocus: () => void;
   restoreBlanking: { first: number; scroll: number } | null;
@@ -305,11 +303,6 @@ export function RackInstallation({
               <button disabled={!ready} onClick={() => onFocus(selected)}>
                 定位安装位
               </button>
-              {selectedDevice && (
-                <button disabled={!ready} onClick={() => onOpen(selected)}>
-                  查看设备
-                </button>
-              )}
             </div>
           </>
         ) : (

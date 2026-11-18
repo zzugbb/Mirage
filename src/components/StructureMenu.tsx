@@ -11,6 +11,38 @@ export function StructureMenu({
   showProgress?: boolean;
   children: ReactNode;
 }) {
+  return (
+    <StructureActionMenu
+      label={
+        showProgress && amount > 0
+          ? `结构操作 · ${Math.round(amount * 100)}%`
+          : "结构操作"
+      }
+    >
+      <label className="review-explode-label">
+        展开{" "}
+        <input
+          aria-label="部件展开进度"
+          type="range"
+          min="0"
+          max="100"
+          value={amount * 100}
+          onChange={(e) => onChange(Number(e.target.value) / 100)}
+        />
+        <output>{Math.round(amount * 100)}%</output>
+      </label>
+      {children}
+    </StructureActionMenu>
+  );
+}
+
+export function StructureActionMenu({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}) {
   const menu = useRef<HTMLDetailsElement>(null);
   useEffect(() => {
     const dismissOutside = (event: Event) => {
@@ -40,25 +72,8 @@ export function StructureMenu({
         event.currentTarget.querySelector("summary")?.focus();
       }}
     >
-      <summary>
-        结构操作
-        {showProgress && amount > 0 && ` · ${Math.round(amount * 100)}%`}
-      </summary>
-      <div>
-        <label className="review-explode-label">
-          展开{" "}
-          <input
-            aria-label="部件展开进度"
-            type="range"
-            min="0"
-            max="100"
-            value={amount * 100}
-            onChange={(e) => onChange(Number(e.target.value) / 100)}
-          />
-          <output>{Math.round(amount * 100)}%</output>
-        </label>
-        {children}
-      </div>
+      <summary>{label}</summary>
+      <div>{children}</div>
     </details>
   );
 }

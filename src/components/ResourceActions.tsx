@@ -1,6 +1,7 @@
-import { StructureMenu } from "./StructureMenu";
+import { StructureActionMenu, StructureMenu } from "./StructureMenu";
 import type { Action, AppState } from "../domain";
 import { entityById } from "../domain";
+import { deviceById, rackForDevice } from "../installation";
 import { modelForDevice } from "../catalog";
 import { resourceOpenLabel, resourceCatalog } from "../review-resources";
 import type { PresentationPhase } from "../mechanics";
@@ -13,6 +14,7 @@ export function ResourceActions({
   selected,
   ready,
   phase,
+  pendingId,
   dispatch,
   onOpen,
   onExtract,
@@ -22,6 +24,7 @@ export function ResourceActions({
   selected: string;
   ready: boolean;
   phase: PresentationPhase;
+  pendingId: string | null;
   dispatch: (action: Action) => void;
   onOpen: (id: string) => void;
   onExtract: (id: string) => void;
@@ -38,10 +41,75 @@ export function ResourceActions({
   const coverRaised = state.coverOpen || expanded;
   const expandLabel = exteriorOnly ? "展开配置示意" : "展开部件";
   const restoreLabel = exteriorOnly ? "复原外观" : "复原部件";
+  const rackDevice = state.level === "rack" ? deviceById(selected) : undefined;
+  const doors = state.level === "rack" && (
+    <>
+      <button
+        aria-disabled={!ready}
+        aria-pressed={state.doorOpen}
+        onClick={() =>
+          ready && dispatch({ type: "door", open: !state.doorOpen })
+        }
+      >
+        {state.trayExtended
+          ? "推回设备并关闭前门"
+          : state.doorOpen
+            ? "关闭前门"
+            : "打开前门"}
+      </button>
+      <button
+        aria-disabled={!ready}
+        aria-pressed={state.rearDoorOpen}
+        title="双扇后门结构展示，不代表真实门状态或远程控制"
+        onClick={() =>
+          ready && dispatch({ type: "rear-door", open: !state.rearDoorOpen })
+        }
+      >
+        {state.rearDoorOpen ? "关闭后门" : "打开后门"}
+      </button>
+    </>
+  );
   return (
     <div className="review-object-actions" aria-label="对象操作">
       <span>对象操作</span>
-      {preview || state.level === "room" ? (
+      {rackDevice ? (
+        <>
+          <button
+            aria-disabled={!ready}
+            onClick={() => ready && onOpen(selected)}
+          >
+            {rackDevice.name} ·{" "}
+            {pendingId === selected
+              ? "正在切换安装位"
+              : resourceOpenLabel(state, selected)}{" "}
+            ↗
+          </button>
+          {rackDevice.rackId === rackForDevice(state.deviceId).id && (
+            <StructureActionMenu key={selected} label="机柜操作">
+              {state.trayExtended ? (
+                <button
+                  aria-disabled={!ready}
+                  onClick={() =>
+                    ready && dispatch({ type: "tray", extended: false })
+                  }
+                >
+                  推回 {deviceById(state.deviceId)!.name}
+                </button>
+              ) : (
+                modelForDevice(selected).category !== "switch" && (
+                  <button
+                    aria-disabled={!ready}
+                    onClick={() => ready && onExtract(selected)}
+                  >
+                    抽出 {rackDevice.name}
+                  </button>
+                )
+              )}
+              {doors}
+            </StructureActionMenu>
+          )}
+        </>
+      ) : preview || state.level === "room" ? (
         <>
           <strong>{name}</strong>
           {entity.kind !== "room" ? (
@@ -54,42 +122,7 @@ export function ResourceActions({
         </>
       ) : state.level === "rack" ? (
         <>
-          <button
-            disabled={!ready}
-            aria-pressed={state.doorOpen}
-            onClick={() => dispatch({ type: "door", open: !state.doorOpen })}
-          >
-            {state.doorOpen ? "关闭前门" : "打开前门"}
-          </button>
-          <button
-            disabled={!ready}
-            aria-pressed={state.rearDoorOpen}
-            title="双扇后门结构展示，不代表真实门状态或远程控制"
-            onClick={() =>
-              dispatch({ type: "rear-door", open: !state.rearDoorOpen })
-            }
-          >
-            {state.rearDoorOpen ? "关闭后门" : "打开后门"}
-          </button>
-          {entity.kind === "device" ? (
-            <>
-              {modelForDevice(selected).category !== "switch" && (
-                <button
-                  disabled={!ready}
-                  aria-pressed={state.trayExtended}
-                  onClick={() => onExtract(selected)}
-                >
-                  {state.trayExtended ? "推回设备" : "抽出设备"}
-                </button>
-              )}
-              <button disabled={!ready} onClick={() => onOpen(selected)}>
-                {modelForDevice(selected).category === "server"
-                  ? "查看设备内部"
-                  : "查看设备"}{" "}
-                ↗
-              </button>
-            </>
-          ) : null}
+          {doors}
           {pduById(selected) && (
             <small>
               {state.rearDoorOpen ? "后立柱观察剖切" : "后侧观察剖切"}
@@ -151,15 +184,7 @@ export function ResourceActions({
       )}
       {state.level !== "room" && !ready && (
         <small role="status">
-          {!ready &&
-          ![
-            "opening-cover",
-            "closing-cover",
-            "assembling",
-            "expanding",
-            "opening-rear",
-            "closing-rear",
-          ].includes(phase)
+          {["closed", "open", "extended", "device-ready"].includes(phase)
             ? "场景切换中…"
             : phaseLabels[phase]}
         </small>

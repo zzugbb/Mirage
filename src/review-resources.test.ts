@@ -9,6 +9,7 @@ import {
   findResources,
   rackUnitQuery,
   resourceCatalog,
+  resourceOpenLabel,
   componentGroups,
 } from "./review-resources.ts";
 import { devices, rackForDevice } from "./installation.ts";
@@ -79,6 +80,34 @@ test("抽出操作作用于明确选择的设备，已伸出的设备必须先�
   );
   review = reviewTransition(review, { type: "extract-resource", id: "srv-02" });
   assert.equal(review.scene.trayExtended, false);
+});
+
+test("抽出后预览其他设备时，入口写明归位后的实际目的地", () => {
+  let review = reviewTransition(createReview(), {
+    type: "open-resource",
+    id: "srv-01",
+  });
+  review = reviewTransition(review, { type: "extract-resource", id: "srv-01" });
+  assert.equal(resourceOpenLabel(review.scene, "srv-01"), "查看设备内部");
+  assert.equal(resourceOpenLabel(review.scene, "srv-03"), "查看所在机柜");
+  review = reviewTransition(review, { type: "pick", id: "srv-02" });
+  assert.equal(resourceOpenLabel(review.scene, "srv-02"), "切换安装位");
+  const retracted = reviewTransition(review, {
+    type: "scene",
+    action: { type: "tray", extended: false },
+  });
+  assert.equal(retracted.selectedId, "srv-02");
+  assert.equal(retracted.scene.deviceId, "srv-01");
+  assert.equal(resourceOpenLabel(retracted.scene, "srv-02"), "查看设备内部");
+  review = reviewTransition(review, { type: "open-resource", id: "srv-02" });
+  assert.equal(review.scene.deviceId, "srv-01");
+  review = reviewTransition(review, {
+    type: "navigation-ready",
+    key: presentationKey(review.scene),
+  });
+  assert.equal(review.scene.level, "rack");
+  assert.equal(review.scene.deviceId, "srv-02");
+  assert.equal(resourceOpenLabel(review.scene, "srv-02"), "查看设备内部");
 });
 
 test("跨位置进入先归位旧设备，等待对应就绪信号后切换，旧反馈不能提前换模", () => {

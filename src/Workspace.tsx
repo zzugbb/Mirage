@@ -3529,7 +3529,6 @@ export function Workspace() {
               onFocus={(id) =>
                 focus(id, { installation: !pduById(id), showDetails: false })
               }
-              onOpen={(id) => selectObject(id, true)}
               onList={() => setRackView("list")}
               onClear={() => {
                 setQuery("");
@@ -4016,6 +4015,7 @@ export function Workspace() {
                   selected={selected}
                   ready={ready}
                   phase={phase}
+                  pendingId={review.pendingId}
                   dispatch={dispatch}
                   onOpen={(id) => {
                     if (entity.kind === "part" && state.level === "device") {

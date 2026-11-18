@@ -33,7 +33,8 @@
 .workspace-ui button:hover {
   background: #ffffff09;
 }
-.workspace-ui button:disabled {
+.workspace-ui button:disabled,
+.workspace-ui .review-object-actions button[aria-disabled="true"] {
   opacity: 0.32;
   cursor: default;
 }

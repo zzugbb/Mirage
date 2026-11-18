@@ -283,15 +283,20 @@ export function canSelectInScene(state: AppState, id: string) {
 export function resourceOpenLabel(state: AppState, id: string) {
   const entity = entityById(id);
   if (entity?.kind === "rack") return "查看机柜";
-  if (entity?.kind === "device")
-    return state.level === "rack" &&
+  if (entity?.kind === "device") {
+    if (
+      state.level === "rack" &&
       rackForDevice(id).id === rackForDevice(state.deviceId).id
-      ? modelForDevice(id).category === "server"
+    ) {
+      if (state.trayExtended && state.deviceId !== id) return "切换安装位";
+      return modelForDevice(id).category === "server"
         ? "查看设备内部"
-        : "查看设备"
-      : state.level === "device" && id === state.deviceId
-        ? "聚焦设备"
-        : "查看所在机柜";
+        : "查看设备";
+    }
+    return state.level === "device" && id === state.deviceId
+      ? "聚焦设备"
+      : "查看所在机柜";
+  }
   if (entity?.kind === "part") return "定位部件";
   return entity?.kind === "room" ? "返回机房" : "定位设施";
 }
