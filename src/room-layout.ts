@@ -14,11 +14,14 @@ import {
 } from "./ceiling-lights.ts";
 import { cableTraySettings, trayOuterWidth } from "./cable-trays.ts";
 
+import { grilleBranches } from "./grille-inspection.ts";
+import { floorGrilleRows } from "./floor-grilles.ts";
+
 export type RoomLayoutItem = {
   id: string;
   name: string;
   short: string;
-  kind: "rack" | "facility" | "entrance" | "point" | "crossing";
+  kind: "rack" | "facility" | "entrance" | "point" | "crossing" | "branch";
   location?: string;
   height?: number;
   labelOffset?: readonly [number, number];
@@ -69,7 +72,27 @@ export const roomLayoutItems: RoomLayoutItem[] = [
     depth: definition.room.wallThickness,
   },
 ];
-export type RoomLayoutScope = "equipment" | "fixtures" | "ceiling";
+export type RoomLayoutScope = "equipment" | "fixtures" | "ceiling" | "grilles";
+
+export const roomLayoutBranches = floorGrilleRows.flatMap((row) =>
+  grilleBranches(row.id).map((branch) => ({
+    id: branch.rack.id,
+    name: branch.rack.name,
+    short: branch.rack.name.split(" ")[0],
+    kind: "branch" as const,
+    x: branch.rack.position[0],
+    z: branch.rack.position[2],
+    width: definition.rack.size[0],
+    depth: definition.rack.size[2],
+    location: [
+      row.name,
+      branch.device.name,
+      branch.device.id,
+      branch.grille.id,
+    ].join(" "),
+    branch,
+  })),
+);
 // 图上选择的是关系，两端始终使用已登记的三维设施 ID。
 export const roomLayoutCrossings = lightTrayCrossings.map(
   ({ light, tray, difference }) => ({
@@ -155,6 +178,7 @@ export const roomLayoutLeakPath = {
   ]),
 };
 export function roomLayoutScopeItems(scope: RoomLayoutScope): RoomLayoutItem[] {
+  if (scope === "grilles") return roomLayoutBranches;
   return scope === "ceiling"
     ? roomLayoutCrossings
     : scope === "fixtures"
@@ -185,7 +209,7 @@ export function roomLayoutMatches(item: RoomLayoutItem, query: string) {
     item.short,
     item.location ?? "",
     ...devices
-      .filter((d) => d.rackId === item.id)
+      .filter((d) => item.kind === "rack" && d.rackId === item.id)
       .flatMap((d) => [d.id, d.name, modelForDevice(d.id).name]),
   ]
     .join(" ")
@@ -195,8 +219,9 @@ export function roomLayoutMatches(item: RoomLayoutItem, query: string) {
     .toLocaleLowerCase()
     .split(/\s+/)
     .every((word) =>
-      item.kind === "crossing" && /^[ab]$/.test(word)
-        ? item.short.toLowerCase() === word
+      (item.kind === "crossing" || item.kind === "branch") &&
+      /^[ab]$/.test(word)
+        ? item.short[0].toLowerCase() === word
         : content.includes(word),
     );
 }

@@ -5414,7 +5414,8 @@
   color: #e0f7f5;
 }
 .room-layout-scopes {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
   gap: 6px;
 }
 .room-layout-scopes button {
@@ -6170,4 +6171,33 @@
 }
 .structure-tools p {
   margin: 2px 0 0;
+}
+
+.room-layout-grilles rect {
+  fill: #526670;
+  stroke: #9ab1ba;
+  stroke-width: 0.5;
+}
+.room-layout-grilles rect[data-active="true"] {
+  fill: #cbe9e9;
+  stroke: #e1f5f7;
+}
+.room-layout-grilles line {
+  stroke: #cbe9e9;
+  stroke-width: 1.7;
+}
+.room-layout-map button[data-kind="branch"] {
+  width: 27px;
+  height: 24px;
+  min-height: 24px;
+  background: #1b2930;
+  border-color: #657a83;
+}
+.room-layout-map button[data-kind="branch"] span {
+  position: static;
+}
+.room-layout-map
+  button[data-kind="branch"]:is(:focus-visible, [aria-pressed="true"]) {
+  outline: 2px solid #bbdcdf;
+  opacity: 1;
 }

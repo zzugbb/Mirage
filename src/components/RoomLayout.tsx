@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, type RefObject } from "react";
 import {
   roomLayoutItems,
+  roomLayoutBranches,
   roomLayoutCrossings,
   roomLayoutCeilingFootprints,
   roomLayoutScopeItems,
@@ -13,6 +14,35 @@ import {
 } from "../room-layout";
 import { devices } from "../installation";
 
+import { floorGrilles, floorGrilleSettings } from "../floor-grilles";
+import type { GrilleBranch } from "../grille-inspection";
+const scopes = {
+  equipment: [
+    "机柜与设备",
+    "八柜与主要设施",
+    "查找位置或柜内设备",
+    "B03、SRV-01、存储、入口",
+  ],
+  fixtures: [
+    "环境与安全",
+    "七处环境与安全设施",
+    "查找设施或配置位置",
+    "烟感、环境、左墙、感应线",
+  ],
+  ceiling: [
+    "顶灯与桥架",
+    "顶灯与桥架的投影交叉",
+    "按顶灯与柜排查找交叉处",
+    "中央 B 排、左侧顶灯、桥架编号",
+  ],
+  grilles: [
+    "柜前格栅",
+    "柜前铺设与代表进风设备",
+    "查找柜位、代表设备或格栅编号",
+    "B03、设备编号、grille-row-b",
+  ],
+} satisfies Record<RoomLayoutScope, string[]>;
+
 export function RoomLayout({
   selected,
   deviceId,
@@ -21,6 +51,7 @@ export function RoomLayout({
   crossingId,
   onPreviewCrossing,
   onInspectCrossing,
+  onInspectBranch,
   onScope,
   onQuery,
   ready,
@@ -41,6 +72,7 @@ export function RoomLayout({
   scope: RoomLayoutScope;
   crossingId: string | null;
   onPreviewCrossing: (id: string) => void;
+  onInspectBranch: (branch: GrilleBranch) => void;
   onInspectCrossing: (id: string) => void;
   onScope: (scope: RoomLayoutScope) => void;
   onQuery: (value: string) => void;
@@ -70,6 +102,10 @@ export function RoomLayout({
   const active =
     scope === "ceiling" ? pair?.id : roomLayoutObject(selected, deviceId);
   const current = items.find((item) => item.id === active);
+  const branch =
+    scope === "grilles"
+      ? roomLayoutBranches.find((b) => b.id === active)?.branch
+      : undefined;
   useLayoutEffect(() => {
     if (!visible || !host.current) return;
     host.current.scrollTop = scroll.current;
@@ -95,51 +131,25 @@ export function RoomLayout({
     >
       <header>
         <strong>机房布置</strong>
-        <p>
-          {scope === "ceiling"
-            ? "顶灯与桥架的投影交叉"
-            : scope === "fixtures"
-              ? "七处环境与安全设施"
-              : "八柜与主要设施"}{" "}
-          · 固定俯视方向
-        </p>
+        <p>{scopes[scope][1]} · 固定俯视方向</p>
       </header>
       <div className="room-layout-scopes" role="group" aria-label="布置图范围">
-        <button
-          aria-pressed={scope === "equipment"}
-          onClick={() => onScope("equipment")}
-        >
-          机柜与设备
-        </button>
-        <button
-          aria-pressed={scope === "fixtures"}
-          onClick={() => onScope("fixtures")}
-        >
-          环境与安全
-        </button>
-        <button
-          aria-pressed={scope === "ceiling"}
-          onClick={() => onScope("ceiling")}
-        >
-          顶灯与桥架
-        </button>
+        {(Object.keys(scopes) as RoomLayoutScope[]).map((key) => (
+          <button
+            key={key}
+            aria-pressed={scope === key}
+            onClick={() => onScope(key)}
+          >
+            {scopes[key][0]}
+          </button>
+        ))}
       </div>
       <label>
-        {scope === "ceiling"
-          ? "按顶灯与柜排查找交叉处"
-          : scope === "fixtures"
-            ? "查找设施或配置位置"
-            : "查找位置或柜内设备"}
+        {scopes[scope][2]}
         <input
           aria-label="布置图查找"
           value={query}
-          placeholder={
-            scope === "ceiling"
-              ? "中央 B 排、左侧顶灯、桥架编号"
-              : scope === "fixtures"
-                ? "烟感、环境、左墙、感应线"
-                : "B03、SRV-01、存储、入口"
-          }
+          placeholder={scopes[scope][3]}
           onChange={(event) => {
             scroll.current = 0;
             onQuery(event.target.value);
@@ -221,6 +231,28 @@ export function RoomLayout({
               )}
             </g>
           ))}
+          {scope === "grilles" && (
+            <g className="room-layout-grilles">
+              {floorGrilles.map((g) => (
+                <rect
+                  key={g.id}
+                  data-active={branch?.grille.id === g.id}
+                  x={x(g.position[0] - floorGrilleSettings.width / 2)}
+                  y={z(g.position[2] - floorGrilleSettings.depth / 2)}
+                  width={floorGrilleSettings.width * 16}
+                  height={floorGrilleSettings.depth * 16}
+                />
+              ))}
+              {branch && (
+                <line
+                  x1={x(branch.grille.position[0])}
+                  y1={z(branch.grille.position[2])}
+                  x2={x(branch.rack.position[0])}
+                  y2={z(branch.rack.position[2] + current!.depth / 2)}
+                />
+              )}
+            </g>
+          )}
           {scope === "ceiling" &&
             roomLayoutCeilingFootprints.map((f) => (
               <g
@@ -310,11 +342,13 @@ export function RoomLayout({
       <p className="room-layout-result" role="status">
         {query.trim()
           ? `匹配 ${matches.length} / ${items.length} 处；其余位置保留`
-          : scope === "ceiling"
-            ? "纵向为灯体，横向为桥架；A / B 为对应柜排"
-            : scope === "fixtures"
-              ? "圆点为配置中心 · 实线为感应线，虚线为引线"
-              : `${roomLayoutSize.width} × ${roomLayoutSize.depth} m · 线框按配置尺寸投影`}
+          : scope === "grilles"
+            ? "小格为地面格栅；选择柜位查看代表落点"
+            : scope === "ceiling"
+              ? "纵向为灯体，横向为桥架；A / B 为对应柜排"
+              : scope === "fixtures"
+                ? "圆点为配置中心 · 实线为感应线，虚线为引线"
+                : `${roomLayoutSize.width} × ${roomLayoutSize.depth} m · 线框按配置尺寸投影`}
       </p>
       {!!query.trim() && (
         <button onClick={() => onQuery("")}>清除布置查找</button>
@@ -323,20 +357,28 @@ export function RoomLayout({
         <div className="room-layout-selection" aria-label="布置当前对象">
           <strong>{current.name}</strong>
           <p>
-            {pair
-              ? `灯罩底面比侧梁顶面${pair.difference >= 0 ? "高" : "低"} ${Math.abs(pair.difference).toFixed(2)} m · 配置表面高差，非最小净距`
-              : current.kind === "rack"
-                ? `${devices.filter((device) => device.rackId === current.id).length} 台设备 · 柜前朝 +Z`
-                : current.kind === "entrance"
-                  ? "门洞位置 · 非通行净宽"
-                  : current.kind === "point"
-                    ? `${current.location} · 配置 Y ${current.height!.toFixed(3)} m`
-                    : "柜体配置位置 · 非监测覆盖"}
+            {branch
+              ? `格栅 ${branch.grille.id.split("-").at(-1)} → ${branch.device.name} · 最近格栅示意落点，非独占供风`
+              : pair
+                ? `灯罩底面比侧梁顶面${pair.difference >= 0 ? "高" : "低"} ${Math.abs(pair.difference).toFixed(2)} m · 配置表面高差，非最小净距`
+                : current.kind === "rack"
+                  ? `${devices.filter((device) => device.rackId === current.id).length} 台设备 · 柜前朝 +Z`
+                  : current.kind === "entrance"
+                    ? "门洞位置 · 非通行净宽"
+                    : current.kind === "point"
+                      ? `${current.location} · 配置 Y ${current.height!.toFixed(3)} m`
+                      : "柜体配置位置 · 非监测覆盖"}
           </p>
-          {!pair && selected !== current.id && (
+          {!branch && !pair && selected !== current.id && (
             <small>当前对象所属位置；进入后可继续查找设备。</small>
           )}
-          {pair ? (
+          {branch ? (
+            <div>
+              <button disabled={!ready} onClick={() => onInspectBranch(branch)}>
+                查看代表气流 ↗
+              </button>
+            </div>
+          ) : pair ? (
             <div>
               <button
                 disabled={!ready}
@@ -375,7 +417,7 @@ export function RoomLayout({
           图上横向为 X、纵向为
           Z，不表示地理南北。细框为配置占地，名称按钮仅供选择；不随三维镜头旋转。亮边标记柜前，空白不代表通行净距或可用容量。环境与安全层投影七处既有设施的配置中心与检漏路径，标签通过细线连接原位置；配置
           Y
-          为场景坐标，不是离地净高。点位和路径不代表监测覆盖或设施状态；两处环境探头仅有演示读数。顶灯与桥架按配置投影，交叉不表示接线或碰撞。格栅仍从资源列表查找。
+          为场景坐标，不是离地净高。点位和路径不代表监测覆盖或设施状态；两处环境探头仅有演示读数。顶灯与桥架按配置投影，交叉不表示接线或碰撞。格栅落点不代表实测风量。
         </p>
       </details>
     </section>

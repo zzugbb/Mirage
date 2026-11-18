@@ -3047,6 +3047,12 @@ export function Workspace() {
               query={layoutQuery}
               scope={layoutScope}
               crossingId={layoutCrossing}
+              onInspectBranch={(branch) => {
+                setLayoutVisit({ id: branch.rack.id, layer, metric });
+                setLayoutRestore(0);
+                setLayoutReturning(false);
+                showAirflow(branch.device.id);
+              }}
               onPreviewCrossing={(id) => {
                 const pair = roomLayoutCrossings.find((p) => p.id === id);
                 if (!pair) return;

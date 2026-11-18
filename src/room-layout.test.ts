@@ -5,6 +5,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   roomLayoutItems,
+  roomLayoutBranches,
   roomLayoutCrossings,
   roomLayoutCeilingFootprints,
   roomLayoutFixtures,
@@ -213,4 +214,38 @@ test("设施查找为同一位置多词交集，方向键只在设施层移动",
           (point) => point.id === roomLayoutNeighbor(item.id, key, "fixtures"),
         ),
       );
+});
+
+test("柜前格栅按同一代表支路查找，不将同柜其他设备或相邻柜落点算入", () => {
+  const items = roomLayoutScopeItems("grilles");
+  assert.equal(items.length, 8);
+  for (const row of ["A", "B"])
+    assert.deepEqual(
+      items
+        .filter((i) => roomLayoutMatches(i, row + " 排"))
+        .map((i) => i.short),
+      [1, 2, 3, 4].map((n) => row + "0" + n),
+    );
+  for (const item of roomLayoutBranches) {
+    const { rack, grille, device } = item.branch;
+    assert.deepEqual([item.x, item.z], [rack.position[0], rack.position[2]]);
+    assert.deepEqual(
+      items
+        .filter((i) =>
+          roomLayoutMatches(i, [item.short, grille.id, device.id].join(" ")),
+        )
+        .map((i) => i.id),
+      [rack.id],
+    );
+    assert.ok(
+      !roomLayoutMatches(
+        item,
+        devices.find((d) => d.rackId === rack.id && d.id !== device.id)!.id,
+      ),
+    );
+  }
+  assert.equal(
+    roomLayoutNeighbor("rack-a07", "ArrowDown", "grilles"),
+    "rack-a03",
+  );
 });
