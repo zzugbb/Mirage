@@ -50,7 +50,7 @@ export function RackSpaceInspector({
   queryMessage?: string;
   size: number;
   onSize: (size: number) => void;
-  onCompare: () => void;
+  onCompare?: () => void;
 }) {
   const panel = useRef<HTMLElement>(null);
   const [start, setStart] = useState(String(range?.first ?? 1));
@@ -79,7 +79,7 @@ export function RackSpaceInspector({
       aria-label="安装空间核查"
     >
       <header>
-        <button onClick={onCompare}>← 全机房空间对照</button>
+        {onCompare && <button onClick={onCompare}>全机房空间对照 ↗</button>}
         <strong>{layout.rack.name} · 安装空间</strong>
         <p>
           已安装 {layout.installedUnits} U · 未安装 {layout.blankingUnits} U

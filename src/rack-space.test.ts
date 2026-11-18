@@ -70,7 +70,11 @@ test("八柜连续空段候选与逐U暴力检查一致，重叠起点不作为�
       const candidates = rackSpaceCandidates(rack.id, size);
       const actual = candidates
         .flatMap((g) =>
-          Array.from({ length: g.positions }, (_, i) => g.first + i),
+          g.ranges.map((range) => {
+            assert.equal(range.rackId, rack.id);
+            assert.equal(range.last, range.first + size - 1);
+            return range.first;
+          }),
         )
         .sort((a, b) => a - b);
       const expected = Array.from(

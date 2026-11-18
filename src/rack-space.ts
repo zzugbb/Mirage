@@ -61,11 +61,22 @@ export function rackSpaceCandidates(rackId: string, size: number) {
     return [];
   return layout.segments
     .filter((s) => s.kind === "blanking" && s.last - s.first + 1 >= size)
-    .map((s) => ({
-      first: s.first,
-      last: s.last,
-      units: s.last - s.first + 1,
-      positions: s.last - s.first - size + 2,
-      sample: { rackId, first: s.first, last: s.first + size - 1 },
-    }));
+    .map((s) => {
+      const ranges = Array.from(
+        { length: s.last - s.first - size + 2 },
+        (_, offset) => ({
+          rackId,
+          first: s.first + offset,
+          last: s.first + offset + size - 1,
+        }),
+      );
+      return {
+        first: s.first,
+        last: s.last,
+        units: s.last - s.first + 1,
+        positions: ranges.length,
+        sample: ranges[0],
+        ranges,
+      };
+    });
 }

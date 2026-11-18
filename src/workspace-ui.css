@@ -3115,8 +3115,43 @@
   font-size: 11px;
 }
 
-.room-space-comparison > label {
-  margin: 8px 0;
+.room-space-filters,
+.room-space-options label,
+.room-space-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.room-space-filters {
+  justify-content: space-between;
+}
+.room-space-filters label {
+  display: grid;
+  gap: 4px;
+}
+.room-space-options {
+  display: grid;
+  gap: 7px;
+  margin-top: 10px;
+  padding-left: 10px;
+  border-left: 2px solid #587f83;
+}
+.room-space-options label {
+  justify-content: space-between;
+}
+.room-space-comparison .room-space-options select {
+  width: 114px;
+}
+.room-space-actions button:first-child:not(:only-child) {
+  background: #314e54;
+  color: #d7f6f5;
+}
+.room-space-actions button:last-child {
+  background: transparent;
+  color: #b4c4ca;
+}
+.room-space-comparison .rack-space-boundary summary {
+  cursor: pointer;
 }
 .room-space-key {
   display: flex;
@@ -3159,6 +3194,7 @@
   height: 10px;
 }
 .room-space-strip i {
+  grid-row: 1;
   margin-right: 1px;
 }
 .room-space-comparison .is-installed {
@@ -3176,11 +3212,14 @@
   background: #1f363c;
   border: 1px solid #b7e8e8;
 }
-.room-space-scale {
-  display: flex;
-  justify-content: space-between;
-  font-size: 9px;
-  color: #81949f;
+.room-space-mark {
+  background: #b7e8e8;
+  outline: 1px solid #e4ffff;
+}
+.room-space-rack .room-space-totals {
+  font-size: 11px;
+  color: #b2c3cb;
+  margin: 5px 0 0;
 }
 .rack-space-inspector > label,
 .rack-space-inspector form label {

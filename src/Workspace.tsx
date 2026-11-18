@@ -149,6 +149,7 @@ import { NetworkOverview } from "./components/NetworkOverview";
 import { environmentProbe } from "./environment-monitoring";
 import { EnvironmentDetails } from "./components/EnvironmentDetails";
 import { RackSpaceInspector } from "./components/RackSpaceInspector";
+import type { RackUnitRange } from "./rack-space";
 import { RoomSpaceComparison } from "./components/RoomSpaceComparison";
 import { isolatedPart, partInspectionSequence } from "./part-inspection";
 import { grilleRowById, rackGrilleRelations } from "./floor-grilles";
@@ -854,6 +855,19 @@ export function Workspace() {
   const [comparisonRow, setComparisonRow] = useState("all");
   const [comparisonRack, setComparisonRack] = useState<string | null>(null);
   const comparisonScroll = useRef(0);
+  const [comparisonStart, setComparisonStart] = useState<number | null>(null);
+  const [comparisonVisit, setComparisonVisit] = useState<{
+    range: RackUnitRange;
+    scroll: number;
+    query: string;
+    filter: ResourceFilter;
+    onlyAlarms: boolean;
+    layer: typeof layer;
+    inspector: boolean;
+    metric: "temperature" | "power";
+  } | null>(null);
+  const [comparisonReturning, setComparisonReturning] = useState(false);
+  const [comparisonFocus, setComparisonFocus] = useState(false);
   const [expanded, setExpanded] = useState<string[]>([]);
   const [filter, setFilter] = useState<ResourceFilter>("all");
   const [onlyAlarms, setOnlyAlarms] = useState(false);
@@ -1432,6 +1446,43 @@ export function Workspace() {
     }
   }, [ready, selected, review.analysis, pduInspection?.pduId]);
 
+  useEffect(() => {
+    if (!comparisonVisit || state.level !== "room" || !ready) return;
+    if (!comparisonReturning) {
+      setComparisonVisit(null);
+      return;
+    }
+    const { range } = comparisonVisit;
+    if (selected !== range.rackId || layer !== comparisonVisit.layer) {
+      control({ type: "pick", id: range.rackId });
+      control({ type: "layer", layer: comparisonVisit.layer });
+      return;
+    }
+    setRackView("space");
+    setComparisonRack(range.rackId);
+    setComparisonStart(range.first);
+    comparisonScroll.current = comparisonVisit.scroll;
+    setQuery(comparisonVisit.query);
+    setFilter(comparisonVisit.filter);
+    setOnlyAlarms(comparisonVisit.onlyAlarms);
+    setMetric(comparisonVisit.metric);
+    setInspector(
+      comparisonVisit.inspector && !matchMedia("(max-width: 1099px)").matches,
+    );
+    skipNavigationSearch.current = !nav;
+    setNav(true);
+    setComparisonFocus(true);
+    setComparisonVisit(null);
+    setComparisonReturning(false);
+  }, [
+    comparisonVisit,
+    comparisonReturning,
+    state.level,
+    ready,
+    selected,
+    layer,
+    nav,
+  ]);
   useEffect(() => {
     if (
       !networkMapReturning ||
@@ -2730,6 +2781,10 @@ export function Workspace() {
     networkMapScroll.current = 0;
     setComparisonRow("all");
     setComparisonRack(null);
+    setComparisonStart(null);
+    setComparisonVisit(null);
+    setComparisonReturning(false);
+    setComparisonFocus(false);
     comparisonScroll.current = 0;
     setShot(next);
     setRevision((n) => n + 1);
@@ -3037,6 +3092,27 @@ export function Workspace() {
                 ×
               </button>
             )}
+          </div>
+        )}
+        {comparisonVisit && (
+          <div
+            className="study-task-return"
+            role="group"
+            aria-label="空间核查往返"
+          >
+            <button
+              disabled={!ready || comparisonReturning}
+              onClick={() => {
+                setComparisonReturning(true);
+                setSpaceVisit(null);
+                setSpaceRestore(null);
+                setBlankingVisit(null);
+                control({ type: "analysis", value: false });
+                control({ type: "open-resource", id: "room-01" });
+              }}
+            >
+              {`← 返回机房核查（${rackById(comparisonVisit.range.rackId)!.name.split(" ")[0]} · ${spaceRangeLabel(comparisonVisit.range)}）`}
+            </button>
           </div>
         )}
         {(networkMapVisit ||
@@ -3682,17 +3758,41 @@ export function Workspace() {
               expandedId={comparisonRack}
               selected={selected}
               scroll={comparisonScroll}
-              onSize={setComparisonSize}
-              onRow={setComparisonRow}
-              onExpand={setComparisonRack}
+              start={comparisonStart}
+              onStart={setComparisonStart}
+              restoreFocus={comparisonFocus && nav}
+              onRestored={() => setComparisonFocus(false)}
+              onSize={(size) => {
+                setComparisonSize(size);
+                setComparisonStart(null);
+              }}
+              onRow={(row) => {
+                setComparisonRow(row);
+                setComparisonRack(null);
+                setComparisonStart(null);
+              }}
+              onExpand={(id) => {
+                setComparisonRack(id);
+                setComparisonStart(null);
+              }}
               onPreview={selectObject}
               ready={ready}
               onInspect={(range) => {
-                pick(range.rackId, true, true);
+                setComparisonVisit({
+                  range,
+                  scroll: comparisonScroll.current,
+                  query,
+                  filter,
+                  onlyAlarms,
+                  layer,
+                  metric,
+                  inspector,
+                });
+                selectObject(range.rackId, true);
+                control({ type: "layer", layer: "overview" });
+                control({ type: "analysis", value: false });
                 setSpaceSize(comparisonSize);
-                setQuery(
-                  `${rackById(range.rackId)!.name.split(" ")[0]} U${range.first}–${range.last}`,
-                );
+                setQuery(spaceRangeLabel(range));
                 setOnlyAlarms(false);
               }}
             />
@@ -3707,7 +3807,11 @@ export function Workspace() {
               rackId={rackForDevice(state.deviceId).id}
               size={spaceSize}
               onSize={setSpaceSize}
-              onCompare={() => pick("room-01", true, true)}
+              onCompare={
+                comparisonVisit
+                  ? undefined
+                  : () => selectObject("room-01", true)
+              }
               restore={spaceRestore}
               ready={ready}
               range={spaceRange}
