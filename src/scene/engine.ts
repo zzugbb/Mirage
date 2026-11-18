@@ -1765,12 +1765,8 @@ export class SceneEngine {
               entityById(state.selected)?.kind ?? "",
             )),
       );
-    if (state.level === "device" && (explosionChanged || coverChanged)) {
+    if (state.level === "device" && (explosionChanged || coverChanged))
       this.view(this.currentView);
-      // 接点核对的两分支会随展开分别移动，完成机构动作后按终态重新适配。
-      if (this.storageContact && this.isolatedPartId)
-        this.pendingComponentFocus = true;
-    }
   }
   deviceBounds(points?: THREE.Vector3[]) {
     const include = (box: THREE.Box3) => {
@@ -2359,6 +2355,9 @@ export class SceneEngine {
       delta,
       instant,
     );
+    const poseChanged =
+      nextAssembly.cover !== this.cover ||
+      nextAssembly.explosion !== this.explosion;
     this.cover = nextAssembly.cover;
     this.explosion = nextAssembly.explosion;
     const assemblyBusy =
@@ -2387,11 +2386,11 @@ export class SceneEngine {
       this.presentation.rearDoor === 0
     )
       this.view(this.currentView, this.currentFocus);
+    // 隔离对象随所属模组移动；用机构到位后的可见范围适配当前观察侧。
     if (
-      this.pendingComponentFocus &&
+      (this.pendingComponentFocus || (poseChanged && this.partInspection)) &&
       frame.ready &&
-      this.explosion === explosionTarget &&
-      this.cover === coverTarget
+      !assemblyBusy
     ) {
       this.pendingComponentFocus = false;
       this.view(this.currentView, true);

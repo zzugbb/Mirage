@@ -9,7 +9,8 @@ import {
   activeFanInspection,
   type FanInspection as FanVisit,
 } from "./fan-inspection";
-import { StorageSlotNavigation, StorageSlots } from "./components/StorageSlots";
+import { StructureNavigation } from "./components/StructureNavigation";
+import { StorageSlots } from "./components/StorageSlots";
 import {
   activeStorageSlots,
   storageSlots,
@@ -1844,19 +1845,13 @@ export function Workspace() {
   };
   const returnFanGroup = () => {
     if (!activeFanVisit || !ready) return;
+    setInspector(true);
+    if (matchMedia("(max-width: 1099px)").matches) setNav(false);
     setFanVisit({ ...activeFanVisit, mode: "group" });
     control({ type: "pick", id: activeFanVisit.fanId });
     control({ type: "analysis", value: false });
     setFanViewRevision((n) => n + 1);
     setFanFocusRevision((n) => n + 1);
-  };
-  const finishFanInspection = () => {
-    if (!ready || !activeFanVisit) return;
-    setStructureReturn({ deviceId: state.deviceId, tool: "fans" });
-    control({ type: "analysis", value: false });
-    setFanVisit(null);
-    setInspectionDevice(null);
-    control({ type: "finish-part-inspection" });
   };
   const returnStorageGroup = () => {
     if (!activeStorageVisit || !ready) return;
@@ -1869,13 +1864,18 @@ export function Workspace() {
     setStorageViewRevision((n) => n + 1);
     setStorageFocusRevision((n) => n + 1);
   };
-  const finishStorageSlots = () => {
-    if (!ready || !activeStorageVisit) return;
+  const structureVisit = activeFanVisit ?? activeStorageVisit;
+  const finishStructureCheck = () => {
+    if (!ready || !structureVisit) return;
     if (inspector)
-      setStructureReturn({ deviceId: state.deviceId, tool: "storage" });
+      setStructureReturn({
+        deviceId: state.deviceId,
+        tool: activeFanVisit ? "fans" : "storage",
+      });
     else partSequenceFocus.current = "heading";
     control({ type: "analysis", value: false });
     setStorageVisit(null);
+    setFanVisit(null);
     setInspectionDevice(null);
     control({ type: "finish-part-inspection" });
   };
@@ -3954,32 +3954,27 @@ export function Workspace() {
             onTakeover={takeover}
             compactTools
             controls={
-              activeStorageVisit ? (
-                <StorageSlotNavigation
-                  visit={activeStorageVisit}
+              structureVisit ? (
+                <StructureNavigation
+                  visit={structureVisit}
+                  state={state}
                   analysis={review.analysis}
                   ready={ready}
-                  explosion={state.explosion}
-                  onExplosion={(amount) =>
-                    dispatch({ type: "explode", amount })
-                  }
-                  onGroup={returnStorageGroup}
-                  onFinish={finishStorageSlots}
+                  dispatch={dispatch}
+                  onGroup={activeFanVisit ? returnFanGroup : returnStorageGroup}
+                  onFinish={finishStructureCheck}
+                  onSide={(side) => {
+                    if (!activeFanVisit || !ready) return;
+                    takeover();
+                    setFanVisit({ ...activeFanVisit, side });
+                    setFanViewRevision((n) => n + 1);
+                  }}
                 />
               ) : state.level !== "room" ? (
                 <ResourceActions
                   isolated={!!isolatedPartId}
-                  isolationLabel={
-                    activeFanVisit
-                      ? "风扇核对 · 沿用当前机型的子件配置"
-                      : undefined
-                  }
                   onIsolation={() => {
                     takeover();
-                    if (activeFanVisit) {
-                      finishFanInspection();
-                      return;
-                    }
                     if (!isolatedPartId) {
                       partSequenceFocus.current = "heading";
                       setInspector(true);
@@ -4142,27 +4137,24 @@ export function Workspace() {
             )}
             {!nav && networkMapReturn}
             {!nav && inletAirflowReturn}
-            {activeFanVisit && (
+            {activeFanVisit && !review.analysis && (
               <FanInspection
                 deviceId={state.deviceId}
                 visit={activeFanVisit}
                 ready={ready}
-                analysis={review.analysis}
                 focusRevision={fanFocusRevision}
-                onSelect={pick}
+                onSelect={(id) => {
+                  setFanFocusRevision((n) => n + 1);
+                  pick(id);
+                }}
                 onInspect={() => {
                   if (!activeFanVisit || !ready) return;
+                  setFanFocusRevision((n) => n + 1);
                   setFanVisit({ ...activeFanVisit, mode: "single" });
                   pick(activeFanVisit.fanId);
                 }}
-                onSide={(side) => {
-                  if (!activeFanVisit || !ready) return;
-                  takeover();
-                  setFanVisit({ ...activeFanVisit, side });
-                  setFanViewRevision((n) => n + 1);
-                }}
                 onGroup={returnFanGroup}
-                onFinish={finishFanInspection}
+                onFinish={finishStructureCheck}
               />
             )}
             {activeStorageVisit && !review.analysis && (
@@ -4199,7 +4191,7 @@ export function Workspace() {
                   setStorageViewRevision((n) => n + 1);
                 }}
                 onGroup={returnStorageGroup}
-                onFinish={finishStorageSlots}
+                onFinish={finishStructureCheck}
               />
             )}
             {isolatedPartId && !activeStorageVisit && !activeFanVisit && (

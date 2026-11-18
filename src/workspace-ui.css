@@ -6079,14 +6079,14 @@
   font-size: 11px;
   color: #a9bdc9;
 }
-.storage-slot-heading {
+.structure-check-heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
   color: #dae5e9;
 }
-.storage-slot-heading select {
+.structure-check-heading select {
   padding: 5px;
   color: inherit;
   background: #202c34;
@@ -6097,21 +6097,21 @@
   margin: 8px 0;
   line-height: 1.6;
 }
-.storage-slot-heading + .storage-slot-actions {
+.structure-check-heading + .storage-slot-actions {
   margin-top: 10px;
 }
-.storage-slot-boundary {
+.structure-check-boundary {
   margin-top: 12px;
 }
-.storage-slot-boundary summary {
+.structure-check-boundary summary {
   cursor: pointer;
 }
-.workspace-ui .storage-task-bar > b {
+.workspace-ui .structure-task-bar > b {
   padding: 0 8px;
   color: #bbdbdf;
   font-size: 12px;
 }
-.workspace-ui .storage-task-menu > div {
+.workspace-ui .structure-task-menu > div {
   position: absolute;
   bottom: calc(100% + 12px);
   right: 0;
@@ -6123,7 +6123,7 @@
   border-radius: 6px;
   background: #26333c;
 }
-.workspace-ui .storage-task-menu label {
+.workspace-ui .structure-task-menu label {
   position: static;
   width: auto;
   border: 0;
@@ -6159,27 +6159,20 @@
   font-size: 11px;
   color: #a9bdc9;
 }
-.fan-inspection > strong {
-  display: block;
-  color: #dae5e9;
-  margin-bottom: 10px;
-}
-.fan-inspection p,
-.fan-inspection small {
+.fan-inspection p {
   line-height: 1.6;
 }
-.fan-inspection small {
-  display: block;
-  margin: 8px 0;
-  font-size: 10px;
+.fan-view-sides {
+  display: flex;
+  border-inline: 1px solid #ffffff18;
+  padding-inline: 4px;
 }
 .fan-inspection button {
   padding: 7px 8px;
   border: 1px solid #40535c;
   border-radius: 4px;
 }
-.fan-inspection-list,
-.fan-inspection-actions {
+.fan-inspection-list {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;

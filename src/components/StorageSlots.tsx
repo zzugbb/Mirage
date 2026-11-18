@@ -5,7 +5,6 @@ import {
   type StorageSlotInspection,
 } from "../storage-slots";
 import { storageAssembly } from "../storage-layout";
-import { ExplosionSlider } from "./ResourceActions";
 
 export function StorageSlots({
   deviceId,
@@ -78,7 +77,7 @@ export function StorageSlots({
     >
       {visit.mode === "group" ? (
         <>
-          <div className="storage-slot-heading">
+          <div className="structure-check-heading">
             <strong>正面盘位图</strong>
             <button disabled={!ready || visit.pending} onClick={onGroup}>
               正面观察盘组
@@ -129,7 +128,7 @@ export function StorageSlots({
           </div>
         </>
       ) : (
-        <label className="storage-slot-heading">
+        <label className="structure-check-heading">
           切换盘位
           <select
             aria-label="切换盘位"
@@ -174,7 +173,7 @@ export function StorageSlots({
           )}
         </div>
       )}
-      <details className="storage-slot-boundary">
+      <details className="structure-check-boundary">
         <summary>配置与读数口径</summary>
         <p>
           正面由上至下、由左至右排列。{slots.length}{" "}
@@ -187,74 +186,5 @@ export function StorageSlots({
         )}
       </details>
     </section>
-  );
-}
-
-export function StorageSlotNavigation({
-  visit,
-  analysis,
-  ready,
-  explosion,
-  onExplosion,
-  onGroup,
-  onFinish,
-}: {
-  visit: StorageSlotInspection;
-  analysis: boolean;
-  ready: boolean;
-  explosion: number;
-  onExplosion: (amount: number) => void;
-  onGroup: () => void;
-  onFinish: () => void;
-}) {
-  const deeper = analysis || visit.mode !== "group";
-  const back = deeper ? onGroup : onFinish;
-  const current = storageSlots(visit.deviceId).find(
-    (slot) => slot.id === visit.diskId,
-  );
-  const mode = { group: "盘位总览", disk: "单盘检视", contact: "中板接点" }[
-    visit.mode
-  ];
-  const menu = useRef<HTMLDetailsElement>(null);
-  return (
-    <div
-      className="review-object-actions storage-task-bar"
-      role="group"
-      aria-label="盘位核对操作"
-      onKeyDown={(event) => {
-        if (event.key !== "Escape") return;
-        event.preventDefault();
-        event.stopPropagation();
-        if (menu.current?.open) {
-          menu.current.open = false;
-          menu.current.querySelector("summary")?.focus();
-        } else if (ready && !visit.pending) back();
-      }}
-    >
-      <b>
-        {visit.pending ? "正在展开盘组" : mode}
-        {current && visit.mode !== "group" && ` · ${current.slot}`}
-      </b>
-      <button disabled={!ready || visit.pending} onClick={back}>
-        {deeper ? "← 返回盘位总览" : "← 返回完整结构"}
-      </button>
-      <details ref={menu} className="review-explode-settings storage-task-menu">
-        <summary>结构操作</summary>
-        <div>
-          <ExplosionSlider amount={explosion} onChange={onExplosion} />
-          <button
-            disabled={!ready || visit.pending}
-            onClick={() => onExplosion(0)}
-          >
-            复原外观
-          </button>
-          {deeper && (
-            <button disabled={!ready || visit.pending} onClick={onFinish}>
-              结束核对，返回完整结构
-            </button>
-          )}
-        </div>
-      </details>
-    </div>
   );
 }

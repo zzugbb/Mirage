@@ -1495,13 +1495,22 @@ export function ReviewScene({
       : state.level === "rack"
         ? devices.filter((d) => d.rackId === rackForDevice(state.deviceId).id)
         : [
-            ...partsForDevice(state.deviceId).filter((p) =>
-              isolatedPartId
-                ? p.id === isolatedPartId ||
-                  (storageContact && p.id === "sto-midplane")
-                : p.id === selectedId ||
-                  !["lid", "duct", "cable"].includes(p.node),
-            ),
+            ...partsForDevice(state.deviceId).filter((p) => {
+              if (isolatedPartId === p.id) {
+                // 风扇组身份已在操作条呈现，整组总览只标出所选子件。
+                return (
+                  layer !== "overview" ||
+                  p.node !== "fans" ||
+                  p.id === selectedId
+                );
+              }
+              if (isolatedPartId)
+                return storageContact && p.id === "sto-midplane";
+              return (
+                p.id === selectedId ||
+                !["lid", "duct", "cable"].includes(p.node)
+              );
+            }),
             ...subpartsForDevice(state.deviceId).filter(
               (p) => p.id === isolatedPartId || p.id === selectedId,
             ),

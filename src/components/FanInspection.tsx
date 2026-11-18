@@ -4,29 +4,24 @@ import {
   fanInspectionNeighbor,
   type FanInspection as Visit,
 } from "../fan-inspection";
-import { deviceById } from "../installation";
 
 export function FanInspection({
   deviceId,
   visit,
   ready,
-  analysis,
   focusRevision,
   onSelect,
   onInspect,
   onGroup,
-  onSide,
   onFinish,
 }: {
   deviceId: string;
   visit: Visit;
   ready: boolean;
-  analysis: boolean;
   focusRevision: number;
   onSelect: (id: string) => void;
   onInspect: () => void;
   onGroup: () => void;
-  onSide: (side: Visit["side"]) => void;
   onFinish: () => void;
 }) {
   const assembly = fanAssembly(deviceId)!;
@@ -48,12 +43,12 @@ export function FanInspection({
   }, [focusRevision]);
   useLayoutEffect(() => {
     if (!ready || visit.pending || !pendingFocus.current) return;
-    const entry = host.current?.querySelector<HTMLButtonElement>(
-      !analysis ? `[data-fan-id="${visit.fanId}"]` : "button",
+    const entry = host.current?.querySelector<HTMLElement>(
+      visit.mode === "group" ? `[data-fan-id="${visit.fanId}"]` : "select",
     );
     entry?.focus({ preventScroll: true });
     entry?.scrollIntoView({ block: "nearest" });
-  }, [ready, visit.pending, focusRevision, analysis]);
+  }, [ready, visit.pending, focusRevision, visit.mode]);
   return (
     <section
       ref={host}
@@ -63,23 +58,19 @@ export function FanInspection({
         if (event.key !== "Escape") return;
         event.preventDefault();
         event.stopPropagation();
-        if (!ready) return;
-        if (visit.mode === "single" || analysis) onGroup();
+        if (!ready || visit.pending) return;
+        if (visit.mode === "single") onGroup();
         else onFinish();
       }}
     >
-      <strong>
-        {deviceById(deviceId)!.name} · {assembly.group.name}
-      </strong>
-      {analysis ? (
-        <button disabled={!ready} onClick={onGroup}>
-          ← 返回风扇组核对
-        </button>
-      ) : (
+      {visit.mode === "group" ? (
         <>
-          <p>
-            按维护子件计数，不按叶轮数量；编号不表示实际槽号、左右顺序或拆装步骤。
-          </p>
+          <div className="structure-check-heading">
+            <strong>维护子件 · {assembly.fans.length}</strong>
+            <button disabled={!ready || visit.pending} onClick={onInspect}>
+              只看所选子件 ↗
+            </button>
+          </div>
           <div
             className="fan-inspection-list"
             role="group"
@@ -125,39 +116,32 @@ export function FanInspection({
               </button>
             ))}
           </div>
-          {visit.mode === "group" ? (
-            <div className="fan-inspection-actions">
-              <button
-                disabled={!ready}
-                aria-pressed={visit.side === "front"}
-                onClick={() => onSide("front")}
-              >
-                前侧观察
-              </button>
-              <button
-                disabled={!ready}
-                aria-pressed={visit.side === "rear"}
-                onClick={() => onSide("rear")}
-              >
-                后侧观察
-              </button>
-              <button disabled={!ready} onClick={onInspect}>
-                只看所选子件 ↗
-              </button>
-            </div>
-          ) : (
-            <button disabled={!ready} onClick={onGroup}>
-              ← 返回风扇组核对
-            </button>
-          )}
         </>
+      ) : (
+        <label className="structure-check-heading">
+          切换风扇
+          <select
+            value={visit.fanId}
+            disabled={!ready || visit.pending}
+            onChange={(event) => onSelect(event.target.value)}
+          >
+            {assembly.fans.map((fan) => (
+              <option key={fan.id} value={fan.id}>
+                {fan.name}
+              </option>
+            ))}
+          </select>
+        </label>
       )}
-      <small>
-        两侧沿设备坐标；外观与内部示意沿用原模型，不判断气流方向、转速、健康或冗余。
-      </small>
-      <button disabled={!ready} onClick={onFinish}>
-        结束风扇核对
-      </button>
+      <details className="structure-check-boundary">
+        <summary>配置与读数口径</summary>
+        <p>
+          前、后侧沿设备坐标。清单按维护子件计数，同一子件可含多个叶轮。编号沿用机型配置。
+        </p>
+        <p>
+          部件读数来自模型推导。真实槽序、气流方向、转速和冗余状态均未接入。
+        </p>
+      </details>
     </section>
   );
 }
