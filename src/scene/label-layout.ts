@@ -2,7 +2,7 @@ import { placeFlowLabel } from "../airflow-label-layout.ts";
 import { FrameTask } from "../frame-task.ts";
 
 const blockers =
-  ".review-scene-caption, .review-camera, .review-legend, .review-scene-tools, .review-scene-tools details[open] > div, .review-loading, .review-inspector:not([hidden]), .review-object-actions, .study-layer-control, .study-room-summary, .study-alert-caption, .study-show-detail";
+  ".review-scene-caption, .review-camera, .review-legend, .review-scene-tools, .review-scene-tools details[open] > div, .review-loading, .review-inspector:not([hidden]), .review-object-actions, .structure-task-menu[open] > div, .study-layer-control, .study-room-summary, .study-alert-caption, .study-show-detail";
 
 export function observeLabelLayout(
   workspace: HTMLElement,

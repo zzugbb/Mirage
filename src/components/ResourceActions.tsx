@@ -1,3 +1,4 @@
+import { StructureMenu } from "./StructureMenu";
 import type { Action, AppState } from "../domain";
 import { entityById } from "../domain";
 import { modelForDevice } from "../catalog";
@@ -32,6 +33,11 @@ export function ResourceActions({
     entity.name;
   const preview = selected !== state.selected;
   const exteriorOnly = modelForDevice(state.deviceId).category !== "server";
+  const expanded = state.explosion > 0;
+  const partVisible = canInspectPart(state);
+  const coverRaised = state.coverOpen || expanded;
+  const expandLabel = exteriorOnly ? "展开配置示意" : "展开部件";
+  const restoreLabel = exteriorOnly ? "复原外观" : "复原部件";
   return (
     <div className="review-object-actions" aria-label="对象操作">
       <span>对象操作</span>
@@ -92,59 +98,55 @@ export function ResourceActions({
         </>
       ) : (
         <>
-          {!exteriorOnly && (
+          {entity.kind === "part" ? (
             <button
               disabled={!ready}
-              aria-pressed={state.coverOpen || state.explosion > 0}
+              data-part-action="isolate"
+              onClick={partVisible ? onIsolation : () => onOpen(selected)}
+            >
+              {partVisible ? "只看此部件" : "展开并定位部件"}
+            </button>
+          ) : (
+            <button
+              disabled={!ready}
               onClick={() =>
-                dispatch({
-                  type: "cover",
-                  open: !(state.coverOpen || state.explosion > 0),
-                })
+                dispatch({ type: "explode", amount: expanded ? 0 : 1 })
               }
             >
-              {state.coverOpen || state.explosion > 0 ? "合上上盖" : "打开上盖"}
+              {expanded ? restoreLabel : expandLabel}
             </button>
           )}
-          {entity.kind === "part" && (
-            <>
-              <button disabled={!ready} onClick={() => onOpen(selected)}>
-                定位部件
-              </button>
+          <StructureMenu
+            key={selected}
+            amount={state.explosion}
+            showProgress
+            onChange={(amount) => dispatch({ type: "explode", amount })}
+          >
+            {!exteriorOnly && (
               <button
-                disabled={!ready || !canInspectPart(state)}
-                data-part-action="isolate"
-                title={
-                  !canInspectPart(state)
-                    ? "先展开部件，再单独查看"
-                    : "临时隐藏其余结构，保留当前展开姿态"
-                }
-                onClick={onIsolation}
+                disabled={!ready}
+                onClick={() => dispatch({ type: "cover", open: !coverRaised })}
               >
-                只看此部件
+                {coverRaised ? "合上上盖" : "打开上盖"}
               </button>
-            </>
-          )}
-          <button
-            disabled={!ready}
-            aria-pressed={state.explosion > 0}
-            onClick={() => dispatch({ type: "explode", amount: 1 })}
-          >
-            {exteriorOnly ? "展开配置示意" : "展开部件"}
-          </button>
-          <button
-            disabled={!ready || state.explosion === 0}
-            onClick={() => dispatch({ type: "explode", amount: 0 })}
-          >
-            {exteriorOnly ? "复原外观" : "复原部件"}
-          </button>
-          <details className="review-explode-settings">
-            <summary>展开进度</summary>
-            <ExplosionSlider
-              amount={state.explosion}
-              onChange={(amount) => dispatch({ type: "explode", amount })}
-            />
-          </details>
+            )}
+            {expanded && state.explosion < 1 && (
+              <button
+                disabled={!ready}
+                onClick={() => dispatch({ type: "explode", amount: 1 })}
+              >
+                完全展开
+              </button>
+            )}
+            {entity.kind === "part" && expanded && (
+              <button
+                disabled={!ready}
+                onClick={() => dispatch({ type: "explode", amount: 0 })}
+              >
+                {restoreLabel}
+              </button>
+            )}
+          </StructureMenu>
         </>
       )}
       {state.level !== "room" && !ready && (
@@ -163,28 +165,5 @@ export function ResourceActions({
         </small>
       )}
     </div>
-  );
-}
-
-export function ExplosionSlider({
-  amount,
-  onChange,
-}: {
-  amount: number;
-  onChange: (amount: number) => void;
-}) {
-  return (
-    <label className="review-explode-label">
-      展开{" "}
-      <input
-        aria-label="部件展开进度"
-        type="range"
-        min="0"
-        max="100"
-        value={amount * 100}
-        onChange={(e) => onChange(Number(e.target.value) / 100)}
-      />
-      <output>{Math.round(amount * 100)}%</output>
-    </label>
   );
 }

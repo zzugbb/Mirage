@@ -447,11 +447,11 @@ function reviewInteractionTransition(
       scene = transition({ ...scene, selected: target.id }, { type: "focus" });
     } else if (target.kind === "part") {
       if (!canSelectInScene(current, target.id)) return state;
+      const visible = canInspectPart(current)
+        ? current
+        : transition(current, { type: "explode", amount: 1 });
       scene = transition(
-        transition(
-          { ...current, selected: target.id },
-          { type: "explode", amount: 1 },
-        ),
+        { ...visible, selected: target.id },
         { type: "focus" },
       );
     } else if (

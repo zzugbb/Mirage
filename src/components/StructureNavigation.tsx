@@ -1,9 +1,9 @@
-import { useRef, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import type { Action, AppState } from "../domain";
 import type { FanInspection } from "../fan-inspection";
 import type { StorageSlotInspection } from "../storage-slots";
 import { modelForDevice, subpartsForDevice } from "../catalog";
-import { ExplosionSlider } from "./ResourceActions";
+import { StructureMenu } from "./StructureMenu";
 
 export function StructureNavigation({
   visit,
@@ -98,7 +98,6 @@ export function StructureToolbar({
   children: ReactNode;
 }) {
   const server = modelForDevice(state.deviceId).category === "server";
-  const menu = useRef<HTMLDetailsElement>(null);
   return (
     <div
       className="review-object-actions structure-task-bar"
@@ -108,9 +107,13 @@ export function StructureToolbar({
         if (event.key !== "Escape") return;
         event.preventDefault();
         event.stopPropagation();
-        if (menu.current?.open) {
-          menu.current.open = false;
-          menu.current.querySelector("summary")?.focus();
+        const menu =
+          event.currentTarget.querySelector<HTMLDetailsElement>(
+            "details[open]",
+          );
+        if (menu) {
+          menu.open = false;
+          menu.querySelector("summary")?.focus();
         } else if (!disabled) onBack();
       }}
     >
@@ -118,33 +121,26 @@ export function StructureToolbar({
       <button disabled={disabled} onClick={onBack}>
         ← 返回{destination}
       </button>
-      <details
-        ref={menu}
-        className="review-explode-settings structure-task-menu"
+      <StructureMenu
+        amount={state.explosion}
+        onChange={(amount) => dispatch({ type: "explode", amount })}
       >
-        <summary>结构操作</summary>
-        <div>
-          <ExplosionSlider
-            amount={state.explosion}
-            onChange={(amount) => dispatch({ type: "explode", amount })}
-          />
+        <button
+          disabled={disabled}
+          onClick={() => dispatch({ type: "explode", amount: 0 })}
+        >
+          {server ? "复原部件" : "复原外观"}
+        </button>
+        {server && (
           <button
             disabled={disabled}
-            onClick={() => dispatch({ type: "explode", amount: 0 })}
+            onClick={() => dispatch({ type: "cover", open: false })}
           >
-            {server ? "复原部件" : "复原外观"}
+            合上上盖
           </button>
-          {server && (
-            <button
-              disabled={disabled}
-              onClick={() => dispatch({ type: "cover", open: false })}
-            >
-              合上上盖
-            </button>
-          )}
-          {menuActions}
-        </div>
-      </details>
+        )}
+        {menuActions}
+      </StructureMenu>
     </div>
   );
 }

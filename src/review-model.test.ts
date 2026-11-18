@@ -74,3 +74,29 @@ test("各视图直接确定展示内容和单位，不依赖数据或告警开�
     assert.match(power.title, /预算占比.*%/);
   }
 });
+
+test("定位已可见的部件保留展开比例，装配状态先展开再聚焦", () => {
+  const assembly = reviewTransition(createReview(), {
+    type: "shot",
+    shot: "assembly",
+  });
+  for (const type of ["focus-resource", "open-resource"] as const) {
+    for (const [amount, expected] of [
+      [0, 1],
+      [0.01, 1],
+      [0.4, 0.4],
+      [1, 1],
+    ]) {
+      const before = reviewTransition(assembly, {
+        type: "scene",
+        action: { type: "explode", amount },
+      });
+      const after = reviewTransition(before, { type, id: "memory-01" });
+      assert.equal(after.scene.explosion, expected);
+      assert.equal(after.scene.selected, "memory-01");
+      assert.ok(after.scene.focusRevision > before.scene.focusRevision);
+      assert.equal(after.scene.time, before.scene.time);
+      assert.equal(after.scene.coverOpen, before.scene.coverOpen);
+    }
+  }
+});

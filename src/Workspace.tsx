@@ -4017,7 +4017,12 @@ export function Workspace() {
                   ready={ready}
                   phase={phase}
                   dispatch={dispatch}
-                  onOpen={(id) => selectObject(id, true)}
+                  onOpen={(id) => {
+                    if (entity.kind === "part" && state.level === "device") {
+                      partSequenceFocus.current = "isolate";
+                      focus(id, { showDetails: false });
+                    } else selectObject(id, true);
+                  }}
                   onExtract={(id) => control({ type: "extract-resource", id })}
                 />
               ) : null
