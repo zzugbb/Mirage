@@ -118,7 +118,8 @@ import {
 import { MaintenanceGeometry } from "../scene/maintenance";
 import { powerScene } from "../power-paths";
 import { PowerGeometry } from "../scene/power";
-import { pduById } from "../power-config";
+import { pduById, powerSettings } from "../power-config";
+import { qualityNames } from "../status";
 import { networkMarkers, networkLinkById } from "../network";
 import { NetworkGeometry } from "../scene/network";
 
@@ -1863,12 +1864,9 @@ export function ReviewScene({
               data-anchor-kind={label.partId ? "power-part" : "position"}
               data-anchor-level={state.level}
               data-anchor-position={label.point?.join(",")}
-              className={`review-flow-anchor review-power-anchor ${supply?.traceId ? "is-traced" : ""}`}
+              className="review-flow-anchor review-power-anchor"
             >
               <b>{label.title}</b>
-              {!supply?.traceId && label.kind !== "outlet" && (
-                <small>{label.detail}</small>
-              )}
             </div>
           ))}
           {areaLabels.map((area) => (
@@ -1972,9 +1970,11 @@ export function ReviewScene({
                   layer !== "airflow" && (
                     <span>
                       {reading.quality !== "valid"
-                        ? reading.quality === "stale"
-                          ? "数据过期"
-                          : "无有效数据"
+                        ? layer === "power"
+                          ? qualityNames[reading.quality]
+                          : reading.quality === "stale"
+                            ? "数据过期"
+                            : "无有效数据"
                         : layer === "environment"
                           ? slice
                             ? slice.rackEstimates.get(item.id) == null
@@ -1997,9 +1997,12 @@ export function ReviewScene({
                   reading.power !== null &&
                   reading.budget !== null &&
                   reading.budget > 0 && (
-                    <em>
+                    <em
+                      title={
+                        reading.count > 1 ? "占有效设备预算" : "占配置预算"
+                      }
+                    >
                       {((reading.power / reading.budget) * 100).toFixed(0)}%
-                      {reading.count > 1 ? "有效设备预算" : "预算"}
                     </em>
                   )}
               </button>
@@ -2426,8 +2429,10 @@ export function ReviewScene({
                             ? "表面温度 · °C · 模型推导"
                             : "U 位色条 · 设备进风温度"
                           : state.level === "device"
-                            ? "部件功耗 / 模型预算占比"
-                            : "机柜标尺 · 有效输入 / 对应设备预算"}
+                            ? "部件推导功耗 / 模型预算"
+                            : state.level === "rack"
+                              ? "整机输入 / 配置预算"
+                              : "机柜有效输入 / 对应设备预算"}
                       </>
                     )}
                   </span>
@@ -2638,44 +2643,51 @@ export function ReviewScene({
                       onReturn={() => onPowerView("return")}
                     />
                   )}
-                  {powerViewActive && (
-                    <small>
-                      {powerViewPaired
-                        ? "A 实线 · B 分段 · 双输入配置对应"
-                        : "柜后同框 · 插座至设备输入代表位置"}
-                    </small>
-                  )}
-                  {(supply.traceId ||
-                    (!supply.paths.length && state.level !== "device")) && (
+                  {(supply.traceId || supply.unconnectedOutlet) && (
                     <button onClick={onClearPower}>
                       {supply.traceId ? "结束追踪" : "清除插座标记"}
                     </button>
                   )}
-                  {!supply.traceId && (
+                  {supply.paths.length > 0 && (
+                    <div className="power-line-key" aria-label="已显示配置支路">
+                      {[...new Set(supply.paths.map((path) => path.feed))].map(
+                        (feed) => (
+                          <span key={feed}>
+                            <i
+                              aria-hidden="true"
+                              style={{
+                                borderColor: powerSettings.routing.colors[feed],
+                                borderTopStyle:
+                                  feed === "A" ? "solid" : "dashed",
+                              }}
+                            />
+                            {feed} 路
+                          </span>
+                        ),
+                      )}
+                    </div>
+                  )}
+                  {state.level === "device" && (
                     <span>
-                      {state.level === "device"
-                        ? "A/B 配置端点"
-                        : supply.paths.length
-                          ? "A 实线 · B 分段"
-                          : "仅标记未连接位置"}{" "}
-                      · 静态示意
+                      {model.category === "server"
+                        ? "电源输入配置端点"
+                        : "电源输入 · 内部配置示意"}
+                    </span>
+                  )}
+                  {(state.level === "rack" ||
+                    (powerViewActive && state.level === "room")) && (
+                    <span>
+                      {state.level === "room"
+                        ? "所查柜后侧观察剖切"
+                        : state.rearDoorOpen
+                          ? "后立柱观察剖切"
+                          : "后侧观察剖切"}
                     </span>
                   )}
                   <small>
-                    {powerViewActive && state.level === "room"
-                      ? "本柜后侧观察剖切 · "
-                      : state.level === "rack"
-                        ? state.rearDoorOpen
-                          ? "后立柱观察剖切 · "
-                          : "后侧观察剖切 · "
-                        : ""}
-                    {supply.traceId
-                      ? powerViewPaired
-                        ? "两路未计量 · 不证明独立上游或冗余"
-                        : "配置支路 · 未计量"
-                      : supply.paths.length
-                        ? "支路未计量 · 不推断独立上游"
-                        : "无配置对端 · 不代表可用容量"}
+                    {supply.unconnectedOutlet
+                      ? "配置空位 · 可用容量未定义"
+                      : "支路未计量 · 上游独立性未定义"}
                   </small>
                 </div>
               )}

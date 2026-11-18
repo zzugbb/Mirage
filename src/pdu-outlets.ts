@@ -99,6 +99,7 @@ export function pduInspectionScene(
     rackId: pdu.rackId,
     deviceId: state.deviceId,
     traceId: null,
+    unconnectedOutlet: true,
     paths: [],
     caption: `${pduName(pdu.id)} · 插座 ${String(row.outlet).padStart(2, "0")} · 未连接`,
     labels: [
@@ -107,7 +108,6 @@ export function pduInspectionScene(
         kind: "outlet",
         point: pduOutletPosition(pdu.id, row.outlet),
         title: `插座 ${String(row.outlet).padStart(2, "0")} · 未连接`,
-        detail: "配置位置 · 非可用容量或运行读数",
       },
     ],
   };

@@ -195,6 +195,7 @@ test("供电场景只显示当前代表接入，路径确定，设备端点随�
   let state = transition(initial, { type: "locate", id: "sw-01" });
   const detail = powerScene(state, state.deviceId)!;
   assert.equal(detail.paths.length, 0);
+  assert.ok(!detail.unconnectedOutlet);
   assert.deepEqual(
     detail.labels.map((label) => label.partId),
     ["net-psu-a", "net-psu-b"],

@@ -104,7 +104,6 @@ export function focusedPowerScene(
           label.kind === "outlet"
             ? `PDU ${link.inlet} · 插座 ${String(link.outlet).padStart(2, "0")}`
             : label.title,
-        detail: "",
       })),
   };
 }

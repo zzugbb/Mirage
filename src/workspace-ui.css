@@ -1657,6 +1657,7 @@
   grid-template-columns: minmax(0, 1fr);
 }
 .review-power-anchor {
+  padding: 3px 6px;
   border-color: #9ebbd0;
 }
 .workspace-ui .review-legend > .power-scene-key {
@@ -1668,6 +1669,19 @@
   margin-top: 9px;
   padding-top: 9px;
   line-height: 1.5;
+}
+.power-line-key,
+.power-line-key span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.power-line-key {
+  gap: 12px;
+}
+.power-line-key i {
+  width: 18px;
+  border-top-width: 2px;
 }
 .power-scene-key strong {
   font-size: 11px;
@@ -1758,9 +1772,6 @@
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-}
-.review-power-anchor.is-traced {
-  padding: 3px 6px;
 }
 .power-active-trace {
   margin: 12px 0;

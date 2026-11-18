@@ -27,10 +27,10 @@ export type PowerLabel = {
   partId?: string;
   kind?: "outlet";
   title: string;
-  detail: string;
 };
 export type PowerScene = {
   closeUp?: boolean;
+  unconnectedOutlet?: true;
   rackId: string;
   deviceId: string;
   caption: string;
@@ -118,7 +118,6 @@ export function powerScene(
       title: traced
         ? `逻辑出线 ${pduById(traced.pduId)!.sourcePort}`
         : "配电柜 · 逻辑出线",
-      detail: "未计量 · 上游独立性未定义",
     });
   for (const feed of feeds) {
     const targetPdu = traced
@@ -135,7 +134,6 @@ export function powerScene(
         id: `power-part-${feed}`,
         partId,
         title: `输入 ${feed} · ${model.id.startsWith("server") ? `电源 ${feed === "A" ? "01" : "02"}` : `电源 ${feed}`}`,
-        detail: `${pduName(targetPdu.id)} / 插座 ${String(link.outlet).padStart(2, "0")} · ${model.category === "server" ? "配置端点" : "内部示意"}`,
       });
       continue;
     }
@@ -191,16 +189,12 @@ export function powerScene(
       title: traced
         ? `${pduName(targetPdu.id)} · 插座 ${String(link.outlet).padStart(2, "0")}`
         : pduName(targetPdu.id),
-      detail: traced
-        ? `→ ${device.name} / 输入 ${feed} · 未计量`
-        : `${targetPdu.sourcePort} → 入口 ${feed} · 未计量`,
     });
     if (state.level === "rack" || traced)
       labels.push({
         id: `power-inlet-${feed}`,
         point: endpoint,
         title: `${device.name} / 输入 ${feed}`,
-        detail: `PDU ${feed} 插座 ${String(link.outlet).padStart(2, "0")} · 配置端点`,
       });
   }
   return {

@@ -153,11 +153,7 @@ test("近景只强调显式追踪的柜内支路，未配置插座与失配范�
     assert.equal(focused.closeUp, true);
     assert.deepEqual(focused.paths[0], scene.paths.at(-1));
     assert.equal(focused.labels.length, 2);
-    assert.ok(
-      focused.labels.every(
-        (l) => l.point && l.id !== "power-source" && l.detail === "",
-      ),
-    );
+    assert.ok(focused.labels.every((l) => l.point && l.id !== "power-source"));
     assert.deepEqual(scene, original);
     assert.equal(focusedPowerScene(scene, false), scene);
     assert.deepEqual(powerViewPoints(state, "cooling-01", link.id), []);

@@ -62,6 +62,7 @@ test("未连接插座仅标记配置位置，不沿用上一次支路或整机�
     visit = { pduId: "pdu-a01-a", outlet: 24, query: "", scroll: 0 };
   const scene = pduInspectionScene(state, visit.pduId, visit)!;
   assert.equal(scene.traceId, null);
+  assert.equal(scene.unconnectedOutlet, true);
   assert.deepEqual(scene.paths, []);
   assert.equal(scene.labels.length, 1);
   assert.equal(scene.labels[0].kind, "outlet");
