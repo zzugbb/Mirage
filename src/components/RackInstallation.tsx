@@ -22,6 +22,9 @@ export function RackInstallation({
   onFocus,
   onOpen,
   onDetails,
+  onBlanking,
+  restoreBlanking,
+  onBlankingFocus,
   onList,
   onClear,
 }: {
@@ -37,6 +40,9 @@ export function RackInstallation({
   onPick: (id: string) => void;
   onFocus: (id: string) => void;
   onOpen: (id: string) => void;
+  onBlanking: (first: number, last: number, scroll: number) => void;
+  onBlankingFocus: () => void;
+  restoreBlanking: { first: number; scroll: number } | null;
   onDetails: (id: string) => void;
   onList: () => void;
   onClear: () => void;
@@ -77,6 +83,21 @@ export function RackInstallation({
     units?.first,
     units?.last,
   ]);
+  useEffect(() => {
+    if (!visible || !ready || !restoreBlanking) return;
+    const host = scrollRef.current;
+    const button = host?.querySelector<HTMLButtonElement>(
+      `[data-blanking-start="${restoreBlanking.first}"]`,
+    );
+    if (host && button) {
+      const frame = requestAnimationFrame(() => {
+        host.scrollTop = restoreBlanking.scroll;
+        button.focus({ preventScroll: true });
+        onBlankingFocus();
+      });
+      return () => cancelAnimationFrame(frame);
+    }
+  }, [restoreBlanking, visible, ready, onBlankingFocus]);
   const range =
     units && !units.error && units.rack?.id === rackId ? units : null;
   const rangeText = (first: number, last: number) =>
@@ -173,7 +194,19 @@ export function RackInstallation({
             const span = rangeText(segment.first, segment.last);
             if (segment.kind === "blanking")
               return (
-                <div
+                <button
+                  type="button"
+                  aria-disabled={!ready}
+                  data-blanking-start={segment.first}
+                  aria-label={`核对 ${span} 前置盲板`}
+                  onClick={() =>
+                    ready &&
+                    onBlanking(
+                      segment.first,
+                      segment.last,
+                      scrollRef.current?.scrollTop ?? 0,
+                    )
+                  }
                   className="rack-installation-blanking"
                   key={segment.id}
                   style={style}
@@ -184,8 +217,8 @@ export function RackInstallation({
                     )
                   }
                 >
-                  <span>{span} · 盲板</span>
-                </div>
+                  <span>{span} · 盲板 ↗</span>
+                </button>
               );
             const model = modelForDevice(segment.id);
             const metric = installationMetric(readings.get(segment.id), layer);

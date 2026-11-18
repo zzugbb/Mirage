@@ -768,6 +768,24 @@ export function Workspace() {
   const [networkMapSelection, setNetworkMapSelection] = useState("room-01");
   const networkMapScroll = useRef(0);
   const [networkMapReturning, setNetworkMapReturning] = useState(false);
+  const [blankingVisit, setBlankingVisit] = useState<{
+    rackId: string;
+    first: number;
+    last: number;
+    scroll: number;
+    selected: string;
+    query: string;
+    filter: ResourceFilter;
+    onlyAlarms: boolean;
+    layer: typeof layer;
+    analysis: boolean;
+    inspector: boolean;
+  } | null>(null);
+  const [blankingRestore, setBlankingRestore] = useState<{
+    first: number;
+    scroll: number;
+  } | null>(null);
+  const [blankingReturning, setBlankingReturning] = useState(false);
   const [spaceSize, setSpaceSize] = useState(2);
   const [spaceVisit, setSpaceVisit] = useState<
     | (SpaceInspection & {
@@ -1419,6 +1437,60 @@ export function Workspace() {
         .querySelector<HTMLElement>('[aria-label="展开资源导航"]')
         ?.focus();
   }, [rangeView, ready]);
+  useEffect(() => {
+    if (!blankingVisit) return;
+    if (
+      state.level !== "rack" ||
+      rackView !== "space" ||
+      spaceRange?.rackId !== blankingVisit.rackId ||
+      spaceRange.first !== blankingVisit.first ||
+      spaceRange.last !== blankingVisit.last
+    ) {
+      setBlankingVisit(null);
+      setBlankingReturning(false);
+      return;
+    }
+    if (!blankingReturning || rangeView || !ready) return;
+    const origin = blankingVisit;
+    control({ type: "pick", id: origin.selected });
+    control({ type: "layer", layer: origin.layer });
+    control({ type: "analysis", value: origin.analysis });
+    setQuery(origin.query);
+    setOnlyAlarms(origin.onlyAlarms);
+    setFilter(origin.filter);
+    skipNavigationSearch.current = true;
+    setInspector(
+      !matchMedia("(max-width: 1099px)").matches && origin.inspector,
+    );
+    setNav(true);
+    setRackView("installation");
+    setBlankingRestore({ first: origin.first, scroll: origin.scroll });
+    setBlankingVisit(null);
+    setBlankingReturning(false);
+  }, [
+    blankingVisit,
+    blankingReturning,
+    rangeView,
+    ready,
+    rackView,
+    state.level,
+    spaceRange?.rackId,
+    spaceRange?.first,
+    spaceRange?.last,
+  ]);
+  const finishBlankingFocus = useCallback(() => setBlankingRestore(null), []);
+  const blankingReturn = blankingVisit && (
+    <button
+      className="study-parent"
+      disabled={!ready || blankingReturning}
+      onClick={() => {
+        setBlankingReturning(true);
+        if (rangeView) requestRangeView("return");
+      }}
+    >
+      ← 返回安装图封板段
+    </button>
+  );
   const segments = useMemo(
     () => rangeSegments(spaceRange),
     [spaceRange?.rackId, spaceRange?.first, spaceRange?.last],
@@ -2370,6 +2442,9 @@ export function Workspace() {
     peakReturnFocus.current = null;
     setExpanded([]);
     setRackView("installation");
+    setBlankingVisit(null);
+    setBlankingRestore(null);
+    setBlankingReturning(false);
     setSpaceSize(2);
     setSpaceVisit(null);
     setSpaceReturning(false);
@@ -2874,6 +2949,7 @@ export function Workspace() {
               </button>
             </div>
           )}
+          {blankingReturn}
           {layoutReturn}
           {networkMapReturn}
           {state.level !== "room" && (
@@ -3361,6 +3437,33 @@ export function Workspace() {
             />
           ) : state.level === "rack" && rackView === "installation" ? (
             <RackInstallation
+              restoreBlanking={blankingRestore}
+              onBlankingFocus={finishBlankingFocus}
+              onBlanking={(first, last, scroll) => {
+                const rackId = rackForDevice(state.deviceId).id;
+                setBlankingVisit({
+                  rackId,
+                  first,
+                  last,
+                  scroll,
+                  selected,
+                  query,
+                  filter,
+                  onlyAlarms,
+                  layer,
+                  analysis: review.analysis,
+                  inspector,
+                });
+                setSpaceVisit(null);
+                setSpaceRestore(null);
+                setRackView("space");
+                setFilter("all");
+                setOnlyAlarms(false);
+                setQuery(`U${first}–${last}`);
+                pick(rackId);
+                control({ type: "analysis", value: false });
+                requestRangeView("front", null);
+              }}
               state={state}
               selected={selected}
               layer={layer}
@@ -3931,6 +4034,7 @@ export function Workspace() {
                 ×
               </button>
             </div>
+            {!nav && blankingReturn}
             {!nav && layoutReturn}
             {activeAirflowResponse ? (
               <div className="study-identity">
@@ -4362,25 +4466,34 @@ export function Workspace() {
                     : ""}
                 </strong>
                 <p>
-                  当前从{rangeView === "front" ? "前" : "后"}
-                  侧观察。括线指向{activeSegmentId ? "当前分段" : "核查范围"}
-                  ，不随设备抽出移动；占用设备仍按完整跨度选择。
+                  {blankingVisit ? (
+                    `连续 ${spaceRange.last - spaceRange.first + 1} U 前置盲板。括线标出整段安装位置，${rangeView === "front" ? "可打开前门查看封板。" : "从柜后对照同一高度，不表示有后置盲板。"}`
+                  ) : (
+                    <>
+                      当前从{rangeView === "front" ? "前" : "后"}
+                      侧观察。括线指向
+                      {activeSegmentId ? "当前分段" : "核查范围"}
+                      ，不随设备抽出移动；占用设备仍按完整跨度选择。
+                    </>
+                  )}
                 </p>
                 <RangeViewActions
                   active={rangeView}
                   ready={ready}
                   onView={requestRangeView}
                 />
-                <RangeSegments
-                  segments={segments}
-                  currentId={activeSegmentId}
-                  observing={!!rangeView}
-                  onReturn={() => requestRangeView("return")}
-                  compact={review.analysis}
-                  ready={ready}
-                  onSegment={requestRangeSegment}
-                  onDevice={inspectRangeDevice}
-                />
+                {!blankingVisit && (
+                  <RangeSegments
+                    segments={segments}
+                    currentId={activeSegmentId}
+                    observing={!!rangeView}
+                    onReturn={() => requestRangeView("return")}
+                    compact={review.analysis}
+                    ready={ready}
+                    onSegment={requestRangeSegment}
+                    onDevice={inspectRangeDevice}
+                  />
+                )}
                 <small>
                   门扇可用场景操作打开。未安装位置有前置盲板，不代表可分配容量。
                 </small>
