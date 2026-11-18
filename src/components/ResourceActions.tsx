@@ -15,7 +15,6 @@ export function ResourceActions({
   dispatch,
   onOpen,
   onExtract,
-  isolated,
   onIsolation,
 }: {
   state: AppState;
@@ -25,7 +24,6 @@ export function ResourceActions({
   dispatch: (action: Action) => void;
   onOpen: (id: string) => void;
   onExtract: (id: string) => void;
-  isolated: boolean;
   onIsolation: () => void;
 }) {
   const entity = entityById(selected)!;
@@ -115,7 +113,7 @@ export function ResourceActions({
               </button>
               <button
                 disabled={!ready || !canInspectPart(state)}
-                aria-pressed={isolated}
+                data-part-action="isolate"
                 title={
                   !canInspectPart(state)
                     ? "先展开部件，再单独查看"
@@ -123,7 +121,7 @@ export function ResourceActions({
                 }
                 onClick={onIsolation}
               >
-                {isolated ? "显示完整结构" : "只看此部件"}
+                只看此部件
               </button>
             </>
           )}
@@ -147,9 +145,6 @@ export function ResourceActions({
               onChange={(amount) => dispatch({ type: "explode", amount })}
             />
           </details>
-          {isolated && (
-            <small role="status">单部件检视 · 其余结构及连接标记暂隐</small>
-          )}
         </>
       )}
       {state.level !== "room" && !ready && (

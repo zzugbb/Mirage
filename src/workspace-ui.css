@@ -4981,30 +4981,29 @@
 }
 
 .part-sequence {
-  display: grid;
-  gap: 8px;
-  margin-bottom: 14px;
-  padding: 12px 22px;
-  border-block: 1px solid var(--line);
-  background: #26343c66;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border-right: 1px solid var(--line);
+  padding-right: 4px;
 }
-.part-sequence strong,
-.part-sequence small {
-  font-size: 11px;
-  line-height: 1.6;
+.part-sequence [data-part-action="heading"] {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 1px 4px;
+  color: #bbdbdf;
+  font-size: 12px;
 }
 .part-sequence small {
   color: #a9bdc6;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
 }
-.part-sequence > div {
-  display: flex;
-  gap: 6px;
-}
-.part-sequence button {
-  border: 1px solid var(--line);
-  padding: 6px 8px;
-  font-size: 11px;
-  cursor: pointer;
+.workspace-ui .part-sequence button {
+  min-width: 30px;
+  font-size: 18px;
+  line-height: 1;
 }
 
 .airflow-response-context {

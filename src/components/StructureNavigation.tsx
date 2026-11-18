@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, type ReactNode } from "react";
 import type { Action, AppState } from "../domain";
 import type { FanInspection } from "../fan-inspection";
 import type { StorageSlotInspection } from "../storage-slots";
@@ -28,7 +28,6 @@ export function StructureNavigation({
   const deeper = analysis || visit.mode !== "group";
   const back = deeper ? onGroup : onFinish;
   const disabled = !ready || visit.pending;
-  const server = modelForDevice(visit.deviceId).category === "server";
   const id = "fanId" in visit ? visit.fanId : visit.diskId;
   const part = subpartsForDevice(visit.deviceId).find((part) => part.id === id);
   const scope = {
@@ -40,21 +39,21 @@ export function StructureNavigation({
   const group = fan
     ? `风扇组${fan.side === "rear" ? "后侧" : "前侧"}`
     : "盘位总览";
-  const menu = useRef<HTMLDetailsElement>(null);
   return (
-    <div
-      className="review-object-actions structure-task-bar"
-      role="group"
-      aria-label={fan ? "风扇核对操作" : "盘位核对操作"}
-      onKeyDown={(event) => {
-        if (event.key !== "Escape") return;
-        event.preventDefault();
-        event.stopPropagation();
-        if (menu.current?.open) {
-          menu.current.open = false;
-          menu.current.querySelector("summary")?.focus();
-        } else if (!disabled) back();
-      }}
+    <StructureToolbar
+      label={fan ? "风扇核对操作" : "盘位核对操作"}
+      state={state}
+      disabled={disabled}
+      dispatch={dispatch}
+      destination={deeper ? group : "完整结构"}
+      onBack={back}
+      menuActions={
+        deeper && (
+          <button disabled={disabled} onClick={onFinish}>
+            结束核对，返回完整结构
+          </button>
+        )
+      }
     >
       <b>
         {visit.pending ? (fan ? "正在展开风扇组" : "正在展开盘组") : scope}
@@ -75,8 +74,49 @@ export function StructureNavigation({
           ))}
         </div>
       )}
-      <button disabled={disabled} onClick={back}>
-        ← 返回{deeper ? group : "完整结构"}
+    </StructureToolbar>
+  );
+}
+
+export function StructureToolbar({
+  label,
+  state,
+  disabled,
+  dispatch,
+  destination,
+  onBack,
+  menuActions,
+  children,
+}: {
+  label: string;
+  state: AppState;
+  disabled: boolean;
+  dispatch: (action: Action) => void;
+  destination: string;
+  onBack: () => void;
+  menuActions?: ReactNode;
+  children: ReactNode;
+}) {
+  const server = modelForDevice(state.deviceId).category === "server";
+  const menu = useRef<HTMLDetailsElement>(null);
+  return (
+    <div
+      className="review-object-actions structure-task-bar"
+      role="group"
+      aria-label={label}
+      onKeyDown={(event) => {
+        if (event.key !== "Escape") return;
+        event.preventDefault();
+        event.stopPropagation();
+        if (menu.current?.open) {
+          menu.current.open = false;
+          menu.current.querySelector("summary")?.focus();
+        } else if (!disabled) onBack();
+      }}
+    >
+      {children}
+      <button disabled={disabled} onClick={onBack}>
+        ← 返回{destination}
       </button>
       <details
         ref={menu}
@@ -102,11 +142,7 @@ export function StructureNavigation({
               合上上盖
             </button>
           )}
-          {deeper && (
-            <button disabled={disabled} onClick={onFinish}>
-              结束核对，返回完整结构
-            </button>
-          )}
+          {menuActions}
         </div>
       </details>
     </div>

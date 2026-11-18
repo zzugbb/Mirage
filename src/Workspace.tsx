@@ -1326,22 +1326,34 @@ export function Workspace() {
     setLayoutVisit(null);
   }, [layoutReturning, layoutVisit, state.level, ready, review.pendingId]);
   useEffect(() => {
+    // 镜头回位可能在操作条换回后才开始。保留焦点请求，直到用户再次操作。
+    const release = () => {
+      partSequenceFocus.current = null;
+    };
+    document.addEventListener("pointerdown", release, true);
+    document.addEventListener("keydown", release, true);
+    return () => {
+      release();
+      document.removeEventListener("pointerdown", release, true);
+      document.removeEventListener("keydown", release, true);
+    };
+  }, [state.level, state.deviceId]);
+  useEffect(() => {
     if (!ready || !partSequenceFocus.current) return;
     const frame = requestAnimationFrame(() => {
       const target = partSequenceFocus.current;
-      const button = inspectorRef.current?.querySelector<HTMLElement>(
+      if (!target) return;
+      const actions = stageRef.current?.querySelector(".review-object-actions");
+      const button = actions?.querySelector<HTMLElement>(
         `[data-part-action="${target}"]`,
       );
       const fallback =
-        inspectorRef.current?.querySelector<HTMLElement>(
-          '[data-part-action="heading"]',
-        ) ??
-        document.querySelector<HTMLElement>(".review-object-actions button");
+        actions?.querySelector<HTMLElement>('[data-part-action="heading"]') ??
+        actions?.querySelector<HTMLElement>("button:enabled");
       (button && !(button instanceof HTMLButtonElement && button.disabled)
         ? button
         : fallback
       )?.focus({ preventScroll: true });
-      partSequenceFocus.current = null;
     });
     return () => cancelAnimationFrame(frame);
   }, [ready, selected, isolatedPartId]);
@@ -3970,18 +3982,35 @@ export function Workspace() {
                     setFanViewRevision((n) => n + 1);
                   }}
                 />
+              ) : isolatedPartId ? (
+                <PartSequence
+                  sequence={partInspectionSequence(
+                    state.deviceId,
+                    isolatedPartId,
+                  )!}
+                  state={state}
+                  dispatch={dispatch}
+                  ready={ready}
+                  onSelect={(id, action) => {
+                    partSequenceFocus.current = action;
+                    control({ type: "inspect-adjacent-part", id });
+                  }}
+                  onFinish={() => {
+                    partSequenceFocus.current = "finish";
+                    setInspectionDevice(null);
+                    control({ type: "finish-part-inspection" });
+                  }}
+                  onRestore={() => {
+                    partSequenceFocus.current = "isolate";
+                    setInspectionDevice(null);
+                  }}
+                />
               ) : state.level !== "room" ? (
                 <ResourceActions
-                  isolated={!!isolatedPartId}
                   onIsolation={() => {
                     takeover();
-                    if (!isolatedPartId) {
-                      partSequenceFocus.current = "heading";
-                      setInspector(true);
-                      if (matchMedia("(max-width: 1099px)").matches)
-                        setNav(false);
-                    }
-                    setInspectionDevice(isolatedPartId ? null : state.deviceId);
+                    partSequenceFocus.current = "heading";
+                    setInspectionDevice(state.deviceId);
                   }}
                   state={state}
                   selected={selected}
@@ -4192,25 +4221,6 @@ export function Workspace() {
                 }}
                 onGroup={returnStorageGroup}
                 onFinish={finishStructureCheck}
-              />
-            )}
-            {isolatedPartId && !activeStorageVisit && !activeFanVisit && (
-              <PartSequence
-                sequence={partInspectionSequence(
-                  state.deviceId,
-                  isolatedPartId,
-                )!}
-                ready={ready}
-                onSelect={(id, action) => {
-                  partSequenceFocus.current = action;
-                  control({ type: "inspect-adjacent-part", id });
-                  if (matchMedia("(max-width: 1099px)").matches) setNav(false);
-                }}
-                onFinish={() => {
-                  partSequenceFocus.current = "finish";
-                  setInspectionDevice(null);
-                  control({ type: "finish-part-inspection" });
-                }}
               />
             )}
             {spaceVisit && !spaceReturning && (
