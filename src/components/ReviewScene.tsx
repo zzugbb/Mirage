@@ -83,7 +83,12 @@ import { deviceById, devices, racks, rackForDevice } from "../installation";
 import type { SpatialReading } from "../spatial";
 import type { ReviewLayer } from "../review-model";
 import { reviewPresentation } from "../review-model";
-import { partsForDevice, subpartsForDevice, modelForDevice } from "../catalog";
+import {
+  partsForDevice,
+  subpartsForDevice,
+  modelForDevice,
+  unitLabel,
+} from "../catalog";
 import { sceneLabels } from "../scene-labels";
 import { reviewSpatialMarks } from "../review-spatial";
 import { ReviewDataGeometry } from "../scene/review-data";
@@ -140,6 +145,7 @@ export function ReviewScene({
   layoutViewRevision,
   readings,
   selectedId,
+  roomDevice,
   airflow,
   onExplainAirflow,
   onAirflowViewChange,
@@ -263,6 +269,7 @@ export function ReviewScene({
   layoutViewRevision: number;
   readings: Map<string, SpatialReading>;
   selectedId: string;
+  roomDevice?: ReturnType<typeof deviceById>;
   airflowVisit: AirflowInspection | null;
   airflow: AirflowSnapshot | null;
   onExplainAirflow: () => void;
@@ -1491,7 +1498,12 @@ export function ReviewScene({
     state.level === "room"
       ? sliceRow
         ? racks.filter((rack) => sliceRow.rackIds.includes(rack.id))
-        : racks
+        : roomDevice
+          ? [
+              roomDevice,
+              ...racks.filter((rack) => rack.id !== roomDevice.rackId),
+            ]
+          : racks
       : state.level === "rack"
         ? devices.filter((d) => d.rackId === rackForDevice(state.deviceId).id)
         : [
@@ -1916,7 +1928,7 @@ export function ReviewScene({
                 }
                 data-anchor={item.id}
                 data-anchor-kind={
-                  alarmDevice
+                  alarmDevice || item.id === roomDevice?.id
                     ? "device"
                     : state.level === "room"
                       ? "rack"
@@ -1933,6 +1945,11 @@ export function ReviewScene({
                     ? item.name
                     : item.name.split(" ")[0]}
                 </b>
+                {roomDevice && item.id === roomDevice.id && (
+                  <span>
+                    {rackForDevice(item.id).name} · {unitLabel(item.id)}
+                  </span>
+                )}
                 {layer !== "overview" &&
                   layer !== "alarms" &&
                   layer !== "airflow" && (

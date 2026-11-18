@@ -1562,6 +1562,60 @@ export function Workspace() {
       ),
     [state, query, filter, onlyAlarms, spatial, unitQuery],
   );
+  const roomResourceList =
+    state.level === "room" &&
+    layer === "overview" &&
+    (rackView === "list" || rackView === "installation") &&
+    !activeNetworkLink;
+  const roomDevice = roomResourceList ? deviceById(selected) : undefined;
+  const roomSearchOrigin = useRef<{
+    id: string;
+    query: string;
+    filter: ResourceFilter;
+  } | null>(null);
+  const roomSearchFocus = useRef<string | null>(null);
+  useEffect(() => {
+    const origin = roomSearchOrigin.current;
+    if (!origin) return;
+    if (
+      layer !== "overview" ||
+      tour.mode !== "manual" ||
+      activeNetworkLink ||
+      (rackView !== "list" && rackView !== "installation") ||
+      rackForDevice(origin.id).id !== rackForDevice(state.deviceId).id
+    ) {
+      roomSearchOrigin.current = null;
+      return;
+    }
+    if (state.level !== "room" || review.pendingId) return;
+    roomSearchOrigin.current = null;
+    if (selected !== "room-01") return;
+    setQuery(origin.query);
+    setFilter(origin.filter);
+    control({ type: "pick", id: origin.id });
+    roomSearchFocus.current = origin.id;
+  }, [
+    state.level,
+    state.deviceId,
+    layer,
+    rackView,
+    tour.mode,
+    activeNetworkLink,
+    review.pendingId,
+    selected,
+  ]);
+  useEffect(() => {
+    if (!roomSearchFocus.current || selected !== roomSearchFocus.current)
+      return;
+    roomSearchFocus.current = null;
+    const row = navigationRef.current?.querySelector<HTMLButtonElement>(
+      ".study-resource.selected .study-resource-text",
+    );
+    if (nav && row?.getClientRects().length) {
+      row.focus({ preventScroll: true });
+      row.scrollIntoView({ block: "nearest" });
+    }
+  }, [selected, nav]);
   const browsingParts =
     state.level === "device" && !query.trim() && filter === "all";
   const visibleRows = browsingParts
@@ -1644,6 +1698,20 @@ export function Workspace() {
     [],
   );
   const takeover = useCallback(() => control({ type: "takeover" }), []);
+  const rememberRoomSearch = useCallback(
+    (id: string) => {
+      if (
+        roomResourceList &&
+        (query.trim() || filter !== "all") &&
+        deviceById(id) &&
+        rows.some((row) => row.id === id)
+      ) {
+        roomSearchOrigin.current = { id, query, filter };
+        setRackView("installation");
+      }
+    },
+    [roomResourceList, query, filter, rows],
+  );
   const selectObject = useCallback(
     (id: string, enter = false) => {
       setAirflowVisit(null);
@@ -1653,13 +1721,14 @@ export function Workspace() {
       setNetworkLinkId((current) =>
         networkContextIncludes(id, state.deviceId, current) ? current : null,
       );
+      if (enter) rememberRoomSearch(id);
       control({ type: enter ? "open-resource" : "pick", id });
       if (enter && !fixtureById(id)) {
         setQuery("");
         setFilter("all");
       }
     },
-    [state.deviceId],
+    [state.deviceId, rememberRoomSearch],
   );
   const pick = useCallback(
     (id: string, enter = false, keepNavigation = false) => {
@@ -1686,6 +1755,7 @@ export function Workspace() {
     setPowerLinkId((current) =>
       powerContextIncludes(id, state.deviceId, current) ? current : null,
     );
+    if (installation) rememberRoomSearch(id);
     control({
       type: installation ? "locate-installation" : "focus-resource",
       id,
@@ -2421,6 +2491,8 @@ export function Workspace() {
     return () => window.removeEventListener("keydown", key);
   }, [selected, review.analysis, nav, inspector, query, dispatch]);
   const load = (next: WorkspaceShot) => {
+    roomSearchOrigin.current = null;
+    roomSearchFocus.current = null;
     setSmokeVisit(null);
     setSmokeReturning(false);
     setSmokeRestore(false);
@@ -3538,7 +3610,7 @@ export function Workspace() {
             />
           ) : (
             <div
-              className={`study-resource-list ${query.trim() || filter !== "all" ? "is-search" : ""}`}
+              className={`study-resource-list ${roomResourceList && rows.length > 1 ? "is-room-browser" : ""} ${query.trim() || filter !== "all" ? "is-search" : ""}`}
               key={`${state.level}:${state.deviceId}`}
             >
               {unitQuery && (
@@ -3627,7 +3699,11 @@ export function Workspace() {
                                 "not-applicable"
                               ? "结构布置"
                               : "未接入数据";
+                      const roomDeviceRow =
+                        roomResourceList && !!deviceById(row.id);
+                      const roomUnitDevice = roomDeviceRow && !!unitQuery;
                       const locateOnly =
+                        roomUnitDevice ||
                         row.kind === "part" ||
                         row.kind === "facility" ||
                         (state.level === "device" && row.id === state.deviceId);
@@ -3662,6 +3738,7 @@ export function Workspace() {
                           </button>
                           <div
                             className="study-row-actions"
+                            data-installation-only={roomUnitDevice || undefined}
                             aria-label={`${row.name}操作`}
                           >
                             <button
@@ -3683,7 +3760,7 @@ export function Workspace() {
                                     : focus(row.id, { showDetails: false })
                               }
                             >
-                              定位
+                              {roomUnitDevice ? "定位安装位" : "定位"}
                             </button>
                             {row.kind === "part" &&
                               rows.some((child) => child.parent === row.id) && (
@@ -3707,7 +3784,7 @@ export function Workspace() {
                                 aria-label={`${resourceOpenLabel(state, row.id)} · ${row.name}`}
                                 onClick={() => selectObject(row.id, true)}
                               >
-                                进入
+                                {roomDeviceRow ? "进机柜" : "进入"}
                               </button>
                             )}
                           </div>
@@ -3826,6 +3903,7 @@ export function Workspace() {
             layoutViewRevision={layoutViewRevision}
             readings={spatial.readings}
             selectedId={selected}
+            roomDevice={roomDevice}
             airflow={airflow}
             onAirflowViewChange={setAirflowStageView}
             onExplainAirflow={() => {
@@ -4004,6 +4082,21 @@ export function Workspace() {
                     setInspectionDevice(null);
                   }}
                 />
+              ) : roomDevice &&
+                (!nav || !rows.some((row) => row.id === selected)) ? (
+                <div
+                  className="review-object-actions"
+                  role="group"
+                  aria-label="所选设备"
+                >
+                  <button
+                    disabled={!ready}
+                    onClick={() => selectObject(roomDevice.id, true)}
+                  >
+                    {roomDevice.name} · 查看{rackForDevice(roomDevice.id).name}{" "}
+                    ↗
+                  </button>
+                </div>
               ) : state.level !== "room" ? (
                 <ResourceActions
                   onIsolation={() => {
@@ -4030,6 +4123,7 @@ export function Workspace() {
           />
           {state.level === "room" &&
             layer === "overview" &&
+            !roomDevice &&
             maintenance.length === 0 &&
             !fixture &&
             !coolingFacility &&

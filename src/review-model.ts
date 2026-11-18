@@ -465,7 +465,8 @@ function reviewInteractionTransition(
     } else if (
       action.type === "focus-resource" &&
       canSelectInScene(current, action.id) &&
-      target.kind !== "device"
+      (target.kind !== "device" ||
+        (current.level === "room" && state.layer === "overview"))
     ) {
       scene = transition(
         { ...current, selected: target.id },

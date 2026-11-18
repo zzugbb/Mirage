@@ -453,6 +453,16 @@
   align-self: start;
   margin-top: 4px;
 }
+@media (hover: hover) {
+  .study-resource-list.is-room-browser
+    .study-resource:not(.selected):not(:hover):not(:focus-within)
+    .study-row-actions {
+    visibility: hidden;
+  }
+}
+.study-row-actions[data-installation-only] button {
+  grid-column: 1 / -1;
+}
 .workspace-ui .study-row-actions button {
   min-height: 32px;
   padding: 4px 3px;

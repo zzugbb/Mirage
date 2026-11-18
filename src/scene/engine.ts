@@ -1920,7 +1920,14 @@ export class SceneEngine {
       this.invalidate();
       return;
     }
-    const object = this.objectFor(inspectionTarget ?? this.state.selected);
+    // 机房内聚焦设备时保留整柜参照，选择轮廓仍落在设备的实际安装位。
+    const roomDevice =
+      level === "room" && focus && this.telemetry.mode === "status"
+        ? deviceById(this.state.selected)
+        : undefined;
+    const object = this.objectFor(
+      roomDevice?.rackId ?? inspectionTarget ?? this.state.selected,
+    );
     const framingPoints: THREE.Vector3[] = [];
     const wholeDevice =
       level === "device" &&
@@ -2023,7 +2030,8 @@ export class SceneEngine {
     if (
       level === "room" &&
       focus &&
-      (entityById(this.state.selected)?.kind === "rack" ||
+      (roomDevice ||
+        entityById(this.state.selected)?.kind === "rack" ||
         (fixture &&
           "kind" in fixture &&
           ["cable-tray", "ceiling-light", "floor-grille-row"].includes(
@@ -2633,7 +2641,8 @@ export class SceneEngine {
         : deviceAnchor
           ? this.presentation.pose.inspection === 0 &&
             ((this.state.level === "room" &&
-              this.telemetry.mode === "alarms" &&
+              (this.telemetry.mode === "alarms" ||
+                this.telemetry.mode === "status") &&
               id === this.state.selected) ||
               (this.state.level === "rack" &&
                 this.telemetry.mode !== "object" &&

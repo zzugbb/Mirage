@@ -268,3 +268,22 @@ test("安装位置定位从展开设备先归位，自身与跨柜结果都停�
     assert.equal(located.pendingId, null);
   }
 });
+
+test("机房总览定位设备保留机房层级与活动机型，查看安装位才进入所属机柜", () => {
+  const room = createReview();
+  for (const id of ["srv-01", "srv-59", "sw-01", "sto-01"]) {
+    const preview = reviewTransition(room, { type: "pick", id });
+    const focused = reviewTransition(preview, { type: "focus-resource", id });
+    assert.deepEqual(focused.scene, {
+      ...preview.scene,
+      focusRevision: preview.scene.focusRevision + 1,
+    });
+    assert.equal(focused.selectedId, id);
+    for (const type of ["locate-installation", "open-resource"] as const) {
+      const rack = reviewTransition(focused, { type, id });
+      assert.equal(rack.scene.level, "rack");
+      assert.equal(rack.scene.deviceId, id);
+      assert.equal(rack.scene.trayExtended, false);
+    }
+  }
+});
