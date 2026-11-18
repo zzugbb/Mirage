@@ -144,23 +144,10 @@ export function ResourceActions({
           </button>
           <details className="review-explode-settings">
             <summary>展开进度</summary>
-            <label className="review-explode-label">
-              展开{" "}
-              <input
-                aria-label="部件展开进度"
-                type="range"
-                min="0"
-                max="100"
-                value={state.explosion * 100}
-                onChange={(e) =>
-                  dispatch({
-                    type: "explode",
-                    amount: Number(e.target.value) / 100,
-                  })
-                }
-              />
-              <output>{Math.round(state.explosion * 100)}%</output>
-            </label>
+            <ExplosionSlider
+              amount={state.explosion}
+              onChange={(amount) => dispatch({ type: "explode", amount })}
+            />
           </details>
           {isolated && <small role="status">{isolationLabel}</small>}
         </>
@@ -181,5 +168,28 @@ export function ResourceActions({
         </small>
       )}
     </div>
+  );
+}
+
+export function ExplosionSlider({
+  amount,
+  onChange,
+}: {
+  amount: number;
+  onChange: (amount: number) => void;
+}) {
+  return (
+    <label className="review-explode-label">
+      展开{" "}
+      <input
+        aria-label="部件展开进度"
+        type="range"
+        min="0"
+        max="100"
+        value={amount * 100}
+        onChange={(e) => onChange(Number(e.target.value) / 100)}
+      />
+      <output>{Math.round(amount * 100)}%</output>
+    </label>
   );
 }

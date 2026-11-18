@@ -9,7 +9,7 @@ import {
   activeFanInspection,
   type FanInspection as FanVisit,
 } from "./fan-inspection";
-import { StorageSlots } from "./components/StorageSlots";
+import { StorageSlotNavigation, StorageSlots } from "./components/StorageSlots";
 import {
   activeStorageSlots,
   storageSlots,
@@ -1860,6 +1860,8 @@ export function Workspace() {
   };
   const returnStorageGroup = () => {
     if (!activeStorageVisit || !ready) return;
+    setInspector(true);
+    if (matchMedia("(max-width: 1099px)").matches) setNav(false);
     setStorageVisit({ ...activeStorageVisit, mode: "group" });
     if (selected === "sto-midplane" && activeStorageVisit.diskId)
       control({ type: "pick", id: activeStorageVisit.diskId });
@@ -1869,7 +1871,9 @@ export function Workspace() {
   };
   const finishStorageSlots = () => {
     if (!ready || !activeStorageVisit) return;
-    setStructureReturn({ deviceId: state.deviceId, tool: "storage" });
+    if (inspector)
+      setStructureReturn({ deviceId: state.deviceId, tool: "storage" });
+    else partSequenceFocus.current = "heading";
     control({ type: "analysis", value: false });
     setStorageVisit(null);
     setInspectionDevice(null);
@@ -3950,24 +3954,30 @@ export function Workspace() {
             onTakeover={takeover}
             compactTools
             controls={
-              state.level !== "room" ? (
+              activeStorageVisit ? (
+                <StorageSlotNavigation
+                  visit={activeStorageVisit}
+                  analysis={review.analysis}
+                  ready={ready}
+                  explosion={state.explosion}
+                  onExplosion={(amount) =>
+                    dispatch({ type: "explode", amount })
+                  }
+                  onGroup={returnStorageGroup}
+                  onFinish={finishStorageSlots}
+                />
+              ) : state.level !== "room" ? (
                 <ResourceActions
                   isolated={!!isolatedPartId}
                   isolationLabel={
                     activeFanVisit
                       ? "风扇核对 · 沿用当前机型的子件配置"
-                      : activeStorageVisit?.mode === "contact"
-                        ? "接点核对 · 硬盘与中板的装配对应"
-                        : undefined
+                      : undefined
                   }
                   onIsolation={() => {
                     takeover();
                     if (activeFanVisit) {
                       finishFanInspection();
-                      return;
-                    }
-                    if (activeStorageVisit) {
-                      finishStorageSlots();
                       return;
                     }
                     if (!isolatedPartId) {
@@ -4155,19 +4165,20 @@ export function Workspace() {
                 onFinish={finishFanInspection}
               />
             )}
-            {activeStorageVisit && (
+            {activeStorageVisit && !review.analysis && (
               <StorageSlots
                 deviceId={state.deviceId}
                 selected={selected}
                 visit={activeStorageVisit}
                 ready={ready}
-                analysis={review.analysis}
                 focusRevision={storageFocusRevision}
                 onSelect={(id) => {
+                  setStorageFocusRevision((n) => n + 1);
                   pick(id);
                 }}
                 onInspect={(id) => {
                   if (!activeStorageVisit || !ready) return;
+                  setStorageFocusRevision((n) => n + 1);
                   setStorageVisit({
                     ...activeStorageVisit,
                     mode: "disk",
@@ -4178,6 +4189,7 @@ export function Workspace() {
                 onContact={(id) => {
                   if (!activeStorageVisit || !ready) return;
                   takeover();
+                  setStorageFocusRevision((n) => n + 1);
                   setStorageVisit({
                     ...activeStorageVisit,
                     mode: "contact",

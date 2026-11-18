@@ -6079,18 +6079,56 @@
   font-size: 11px;
   color: #a9bdc9;
 }
-.storage-slot-check > strong {
-  display: block;
+.storage-slot-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   color: #dae5e9;
 }
-.storage-slot-check p,
-.storage-slot-check small {
+.storage-slot-heading select {
+  padding: 5px;
+  color: inherit;
+  background: #202c34;
+  border: 1px solid #40535c;
+  border-radius: 4px;
+}
+.storage-slot-check p {
+  margin: 8px 0;
   line-height: 1.6;
 }
-.storage-slot-check small {
-  display: block;
-  margin: 8px 0;
-  font-size: 10px;
+.storage-slot-heading + .storage-slot-actions {
+  margin-top: 10px;
+}
+.storage-slot-boundary {
+  margin-top: 12px;
+}
+.storage-slot-boundary summary {
+  cursor: pointer;
+}
+.workspace-ui .storage-task-bar > b {
+  padding: 0 8px;
+  color: #bbdbdf;
+  font-size: 12px;
+}
+.workspace-ui .storage-task-menu > div {
+  position: absolute;
+  bottom: calc(100% + 12px);
+  right: 0;
+  width: 220px;
+  padding: 12px;
+  display: grid;
+  gap: 6px;
+  border: 1px solid #40535c;
+  border-radius: 6px;
+  background: #26333c;
+}
+.workspace-ui .storage-task-menu label {
+  position: static;
+  width: auto;
+  border: 0;
+  padding: 0 0 8px;
+  background: none;
 }
 .storage-slot-check button {
   padding: 7px 8px;

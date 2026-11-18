@@ -5,14 +5,13 @@ import {
   type StorageSlotInspection,
 } from "../storage-slots";
 import { storageAssembly } from "../storage-layout";
-import { deviceById } from "../installation";
+import { ExplosionSlider } from "./ResourceActions";
 
 export function StorageSlots({
   deviceId,
   selected,
   visit,
   ready,
-  analysis,
   focusRevision,
   onSelect,
   onInspect,
@@ -24,7 +23,6 @@ export function StorageSlots({
   selected: string;
   visit: StorageSlotInspection;
   ready: boolean;
-  analysis: boolean;
   focusRevision: number;
   onSelect: (id: string) => void;
   onInspect: (id: string) => void;
@@ -57,11 +55,13 @@ export function StorageSlots({
     if (!ready || visit.pending || !pendingFocus.current || !host.current)
       return;
     const entry = host.current.querySelector<HTMLElement>(
-      !analysis ? `[data-slot-id="${current?.id ?? slots[0].id}"]` : "button",
+      visit.mode === "group"
+        ? `[data-slot-id="${current?.id ?? slots[0].id}"]`
+        : "select",
     );
     entry?.focus({ preventScroll: true });
     if (focusRevision) entry?.scrollIntoView({ block: "nearest" });
-  }, [ready, visit.pending, focusRevision, analysis]);
+  }, [ready, visit.pending, focusRevision, visit.mode]);
   return (
     <section
       ref={host}
@@ -71,32 +71,19 @@ export function StorageSlots({
         if (event.key === "Escape") {
           event.preventDefault();
           event.stopPropagation();
-          if (visit.mode !== "group" || analysis) onGroup();
+          if (visit.mode !== "group") onGroup();
           else onFinish();
         }
       }}
     >
-      <strong>
-        {deviceById(deviceId)!.name} · {slots.length} 盘位
-      </strong>
-      {analysis ? (
+      {visit.mode === "group" ? (
         <>
-          {visit.mode === "contact" && current && (
-            <small>
-              {current.slot} ↔ 中板第 {current.row} 行 / 第 {current.column}{" "}
-              列接点 · 装配对应示意，非电气接线。
-            </small>
-          )}
-          <button disabled={!ready} onClick={onGroup}>
-            ← 返回盘位总览
-          </button>
-        </>
-      ) : (
-        <>
-          <p>
-            正面看 ·
-            从上到下、从左到右。编号沿用内部配置，不代表外观型号的真实槽号。
-          </p>
+          <div className="storage-slot-heading">
+            <strong>正面盘位图</strong>
+            <button disabled={!ready || visit.pending} onClick={onGroup}>
+              正面观察盘组
+            </button>
+          </div>
           <div
             className="storage-slot-grid"
             style={{
@@ -140,50 +127,134 @@ export function StorageSlots({
               </button>
             ))}
           </div>
-          <p role="status">
-            {current
-              ? `${current.slot} · 第 ${current.row} 行 / 第 ${current.column} 列`
-              : "选择盘位，在三维中查看对应硬盘。"}
-            {visit.mode === "contact"
-              ? " · 中板接点对应"
-              : visit.mode === "disk"
-                ? " · 单盘检视"
-                : " · 完整盘组"}
-          </p>
-          {visit.mode === "contact" && current && (
-            <p>
-              硬盘后部接触面 ↔ 中板第 {current.row} 行 / 第 {current.column}{" "}
-              列接点。
-              两端轮廓与虚线仅表示装配对应；展开间隔不是线缆长度，不表示真实电路、接通状态或拔插步骤。
-            </p>
-          )}
-          <div className="storage-slot-actions">
+        </>
+      ) : (
+        <label className="storage-slot-heading">
+          切换盘位
+          <select
+            aria-label="切换盘位"
+            value={current?.id ?? ""}
+            disabled={!ready || visit.pending}
+            onChange={(event) => onSelect(event.target.value)}
+          >
+            {slots.map((slot) => (
+              <option key={slot.id} value={slot.id}>
+                {slot.slot} · {slot.row} 行 {slot.column} 列
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      {visit.mode !== "disk" && (
+        <p role="status">
+          {current
+            ? visit.mode === "contact"
+              ? "盘尾接触面 ↔ 中板接点 · 装配示意"
+              : `${current.slot} · 第 ${current.row} 行第 ${current.column} 列`
+            : "选择要核对的盘位"}
+        </p>
+      )}
+      {current && (
+        <div className="storage-slot-actions">
+          {visit.mode !== "disk" && (
             <button
-              disabled={!ready || visit.pending || !current}
-              onClick={() => current && onInspect(current.id)}
+              disabled={!ready || visit.pending}
+              onClick={() => onInspect(current.id)}
             >
               只看此硬盘
             </button>
+          )}
+          {visit.mode !== "contact" && (
             <button
-              disabled={!ready || visit.pending || !current}
-              aria-pressed={visit.mode === "contact"}
-              onClick={() => current && onContact(current.id)}
+              disabled={!ready || visit.pending}
+              onClick={() => onContact(current.id)}
             >
               核对中板接点
             </button>
-            <button disabled={!ready || visit.pending} onClick={onGroup}>
-              {visit.mode !== "group" ? "← 返回盘位总览" : "正面观察盘组"}
-            </button>
-          </div>
-          <small>
-            沿用 {slots.length}{" "}
-            个已配置硬盘子件；未接入磁盘实测状态，不推断空槽、可用容量或健康。单盘读数仍为模型推导。
-          </small>
-        </>
+          )}
+        </div>
       )}
-      <button disabled={!ready || visit.pending} onClick={onFinish}>
-        结束核对，返回完整结构
-      </button>
+      <details className="storage-slot-boundary">
+        <summary>配置与读数口径</summary>
+        <p>
+          正面由上至下、由左至右排列。{slots.length}{" "}
+          个盘位沿用演示配置，外观机型的真实槽号未经核对。单盘读数为模型推导，磁盘健康、空槽和可用容量均未接入。
+        </p>
+        {visit.mode === "contact" && (
+          <p>
+            虚线表示装配对应。展开间距仅用于观察，真实电路、接通状态和拔插步骤均未建模。
+          </p>
+        )}
+      </details>
     </section>
+  );
+}
+
+export function StorageSlotNavigation({
+  visit,
+  analysis,
+  ready,
+  explosion,
+  onExplosion,
+  onGroup,
+  onFinish,
+}: {
+  visit: StorageSlotInspection;
+  analysis: boolean;
+  ready: boolean;
+  explosion: number;
+  onExplosion: (amount: number) => void;
+  onGroup: () => void;
+  onFinish: () => void;
+}) {
+  const deeper = analysis || visit.mode !== "group";
+  const back = deeper ? onGroup : onFinish;
+  const current = storageSlots(visit.deviceId).find(
+    (slot) => slot.id === visit.diskId,
+  );
+  const mode = { group: "盘位总览", disk: "单盘检视", contact: "中板接点" }[
+    visit.mode
+  ];
+  const menu = useRef<HTMLDetailsElement>(null);
+  return (
+    <div
+      className="review-object-actions storage-task-bar"
+      role="group"
+      aria-label="盘位核对操作"
+      onKeyDown={(event) => {
+        if (event.key !== "Escape") return;
+        event.preventDefault();
+        event.stopPropagation();
+        if (menu.current?.open) {
+          menu.current.open = false;
+          menu.current.querySelector("summary")?.focus();
+        } else if (ready && !visit.pending) back();
+      }}
+    >
+      <b>
+        {visit.pending ? "正在展开盘组" : mode}
+        {current && visit.mode !== "group" && ` · ${current.slot}`}
+      </b>
+      <button disabled={!ready || visit.pending} onClick={back}>
+        {deeper ? "← 返回盘位总览" : "← 返回完整结构"}
+      </button>
+      <details ref={menu} className="review-explode-settings storage-task-menu">
+        <summary>结构操作</summary>
+        <div>
+          <ExplosionSlider amount={explosion} onChange={onExplosion} />
+          <button
+            disabled={!ready || visit.pending}
+            onClick={() => onExplosion(0)}
+          >
+            复原外观
+          </button>
+          {deeper && (
+            <button disabled={!ready || visit.pending} onClick={onFinish}>
+              结束核对，返回完整结构
+            </button>
+          )}
+        </div>
+      </details>
+    </div>
   );
 }

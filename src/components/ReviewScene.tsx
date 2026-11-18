@@ -1495,13 +1495,15 @@ export function ReviewScene({
       : state.level === "rack"
         ? devices.filter((d) => d.rackId === rackForDevice(state.deviceId).id)
         : [
-            ...partsForDevice(state.deviceId).filter(
-              (p) =>
-                p.id === selectedId ||
-                !["lid", "duct", "cable"].includes(p.node),
+            ...partsForDevice(state.deviceId).filter((p) =>
+              isolatedPartId
+                ? p.id === isolatedPartId ||
+                  (storageContact && p.id === "sto-midplane")
+                : p.id === selectedId ||
+                  !["lid", "duct", "cable"].includes(p.node),
             ),
             ...subpartsForDevice(state.deviceId).filter(
-              (p) => p.id === selectedId,
+              (p) => p.id === isolatedPartId || p.id === selectedId,
             ),
           ];
   const alarmDevice =
