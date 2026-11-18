@@ -3250,22 +3250,57 @@
   opacity: 0.4;
   cursor: default;
 }
-.rack-space-inspector h3 {
-  font-size: 12px;
-  margin: 18px 0 6px;
+.rack-range-form {
+  display: grid;
+  gap: 9px;
 }
-.rack-space-result,
-.rack-space-gap {
+.rack-range-form button[type="submit"] {
+  justify-self: start;
+  background: #314e54;
+  color: #d7f6f5;
+}
+.rack-range-mode {
+  display: flex;
+  padding: 2px;
+  border: 1px solid var(--study-line);
+  border-radius: 5px;
+}
+.rack-range-mode button {
+  flex: 1;
+  margin: 0;
+  background: transparent;
+}
+.rack-range-mode button[aria-pressed="true"] {
+  color: #d7f6f5;
+  background: #30464e;
+}
+.rack-range-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 0.7fr) minmax(0, 1fr);
+  gap: 10px;
+}
+.rack-range-form .rack-range-fields label {
+  display: grid;
+  justify-content: stretch;
+  gap: 3px;
+}
+.rack-range-fields select,
+.rack-range-fields input {
+  width: 100%;
+  min-width: 0;
+}
+.rack-range-form > label select {
+  width: auto;
+}
+.rack-space-result {
   padding: 10px 0;
   border-top: 1px solid var(--study-line);
 }
-.rack-space-gap strong,
 .rack-space-result button {
   display: flex;
   justify-content: space-between;
   gap: 8px;
 }
-.rack-space-gap small,
 .rack-space-result small {
   display: block;
 }

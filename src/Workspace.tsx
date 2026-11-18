@@ -830,6 +830,7 @@ export function Workspace() {
         start: string;
         scroll: number;
         layer: ReviewState["layer"];
+        inspector: boolean;
         analysis: boolean;
         metric: "temperature" | "power";
         slice: SliceControls;
@@ -1694,6 +1695,7 @@ export function Workspace() {
         String(spaceRange!.first),
       scroll: scroll ?? panel?.scrollTop ?? 0,
       layer,
+      inspector,
       analysis: review.analysis,
       metric,
       slice: sliceControls,
@@ -2584,7 +2586,7 @@ export function Workspace() {
     setSliceControls(origin.slice);
     skipNavigationSearch.current = true;
     setNav(true);
-    setInspector(true);
+    setInspector(origin.inspector);
   };
   useEffect(() => {
     if (!spaceReturning) return;
@@ -3818,8 +3820,8 @@ export function Workspace() {
               onRange={(range) => {
                 setSpaceVisit(null);
                 setSpaceRestore(null);
-                pick(range.rackId, false, true);
-                setQuery(`U${range.first}–${range.last}`);
+                selectObject(range.rackId);
+                setQuery(spaceRangeLabel(range));
                 setFilter("all");
                 setOnlyAlarms(false);
               }}

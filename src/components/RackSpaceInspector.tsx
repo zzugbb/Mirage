@@ -9,9 +9,8 @@ import {
   rackSpaceCandidates,
   type RackUnitRange,
 } from "../rack-space";
+import { spaceRangeLabel } from "../space-inspection";
 
-const label = (first: number, last: number) =>
-  first === last ? `U${first}` : `U${first}–${last}`;
 export function RackSpaceInspector({
   segments,
   segmentId,
@@ -54,6 +53,8 @@ export function RackSpaceInspector({
 }) {
   const panel = useRef<HTMLElement>(null);
   const [start, setStart] = useState(String(range?.first ?? 1));
+  const [byGap, setByGap] = useState(false);
+  const [choice, setChoice] = useState({ first: range?.first, whole: false });
   useLayoutEffect(() => {
     if (!restore || restore.rackId !== rackId || !panel.current) return;
     setStart(restore.start);
@@ -65,12 +66,23 @@ export function RackSpaceInspector({
   const layout = rackInstallation(rackId)!;
   const candidates = rackSpaceCandidates(rackId, size);
   const result = range ? inspectRackSpace(range) : null;
-  const proposed = {
-    rackId,
-    first: Number(start),
-    last: Number(start) + size - 1,
-  };
-  const valid = start.trim() !== "" && inspectRackSpace(proposed) !== null;
+  const gap =
+    candidates.find((g) => g.ranges.some((r) => r.first === choice.first)) ??
+    candidates[0];
+  const offsetRange =
+    gap?.ranges.find((r) => r.first === choice.first) ?? gap?.sample;
+  const whole = choice.whole && gap && gap.units > size;
+  const candidateRange = whole
+    ? { rackId, first: gap.first, last: gap.last }
+    : offsetRange;
+  const proposal = byGap
+    ? candidateRange
+    : {
+        rackId,
+        first: Number(start),
+        last: Number(start) + size - 1,
+      };
+  const valid = proposal && inspectRackSpace(proposal) !== null;
   const gaps = layout.segments.filter((s) => s.kind === "blanking");
   return (
     <section
@@ -82,67 +94,132 @@ export function RackSpaceInspector({
         {onCompare && <button onClick={onCompare}>全机房空间对照 ↗</button>}
         <strong>{layout.rack.name} · 安装空间</strong>
         <p>
-          已安装 {layout.installedUnits} U · 未安装 {layout.blankingUnits} U
+          已装 {layout.installedUnits}U · 未装 {layout.blankingUnits}U ·
+          最长空段 {Math.max(0, ...gaps.map((s) => s.last - s.first + 1))}U
         </p>
-        <small>
-          最大连续空段 {Math.max(0, ...gaps.map((s) => s.last - s.first + 1))} U
-          · 前置盲板封闭
-        </small>
-        <p className="rack-space-note">仅核对 U 位几何，不代表可分配容量。</p>
       </header>
       {queryMessage && <p role="status">{queryMessage}</p>}
-      <label>
-        核查高度{" "}
-        <select
-          aria-label="核查设备U高度"
-          value={size}
-          onChange={(e) => onSize(Number(e.target.value))}
-        >
-          {[1, 2, 4].map((n) => (
-            <option key={n} value={n}>
-              {n}U
-            </option>
-          ))}
-        </select>
-      </label>
       <form
+        className="rack-range-form"
         onSubmit={(e) => {
           e.preventDefault();
-          if (valid) onRange(proposed);
+          if (valid) onRange(proposal);
         }}
       >
-        <label>
-          起始 U 位{" "}
-          <input
-            aria-label="核查起始U位"
-            type="number"
-            min="1"
-            max={layout.units - size + 1}
-            step="1"
-            value={start}
-            onChange={(e) => setStart(e.target.value)}
-          />
-        </label>
+        <div className="rack-range-mode" role="group" aria-label="范围选择方式">
+          <button
+            type="button"
+            aria-pressed={!byGap}
+            onClick={() => setByGap(false)}
+          >
+            按起点
+          </button>
+          <button
+            type="button"
+            aria-pressed={byGap}
+            onClick={() => setByGap(true)}
+          >
+            按空段
+          </button>
+        </div>
+        <div className="rack-range-fields">
+          <label>
+            核查高度
+            <select
+              aria-label="核查设备U高度"
+              value={size}
+              onChange={(e) => onSize(Number(e.target.value))}
+            >
+              {[1, 2, 4].map((n) => (
+                <option key={n} value={n}>
+                  {n}U
+                </option>
+              ))}
+            </select>
+          </label>
+          {byGap ? (
+            gap && (
+              <label>
+                连续空段
+                <select
+                  value={gap.first}
+                  onChange={(e) =>
+                    setChoice({ first: Number(e.target.value), whole: false })
+                  }
+                >
+                  {candidates.map((g) => (
+                    <option key={g.first} value={g.first}>
+                      {spaceRangeLabel(g)} · {g.units}U
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )
+          ) : (
+            <label>
+              起始 U 位
+              <input
+                aria-label="核查起始U位"
+                type="number"
+                min="1"
+                max={layout.units - size + 1}
+                step="1"
+                value={start}
+                onChange={(e) => setStart(e.target.value)}
+              />
+            </label>
+          )}
+        </div>
+        {byGap && gap && offsetRange && (
+          <label>
+            核查范围
+            <select
+              aria-label="空段内核查范围"
+              value={whole ? "whole" : offsetRange.first}
+              onChange={(e) =>
+                setChoice(
+                  e.target.value === "whole"
+                    ? { first: gap.first, whole: true }
+                    : { first: Number(e.target.value), whole: false },
+                )
+              }
+            >
+              {gap.ranges.map((r) => (
+                <option key={r.first} value={r.first}>
+                  {spaceRangeLabel(r)}
+                </option>
+              ))}
+              {gap.units > size && (
+                <option value="whole">{spaceRangeLabel(gap)} · 整段</option>
+              )}
+            </select>
+          </label>
+        )}
+        {!valid && (
+          <p role="status">
+            {byGap
+              ? `本柜没有连续 ${size}U 空段。`
+              : `起始位置须为 U1–${layout.units - size + 1} 的整数。`}
+          </p>
+        )}
         <button disabled={!valid} type="submit">
           核查此范围
         </button>
       </form>
-      {!valid && (
-        <p role="status">
-          请选择 U1–{layout.units - size + 1} 的整数起始位置。
-        </p>
-      )}
       {result && (
         <section className="rack-space-result" aria-label="范围核查结果">
           <strong>
-            {label(result.first, result.last)} ·{" "}
+            {spaceRangeLabel(result)} ·{" "}
             {result.occupied ? "存在安装占用" : "无设备安装占用"}
           </strong>
           <p>
-            设备占用 {result.occupied} U · 未安装 {result.blanked} U
+            {result.occupied
+              ? `设备占用 ${result.occupied}U · 未安装 ${result.blanked}U`
+              : `${result.blanked}U 前置盲板封闭`}
           </p>
           <RangeViewActions active={view} ready={ready} onView={onView} />
           <RangeSegments
+            compact
             segments={segments}
             currentId={segmentId}
             observing={!!view}
@@ -163,54 +240,22 @@ export function RackSpaceInspector({
               }
               aria-label={`查看冲突设备 ${d.name}`}
             >
-              {d.name} <span>{label(d.first, d.last)} ↗</span>
+              {d.name} <span>{spaceRangeLabel(d)} ↗</span>
             </button>
           ))}
-          <small>
-            {result.occupied
-              ? "列出完整设备跨度，核查范围可能只与其中部分相交。"
-              : "当前由前置盲板封闭；尚不能确认可安装。"}
-          </small>
+          {result.conflicts.length > 0 && (
+            <small>设备旁标注完整安装跨度。</small>
+          )}
           <button onClick={onClear}>清除范围标记</button>
         </section>
       )}
-      <h3>
-        可容纳 {size}U 跨度的连续空段 · {candidates.length}
-      </h3>
-      <p className="rack-space-note">
-        按本柜完整安装配置筛选，不受资源筛选影响。总览下三维显示核查范围，可切换前/后视观察。起点方案可能相互重叠，不能相加作为设备数量。
-      </p>
-      {candidates.length ? (
-        candidates.map((gap) => (
-          <div className="rack-space-gap" key={gap.first}>
-            <strong>
-              {label(gap.first, gap.last)} <span>{gap.units} U</span>
-            </strong>
-            <small>{gap.positions} 个可能起点</small>
-            <button
-              onClick={() => {
-                setStart(String(gap.first));
-                onRange(gap.sample);
-              }}
-            >
-              核查 {label(gap.sample.first, gap.sample.last)}
-            </button>
-            <button
-              onClick={() =>
-                onRange({ rackId, first: gap.first, last: gap.last })
-              }
-            >
-              查看整个空段
-            </button>
-          </div>
-        ))
-      ) : (
-        <p>本柜没有满足此高度的连续未安装区间。</p>
-      )}
-      <p className="rack-space-boundary">
-        仅核对已登记安装位置。预留、不可用空间、承重、设备深度、供电与散热余量未定义；不提供安装确认或容量分配。后置
-        PDU 不占标准 U 位，抽出设备仍占原安装位。
-      </p>
+      <details className="rack-space-boundary">
+        <summary>核查依据与限制</summary>
+        <p>按本柜完整安装配置计算。抽出的设备仍占原位，后置 PDU 为 0U 附件。</p>
+        <p>
+          重叠范围仅供核对几何。可分配容量、预留与不可用空间、承重、深度、供电和散热余量尚未定义。
+        </p>
+      </details>
     </section>
   );
 }
