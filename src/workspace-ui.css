@@ -5427,6 +5427,35 @@
 .room-layout-context {
   opacity: 0.35;
 }
+.room-layout-ceiling rect {
+  fill: #839aa43b;
+  stroke: #8b9fa9;
+}
+.room-layout-ceiling[data-kind="light"] rect {
+  fill: #c9bca3;
+  stroke: #c9bca3;
+}
+.room-layout-ceiling[data-selected="true"] rect {
+  stroke: #d4f1ef;
+  stroke-width: 2;
+}
+.room-layout-map button[data-kind="crossing"] {
+  width: 25px;
+  height: 25px;
+  min-height: 25px;
+  border: 1px solid #789098;
+  border-radius: 50%;
+  background: #1b2930;
+}
+.room-layout-map button[data-kind="crossing"] span {
+  position: static;
+}
+.room-layout-map
+  button[data-kind="crossing"]:is(:focus-visible, [aria-pressed="true"]) {
+  outline: 2px solid #b9e0e1;
+  background: #344b55;
+  opacity: 1;
+}
 .room-layout-point line {
   stroke: #79959d;
   stroke-width: 0.7;

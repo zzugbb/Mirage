@@ -6,12 +6,19 @@ import {
   modelForDevice,
 } from "./catalog.ts";
 import { pduById } from "./power-config.ts";
+import {
+  lightTrayCrossings,
+  ceilingLights,
+  housingLength,
+  lightProfile,
+} from "./ceiling-lights.ts";
+import { cableTraySettings, trayOuterWidth } from "./cable-trays.ts";
 
 export type RoomLayoutItem = {
   id: string;
   name: string;
   short: string;
-  kind: "rack" | "facility" | "entrance" | "point";
+  kind: "rack" | "facility" | "entrance" | "point" | "crossing";
   location?: string;
   height?: number;
   labelOffset?: readonly [number, number];
@@ -62,7 +69,46 @@ export const roomLayoutItems: RoomLayoutItem[] = [
     depth: definition.room.wallThickness,
   },
 ];
-export type RoomLayoutScope = "equipment" | "fixtures";
+export type RoomLayoutScope = "equipment" | "fixtures" | "ceiling";
+// 图上选择的是关系，两端始终使用已登记的三维设施 ID。
+export const roomLayoutCrossings = lightTrayCrossings.map(
+  ({ light, tray, difference }) => ({
+    id: `${light.id}:${tray.id}`,
+    kind: "crossing" as const,
+    name: `${light.name} × ${tray.name}`,
+    short: tray.name.split(" ")[0],
+    x: light.position[0],
+    z: tray.position[2],
+    width: 0,
+    depth: 0,
+    lightId: light.id,
+    trayId: tray.id,
+    difference,
+    location: `${light.location} ${tray.location}`,
+  }),
+);
+export const roomLayoutCeilingFootprints = [
+  ...ceilingLights.map((light) => ({
+    id: light.id,
+    name: light.name,
+    kind: "light",
+    x: light.position[0],
+    z: light.position[2],
+    width: lightProfile.bodyWidth,
+    depth: housingLength(light),
+  })),
+  ...definition.room.fixtures
+    .filter((f) => f.kind === "cable-tray")
+    .map((tray) => ({
+      id: tray.id,
+      name: tray.name,
+      kind: "tray",
+      x: tray.position[0],
+      z: tray.position[2],
+      width: cableTraySettings.length,
+      depth: trayOuterWidth,
+    })),
+];
 /** 点位只投影配置中心；按钮偏移以避让相邻点，不表示占地或覆盖。 */
 export const roomLayoutFixtures: RoomLayoutItem[] = definition.room.fixtures
   .filter((item) =>
@@ -108,8 +154,12 @@ export const roomLayoutLeakPath = {
     z,
   ]),
 };
-export function roomLayoutScopeItems(scope: RoomLayoutScope) {
-  return scope === "fixtures" ? roomLayoutFixtures : roomLayoutItems;
+export function roomLayoutScopeItems(scope: RoomLayoutScope): RoomLayoutItem[] {
+  return scope === "ceiling"
+    ? roomLayoutCrossings
+    : scope === "fixtures"
+      ? roomLayoutFixtures
+      : roomLayoutItems;
 }
 export function roomLayoutObject(id: string, deviceId: string) {
   if (
@@ -144,7 +194,11 @@ export function roomLayoutMatches(item: RoomLayoutItem, query: string) {
     .trim()
     .toLocaleLowerCase()
     .split(/\s+/)
-    .every((word) => content.includes(word));
+    .every((word) =>
+      item.kind === "crossing" && /^[ab]$/.test(word)
+        ? item.short.toLowerCase() === word
+        : content.includes(word),
+    );
 }
 /** 图上方向按固定 X/Z 投影，不声称地理朝向；键盘只移动焦点，Enter 才选择。 */
 export function roomLayoutNeighbor(

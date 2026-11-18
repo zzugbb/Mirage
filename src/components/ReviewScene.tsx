@@ -1281,7 +1281,8 @@ export function ReviewScene({
   useEffect(() => {
     const active = engine.current;
     if (!active || !crossingCommand) return;
-    if (!crossingCommand.pair) active.restoreCrossingView();
+    if (crossingCommand.dismiss) active.clearCrossingView();
+    else if (!crossingCommand.pair) active.restoreCrossingView();
     else if (layer === "overview") {
       setOrbit(false);
       active.observeCrossing(crossingCommand.pair);

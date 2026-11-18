@@ -5,6 +5,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   roomLayoutItems,
+  roomLayoutCrossings,
+  roomLayoutCeilingFootprints,
   roomLayoutFixtures,
   roomLayoutScopeItems,
   roomLayoutLeakPath,
@@ -17,6 +19,43 @@ import { devices, racks } from "./installation.ts";
 import { partsForDevice, subpartsForDevice } from "./catalog.ts";
 import { pdus } from "./power-config.ts";
 import definition from "../assets/public/scenes/room-01.json" with { type: "json" };
+import { fixtureCrossing } from "./fixture-crossing.ts";
+
+test("顶灯与桥架：每个图上交叉点都在双方投影内，可往返同一组三维配置表面", () => {
+  assert.equal(roomLayoutScopeItems("ceiling").length, 6);
+  assert.equal(roomLayoutCeilingFootprints.length, 5);
+  for (const item of roomLayoutCrossings) {
+    const pair = fixtureCrossing(item.lightId, item.trayId)!;
+    assert.equal(pair.id, item.id);
+    assert.equal(pair.difference, item.difference);
+    for (const id of [item.lightId, item.trayId]) {
+      const f = roomLayoutCeilingFootprints.find((f) => f.id === id)!;
+      assert.ok(
+        Math.abs(item.x - f.x) <= f.width / 2 &&
+          Math.abs(item.z - f.z) <= f.depth / 2,
+      );
+    }
+    assert.equal(roomLayoutObject(item.id, "srv-01"), null);
+  }
+});
+test("同一交叉对匹配两端名称和编号，焦点可横向换灯、纵向换排", () => {
+  const hits = (query: string) =>
+    roomLayoutCrossings
+      .filter((item) => roomLayoutMatches(item, query))
+      .map((item) => item.id);
+  const centerB = "ceiling-light-02:cable-tray-b";
+  assert.deepEqual(hits("中央 B 排"), [centerB]);
+  assert.deepEqual(hits("LIGHT-02 tray-B"), [centerB]);
+  assert.deepEqual(hits("左侧 右侧"), []);
+  assert.equal(
+    roomLayoutNeighbor(centerB, "ArrowRight", "ceiling"),
+    "ceiling-light-03:cable-tray-b",
+  );
+  assert.equal(
+    roomLayoutNeighbor(centerB, "ArrowDown", "ceiling"),
+    "ceiling-light-02:cable-tray-a",
+  );
+});
 
 test("布置图使用八柜、两处主要设施和原入口的配置投影，不补造资源或占地", () => {
   assert.equal(roomLayoutItems.length, 11);

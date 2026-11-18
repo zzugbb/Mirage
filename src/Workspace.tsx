@@ -44,7 +44,7 @@ import {
   type AlarmVisit,
 } from "./alarm-queue";
 import { RoomLayout } from "./components/RoomLayout";
-import type { RoomLayoutScope } from "./room-layout";
+import { roomLayoutCrossings, type RoomLayoutScope } from "./room-layout";
 import type { AirflowView } from "./airflow-view";
 import { airflowSnapshot, type AirflowRoute } from "./airflow";
 import { AirflowDetails } from "./components/AirflowDetails";
@@ -676,10 +676,12 @@ export function Workspace() {
   const [layoutBoundary, setLayoutBoundary] = useState(false);
   const [layoutScope, setLayoutScope] = useState<RoomLayoutScope>("equipment");
   const [layoutQuery, setLayoutQuery] = useState("");
+  const [layoutCrossing, setLayoutCrossing] = useState<string | null>(null);
   const layoutScroll = useRef(0);
   const [layoutRestore, setLayoutRestore] = useState(0);
   const [layoutVisit, setLayoutVisit] = useState<{
     id: string;
+    crossingId?: string;
     layer: ReviewState["layer"];
     metric: "temperature" | "power";
   } | null>(null);
@@ -1286,6 +1288,7 @@ export function Workspace() {
     )
       return;
     control({ type: "pick", id: layoutVisit.id });
+    setLayoutCrossing(layoutVisit.crossingId ?? null);
     control({ type: "layer", layer: layoutVisit.layer });
     control({ type: "analysis", value: false });
     setMetric(layoutVisit.metric);
@@ -2331,6 +2334,7 @@ export function Workspace() {
     setLayoutBoundary(false);
     setLayoutQuery("");
     setLayoutScope("equipment");
+    setLayoutCrossing(null);
     layoutScroll.current = 0;
     setLayoutRestore(0);
     setLayoutVisit(null);
@@ -3042,9 +3046,45 @@ export function Workspace() {
               deviceId={state.deviceId}
               query={layoutQuery}
               scope={layoutScope}
+              crossingId={layoutCrossing}
+              onPreviewCrossing={(id) => {
+                const pair = roomLayoutCrossings.find((p) => p.id === id);
+                if (!pair) return;
+                // 同一盏灯换排时，对象 ID 不变；旧表面标记仍须结束。
+                if (crossing && crossing.id !== id) {
+                  crossingInspectPending.current = false;
+                  setCrossingCommand((current) => ({
+                    pair: null,
+                    dismiss: true,
+                    revision: (current?.revision ?? 0) + 1,
+                  }));
+                }
+                setLayoutCrossing(id);
+                pick(pair.lightId, false, true);
+              }}
+              onInspectCrossing={(id) => {
+                const point = roomLayoutCrossings.find((p) => p.id === id);
+                if (!point || !ready) return;
+                const pair = fixtureCrossing(point.lightId, point.trayId);
+                if (!pair) return;
+                setLayoutVisit({
+                  id: point.lightId,
+                  crossingId: id,
+                  layer,
+                  metric,
+                });
+                setLayoutReturning(false);
+                setLayoutRestore(0);
+                control({ type: "layer", layer: "overview" });
+                control({ type: "analysis", value: false });
+                setInspector(true);
+                if (matchMedia("(max-width: 1099px)").matches) setNav(false);
+                requestCrossing(pair);
+              }}
               onScope={(scope) => {
                 takeover();
                 setLayoutScope(scope);
+                setLayoutCrossing(null);
                 setLayoutVisit(null);
                 setLayoutReturning(false);
                 setLayoutRestore(0);

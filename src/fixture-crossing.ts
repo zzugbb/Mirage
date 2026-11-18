@@ -86,6 +86,7 @@ export type FixtureCrossing = NonNullable<ReturnType<typeof fixtureCrossing>>;
 export type CrossingViewCommand = {
   revision: number;
   pair: FixtureCrossing | null;
+  dismiss?: boolean;
 };
 export function crossingViewFrame(
   points: Vector3[],
