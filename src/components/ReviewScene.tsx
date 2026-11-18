@@ -105,6 +105,8 @@ import { AirflowGeometry } from "../scene/airflow";
 import { observeLabelLayout } from "../scene/label-layout";
 import {
   maintenanceAreas,
+  maintenanceAisleSequence,
+  maintenanceAisle,
   reserveGapText,
   type MaintenanceAisle,
 } from "../maintenance";
@@ -300,6 +302,7 @@ export function ReviewScene({
   const sliceEvidenceGeometry = useRef<SliceEvidenceGeometry | null>(null);
   const sliceGeometry = useRef<TemperatureSliceGeometry | null>(null);
   const airflowGeometry = useRef<AirflowGeometry | null>(null);
+  const aisleOrigin = useRef<string | null>(null);
   const maintenanceGeometry = useRef<MaintenanceGeometry | null>(null);
   const powerGeometry = useRef<PowerGeometry | null>(null);
   const inletGeometry = useRef<InletViewGeometry | null>(null);
@@ -521,7 +524,12 @@ export function ReviewScene({
   const networkLink = networkLinkById(networkLinkId);
   const availableAisle = networkLinkId ? undefined : aisle;
   const [comparedId, setComparedId] = useState<string | null>(null);
-  useEffect(() => setComparedId(null), [availableAisle?.id, shotRevision]);
+  useEffect(() => {
+    setComparedId((current) =>
+      current === availableAisle?.id ? current : null,
+    );
+  }, [availableAisle?.id]);
+  useEffect(() => setComparedId(null), [shotRevision]);
   const comparison = maintenanceView
     ? maintenanceView.aisle
     : availableAisle?.id === comparedId
@@ -696,9 +704,12 @@ export function ReviewScene({
         );
       };
       active.onMaintenanceView = (inspection) => {
+        if (!inspection) aisleOrigin.current = null;
+        else if (inspection.aisle) aisleOrigin.current ??= inspection.rackId;
         callbacks.current.onMaintenanceViewChange(inspection);
         if (inspection) setView(active!.currentView);
       };
+      aisleOrigin.current = null;
       callbacks.current.onMaintenanceViewChange(null);
       active.onInletView = (inspection) => {
         callbacks.current.onInletViewChange(inspection);
@@ -953,7 +964,9 @@ export function ReviewScene({
     );
   }, [state, layer, readings, retry, ambientSelected]);
   const maintenanceControls = useRef<HTMLDivElement>(null);
-  const maintenanceFocus = useRef<"entry" | "view" | null>(null);
+  const maintenanceFocus = useRef<
+    "entry" | "view" | "previous" | "next" | "origin" | null
+  >(null);
   const restoreMaintenance = () => {
     maintenanceFocus.current = "entry";
     engine.current?.restoreMaintenanceView();
@@ -964,6 +977,21 @@ export function ReviewScene({
     setOrbit(false);
     maintenanceFocus.current = "view";
     engine.current?.observeMaintenance(selectedId, next);
+  };
+  const aisleSequence = maintenanceView?.aisle
+    ? maintenanceAisleSequence(selectedId)
+    : null;
+  const moveAlongAisle = (
+    rackId: string | undefined,
+    action: "previous" | "next" | "origin",
+  ) => {
+    if (!rackId || !sceneSettled || !engine.current || engine.current.moving)
+      return;
+    onTakeover();
+    maintenanceFocus.current = action;
+    if (comparedId) setComparedId(maintenanceAisle(rackId)?.id ?? null);
+    onSelect(rackId);
+    engine.current.observeMaintenance(rackId, "aisle");
   };
   useEffect(() => {
     if (maintenanceReturnRevision) restoreMaintenance();
@@ -978,9 +1006,14 @@ export function ReviewScene({
       const target =
         maintenanceFocus.current === "entry"
           ? "[data-maintenance-entry]"
-          : "[aria-pressed='true']";
+          : maintenanceFocus.current === "view"
+            ? "[aria-pressed='true']"
+            : `[data-aisle-step="${maintenanceFocus.current}"]:not(:disabled)`;
       const button =
-        maintenanceControls.current?.querySelector<HTMLButtonElement>(target);
+        maintenanceControls.current?.querySelector<HTMLButtonElement>(target) ??
+        maintenanceControls.current?.querySelector<HTMLButtonElement>(
+          "[aria-pressed='true']",
+        );
       if (!button) {
         maintenanceFocus.current = null;
         return;
@@ -2088,6 +2121,60 @@ export function ReviewScene({
                             </button>
                           ))}
                       </div>
+                      {aisleSequence && comparison && (
+                        <div
+                          className="aisle-sequence"
+                          role="group"
+                          aria-label="沿排核对"
+                        >
+                          <strong aria-live="polite">
+                            {comparison.rear.rackName.split(" ")[0]} /{" "}
+                            {comparison.front.rackName.split(" ")[0]} · 第{" "}
+                            {aisleSequence.index + 1} / {aisleSequence.count} 组
+                          </strong>
+                          <div className="aisle-actions">
+                            <button
+                              data-aisle-step="previous"
+                              disabled={
+                                !sceneSettled || !aisleSequence.previous
+                              }
+                              onClick={() =>
+                                moveAlongAisle(
+                                  aisleSequence.previous,
+                                  "previous",
+                                )
+                              }
+                            >
+                              ← 上一组
+                            </button>
+                            <button
+                              data-aisle-step="next"
+                              disabled={!sceneSettled || !aisleSequence.next}
+                              onClick={() =>
+                                moveAlongAisle(aisleSequence.next, "next")
+                              }
+                            >
+                              下一组 →
+                            </button>
+                            <button
+                              data-aisle-step="origin"
+                              disabled={
+                                !sceneSettled ||
+                                !aisleOrigin.current ||
+                                selectedId === aisleOrigin.current
+                              }
+                              onClick={() =>
+                                moveAlongAisle(
+                                  aisleOrigin.current ?? undefined,
+                                  "origin",
+                                )
+                              }
+                            >
+                              回到起点
+                            </button>
+                          </div>
+                        </div>
+                      )}
                       <button
                         disabled={!sceneSettled}
                         onClick={restoreMaintenance}

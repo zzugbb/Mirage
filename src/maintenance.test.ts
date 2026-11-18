@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import definition from "../assets/public/scenes/room-01.json" with { type: "json" };
 import {
   maintenanceAisle,
+  maintenanceAisleSequence,
   reserveGapText,
   maintenanceAreas,
   maintenanceSettings,
@@ -174,4 +175,21 @@ test("四个排间通道从任一侧得到相同的对柜，标尺连接两侧�
   geometry.update(maintenanceAreas("rack-a01"));
   assert.equal(geometry.ruler.count, 0);
   geometry.dispose();
+});
+
+test("沿排核对按实际横向位置移动，保留当前预览侧，边界不循环", () => {
+  assert.equal(maintenanceAisleSequence("room-01"), null);
+  for (const rack of definition.installation.racks) {
+    const sequence = maintenanceAisleSequence(rack.id)!;
+    const row = definition.installation.racks
+      .filter((r) => r.position[2] === rack.position[2])
+      .sort((a, b) => a.position[0] - b.position[0]);
+    const index = row.indexOf(rack);
+    assert.deepEqual(sequence, {
+      index,
+      count: 4,
+      previous: row[index - 1]?.id,
+      next: row[index + 1]?.id,
+    });
+  }
 });

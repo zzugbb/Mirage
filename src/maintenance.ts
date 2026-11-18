@@ -95,6 +95,28 @@ export function maintenanceAisle(rackId: string) {
     (a) => a.front.rackId === rackId || a.rear.rackId === rackId,
   );
 }
+// 只沿同一段双排布置按 X 排序，避免把不同纵向通道拼成一排。
+export function maintenanceAisleSequence(rackId: string) {
+  const current = maintenanceAisle(rackId);
+  if (!current) return null;
+  const side = current.front.rackId === rackId ? "front" : "rear";
+  const row = aisles
+    .filter(
+      (a) =>
+        a.front.bounds.minZ === current.front.bounds.minZ &&
+        a.rear.bounds.maxZ === current.rear.bounds.maxZ &&
+        a.front.position[1] === current.front.position[1],
+    )
+    .sort((a, b) => a.x - b.x);
+  const index = row.indexOf(current);
+  return {
+    index,
+    count: row.length,
+    previous: row[index - 1]?.[side].rackId,
+    next: row[index + 1]?.[side].rackId,
+  };
+}
+
 export function reserveGapText(gap: number) {
   if (Math.abs(gap) < 1e-8) return "预留边界相接";
   const magnitude = Math.abs(gap);

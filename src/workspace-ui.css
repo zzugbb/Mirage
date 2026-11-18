@@ -4515,6 +4515,12 @@
   display: grid;
   gap: 8px;
 }
+.aisle-sequence {
+  display: grid;
+  gap: 4px;
+  border-top: 1px solid #ffffff18;
+  padding-top: 5px;
+}
 .maintenance-view-controls .aisle-actions {
   flex-wrap: wrap;
 }
