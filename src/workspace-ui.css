@@ -87,6 +87,24 @@
   letter-spacing: 2px;
   color: #b0bdc6;
 }
+.study-task-return {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  gap: 2px;
+  background: #202a30;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+.study-task-return button {
+  color: var(--study-accent);
+  font-size: 12px;
+}
+.study-task-return button:last-child {
+  border-left: 1px solid var(--study-line);
+  border-radius: 0 6px 6px 0;
+  color: #a6b2bc;
+}
 .study-path {
   margin-left: 14px;
   flex: 1;
@@ -1439,6 +1457,11 @@
   }
   .workspace-shots summary span {
     display: none;
+  }
+  .study-task-return {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    justify-self: start;
   }
   .study-path {
     order: 2;

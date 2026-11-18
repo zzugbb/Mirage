@@ -2688,6 +2688,31 @@ export function Workspace() {
         <a className="study-brand" href="./" aria-label="Mirage 浮城首页">
           Mirage <span>浮城</span>
         </a>
+        {alarmVisit && (
+          <div
+            className="study-task-return"
+            role="group"
+            aria-label="告警排查往返"
+          >
+            <button
+              disabled={!ready || alarmReturning}
+              onClick={() => {
+                setAlarmReturning(true);
+                control({ type: "open-resource", id: "room-01" });
+              }}
+            >
+              ← 返回告警列表
+            </button>
+            <button
+              aria-label="结束告警排查"
+              title="结束排查，留在当前位置"
+              disabled={alarmReturning}
+              onClick={() => setAlarmVisit(null)}
+            >
+              ×
+            </button>
+          </div>
+        )}
         <nav className="study-path" aria-label="空间路径">
           {getPath(state).map((item, i) => (
             <span key={item}>
@@ -2923,27 +2948,6 @@ export function Workspace() {
                 aria-label="结束端口核对"
                 disabled={portReturning}
                 onClick={() => setPortVisit(null)}
-              >
-                ×
-              </button>
-            </div>
-          )}
-          {alarmVisit && (
-            <div className="room-layout-return" aria-label="告警排查往返">
-              <button
-                className="study-parent"
-                disabled={!ready || alarmReturning}
-                onClick={() => {
-                  setAlarmReturning(true);
-                  control({ type: "open-resource", id: "room-01" });
-                }}
-              >
-                ← 返回告警设备
-              </button>
-              <button
-                aria-label="结束告警排查"
-                disabled={alarmReturning}
-                onClick={() => setAlarmVisit(null)}
               >
                 ×
               </button>

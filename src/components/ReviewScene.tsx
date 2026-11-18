@@ -411,9 +411,9 @@ export function ReviewScene({
   const [view, setView] = useState<View>("interior");
   const [quality, setQuality] = useState(true);
   const [supported, setSupported] = useState(false);
-  const [orbit, setOrbit] = useState(false);
-  const [cutaway, setCutaway] = useState(true);
-  const [moreLabels, setMoreLabels] = useState(false);
+  const [orbit, setOrbit] = useState(true);
+  const [cutaway, setCutaway] = useState(false);
+  const [moreLabels, setMoreLabels] = useState(true);
   const airflowWorkspace = useAirflowWorkspace({
     engine,
     scope: `${layer}:${state.level}:${shotRevision}:${retry}`,
@@ -628,7 +628,6 @@ export function ReviewScene({
           callbacks.current.onFeedback(feedback);
         },
       );
-      active.autoOrbit = false;
       active.retainMaterials = true;
       const overlay = new ReviewDataGeometry();
       active.models.root.add(overlay.root);
