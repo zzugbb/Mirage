@@ -28,7 +28,7 @@ test("全部设备气流端点只关联既有制冷单元、格栅排和本机�
 });
 
 test("连续端点预览保持首次对象与面板状态，同一设备支路随回看更新且过期仍静态", () => {
-  const state = createWorkspace(true).scene;
+  const state = createWorkspace().scene;
   const context = airflowInspectionContext(state, "airflow", 0);
   for (const deviceId of ["srv-27", "srv-59"]) {
     const route = airflowSnapshot(60, spatialSnapshot(60).readings, deviceId)
@@ -81,7 +81,7 @@ test("连续端点预览保持首次对象与面板状态，同一设备支路�
 });
 
 test("独立气流按显式设备固定支路，回看保留端点核对；定位、图层和预设结束核对", () => {
-  const workspace = createWorkspace(true);
+  const workspace = createWorkspace();
   const context = airflowInspectionContext(workspace.scene, "airflow", 0);
   const route = airflowSnapshot(60, spatialSnapshot(60).readings, "srv-01")
     .routes[0];

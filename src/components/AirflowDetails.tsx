@@ -42,6 +42,7 @@ export function AirflowDetails({
   }, [focusRevision, compact]);
   const route = snapshot.routes[0];
   if (!route) return null;
+  const stage = airflowStage(view);
   return (
     <section
       className="airflow-details slice-evidence-details"
@@ -52,10 +53,15 @@ export function AirflowDetails({
       <details open={!compact} className="review-flow-explanation">
         <summary>气流端点与依据 · {entityById(route.deviceId)?.name}</summary>
         <p>{snapshot.label}</p>
-        {airflowStage(view) && <p>{airflowStage(view)!.boundary}</p>}
-        <p>
-          送风连续、回风分段；箭头表示假设方向。选择机柜或设备切换支路；预览端点保留当前支路，定位转为对象观察。
-        </p>
+        {stage ? (
+          <p>
+            <strong>{stage.direction}</strong>
+            <br />
+            {stage.boundary}
+          </p>
+        ) : (
+          <p>送风连续，回风分段。箭头表示假设方向。</p>
+        )}
         <ol aria-label="气流端点与读数">
           {route.endpoints.map((endpoint) => {
             const object = airflowEndpointObject(route, endpoint.kind);

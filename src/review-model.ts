@@ -75,12 +75,11 @@ export function createReview(): ReviewState {
     pendingTour: false,
   };
 }
-export function createWorkspace(reducedMotion = false): ReviewState {
+export function createWorkspace(): ReviewState {
   const state = createReview();
   return {
     ...state,
     scene: { ...state.scene, playing: true },
-    tour: createExperience(!reducedMotion).tour,
   };
 }
 export type ReviewAction =

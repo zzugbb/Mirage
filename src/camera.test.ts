@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   frameDistance,
   boundsFrameDistance,
+  pointsFrameDistance,
   cameraMinimumDistance,
 } from "./camera.ts";
 import { PerspectiveCamera, Vector3 } from "three";
@@ -112,6 +113,32 @@ test("定位机柜和长桥架时所有角点落在顶部工具下方，横向�
             assert.ok(((1 - screen.y) * h) / 2 > inset && screen.y > -1);
             assert.ok(Math.abs(screen.x) < 1);
           }
+    }
+  }
+});
+
+test("整机展开的最低部件避开底部操作条", () => {
+  const points = [
+    [0, -0.45, 0.35],
+    [0, 0.45, -0.35],
+  ];
+  const direction = [0, 0, 1];
+  for (const height of [704, 836]) {
+    const distance = pointsFrameDistance(
+      points,
+      direction,
+      1.2,
+      0.35,
+      0,
+      64 / height,
+    );
+    const camera = new PerspectiveCamera(40, 1.2, 0.01, 150);
+    camera.position.z = distance;
+    camera.updateMatrixWorld();
+    for (const point of points) {
+      const { y } = new Vector3().fromArray(point).project(camera);
+      const screenY = ((1 - y) * height) / 2;
+      assert.ok(screenY > 0 && screenY < height - 64);
     }
   }
 });

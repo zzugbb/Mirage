@@ -20,7 +20,7 @@ test("五个工作区视图职责分开，气流不落入功耗、温度染色�
     reviewLayers.map((item) => item.id),
     ["overview", "environment", "airflow", "power", "alarms"],
   );
-  const state = createWorkspace(true).scene,
+  const state = createWorkspace().scene,
     readings = spatialSnapshot(60).readings;
   for (const level of ["room", "rack", "device"] as const) {
     assert.equal(reviewPresentation("airflow", level).mode, "status");
@@ -43,7 +43,7 @@ test("五个工作区视图职责分开，气流不落入功耗、温度染色�
 
 test("四机型在温度和气流之间切换保留机构、对象、共享时间和分析；显式机房气流才安全归位", () => {
   for (const id of ["srv-01", "srv-08", "sw-01", "sto-01"]) {
-    let review = createWorkspace(true);
+    let review = createWorkspace();
     const part = partsForDevice(id).find((item) => item.node !== "lid")!;
     review = {
       ...review,

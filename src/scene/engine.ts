@@ -151,6 +151,10 @@ export class SceneEngine {
   );
   fixtureTargets = [new THREE.Vector3()];
   scene = new THREE.Scene();
+  private roomBackdrop = createBackdrop();
+  private inspectionBackdrop = createBackdrop(true);
+  private skyLight = new THREE.HemisphereLight("#faf9f5", "#343333", 0.45);
+
   camera = new THREE.PerspectiveCamera(40, 1, 0.01, 150);
   controls: OrbitControls;
   models = buildModels();
@@ -270,7 +274,7 @@ export class SceneEngine {
     });
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
     this.renderer.setClearColor("#181b1f");
-    this.scene.background = createBackdrop();
+    this.scene.background = this.roomBackdrop;
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -293,7 +297,7 @@ export class SceneEngine {
     );
     host.append(this.renderer.domElement);
     this.scene.fog = new THREE.FogExp2("#0b0e10", 0.008);
-    this.scene.add(new THREE.HemisphereLight("#faf9f5", "#343333", 0.45));
+    this.scene.add(this.skyLight);
     const key = (this.keyLight = new THREE.DirectionalLight("#fff9f0", 1.6));
     key.position.set(0, 9, 4);
     key.castShadow = true;
@@ -1780,24 +1784,36 @@ export class SceneEngine {
     };
     this.models.server.updateWorldMatrix(true, true);
     const bounds = new THREE.Box3();
-    this.models.server.traverse((object) => {
+    const representations = this.assemblies.get(
+      this.assemblyModel,
+    )?.representations;
+    const exterior =
+      representations && this.state.explosion <= internalStructureThreshold;
+    const body = representations
+      ? exterior
+        ? representations.exterior
+        : representations.schematic
+      : this.models.server;
+    // 按目标姿态取景，包括即将显示的外观或示意机壳。
+    body.traverse((object) => {
       if (!(object instanceof THREE.Mesh)) return;
-      if (!this.visible(object)) return;
-      let parent = object.parent;
-      while (parent && parent !== this.models.server) {
-        if (this.models.parts.has(parent.userData.entityId)) return;
-        parent = parent.parent;
+      for (
+        let node: THREE.Object3D | null = object;
+        node && node !== body;
+        node = node.parent
+      ) {
+        if (!node.visible || this.models.parts.has(node.userData.entityId))
+          return;
       }
-      include(new THREE.Box3().setFromObject(object));
+      if (!object.geometry.boundingBox) object.geometry.computeBoundingBox();
+      include(
+        object.geometry.boundingBox.clone().applyMatrix4(object.matrixWorld),
+      );
     });
-    for (const part of parts) {
+    if (exterior) return bounds;
+    for (const part of partsForDevice(this.state.deviceId)) {
       const group = this.models.parts.get(part.id);
       if (!group) continue;
-      const representations = this.assemblies.get(
-        this.assemblyModel,
-      )?.representations;
-      if (representations && this.state.explosion <= internalStructureThreshold)
-        continue;
       const base = this.partBases.get(part.id)?.toArray() ?? part.position;
       const target = new THREE.Vector3().fromArray(
         assemblyPartPosition(
@@ -1884,6 +1900,13 @@ export class SceneEngine {
     }
     const level: Level = deferDevice ? "rack" : this.state.level;
     if (deferDevice) focus = false;
+    const inRoom = level === "room";
+    this.scene.background = inRoom
+      ? this.roomBackdrop
+      : this.inspectionBackdrop;
+    this.skyLight.groundColor.set(inRoom ? "#343333" : "#788796");
+    this.skyLight.intensity = inRoom ? 0.45 : 1.25;
+    this.scene.environmentIntensity = inRoom ? 0.55 : 1.05;
     this.controls.maxPolarAngle =
       fixture && "kind" in fixture && fixture.kind === "smoke"
         ? Math.PI * 0.65
@@ -1903,12 +1926,15 @@ export class SceneEngine {
     }
     const object = this.objectFor(inspectionTarget ?? this.state.selected);
     const framingPoints: THREE.Vector3[] = [];
-    const bounds =
-      object && focus
+    const wholeDevice =
+      level === "device" &&
+      !inspectionTarget &&
+      (!focus || this.state.selected === this.state.deviceId);
+    const bounds = wholeDevice
+      ? this.deviceBounds(framingPoints)
+      : object && focus
         ? new THREE.Box3().setFromObject(object)
-        : level === "device"
-          ? this.deviceBounds(framingPoints)
-          : null;
+        : null;
     const contactPair =
       inspectionTarget && this.storageContact
         ? storageContactObjects(
@@ -1988,6 +2014,16 @@ export class SceneEngine {
       ? fixture.focus.distance
       : cameraMinimumDistance[level];
     let topInsetFraction = 0;
+    let bottomInsetFraction = 0;
+    if (wholeDevice) {
+      const frame = this.host.getBoundingClientRect();
+      const actions = this.host
+        .closest(".study-stage")
+        ?.querySelector(".review-object-actions")
+        ?.getBoundingClientRect();
+      if (actions?.height && frame.height)
+        bottomInsetFraction = (frame.bottom - actions.top) / frame.height;
+    }
     if (
       level === "room" &&
       focus &&
@@ -2019,6 +2055,8 @@ export class SceneEngine {
           direction.toArray(),
           this.camera.aspect,
           minimum,
+          topInsetFraction,
+          bottomInsetFraction,
         )
       : bounds
         ? boundsFrameDistance(
@@ -2777,7 +2815,8 @@ export class SceneEngine {
     for (const fade of this.fades)
       for (const item of fade.materials) item.material.dispose();
     this.environment.dispose();
-    (this.scene.background as THREE.Texture).dispose();
+    this.roomBackdrop.dispose();
+    this.inspectionBackdrop.dispose();
     this.renderer.dispose();
     canvas.remove();
   }

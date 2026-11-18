@@ -56,7 +56,7 @@ test("额外触点不改变当前手势、时间或结束位置", () => {
 });
 
 test("连续回看接管播放与巡游，保留展开设备、镜头修订、选择及图层", () => {
-  let state = workspacePreset(createWorkspace(true), "structure");
+  let state = workspacePreset(createWorkspace(), "structure");
   state = reviewTransition(state, { type: "scene", action: { type: "play" } });
   const before = state.scene;
   assert.equal(before.explosion, 0.8);

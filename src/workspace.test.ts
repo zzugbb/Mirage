@@ -9,13 +9,13 @@ import type { ReviewState } from "./review-model.ts";
 import { presentationKey } from "./domain.ts";
 import { tourSteps } from "./tour.ts";
 
-test("工作区默认播放与巡游，减少动态效果时保留手动探索", () => {
+test("工作区默认播放数据，留在机房等待主动巡游", () => {
   const main = createWorkspace();
   assert.equal(main.scene.time, 60);
   assert.equal(main.scene.playing, true);
-  assert.equal(main.tour.mode, "playing");
-  assert.equal(createWorkspace(true).tour.mode, "manual");
-  assert.equal(createWorkspace(true).scene.playing, true);
+  assert.equal(main.tour.mode, "manual");
+  assert.equal(main.scene.level, "room");
+  assert.equal(tick(main), main);
   assert.equal(createReview().scene.playing, false);
   assert.equal(createReview().tour.mode, "manual");
 });
@@ -27,8 +27,11 @@ const ready = (s: ReviewState) => ({
 const tick = (s: ReviewState) =>
   reviewTransition(s, { type: "tour-tick", delta: 0.25, feedback: ready(s) });
 
+const startTour = () =>
+  reviewTransition(createWorkspace(), { type: "tour-resume" });
+
 test("工作区巡游使用场景就绪信号，完整循环同步对象选择而不重置模拟时钟", () => {
-  let s = createWorkspace();
+  let s = startTour();
   assert.equal(
     reviewTransition(s, { type: "tour-tick", delta: 0.25, feedback: null }),
     s,
@@ -50,7 +53,7 @@ test("工作区巡游使用场景就绪信号，完整循环同步对象选择�
 });
 
 test("数据播放与巡游暂停独立；查找、图层和时间分析接管当前姿态", () => {
-  let s = tick(createWorkspace());
+  let s = tick(startTour());
   s = reviewTransition(s, { type: "scene", action: { type: "play" } });
   assert.equal(s.tour.mode, "playing");
   assert.equal(s.scene.playing, false);
@@ -66,13 +69,13 @@ test("数据播放与巡游暂停独立；查找、图层和时间分析接管�
     { type: "analysis", value: true },
     { type: "takeover" },
   ] as const) {
-    const initial = createWorkspace();
+    const initial = startTour();
     const manual = reviewTransition(initial, action);
     assert.equal(manual.tour.mode, "manual");
     assert.equal(manual.scene.time, initial.scene.time);
     assert.equal(manual.scene.focusRevision, initial.scene.focusRevision);
   }
-  const seek = reviewTransition(createWorkspace(), {
+  const seek = reviewTransition(startTour(), {
     type: "scene",
     action: { type: "seek", time: 30 },
   });

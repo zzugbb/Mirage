@@ -274,9 +274,7 @@ function reducer(
 }
 
 export function Workspace() {
-  const [review, control] = useReducer(reducer, undefined, () =>
-    createWorkspace(matchMedia("(prefers-reduced-motion: reduce)").matches),
-  );
+  const [review, control] = useReducer(reducer, undefined, createWorkspace);
   const { scene: state, layer, tour } = review;
   const selected = review.selectedId ?? state.selected;
   const [environmentComparisonOpen, setEnvironmentComparisonOpen] =
@@ -1633,8 +1631,8 @@ export function Workspace() {
     [],
   );
   const takeover = useCallback(() => control({ type: "takeover" }), []);
-  const pick = useCallback(
-    (id: string, enter = false, keepNavigation = false) => {
+  const selectObject = useCallback(
+    (id: string, enter = false) => {
       setAirflowVisit(null);
       setPowerLinkId((current) =>
         powerContextIncludes(id, state.deviceId, current) ? current : null,
@@ -1643,9 +1641,6 @@ export function Workspace() {
         networkContextIncludes(id, state.deviceId, current) ? current : null,
       );
       control({ type: enter ? "open-resource" : "pick", id });
-      setInspector(true);
-      if (!keepNavigation && matchMedia("(max-width: 1099px)").matches)
-        setNav(false);
       if (enter && !fixtureById(id)) {
         setQuery("");
         setFilter("all");
@@ -1653,12 +1648,22 @@ export function Workspace() {
     },
     [state.deviceId],
   );
+  const pick = useCallback(
+    (id: string, enter = false, keepNavigation = false) => {
+      selectObject(id, enter);
+      setInspector(true);
+      if (!keepNavigation && matchMedia("(max-width: 1099px)").matches)
+        setNav(false);
+    },
+    [selectObject],
+  );
   const stageRef = useRef<HTMLElement>(null);
   const focus = (
     id: string,
     {
       revealStage = matchMedia("(max-width: 600px)").matches,
       installation = false,
+      showDetails = true,
     } = {},
   ) => {
     setAirflowVisit(null);
@@ -1672,8 +1677,10 @@ export function Workspace() {
       type: installation ? "locate-installation" : "focus-resource",
       id,
     });
-    setInspector(true);
-    if (matchMedia("(max-width: 1099px)").matches) setNav(false);
+    if (showDetails) {
+      setInspector(true);
+      if (matchMedia("(max-width: 1099px)").matches) setNav(false);
+    }
     if (revealStage) {
       stageRef.current?.focus({ preventScroll: true });
       stageRef.current?.scrollIntoView({ block: "nearest" });
@@ -2392,8 +2399,6 @@ export function Workspace() {
         return;
       if (event.key.toLowerCase() === "f") {
         control({ type: "focus-resource", id: selected });
-        setInspector(true);
-        if (matchMedia("(max-width: 1099px)").matches) setNav(false);
       }
     };
     window.addEventListener("keydown", key);
@@ -2736,7 +2741,7 @@ export function Workspace() {
           {getPath(state).map((item, i) => (
             <span key={item}>
               {i > 0 && <i>/</i>}
-              <button onClick={() => pick(item, true)}>
+              <button onClick={() => selectObject(item, true)}>
                 {entityById(item)?.name ?? item}
               </button>
             </span>
@@ -3062,12 +3067,12 @@ export function Workspace() {
                       control({ type: "layer", layer: "power" });
                       setMetric("power");
                       setOnlyAlarms(false);
-                      pick(powerRack, false, true);
+                      selectObject(powerRack);
                       return;
                     }
                     setRackView("inlet");
                     control({ type: "layer", layer: "environment" });
-                    pick(inletSelection, false, true);
+                    selectObject(inletSelection);
                     const target = roomAirflowTarget(
                       inletSelection,
                       state.deviceId,
@@ -3109,6 +3114,10 @@ export function Workspace() {
               scroll={alarmScroll}
               restoreRevision={alarmRestore}
               returned={alarmReturned}
+              onSelect={(id) => {
+                selectObject(id);
+                control({ type: "analysis", value: false });
+              }}
               onPreview={(id) => beginAlarmInspection(id, "preview")}
             />
           ) : state.level === "room" && rackView === "power" ? (
@@ -3132,12 +3141,12 @@ export function Workspace() {
               onRack={(id) => {
                 setPowerScope("rack");
                 setPowerRack(id);
-                pick(id, false, true);
+                selectObject(id);
               }}
               onPreview={(id) => {
                 const device = deviceById(id);
                 if (device) setPowerRack(device.rackId);
-                pick(id, false, true);
+                selectObject(id);
               }}
               onInspect={(id, internal) =>
                 inspectPowerOverview(id, internal ? "internal" : "installation")
@@ -3161,7 +3170,7 @@ export function Workspace() {
                 setFilter("all");
                 setOnlyAlarms(false);
                 control({ type: "analysis", value: false });
-                focus(id, { installation: true });
+                focus(id, { installation: true, showDetails: false });
               }}
               onInspectBranch={(branch) => {
                 setLayoutVisit({ id: branch.rack.id, layer, metric });
@@ -3182,7 +3191,7 @@ export function Workspace() {
                   }));
                 }
                 setLayoutCrossing(id);
-                pick(pair.lightId, false, true);
+                selectObject(pair.lightId);
               }}
               onInspectCrossing={(id) => {
                 const point = roomLayoutCrossings.find((p) => p.id === id);
@@ -3224,13 +3233,13 @@ export function Workspace() {
               restoreRevision={layoutRestore}
               scroll={layoutScroll}
               onPreview={(id) => {
-                pick(id, false, true);
+                selectObject(id);
               }}
               onLocate={(id) => {
                 setLayoutVisit({ id, layer, metric });
                 setLayoutReturning(false);
                 setLayoutRestore(0);
-                focus(id);
+                focus(id, { showDetails: false });
               }}
               onDetails={(id) => {
                 setLayoutVisit({ id, layer, metric });
@@ -3244,7 +3253,7 @@ export function Workspace() {
                 setLayoutVisit({ id, layer, metric });
                 setLayoutReturning(false);
                 setLayoutRestore(0);
-                pick(id, true, true);
+                selectObject(id, true);
                 setRackView("installation");
                 setOnlyAlarms(false);
               }}
@@ -3309,7 +3318,7 @@ export function Workspace() {
                 setInletRack(id);
                 setInletScope("rack");
                 setInletSelection(id);
-                pick(id, false, true);
+                selectObject(id);
                 const target = roomAirflowTarget(id, state.deviceId);
                 setSliceControls((current) =>
                   alignAirflowSlice(current, target?.rowId ?? null),
@@ -3320,7 +3329,7 @@ export function Workspace() {
               onPreview={(id) => {
                 setInletRack(rackForDevice(id).id);
                 setInletSelection(id);
-                pick(id, false, true);
+                selectObject(id);
                 if (
                   inletView &&
                   [inletView.pair.firstId, inletView.pair.secondId].includes(id)
@@ -3383,13 +3392,13 @@ export function Workspace() {
               onPreview={(id) => {
                 setNetworkMapSelection(id);
                 setNetworkMapLink(null);
-                pick(id);
+                selectObject(id);
                 control({ type: "analysis", value: false });
               }}
               onLocate={(id) => {
                 setNetworkMapSelection(id);
                 setNetworkMapLink(null);
-                pick(id, true);
+                selectObject(id, true);
               }}
               onTrace={(id) => {
                 const link = networkLinkById(id);
@@ -3413,7 +3422,7 @@ export function Workspace() {
               onSize={setComparisonSize}
               onRow={setComparisonRow}
               onExpand={setComparisonRack}
-              onPreview={(id) => pick(id, false, true)}
+              onPreview={selectObject}
               ready={ready}
               onInspect={(range) => {
                 pick(range.rackId, true, true);
@@ -3499,10 +3508,12 @@ export function Workspace() {
               filtered={!!query.trim() || filter !== "all" || onlyAlarms}
               ready={ready}
               visible={nav}
-              onPick={(id) => pick(id, false, true)}
+              onPick={selectObject}
               onDetails={(id) => pick(id)}
-              onFocus={(id) => focus(id, { installation: !pduById(id) })}
-              onOpen={(id) => pick(id, true)}
+              onFocus={(id) =>
+                focus(id, { installation: !pduById(id), showDetails: false })
+              }
+              onOpen={(id) => selectObject(id, true)}
               onList={() => setRackView("list")}
               onClear={() => {
                 setQuery("");
@@ -3545,7 +3556,11 @@ export function Workspace() {
                               </small>
                               <button
                                 disabled={!ready}
-                                onClick={() => focus(unitQuery.rack!.id)}
+                                onClick={() =>
+                                  focus(unitQuery.rack!.id, {
+                                    showDetails: false,
+                                  })
+                                }
                               >
                                 定位 {unitQuery.rack!.name}
                               </button>
@@ -3611,7 +3626,7 @@ export function Workspace() {
                             aria-pressed={selected === row.id}
                             title={`${row.name} · ${row.location} · ${rowStatus}`}
                             aria-label={`${row.name}，${rowStatus}`}
-                            onClick={() => pick(row.id)}
+                            onClick={() => selectObject(row.id)}
                           >
                             <span className="study-resource-title">
                               <strong>{text.title}</strong>
@@ -3644,10 +3659,13 @@ export function Workspace() {
                               aria-label={`${unitQuery ? "定位安装位置" : "定位"} ${row.name}`}
                               onClick={() =>
                                 unitQuery
-                                  ? focus(row.id, { installation: true })
+                                  ? focus(row.id, {
+                                      installation: true,
+                                      showDetails: false,
+                                    })
                                   : locateOnly
-                                    ? pick(row.id, true)
-                                    : focus(row.id)
+                                    ? selectObject(row.id, true)
+                                    : focus(row.id, { showDetails: false })
                               }
                             >
                               定位
@@ -3672,7 +3690,7 @@ export function Workspace() {
                               <button
                                 disabled={!ready}
                                 aria-label={`${resourceOpenLabel(state, row.id)} · ${row.name}`}
-                                onClick={() => pick(row.id, true)}
+                                onClick={() => selectObject(row.id, true)}
                               >
                                 进入
                               </button>
@@ -3914,7 +3932,7 @@ export function Workspace() {
               takeover();
               setNetworkLinkId(null);
             }}
-            onSelect={pick}
+            onSelect={selectObject}
             onPreviewInput={(id) => {
               pick(id);
               return () => {
@@ -3924,7 +3942,7 @@ export function Workspace() {
                 control({ type: "analysis", value: review.analysis });
               };
             }}
-            onFocus={() => focus(selected)}
+            onFocus={() => focus(selected, { showDetails: false })}
             onPhase={setPhase}
             onFeedback={setFeedback}
             shotRevision={revision}
@@ -3965,7 +3983,7 @@ export function Workspace() {
                   ready={ready}
                   phase={phase}
                   dispatch={dispatch}
-                  onOpen={(id) => pick(id, true)}
+                  onOpen={(id) => selectObject(id, true)}
                   onExtract={(id) => control({ type: "extract-resource", id })}
                 />
               ) : null

@@ -2321,7 +2321,6 @@ export function ReviewScene({
                   snapshot={airflow}
                   view={flowView}
                   visit={airflowVisit}
-                  time={state.time}
                   ready={sceneSettled}
                   panelRef={airflowWorkspace.panel}
                   sliceEnabled={airflowWorkspace.sliceEnabled}

@@ -34,19 +34,19 @@ export function useAirflowWorkspace({
     if (!focus.current) return;
     let frame = 0;
     const restore = () => {
-      const button = panel.current?.querySelector<HTMLButtonElement>(
-        view ? '[aria-pressed="true"]' : '[data-airflow-view="all"]',
+      const selector = panel.current?.querySelector<HTMLSelectElement>(
+        'select[aria-label="气流观察范围"]',
       );
-      if (!button) {
+      if (!selector) {
         focus.current = null;
         return;
       }
-      if (engine.current?.moving || button.disabled) {
+      if (engine.current?.moving || selector.disabled) {
         frame = requestAnimationFrame(restore);
         return;
       }
       focus.current = null;
-      button.focus({ preventScroll: true });
+      selector.focus({ preventScroll: true });
     };
     frame = requestAnimationFrame(restore);
     return () => cancelAnimationFrame(frame);

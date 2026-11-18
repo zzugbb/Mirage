@@ -7,8 +7,16 @@ import { RectAreaLightUniformsLib } from "three/addons/lights/RectAreaLightUnifo
 import definition from "../../assets/public/scenes/room-01.json" with { type: "json" };
 
 /** 线性纹理背景与模型经过同一色调映射，标准和后处理画质保持一致。 */
-export function createBackdrop() {
-  const backdrop = new THREE.DataTexture(new Uint8Array([3, 4, 5, 255]), 1, 1);
+export function createBackdrop(inspection = false) {
+  const pixels = inspection
+    ? [12, 17, 23, 255, 24, 33, 42, 255, 17, 23, 31, 255]
+    : [3, 4, 5, 255];
+  const backdrop = new THREE.DataTexture(
+    new Uint8Array(pixels),
+    1,
+    pixels.length / 4,
+  );
+  backdrop.magFilter = THREE.LinearFilter;
   backdrop.colorSpace = THREE.LinearSRGBColorSpace;
   backdrop.needsUpdate = true;
   return backdrop;

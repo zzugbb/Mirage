@@ -37,6 +37,7 @@ export function pointsFrameDistance(
   aspect: number,
   minimum: number,
   topInsetFraction = 0,
+  bottomInsetFraction = 0,
 ) {
   const length = Math.hypot(...direction);
   const n = direction.map((value) => value / length);
@@ -49,8 +50,9 @@ export function pointsFrameDistance(
     n[0] * right[1] - n[1] * right[0],
   ];
   const tangent = Math.tan((40 * Math.PI) / 360);
-  // 镜头中心不变，只收紧上半画幅；横向与下方继续使用完整视野。
+  // 保持目标中心，分别为场景上下沿的操作区留出画幅。
   const upperField = 1 - 2 * Math.min(0.45, Math.max(0, topInsetFraction));
+  const lowerField = 1 - 2 * Math.min(0.45, Math.max(0, bottomInsetFraction));
   let result = minimum;
   for (const point of points) {
     const dot = (axis: number[]) =>
@@ -60,7 +62,8 @@ export function pointsFrameDistance(
       result,
       (Math.abs(dot(right)) * 1.12) / (tangent * Math.max(0.2, aspect)) +
         dot(n),
-      ((vertical > 0 ? vertical / upperField : -vertical) * 1.12) / tangent +
+      ((vertical > 0 ? vertical / upperField : -vertical / lowerField) * 1.12) /
+        tangent +
         dot(n),
     );
   }

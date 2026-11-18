@@ -21,6 +21,7 @@ export function AlarmQueue({
   scroll,
   restoreRevision,
   returned,
+  onSelect,
   onPreview,
 }: {
   readings: Map<string, SpatialReading>;
@@ -34,6 +35,7 @@ export function AlarmQueue({
   scroll: RefObject<number>;
   restoreRevision: number;
   returned: AlarmVisit | null;
+  onSelect: (id: string) => void;
   onPreview: (id: string) => void;
 }) {
   const queue = alarmQueue(readings, query, severity);
@@ -122,7 +124,7 @@ export function AlarmQueue({
             className="alarm-queue-preview"
             data-alarm-id={device.id}
             aria-pressed={selected === device.id}
-            onClick={() => onPreview(device.id)}
+            onClick={() => onSelect(device.id)}
           >
             <strong>
               {device.name}
@@ -135,6 +137,14 @@ export function AlarmQueue({
               <span>进风 {reading.temperature?.toFixed(1) ?? "—"} °C</span>
             </small>
           </button>
+          {selected === device.id && (
+            <button
+              className="alarm-queue-details"
+              onClick={() => onPreview(device.id)}
+            >
+              查看告警详情
+            </button>
+          )}
         </article>
       ))}
       {!queue.rows.length && (

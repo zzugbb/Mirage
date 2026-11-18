@@ -1,7 +1,6 @@
 import type { ReactNode, RefObject } from "react";
 import type { AirflowSnapshot } from "../airflow";
 import { airflowViews, type AirflowView } from "../airflow-view";
-import { airflowStage } from "../airflow-stage";
 import type { AirflowInspection } from "../airflow-inspection";
 import { entityById } from "../domain";
 
@@ -9,7 +8,6 @@ export function AirflowPanel({
   snapshot,
   view,
   visit,
-  time,
   ready,
   panelRef,
   sliceEnabled,
@@ -24,7 +22,6 @@ export function AirflowPanel({
   snapshot: AirflowSnapshot | null;
   view: AirflowView | null;
   visit: AirflowInspection | null;
-  time: number;
   ready: boolean;
   panelRef: RefObject<HTMLElement | null>;
   sliceEnabled: boolean;
@@ -36,8 +33,7 @@ export function AirflowPanel({
   onRoom: () => void;
   analysisControl: ReactNode;
 }) {
-  const route = snapshot?.routes[0],
-    stage = airflowStage(view);
+  const route = snapshot?.routes[0];
   return (
     <section
       ref={panelRef}
@@ -51,29 +47,32 @@ export function AirflowPanel({
         }
       }}
     >
-      <strong>气流 · {stage?.title ?? "代表路径"}</strong>
       {route ? (
         <>
-          <span>
-            {entityById(route.deviceId)?.name} · t+{time}s
-          </span>
-          <small>{route.status} · 前进后出假设</small>
-          <div className="airflow-view-actions" aria-label="气流观察视角">
-            {airflowViews.map((item) => (
-              <button
-                key={item.id}
-                data-airflow-view={item.id}
-                disabled={!ready}
-                aria-pressed={view === item.id}
-                onClick={() => onObserve(item.id)}
-              >
-                {item.name}
-              </button>
-            ))}
+          <div className="airflow-view-actions">
+            <strong>{entityById(route.deviceId)?.name}</strong>
+            <select
+              aria-label="气流观察范围"
+              value={view ?? ""}
+              disabled={!ready}
+              onChange={(event) => {
+                const next = airflowViews.find(
+                  (item) => item.id === event.target.value,
+                );
+                if (next) onObserve(next.id);
+              }}
+            >
+              <option value="" disabled>
+                分段观察
+              </option>
+              {airflowViews.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}
+                </option>
+              ))}
+            </select>
           </div>
-          <span className="airflow-direction">
-            {stage?.direction ?? "送风 → 格栅 → 设备进风 → 回风假设"}
-          </span>
+          {!route.animated && <small>{route.status}</small>}
           {view && (
             <button disabled={!ready} onClick={onReturn}>
               返回原视角

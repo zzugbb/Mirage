@@ -314,7 +314,7 @@ export function RackInstallation({
           </>
         ) : (
           <small>
-            选择设备查看详情，明确定位才移动镜头。
+            选择设备后可查看详情或定位。
             <br />↑ ↓ 切换焦点 · Enter 选择
           </small>
         )}
