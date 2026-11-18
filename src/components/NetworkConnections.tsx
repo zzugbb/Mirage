@@ -8,7 +8,6 @@ import { modelForDevice, unitLabel } from "../catalog";
 import {
   networkLinksFor,
   networkDeviceId,
-  networkSettings,
   sourcePorts,
   switchPorts,
   switchRole,
@@ -26,10 +25,6 @@ export function NetworkConnections({
   selectedId,
   activeLinkId,
   ready,
-  canObserve,
-  observing,
-  onObserve,
-  onReturnView,
   onSelect,
   onLocate,
   onTrace,
@@ -48,10 +43,6 @@ export function NetworkConnections({
   selectedId: string;
   activeLinkId: string | null;
   ready: boolean;
-  canObserve: boolean;
-  observing: boolean;
-  onObserve: () => void;
-  onReturnView: () => void;
   onSelect: (id: string) => void;
   onLocate: (id: string) => void;
   onTrace: (id: string | null) => void;
@@ -124,8 +115,6 @@ export function NetworkConnections({
             <SwitchPorts
               check={check}
               ready={ready}
-              canObserve={canObserve}
-              observing={observing}
               traced={activeLink?.target === device.id}
               restoreRevision={portRestore}
               onChange={onPortChange}
@@ -150,8 +139,6 @@ export function NetworkConnections({
               onInspect={(id, linkId) =>
                 onPortLeave(check, id, "inspect", linkId)
               }
-              onObserve={onObserve}
-              onReturnView={onReturnView}
             />
           );
         })()}
@@ -296,10 +283,9 @@ export function NetworkConnections({
       ) : null}
       <details>
         <summary>配置边界</summary>
-        <p>未采集链路状态、协商速率或流量；设备离线不等于断链。</p>
+        <p>链路状态、协商速率与流量均未采集。设备离线不能判定断链。</p>
         <p className="network-boundary">
-          未配置不等于物理空闲或可用；A/B
-          仅区分接入组，不证明上联独立或冗余保障。场景标记使用设备代表位置，内部使用所属部件，均非物理端口定位。
+          A/B 为配置分组，独立上联和冗余未验证。100G 上联未配置，物理占用未知。
         </p>
         {device &&
           !isSwitch &&
@@ -309,10 +295,7 @@ export function NetworkConnections({
               对应两控制器各一条接入，另两口尚未配置；内部仍为配置示意。
             </p>
           )}
-        <p>
-          {networkSettings.description}。100G
-          端口未定义交换机间互联或上联骨干，不按未连接配置推断链路异常。
-        </p>
+        <p>标记对应设备或所属部件的代表位置，物理插口与施工布线未建模。</p>
       </details>
     </ConnectionSection>
   );

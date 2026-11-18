@@ -5,17 +5,13 @@ import {
   type NetworkLink,
 } from "../network";
 import { deviceById } from "../installation";
-import { NetworkViewActions } from "./NetworkViewActions";
 
 export function NetworkTrace({
   link,
   deviceId,
   inside,
+  showEndMark,
   ready,
-  canObserve,
-  observing,
-  onObserve,
-  onReturnView,
   onPreview,
   onLocate,
   onInspect,
@@ -24,11 +20,8 @@ export function NetworkTrace({
   link: NetworkLink;
   deviceId: string | null;
   inside: string | null;
+  showEndMark: boolean;
   ready: boolean;
-  canObserve: boolean;
-  observing: boolean;
-  onObserve: () => void;
-  onReturnView: () => void;
   onPreview: (id: string) => void;
   onLocate: (id: string) => void;
   onInspect: (id: string) => void;
@@ -54,7 +47,7 @@ export function NetworkTrace({
             ))}
           </select>
         </label>
-        <button onClick={() => onTrace(null)}>结束标记</button>
+        {showEndMark && <button onClick={() => onTrace(null)}>结束标记</button>}
       </header>
       <div
         className="network-endpoint-picker"
@@ -98,14 +91,6 @@ export function NetworkTrace({
           查看{current.partName}
         </button>
       </div>
-      {canObserve && (
-        <NetworkViewActions
-          active={observing}
-          ready={ready}
-          onObserve={onObserve}
-          onReturn={onReturnView}
-        />
-      )}
     </section>
   );
 }

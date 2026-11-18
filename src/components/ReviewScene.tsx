@@ -53,7 +53,6 @@ import {
 } from "../power-view";
 import { PowerViewActions } from "./PowerViewActions";
 import type { NetworkViewCommand } from "../network-view";
-import { NetworkViewActions } from "./NetworkViewActions";
 import type { SliceViewCommand } from "../slice-view";
 import { SliceEvidenceGeometry } from "../scene/slice-evidence";
 import type { SliceDeviceInspection } from "../slice-device";
@@ -120,7 +119,7 @@ import { powerScene } from "../power-paths";
 import { PowerGeometry } from "../scene/power";
 import { pduById, powerSettings } from "../power-config";
 import { qualityNames } from "../status";
-import { networkMarkers, networkLinkById } from "../network";
+import { networkMarkers, networkLinkById, switchRole } from "../network";
 import { NetworkGeometry } from "../scene/network";
 
 export function ReviewScene({
@@ -2141,24 +2140,36 @@ export function ReviewScene({
           )}
           {network.length > 0 && networkLink && (
             <div className="network-scene-key">
-              <strong>网络接入 · {networkLink.speedGbps} Gb/s 配置</strong>
+              <strong>网络接入 {switchRole(networkLink.target)}</strong>
               <small>
-                {state.level === "device"
-                  ? "所属部件示意 · 非物理端口定位"
-                  : "设备代表位置 · 非物理端口定位"}
+                {state.level === "device" ? "所属部件示意" : "设备位置示意"}
               </small>
-              {network.length === 2 &&
-                network.every((marker) => marker.point) && (
-                  <NetworkViewActions
-                    active={networkViewActive}
-                    ready={sceneSettled}
-                    onObserve={() => onNetworkView("observe")}
-                    onReturn={() => onNetworkView("return")}
-                  />
+              <div className="network-view-actions">
+                {network.length === 2 &&
+                  network.every((marker) => marker.point) && (
+                    <button
+                      aria-disabled={!sceneSettled}
+                      onClick={() => {
+                        if (sceneSettled)
+                          onNetworkView(
+                            networkViewActive ? "return" : "observe",
+                          );
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key !== "Escape" || !networkViewActive)
+                          return;
+                        event.preventDefault();
+                        event.stopPropagation();
+                        if (sceneSettled) onNetworkView("return");
+                      }}
+                    >
+                      {networkViewActive ? "返回原视角" : "同框观察两端"}
+                    </button>
+                  )}
+                {!networkViewActive && (
+                  <button onClick={onClearNetwork}>结束标记</button>
                 )}
-              <button onClick={onClearNetwork} aria-label="关闭网络端点标记">
-                ×
-              </button>
+              </div>
             </div>
           )}
           {layer === "overview" ? (

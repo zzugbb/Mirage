@@ -133,7 +133,7 @@ import {
   peakScopeIds,
   type PeakProcessState,
 } from "./peak-provenance";
-import { networkViewPoints, type NetworkViewCommand } from "./network-view";
+import type { NetworkViewCommand } from "./network-view";
 import type { SliceViewCommand } from "./slice-view";
 import { inspectSliceDevice, type SliceCheck } from "./slice-device";
 import { SliceEvidenceDetails } from "./components/SliceEvidenceDetails";
@@ -229,6 +229,7 @@ import {
   networkContextIncludes,
   networkDeviceId,
   networkLinkById,
+  networkMarkers,
   switchRole,
 } from "./network";
 import { CoolingConnections } from "./components/CoolingConnections";
@@ -4564,13 +4565,10 @@ export function Workspace() {
                 deviceId={networkDeviceId(selected, state.deviceId)}
                 inside={state.level === "device" ? state.deviceId : null}
                 ready={ready}
-                canObserve={
-                  networkViewPoints(state, selected, networkTrace.id).length ===
-                  2
+                showEndMark={
+                  !!isolatedPartId ||
+                  networkMarkers(state, selected, networkTrace.id).length === 0
                 }
-                observing={networkViewActive}
-                onObserve={() => requestNetworkView("observe")}
-                onReturnView={() => requestNetworkView("return")}
                 onPreview={(id) => {
                   if (id !== selected) networkControlFocus.current = "endpoint";
                   pick(id);
@@ -5749,13 +5747,6 @@ export function Workspace() {
                         state={state}
                         selectedId={selected}
                         activeLinkId={activeNetworkLink}
-                        canObserve={
-                          networkViewPoints(state, selected, activeNetworkLink)
-                            .length === 2
-                        }
-                        observing={networkViewActive}
-                        onObserve={() => requestNetworkView("observe")}
-                        onReturnView={() => requestNetworkView("return")}
                         ready={ready}
                         onSelect={pick}
                         onLocate={(id) => focus(id, { installation: true })}

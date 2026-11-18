@@ -2271,9 +2271,9 @@
   width: auto;
   position: relative;
   gap: 6px;
-  padding: 0 24px 12px 0;
-  border-bottom: 1px solid #43544f;
-  margin-bottom: 10px;
+  padding: 8px 10px;
+  background: #1d2931ed;
+  border-radius: 5px;
   white-space: normal;
   max-width: 290px;
 }
@@ -2289,15 +2289,6 @@
 .network-scene-key strong {
   font-size: 11px;
   color: #cfe3dc;
-}
-.network-scene-key button {
-  pointer-events: auto;
-  position: absolute;
-  right: 0;
-  top: 0;
-  padding: 2px 4px;
-  color: #c1d9d0;
-  font-size: 14px;
 }
 @media (max-width: 600px) {
   .workspace-ui .review-legend:has(.network-scene-key) {
@@ -4340,9 +4331,11 @@
   border: 1px solid #ffffff20;
   pointer-events: auto;
 }
-.workspace-ui .network-view-actions button[aria-pressed="true"] {
-  background: #344f54;
-  color: #daeeee;
+.workspace-ui .network-view-actions button[aria-disabled="true"] {
+  opacity: 0.55;
+}
+.network-scene-key .network-view-actions {
+  margin: 0;
 }
 .power-view-actions select {
   pointer-events: auto;
@@ -4380,7 +4373,6 @@
   display: block;
   margin-top: 6px;
 }
-.workspace-ui .network-scene-key .network-view-actions button,
 .workspace-ui .power-scene-key .power-view-actions button {
   position: static;
   width: auto;

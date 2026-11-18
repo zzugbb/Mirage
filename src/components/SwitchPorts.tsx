@@ -6,37 +6,28 @@ import {
 } from "../switch-ports";
 import { deviceById, rackForDevice } from "../installation";
 import { unitLabel } from "../catalog";
-import { NetworkViewActions } from "./NetworkViewActions";
 import { sourcePorts, switchRole } from "../network";
 
 export function SwitchPorts({
   restoreRevision,
   check,
   ready,
-  canObserve,
-  observing,
   traced,
   onChange,
   onSelect,
   onPreview,
   onLocate,
   onInspect,
-  onObserve,
-  onReturnView,
 }: {
   restoreRevision: number;
   check: SwitchPortCheck;
   ready: boolean;
-  canObserve: boolean;
-  observing: boolean;
   traced: boolean;
   onChange: (check: SwitchPortCheck) => void;
   onSelect: (port: number) => void;
   onPreview: (id: string) => void;
   onLocate: (id: string) => void;
   onInspect: (id: string, linkId: string) => void;
-  onObserve: () => void;
-  onReturnView: () => void;
 }) {
   const root = useRef<HTMLElement>(null);
   useEffect(() => {
@@ -135,9 +126,7 @@ export function SwitchPorts({
           </div>
         </div>
       ))}
-      <small>
-        实线框：已配置 · 虚线框：未配置；此图按编号排列，不代表物理面板。
-      </small>
+      <small>实框已配置 · 虚框未配置 · 按逻辑口编号排列</small>
       {chosen ? (
         <div className="switch-port-selected" aria-label="所选逻辑端口">
           <strong>
@@ -172,14 +161,6 @@ export function SwitchPorts({
                   标记两端
                 </button>
               )}
-              {canObserve && (
-                <NetworkViewActions
-                  active={observing}
-                  ready={ready}
-                  onObserve={onObserve}
-                  onReturn={onReturnView}
-                />
-              )}
               <div className="switch-port-actions">
                 <button
                   disabled={!ready}
@@ -200,20 +181,14 @@ export function SwitchPorts({
                   对端部件
                 </button>
               </div>
-              <p>
-                场景两端沿用整机代表位置，内部沿用配置所属部件，不定位物理插口。
-              </p>
             </>
           ) : (
-            <p>
-              未配置不表示物理空闲、可用或断链。未定义对端，不生成连线、流量或告警。
-            </p>
+            <p>无配置对端，物理占用未知。</p>
           )}
         </div>
       ) : (
         <p>选择已配置编号标记两端。方向键在同组移动，Enter 选择。</p>
       )}
-      <p>未采集链路状态、协商速率或流量；A/B 不证明独立上联或冗余保障。</p>
     </section>
   );
 }
