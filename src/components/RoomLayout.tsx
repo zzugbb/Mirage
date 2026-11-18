@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef, type RefObject } from "react";
 import {
   roomLayoutItems,
   layoutDeviceMatches,
+  layoutDeviceRows,
   roomLayoutBranches,
   roomLayoutCrossings,
   roomLayoutCeilingFootprints,
@@ -18,31 +19,11 @@ import { devices } from "../installation";
 import { floorGrilles, floorGrilleSettings } from "../floor-grilles";
 import type { GrilleBranch } from "../grille-inspection";
 const scopes = {
-  equipment: [
-    "机柜与设备",
-    "八柜与主要设施",
-    "查找位置或柜内设备",
-    "B03、SRV-01、存储、入口",
-  ],
-  fixtures: [
-    "环境与安全",
-    "七处环境与安全设施",
-    "查找设施或配置位置",
-    "烟感、环境、左墙、感应线",
-  ],
-  ceiling: [
-    "顶灯与桥架",
-    "顶灯与桥架的投影交叉",
-    "按顶灯与柜排查找交叉处",
-    "中央 B 排、左侧顶灯、桥架编号",
-  ],
-  grilles: [
-    "柜前格栅",
-    "柜前铺设与代表进风设备",
-    "查找柜位、代表设备或格栅编号",
-    "B03、设备编号、grille-row-b",
-  ],
-} satisfies Record<RoomLayoutScope, string[]>;
+  equipment: { name: "机柜与设备", hint: "查找柜号、设备编号或机型" },
+  fixtures: { name: "环境与安全", hint: "查找设施或配置位置" },
+  ceiling: { name: "顶灯与桥架", hint: "查找顶灯、桥架或柜排" },
+  grilles: { name: "柜前格栅", hint: "查找柜位、代表设备或格栅" },
+} satisfies Record<RoomLayoutScope, { name: string; hint: string }>;
 
 export function RoomLayout({
   selected,
@@ -91,6 +72,7 @@ export function RoomLayout({
   boundaryOpen: boolean;
   onBoundaryOpen: (open: boolean) => void;
 }) {
+  const search = useRef<HTMLInputElement>(null);
   const host = useRef<HTMLElement>(null),
     map = useRef<HTMLDivElement>(null);
   const items = roomLayoutScopeItems(scope);
@@ -117,13 +99,29 @@ export function RoomLayout({
         host.current.querySelector<HTMLButtonElement>(
           `[data-device-result="${selected}"]`,
         ) ??
+        host.current.querySelector<HTMLButtonElement>(
+          ".room-layout-selection .layout-device-actions button",
+        ) ??
         map.current?.querySelector<HTMLButtonElement>(
           `[data-layout-id="${active}"]`,
         );
       button?.focus({ preventScroll: true });
-      button?.scrollIntoView({ block: "nearest" });
+      (button?.closest("[data-layout-device-row]") ?? button)?.scrollIntoView({
+        block: "nearest",
+      });
     }
   }, [visible, restoreRevision, scroll]);
+  useLayoutEffect(() => {
+    const focused = document.activeElement;
+    if (
+      visible &&
+      focused instanceof HTMLElement &&
+      focused.dataset.deviceResult === selected
+    )
+      focused
+        .closest("[data-layout-device-row]")
+        ?.scrollIntoView({ block: "nearest" });
+  }, [visible, selected]);
   const x = (value: number) => 140 + value * 16;
   const z = (value: number) => 126 + value * 16;
   const matches = items.filter((item) => roomLayoutMatches(item, query));
@@ -134,6 +132,28 @@ export function RoomLayout({
         (rackHits.length === 1 ? rackHits[0] : undefined))
       : undefined;
   const results = resultRack ? layoutDeviceMatches(resultRack.id, query) : [];
+  const selectedDevice =
+    scope === "equipment"
+      ? layoutDeviceRows.find((device) => device.id === selected)
+      : undefined;
+  const selectedInResults = results.some((device) => device.id === selected);
+  const deviceActions = selectedDevice && (
+    <div className="layout-device-actions">
+      <button
+        disabled={!ready}
+        aria-label={`查看 ${selectedDevice.name} 安装位`}
+        onClick={() => onDeviceInstallation(selectedDevice.id)}
+      >
+        查看安装位 ↗
+      </button>
+      <button
+        aria-label={`查看 ${selectedDevice.name} 详情`}
+        onClick={() => onDetails(selectedDevice.id)}
+      >
+        设备详情
+      </button>
+    </div>
+  );
   return (
     <section
       ref={host}
@@ -143,36 +163,45 @@ export function RoomLayout({
         scroll.current = event.currentTarget.scrollTop;
       }}
     >
-      <header>
-        <strong>机房布置</strong>
-        <p>{scopes[scope][1]} · 固定俯视方向</p>
-      </header>
-      <div className="room-layout-scopes" role="group" aria-label="布置图范围">
-        {(Object.keys(scopes) as RoomLayoutScope[]).map((key) => (
-          <button
-            key={key}
-            aria-pressed={scope === key}
-            onClick={() => onScope(key)}
-          >
-            {scopes[key][0]}
-          </button>
-        ))}
+      <div className="room-layout-toolbar">
+        <select
+          aria-label="布置图范围"
+          value={scope}
+          onChange={(event) => onScope(event.target.value as RoomLayoutScope)}
+        >
+          {(Object.keys(scopes) as RoomLayoutScope[]).map((key) => (
+            <option key={key} value={key}>
+              {scopes[key].name}
+            </option>
+          ))}
+        </select>
+        <button disabled={!ready} onClick={onPlan}>
+          俯看三维布置
+        </button>
       </div>
-      <label>
-        {scopes[scope][2]}
+      <div className="room-layout-search">
         <input
+          ref={search}
           aria-label="布置图查找"
           value={query}
-          placeholder={scopes[scope][3]}
+          placeholder={scopes[scope].hint}
           onChange={(event) => {
             scroll.current = 0;
             onQuery(event.target.value);
           }}
         />
-      </label>
-      <button disabled={!ready} onClick={onPlan}>
-        俯看三维布置
-      </button>
+        {query && (
+          <button
+            aria-label="清除布置查找"
+            onClick={() => {
+              search.current?.focus();
+              onQuery("");
+            }}
+          >
+            ×
+          </button>
+        )}
+      </div>
       <div
         ref={map}
         className="room-layout-map"
@@ -364,16 +393,13 @@ export function RoomLayout({
                 ? "圆点为配置中心 · 实线为感应线，虚线为引线"
                 : `${roomLayoutSize.width} × ${roomLayoutSize.depth} m · 线框按配置尺寸投影`}
       </p>
-      {!!query.trim() && (
-        <button onClick={() => onQuery("")}>清除布置查找</button>
-      )}
       {resultRack && (
         <section className="layout-device-results" aria-label="匹配设备">
           <strong>
             {resultRack.short} · 匹配 {results.length} 台
           </strong>
           {results.map((device) => (
-            <div key={device.id}>
+            <div key={device.id} data-layout-device-row>
               <button
                 data-device-result={device.id}
                 aria-pressed={selected === device.id}
@@ -382,16 +408,11 @@ export function RoomLayout({
               >
                 <strong>{device.name}</strong>
                 <small>
+                  {selected === device.id && `${resultRack.short} · `}
                   {device.units} · {device.model}
                 </small>
               </button>
-              <button
-                disabled={!ready}
-                aria-label={`定位 ${device.name} 安装位`}
-                onClick={() => onDeviceInstallation(device.id)}
-              >
-                安装位 ↗
-              </button>
+              {selected === device.id && deviceActions}
             </div>
           ))}
         </section>
@@ -400,9 +421,23 @@ export function RoomLayout({
         query.trim() &&
         rackHits.length > 1 &&
         !resultRack && <p>选择亮起的机柜，查看柜内匹配设备。</p>}
-      {current ? (
+      {selectedDevice ? (
+        !selectedInResults && (
+          <div className="room-layout-selection" aria-label="布置当前设备">
+            <strong>{selectedDevice.name}</strong>
+            <p>
+              {current?.name} · {selectedDevice.units} · {selectedDevice.model}
+            </p>
+            {deviceActions}
+          </div>
+        )
+      ) : current ? (
         <div className="room-layout-selection" aria-label="布置当前对象">
-          <strong>{current.name}</strong>
+          <strong>
+            {!branch && !pair && selected !== current.id
+              ? `所属位置 · ${current.name}`
+              : current.name}
+          </strong>
           <p>
             {branch
               ? `格栅 ${branch.grille.id.split("-").at(-1)} → ${branch.device.name} · 最近格栅示意落点，非独占供风`
@@ -416,9 +451,6 @@ export function RoomLayout({
                       ? `${current.location} · 配置 Y ${current.height!.toFixed(3)} m`
                       : "柜体配置位置 · 非监测覆盖"}
           </p>
-          {!branch && !pair && selected !== current.id && (
-            <small>当前对象所属位置；进入后可继续查找设备。</small>
-          )}
           {branch ? (
             <div>
               <button disabled={!ready} onClick={() => onInspectBranch(branch)}>

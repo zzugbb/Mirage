@@ -5370,7 +5370,6 @@
   padding: 12px 16px 20px;
   font-size: 11px;
 }
-.room-layout header p,
 .room-layout > p,
 .room-layout-selection p,
 .room-layout details p {
@@ -5378,16 +5377,34 @@
   line-height: 1.6;
   margin: 8px 0;
 }
-.room-layout > label {
-  display: grid;
-  gap: 7px;
-  margin-top: 14px;
+.room-layout-toolbar,
+.layout-device-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.room-layout-toolbar select {
+  min-width: 0;
+  flex: 1;
+  background: #26343e;
+  border: 1px solid #b6d2dc2e;
+  padding: 4px 6px;
+  font: inherit;
+}
+.room-layout-search {
+  position: relative;
+  margin-top: 8px;
+}
+.room-layout-search button {
+  position: absolute;
+  right: 0;
+  top: 0;
 }
 .room-layout input {
   width: 100%;
   min-width: 0;
   box-sizing: border-box;
-  padding: 8px;
+  padding: 8px 32px 8px 8px;
   border: 1px solid #c2dde51c;
   border-radius: 4px;
   background: #ffffff03;
@@ -5467,18 +5484,6 @@
 }
 .room-layout-map button[aria-pressed="true"] {
   opacity: 1;
-  color: #e0f7f5;
-}
-.room-layout-scopes {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 6px;
-}
-.room-layout-scopes button {
-  flex: 1;
-}
-.room-layout-scopes button[aria-pressed="true"] {
-  background: #3d535c;
   color: #e0f7f5;
 }
 .room-layout-context {
@@ -5564,7 +5569,7 @@
   margin-top: 10px;
 }
 .room-layout-selection button,
-.room-layout > button {
+.room-layout-toolbar button {
   padding: 6px 8px;
   font-size: 11px;
   border: 1px solid #b6d2dc2e;
@@ -5598,9 +5603,6 @@
 }
 .rack-navigation-view.is-room button:nth-child(-n + 2) {
   grid-column: span 3;
-}
-.room-layout > button {
-  margin-top: 8px;
 }
 
 .alarm-queue {
@@ -6294,24 +6296,28 @@
   font-size: 12px;
 }
 .layout-device-results > div {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 4px;
+  border-left: 2px solid transparent;
 }
-.layout-device-results button {
-  background: #ffffff05;
-  border: 1px solid #ffffff16;
-  border-radius: 4px;
-  color: inherit;
+.layout-device-results > div:has([aria-pressed="true"]) {
+  border-color: #8ebdc1;
+  background: #88b7bd13;
+}
+.layout-device-results [data-device-result] {
+  width: 100%;
   text-align: left;
-  padding: 6px;
+  padding: 5px 8px;
   font: inherit;
+}
+.layout-device-results .layout-device-actions {
+  padding: 0 8px 6px;
+}
+.layout-device-actions button {
+  font-size: 11px;
+  padding: 3px 7px;
+  background: #ffffff08;
 }
 .layout-device-results small {
   display: block;
   color: #a9bcc4;
   margin-top: 3px;
-}
-.layout-device-results button[aria-pressed="true"] {
-  border-color: #8ebdc1;
 }

@@ -1557,12 +1557,14 @@ export function Workspace() {
       ),
     [state, query, filter, onlyAlarms, spatial, unitQuery],
   );
+  const browsingRoom =
+    state.level === "room" && layer === "overview" && !activeNetworkLink;
   const roomResourceList =
-    state.level === "room" &&
-    layer === "overview" &&
-    (rackView === "list" || rackView === "installation") &&
-    !activeNetworkLink;
-  const roomDevice = roomResourceList ? deviceById(selected) : undefined;
+    browsingRoom && (rackView === "list" || rackView === "installation");
+  const roomLayoutDevices =
+    browsingRoom && rackView === "layout" && layoutScope === "equipment";
+  const roomDevice =
+    roomResourceList || roomLayoutDevices ? deviceById(selected) : undefined;
   const roomSearchOrigin = useRef<{
     id: string;
     query: string;
@@ -1763,6 +1765,17 @@ export function Workspace() {
       stageRef.current?.focus({ preventScroll: true });
       stageRef.current?.scrollIntoView({ block: "nearest" });
     }
+  };
+  const openLayoutInstallation = (id: string) => {
+    setLayoutVisit({ id, layer, metric, deviceQuery: layoutQuery });
+    setLayoutRestore(0);
+    setLayoutReturning(false);
+    setRackView("installation");
+    setQuery("");
+    setFilter("all");
+    setOnlyAlarms(false);
+    control({ type: "analysis", value: false });
+    focus(id, { installation: true, showDetails: false });
   };
   const analyzeEnvironmentPair = (otherId: string) => {
     const pair = environmentPair(selected, otherId);
@@ -2748,30 +2761,7 @@ export function Workspace() {
       onPreview={visitSource}
     />
   );
-  const layoutReturn = layoutVisit && (
-    <div className="room-layout-return" aria-label="布置导览往返">
-      <button
-        className="study-parent"
-        disabled={!ready || layoutReturning}
-        onClick={() => {
-          setLayoutReturning(true);
-          control({ type: "open-resource", id: "room-01" });
-        }}
-      >
-        ← 返回机房布置
-      </button>
-      <button
-        aria-label="结束布置导览往返"
-        disabled={layoutReturning}
-        onClick={() => {
-          setLayoutVisit(null);
-          setLayoutReturning(false);
-        }}
-      >
-        ×
-      </button>
-    </div>
-  );
+
   return (
     <div
       className="mirage-workspace workspace-ui"
@@ -2815,6 +2805,40 @@ export function Workspace() {
               title="结束排查，留在当前位置"
               disabled={alarmReturning}
               onClick={() => setAlarmVisit(null)}
+            >
+              ×
+            </button>
+          </div>
+        )}
+        {layoutVisit && (
+          <div
+            className="study-task-return"
+            role="group"
+            aria-label="布置导览往返"
+          >
+            <button
+              disabled={!ready || layoutReturning}
+              onClick={() => {
+                setLayoutReturning(true);
+                if (
+                  state.level !== "room" ||
+                  layoutVisit.deviceQuery === undefined
+                )
+                  control({ type: "open-resource", id: "room-01" });
+              }}
+            >
+              ← 返回
+              {layoutVisit.deviceQuery !== undefined
+                ? "布置图设备"
+                : "机房布置"}
+            </button>
+            <button
+              aria-label="结束布置导览往返"
+              disabled={layoutReturning}
+              onClick={() => {
+                setLayoutVisit(null);
+                setLayoutReturning(false);
+              }}
             >
               ×
             </button>
@@ -3077,7 +3101,6 @@ export function Workspace() {
             </div>
           )}
           {blankingReturn}
-          {layoutReturn}
           {networkMapReturn}
           {state.level !== "room" && (
             <button
@@ -3244,17 +3267,7 @@ export function Workspace() {
               query={layoutQuery}
               scope={layoutScope}
               crossingId={layoutCrossing}
-              onDeviceInstallation={(id) => {
-                setLayoutVisit({ id, layer, metric, deviceQuery: layoutQuery });
-                setLayoutRestore(0);
-                setLayoutReturning(false);
-                setRackView("installation");
-                setQuery("");
-                setFilter("all");
-                setOnlyAlarms(false);
-                control({ type: "analysis", value: false });
-                focus(id, { installation: true, showDetails: false });
-              }}
+              onDeviceInstallation={openLayoutInstallation}
               onInspectBranch={(branch) => {
                 setLayoutVisit({ id: branch.rack.id, layer, metric });
                 setLayoutRestore(0);
@@ -3325,7 +3338,13 @@ export function Workspace() {
                 focus(id, { showDetails: false });
               }}
               onDetails={(id) => {
-                setLayoutVisit({ id, layer, metric });
+                selectObject(id);
+                setLayoutVisit({
+                  id,
+                  layer,
+                  metric,
+                  deviceQuery: deviceById(id) ? layoutQuery : undefined,
+                });
                 setLayoutReturning(false);
                 setLayoutRestore(0);
                 setInspector(true);
@@ -4019,7 +4038,11 @@ export function Workspace() {
               takeover();
               setNetworkLinkId(null);
             }}
-            onSelect={selectObject}
+            onSelect={(id, enter) => {
+              if (enter && roomLayoutDevices && deviceById(id))
+                openLayoutInstallation(id);
+              else selectObject(id, enter);
+            }}
             onPreviewInput={(id) => {
               pick(id);
               return () => {
@@ -4077,7 +4100,9 @@ export function Workspace() {
                   }}
                 />
               ) : roomDevice &&
-                (!nav || !rows.some((row) => row.id === selected)) ? (
+                (!nav ||
+                  (roomResourceList &&
+                    !rows.some((row) => row.id === selected))) ? (
                 <div
                   className="review-object-actions"
                   role="group"
@@ -4085,7 +4110,11 @@ export function Workspace() {
                 >
                   <button
                     disabled={!ready}
-                    onClick={() => selectObject(roomDevice.id, true)}
+                    onClick={() =>
+                      roomLayoutDevices
+                        ? openLayoutInstallation(roomDevice.id)
+                        : selectObject(roomDevice.id, true)
+                    }
                   >
                     {roomDevice.name} · 查看{rackForDevice(roomDevice.id).name}{" "}
                     ↗
@@ -4217,7 +4246,6 @@ export function Workspace() {
               </button>
             </div>
             {!nav && blankingReturn}
-            {!nav && layoutReturn}
             {activeAirflowResponse ? (
               <div className="study-identity">
                 <small>气流代表支路 · 模拟对照</small>
