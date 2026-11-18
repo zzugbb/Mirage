@@ -75,24 +75,31 @@ export function InletOverview({
   const reference = all
     .flatMap((r) => r.rows)
     .find((d) => d.id === referenceId);
+  const rackSummary = useRef<HTMLDetailsElement>(null);
   const host = useRef<HTMLDivElement>(null);
   const pattern = useId().replace(/:/g, "");
+  const focusedRevision = useRef<number | null>(null);
   useLayoutEffect(() => {
-    if (visible && host.current) {
-      host.current.scrollTop = scroll.current;
-      const selectedButton =
-        host.current.querySelector<HTMLElement>(
-          '.inlet-device-list button[aria-pressed="true"]',
-        ) ??
-        host.current.querySelector<HTMLElement>(
-          device || scope === "room"
-            ? '[aria-label="进风对照查找"]'
-            : '.inlet-rack-grid button[aria-pressed="true"]',
-        );
-      selectedButton?.focus({ preventScroll: true });
-      if (restoreRevision) selectedButton?.scrollIntoView({ block: "nearest" });
+    if (!visible) {
+      focusedRevision.current = null;
+      return;
     }
-  }, [scroll, visible, restoreRevision]);
+    if (!host.current || !ready || focusedRevision.current === restoreRevision)
+      return;
+    focusedRevision.current = restoreRevision;
+    host.current.scrollTop = scroll.current;
+    const target =
+      host.current.querySelector<HTMLElement>(
+        '.inlet-device-list button[aria-pressed="true"]',
+      ) ??
+      host.current.querySelector<HTMLElement>(
+        restoreRevision && selected === current.rack.id
+          ? ".inlet-rack-summary summary"
+          : '[aria-label="进风对照查找"]',
+      );
+    target?.focus({ preventScroll: true });
+    if (restoreRevision) target?.scrollIntoView({ block: "nearest" });
+  }, [visible, ready, scroll, restoreRevision, selected, current.rack.id]);
   const rackGrid = (
     <>
       <div className="inlet-profile-legend">
@@ -109,7 +116,13 @@ export function InletOverview({
             key={item.rack.id}
             aria-pressed={item.rack.id === current.rack.id}
             aria-label={`${item.rack.name}，最高 ${valueText(item.maximum)}，有效 ${item.coverage}/${item.rows.length} 台`}
-            onClick={() => onRack(item.rack.id)}
+            onClick={() => {
+              onRack(item.rack.id);
+              if (rackSummary.current) {
+                rackSummary.current.open = false;
+                rackSummary.current.querySelector("summary")?.focus();
+              }
+            }}
           >
             <b>{item.rack.name.split(" ")[0]}</b>
             <svg viewBox={`0 0 32 ${item.units + 4}`} aria-hidden="true">
@@ -165,20 +178,20 @@ export function InletOverview({
         <header>
           <strong>机房进风对照</strong>
           <p>
-            第 {time} 秒 · 有效 {all.reduce((n, r) => n + r.coverage, 0)}/
+            模拟 {time} 秒 · 有效 {all.reduce((n, r) => n + r.coverage, 0)}/
             {all.reduce((n, r) => n + r.rows.length, 0)} 台
           </p>
         </header>
-        <p className="inlet-overview-note">
-          整柜进风 · 模拟。柜卡列最高值与覆盖，不受切片和查找限制。
-        </p>
+        <details className="inlet-rack-summary" ref={rackSummary}>
+          <summary>八柜分布与切换</summary>
+          {rackGrid}
+        </details>
         <label className="inlet-search">
-          查找设备、机柜或数据状态
           <input
             aria-label="进风对照查找"
             value={query}
             onChange={(e) => onQuery(e.target.value)}
-            placeholder="SRV、STO、B03 或过期"
+            placeholder="查找设备、柜位或数据状态"
             onKeyDown={(event) => {
               if (event.key === "Escape" && query) {
                 event.stopPropagation();
@@ -214,19 +227,6 @@ export function InletOverview({
             <option value="excluded">无当前进风</option>
           </select>
         </div>
-        {order === "temperature" && (
-          <p className="inlet-overview-note">
-            按当前有效整机进风排序，无当前值置后；顺序随共享时间更新，选择保持。高温不等于告警。
-          </p>
-        )}
-        {scope === "room" ? (
-          <details className="inlet-rack-summary">
-            <summary>八柜分布与切换</summary>
-            {rackGrid}
-          </details>
-        ) : (
-          rackGrid
-        )}
         <div className="inlet-list-heading">
           <strong>{scope === "room" ? "整间机房" : current.rack.name}</strong>
           <span>{rows.length} 台匹配</span>
@@ -279,83 +279,104 @@ export function InletOverview({
             。
           </p>
         )}
-        <p className="inlet-overview-note">
-          色块对应设备完整安装跨度，不表示每个 U
-          位都有测点。进风读数不等于部件温度、环境温度或告警等级；具体数据质量可在选中后查阅。
-        </p>
+        <details className="inlet-reading-notes">
+          <summary>进风读数依据</summary>
+          <p>
+            整机进风取模拟输入。柜卡按设备安装跨度着色，最高值和覆盖数取整柜有效输入。切片、搜索及排序均保留该范围。按进风排序时，无当前值的设备排在有效值之后。
+          </p>
+        </details>
       </div>
-      <div className="inlet-overview-selection" aria-label="进风对照当前对象">
-        {reference && (
-          <div className="inlet-reference">
-            <span>基准 {reference.name}</span>
-            <button
-              aria-label="清除进风对照基准"
-              onClick={() => onReference(null)}
-            >
-              ×
-            </button>
-          </div>
-        )}
-        {device ? (
-          <>
-            <strong>
-              {device.name} · {device.location}
-            </strong>
-            <p>
-              {valueText(device.value)} · {device.reason}
-            </p>
-            <small>{device.detail}</small>
-            {!rows.some((row) => row.id === device.id) && (
-              <small>所选设备不在当前结果中，检视与对照仍可继续。</small>
-            )}
-          </>
-        ) : (
-          <strong>
-            {current.rack.name} · 最高 {valueText(current.maximum)}
-          </strong>
-        )}
-        <div>
-          <button
-            disabled={!ready}
-            onClick={() => onInspect(device?.id ?? current.rack.id, false)}
-          >
-            安装位
-          </button>
-          {device && (
-            <button
-              disabled={!ready}
-              onClick={() => onInspect(device.id, true)}
-            >
-              查看内部
-            </button>
+      {(device || selected === current.rack.id || reference) && (
+        <div className="inlet-overview-selection" aria-label="进风对照当前对象">
+          {reference && reference.id !== selected && (
+            <div className="inlet-reference">
+              <span>基准 {reference.name}</span>
+              <button
+                aria-label="清除进风对照基准"
+                onClick={() => onReference(null)}
+              >
+                ×
+              </button>
+            </div>
           )}
-          {device && (
-            <button disabled={!ready} onClick={() => onAirflow(device.id)}>
-              机房气流
-            </button>
-          )}
-          <button onClick={onDetails}>详情</button>
-          {device && reference && device.id !== reference.id ? (
-            <button onClick={() => onCompare(device.id)}>对照分析</button>
+          {device ? (
+            <>
+              <strong>
+                {device.name} · {device.location}
+              </strong>
+              <p>
+                {valueText(device.value)} · {device.reason}
+              </p>
+              {device.value === null && <small>{device.detail}</small>}
+              {!rows.some((row) => row.id === device.id) && (
+                <small>所选设备在当前结果之外</small>
+              )}
+            </>
           ) : (
-            <button onClick={onAnalyze}>分析</button>
+            selected === current.rack.id && (
+              <strong>
+                {current.rack.name} · 最高 {valueText(current.maximum)}
+              </strong>
+            )
           )}
-          {device && (
-            <button
-              aria-pressed={referenceId === device.id}
-              onClick={() =>
-                onReference(referenceId === device.id ? null : device.id)
-              }
+          {(device || selected === current.rack.id) && (
+            <div
+              className="inlet-selection-actions"
+              key={`${selected}:${restoreRevision}`}
             >
-              {referenceId === device.id
-                ? "取消基准"
-                : reference
-                  ? "替换基准"
-                  : "固定为基准"}
-            </button>
+              {device && (
+                <button disabled={!ready} onClick={() => onAirflow(device.id)}>
+                  机房气流
+                </button>
+              )}
+              {device && reference && device.id !== reference.id ? (
+                <button disabled={!ready} onClick={() => onCompare(device.id)}>
+                  对照分析
+                </button>
+              ) : (
+                device && (
+                  <button
+                    aria-pressed={reference?.id === device.id}
+                    onClick={() => onReference(reference ? null : device.id)}
+                  >
+                    {reference ? "取消基准" : "固定为基准"}
+                  </button>
+                )
+              )}
+              <details>
+                <summary>检视与分析</summary>
+                <div>
+                  <button
+                    disabled={!ready}
+                    onClick={() => onInspect(selected, false)}
+                  >
+                    安装位
+                  </button>
+                  {device && (
+                    <button
+                      disabled={!ready}
+                      onClick={() => onInspect(device.id, true)}
+                    >
+                      查看内部
+                    </button>
+                  )}
+                  <button disabled={!ready} onClick={onDetails}>
+                    对象详情
+                  </button>
+                  <button disabled={!ready} onClick={onAnalyze}>
+                    单对象分析
+                  </button>
+                  {device && reference && device.id !== reference.id && (
+                    <button onClick={() => onReference(device.id)}>
+                      替换基准
+                    </button>
+                  )}
+                </div>
+              </details>
+            </div>
           )}
         </div>
-      </div>
+      )}
     </section>
   );
 }

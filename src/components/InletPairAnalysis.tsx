@@ -28,7 +28,6 @@ export function InletPairAnalysis({
   onPreview,
   onLocate,
   onAirflow,
-  onReturn,
   onClose,
 }: {
   differenceReview: InletDifferenceReview;
@@ -48,7 +47,6 @@ export function InletPairAnalysis({
   onPreview: (id: string) => void;
   onLocate: (id: string) => void;
   onAirflow: (id: string) => void;
-  onReturn: () => void;
   onClose: () => void;
 }) {
   const [inspection, setInspection] = useState<number | null>(null);
@@ -164,13 +162,6 @@ export function InletPairAnalysis({
       <p className="inlet-pair-boundary">
         同框轮廓对应两台设备的完整安装跨度，不代表真实风口或供风覆盖；柜前标签跟随场景时间，图表游标不改动场景。两条曲线共用温度刻度，只绘制已发生的有效读数。预览不改变镜头与结构；定位后可检视设备，再返回原对照。差值不表示异常阈值、冷却效果或故障根因。
       </p>
-      <button
-        className="inlet-pair-return"
-        disabled={!ready}
-        onClick={onReturn}
-      >
-        ← 返回机房进风对照
-      </button>
       <AnalysisEvents
         title="两台设备已发生事件"
         events={events}

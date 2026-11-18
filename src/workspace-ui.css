@@ -3665,8 +3665,8 @@
   background: #29424a;
 }
 .inlet-search {
-  display: grid;
-  gap: 6px;
+  display: block;
+  margin-top: 6px;
 }
 .workspace-ui .inlet-search input {
   width: 100%;
@@ -3708,22 +3708,24 @@
   cursor: pointer;
   padding: 8px 0;
 }
-.inlet-airflow-return {
-  padding: 14px 18px;
-  border-bottom: 1px solid #40535c;
-  font-size: 11px;
+.inlet-reading-notes {
+  margin: 12px 0;
 }
-.inlet-airflow-return p {
-  color: #9bb0bb;
-  line-height: 1.6;
-  margin: 7px 0;
+.inlet-selection-actions {
+  align-items: center;
 }
-.inlet-airflow-return button {
-  border: 1px solid #4a626d;
-  border-radius: 4px;
-  padding: 6px 8px;
-  margin: 4px 6px 0 0;
-  font-size: 11px;
+.inlet-selection-actions details[open] {
+  flex-basis: 100%;
+}
+.inlet-selection-actions summary,
+.inlet-reading-notes summary {
+  cursor: pointer;
+  padding: 6px 0;
+}
+.inlet-selection-actions details > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 .inlet-list-heading span {
   font-size: 10px;
@@ -3908,13 +3910,6 @@
 .workspace-ui .review-trend .comparison-point {
   fill: #b7b9dc;
 }
-.workspace-ui .inlet-pair-return {
-  color: #b2d8d6;
-  font-size: 11px;
-  margin-bottom: 8px;
-  padding-inline: 0;
-}
-
 .pdu-outlets {
   scroll-margin-top: 76px;
   margin-top: 14px;
