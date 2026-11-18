@@ -2594,10 +2594,14 @@ export class SceneEngine {
           this.presentation.pose.inspection === 0 &&
           (this.showLabels || this.telemetry.mode !== "object")
         : deviceAnchor
-          ? this.state.level === "rack" &&
-            this.presentation.pose.inspection === 0 &&
-            this.telemetry.mode !== "object" &&
-            deviceById(id)?.rackId === rackForDevice(this.state.deviceId).id
+          ? this.presentation.pose.inspection === 0 &&
+            ((this.state.level === "room" &&
+              this.telemetry.mode === "alarms" &&
+              id === this.state.selected) ||
+              (this.state.level === "rack" &&
+                this.telemetry.mode !== "object" &&
+                deviceById(id)?.rackId ===
+                  rackForDevice(this.state.deviceId).id))
           : partAnchor
             ? this.state.level === "device" &&
               this.explosion > 0.25 &&

@@ -79,7 +79,7 @@ import { type AppState } from "../domain";
 import type { PresentationPhase, SceneFeedback } from "../mechanics";
 import { SceneEngine } from "../scene/engine";
 import type { View } from "../scene/engine";
-import { devices, racks, rackForDevice } from "../installation";
+import { deviceById, devices, racks, rackForDevice } from "../installation";
 import type { SpatialReading } from "../spatial";
 import type { ReviewLayer } from "../review-model";
 import { reviewPresentation } from "../review-model";
@@ -1504,8 +1504,18 @@ export function ReviewScene({
               (p) => p.id === selectedId,
             ),
           ];
+  const alarmDevice =
+    state.level === "room" &&
+    layer === "alarms" &&
+    readings.get(selectedId)?.alarm
+      ? deviceById(selectedId)
+      : undefined;
   const labels = sceneLabels(
-    ambientSelected || !sliceVisible ? [] : candidates,
+    alarmDevice
+      ? [alarmDevice]
+      : ambientSelected || !sliceVisible
+        ? []
+        : candidates,
     readings,
     {
       level: state.level,
@@ -1895,11 +1905,13 @@ export function ReviewScene({
                 }
                 data-anchor={item.id}
                 data-anchor-kind={
-                  state.level === "room"
-                    ? "rack"
-                    : state.level === "rack"
-                      ? "device"
-                      : "part"
+                  alarmDevice
+                    ? "device"
+                    : state.level === "room"
+                      ? "rack"
+                      : state.level === "rack"
+                        ? "device"
+                        : "part"
                 }
                 className={`review-anchor ${item.id === state.selected ? "selected" : ""}`}
                 onClick={() => onSelect(item.id)}

@@ -16,16 +16,12 @@ export function AlarmQueue({
   severity,
   onSeverity,
   selected,
-  time,
   ready,
   visible,
   scroll,
   restoreRevision,
   returned,
   onPreview,
-  onInspect,
-  onAnalyze,
-  onAll,
 }: {
   readings: Map<string, SpatialReading>;
   query: string;
@@ -33,20 +29,16 @@ export function AlarmQueue({
   severity: AlarmSeverity;
   onSeverity: (severity: AlarmSeverity) => void;
   selected: string;
-  time: number;
   ready: boolean;
   visible: boolean;
   scroll: RefObject<number>;
   restoreRevision: number;
   returned: AlarmVisit | null;
   onPreview: (id: string) => void;
-  onInspect: (id: string, internal: boolean) => void;
-  onAnalyze: (id: string) => void;
-  onAll: () => void;
 }) {
   const queue = alarmQueue(readings, query, severity);
   const host = useRef<HTMLElement>(null);
-  const heading = useRef<HTMLHeadingElement>(null);
+  const search = useRef<HTMLInputElement>(null);
   useLayoutEffect(() => {
     if (!visible || !host.current) return;
     host.current.scrollTop = scroll.current;
@@ -54,8 +46,8 @@ export function AlarmQueue({
     const button = host.current.querySelector<HTMLButtonElement>(
       `[data-alarm-id="${returned?.id}"]`,
     );
-    (button ?? heading.current)?.focus({ preventScroll: true });
-    (button ?? heading.current)?.scrollIntoView({ block: "nearest" });
+    (button ?? search.current)?.focus({ preventScroll: true });
+    (button ?? search.current)?.scrollIntoView({ block: "nearest" });
   }, [visible, restoreRevision, scroll]);
   return (
     <section
@@ -66,20 +58,12 @@ export function AlarmQueue({
         scroll.current = event.currentTarget.scrollTop;
       }}
     >
-      <header>
-        <h3 tabIndex={-1} ref={heading}>
-          逐台排查 <small>模拟 {time.toFixed(0)} s</small>
-        </h3>
-        <p>
-          严重 {queue.critical} · 预警 {queue.warning} · 共 {queue.all.length}{" "}
-          台
-        </p>
-      </header>
       <label>
         查找设备或柜位
         <input
+          ref={search}
           aria-label="查找告警设备"
-          placeholder="SRV-01、B03、U23"
+          placeholder="设备、机柜或 U 位"
           value={query}
           onKeyDown={(event) => {
             if (event.key !== "Escape" || !query) return;
@@ -96,11 +80,11 @@ export function AlarmQueue({
       <div className="alarm-queue-filters" role="group" aria-label="告警级别">
         {(
           [
-            ["all", "全部"],
-            ["critical", "严重"],
-            ["warning", "预警"],
+            ["all", "全部", queue.all.length],
+            ["critical", "严重", queue.critical],
+            ["warning", "预警", queue.warning],
           ] as const
-        ).map(([value, label]) => (
+        ).map(([value, label, count]) => (
           <button
             key={value}
             aria-pressed={severity === value}
@@ -110,7 +94,7 @@ export function AlarmQueue({
               onSeverity(value);
             }}
           >
-            {label}
+            {label} {count}
           </button>
         ))}
       </div>
@@ -125,9 +109,9 @@ export function AlarmQueue({
           。
         </p>
       )}
-      <p className="alarm-queue-count">
-        匹配 {queue.rows.length} 台 · 按级别、柜位排列
-      </p>
+      {query.trim() && queue.rows.length > 0 && (
+        <p className="alarm-queue-count">匹配 {queue.rows.length} 台</p>
+      )}
       {queue.rows.map(({ device, reading, location }) => (
         <article
           key={device.id}
@@ -146,31 +130,11 @@ export function AlarmQueue({
                 {reading.alarm === 2 ? "◆ 严重" : "▲ 预警"}
               </span>
             </strong>
-            <small>{location}</small>
             <small>
-              进风{" "}
-              {reading.temperature === null
-                ? "—"
-                : `${reading.temperature.toFixed(1)} °C`}
+              <span>{location}</span>
+              <span>进风 {reading.temperature?.toFixed(1) ?? "—"} °C</span>
             </small>
           </button>
-          <div className="alarm-queue-actions">
-            <button
-              disabled={!ready}
-              onClick={() => onInspect(device.id, false)}
-            >
-              安装位
-            </button>
-            <button
-              disabled={!ready}
-              onClick={() => onInspect(device.id, true)}
-            >
-              查看内部
-            </button>
-            <button disabled={!ready} onClick={() => onAnalyze(device.id)}>
-              告警过程
-            </button>
-          </div>
         </article>
       ))}
       {!queue.rows.length && (
@@ -209,7 +173,6 @@ export function AlarmQueue({
           台读数缺失、过期或离线，不能据此判定正常。机柜是汇总，部件是模型评估；均不重复计数。这里不执行告警确认或消除。
         </p>
       </details>
-      <button onClick={onAll}>查看全部资源</button>
     </section>
   );
 }

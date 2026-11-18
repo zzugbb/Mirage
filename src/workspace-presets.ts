@@ -19,10 +19,7 @@ export function workspacePreset(
     type: "shot",
     shot: shot === "structure" || shot === "time" ? "assembly" : "overview",
   });
-  if (shot === "alarms") {
-    next.layer = "alarms";
-    next.selectedId = "rack-a01";
-  }
+  if (shot === "alarms") next.layer = "alarms";
   if (shot === "time") {
     next.scene.explosion = 0;
     next.scene.coverOpen = true;

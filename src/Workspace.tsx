@@ -233,6 +233,7 @@ import {
   type SliceControls,
 } from "./temperature-slice";
 import { coolingCapacityAt } from "./simulation";
+import { inletAssessment } from "./inlet-assessment";
 import { ResourceActions } from "./components/ResourceActions";
 import { ReviewScene } from "./components/ReviewScene";
 import { ReviewTrend } from "./components/ReviewTrend";
@@ -1271,6 +1272,10 @@ export function Workspace() {
     layer === "alarms" &&
     onlyAlarms &&
     ["list", "installation"].includes(rackView);
+  const alarmSample =
+    alarmQueueVisible && reading?.alarm && entity.kind === "device"
+      ? spatial.samples.get(selected)
+      : undefined;
   useEffect(() => {
     if (
       alarmVisit &&
@@ -1718,16 +1723,28 @@ export function Workspace() {
   };
   const beginAlarmInspection = (
     id: string,
-    action: "installation" | "internal" | "analysis",
+    action: "preview" | "installation" | "internal" | "analysis",
   ) => {
     const reading = spatial.readings.get(id);
-    if (!ready || !reading?.alarm || reading.quality !== "valid") return;
-    setAlarmVisit({ id, time: state.time, severity: reading.alarm });
+    if (action !== "preview" && !ready) return;
+    if (reading?.alarm && reading.quality === "valid") {
+      if (alarmVisit?.id !== id)
+        setAlarmVisit({ id, time: state.time, severity: reading.alarm });
+    } else if (action === "preview" && alarmReturned?.id === id) {
+      setAlarmVisit(alarmReturned);
+    } else return;
     setAlarmReturned(null);
     setAlarmRestore(0);
     setLayoutVisit(null);
     control({ type: "analysis", value: false });
-    if (action === "analysis") {
+    if (action === "preview") {
+      pick(id);
+      requestAnimationFrame(() =>
+        inspectorRef.current
+          ?.querySelector<HTMLElement>(".study-identity h1")
+          ?.focus(),
+      );
+    } else if (action === "analysis") {
       pick(id);
       jumpToEvents.current = true;
       analyze();
@@ -2487,7 +2504,8 @@ export function Workspace() {
     setQuery("");
     setFilter("all");
     setOnlyAlarms(next === "alarms");
-    setInspector(next !== "overview");
+    setInspector(next !== "overview" && next !== "alarms");
+    if (next === "alarms") setNav(true);
     if (next === "time" && matchMedia("(max-width: 1099px)").matches)
       setNav(false);
     control({ type: "workspace-shot", shot: next });
@@ -2698,7 +2716,8 @@ export function Workspace() {
               disabled={!ready || alarmReturning}
               onClick={() => {
                 setAlarmReturning(true);
-                control({ type: "open-resource", id: "room-01" });
+                if (state.level !== "room")
+                  control({ type: "open-resource", id: "room-01" });
               }}
             >
               ← 返回告警列表
@@ -2830,17 +2849,33 @@ export function Workspace() {
         >
           <div className="study-panel-heading">
             <h2>
-              {layer === "alarms" && state.level !== "device"
-                ? "告警资源"
-                : "资源"}
+              {alarmQueueVisible
+                ? "机房告警"
+                : layer === "alarms" && state.level !== "device"
+                  ? "告警资源"
+                  : "资源"}
             </h2>
-            <span>
-              {state.level === "room"
-                ? "机房"
-                : state.level === "rack"
-                  ? "机柜"
-                  : "部件"}
-            </span>
+            {alarmQueueVisible ? (
+              <button
+                className="alarm-queue-exit"
+                onClick={() => {
+                  setOnlyAlarms(false);
+                  setQuery("");
+                  setFilter("all");
+                  setAlarmVisit(null);
+                }}
+              >
+                查看全部资源
+              </button>
+            ) : (
+              <span>
+                {state.level === "room"
+                  ? "机房"
+                  : state.level === "rack"
+                    ? "机柜"
+                    : "部件"}
+              </span>
+            )}
             <button aria-label="收起资源导航" onClick={() => setNav(false)}>
               ×
             </button>
@@ -2967,7 +3002,7 @@ export function Workspace() {
                 : "01号机房"}
             </button>
           )}
-          {state.level !== "device" && (
+          {state.level !== "device" && !alarmQueueVisible && (
             <div
               className={`rack-navigation-view ${state.level === "room" ? "is-room" : ""}`}
               role="group"
@@ -3069,25 +3104,12 @@ export function Workspace() {
               severity={alarmSeverity}
               onSeverity={setAlarmSeverity}
               selected={selected}
-              time={state.time}
               ready={ready}
               visible={nav}
               scroll={alarmScroll}
               restoreRevision={alarmRestore}
               returned={alarmReturned}
-              onPreview={(id) => {
-                pick(id);
-                control({ type: "analysis", value: false });
-              }}
-              onInspect={(id, internal) =>
-                beginAlarmInspection(id, internal ? "internal" : "installation")
-              }
-              onAnalyze={(id) => beginAlarmInspection(id, "analysis")}
-              onAll={() => {
-                setOnlyAlarms(false);
-                setQuery("");
-                setFilter("all");
-              }}
+              onPreview={(id) => beginAlarmInspection(id, "preview")}
             />
           ) : state.level === "room" && rackView === "power" ? (
             <PowerOverview
@@ -3726,6 +3748,15 @@ export function Workspace() {
                       if (l.id === "power") setRackView("power");
                       else if (l.id === "environment") setRackView("inlet");
                     }
+                    if (
+                      l.id === "alarms" &&
+                      selected === "room-01" &&
+                      state.level === "room" &&
+                      !review.analysis
+                    ) {
+                      setRackView("list");
+                      setNav(true);
+                    }
                     setOnlyAlarms(l.id === "alarms");
                     setMetric(l.id === "power" ? "power" : "temperature");
                   }}
@@ -3975,28 +4006,30 @@ export function Workspace() {
                 </button>
               </div>
             )}
-          {layer === "alarms" && state.level === "room" && (
-            <div className="study-alert-caption">
-              <span>当前异常</span>
-              <strong>
-                {room.alarmCount}
-                <small>台设备</small>
-              </strong>
-              <p>点击空间标记查看对应对象</p>
-              <button
-                onClick={() => {
-                  takeover();
-                  setRackView("list");
-                  setOnlyAlarms(true);
-                  setNav(true);
-                  if (matchMedia("(max-width: 1099px)").matches)
-                    setInspector(false);
-                }}
-              >
-                逐台查看告警
-              </button>
-            </div>
-          )}
+          {layer === "alarms" &&
+            state.level === "room" &&
+            !(alarmQueueVisible && (nav || alarmVisit)) && (
+              <div className="study-alert-caption">
+                <span>当前异常</span>
+                <strong>
+                  {room.alarmCount}
+                  <small>台设备</small>
+                </strong>
+                <p>点击空间标记查看对应对象</p>
+                <button
+                  onClick={() => {
+                    takeover();
+                    setRackView("list");
+                    setOnlyAlarms(true);
+                    setNav(true);
+                    if (matchMedia("(max-width: 1099px)").matches)
+                      setInspector(false);
+                  }}
+                >
+                  逐台查看告警
+                </button>
+              </div>
+            )}
           {!inspector && (
             <button
               className="study-show-detail"
@@ -4049,7 +4082,7 @@ export function Workspace() {
             ) : (
               <div className="study-identity">
                 <small>{resource?.location}</small>
-                <h1>{resource?.name ?? entity.name}</h1>
+                <h1 tabIndex={-1}>{resource?.name ?? entity.name}</h1>
                 <span
                   style={{
                     color:
@@ -4834,18 +4867,47 @@ export function Workspace() {
                   <section className="study-alarm-detail">
                     <h2>进风温度异常</h2>
                     <p>
-                      {reading.count > 1
-                        ? `${reading.alarmCount} 台设备存在进风温度告警。`
-                        : "设备进风温度持续超限。回看曲线与事件，检查异常发生过程。"}
+                      {alarmSample
+                        ? inletAssessment(reading, alarmSample).detail
+                        : reading.count > 1
+                          ? `${reading.alarmCount} 台设备存在进风温度告警。`
+                          : "设备进风温度持续超限。回看曲线与事件，检查异常发生过程。"}
                     </p>
-                    <button
-                      onClick={() => {
-                        jumpToEvents.current = true;
-                        analyze();
-                      }}
-                    >
-                      回看告警过程
-                    </button>
+                    <div className="study-alarm-actions">
+                      <button
+                        disabled={!!alarmSample && !ready}
+                        onClick={() => {
+                          if (alarmSample)
+                            beginAlarmInspection(selected, "analysis");
+                          else {
+                            jumpToEvents.current = true;
+                            analyze();
+                          }
+                        }}
+                      >
+                        回看告警过程
+                      </button>
+                      {alarmSample && (
+                        <>
+                          <button
+                            disabled={!ready}
+                            onClick={() =>
+                              beginAlarmInspection(selected, "installation")
+                            }
+                          >
+                            定位安装位
+                          </button>
+                          <button
+                            disabled={!ready}
+                            onClick={() =>
+                              beginAlarmInspection(selected, "internal")
+                            }
+                          >
+                            查看内部
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </section>
                 )}
                 {environment && fixture ? (

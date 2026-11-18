@@ -288,7 +288,8 @@
   padding: 4px;
   color: #81909d;
 }
-.study-panel-heading > span + button {
+.study-panel-heading > span + button,
+.study-panel-heading > .alarm-queue-exit + button {
   margin-left: 0;
 }
 .study-search {
@@ -1140,10 +1141,23 @@
   line-height: 1.8;
   margin: 8px 10px 4px 0;
 }
-.study-alarm-detail button {
+.study-alarm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px 8px;
+}
+.study-alarm-actions button {
   padding-left: 0;
   color: #d8bd9e;
   font-size: 11px;
+}
+.study-alarm-actions button:not(:only-child) {
+  padding: 3px 6px;
+  color: var(--study-text);
+}
+.study-alarm-actions button:first-child:not(:only-child) {
+  background: #dfad761a;
+  color: #e3c5a7;
 }
 .study-metrics {
   display: grid;
@@ -5592,14 +5606,11 @@
   padding: 0 16px 18px;
   font-size: 12px;
 }
-.alarm-queue header h3 {
-  font-size: 13px;
-  margin: 12px 0 6px;
-}
-.alarm-queue h3 small {
-  float: right;
-  color: #91a3ae;
-  font-weight: 400;
+.study-panel-heading .alarm-queue-exit {
+  width: auto;
+  white-space: nowrap;
+  font-size: 11px;
+  color: var(--study-muted);
 }
 .alarm-queue p {
   color: #91a3ae;
@@ -5619,8 +5630,7 @@
   border-radius: 4px;
   background: #ffffff03;
 }
-.alarm-queue-filters,
-.alarm-queue-actions {
+.alarm-queue-filters {
   display: flex;
   gap: 5px;
 }
@@ -5646,13 +5656,19 @@
   background: none;
   border: 0;
 }
+.alarm-queue .alarm-queue-preview:hover {
+  background: #ffffff09;
+}
 .alarm-queue-preview strong {
   display: flex;
   justify-content: space-between;
   gap: 6px;
 }
 .alarm-queue-preview small {
-  display: block;
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  font-variant-numeric: tabular-nums;
   margin-top: 5px;
   color: #91a3ae;
 }
@@ -5663,14 +5679,6 @@
 .alarm-queue-preview .warning {
   color: #f4c46c;
   font-size: 10px;
-}
-.alarm-queue-actions {
-  margin-top: 7px;
-}
-.alarm-queue .alarm-queue-actions button {
-  padding: 6px 7px;
-  flex: 1;
-  border: 1px solid #ffffff0e;
 }
 .alarm-queue-returned,
 .alarm-queue-followup {
@@ -5689,7 +5697,6 @@
   margin-top: 6px;
 }
 
-.alarm-queue header p,
 .alarm-queue > p {
   margin: 8px 0;
 }

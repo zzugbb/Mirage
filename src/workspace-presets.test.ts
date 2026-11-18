@@ -18,6 +18,9 @@ test("四个演示画面装载一致的暂停时钟，分析回看保留结构�
     assert.equal(next.analysis, shot === "time");
     assert.equal(next.layer, shot === "alarms" ? "alarms" : "overview");
   }
+  const alarms = workspacePreset(initial, "alarms");
+  assert.equal(alarms.selectedId, "room-01");
+  assert.equal(alarms.scene.selected, alarms.selectedId);
   const structure = workspacePreset(initial, "structure");
   const replay = reviewTransition(structure, {
     type: "scene",
