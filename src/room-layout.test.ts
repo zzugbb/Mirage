@@ -5,6 +5,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   roomLayoutItems,
+  layoutDeviceMatches,
   roomLayoutBranches,
   roomLayoutCrossings,
   roomLayoutCeilingFootprints,
@@ -248,4 +249,21 @@ test("柜前格栅按同一代表支路查找，不将同柜其他设备或相�
     roomLayoutNeighbor("rack-a07", "ArrowDown", "grilles"),
     "rack-a03",
   );
+});
+
+test("布置查找按同一设备匹配，柜内结果按安装位从高到低返回", () => {
+  const rack = roomLayoutItems.find((i) => i.short === "B03")!;
+  assert.equal(roomLayoutMatches(rack, "SRV-54 4U"), false);
+  assert.deepEqual(
+    layoutDeviceMatches(rack.id, "B03 4U 存储").map((d) => [d.id, d.units]),
+    [
+      ["sto-02", "U35–38"],
+      ["sto-01", "U25–28"],
+    ],
+  );
+  for (const d of devices)
+    assert.deepEqual(
+      layoutDeviceMatches(d.rackId, d.id).map((hit) => hit.id),
+      [d.id],
+    );
 });

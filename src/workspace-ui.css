@@ -6201,3 +6201,32 @@
   outline: 2px solid #bbdcdf;
   opacity: 1;
 }
+
+.layout-device-results {
+  display: grid;
+  gap: 4px;
+  margin: 12px 0;
+  font-size: 12px;
+}
+.layout-device-results > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px;
+}
+.layout-device-results button {
+  background: #ffffff05;
+  border: 1px solid #ffffff16;
+  border-radius: 4px;
+  color: inherit;
+  text-align: left;
+  padding: 6px;
+  font: inherit;
+}
+.layout-device-results small {
+  display: block;
+  color: #a9bcc4;
+  margin-top: 3px;
+}
+.layout-device-results button[aria-pressed="true"] {
+  border-color: #8ebdc1;
+}

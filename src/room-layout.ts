@@ -4,6 +4,8 @@ import {
   partsForDevice,
   subpartsForDevice,
   modelForDevice,
+  categoryNames,
+  unitLabel,
 } from "./catalog.ts";
 import { pduById } from "./power-config.ts";
 import {
@@ -202,16 +204,44 @@ export function roomLayoutObject(id: string, deviceId: string) {
     return deviceById(deviceId)?.rackId ?? null;
   return null;
 }
+// 同一行绑定柜位、设备和机型，跨设备的词不能拼成命中。
+export const layoutDeviceRows = devices
+  .map((device) => {
+    const rack = roomLayoutItems.find((item) => item.id === device.rackId)!;
+    const model = modelForDevice(device.id);
+    const units = unitLabel(device.id);
+    return {
+      id: device.id,
+      name: device.name,
+      rackId: rack.id,
+      model: model.name,
+      units,
+      start: device.startUnit,
+      search: [
+        rack.name,
+        rack.id,
+        device.id,
+        device.name,
+        model.name,
+        categoryNames[model.category as keyof typeof categoryNames],
+        model.units + "U",
+      ]
+        .join(" ")
+        .toLowerCase(),
+    };
+  })
+  .sort((a, b) => b.start - a.start);
+export function layoutDeviceMatches(rackId: string, query: string) {
+  const words = query.trim().toLowerCase().split(/\s+/);
+  return layoutDeviceRows.filter(
+    (d) =>
+      d.rackId === rackId && words.every((word) => d.search.includes(word)),
+  );
+}
 export function roomLayoutMatches(item: RoomLayoutItem, query: string) {
-  const content = [
-    item.id,
-    item.name,
-    item.short,
-    item.location ?? "",
-    ...devices
-      .filter((d) => item.kind === "rack" && d.rackId === item.id)
-      .flatMap((d) => [d.id, d.name, modelForDevice(d.id).name]),
-  ]
+  if (item.kind === "rack")
+    return layoutDeviceMatches(item.id, query).length > 0;
+  const content = [item.id, item.name, item.short, item.location ?? ""]
     .join(" ")
     .toLocaleLowerCase();
   return query

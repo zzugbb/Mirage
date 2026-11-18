@@ -682,6 +682,7 @@ export function Workspace() {
   const [layoutVisit, setLayoutVisit] = useState<{
     id: string;
     crossingId?: string;
+    deviceQuery?: string;
     layer: ReviewState["layer"];
     metric: "temperature" | "power";
   } | null>(null);
@@ -1289,6 +1290,8 @@ export function Workspace() {
       return;
     control({ type: "pick", id: layoutVisit.id });
     setLayoutCrossing(layoutVisit.crossingId ?? null);
+    if (layoutVisit.deviceQuery !== undefined)
+      setLayoutQuery(layoutVisit.deviceQuery);
     control({ type: "layer", layer: layoutVisit.layer });
     control({ type: "analysis", value: false });
     setMetric(layoutVisit.metric);
@@ -3047,6 +3050,17 @@ export function Workspace() {
               query={layoutQuery}
               scope={layoutScope}
               crossingId={layoutCrossing}
+              onDeviceInstallation={(id) => {
+                setLayoutVisit({ id, layer, metric, deviceQuery: layoutQuery });
+                setLayoutRestore(0);
+                setLayoutReturning(false);
+                setRackView("installation");
+                setQuery("");
+                setFilter("all");
+                setOnlyAlarms(false);
+                control({ type: "analysis", value: false });
+                focus(id, { installation: true });
+              }}
               onInspectBranch={(branch) => {
                 setLayoutVisit({ id: branch.rack.id, layer, metric });
                 setLayoutRestore(0);
