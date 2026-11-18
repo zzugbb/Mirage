@@ -5860,6 +5860,9 @@
   line-height: 1.6;
   margin: 8px 0;
 }
+.power-overview .power-rack-summary {
+  margin: 0 0 12px;
+}
 .power-rack-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

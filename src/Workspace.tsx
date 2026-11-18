@@ -698,6 +698,12 @@ export function Workspace() {
   const [smokeReturning, setSmokeReturning] = useState(false);
   const [smokeRestore, setSmokeRestore] = useState(false);
   const [powerRack, setPowerRack] = useState("rack-a01");
+  const selectedPowerRack =
+    rackById(selected)?.id ?? deviceById(selected)?.rackId;
+  useEffect(() => {
+    if (state.level === "room" && rackView === "power" && selectedPowerRack)
+      setPowerRack(selectedPowerRack);
+  }, [state.level, rackView, selectedPowerRack]);
   const [powerQuery, setPowerQuery] = useState("");
   const [powerFilter, setPowerFilter] = useState<PowerOverviewFilter>("all");
   const [powerScope, setPowerScope] = useState<PowerOverviewScope>("rack");
@@ -707,6 +713,7 @@ export function Workspace() {
   const [powerRestore, setPowerRestore] = useState(0);
   const [powerOverviewVisit, setPowerOverviewVisit] = useState<{
     id: string;
+    inspector: boolean;
     query: string;
     filter: ResourceFilter;
     onlyAlarms: boolean;
@@ -1185,7 +1192,10 @@ export function Workspace() {
     setOnlyAlarms(powerOverviewVisit.onlyAlarms);
     skipNavigationSearch.current = true;
     setNav(true);
-    if (matchMedia("(max-width: 1099px)").matches) setInspector(false);
+    setInspector(
+      powerOverviewVisit.inspector &&
+        !matchMedia("(max-width: 1099px)").matches,
+    );
     setPowerRestore((value) => value + 1);
     setPowerOverviewReturning(false);
     setPowerOverviewVisit(null);
@@ -1881,7 +1891,16 @@ export function Workspace() {
     action: "installation" | "internal" | "analysis" | "details",
   ) => {
     if (!ready) return;
-    setPowerOverviewVisit({ id, query, filter, onlyAlarms });
+    setPowerOverviewVisit({
+      id,
+      query,
+      filter,
+      onlyAlarms,
+      inspector:
+        powerOverviewVisit?.id === id
+          ? powerOverviewVisit.inspector
+          : inspector,
+    });
     setPowerRestore(0);
     control({ type: "analysis", value: false });
     setMetric("power");
@@ -2861,6 +2880,31 @@ export function Workspace() {
             </button>
           </div>
         )}
+        {powerOverviewVisit && (
+          <div
+            className="study-task-return"
+            role="group"
+            aria-label="功耗对照往返"
+          >
+            <button
+              disabled={!ready || powerOverviewReturning}
+              onClick={() => {
+                setPowerOverviewReturning(true);
+                if (state.level !== "room")
+                  control({ type: "open-resource", id: "room-01" });
+              }}
+            >
+              ← 返回机房功耗对照
+            </button>
+            <button
+              aria-label="结束功耗对照往返"
+              disabled={powerOverviewReturning}
+              onClick={() => setPowerOverviewVisit(null)}
+            >
+              ×
+            </button>
+          </div>
+        )}
         <nav className="study-path" aria-label="空间路径">
           {getPath(state).map((item, i) => (
             <span key={item}>
@@ -3068,27 +3112,6 @@ export function Workspace() {
               ← 返回机房进风对照
             </button>
           )}
-          {powerOverviewVisit && (
-            <div className="room-layout-return" aria-label="功耗对照往返">
-              <button
-                className="study-parent"
-                disabled={!ready || powerOverviewReturning}
-                onClick={() => {
-                  setPowerOverviewReturning(true);
-                  control({ type: "open-resource", id: "room-01" });
-                }}
-              >
-                ← 返回机房功耗对照
-              </button>
-              <button
-                aria-label="结束功耗对照往返"
-                disabled={powerOverviewReturning}
-                onClick={() => setPowerOverviewVisit(null)}
-              >
-                ×
-              </button>
-            </div>
-          )}
           {portVisit && (
             <div className="room-layout-return" aria-label="端口核对往返">
               <button
@@ -3190,7 +3213,6 @@ export function Workspace() {
                       control({ type: "layer", layer: "power" });
                       setMetric("power");
                       setOnlyAlarms(false);
-                      selectObject(powerRack);
                       return;
                     }
                     setRackView("inlet");
@@ -3250,7 +3272,7 @@ export function Workspace() {
               onQuery={setPowerQuery}
               filter={powerFilter}
               onFilter={setPowerFilter}
-              rackId={powerRack}
+              rackId={selectedPowerRack ?? powerRack}
               scope={powerScope}
               order={powerOrder}
               onScope={setPowerScope}
@@ -3263,14 +3285,9 @@ export function Workspace() {
               restoreRevision={powerRestore}
               onRack={(id) => {
                 setPowerScope("rack");
-                setPowerRack(id);
                 selectObject(id);
               }}
-              onPreview={(id) => {
-                const device = deviceById(id);
-                if (device) setPowerRack(device.rackId);
-                selectObject(id);
-              }}
+              onPreview={selectObject}
               onInspect={(id, internal) =>
                 inspectPowerOverview(id, internal ? "internal" : "installation")
               }

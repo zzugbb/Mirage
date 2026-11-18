@@ -61,7 +61,7 @@ export function PowerOverview({
     .flatMap((item) => item.rows)
     .find((row) => row.id === selected);
   const rows = powerOverviewRows(all, rackId, scope, order);
-  const target = device?.id ?? current.rack.id;
+  const rackSelected = selected === current.rack.id;
   const host = useRef<HTMLDivElement>(null);
   const ratioText = (ratio: number | null) =>
     ratio === null ? "—" : `${(ratio * 100).toFixed(1)}%`;
@@ -71,7 +71,7 @@ export function PowerOverview({
     if (!restoreRevision) return;
     const button =
       host.current.querySelector<HTMLButtonElement>(
-        `[data-power-id="${target}"]`,
+        `[data-power-id="${selected}"]`,
       ) ??
       host.current.querySelector<HTMLButtonElement>(
         `[data-power-id="${current.rack.id}"]`,
@@ -133,22 +133,14 @@ export function PowerOverview({
             {all.reduce((n, item) => n + item.count, 0)} 台
           </p>
         </header>
-        <p>
-          柜卡列有效输入小计；条形为同一批有效设备的预算占比，非容量余量；斜线表示占比不可计算。
-        </p>
-        {scope === "room" ? (
-          <details className="power-rack-summary">
-            <summary>八柜汇总与切换</summary>
-            {rackGrid}
-          </details>
-        ) : (
-          rackGrid
-        )}
+        <details className="power-rack-summary">
+          <summary>八柜汇总与切换</summary>
+          {rackGrid}
+        </details>
         <label>
-          查找设备、柜位或数据状态
           <input
             aria-label="功耗对照查找"
-            placeholder="SRV、B03、过期、零值"
+            placeholder="查找设备、柜位或数据状态"
             value={query}
             onChange={(event) => onQuery(event.target.value)}
             onKeyDown={(event) => {
@@ -194,12 +186,6 @@ export function PowerOverview({
             <option value="budget">预算占比从高到低</option>
           </select>
         </div>
-        {order !== "installation" && (
-          <p>
-            按当前有效{order === "power" ? "整机功耗" : "功耗 / 配置预算"}
-            排序，未知值置后；顺序随共享时间更新，选择保持。高占比不等于高功耗或告警。
-          </p>
-        )}
         <div className="power-overview-heading">
           <strong>{scope === "room" ? "整间机房" : current.rack.name}</strong>
           <small>{rows.length} 台匹配</small>
@@ -216,25 +202,17 @@ export function PowerOverview({
               >
                 <span>
                   <b>{row.name}</b>
-                  <strong>{sourceValue(row.value, "power")}</strong>
+                  <strong>
+                    {order === "budget"
+                      ? ratioText(ratio)
+                      : sourceValue(row.value, "power")}
+                  </strong>
                 </span>
                 <small>
                   {scope === "room"
                     ? row.location
                     : row.location.split(" / ")[1]}{" "}
-                  · {row.reason}
-                </small>
-                <span
-                  className="power-overview-meter"
-                  data-known={ratio !== null}
-                >
-                  <i
-                    style={{ width: `${Math.min(100, (ratio ?? 0) * 100)}%` }}
-                  />
-                </span>
-                <small>
-                  {ratioText(ratio)} · 配置预算{" "}
-                  {sourceValue(row.budget, "power")}
+                  {row.reason !== "有效输入" && ` · ${row.reason}`}
                 </small>
               </button>
             );
@@ -257,6 +235,9 @@ export function PowerOverview({
         <details>
           <summary>计量与预算边界</summary>
           <p>
+            柜卡条形表示有效设备功耗占配置预算的比例，斜线表示无法计算。按功耗或占比排列时，未知值置后，顺序随共享时间更新。
+          </p>
+          <p>
             有效功耗按整机去重相加，A/B
             输入不分摊也不重复计入。缺失、过期和离线不补零，停机有效零值仍计入预算。不同预算的相同百分比不代表相同功耗；精确值以
             W
@@ -264,34 +245,51 @@ export function PowerOverview({
           </p>
         </details>
       </div>
-      <div className="power-overview-selection" aria-label="功耗对照当前对象">
-        <strong>
-          {device ? `${device.name} · ${device.location}` : current.rack.name}
-        </strong>
-        <p>
-          {sourceValue(device ? device.value : current.value, "power")} ·{" "}
-          {device
-            ? device.reason
-            : `有效 ${current.coverage}/${current.count} 台`}
-        </p>
-        {device && <small>{device.detail}</small>}
-        <div>
-          <button disabled={!ready} onClick={() => onInspect(target, false)}>
-            安装位
-          </button>
+      {(device || rackSelected) && (
+        <div className="power-overview-selection" aria-label="功耗对照当前对象">
+          <strong>
+            {device ? `${device.name} · ${device.location}` : current.rack.name}
+          </strong>
+          <p>
+            {sourceValue(device ? device.value : current.value, "power")} ·{" "}
+            {device
+              ? device.reason
+              : `有效 ${current.coverage}/${current.count} 台`}
+          </p>
           {device && (
-            <button disabled={!ready} onClick={() => onInspect(target, true)}>
-              查看内部
-            </button>
+            <small>
+              配置预算 {sourceValue(device.budget, "power")} · 占比{" "}
+              {ratioText(budgetRatio(device.value, device.budget))}
+              {device.reason !== "有效输入" && ` · ${device.detail}`}
+            </small>
           )}
-          <button disabled={!ready} onClick={() => onDetails(target)}>
-            详情
-          </button>
-          <button disabled={!ready} onClick={() => onAnalyze(target)}>
-            分析
-          </button>
+          {device && !rows.some((row) => row.id === device.id) && (
+            <small>所选设备在当前结果之外</small>
+          )}
+          <div>
+            <button
+              disabled={!ready}
+              onClick={() => onInspect(selected, false)}
+            >
+              安装位
+            </button>
+            {device && (
+              <button
+                disabled={!ready}
+                onClick={() => onInspect(selected, true)}
+              >
+                查看内部
+              </button>
+            )}
+            <button disabled={!ready} onClick={() => onDetails(selected)}>
+              详情
+            </button>
+            <button disabled={!ready} onClick={() => onAnalyze(selected)}>
+              分析
+            </button>
+          </div>
         </div>
-      </div>
+      )}
     </section>
   );
 }
