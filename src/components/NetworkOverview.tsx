@@ -133,30 +133,21 @@ export function NetworkOverview({
             {rows.length} / {all.reduce((n, r) => n + r.links.length, 0)}{" "}
             条配置接入 · 按机柜 / U 位排列
           </p>
-          <p className="network-map-hint">
-            空格组合机柜、设备、对端或端口名称；各词须匹配同一条连接。点连接标记三维两端，在详情中同框观察或继续检视。
-          </p>
           <div className="network-connection-list" aria-label="全机房连接结果">
             {rows.map(({ rack, link, role: branch, endpoints }) => (
               <button
                 key={link.id}
                 data-network-focus={link.id}
                 aria-pressed={activeLink === link.id}
-                disabled={!ready}
-                onClick={() => onTrace(link.id)}
+                aria-disabled={!ready}
+                onClick={() => ready && onTrace(link.id)}
               >
-                <b>
-                  {endpoints[0].name} · {endpoints[1].name}
-                </b>
-                <span>
-                  {rack.name.split(" ")[0]} · 接入 {branch} · {link.speedGbps}G
-                  配置
-                </span>
+                <strong>
+                  ① {endpoints[0].name} <span>·</span> ② {endpoints[1].name}
+                </strong>
                 <small>
-                  ① {unitLabel(link.source)} · {endpoints[0].portLabel}
-                </small>
-                <small>
-                  ② {unitLabel(link.target)} · {endpoints[1].portLabel}
+                  {rack.name.split(" ")[0]} · 接入 {branch} · 交换机口{" "}
+                  {String(link.targetPort).padStart(2, "0")}
                 </small>
               </button>
             ))}
@@ -220,8 +211,7 @@ export function NetworkOverview({
             ))}
           </div>
           <p className="network-map-hint">
-            左右为 A/B
-            交换机逻辑口。点端口标记两端，点设备仅预览；安装位与部件在详情中继续。
+            左右为 A/B 交换机逻辑口。点端口查看连接两端，点设备预览安装位置。
           </p>
           <div className="network-map-columns" aria-hidden="true">
             <span>A 端口</span>
@@ -253,10 +243,10 @@ export function NetworkOverview({
                       className="network-map-port"
                       data-network-focus={link.id}
                       key={role}
-                      disabled={!ready}
+                      aria-disabled={!ready}
                       aria-pressed={activeLink === link.id}
                       aria-label={`标记 ${device.name} 接入 ${role} 端口 ${link.targetPort}`}
-                      onClick={() => onTrace(link.id)}
+                      onClick={() => ready && onTrace(link.id)}
                     >
                       {String(link.targetPort).padStart(2, "0")}
                     </button>
@@ -277,11 +267,14 @@ export function NetworkOverview({
           )}
         </>
       )}
-      <p className="network-map-hint">
-        仅展示柜内已登记的 25G
-        接入。连线不表示流向或实际布线；未采集链路状态、协商速率与流量，A/B
-        不证明上联独立或冗余保障。
-      </p>
+      <details className="network-map-hint">
+        <summary>配置与查找说明</summary>
+        <p>
+          查找词以空格分隔，共同匹配一条连接。仅展示柜内已登记的 25G
+          接入。连线不表示流向或实际布线；未采集链路状态、协商速率与流量，A/B
+          不证明上联独立或冗余保障。
+        </p>
+      </details>
     </section>
   );
 }

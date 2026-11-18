@@ -1,6 +1,5 @@
 import { SwitchPorts } from "./SwitchPorts";
 import type { SwitchPortCheck } from "../switch-ports";
-import { NetworkViewActions } from "./NetworkViewActions";
 import { ConnectionSection } from "./ConnectionSection";
 import { useState } from "react";
 import type { AppState } from "../domain";
@@ -15,7 +14,6 @@ import {
   switchRole,
   switchesForRack,
   networkMarkers,
-  networkEndpoints,
   networkLinkById,
 } from "../network";
 
@@ -34,7 +32,6 @@ export function NetworkConnections({
   onReturnView,
   onSelect,
   onLocate,
-  onInspect,
   onTrace,
   onInteract,
 }: {
@@ -57,7 +54,6 @@ export function NetworkConnections({
   onReturnView: () => void;
   onSelect: (id: string) => void;
   onLocate: (id: string) => void;
-  onInspect: (id: string) => void;
   onTrace: (id: string | null) => void;
   onInteract: () => void;
 }) {
@@ -96,14 +92,14 @@ export function NetworkConnections({
   });
   return (
     <ConnectionSection
-      title="网络接入"
+      title={activeLink ? "逻辑端口清单" : "网络接入"}
       className="network-connections"
       summary={
         rack
           ? `${switchesForRack(rack.id).length} 台交换机 · 配置`
           : `${links.length} / ${ports.length} 口已配置`
       }
-      active={!!activeLinkId || portCheck?.switchId === id}
+      active={portCheck?.switchId === id}
       onInteract={onInteract}
     >
       {isSwitch && selectedId !== device?.id && (
@@ -159,78 +155,6 @@ export function NetworkConnections({
             />
           );
         })()}
-      {activeLink && !isSwitch && (
-        <section className="network-trace" aria-label="当前网络连接">
-          <div className="network-trace-heading">
-            <span>{activeLink.speedGbps} Gb/s · 配置接入</span>
-            <button onClick={() => onTrace(null)}>结束标记</button>
-          </div>
-          <div
-            className="network-trace-branches"
-            role="group"
-            aria-label="同一设备的接入配置"
-          >
-            <span>{deviceById(activeLink.source)!.name} 接入</span>
-            {networkLinksFor(activeLink.source, state.deviceId).map((link) => (
-              <button
-                key={link.id}
-                disabled={!ready}
-                aria-pressed={activeLink.id === link.id}
-                aria-label={`查看 ${deviceById(link.source)!.name} 接入 ${switchRole(link.target)}`}
-                onClick={() => onTrace(link.id)}
-              >
-                {switchRole(link.target)} · {deviceById(link.target)!.name}
-              </button>
-            ))}
-          </div>
-          {canObserve && (
-            <NetworkViewActions
-              active={observing}
-              ready={ready}
-              onObserve={onObserve}
-              onReturn={onReturnView}
-            />
-          )}
-          {networkEndpoints(activeLink.id).map((endpoint) => (
-            <div className="network-trace-endpoint" key={endpoint.side}>
-              <span aria-hidden="true">{endpoint.ordinal}</span>
-              <button
-                className="network-trace-preview"
-                aria-label={`预览端点 ${endpoint.name}`}
-                onClick={() => onSelect(endpoint.deviceId)}
-              >
-                <strong>{endpoint.name}</strong>
-                <small>{endpoint.portLabel}</small>
-                <small>{endpoint.location}</small>
-                <small>所属部件 · {endpoint.partName}</small>
-              </button>
-              <div className="network-endpoint-actions">
-                <button
-                  disabled={!ready}
-                  aria-label={`定位安装位 ${endpoint.name}`}
-                  onClick={() => onLocate(endpoint.deviceId)}
-                >
-                  安装位
-                </button>
-                <button
-                  disabled={!ready}
-                  aria-label={`查看 ${endpoint.name} 的${endpoint.partName}`}
-                  onClick={() => onInspect(endpoint.deviceId)}
-                >
-                  查看部件
-                </button>
-              </div>
-            </div>
-          ))}
-          <p className="network-boundary" role="status">
-            {state.level === "device"
-              ? [activeLink.source, activeLink.target].includes(state.deviceId)
-                ? "当前展示本端部件；可查看另一端部件，或返回安装位。"
-                : "当前结构不含此连接的端点；请定位安装位或查看部件。"
-              : "端点标记对应整机安装位置；查看部件将进入整机并展开。"}
-          </p>
-        </section>
-      )}
       {rack ? (
         <div className="network-switch-list">
           {switchesForRack(rack.id).map((sw) => {

@@ -222,8 +222,14 @@ import {
   type PduInspection,
 } from "./pdu-outlets";
 import { PowerConnections } from "./components/PowerConnections";
+import { NetworkTrace } from "./components/NetworkTrace";
 import { NetworkConnections } from "./components/NetworkConnections";
-import { networkContextIncludes, networkLinkById } from "./network";
+import {
+  networkContextIncludes,
+  networkDeviceId,
+  networkLinkById,
+  switchRole,
+} from "./network";
 import { CoolingConnections } from "./components/CoolingConnections";
 import {
   coolingSource,
@@ -779,7 +785,19 @@ export function Workspace() {
   const [networkMapRestore, setNetworkMapRestore] = useState(0);
   const [networkMapRack, setNetworkMapRack] = useState("rack-a01");
   const [networkMapQuery, setNetworkMapQuery] = useState("");
-  const [networkMapLink, setNetworkMapLink] = useState<string | null>(null);
+  const [networkMapVisit, setNetworkMapVisit] = useState<{
+    linkId: string | null;
+    selection: string;
+    scope: NetworkOverviewScope;
+    role: NetworkOverviewRole;
+    rack: string;
+    query: string;
+    scroll: number;
+    inspector: boolean;
+  } | null>(null);
+  const originalNetworkLink = networkLinkById(networkMapVisit?.linkId ?? null);
+  const networkTrace = networkLinkById(activeNetworkLink);
+  const networkControlFocus = useRef<"endpoint" | "branch" | null>(null);
   const [networkMapSelection, setNetworkMapSelection] = useState("room-01");
   const networkMapScroll = useRef(0);
   const [networkMapReturning, setNetworkMapReturning] = useState(false);
@@ -1422,18 +1440,66 @@ export function Workspace() {
       review.pendingId
     )
       return;
-    control({ type: "pick", id: networkMapSelection });
-    setNetworkLinkId(networkMapLink);
+    const destination = networkMapVisit?.selection ?? networkMapSelection;
+    if (selected !== destination || layer !== "overview") {
+      control({ type: "pick", id: destination });
+      control({ type: "layer", layer: "overview" });
+      return;
+    }
+    setRackView("network");
+    if (networkMapVisit) {
+      setNetworkMapScope(networkMapVisit.scope);
+      setNetworkMapRole(networkMapVisit.role);
+      setNetworkMapRack(networkMapVisit.rack);
+      setNetworkMapQuery(networkMapVisit.query);
+      networkMapScroll.current = networkMapVisit.scroll;
+      networkMapFocus.current =
+        networkMapVisit.linkId ?? networkMapVisit.selection;
+    }
+    setNetworkLinkId(networkMapVisit?.linkId ?? null);
+    setInspector(
+      !!networkMapVisit?.inspector &&
+        !matchMedia("(max-width: 1099px)").matches,
+    );
+    skipNavigationSearch.current = !nav;
+    setNav(true);
     setNetworkMapRestore((n) => n + 1);
     setNetworkMapReturning(false);
+    setNetworkMapVisit(null);
   }, [
     networkMapReturning,
     state.level,
     ready,
     review.pendingId,
-    networkMapLink,
+    networkMapVisit,
     networkMapSelection,
+    selected,
+    layer,
+    nav,
   ]);
+  useEffect(() => {
+    if (
+      !networkMapReturning &&
+      networkMapVisit &&
+      state.level === "room" &&
+      ready &&
+      rackView !== "network"
+    )
+      setNetworkMapVisit(null);
+  }, [networkMapReturning, networkMapVisit, state.level, ready, rackView]);
+  useEffect(() => {
+    const target = networkControlFocus.current;
+    if (!target) return;
+    if (target === "branch" && !ready) return;
+    networkControlFocus.current = null;
+    inspectorRef.current
+      ?.querySelector<HTMLElement>(
+        target === "branch"
+          ? ".network-trace select"
+          : '.network-endpoint-picker button[aria-pressed="true"]',
+      )
+      ?.focus({ preventScroll: true });
+  }, [selected, activeNetworkLink, ready]);
   useEffect(() => {
     if (!crossingInspectPending.current || !crossing || !ready) return;
     const details = document.querySelector<HTMLElement>(".crossing-details");
@@ -2039,22 +2105,41 @@ export function Workspace() {
     setInspectionDevice(null);
     control({ type: "finish-part-inspection" });
   };
-  const networkMapReturn = state.level !== "room" && rackView === "network" && (
-    <button
-      className="study-parent"
-      disabled={!ready || networkMapReturning}
-      onClick={() => {
-        setNetworkMapReturning(true);
-        control({ type: "analysis", value: false });
-        control({ type: "open-resource", id: "room-01" });
-        control({ type: "layer", layer: "overview" });
-        setNetworkLinkId(networkMapLink);
-        setNav(true);
-      }}
-    >
-      ← 返回机房接入图
-    </button>
-  );
+  const rememberNetworkMap = (selection: string, linkId: string | null) => {
+    setNetworkMapVisit({
+      selection,
+      linkId,
+      scope: networkMapScope,
+      role: networkMapRole,
+      rack: networkMapRack,
+      query: networkMapQuery,
+      scroll: networkMapScroll.current,
+      inspector,
+    });
+  };
+  const rememberMarkedConnection = () => {
+    if (
+      !networkMapVisit &&
+      networkTrace &&
+      rackView === "network" &&
+      state.level === "room"
+    )
+      rememberNetworkMap(networkTrace.source, networkTrace.id);
+  };
+  const changeNetworkTrace = (id: string | null) => {
+    const link = networkLinkById(id);
+    if (link && !networkContextIncludes(selected, state.deviceId, id))
+      pick(link.source);
+    setNetworkLinkId(id);
+    if (!id) setNetworkMapVisit(null);
+  };
+  const returnNetworkMap = () => {
+    setNetworkMapReturning(true);
+    setPortVisit(null);
+    control({ type: "analysis", value: false });
+    if (state.level !== "room")
+      control({ type: "open-resource", id: "room-01" });
+  };
   const returnInletAirflow = () => {
     if (!inletAirflowVisit || !ready || inletAirflowReturning) return;
     setInletAirflowReturning(true);
@@ -2639,7 +2724,7 @@ export function Workspace() {
     setNetworkMapRestore(0);
     setNetworkMapRack("rack-a01");
     setNetworkMapQuery("");
-    setNetworkMapLink(null);
+    setNetworkMapVisit(null);
     setNetworkMapReturning(false);
     setNetworkMapSelection("room-01");
     networkMapScroll.current = 0;
@@ -2954,6 +3039,24 @@ export function Workspace() {
             )}
           </div>
         )}
+        {(networkMapVisit ||
+          (state.level !== "room" && rackView === "network")) && (
+          <div
+            className="study-task-return"
+            role="group"
+            aria-label="网络接入往返"
+          >
+            <button
+              disabled={!ready || networkMapReturning}
+              onClick={returnNetworkMap}
+            >
+              ← 返回
+              {originalNetworkLink
+                ? ` ${deviceById(originalNetworkLink.source)!.name} · 接入 ${switchRole(originalNetworkLink.target)}`
+                : "机房接入图"}
+            </button>
+          </div>
+        )}
         <nav className="study-path" aria-label="空间路径">
           {getPath(state).map((item, i) => (
             <span key={item}>
@@ -3181,7 +3284,6 @@ export function Workspace() {
             </div>
           )}
           {blankingReturn}
-          {networkMapReturn}
           {state.level !== "room" && (
             <button
               className="study-parent"
@@ -3530,7 +3632,7 @@ export function Workspace() {
             <NetworkOverview
               scope={networkMapScope}
               role={networkMapRole}
-              visible={nav}
+              visible={nav && !networkMapReturning}
               restoreRevision={networkMapRestore}
               focusKey={networkMapFocus}
               onScope={(scope) => {
@@ -3551,13 +3653,14 @@ export function Workspace() {
               onQuery={setNetworkMapQuery}
               onPreview={(id) => {
                 setNetworkMapSelection(id);
-                setNetworkMapLink(null);
+                setNetworkMapVisit(null);
+                setNetworkLinkId(null);
                 selectObject(id);
                 control({ type: "analysis", value: false });
               }}
               onLocate={(id) => {
                 setNetworkMapSelection(id);
-                setNetworkMapLink(null);
+                rememberNetworkMap(id, null);
                 selectObject(id, true);
               }}
               onTrace={(id) => {
@@ -3565,7 +3668,7 @@ export function Workspace() {
                 if (!link) return;
                 pick(link.source);
                 setNetworkMapSelection(link.source);
-                setNetworkMapLink(id);
+                rememberNetworkMap(link.source, id);
                 setNetworkLinkId(id);
                 setPowerLinkId(null);
                 control({ type: "layer", layer: "overview" });
@@ -3887,7 +3990,8 @@ export function Workspace() {
           )}
           {!alarmQueueVisible &&
             !(
-              state.level === "room" && ["inlet", "power"].includes(rackView)
+              state.level === "room" &&
+              ["inlet", "power", "network"].includes(rackView)
             ) &&
             !(state.level === "room" && rackView === "layout") &&
             !(state.level !== "device" && rackView === "space") &&
@@ -4099,7 +4203,7 @@ export function Workspace() {
             }}
             onClearNetwork={() => {
               takeover();
-              setNetworkLinkId(null);
+              changeNetworkTrace(null);
             }}
             onSelect={(id, enter) => {
               if (enter && roomLayoutDevices && deviceById(id))
@@ -4348,7 +4452,45 @@ export function Workspace() {
                 </span>
               </div>
             )}
-            {!nav && networkMapReturn}
+            {networkTrace && !review.analysis && (
+              <NetworkTrace
+                link={networkTrace}
+                deviceId={networkDeviceId(selected, state.deviceId)}
+                inside={state.level === "device" ? state.deviceId : null}
+                ready={ready}
+                canObserve={
+                  networkViewPoints(state, selected, networkTrace.id).length ===
+                  2
+                }
+                observing={networkViewActive}
+                onObserve={() => requestNetworkView("observe")}
+                onReturnView={() => requestNetworkView("return")}
+                onPreview={(id) => {
+                  if (id !== selected) networkControlFocus.current = "endpoint";
+                  pick(id);
+                }}
+                onLocate={(id) => {
+                  rememberMarkedConnection();
+                  focus(id, { installation: true });
+                }}
+                onInspect={(id) => {
+                  rememberMarkedConnection();
+                  control({
+                    type: "inspect-network-endpoint",
+                    linkId: networkTrace.id,
+                    deviceId: id,
+                  });
+                  setQuery("");
+                  setFilter("all");
+                  setPowerLinkId(null);
+                  if (matchMedia("(max-width: 1099px)").matches) setNav(false);
+                }}
+                onTrace={(id) => {
+                  if (id) networkControlFocus.current = "branch";
+                  changeNetworkTrace(id);
+                }}
+              />
+            )}
             {activeFanVisit && !review.analysis && (
               <FanInspection
                 deviceId={state.deviceId}
@@ -5520,32 +5662,7 @@ export function Workspace() {
                         ready={ready}
                         onSelect={pick}
                         onLocate={(id) => focus(id, { installation: true })}
-                        onInspect={(id) => {
-                          if (!activeNetworkLink) return;
-                          control({
-                            type: "inspect-network-endpoint",
-                            linkId: activeNetworkLink,
-                            deviceId: id,
-                          });
-                          setQuery("");
-                          setFilter("all");
-                          setPowerLinkId(null);
-                          if (matchMedia("(max-width: 1099px)").matches)
-                            setNav(false);
-                        }}
-                        onTrace={(id) => {
-                          const link = networkLinkById(id);
-                          if (
-                            link &&
-                            !networkContextIncludes(
-                              selected,
-                              state.deviceId,
-                              id,
-                            )
-                          )
-                            pick(link.source);
-                          setNetworkLinkId(id);
-                        }}
+                        onTrace={changeNetworkTrace}
                         onInteract={takeover}
                       />
                     )}
