@@ -615,7 +615,8 @@
   display: flex;
   gap: 6px;
 }
-.workspace-ui .aisle-legend button {
+.workspace-ui .aisle-legend button,
+.workspace-ui .aisle-legend select {
   pointer-events: auto;
   padding: 4px 8px;
   border: 1px solid #ffffff26;
@@ -4567,21 +4568,22 @@
   max-width: min(290px, calc(100vw - 48px));
   white-space: normal;
 }
-.maintenance-view-controls {
-  display: grid;
-  gap: 8px;
+.workspace-ui .aisle-legend:has(> [data-maintenance-entry]) {
+  padding: 0;
+}
+.workspace-ui .aisle-legend select {
+  background: #26343e;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
 }
 .aisle-sequence {
-  display: grid;
-  gap: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   border-top: 1px solid #ffffff18;
   padding-top: 5px;
-}
-.maintenance-view-controls .aisle-actions {
-  flex-wrap: wrap;
-}
-.maintenance-view-controls button[aria-pressed="true"] {
-  background: #3c555d;
+  font-variant-numeric: tabular-nums;
 }
 .workspace-ui .maintenance-view-details {
   display: grid;

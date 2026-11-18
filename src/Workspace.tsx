@@ -551,11 +551,6 @@ export function Workspace() {
   }, [coolingVisit, coolingReturning, selected, state.deviceId]);
   const [maintenanceView, setMaintenanceView] =
     useState<MaintenanceInspection | null>(null);
-  const [maintenanceReturnRevision, setMaintenanceReturnRevision] = useState(0);
-  const returnMaintenanceView = () => {
-    takeover();
-    setMaintenanceReturnRevision((value) => value + 1);
-  };
   const [entranceView, setEntranceView] = useState<EntranceInspection | null>(
     null,
   );
@@ -3956,7 +3951,6 @@ export function Workspace() {
             onEnvironmentView={requestEnvironmentView}
             onReturnEnvironmentPair={returnEnvironmentPair}
             maintenanceView={maintenanceView}
-            maintenanceReturnRevision={maintenanceReturnRevision}
             onMaintenanceViewChange={setMaintenanceView}
             entranceView={entranceView}
             entranceViewCommand={entranceViewCommand}
@@ -4667,7 +4661,7 @@ export function Workspace() {
                 </small>
               </section>
             )}
-            {maintenanceView && (
+            {maintenanceView && !review.analysis && (
               <section
                 className="maintenance-view-details"
                 aria-label="维护范围核对"
@@ -4697,9 +4691,6 @@ export function Workspace() {
                 <p>
                   地面轮廓仅表示配置预留，不是实测净距、人员作业条件或通行结论。未包含全部建筑障碍物。
                 </p>
-                <button disabled={!ready} onClick={returnMaintenanceView}>
-                  ← 返回范围观察前视角
-                </button>
               </section>
             )}
             {isSmokeFixture(selected) && (
@@ -5574,7 +5565,7 @@ export function Workspace() {
                         </dl>
                         <p>
                           尺寸为进深 ×
-                          宽度的预留示意，不是实测净距或工程校核。场景总览选中机柜时显示范围。
+                          宽度的预留示意，不是实测净距或工程校核。机房总览中可从“核对维护范围”查看地面轮廓。
                         </p>
                       </>
                     )}

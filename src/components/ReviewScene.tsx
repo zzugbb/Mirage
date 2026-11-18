@@ -169,7 +169,6 @@ export function ReviewScene({
   onEnvironmentView,
   onReturnEnvironmentPair,
   maintenanceView,
-  maintenanceReturnRevision,
   onMaintenanceViewChange,
   entranceView,
   entranceViewCommand,
@@ -220,7 +219,6 @@ export function ReviewScene({
   onEnvironmentView: (action: EnvironmentViewCommand["action"]) => void;
   onReturnEnvironmentPair: () => void;
   maintenanceView: MaintenanceInspection | null;
-  maintenanceReturnRevision: number;
   onMaintenanceViewChange: (inspection: MaintenanceInspection | null) => void;
   entranceView: EntranceInspection | null;
   entranceViewCommand: EntranceViewCommand | null;
@@ -530,35 +528,47 @@ export function ReviewScene({
   );
   const networkLink = networkLinkById(networkLinkId);
   const availableAisle = networkLinkId ? undefined : aisle;
-  const [comparedId, setComparedId] = useState<string | null>(null);
-  useEffect(() => {
-    setComparedId((current) =>
-      current === availableAisle?.id ? current : null,
-    );
-  }, [availableAisle?.id]);
-  useEffect(() => setComparedId(null), [shotRevision]);
-  const comparison = maintenanceView
-    ? maintenanceView.aisle
-    : availableAisle?.id === comparedId
-      ? availableAisle
-      : undefined;
-  const maintenance = useMemo(
+  const rackAreas = useMemo(
     () =>
       layer === "overview" && state.level === "room" && !networkLinkId
-        ? maintenanceView
-          ? maintenanceView.areas
-          : comparison
-            ? [comparison.front, comparison.rear]
-            : maintenanceAreas(selectedId)
+        ? maintenanceAreas(selectedId)
         : [],
-    [
-      layer,
-      state.level,
-      selectedId,
-      networkLinkId,
-      comparison,
-      maintenanceView,
-    ],
+    [layer, state.level, networkLinkId, selectedId],
+  );
+  const [maintenanceScope, setMaintenanceScope] = useState<{
+    rackId: string;
+    paired: boolean;
+  } | null>(null);
+  const inspecting =
+    !!maintenanceScope &&
+    rackAreas.length > 0 &&
+    (maintenanceScope.rackId === selectedId ||
+      (maintenanceScope.paired &&
+        !!availableAisle &&
+        maintenanceAisle(maintenanceScope.rackId)?.id === availableAisle.id) ||
+      (!!maintenanceView &&
+        maintenanceViewIncludes(maintenanceView, selectedId)));
+  useEffect(() => {
+    if (!maintenanceScope) return;
+    if (!inspecting) setMaintenanceScope(null);
+    else if (maintenanceScope.rackId !== selectedId)
+      setMaintenanceScope({ ...maintenanceScope, rackId: selectedId });
+  }, [inspecting, maintenanceScope, selectedId]);
+  useEffect(() => setMaintenanceScope(null), [shotRevision]);
+  const comparison = inspecting
+    ? maintenanceView
+      ? maintenanceView.aisle
+      : maintenanceScope.paired
+        ? availableAisle
+        : undefined
+    : undefined;
+  const maintenance = useMemo(
+    () =>
+      !inspecting
+        ? []
+        : (maintenanceView?.areas ??
+          (comparison ? [comparison.front, comparison.rear] : rackAreas)),
+    [inspecting, maintenanceView, comparison, rackAreas],
   );
   const areaLabels = useMemo(() => {
     const labels = maintenance.map((area) => ({
@@ -974,9 +984,17 @@ export function ReviewScene({
     "entry" | "view" | "previous" | "next" | "origin" | null
   >(null);
   const restoreMaintenance = () => {
-    maintenanceFocus.current = "entry";
+    maintenanceFocus.current = "view";
     engine.current?.restoreMaintenanceView();
     if (engine.current) setView(engine.current.currentView);
+  };
+  const leaveMaintenanceStep = () => {
+    if (!sceneSettled) return;
+    if (maintenanceView) restoreMaintenance();
+    else {
+      maintenanceFocus.current = "entry";
+      setMaintenanceScope(null);
+    }
   };
   const observeMaintenance = (next: MaintenanceView) => {
     onTakeover();
@@ -995,13 +1013,10 @@ export function ReviewScene({
       return;
     onTakeover();
     maintenanceFocus.current = action;
-    if (comparedId) setComparedId(maintenanceAisle(rackId)?.id ?? null);
+    setMaintenanceScope((scope) => scope && { ...scope, rackId });
     onSelect(rackId);
     engine.current.observeMaintenance(rackId, "aisle");
   };
-  useEffect(() => {
-    if (maintenanceReturnRevision) restoreMaintenance();
-  }, [maintenanceReturnRevision]);
   useEffect(() => {
     engine.current?.frameMaintenance();
   }, [maintenanceView]);
@@ -1013,13 +1028,15 @@ export function ReviewScene({
         maintenanceFocus.current === "entry"
           ? "[data-maintenance-entry]"
           : maintenanceFocus.current === "view"
-            ? "[aria-pressed='true']"
+            ? "[data-maintenance-mode]"
             : `[data-aisle-step="${maintenanceFocus.current}"]:not(:disabled)`;
       const button =
-        maintenanceControls.current?.querySelector<HTMLButtonElement>(target) ??
-        maintenanceControls.current?.querySelector<HTMLButtonElement>(
-          "[aria-pressed='true']",
-        );
+        maintenanceControls.current?.querySelector<
+          HTMLButtonElement | HTMLSelectElement
+        >(target) ??
+        maintenanceControls.current?.querySelector<
+          HTMLButtonElement | HTMLSelectElement
+        >("[data-maintenance-mode]");
       if (!button) {
         maintenanceFocus.current = null;
         return;
@@ -1034,7 +1051,7 @@ export function ReviewScene({
     };
     frame = requestAnimationFrame(focus);
     return () => cancelAnimationFrame(frame);
-  }, [maintenanceView, sceneSettled]);
+  }, [maintenanceView, sceneSettled, inspecting]);
   useEffect(() => {
     if (
       maintenanceView &&
@@ -2124,153 +2141,129 @@ export function ReviewScene({
             </div>
           )}
           {layer === "overview" ? (
-            maintenance.length > 0 ? (
-              <div className="review-status-key aisle-legend">
-                <div
-                  className="maintenance-view-controls"
-                  ref={maintenanceControls}
-                  onKeyDown={(event) => {
-                    if (event.key === "Escape" && maintenanceView) {
-                      event.preventDefault();
-                      event.stopPropagation();
-                      restoreMaintenance();
-                    }
-                  }}
-                >
-                  {maintenanceView ? (
-                    <>
-                      <strong>维护范围观察</strong>
-                      <div
-                        className="aisle-actions"
-                        role="group"
+            rackAreas.length > 0 ? (
+              <div
+                className="review-status-key aisle-legend"
+                ref={maintenanceControls}
+                onKeyDown={(event) => {
+                  if (event.key !== "Escape" || !inspecting) return;
+                  event.preventDefault();
+                  event.stopPropagation();
+                  leaveMaintenanceStep();
+                }}
+              >
+                {inspecting ? (
+                  <>
+                    <strong>{rackAreas[0].rackName} · 维护预留</strong>
+                    <div className="aisle-actions">
+                      <select
                         aria-label="维护范围观察方式"
+                        data-maintenance-mode
+                        disabled={!sceneSettled}
+                        value={
+                          maintenanceView?.view ??
+                          (comparison ? "pair" : "rack")
+                        }
+                        onChange={(event) => {
+                          const next = event.target.value;
+                          const view = maintenanceViews.find(
+                            (item) => item.id === next,
+                          );
+                          if (view) observeMaintenance(view.id);
+                          else {
+                            if (maintenanceView) restoreMaintenance();
+                            setMaintenanceScope({
+                              rackId: selectedId,
+                              paired: next === "pair",
+                            });
+                          }
+                        }}
                       >
+                        <option value="rack">本柜前后</option>
+                        {availableAisle && (
+                          <option value="pair">两柜对照</option>
+                        )}
                         {maintenanceViews
                           .filter(
                             (item) => item.id !== "aisle" || availableAisle,
                           )
                           .map((item) => (
-                            <button
-                              key={item.id}
-                              disabled={!sceneSettled}
-                              aria-pressed={maintenanceView.view === item.id}
-                              onClick={() => observeMaintenance(item.id)}
-                            >
+                            <option key={item.id} value={item.id}>
                               {item.name}
-                            </button>
+                            </option>
                           ))}
-                      </div>
-                      {aisleSequence && comparison && (
-                        <div
-                          className="aisle-sequence"
-                          role="group"
-                          aria-label="沿排核对"
-                        >
-                          <strong aria-live="polite">
-                            {comparison.rear.rackName.split(" ")[0]} /{" "}
-                            {comparison.front.rackName.split(" ")[0]} · 第{" "}
-                            {aisleSequence.index + 1} / {aisleSequence.count} 组
-                          </strong>
-                          <div className="aisle-actions">
-                            <button
-                              data-aisle-step="previous"
-                              disabled={
-                                !sceneSettled || !aisleSequence.previous
-                              }
-                              onClick={() =>
-                                moveAlongAisle(
-                                  aisleSequence.previous,
-                                  "previous",
-                                )
-                              }
-                            >
-                              ← 上一组
-                            </button>
-                            <button
-                              data-aisle-step="next"
-                              disabled={!sceneSettled || !aisleSequence.next}
-                              onClick={() =>
-                                moveAlongAisle(aisleSequence.next, "next")
-                              }
-                            >
-                              下一组 →
-                            </button>
-                            <button
-                              data-aisle-step="origin"
-                              disabled={
-                                !sceneSettled ||
-                                !aisleOrigin.current ||
-                                selectedId === aisleOrigin.current
-                              }
-                              onClick={() =>
-                                moveAlongAisle(
-                                  aisleOrigin.current ?? undefined,
-                                  "origin",
-                                )
-                              }
-                            >
-                              回到起点
-                            </button>
-                          </div>
-                        </div>
-                      )}
+                      </select>
                       <button
                         disabled={!sceneSettled}
-                        onClick={restoreMaintenance}
+                        onClick={leaveMaintenanceStep}
                       >
-                        ← 返回范围观察前视角
+                        {maintenanceView ? "返回原视角" : "结束核对"}
                       </button>
-                    </>
-                  ) : (
-                    <>
-                      <div className="aisle-actions">
+                    </div>
+                    {aisleSequence && comparison && (
+                      <div
+                        className="aisle-sequence"
+                        role="group"
+                        aria-label="沿排核对"
+                      >
                         <button
-                          data-maintenance-entry
-                          disabled={!sceneSettled}
-                          onClick={() => observeMaintenance("front")}
+                          data-aisle-step="previous"
+                          aria-label="上一组"
+                          disabled={!sceneSettled || !aisleSequence.previous}
+                          onClick={() =>
+                            moveAlongAisle(aisleSequence.previous, "previous")
+                          }
                         >
-                          观察柜前范围
+                          ←
+                        </button>
+                        <span aria-live="polite">
+                          {aisleSequence.index + 1} / {aisleSequence.count}
+                        </span>
+                        <button
+                          data-aisle-step="next"
+                          aria-label="下一组"
+                          disabled={!sceneSettled || !aisleSequence.next}
+                          onClick={() =>
+                            moveAlongAisle(aisleSequence.next, "next")
+                          }
+                        >
+                          →
                         </button>
                         <button
-                          disabled={!sceneSettled}
-                          onClick={() => observeMaintenance("rear")}
+                          data-aisle-step="origin"
+                          disabled={
+                            !sceneSettled ||
+                            !aisleOrigin.current ||
+                            selectedId === aisleOrigin.current
+                          }
+                          onClick={() =>
+                            moveAlongAisle(
+                              aisleOrigin.current ?? undefined,
+                              "origin",
+                            )
+                          }
                         >
-                          观察柜后范围
+                          回到起点
                         </button>
                       </div>
-                      <div className="aisle-actions">
-                        {availableAisle && (
-                          <button
-                            aria-pressed={!!comparison}
-                            onClick={() => {
-                              onTakeover();
-                              setComparedId(
-                                comparison ? null : availableAisle.id,
-                              );
-                            }}
-                          >
-                            {comparison ? "退出通道对照" : "对照排间通道"}
-                          </button>
-                        )}
-                        {comparison && (
-                          <button
-                            disabled={!sceneSettled}
-                            onClick={() => observeMaintenance("aisle")}
-                          >
-                            俯看两柜
-                          </button>
-                        )}
-                      </div>
-                    </>
-                  )}
-                </div>
-                {comparison && (
-                  <strong>
-                    柜面间距 {comparison.faceDistance.toFixed(2)} m ·{" "}
-                    {reserveGapText(comparison.gap)}
-                  </strong>
+                    )}
+                  </>
+                ) : (
+                  <button
+                    data-maintenance-entry
+                    disabled={!sceneSettled}
+                    onClick={() => {
+                      onTakeover();
+                      maintenanceFocus.current = "view";
+                      setMaintenanceScope({
+                        rackId: selectedId,
+                        paired: false,
+                      });
+                    }}
+                  >
+                    核对维护范围
+                  </button>
                 )}
-                <small>通道预留示意 · 非实测净距</small>
               </div>
             ) : state.level === "device" && model.category !== "server" ? (
               <div className="review-status-key">

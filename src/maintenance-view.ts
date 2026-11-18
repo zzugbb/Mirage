@@ -4,9 +4,9 @@ import { maintenanceAreas, maintenanceAisle } from "./maintenance.ts";
 import { observationFrame, type FrameRect } from "./observation-frame.ts";
 
 export const maintenanceViews = [
-  { id: "front", name: "柜前范围" },
-  { id: "rear", name: "柜后范围" },
-  { id: "aisle", name: "排间范围" },
+  { id: "front", name: "近看柜前" },
+  { id: "rear", name: "近看柜后" },
+  { id: "aisle", name: "俯看排间" },
 ] as const;
 export type MaintenanceView = (typeof maintenanceViews)[number]["id"];
 
