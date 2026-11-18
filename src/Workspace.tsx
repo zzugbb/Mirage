@@ -127,7 +127,7 @@ import {
   type FixtureCrossing,
   type CrossingViewCommand,
 } from "./fixture-crossing";
-import { powerViewPoints, type PowerViewCommand } from "./power-view";
+import type { PowerViewCommand } from "./power-view";
 import {
   emptyPeakProcess,
   peakScopeIds,
@@ -5641,16 +5641,7 @@ export function Workspace() {
                     {sourceInspector}
                     {(layer === "power" || powerFacility) && (
                       <PowerConnections
-                        canObserve={
-                          layer === "power" &&
-                          powerViewPoints(state, selected, activePowerLink)
-                            .length === 2
-                        }
-                        observing={powerViewActive}
                         paired={powerViewPaired}
-                        onObserve={() => requestPowerView("observe")}
-                        onObservePair={() => requestPowerView("observe-pair")}
-                        onReturnView={() => requestPowerView("return")}
                         pduInspection={pduInspection}
                         onPduChange={(visit) => {
                           takeover();

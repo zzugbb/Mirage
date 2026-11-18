@@ -327,7 +327,6 @@ export function ReviewScene({
   const leakReturning = useRef(false);
   const leakFocusTarget = useRef<string | null>(null);
   const crossingGeometry = useRef<CrossingGeometry | null>(null);
-  const powerEntry = useRef<HTMLButtonElement | null>(null);
   const powerReturning = useRef(false);
   const networkGeometry = useRef<NetworkGeometry | null>(null);
   const clockEpoch = useRef(performance.now());
@@ -1365,11 +1364,6 @@ export function ReviewScene({
       powerReturning.current = true;
       active.restorePowerView();
     } else if (layer === "power") {
-      if (!powerViewActive)
-        powerEntry.current =
-          document.activeElement instanceof HTMLButtonElement
-            ? document.activeElement
-            : null;
       powerReturning.current = false;
       setOrbit(false);
       active.observePower(
@@ -1398,13 +1392,9 @@ export function ReviewScene({
         frame = requestAnimationFrame(restoreFocus);
         return;
       }
-      const original = powerEntry.current;
-      const entry =
-        original?.isConnected && original.getClientRects().length
-          ? original
-          : host.current
-              ?.closest(".study-stage")
-              ?.querySelector<HTMLButtonElement>(".power-view-actions button");
+      const entry = host.current
+        ?.closest(".study-stage")
+        ?.querySelector<HTMLSelectElement>(".power-view-actions select");
       if (entry?.disabled) {
         frame = requestAnimationFrame(restoreFocus);
         return;
@@ -1635,6 +1625,34 @@ export function ReviewScene({
         ?.closest(".study-stage")
         ?.scrollIntoView({ block: "nearest" });
   };
+  const powerScale = layer === "power" && (
+    <>
+      <span>
+        {state.level === "device"
+          ? "部件推导功耗 / 模型预算"
+          : state.level === "rack"
+            ? "整机输入 / 配置预算"
+            : "机柜有效输入 / 对应设备预算"}
+      </span>
+      <i className="review-scale power" />
+      <div className="power-scale-limits">
+        <span>0%</span>
+        <span>100%</span>
+      </div>
+      <small>灰色：数据或预算未定义</small>
+      {onInspectBudget && (
+        <button
+          className="power-budget-entry"
+          onClick={() => {
+            engine.current?.preservePanelView();
+            onInspectBudget();
+          }}
+        >
+          核对所查范围功耗预算 ↗
+        </button>
+      )}
+    </>
+  );
   return (
     <div
       className="review-scene"
@@ -2369,7 +2387,7 @@ export function ReviewScene({
                   analysisControl={airflowResponseControl}
                 />
               )}
-              {sliceVisible && (layer !== "airflow" || !!slice) && (
+              {sliceVisible && (layer === "environment" || !!slice) && (
                 <>
                   <span className={slice ? "review-slice-heading" : undefined}>
                     {slice ? (
@@ -2422,42 +2440,28 @@ export function ReviewScene({
                             </select>
                           )}
                       </>
+                    ) : state.level === "device" ? (
+                      "表面温度 · °C · 模型推导"
                     ) : (
-                      <>
-                        {layer === "environment"
-                          ? state.level === "device"
-                            ? "表面温度 · °C · 模型推导"
-                            : "U 位色条 · 设备进风温度"
-                          : state.level === "device"
-                            ? "部件推导功耗 / 模型预算"
-                            : state.level === "rack"
-                              ? "整机输入 / 配置预算"
-                              : "机柜有效输入 / 对应设备预算"}
-                      </>
+                      "U 位色条 · 设备进风温度"
                     )}
                   </span>
-                  {layer !== "airflow" && (
+                  {layer === "environment" && (
                     <>
-                      <i className={`review-scale ${layer}`} />
+                      <i className="review-scale environment" />
                       <div>
-                        <span>{layer === "environment" ? "20 °C" : "0%"}</span>
+                        <span>20 °C</span>
                         <span>
-                          {layer === "environment"
-                            ? state.level === "device"
-                              ? "80 °C"
-                              : "45 °C"
-                            : "100%"}
+                          {state.level === "device" ? "80 °C" : "45 °C"}
                         </span>
                       </div>
-                      {layer === "environment" && (
-                        <small>
-                          {slice
-                            ? slice.orientation === "horizontal"
-                              ? "局部插值示意 · 空白无估计"
-                              : `高 ${sliceSettings.height.min.toFixed(2)}–${sliceSettings.height.max.toFixed(2)} m · 插值示意 · 空白无估计`
-                            : "蓝色低温 → 暖色高温"}
-                        </small>
-                      )}
+                      <small>
+                        {slice
+                          ? slice.orientation === "horizontal"
+                            ? "局部插值示意 · 空白无估计"
+                            : `高 ${sliceSettings.height.min.toFixed(2)}–${sliceSettings.height.max.toFixed(2)} m · 插值示意 · 空白无估计`
+                          : "蓝色低温 → 暖色高温"}
+                      </small>
                     </>
                   )}
                 </>
@@ -2613,22 +2617,7 @@ export function ReviewScene({
                   )}
                 </div>
               )}
-              {layer === "power" && (
-                <>
-                  <small>灰色：数据或预算未定义</small>
-                  {onInspectBudget && (
-                    <button
-                      className="power-budget-entry"
-                      onClick={() => {
-                        engine.current?.preservePanelView();
-                        onInspectBudget();
-                      }}
-                    >
-                      核对所查范围功耗预算 ↗
-                    </button>
-                  )}
-                </>
-              )}
+              {!powerViewActive && powerScale}
               {layer === "power" && supply && (
                 <div className="power-scene-key" aria-label="供电路径示意">
                   <strong>{supply.caption}</strong>
@@ -2643,11 +2632,12 @@ export function ReviewScene({
                       onReturn={() => onPowerView("return")}
                     />
                   )}
-                  {(supply.traceId || supply.unconnectedOutlet) && (
-                    <button onClick={onClearPower}>
-                      {supply.traceId ? "结束追踪" : "清除插座标记"}
-                    </button>
-                  )}
+                  {!powerViewActive &&
+                    (supply.traceId || supply.unconnectedOutlet) && (
+                      <button onClick={onClearPower}>
+                        {supply.traceId ? "结束追踪" : "清除插座标记"}
+                      </button>
+                    )}
                   {supply.paths.length > 0 && (
                     <div className="power-line-key" aria-label="已显示配置支路">
                       {[...new Set(supply.paths.map((path) => path.feed))].map(
@@ -2690,6 +2680,12 @@ export function ReviewScene({
                       : "支路未计量 · 上游独立性未定义"}
                   </small>
                 </div>
+              )}
+              {powerViewActive && powerScale && (
+                <details className="power-scale-details">
+                  <summary>功耗标尺</summary>
+                  {powerScale}
+                </details>
               )}
             </>
           )}

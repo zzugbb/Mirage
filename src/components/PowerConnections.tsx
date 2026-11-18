@@ -1,4 +1,3 @@
-import { PowerViewActions } from "./PowerViewActions";
 import { ConnectionSection } from "./ConnectionSection";
 import { PduOutlets } from "./PduOutlets";
 import type { PduInspection } from "../pdu-outlets";
@@ -35,19 +34,9 @@ export function PowerConnections({
   activeLinkId,
   onTrace,
   onInspect,
-  canObserve,
-  observing,
   paired,
-  onObserve,
-  onObservePair,
-  onReturnView,
 }: {
-  canObserve: boolean;
-  observing: boolean;
   paired: boolean;
-  onObserve: () => void;
-  onObservePair: () => void;
-  onReturnView: () => void;
   pduInspection: PduInspection | null;
   onPduChange: (visit: PduInspection) => void;
   onPduSelect: (pduId: string, outlet: number) => void;
@@ -105,54 +94,45 @@ export function PowerConnections({
       }
     >
       {onViewPower && <button onClick={onViewPower}>场景查看 ↗</button>}
-      <p className="power-boundary">
-        配置示意 · A/B 未定义独立上游；回路与插座未计量，整机输入不分摊。
-      </p>
-      {canObserve && (
-        <PowerViewActions
-          active={observing}
-          paired={paired}
-          ready={ready}
-          onObserve={onObserve}
-          onObservePair={onObservePair}
-          onReturn={onReturnView}
-        />
+      {!paired && (
+        <p className="power-boundary">
+          配置示意 · A/B 未定义独立上游；回路与插座未计量，整机输入不分摊。
+        </p>
       )}
       {paired && activeLink && (
-        <section className="power-active-trace" aria-label="双输入供电核对">
-          <strong>
-            {deviceById(activeLink.deviceId)!.name} · A/B 配置对应
-          </strong>
-          <p>A 实线 · B 分段。两路同时显示，不表示冗余保障或分路功率。</p>
-          {powerPairLinks(activeLinkId).map((link) => (
-            <div className="power-link" key={link.id}>
-              <strong>
-                {pduName(link.pduId)} / 插座{" "}
-                {String(link.outlet).padStart(2, "0")} → 输入 {link.inlet}
-              </strong>
-              <div>
-                <button
-                  disabled={!ready}
-                  aria-pressed={link.id === activeLinkId}
-                  onClick={() => onTrace(link.id)}
-                >
-                  核对输入 {link.inlet}
-                </button>
-                <button
-                  disabled={!ready}
-                  onClick={() => {
-                    onTrace(link.id);
-                    onInspect(link.id);
-                  }}
-                >
-                  查看电源 {link.inlet}
-                </button>
-              </div>
-            </div>
-          ))}
-          <small>
-            输入端点为配置代表位置。进入电源部件结束同框观察，原支路仍可沿安装位继续查看。
-          </small>
+        <section
+          className="power-active-trace power-pair-detail"
+          aria-label="双输入供电核对"
+        >
+          <strong>{deviceById(activeLink.deviceId)!.name} · 输入与插座</strong>
+          <div
+            role="group"
+            aria-label="选择供电输入"
+            className="power-pair-inputs"
+          >
+            {powerPairLinks(activeLink.id).map((link) => (
+              <button
+                key={link.id}
+                disabled={!ready}
+                aria-pressed={link.id === activeLink.id}
+                onClick={() => onTrace(link.id)}
+              >
+                <b>输入 {link.inlet}</b>
+                <span>
+                  {pduName(link.pduId)} · 插座{" "}
+                  {String(link.outlet).padStart(2, "0")}
+                </span>
+              </button>
+            ))}
+          </div>
+          <button
+            className="power-inspect-input"
+            disabled={!ready}
+            onClick={() => onInspect(activeLink.id)}
+          >
+            查看电源 {activeLink.inlet} ↗
+          </button>
+          <small>输入端点为配置位置，整机功耗未分摊。</small>
         </section>
       )}
       {stops.length > 0 &&
@@ -229,7 +209,7 @@ export function PowerConnections({
             )}
           </section>
         )}
-      {selectedId === powerSettings.sourceId ? (
+      {paired ? null : selectedId === powerSettings.sourceId ? (
         <>
           <p>
             {pdus.length} 个逻辑出线 → {pdus.length} 个 PDU ·{" "}
@@ -315,7 +295,7 @@ export function PowerConnections({
             onInspect={onInspect}
           />
         </>
-      ) : device && model && !paired ? (
+      ) : device && model ? (
         <>
           <button
             className="power-upstream"

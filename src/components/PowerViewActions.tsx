@@ -26,23 +26,24 @@ export function PowerViewActions({
         }
       }}
     >
-      <button
+      <select
+        aria-label="供电观察范围"
+        value={active ? (paired ? "pair" : "single") : ""}
         disabled={!ready}
-        aria-pressed={active && !paired}
-        onClick={onObserve}
+        onChange={(event) => {
+          if (event.target.value === "pair") onObservePair();
+          else onObserve();
+        }}
       >
-        同框观察插座与输入
-      </button>
-      <button
-        disabled={!ready}
-        aria-pressed={active && paired}
-        onClick={onObservePair}
-      >
-        同时核对 A/B 输入
-      </button>
+        <option value="" disabled>
+          选择观察范围
+        </option>
+        <option value="single">单路插座与输入</option>
+        <option value="pair">A/B 双输入</option>
+      </select>
       {active && (
         <button disabled={!ready} onClick={onReturn}>
-          返回供电观察前视角
+          返回原视角
         </button>
       )}
     </div>
