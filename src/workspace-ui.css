@@ -692,18 +692,6 @@
   color: #c0d7dc;
   font-size: 11px;
 }
-.review-flow-explanation ol {
-  padding-left: 18px;
-  margin: 10px 0;
-}
-.review-flow-explanation li {
-  margin: 7px 0;
-  line-height: 1.5;
-}
-.review-flow-explanation li span {
-  display: block;
-  font-size: 10px;
-}
 .review-flow-explanation p {
   font-size: 10px;
   line-height: 1.6;
@@ -3122,11 +3110,6 @@
   border: 1px solid #aac9d237;
   padding: 5px 8px;
 }
-.airflow-inspection-return small {
-  grid-column: 1 / -1;
-  color: #a7b8bf;
-  line-height: 1.6;
-}
 
 .rack-space-inspector {
   flex: 1;
@@ -5351,12 +5334,64 @@
   align-items: center;
   gap: 5px;
 }
+.airflow-overlay-row,
 .workspace-ui .airflow-panel + .review-slice-heading {
-  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+.workspace-ui .airflow-panel + .review-slice-heading {
+  border-top: 1px solid #ffffff20;
+  margin: 6px 0 0;
+  padding-top: 6px;
+}
+.workspace-ui .review-slice-heading .airflow-slice-scale {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+.workspace-ui .airflow-slice-scale .review-scale {
+  width: 44px;
+  margin: 0;
+}
+.workspace-ui[data-layer="airflow"] .review-legend > .review-slice-controls {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 5px 8px;
+  border: 0;
+  padding: 0;
+  margin-top: 5px;
+}
+.workspace-ui[data-layer="airflow"] .review-slice-controls label {
+  gap: 5px;
+}
+.workspace-ui[data-layer="airflow"] .review-slice-controls > button {
+  grid-column: 1 / -1;
 }
 .workspace-ui .airflow-details .review-flow-explanation {
   border: 0;
   padding: 0;
+}
+.airflow-endpoint-picker {
+  display: flex;
+  margin: 6px 0 10px;
+  border-bottom: 1px solid var(--study-line);
+}
+.workspace-ui .airflow-endpoint-picker button {
+  flex: 1;
+  padding: 4px;
+  border-radius: 0;
+  border-bottom: 2px solid transparent;
+}
+.workspace-ui .airflow-endpoint-picker button[aria-pressed="true"] {
+  border-color: var(--study-accent);
+  background: #88b7bd12;
+}
+.workspace-ui .airflow-endpoint-reading p {
+  margin: 4px 0;
 }
 .workspace-ui .airflow-details .airflow-endpoint-actions {
   flex-wrap: wrap;

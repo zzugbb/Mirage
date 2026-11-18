@@ -1,4 +1,4 @@
-import type { ReactNode, RefObject } from "react";
+import { useRef, type ReactNode, type RefObject } from "react";
 import type { AirflowSnapshot } from "../airflow";
 import { airflowViews, type AirflowView } from "../airflow-view";
 import type { AirflowInspection } from "../airflow-inspection";
@@ -33,6 +33,7 @@ export function AirflowPanel({
   onRoom: () => void;
   analysisControl: ReactNode;
 }) {
+  const explain = useRef<HTMLButtonElement>(null);
   const route = snapshot?.routes[0];
   return (
     <section
@@ -73,29 +74,39 @@ export function AirflowPanel({
             </select>
           </div>
           {!route.animated && <small>{route.status}</small>}
-          {view && (
-            <button disabled={!ready} onClick={onReturn}>
-              返回原视角
-            </button>
-          )}
           {visit && (
             <div className="airflow-inspection-return">
-              <button onClick={onReturnEndpoint}>← 返回原对象</button>
-              <small>原对象：{entityById(visit.originId)?.name}</small>
+              <button
+                onClick={() => {
+                  explain.current?.focus({ preventScroll: true });
+                  onReturnEndpoint();
+                }}
+              >
+                ← 返回{entityById(visit.originId)?.name}
+              </button>
             </div>
           )}
           <div className="airflow-panel-actions">
-            <button onClick={onExplain}>端点与路径依据 ↗</button>
+            <button ref={explain} onClick={onExplain}>
+              端点与路径依据 ↗
+            </button>
             {analysisControl}
           </div>
-          <label>
-            <input
-              type="checkbox"
-              checked={sliceEnabled}
-              onChange={(event) => onSlice(event.target.checked)}
-            />
-            叠加进风切片
-          </label>
+          <div className="airflow-overlay-row">
+            <label>
+              <input
+                type="checkbox"
+                checked={sliceEnabled}
+                onChange={(event) => onSlice(event.target.checked)}
+              />
+              叠加进风切片
+            </label>
+            {view && (
+              <button disabled={!ready} onClick={onReturn}>
+                返回原视角
+              </button>
+            )}
+          </div>
         </>
       ) : (
         <>

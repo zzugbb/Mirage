@@ -47,7 +47,11 @@ import {
 import { RoomLayout } from "./components/RoomLayout";
 import { roomLayoutCrossings, type RoomLayoutScope } from "./room-layout";
 import type { AirflowView } from "./airflow-view";
-import { airflowSnapshot, type AirflowRoute } from "./airflow";
+import {
+  airflowSnapshot,
+  type AirflowRoute,
+  type FlowEndpoint,
+} from "./airflow";
 import { AirflowDetails } from "./components/AirflowDetails";
 import { SlicePlaneDetails } from "./components/SlicePlaneDetails";
 import { rangeSegments } from "./range-segments";
@@ -951,7 +955,17 @@ export function Workspace() {
   const [airflowStageView, setAirflowStageView] = useState<AirflowView | null>(
     null,
   );
-  const [airflowExplanation, setAirflowExplanation] = useState(0);
+  const [airflowExplanation, setAirflowExplanation] = useState<
+    "summary" | "endpoint" | null
+  >(null);
+  const [airflowEndpoint, setAirflowEndpoint] = useState<
+    FlowEndpoint["kind"] | null
+  >(null);
+  const airflowDevice = airflow?.routes[0]?.deviceId;
+  useEffect(
+    () => setAirflowEndpoint(null),
+    [airflowDevice, airflowStageView, revision],
+  );
   const reading = selectedReading({ ...state, selected }, spatial.readings);
   const room = spatial.readings.get("room-01")!;
   const resource = resourceCatalog(state.deviceId).find(
@@ -2673,6 +2687,7 @@ export function Workspace() {
     if (!visit) return;
     pick(id);
     setAirflowVisit(visit);
+    setAirflowExplanation("endpoint");
   };
   const locateAirflowEndpoint = (id: string) =>
     focus(id, { installation: entityById(id)?.kind === "device" });
@@ -2682,8 +2697,10 @@ export function Workspace() {
       snapshot={airflow}
       selected={selected}
       ready={ready}
-      compact={review.analysis}
-      focusRevision={airflowExplanation}
+      endpointKind={airflowEndpoint}
+      onRead={setAirflowEndpoint}
+      onExplained={() => setAirflowExplanation(null)}
+      revealRequested={airflowExplanation}
       onPreview={previewAirflowEndpoint}
       onLocate={locateAirflowEndpoint}
     />
@@ -3925,7 +3942,8 @@ export function Workspace() {
               control({ type: "analysis", value: false });
               setInspector(true);
               if (matchMedia("(max-width: 1099px)").matches) setNav(false);
-              setAirflowExplanation((value) => value + 1);
+              setAirflowEndpoint(null);
+              setAirflowExplanation("summary");
             }}
             airflowVisit={activeAirflowVisit}
             airflowResponseActive={!!activeAirflowResponse}
@@ -3947,6 +3965,8 @@ export function Workspace() {
             }}
             onReturnAirflowEndpoint={() => {
               if (!activeAirflowVisit) return;
+              if (activeAirflowVisit.inspector)
+                setAirflowExplanation("endpoint");
               pick(activeAirflowVisit.originId);
               setNav(activeAirflowVisit.nav);
               setInspector(activeAirflowVisit.inspector);
@@ -4836,7 +4856,6 @@ export function Workspace() {
                     }
                   />
                 </div>
-                {airflowInspector}
                 {slicePlaneInspector}
                 {sliceInspector}
                 {(fixture || pairedInlet) && sourceInspector}
@@ -5007,6 +5026,7 @@ export function Workspace() {
                     onClose={() => control({ type: "analysis", value: false })}
                   />
                 )}
+                {airflowInspector}
               </>
             ) : (
               <>

@@ -2371,7 +2371,7 @@ export function ReviewScene({
                   <span className={slice ? "review-slice-heading" : undefined}>
                     {slice ? (
                       <>
-                        <span>进风温度</span>
+                        {layer !== "airflow" && <span>进风温度</span>}
                         <select
                           aria-label="温度切片方向"
                           value={sliceControls.orientation}
@@ -2387,6 +2387,17 @@ export function ReviewScene({
                           <option value="horizontal">水平切片</option>
                           <option value="vertical">垂直切片</option>
                         </select>
+                        {layer === "airflow" && (
+                          <span
+                            className="airflow-slice-scale"
+                            role="img"
+                            title="局部进风插值，空白处无估计"
+                            aria-label="进风温度局部估计色标，20 至 45 摄氏度，空白无估计"
+                          >
+                            估计 20 <i className="review-scale environment" />{" "}
+                            45 °C
+                          </span>
+                        )}
                         {slice.orientation === "vertical" &&
                           layer === "environment" && (
                             <select
@@ -2420,31 +2431,29 @@ export function ReviewScene({
                       </>
                     )}
                   </span>
-                  <i
-                    className={`review-scale ${layer === "airflow" ? "environment" : layer}`}
-                  />
-                  <div>
-                    <span>
-                      {layer === "environment" || layer === "airflow"
-                        ? "20 °C"
-                        : "0%"}
-                    </span>
-                    <span>
-                      {layer === "environment" || layer === "airflow"
-                        ? state.level === "device"
-                          ? "80 °C"
-                          : "45 °C"
-                        : "100%"}
-                    </span>
-                  </div>
-                  {(layer === "environment" || layer === "airflow") && (
-                    <small>
-                      {slice
-                        ? slice.orientation === "horizontal"
-                          ? "局部插值示意 · 空白无估计"
-                          : `高 ${sliceSettings.height.min.toFixed(2)}–${sliceSettings.height.max.toFixed(2)} m · 插值示意 · 空白无估计`
-                        : "蓝色低温 → 暖色高温"}
-                    </small>
+                  {layer !== "airflow" && (
+                    <>
+                      <i className={`review-scale ${layer}`} />
+                      <div>
+                        <span>{layer === "environment" ? "20 °C" : "0%"}</span>
+                        <span>
+                          {layer === "environment"
+                            ? state.level === "device"
+                              ? "80 °C"
+                              : "45 °C"
+                            : "100%"}
+                        </span>
+                      </div>
+                      {layer === "environment" && (
+                        <small>
+                          {slice
+                            ? slice.orientation === "horizontal"
+                              ? "局部插值示意 · 空白无估计"
+                              : `高 ${sliceSettings.height.min.toFixed(2)}–${sliceSettings.height.max.toFixed(2)} m · 插值示意 · 空白无估计`
+                            : "蓝色低温 → 暖色高温"}
+                        </small>
+                      )}
+                    </>
                   )}
                 </>
               )}
@@ -2459,6 +2468,9 @@ export function ReviewScene({
                         {slice.orientation === "horizontal"
                           ? "切片高度"
                           : "距机柜正面"}{" "}
+                        {layer === "airflow" &&
+                          slice.orientation === "vertical" &&
+                          ` · ${sliceRow?.name ?? ""}`}
                         <output htmlFor="temperature-slice-position">
                           {(slice.height ?? slice.distance).toFixed(2)} m
                         </output>
