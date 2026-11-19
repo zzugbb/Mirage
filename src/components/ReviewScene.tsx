@@ -309,9 +309,8 @@ export function ReviewScene({
   const inletGeometry = useRef<InletViewGeometry | null>(null);
   const environmentGeometry = useRef<EnvironmentViewGeometry | null>(null);
   const entranceGeometry = useRef<EntranceViewGeometry | null>(null);
-  const entranceEntry = useRef<HTMLElement | null>(null);
   const entranceReturning = useRef(false);
-  const entranceFocusTarget = useRef<string | null>(null);
+  const entranceRangeFocus = useRef(false);
   const leakGeometry = useRef<LeakViewGeometry | null>(null);
   const leakEntry = useRef<HTMLElement | null>(null);
   const leakReturning = useRef(false);
@@ -1107,14 +1106,8 @@ export function ReviewScene({
       entranceReturning.current = !!entranceView;
       active.restoreEntranceView();
     } else if (layer === "overview") {
-      if (!entranceView)
-        entranceEntry.current = document.activeElement as HTMLElement;
       entranceReturning.current = false;
-      entranceFocusTarget.current = document.activeElement?.closest(
-        ".entrance-scene-key",
-      )
-        ? ".entrance-scene-key"
-        : ".entrance-view-details";
+      entranceRangeFocus.current = true;
       setOrbit(false);
       active.observeEntrance(entranceViewCommand.view);
     }
@@ -1133,24 +1126,19 @@ export function ReviewScene({
       engine.current?.clearEntranceView();
   }, [entranceView, layer, state.level, selectedId]);
   useEffect(() => {
-    if (!entranceView || !entranceFocusTarget.current) return;
+    if (!entranceView || !entranceRangeFocus.current) return;
     let frame = 0;
     const focus = () => {
-      const button = host.current
-        ?.closest(".workspace-ui")
-        ?.querySelector<HTMLButtonElement>(
-          `${entranceFocusTarget.current} button[aria-pressed="true"]`,
-        );
-      if (!button) {
-        entranceFocusTarget.current = null;
-        return;
-      }
-      if (engine.current?.moving || button.disabled) {
+      const select = host.current
+        ?.closest(".study-stage")
+        ?.querySelector<HTMLSelectElement>(".entrance-scene-key select");
+      if (!select) return;
+      if (engine.current?.moving || select.disabled) {
         frame = requestAnimationFrame(focus);
         return;
       }
-      button.focus();
-      entranceFocusTarget.current = null;
+      select.focus({ preventScroll: true });
+      entranceRangeFocus.current = false;
     };
     frame = requestAnimationFrame(focus);
     return () => cancelAnimationFrame(frame);
@@ -1164,14 +1152,14 @@ export function ReviewScene({
         return;
       }
       const workspace = host.current?.closest(".workspace-ui");
-      const entry = entranceEntry.current?.isConnected
-        ? entranceEntry.current
-        : (workspace?.querySelector<HTMLElement>(
-            ".entrance-view-entry button",
-          ) ??
-          workspace?.querySelector<HTMLElement>(
-            ".review-camera button, .review-camera select",
-          ));
+      const detailsEntry = workspace?.querySelector<HTMLButtonElement>(
+        ".entrance-view-entry button",
+      );
+      const entry = detailsEntry?.getClientRects().length
+        ? detailsEntry
+        : workspace?.querySelector<HTMLElement>(
+            ".review-camera select, .review-camera button",
+          );
       if (entry instanceof HTMLButtonElement && entry.disabled) {
         frame = requestAnimationFrame(focus);
         return;

@@ -1,4 +1,8 @@
-import { entranceViewIncludes } from "../entrance-view";
+import { EntranceInspectionDetails } from "./EntranceViewActions";
+import {
+  entranceViewIncludes,
+  type EntranceInspection,
+} from "../entrance-view";
 import type { ReactNode } from "react";
 import { floorGrilleSettings, grilleRowRelations } from "../floor-grilles";
 import { diffuserBottom, lightTrayRelations } from "../ceiling-lights";
@@ -28,7 +32,7 @@ export function FixtureDetails({
   analysis = false,
   grilleRelations,
   onInspectEntrance,
-  entranceViewActive = false,
+  entranceInspection,
   onInspectLeak,
   leakViewActive = false,
   onCompare,
@@ -41,7 +45,7 @@ export function FixtureDetails({
   analysis?: boolean;
   grilleRelations?: ReactNode;
   onInspectEntrance?: () => void;
-  entranceViewActive?: boolean;
+  entranceInspection?: EntranceInspection | null;
   onInspectLeak?: () => void;
   leakViewActive?: boolean;
   onCompare?: (id: string) => void;
@@ -50,6 +54,16 @@ export function FixtureDetails({
   onPreview: (id: string) => void;
   onLocate: (id: string) => void;
 }) {
+  if (entranceInspection && entranceViewIncludes(fixture.id)) {
+    return (
+      <EntranceInspectionDetails
+        inspection={entranceInspection}
+        selectedId={fixture.id}
+        onPreview={onPreview}
+        onLocate={onLocate}
+      />
+    );
+  }
   const light = "length" in fixture ? fixture : null;
   const grilleRow = "span" in fixture ? fixture : null;
   const isEntrance = fixture.kind === "entrance";
@@ -182,7 +196,7 @@ export function FixtureDetails({
           <p>X / Y / Z 为机房坐标，端点未登记外部连接。</p>
         </details>
       )}
-      {!analysis && entranceViewIncludes(fixture.id) && !entranceViewActive && (
+      {!analysis && entranceViewIncludes(fixture.id) && (
         <div className="entrance-view-entry">
           {onInspectEntrance ? (
             <button disabled={!comparisonReady} onClick={onInspectEntrance}>

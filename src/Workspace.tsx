@@ -90,7 +90,6 @@ import {
   type EntranceView,
   type EntranceViewCommand,
 } from "./entrance-view";
-import { EntranceViewActions } from "./components/EntranceViewActions";
 import {
   beginPeakInspection,
   peakInspectionIncludes,
@@ -4505,11 +4504,13 @@ export function Workspace() {
             ref={inspectorRef}
             className={`study-inspector ${review.analysis ? "is-analysis" : ""}`}
             key={
-              review.analysis && pairedInlet
-                ? `inlet:${pairedInlet.firstId}:${pairedInlet.secondId}`
-                : review.analysis && pairedEnvironment
-                  ? `environment:${pairedEnvironment.firstId}:${pairedEnvironment.secondId}`
-                  : `${selected}:${review.analysis}`
+              entranceView && !review.analysis
+                ? "entrance-inspection"
+                : review.analysis && pairedInlet
+                  ? `inlet:${pairedInlet.firstId}:${pairedInlet.secondId}`
+                  : review.analysis && pairedEnvironment
+                    ? `environment:${pairedEnvironment.firstId}:${pairedEnvironment.secondId}`
+                    : `${selected}:${review.analysis}`
             }
             aria-label={review.analysis ? "时间分析面板" : "对象详情"}
           >
@@ -5078,15 +5079,6 @@ export function Workspace() {
                 }}
               />
             )}
-            {entranceView && (
-              <EntranceViewActions
-                inspection={entranceView}
-                compact={review.analysis}
-                ready={ready}
-                onView={requestEntranceView}
-                onPreview={pick}
-              />
-            )}
             {leakView && (
               <LeakViewActions
                 inspection={leakView}
@@ -5393,7 +5385,7 @@ export function Workspace() {
                         ? () => requestEntranceView("all")
                         : undefined
                     }
-                    entranceViewActive={!!entranceView}
+                    entranceInspection={entranceView}
                     onInspectLeak={
                       layer === "overview" && state.level === "room"
                         ? () => requestLeakView("all")

@@ -97,7 +97,7 @@ export function entranceInspection(view: EntranceView) {
             id: "entrance-reader",
             title:
               view === "access"
-                ? `读卡器中心 ${fixtureById(s.readerId)!.position[1].toFixed(2)} m`
+                ? `读卡器中心 ${reader.y.toFixed(3)} m`
                 : "② 读卡器",
             point: reader,
           },
@@ -105,7 +105,7 @@ export function entranceInspection(view: EntranceView) {
             id: "entrance-handle",
             title:
               view === "access"
-                ? `把手轴 ${handle.y.toFixed(2)} m`
+                ? `把手轴 ${handle.y.toFixed(3)} m`
                 : "③ 把手轴",
             point: handle,
           },
@@ -129,7 +129,7 @@ export function entranceInspection(view: EntranceView) {
     paths,
     points,
     markers,
-    readerHeight: fixtureById(s.readerId)!.position[1],
+    readerHeight: reader.y,
     handleHeight: handle.y,
     openingBottom: opening.bottom,
   };
