@@ -68,6 +68,7 @@ export const roomLayoutItems: RoomLayoutItem[] = [
     name: entrance.name,
     short: "入口",
     kind: "entrance",
+    location: entrance.location,
     x: entrance.position[0],
     z: entrance.position[2],
     width: definition.room.entrance.openingWidth,

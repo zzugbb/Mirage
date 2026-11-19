@@ -103,14 +103,9 @@ export function RoomLayout({
         map.current?.querySelector<HTMLButtonElement>(
           `[data-layout-id="${active}"]`,
         );
-      if (
-        button?.dataset.layoutId === selected &&
-        (current?.kind === "rack" ||
-          current?.kind === "point" ||
-          current?.kind === "facility")
-      ) {
+      if (button?.dataset.layoutId === selected) {
         const entry = host.current.querySelector<HTMLButtonElement>(
-          "[data-enter-layout-rack], [data-layout-point-details]",
+          `[data-enter-layout-rack="${selected}"], [data-layout-point-details="${selected}"]`,
         );
         const viewport = host.current.getBoundingClientRect();
         const visible = (element: HTMLElement) => {
@@ -437,11 +432,7 @@ export function RoomLayout({
                 ? `灯罩底面比侧梁顶面${pair.difference >= 0 ? "高" : "低"} ${Math.abs(pair.difference).toFixed(2)} m · 配置表面高差，非最小净距`
                 : current.kind === "rack"
                   ? `${rackCount} 台设备${selectedResultRack && results.length !== rackCount ? ` · 匹配 ${results.length} 台` : ""}`
-                  : current.kind === "entrance"
-                    ? "门洞位置 · 非通行净宽"
-                    : current.kind === "point"
-                      ? current.location
-                      : "柜体配置位置 · 非监测覆盖"}
+                  : (current.location ?? "柜体配置位置 · 非监测覆盖")}
           </p>
           {branch ? (
             <div>
@@ -465,9 +456,7 @@ export function RoomLayout({
               </button>
               <button
                 data-layout-point-details={
-                  current.kind === "point" || current.kind === "facility"
-                    ? current.id
-                    : undefined
+                  current.kind === "rack" ? undefined : current.id
                 }
                 onClick={() => onDetails(current.id)}
               >

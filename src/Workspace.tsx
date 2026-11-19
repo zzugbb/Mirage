@@ -2053,7 +2053,10 @@ export function Workspace() {
   });
   const rememberLayoutSelection = (id: string) => {
     const powerCabinet = id === powerSettings.sourceId;
-    const rememberView = layoutScope === "fixtures" || powerCabinet;
+    const rememberView =
+      layoutScope === "fixtures" ||
+      powerCabinet ||
+      fixtureById(id)?.kind === "entrance";
     if (rememberView && layoutVisit?.origin && layoutVisit.id === id) return;
     setLayoutVisit({
       id,
@@ -3177,10 +3180,11 @@ export function Workspace() {
                   disabled={!ready || layoutReturning}
                   onClick={() => {
                     setLayoutReturning(true);
-                    // 先退出跨点位的烟感或探头核对，再恢复布置图选择。
+                    // 先退出当前设施核对，再恢复布置图选择。
                     if (
                       state.level !== "room" ||
                       layoutScope === "fixtures" ||
+                      entranceView ||
                       layoutVisit.query === undefined
                     )
                       control({ type: "open-resource", id: "room-01" });
