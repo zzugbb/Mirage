@@ -146,7 +146,11 @@ export type TaskViewMemory = ObservationMemory & {
   range?: RangeObservation;
 };
 export class SceneEngine {
-  renderer: THREE.WebGLRenderer;
+  renderer = new THREE.WebGLRenderer({
+    antialias: true,
+    alpha: false,
+    powerPreference: "high-performance",
+  });
   pipeline: RenderPipeline;
   roomLights: THREE.RectAreaLight[];
   shellCutaway: ShellCutaway;
@@ -209,6 +213,7 @@ export class SceneEngine {
   contextAvailable = true;
   state: AppState;
   observer: ResizeObserver;
+  private viewportSize = new THREE.Vector2();
   private loop = new SceneLoop((time, delta) => this.animate(time, delta));
   private renderDemand = new RenderDemand();
   private renderView = new Float64Array(32);
@@ -278,11 +283,6 @@ export class SceneEngine {
     this.onError = onError;
     this.onPhase = onPhase;
     this.onFeedback = onFeedback;
-    this.renderer = new THREE.WebGLRenderer({
-      antialias: true,
-      alpha: false,
-      powerPreference: "high-performance",
-    });
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
     this.renderer.setClearColor("#181b1f");
     this.scene.background = this.roomBackdrop;
@@ -1560,9 +1560,11 @@ export class SceneEngine {
     this.loop.wake();
   };
   resize() {
-    this.invalidate();
     const { width, height } = this.host.getBoundingClientRect();
     if (!width || !height) return;
+    if (this.viewportSize.x === width && this.viewportSize.y === height) return;
+    this.viewportSize.set(width, height);
+    this.invalidate();
     if (
       this.roomViewMemory &&
       (width !== this.roomViewMemory.width ||
@@ -1657,6 +1659,19 @@ export class SceneEngine {
       rearDoor: this.presentation.rearDoor,
       cover: this.cover,
       explosion: this.explosion,
+      observations: {
+        airflowObservation: this.airflowObservation,
+        rangeObservation: this.rangeObservation,
+        sliceObservation: this.sliceObservation,
+        networkObservation: this.networkObservation,
+        powerObservation: this.powerObservation,
+        crossingObservation: this.crossingObservation,
+        environmentObservation: this.environmentObservation,
+        inletObservation: this.inletObservation,
+        entranceObservation: this.entranceObservation,
+        leakObservation: this.leakObservation,
+        maintenanceObservation: this.maintenanceObservation,
+      },
       partInspection: this.partInspection,
       roomView: this.roomViewMemory,
       pendingDeviceView: this.pendingDeviceView,
@@ -1674,6 +1689,7 @@ export class SceneEngine {
     this.explosion = saved.explosion;
     this.partInspection = saved.partInspection;
     this.view(saved.camera.view, saved.camera.focus);
+    Object.assign(this, saved.observations);
     this.restoreObservationView(saved.camera);
     this.camera.position.copy(saved.camera.position);
     this.controls.target.copy(saved.camera.target);

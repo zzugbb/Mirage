@@ -81,7 +81,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { type AppState } from "../domain";
+import { presentationKey, type AppState } from "../domain";
 import type { PresentationPhase, SceneFeedback } from "../mechanics";
 import { SceneEngine } from "../scene/engine";
 import type { TaskViewMemory, View } from "../scene/engine";
@@ -378,6 +378,12 @@ export function ReviewScene({
   };
   const [error, setError] = useState("");
   const [retry, setRetry] = useState(0);
+  const reloadButton = useRef<HTMLButtonElement>(null);
+  const startupView = useRef<{
+    key: string;
+    view: View;
+    focus: boolean;
+  } | null>(null);
   const [assets, setAssets] = useState(initialModelLoads);
   const [sceneSettled, setSceneSettled] = useState(false);
   const [roomViewSaved, setRoomViewSaved] = useState(false);
@@ -443,8 +449,8 @@ export function ReviewScene({
   const [moreLabels, setMoreLabels] = useState(true);
   const airflowWorkspace = useAirflowWorkspace({
     engine,
-    scope: `${layer}:${state.level}:${shotRevision}:${retry}`,
-    resetKey: `${shotRevision}:${retry}`,
+    scope: `${layer}:${state.level}:${shotRevision}`,
+    resetKey: `${shotRevision}`,
     onTakeover,
     onView: setView,
     onStopOrbit: () => setOrbit(false),
@@ -750,78 +756,89 @@ export function ReviewScene({
         callbacks.current.onMaintenanceViewChange(inspection);
         if (inspection) setView(active!.currentView);
       };
-      aisleOrigin.current = null;
-      callbacks.current.onMaintenanceViewChange(null);
       active.onInletView = (inspection) => {
         callbacks.current.onInletViewChange(inspection);
         inletLines.update(inspection);
         setView(active!.currentView);
       };
-      callbacks.current.onInletViewChange(null);
       active.onEnvironmentView = (inspection) => {
         callbacks.current.onEnvironmentViewChange(inspection);
         environmentLines.update(inspection);
         setView(active!.currentView);
       };
-      callbacks.current.onEnvironmentViewChange(null);
       active.onEntranceView = (inspection) => {
         callbacks.current.onEntranceViewChange(inspection);
         entranceLines.update(inspection);
         setView(active!.currentView);
       };
-      callbacks.current.onEntranceViewChange(null);
       active.onLeakView = (inspection) => {
         callbacks.current.onLeakViewChange(inspection);
         leakLines.update(inspection);
         setView(active!.currentView);
       };
-      callbacks.current.onLeakViewChange(null);
       active.onCrossingView = (pair) => {
         callbacks.current.onCrossingChange(pair);
         crossingLines.update(pair);
         setView(active!.currentView);
       };
-      callbacks.current.onCrossingChange(null);
       active.onPowerView = (observing) => {
         callbacks.current.onPowerViewChange(observing);
         setView(active!.currentView);
       };
-      callbacks.current.onPowerViewChange(false);
       active.onNetworkView = (observing) => {
         callbacks.current.onNetworkViewChange(observing);
         setView(active!.currentView);
       };
-      callbacks.current.onNetworkViewChange(false);
       active.onRangeView = (side, segmentId) => {
         callbacks.current.onRangeViewChange(side, segmentId);
         setView(active!.currentView);
       };
-      callbacks.current.onRangeViewChange(null, null);
       active.onSlicePlaneView = (observing) => {
         callbacks.current.onSlicePlaneChange(observing);
         setView(active!.currentView);
       };
-      callbacks.current.onSlicePlaneChange(false);
       active.onSliceView = (observing) => {
         callbacks.current.onSliceViewChange(observing);
         setView(active!.currentView);
       };
-      callbacks.current.onSliceViewChange(false);
       active.onAirflowView = (next) => {
         airflowWorkspace.setView(next);
         callbacks.current.onAirflowViewChange(next);
         setView(active!.currentView);
       };
-      airflowWorkspace.setView(null);
-      callbacks.current.onAirflowViewChange(null);
+      // 重建几何时沿用现有观察；重新触发进入动作会打开已收起的侧栏。
+      if (recoveryPose.current?.key === presentationKey(initial.current)) {
+        inletLines.update(inletView);
+        environmentLines.update(environmentView);
+        entranceLines.update(entranceView);
+        leakLines.update(leakView);
+        crossingLines.update(crossing);
+      } else {
+        aisleOrigin.current = null;
+        callbacks.current.onMaintenanceViewChange(null);
+        callbacks.current.onInletViewChange(null);
+        callbacks.current.onEnvironmentViewChange(null);
+        callbacks.current.onEntranceViewChange(null);
+        callbacks.current.onLeakViewChange(null);
+        callbacks.current.onCrossingChange(null);
+        callbacks.current.onPowerViewChange(false);
+        callbacks.current.onNetworkViewChange(false);
+        callbacks.current.onRangeViewChange(null, null);
+        callbacks.current.onSlicePlaneChange(false);
+        callbacks.current.onSliceViewChange(false);
+        airflowWorkspace.setView(null);
+        callbacks.current.onAirflowViewChange(null);
+      }
       active.onRoomViewMemory = setRoomViewSaved;
       setRoomViewSaved(false);
       active.onAssets = setAssets;
       setAssets({ ...active.assetLoader.state });
       engine.current = active;
       setSupported(active.pipeline.available);
+      setError("");
     } catch {
       active?.dispose();
+      active = null;
       setError("三维场景启动失败，请检查 WebGL 2 与硬件加速。");
     }
     const visibility = () => {
@@ -863,6 +880,19 @@ export function ReviewScene({
       engine.current = null;
     };
   }, [retry]);
+  useEffect(() => {
+    // 连续重建失败后没有引擎可退出旧观察，改查其他范围时丢弃待恢复的姿态。
+    if (!engine.current) recoveryPose.current = null;
+  }, [
+    layer,
+    selectedId,
+    networkLinkId,
+    powerLinkId,
+    unitRange?.first,
+    unitRange?.last,
+    sliceInspection?.deviceId,
+    layoutViewRevision,
+  ]);
   useEffect(() => {
     // 归位时选回起点对象属于同一次恢复，保留刚还原的柜面分段。
     if (
@@ -982,6 +1012,7 @@ export function ReviewScene({
   useEffect(() => {
     // 演示预设使用相同的空间构图，便于直接比较图层；普通操作不触发。
     recoveryPose.current = null;
+    startupView.current = null;
     const next = currentState.current.level === "room" ? "interior" : "iso";
     setTemperatureSliceControls(initialSliceControls());
     engine.current?.view(next);
@@ -1556,9 +1587,15 @@ export function ReviewScene({
     if (recoveryPose.current) {
       active.restoreRecoveryPose(recoveryPose.current);
       recoveryPose.current = null;
-      setView(active.currentView);
+    } else if (startupView.current?.key === presentationKey(active.state)) {
+      active.view(startupView.current.view, startupView.current.focus);
     }
-    if (document.activeElement === document.body)
+    startupView.current = null;
+    setView(active.currentView);
+    if (
+      document.activeElement === document.body ||
+      document.activeElement === reloadButton.current
+    )
       displayMenu.current
         ?.querySelector("summary")
         ?.focus({ preventScroll: true });
@@ -1567,7 +1604,15 @@ export function ReviewScene({
     onTakeover();
     setOrbit(false);
     const framePair = next === "top" && !!comparison;
-    engine.current?.view(next, framePair);
+    if (engine.current) engine.current.view(next, framePair);
+    else {
+      recoveryPose.current = null;
+      startupView.current = {
+        key: presentationKey(state),
+        view: next,
+        focus: framePair,
+      };
+    }
     setView(engine.current?.currentView ?? next);
     if (framePair && matchMedia("(max-width: 600px)").matches)
       host.current
@@ -2671,8 +2716,13 @@ export function ReviewScene({
             <h2>场景暂不可用</h2>
             <p>{error}</p>
             <button
+              ref={reloadButton}
               onClick={() => {
-                setError("");
+                if (
+                  engine.current &&
+                  recoveryPose.current?.key === presentationKey(state)
+                )
+                  recoveryPose.current = engine.current.captureRecoveryPose();
                 initial.current = state;
                 setRetry((r) => r + 1);
               }}
