@@ -20,7 +20,8 @@ export function NetworkConnections({
   portCheck,
   onPortChange,
   onPortLeave,
-  portRestore,
+  portOwnsTrace,
+  isolated,
   state,
   selectedId,
   activeLinkId,
@@ -31,7 +32,8 @@ export function NetworkConnections({
   onInteract,
 }: {
   portCheck: SwitchPortCheck | null;
-  portRestore: number;
+  portOwnsTrace: boolean;
+  isolated: boolean;
   onPortChange: (check: SwitchPortCheck) => void;
   onPortLeave: (
     check: SwitchPortCheck,
@@ -116,7 +118,16 @@ export function NetworkConnections({
               check={check}
               ready={ready}
               traced={activeLink?.target === device.id}
-              restoreRevision={portRestore}
+              showCard={!activeLink || portOwnsTrace}
+              showEndMark={
+                isolated ||
+                networkMarkers(state, selectedId, activeLinkId).length === 0
+              }
+              onBranch={(id) => {
+                const link = networkLinkById(id);
+                if (link) onPortLeave(check, link.source, "preview", id);
+              }}
+              onEndMark={() => onTrace(null)}
               onChange={onPortChange}
               onSelect={(port) => {
                 onPortChange({ ...check, port });

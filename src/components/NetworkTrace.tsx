@@ -6,6 +6,34 @@ import {
 } from "../network";
 import { deviceById } from "../installation";
 
+export function NetworkBranchPicker({
+  link,
+  ready,
+  onTrace,
+}: {
+  link: NetworkLink;
+  ready: boolean;
+  onTrace: (linkId: string) => void;
+}) {
+  return (
+    <label>
+      配置接入
+      <select
+        aria-label="当前设备的接入分支"
+        value={link.id}
+        disabled={!ready}
+        onChange={(event) => onTrace(event.target.value)}
+      >
+        {networkLinksFor(link.source, link.source).map((branch) => (
+          <option key={branch.id} value={branch.id}>
+            {switchRole(branch.target)} · {branch.speedGbps} Gb/s
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
 export function NetworkTrace({
   link,
   deviceId,
@@ -32,21 +60,7 @@ export function NetworkTrace({
   return (
     <section className="network-trace" aria-label="当前网络连接">
       <header>
-        <label>
-          配置接入
-          <select
-            aria-label="当前设备的接入分支"
-            value={link.id}
-            disabled={!ready}
-            onChange={(event) => onTrace(event.target.value)}
-          >
-            {networkLinksFor(link.source, link.source).map((branch) => (
-              <option key={branch.id} value={branch.id}>
-                {switchRole(branch.target)} · {branch.speedGbps} Gb/s
-              </option>
-            ))}
-          </select>
-        </label>
+        <NetworkBranchPicker link={link} ready={ready} onTrace={onTrace} />
         {showEndMark && <button onClick={() => onTrace(null)}>结束标记</button>}
       </header>
       <div

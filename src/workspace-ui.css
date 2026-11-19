@@ -5797,15 +5797,14 @@
   margin-top: 12px;
 }
 
+/* 端口往返按编号恢复滚动位置，避免浏览器再按详情栏内的其他内容校正。 */
+.study-inspector:has(.switch-ports) {
+  overflow-anchor: none;
+}
 .switch-ports {
   padding: 10px 0;
 }
-.switch-ports header {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-}
-.switch-ports header small,
+.switch-ports label small,
 .switch-ports > small {
   color: #9eafb9;
   font-size: 10px;
@@ -5815,6 +5814,20 @@
   display: grid;
   gap: 6px;
   margin: 12px 0 6px;
+  font-size: 11px;
+}
+.switch-ports label > span {
+  display: flex;
+  justify-content: space-between;
+}
+.switch-local-actions {
+  margin-top: 8px;
+  border-top: 1px solid var(--study-line);
+  padding-top: 8px;
+}
+.switch-local-actions > summary {
+  cursor: pointer;
+  color: #a9bdc6;
   font-size: 11px;
 }
 .switch-ports input {

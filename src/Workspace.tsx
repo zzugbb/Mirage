@@ -626,6 +626,8 @@ export function Workspace() {
   const [portCheck, setPortCheck] = useState<SwitchPortCheck | null>(null);
   const [portVisit, setPortVisit] = useState<{
     check: SwitchPortCheck;
+    portOffset: number;
+    localActionsOpen: boolean;
     level: "room" | "rack";
     query: string;
     filter: ResourceFilter;
@@ -642,7 +644,11 @@ export function Workspace() {
     metric: "temperature" | "power";
   } | null>(null);
   const [portReturning, setPortReturning] = useState(false);
-  const [portRestore, setPortRestore] = useState(0);
+  const portReturnFocus = useRef<{
+    check: SwitchPortCheck;
+    offset: number;
+    localActionsOpen: boolean;
+  } | null>(null);
 
   const [pduInspection, setPduInspection] = useState<PduInspection | null>(
     null,
@@ -801,6 +807,12 @@ export function Workspace() {
   } | null>(null);
   const originalNetworkLink = networkLinkById(networkMapVisit?.linkId ?? null);
   const networkTrace = networkLinkById(activeNetworkLink);
+  const portOwnsTrace =
+    !!networkTrace &&
+    portCheck?.switchId === networkTrace.target &&
+    portCheck.port === networkTrace.targetPort &&
+    networkDeviceId(selected, state.deviceId) === portCheck.switchId;
+
   const networkControlFocus = useRef<"endpoint" | "branch" | null>(null);
   const [networkMapSelection, setNetworkMapSelection] = useState("room-01");
   const networkMapScroll = useRef(0);
@@ -1198,10 +1210,49 @@ export function Workspace() {
     setInspector(true);
     skipNavigationSearch.current = true;
     setNav(matchMedia("(max-width: 1099px)").matches ? false : portVisit.nav);
-    setPortRestore((value) => value + 1);
+    portReturnFocus.current = {
+      check: portVisit.check,
+      offset: portVisit.portOffset,
+      localActionsOpen: portVisit.localActionsOpen,
+    };
     setPortReturning(false);
     setPortVisit(null);
   }, [portReturning, portVisit, ready, state.level]);
+  useEffect(() => {
+    const target = portReturnFocus.current;
+    if (
+      !target ||
+      !ready ||
+      selected !== target.check.switchId ||
+      review.analysis
+    )
+      return;
+    const frame = requestAnimationFrame(() => {
+      const panel = inspectorRef.current;
+      const button = panel?.querySelector<HTMLButtonElement>(
+        `.switch-ports [data-port="${target.check.port}"]`,
+      );
+      if (!panel || !button) return;
+      const section = button.closest("details");
+      if (section) section.open = true;
+      const localActions = panel.querySelector<HTMLDetailsElement>(
+        ".switch-local-actions",
+      );
+      if (localActions) localActions.open = target.localActionsOpen;
+      button.focus({ preventScroll: true });
+      const offset = Math.min(
+        target.offset,
+        panel.clientHeight - button.offsetHeight,
+      );
+      panel.scrollTop +=
+        button.getBoundingClientRect().top -
+        panel.getBoundingClientRect().top -
+        offset;
+      portReturnFocus.current = null;
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [portVisit, ready, selected, review.analysis]);
+
   useEffect(() => {
     if (
       powerOverviewVisit &&
@@ -2730,7 +2781,7 @@ export function Workspace() {
     setPortCheck(null);
     setPortVisit(null);
     setPortReturning(false);
-    setPortRestore(0);
+    portReturnFocus.current = null;
     setAlarmQuery("");
     setAlarmSeverity("all");
     setAlarmVisit(null);
@@ -3042,6 +3093,38 @@ export function Workspace() {
               </button>
             </div>
           )}
+        {portVisit && (
+          <div
+            className="study-task-return"
+            role="group"
+            aria-label="端口核对往返"
+          >
+            <button
+              disabled={!ready || portReturning}
+              onClick={() => {
+                setPortReturning(true);
+                control(
+                  portVisit.level === "room"
+                    ? { type: "open-resource", id: "room-01" }
+                    : {
+                        type: "locate-installation",
+                        id: portVisit.check.switchId,
+                      },
+                );
+              }}
+            >
+              ← 返回 {deviceById(portVisit.check.switchId)!.name} · 端口{" "}
+              {String(portVisit.check.port).padStart(2, "0")}
+            </button>
+            <button
+              aria-label="结束端口核对"
+              disabled={portReturning}
+              onClick={() => setPortVisit(null)}
+            >
+              ×
+            </button>
+          </div>
+        )}
         {alarmVisit && (
           <div
             className="study-task-return"
@@ -3412,34 +3495,6 @@ export function Workspace() {
               </>
             )}
 
-          {portVisit && (
-            <div className="room-layout-return" aria-label="端口核对往返">
-              <button
-                className="study-parent"
-                disabled={!ready || portReturning}
-                onClick={() => {
-                  setPortReturning(true);
-                  control(
-                    portVisit.level === "room"
-                      ? { type: "open-resource", id: "room-01" }
-                      : {
-                          type: "locate-installation",
-                          id: portVisit.check.switchId,
-                        },
-                  );
-                }}
-              >
-                ← 返回交换机端口
-              </button>
-              <button
-                aria-label="结束端口核对"
-                disabled={portReturning}
-                onClick={() => setPortVisit(null)}
-              >
-                ×
-              </button>
-            </div>
-          )}
           {blankingReturn}
           {state.level !== "room" && (
             <button
@@ -4670,7 +4725,7 @@ export function Workspace() {
                 </span>
               </div>
             )}
-            {networkTrace && !review.analysis && (
+            {networkTrace && !portOwnsTrace && !review.analysis && (
               <NetworkTrace
                 link={networkTrace}
                 deviceId={networkDeviceId(selected, state.deviceId)}
@@ -5773,17 +5828,28 @@ export function Workspace() {
                     {layer === "overview" && (
                       <NetworkConnections
                         portCheck={portCheck}
-                        portRestore={portRestore}
+                        portOwnsTrace={portOwnsTrace}
+                        isolated={!!isolatedPartId}
                         onPortChange={(check) => {
                           setPortCheck(check);
-                          setPortRestore(0);
+                          portReturnFocus.current = null;
                         }}
                         onPortLeave={(check, id, action, linkId) => {
                           if (!ready) return;
                           setPortCheck(check);
-                          setPortRestore(0);
+                          portReturnFocus.current = null;
+                          const panel = inspectorRef.current!;
+                          const button = panel.querySelector<HTMLButtonElement>(
+                            `.switch-ports [data-port="${check.port}"]`,
+                          )!;
                           setPortVisit({
                             check,
+                            localActionsOpen: !!panel.querySelector(
+                              ".switch-local-actions[open]",
+                            ),
+                            portOffset:
+                              button.getBoundingClientRect().top -
+                              panel.getBoundingClientRect().top,
                             level: state.level === "room" ? "room" : "rack",
                             query,
                             filter,

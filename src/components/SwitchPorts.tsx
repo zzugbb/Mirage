@@ -1,4 +1,5 @@
-import { useRef, useEffect } from "react";
+import { useRef } from "react";
+import { NetworkBranchPicker } from "./NetworkTrace";
 import {
   switchPortRows,
   switchPortNeighbor,
@@ -6,10 +7,13 @@ import {
 } from "../switch-ports";
 import { deviceById, rackForDevice } from "../installation";
 import { unitLabel } from "../catalog";
-import { sourcePorts, switchRole } from "../network";
+import { sourcePorts } from "../network";
 
 export function SwitchPorts({
-  restoreRevision,
+  showCard,
+  showEndMark,
+  onBranch,
+  onEndMark,
   check,
   ready,
   traced,
@@ -19,7 +23,10 @@ export function SwitchPorts({
   onLocate,
   onInspect,
 }: {
-  restoreRevision: number;
+  showCard: boolean;
+  showEndMark: boolean;
+  onBranch: (linkId: string) => void;
+  onEndMark: () => void;
   check: SwitchPortCheck;
   ready: boolean;
   traced: boolean;
@@ -30,17 +37,6 @@ export function SwitchPorts({
   onInspect: (id: string, linkId: string) => void;
 }) {
   const root = useRef<HTMLElement>(null);
-  useEffect(() => {
-    if (!restoreRevision) return;
-    const frame = requestAnimationFrame(() => {
-      const button = root.current?.querySelector<HTMLButtonElement>(
-        `[data-port="${check.port}"]`,
-      );
-      button?.focus({ preventScroll: true });
-      button?.scrollIntoView({ block: "center" });
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [restoreRevision]);
   const rows = switchPortRows(check.switchId, check.query);
   const chosen = rows.find((row) => row.port === check.port);
   return (
@@ -50,16 +46,13 @@ export function SwitchPorts({
       aria-label="交换机逻辑端口总览"
       tabIndex={-1}
     >
-      <header>
-        <strong>
-          {deviceById(check.switchId)!.name} · 接入 {switchRole(check.switchId)}
-        </strong>
-        <small>
-          {rows.filter((row) => row.link).length} / {rows.length} 已配置
-        </small>
-      </header>
       <label>
-        查找端口或对端
+        <span>
+          查找端口或对端
+          {check.query && (
+            <small>{rows.filter((row) => row.matches).length} 个匹配</small>
+          )}
+        </span>
         <input
           aria-label="端口总览查找"
           placeholder="01、SRV-01、100G、未配置"
@@ -75,12 +68,9 @@ export function SwitchPorts({
           }}
         />
       </label>
-      <p>{rows.filter((row) => row.matches).length} 个匹配 · 全部编号保留</p>
       {[25, 100].map((speed) => (
         <div key={speed} className="switch-port-group">
-          <h4>
-            {speed}G 逻辑端口{speed === 100 ? " · 未配置上联" : ""}
-          </h4>
+          <h4>{speed}G 逻辑端口</h4>
           <div
             className={`switch-port-grid speed-${speed}`}
             role="group"
@@ -126,17 +116,13 @@ export function SwitchPorts({
           </div>
         </div>
       ))}
-      <small>实框已配置 · 虚框未配置 · 按逻辑口编号排列</small>
-      {chosen ? (
+      <small>实框已配置 · 虚框未配置</small>
+      {chosen && showCard ? (
         <div className="switch-port-selected" aria-label="所选逻辑端口">
           <strong>
             {deviceById(check.switchId)!.name} · 端口{" "}
             {String(chosen.port).padStart(2, "0")}
           </strong>
-          <p>
-            {chosen.speedGbps} Gb/s 配置 ·{" "}
-            {chosen.link ? "已配置接入" : "未配置连接"}
-          </p>
           {chosen.peer && chosen.link ? (
             <>
               <button
@@ -146,9 +132,7 @@ export function SwitchPorts({
                 <b>{chosen.peer.name} ↗</b>
                 <small>
                   {rackForDevice(chosen.peer.id).name} /{" "}
-                  {unitLabel(chosen.peer.id)}
-                </small>
-                <small>
+                  {unitLabel(chosen.peer.id)} ·{" "}
                   {
                     sourcePorts(chosen.peer.id).find(
                       (port) => port.port === chosen.link!.sourcePort,
@@ -170,25 +154,44 @@ export function SwitchPorts({
                 </button>
                 <button
                   disabled={!ready}
-                  onClick={() => onInspect(check.switchId, chosen.link!.id)}
-                >
-                  本端部件
-                </button>
-                <button
-                  disabled={!ready}
                   onClick={() => onInspect(chosen.peer!.id, chosen.link!.id)}
                 >
                   对端部件
                 </button>
               </div>
+              <details className="switch-local-actions">
+                <summary>本端与接入分支</summary>
+                {traced && (
+                  <NetworkBranchPicker
+                    link={chosen.link}
+                    ready={ready}
+                    onTrace={onBranch}
+                  />
+                )}
+                <div className="switch-port-actions">
+                  <button
+                    disabled={!ready}
+                    onClick={() => onLocate(check.switchId)}
+                  >
+                    本端安装位
+                  </button>
+                  <button
+                    disabled={!ready}
+                    onClick={() => onInspect(check.switchId, chosen.link!.id)}
+                  >
+                    本端部件
+                  </button>
+                  {traced && showEndMark && (
+                    <button onClick={onEndMark}>结束标记</button>
+                  )}
+                </div>
+              </details>
             </>
           ) : (
             <p>无配置对端，物理占用未知。</p>
           )}
         </div>
-      ) : (
-        <p>选择已配置编号标记两端。方向键在同组移动，Enter 选择。</p>
-      )}
+      ) : null}
     </section>
   );
 }
