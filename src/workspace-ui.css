@@ -101,7 +101,7 @@
   color: var(--study-accent);
   font-size: 12px;
 }
-.study-task-return button:last-child {
+.study-task-return button:last-child:not(.blanking-return) {
   border-left: 1px solid var(--study-line);
   border-radius: 0 6px 6px 0;
   color: #a6b2bc;

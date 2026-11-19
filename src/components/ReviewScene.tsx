@@ -1526,9 +1526,9 @@ export function ReviewScene({
   const camera = (next: View) => {
     onTakeover();
     setOrbit(false);
-    setView(next);
     const framePair = next === "top" && !!comparison;
     engine.current?.view(next, framePair);
+    setView(engine.current?.currentView ?? next);
     if (framePair && matchMedia("(max-width: 600px)").matches)
       host.current
         ?.closest(".study-stage")

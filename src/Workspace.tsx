@@ -831,6 +831,7 @@ export function Workspace() {
     first: number;
     last: number;
     scroll: number;
+    camera: TaskViewMemory | null;
     selected: string;
     query: string;
     filter: ResourceFilter;
@@ -839,11 +840,8 @@ export function Workspace() {
     analysis: boolean;
     inspector: boolean;
   } | null>(null);
-  const [blankingRestore, setBlankingRestore] = useState<{
-    first: number;
-    scroll: number;
-  } | null>(null);
-  const [blankingReturning, setBlankingReturning] = useState(false);
+  const [blankingRestore, setBlankingRestore] =
+    useState<typeof blankingVisit>(null);
   const [spaceSize, setSpaceSize] = useState(2);
   const [spaceVisit, setSpaceVisit] = useState<
     | (SpaceInspection & {
@@ -1722,10 +1720,17 @@ export function Workspace() {
       spaceRange.last !== blankingVisit.last
     ) {
       setBlankingVisit(null);
-      setBlankingReturning(false);
-      return;
     }
-    if (!blankingReturning || rangeView || !ready) return;
+  }, [
+    blankingVisit,
+    rackView,
+    state.level,
+    spaceRange?.rackId,
+    spaceRange?.first,
+    spaceRange?.last,
+  ]);
+  const returnBlanking = () => {
+    if (!blankingVisit || !ready) return;
     const origin = blankingVisit;
     control({ type: "pick", id: origin.selected });
     control({ type: "layer", layer: origin.layer });
@@ -1739,33 +1744,10 @@ export function Workspace() {
     );
     setNav(true);
     setRackView("installation");
-    setBlankingRestore({ first: origin.first, scroll: origin.scroll });
+    setBlankingRestore(origin);
     setBlankingVisit(null);
-    setBlankingReturning(false);
-  }, [
-    blankingVisit,
-    blankingReturning,
-    rangeView,
-    ready,
-    rackView,
-    state.level,
-    spaceRange?.rackId,
-    spaceRange?.first,
-    spaceRange?.last,
-  ]);
+  };
   const finishBlankingFocus = useCallback(() => setBlankingRestore(null), []);
-  const blankingReturn = blankingVisit && (
-    <button
-      className="study-parent"
-      disabled={!ready || blankingReturning}
-      onClick={() => {
-        setBlankingReturning(true);
-        if (rangeView) requestRangeView("return");
-      }}
-    >
-      ← 返回安装图封板段
-    </button>
-  );
   const segments = useMemo(
     () => rangeSegments(spaceRange),
     [spaceRange?.rackId, spaceRange?.first, spaceRange?.last],
@@ -2882,7 +2864,6 @@ export function Workspace() {
     setRackView("installation");
     setBlankingVisit(null);
     setBlankingRestore(null);
-    setBlankingReturning(false);
     setSpaceSize(2);
     setSpaceVisit(null);
     setSpaceReturning(false);
@@ -3290,38 +3271,52 @@ export function Workspace() {
             </button>
           </div>
         )}
-        {layoutVisit && (
+        {(layoutVisit || blankingVisit) && (
           <div
             className="study-task-return"
             role="group"
-            aria-label="布置导览往返"
+            aria-label={blankingVisit ? "安装图封板段往返" : "布置导览往返"}
           >
-            <button
-              disabled={!ready || layoutReturning}
-              onClick={() => {
-                setLayoutReturning(true);
-                if (
-                  state.level !== "room" ||
-                  layoutVisit.deviceQuery === undefined
-                )
-                  control({ type: "open-resource", id: "room-01" });
-              }}
-            >
-              ← 返回
-              {layoutVisit.deviceQuery !== undefined
-                ? "布置图设备"
-                : "机房布置"}
-            </button>
-            <button
-              aria-label="结束布置导览往返"
-              disabled={layoutReturning}
-              onClick={() => {
-                setLayoutVisit(null);
-                setLayoutReturning(false);
-              }}
-            >
-              ×
-            </button>
+            {blankingVisit && (
+              <button
+                className="blanking-return"
+                disabled={!ready}
+                onClick={returnBlanking}
+              >
+                ← 返回 {rackById(blankingVisit.rackId)?.name.split(" ")[0]}{" "}
+                安装图 · {spaceRangeLabel(blankingVisit)} 封板段
+              </button>
+            )}
+            {layoutVisit && (
+              <>
+                <button
+                  disabled={!ready || layoutReturning}
+                  onClick={() => {
+                    setLayoutReturning(true);
+                    if (
+                      state.level !== "room" ||
+                      layoutVisit.deviceQuery === undefined
+                    )
+                      control({ type: "open-resource", id: "room-01" });
+                  }}
+                >
+                  ← 返回
+                  {layoutVisit.deviceQuery !== undefined
+                    ? "布置图设备"
+                    : "机房布置"}
+                </button>
+                <button
+                  aria-label="结束布置导览往返"
+                  disabled={layoutReturning}
+                  onClick={() => {
+                    setLayoutVisit(null);
+                    setLayoutReturning(false);
+                  }}
+                >
+                  ×
+                </button>
+              </>
+            )}
           </div>
         )}
         {powerOverviewVisit && (
@@ -3660,7 +3655,6 @@ export function Workspace() {
               </>
             )}
 
-          {blankingReturn}
           {state.level !== "room" && (
             <button
               className="study-parent"
@@ -4146,6 +4140,7 @@ export function Workspace() {
               onBlanking={(first, last, scroll) => {
                 const rackId = rackForDevice(state.deviceId).id;
                 setBlankingVisit({
+                  camera: captureTaskView.current?.("rack") ?? null,
                   rackId,
                   first,
                   last,
@@ -4463,6 +4458,7 @@ export function Workspace() {
           <ReviewScene
             captureTaskView={captureTaskView}
             taskReturn={
+              blankingRestore ||
               (peakReturning && peakVisit) ||
               (sourceReturning && sourceVisit) ||
               spaceRestore ||
@@ -4867,7 +4863,6 @@ export function Workspace() {
                 ×
               </button>
             </div>
-            {!nav && blankingReturn}
             {activeAirflowResponse ? (
               <div className="study-identity">
                 <small>气流代表支路 · 模拟对照</small>
