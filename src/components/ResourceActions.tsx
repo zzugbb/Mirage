@@ -42,6 +42,17 @@ export function ResourceActions({
   const expandLabel = exteriorOnly ? "展开配置示意" : "展开部件";
   const restoreLabel = exteriorOnly ? "复原外观" : "复原部件";
   const rackDevice = state.level === "rack" ? deviceById(selected) : undefined;
+  const deviceControls = state.level === "device" && !preview;
+  const progress = ready
+    ? ""
+    : deviceControls &&
+        state.explosion > 0 &&
+        state.explosion < 1 &&
+        (phase === "assembling" || phase === "expanding")
+      ? "调整展开比例中"
+      : ["closed", "open", "extended", "device-ready"].includes(phase)
+        ? "场景切换中…"
+        : phaseLabels[phase];
   const doors = state.level === "rack" && (
     <>
       <button
@@ -70,7 +81,11 @@ export function ResourceActions({
     </>
   );
   return (
-    <div className="review-object-actions" aria-label="对象操作">
+    <div
+      className={`review-object-actions${deviceControls ? " device-structure-actions" : ""}`}
+      role="group"
+      aria-label="对象操作"
+    >
       <span>对象操作</span>
       {rackDevice ? (
         <>
@@ -137,7 +152,7 @@ export function ResourceActions({
               data-part-action="isolate"
               onClick={partVisible ? onIsolation : () => onOpen(selected)}
             >
-              {partVisible ? "只看此部件" : "展开并定位部件"}
+              {progress || (partVisible ? "只看此部件" : "展开并定位部件")}
             </button>
           ) : (
             <button
@@ -146,7 +161,7 @@ export function ResourceActions({
                 dispatch({ type: "explode", amount: expanded ? 0 : 1 })
               }
             >
-              {expanded ? restoreLabel : expandLabel}
+              {progress || (expanded ? restoreLabel : expandLabel)}
             </button>
           )}
           <StructureMenu
@@ -163,17 +178,15 @@ export function ResourceActions({
                 {coverRaised ? "合上上盖" : "打开上盖"}
               </button>
             )}
-            {expanded && state.explosion < 1 && (
+            <button
+              disabled={!ready || state.explosion === 1}
+              onClick={() => dispatch({ type: "explode", amount: 1 })}
+            >
+              完全展开
+            </button>
+            {entity.kind === "part" && (
               <button
-                disabled={!ready}
-                onClick={() => dispatch({ type: "explode", amount: 1 })}
-              >
-                完全展开
-              </button>
-            )}
-            {entity.kind === "part" && expanded && (
-              <button
-                disabled={!ready}
+                disabled={!ready || !expanded}
                 onClick={() => dispatch({ type: "explode", amount: 0 })}
               >
                 {restoreLabel}
@@ -182,12 +195,13 @@ export function ResourceActions({
           </StructureMenu>
         </>
       )}
-      {state.level !== "room" && !ready && (
-        <small role="status">
-          {["closed", "open", "extended", "device-ready"].includes(phase)
-            ? "场景切换中…"
-            : phaseLabels[phase]}
-        </small>
+      {deviceControls && (
+        <span className="structure-announcement" role="status">
+          {progress}
+        </span>
+      )}
+      {state.level !== "room" && !deviceControls && progress && (
+        <small role="status">{progress}</small>
       )}
     </div>
   );

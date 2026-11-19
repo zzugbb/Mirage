@@ -4512,7 +4512,7 @@ export function Workspace() {
                 </button>
               </div>
             )}
-          {!inspector && (
+          {(!inspector || nav) && (
             <button
               className="study-show-detail"
               onClick={() => {
@@ -4521,7 +4521,7 @@ export function Workspace() {
                 if (matchMedia("(max-width: 1099px)").matches) setNav(false);
               }}
             >
-              对象详情
+              {review.analysis ? "时间分析" : "对象详情"}
             </button>
           )}
         </section>
@@ -5342,7 +5342,7 @@ export function Workspace() {
                         ? inletAssessment(reading, alarmSample).detail
                         : reading.count > 1
                           ? `${reading.alarmCount} 台设备存在进风温度告警。`
-                          : "设备进风温度持续超限。回看曲线与事件，检查异常发生过程。"}
+                          : "设备进风温度持续超限。"}
                     </p>
                     <div className="study-alarm-actions">
                       <button

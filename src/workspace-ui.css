@@ -811,26 +811,6 @@
   font-size: 10px;
   color: #a7b9c2;
 }
-.workspace-ui .review-explode-settings {
-  position: relative;
-}
-.workspace-ui .review-explode-settings summary {
-  padding: 5px 10px;
-  cursor: pointer;
-  font-size: 11px;
-  list-style: none;
-  color: #99aebc;
-}
-.workspace-ui .review-explode-settings label {
-  position: absolute;
-  bottom: 45px;
-  right: 0;
-  width: 220px;
-  padding: 14px;
-  background: #293641;
-  border: 1px solid #ffffff16;
-  border-radius: 6px;
-}
 .workspace-ui .review-legend {
   display: block;
   height: auto;
@@ -1078,6 +1058,9 @@
   bottom: 22px;
   background: #1d2730ed !important;
   font-size: 12px !important;
+}
+.has-inspector .study-show-detail {
+  display: none;
 }
 .study-inspector {
   background: #191f26;
@@ -1432,6 +1415,9 @@
   .study-workspace.has-nav .study-inspector {
     display: none;
   }
+  .study-workspace.has-nav .study-show-detail {
+    display: block;
+  }
   .study-navigation {
     position: static;
     width: auto;
@@ -1607,10 +1593,6 @@
   .workspace-ui .review-object-actions button {
     font-size: 11px;
     padding-inline: 8px;
-  }
-  .workspace-ui .review-explode-settings summary {
-    font-size: 10px;
-    padding-inline: 5px;
   }
   .study-show-detail {
     right: 12px;
@@ -6196,24 +6178,132 @@
   color: #bbdbdf;
   font-size: 12px;
 }
+.workspace-ui .device-structure-actions > .structure-announcement {
+  display: block;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+.workspace-ui .device-structure-actions {
+  display: grid;
+  grid-template-columns: 112px 130px;
+}
+.workspace-ui .review-object-actions > small[role="status"] {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 100%;
+  margin: 0;
+  line-height: 16px;
+  text-align: center;
+}
+.workspace-ui .structure-task-menu {
+  position: relative;
+}
+.workspace-ui .structure-task-menu > summary,
+.workspace-ui .review-object-actions:has(> .structure-task-menu) > button,
+.workspace-ui .structure-task-menu > div > button {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 5px 9px;
+  border: 1px solid #52636d;
+  border-radius: 4px;
+  background: #28353e;
+  color: #e2e9ec;
+  font-size: 12px;
+  line-height: 20px;
+}
+.workspace-ui .review-object-actions:has(> .structure-task-menu) > button {
+  justify-content: center;
+}
+.workspace-ui .structure-task-menu > summary {
+  list-style: none;
+  gap: 6px;
+  cursor: pointer;
+}
+.structure-task-menu > summary::-webkit-details-marker {
+  display: none;
+}
+.structure-task-menu > summary span {
+  margin-inline-start: auto;
+  font-variant-numeric: tabular-nums;
+  color: #b5c9d2;
+}
+.structure-task-menu > summary::after {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-top: 1px solid currentColor;
+  border-left: 1px solid currentColor;
+  transform: translateY(2px) rotate(45deg);
+}
+.structure-task-menu[open] > summary::after {
+  transform: translateY(-2px) rotate(225deg);
+}
+.workspace-ui .structure-task-menu[open] > summary {
+  border-color: #93b7be;
+}
 .workspace-ui .structure-task-menu > div {
   position: absolute;
-  bottom: calc(100% + 12px);
+  bottom: calc(100% + 10px);
   right: 0;
-  width: 220px;
-  padding: 12px;
+  width: 228px;
+  padding: 8px;
   display: grid;
-  gap: 6px;
-  border: 1px solid #40535c;
+  gap: 4px;
+  border: 1px solid #52636d;
   border-radius: 6px;
   background: #26333c;
 }
-.workspace-ui .structure-task-menu label {
-  position: static;
-  width: auto;
-  border: 0;
-  padding: 0 0 8px;
-  background: none;
+.workspace-ui .structure-task-menu > div > button {
+  justify-content: flex-start;
+}
+.workspace-ui .structure-task-menu .review-explode-label {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) 4ch;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 4px 6px 8px;
+  border-bottom: 1px solid #40535c;
+  color: #c8d7db;
+  font-size: 12px;
+}
+.workspace-ui .structure-task-menu input[type="range"] {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+}
+.structure-task-menu output {
+  text-align: right;
+}
+.workspace-ui .structure-task-menu button:disabled,
+.workspace-ui
+  .review-object-actions:has(> .structure-task-menu)
+  > button:disabled {
+  opacity: 1;
+  color: #92a1aa;
+  background: #222e36;
+  border-color: #3c4b55;
+}
+@media (hover: hover) {
+  .workspace-ui .structure-task-menu summary:hover,
+  .workspace-ui .structure-task-menu button:enabled:hover,
+  .workspace-ui
+    .review-object-actions:has(> .structure-task-menu)
+    > button:enabled:hover {
+    background: #34454f;
+  }
+  .workspace-ui[data-scene-level="device"]
+    .study-resource:not(.selected):not(:hover):not(:focus-within)
+    .study-row-actions
+    button:first-child {
+    visibility: hidden;
+  }
 }
 .storage-slot-check button {
   padding: 7px 8px;

@@ -13,14 +13,11 @@ export function StructureMenu({
 }) {
   return (
     <StructureActionMenu
-      label={
-        showProgress && amount > 0
-          ? `结构操作 · ${Math.round(amount * 100)}%`
-          : "结构操作"
-      }
+      label="结构操作"
+      percent={showProgress ? Math.round(amount * 100) : undefined}
     >
       <label className="review-explode-label">
-        展开{" "}
+        展开比例
         <input
           aria-label="部件展开进度"
           type="range"
@@ -38,9 +35,11 @@ export function StructureMenu({
 
 export function StructureActionMenu({
   label,
+  percent,
   children,
 }: {
   label: string;
+  percent?: number;
   children: ReactNode;
 }) {
   const menu = useRef<HTMLDetailsElement>(null);
@@ -72,7 +71,10 @@ export function StructureActionMenu({
         event.currentTarget.querySelector("summary")?.focus();
       }}
     >
-      <summary>{label}</summary>
+      <summary>
+        {label}
+        {percent !== undefined && <span>{percent}%</span>}
+      </summary>
       <div>{children}</div>
     </details>
   );

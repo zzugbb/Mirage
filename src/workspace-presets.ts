@@ -48,6 +48,8 @@ export function resourceRowText(resource: Resource, includeLocation = false) {
       ? `${resource.name.split(" · ")[0]} · ${includeLocation ? resource.location : resource.location.split(" / ").at(-1)}`
       : resource.kind === "rack"
         ? resource.detail.split(" · ").slice(0, 2).join(" · ")
-        : resource.detail,
+        : resource.kind === "part"
+          ? resource.detail.replace(/ · 独立部件$/, "")
+          : resource.detail,
   };
 }
