@@ -24,7 +24,10 @@ import type {
   NetworkOverviewRole,
 } from "./network-overview";
 import { inletAirflowIncludes } from "./inlet-airflow";
-import { SmokeInspection } from "./components/SmokeInspection";
+import {
+  SmokeInspectionControls,
+  SmokeInspectionDetails,
+} from "./components/SmokeInspection";
 import { isSmokeFixture } from "./smoke-inspection";
 import { PowerOverview } from "./components/PowerOverview";
 import {
@@ -1273,9 +1276,12 @@ export function Workspace() {
   useEffect(() => {
     if (!smokeRestore || !ready) return;
     const frame = requestAnimationFrame(() => {
-      document
-        .querySelector<HTMLButtonElement>("[data-smoke-start]")
-        ?.focus({ preventScroll: true });
+      const entry =
+        document.querySelector<HTMLButtonElement>("[data-smoke-start]");
+      const target = entry?.getClientRects().length
+        ? entry
+        : stageRef.current?.querySelector<HTMLElement>(".review-camera select");
+      target?.focus({ preventScroll: true });
       setSmokeRestore(false);
     });
     return () => cancelAnimationFrame(frame);
@@ -4251,6 +4257,7 @@ export function Workspace() {
             environmentViewCommand={environmentViewCommand}
             onEnvironmentViewChange={setEnvironmentView}
             onEnvironmentView={requestEnvironmentView}
+            smokeInspectionActive={!!smokeVisit}
             maintenanceView={maintenanceView}
             onMaintenanceViewChange={setMaintenanceView}
             entranceView={entranceView}
@@ -4342,7 +4349,26 @@ export function Workspace() {
             onTakeover={takeover}
             compactTools
             controls={
-              structureVisit ? (
+              smokeVisit &&
+              isSmokeFixture(selected) &&
+              state.level === "room" &&
+              layer === "overview" ? (
+                <SmokeInspectionControls
+                  origin={smokeVisit.id}
+                  selected={selected}
+                  ready={ready && !smokeReturning}
+                  onPreview={selectObject}
+                  onLocate={() => focus(selected, { showDetails: false })}
+                  onReturn={() => {
+                    setSmokeReturning(true);
+                    focus(smokeVisit.id);
+                  }}
+                  onEnd={() => {
+                    setSmokeVisit(null);
+                    setSmokeRestore(true);
+                  }}
+                />
+              ) : structureVisit ? (
                 <StructureNavigation
                   visit={structureVisit}
                   state={state}
@@ -5045,39 +5071,30 @@ export function Workspace() {
                 </p>
               </section>
             )}
-            {isSmokeFixture(selected) && (
-              <SmokeInspection
-                origin={smokeVisit?.id ?? null}
-                selected={selected}
-                ready={ready}
-                returning={smokeReturning}
-                onStart={() => {
-                  setSmokeVisit({
-                    id: selected,
-                    layer,
-                    analysis: review.analysis,
-                    nav,
-                    query,
-                    filter,
-                    onlyAlarms,
-                  });
-                  setSmokeRestore(false);
-                  control({ type: "layer", layer: "overview" });
-                  control({ type: "analysis", value: false });
-                  focus(selected);
-                }}
-                onPreview={pick}
-                onLocate={focus}
-                onReturn={() => {
-                  if (!smokeVisit || !ready) return;
-                  setSmokeReturning(true);
-                  focus(smokeVisit.id);
-                }}
-                onEnd={() => {
-                  setSmokeVisit(null);
-                  setSmokeRestore(true);
-                }}
-              />
+            {isSmokeFixture(selected) && !smokeVisit && (
+              <div className="smoke-inspection-entry">
+                <button
+                  data-smoke-start
+                  disabled={!ready}
+                  onClick={() => {
+                    setSmokeVisit({
+                      id: selected,
+                      layer,
+                      analysis: review.analysis,
+                      nav,
+                      query,
+                      filter,
+                      onlyAlarms,
+                    });
+                    setSmokeRestore(false);
+                    control({ type: "layer", layer: "overview" });
+                    control({ type: "analysis", value: false });
+                    focus(selected);
+                  }}
+                >
+                  逐点核对烟感布置 ↗
+                </button>
+              </div>
             )}
             {crossing && (
               <section
@@ -5190,8 +5207,12 @@ export function Workspace() {
                     onPreview={pick}
                     onLocate={focus}
                   />
+                ) : smokeVisit && isSmokeFixture(selected) ? (
+                  <p className="fixture-analysis-note">
+                    烟感信号未接入，没有历史曲线或事件。
+                  </p>
                 ) : fixture && leakView ? (
-                  <p className="leak-analysis-note">
+                  <p className="fixture-analysis-note">
                     此设施未接入漏水信号，没有历史曲线或事件。
                   </p>
                 ) : fixture ? (
@@ -5360,7 +5381,12 @@ export function Workspace() {
                     </div>
                   </section>
                 )}
-                {leakView ? (
+                {smokeVisit && isSmokeFixture(selected) ? (
+                  <SmokeInspectionDetails
+                    origin={smokeVisit.id}
+                    selected={selected}
+                  />
+                ) : leakView ? (
                   <LeakInspectionDetails
                     inspection={leakView}
                     selectedId={selected}

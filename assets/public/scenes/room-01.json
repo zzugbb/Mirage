@@ -118,7 +118,7 @@
         "dataStatus": "not-connected",
         "location": "A 排上方",
         "mountId": "room-01",
-        "focus": { "direction": [0.8, -0.45, 1], "distance": 2.5 }
+        "focus": { "direction": [0.4, -0.5, -1], "distance": 1.6 }
       },
       {
         "id": "smoke-02",
@@ -132,7 +132,7 @@
         "dataStatus": "not-connected",
         "location": "B 排上方",
         "mountId": "room-01",
-        "focus": { "direction": [0.8, -0.45, 1], "distance": 2.5 }
+        "focus": { "direction": [0.4, -0.5, -1], "distance": 1.6 }
       },
       {
         "id": "environment-01",

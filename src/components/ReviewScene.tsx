@@ -167,6 +167,7 @@ export function ReviewScene({
   environmentViewCommand,
   onEnvironmentViewChange,
   onEnvironmentView,
+  smokeInspectionActive,
   maintenanceView,
   onMaintenanceViewChange,
   entranceView,
@@ -216,6 +217,7 @@ export function ReviewScene({
   environmentViewCommand: EnvironmentViewCommand | null;
   onEnvironmentViewChange: (inspection: EnvironmentInspection | null) => void;
   onEnvironmentView: (action: EnvironmentViewCommand["action"]) => void;
+  smokeInspectionActive: boolean;
   maintenanceView: MaintenanceInspection | null;
   onMaintenanceViewChange: (inspection: MaintenanceInspection | null) => void;
   entranceView: EntranceInspection | null;
@@ -406,6 +408,9 @@ export function ReviewScene({
   const [quality, setQuality] = useState(true);
   const [supported, setSupported] = useState(false);
   const [orbit, setOrbit] = useState(true);
+  useEffect(() => {
+    if (smokeInspectionActive) setOrbit(false);
+  }, [smokeInspectionActive]);
   const [cutaway, setCutaway] = useState(false);
   const [moreLabels, setMoreLabels] = useState(true);
   const airflowWorkspace = useAirflowWorkspace({
