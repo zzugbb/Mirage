@@ -706,6 +706,7 @@ export function Workspace() {
   const [layoutVisit, setLayoutVisit] = useState<{
     id: string;
     crossing?: (typeof roomLayoutCrossings)[number];
+    grille?: { name: string; slice: SliceControls };
     query?: string;
     origin?: {
       camera: TaskViewMemory | null;
@@ -1459,6 +1460,7 @@ export function Workspace() {
     control({ type: "pick", id: layoutVisit.id });
     if (layoutVisit.origin) layoutScroll.current = layoutVisit.origin.scroll;
     setLayoutCrossing(layoutVisit.crossing?.id ?? null);
+    if (layoutVisit.grille) setSliceControls(layoutVisit.grille.slice);
     if (layoutVisit.query !== undefined) setLayoutQuery(layoutVisit.query);
     control({ type: "layer", layer: layoutVisit.layer });
     control({ type: "analysis", value: false });
@@ -3102,7 +3104,8 @@ export function Workspace() {
 
   const layoutReturnName =
     layoutVisit?.query !== undefined
-      ? (layoutVisit.crossing?.name ??
+      ? (layoutVisit.grille?.name ??
+        layoutVisit.crossing?.name ??
         deviceById(layoutVisit.id)?.name ??
         rackById(layoutVisit.id)?.name)
       : undefined;
@@ -3842,7 +3845,18 @@ export function Workspace() {
               crossingId={layoutCrossing}
               onEnter={openLayoutInstallation}
               onInspectBranch={(branch) => {
-                setLayoutVisit({ id: branch.rack.id, layer, metric });
+                if (!layoutVisit?.grille || layoutVisit.id !== branch.rack.id)
+                  setLayoutVisit({
+                    id: branch.rack.id,
+                    grille: {
+                      name: `${branch.rack.name.split(" ")[0]} 柜前格栅 ${branch.grille.id.split("-").at(-1)}`,
+                      slice: sliceControls,
+                    },
+                    layer,
+                    metric,
+                    query: layoutQuery,
+                    origin: captureLayoutOrigin(),
+                  });
                 setLayoutRestore(0);
                 setLayoutReturning(false);
                 showAirflow(branch.device.id);

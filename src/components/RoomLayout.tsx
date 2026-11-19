@@ -430,7 +430,7 @@ export function RoomLayout({
           </strong>
           <p>
             {branch
-              ? `格栅 ${branch.grille.id.split("-").at(-1)} → ${branch.device.name} · 最近格栅示意落点，非独占供风`
+              ? `格栅 ${branch.grille.id.split("-").at(-1)} → ${branch.device.name}`
               : pair
                 ? `灯罩底面比侧梁顶面${pair.difference >= 0 ? "高" : "低"} ${Math.abs(pair.difference).toFixed(2)} m · 配置表面高差，非最小净距`
                 : current.kind === "rack"
@@ -516,7 +516,7 @@ export function RoomLayout({
           图上横向为 X、纵向为
           Z，不表示地理南北。细框为配置占地，名称按钮仅供选择；不随三维镜头旋转。亮边标记柜前，空白不代表通行净距或可用容量。环境与安全层投影七处既有设施的配置中心与检漏路径，标签通过细线连接原位置；配置
           Y
-          为场景坐标，不是离地净高。点位和路径不代表监测覆盖或设施状态；两处环境探头仅有演示读数。顶灯与桥架按配置投影，交叉不表示接线或碰撞。格栅落点不代表实测风量。
+          为场景坐标，不是离地净高。点位和路径不代表监测覆盖或设施状态；两处环境探头仅有演示读数。顶灯与桥架按配置投影，交叉不表示接线或碰撞。柜前格栅按最近位置标出代表落点，不表示独占供风或实测风量。
         </p>
       </details>
     </section>
