@@ -155,6 +155,7 @@ export function ReviewScene({
   readings,
   selectedId,
   roomDevice,
+  alarmOriginId,
   airflow,
   onExplainAirflow,
   onAirflowViewChange,
@@ -280,6 +281,7 @@ export function ReviewScene({
   readings: Map<string, SpatialReading>;
   selectedId: string;
   roomDevice?: ReturnType<typeof deviceById>;
+  alarmOriginId?: string;
   airflowVisit: AirflowInspection | null;
   airflow: AirflowSnapshot | null;
   onExplainAirflow: () => void;
@@ -1447,7 +1449,7 @@ export function ReviewScene({
   const alarmDevice =
     state.level === "room" &&
     layer === "alarms" &&
-    readings.get(selectedId)?.alarm
+    (readings.get(selectedId)?.alarm || selectedId === alarmOriginId)
       ? deviceById(selectedId)
       : undefined;
   const labels = sceneLabels(
@@ -1461,6 +1463,7 @@ export function ReviewScene({
       level: state.level,
       layer,
       selectedId,
+      alarmOriginId,
       more: moreLabels,
       estimates: slice?.rackEstimates,
       hasPath: !!visibleAirflow || !!supply || network.length > 0,

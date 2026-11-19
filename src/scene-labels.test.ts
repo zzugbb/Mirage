@@ -53,6 +53,28 @@ test("总览只标选择，告警只标选中异常；更多标签不改变原�
     ),
   );
 });
+test("告警退出活动队列后只保留本次排查且仍被选中的设备短名", () => {
+  const { readings } = spatialSnapshot(100);
+  const review = {
+    ...options,
+    layer: "alarms" as const,
+    selectedId: "srv-07",
+    alarmOriginId: "srv-07",
+  };
+  assert.equal(readings.get("srv-07")?.alarm, 0);
+  assert.deepEqual(
+    sceneLabels(devices, readings, review).map((item) => item.id),
+    ["srv-07"],
+  );
+  assert.deepEqual(
+    sceneLabels(devices, readings, {
+      ...review,
+      selectedId: "srv-01",
+      more: true,
+    }),
+    [],
+  );
+});
 test("内部总览只标所选部件，模型预警不自动铺开，子件也可识别", () => {
   const readings = spatialSnapshot(60).readings;
   const parts = [...partsForDevice("srv-01"), ...subpartsForDevice("srv-01")];

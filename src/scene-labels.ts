@@ -10,6 +10,7 @@ export function sceneLabels<T extends { id: string }>(
     level: AppState["level"];
     layer: ReviewLayer;
     selectedId: string;
+    alarmOriginId?: string;
     more: boolean;
     annotatedIds?: string[];
     estimates?: Map<string, number | null>;
@@ -46,7 +47,10 @@ export function sceneLabels<T extends { id: string }>(
       const reading = readings.get(item.id);
       if (!reading) return false;
       if (layer === "alarms")
-        return reading.alarm > 0 && (more || selected(item));
+        return (
+          (selected(item) && item.id === options.alarmOriginId) ||
+          (reading.alarm > 0 && (more || selected(item)))
+        );
       if (layer === "overview") return more || selected(item);
       return true;
     })

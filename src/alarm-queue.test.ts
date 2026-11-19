@@ -77,11 +77,21 @@ test("缺失、过期、离线不当作活动告警或恢复，有效零值仍�
   const zero = { ...sample, alarm: 0 as const, temperature: 0, power: 0 };
   readings.set("srv-01", zero);
   assert.equal(alarmCurrentStatus(zero), "当前无活动告警");
+  assert.equal(
+    alarmCurrentStatus({ ...zero, temperature: null, lifecycle: "stopped" }),
+    "设备停机，当前无进风读数",
+  );
+  assert.match(alarmCurrentStatus({ ...zero, temperature: null }), /不能判定/);
   assert.equal(alarmCurrentStatus(undefined), "读数缺失，不能判定当前告警");
 });
 
 test("排查往返仅延续原设备、所属柜及部件，无关对象结束排查", () => {
-  const visit = { id: "srv-01", time: 60, severity: 2 as const };
+  const visit = {
+    id: "srv-01",
+    time: 60,
+    severity: 2 as const,
+    temperature: 40,
+  };
   for (const id of [
     "room-01",
     "rack-a01",

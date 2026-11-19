@@ -44,6 +44,8 @@ import {
 import { AlarmQueue } from "./components/AlarmQueue";
 import {
   alarmVisitIncludes,
+  alarmVisitLabel,
+  alarmCurrentStatus,
   type AlarmSeverity,
   type AlarmVisit,
 } from "./alarm-queue";
@@ -692,7 +694,16 @@ export function Workspace() {
   >("installation");
   const [alarmQuery, setAlarmQuery] = useState("");
   const [alarmSeverity, setAlarmSeverity] = useState<AlarmSeverity>("all");
-  const [alarmVisit, setAlarmVisit] = useState<AlarmVisit | null>(null);
+  const [alarmVisit, setAlarmVisit] = useState<
+    | (AlarmVisit & {
+        camera: TaskViewMemory | null;
+        query: string;
+        filter: AlarmSeverity;
+        scroll: number;
+        inspector: boolean;
+      })
+    | null
+  >(null);
   const [alarmReturned, setAlarmReturned] = useState<AlarmVisit | null>(null);
   const [alarmReturning, setAlarmReturning] = useState(false);
   const [alarmRestore, setAlarmRestore] = useState(0);
@@ -1420,8 +1431,10 @@ export function Workspace() {
     layer === "alarms" &&
     onlyAlarms &&
     ["list", "installation"].includes(rackView);
+  const inspectedAlarm =
+    alarmQueueVisible && alarmVisit?.id === selected ? alarmVisit : null;
   const alarmSample =
-    alarmQueueVisible && reading?.alarm && entity.kind === "device"
+    alarmQueueVisible && entity.kind === "device"
       ? spatial.samples.get(selected)
       : undefined;
   useEffect(() => {
@@ -1434,7 +1447,13 @@ export function Workspace() {
       setAlarmVisit(null);
   }, [alarmVisit, alarmReturning, ready, selected, state.deviceId]);
   useEffect(() => {
-    if (!alarmReturning || !alarmVisit || state.level !== "room" || !ready)
+    if (
+      !alarmReturning ||
+      !alarmVisit ||
+      state.level !== "room" ||
+      !ready ||
+      review.pendingId
+    )
       return;
     control({ type: "pick", id: alarmVisit.id });
     control({ type: "layer", layer: "alarms" });
@@ -1445,11 +1464,15 @@ export function Workspace() {
     skipNavigationSearch.current = true;
     setNav(true);
     if (matchMedia("(max-width: 1099px)").matches) setInspector(false);
+    else setInspector(alarmVisit.inspector);
+    setAlarmQuery(alarmVisit.query);
+    setAlarmSeverity(alarmVisit.filter);
+    alarmScroll.current = alarmVisit.scroll;
     setAlarmReturned(alarmVisit);
     setAlarmRestore((value) => value + 1);
     setAlarmReturning(false);
     setAlarmVisit(null);
-  }, [alarmReturning, alarmVisit, state.level, ready]);
+  }, [alarmReturning, alarmVisit, state.level, ready, review.pendingId]);
   useEffect(() => {
     if (
       !layoutReturning ||
@@ -2130,15 +2153,31 @@ export function Workspace() {
   const beginAlarmInspection = (
     id: string,
     action: "preview" | "installation" | "internal" | "analysis",
+    previous?: AlarmVisit,
   ) => {
     const reading = spatial.readings.get(id);
     if (action !== "preview" && !ready) return;
-    if (reading?.alarm && reading.quality === "valid") {
-      if (alarmVisit?.id !== id)
-        setAlarmVisit({ id, time: state.time, severity: reading.alarm });
-    } else if (action === "preview" && alarmReturned?.id === id) {
-      setAlarmVisit(alarmReturned);
-    } else return;
+    if (alarmVisit?.id !== id) {
+      const origin =
+        previous ??
+        (reading?.alarm && reading.quality === "valid"
+          ? {
+              id,
+              time: state.time,
+              severity: reading.alarm,
+              temperature: reading.temperature,
+            }
+          : null);
+      if (!origin) return;
+      setAlarmVisit({
+        ...origin,
+        camera: captureTaskView.current?.("room") ?? null,
+        query: alarmQuery,
+        filter: alarmSeverity,
+        scroll: alarmScroll.current,
+        inspector,
+      });
+    }
     setAlarmReturned(null);
     setAlarmRestore(0);
     setLayoutVisit(null);
@@ -2162,6 +2201,7 @@ export function Workspace() {
       setQuery("");
       setFilter("all");
       setRackView("installation");
+      if (!reading?.alarm) setOnlyAlarms(false);
       if (action === "installation") focus(id, { installation: true });
       else {
         dispatch({ type: "navigate", level: "device", id });
@@ -3355,7 +3395,7 @@ export function Workspace() {
                   control({ type: "open-resource", id: "room-01" });
               }}
             >
-              ← 返回告警列表
+              ← 返回告警列表 · {deviceById(alarmVisit.id)?.name}
             </button>
             <button
               aria-label="结束告警排查"
@@ -3826,7 +3866,9 @@ export function Workspace() {
                 selectObject(id);
                 control({ type: "analysis", value: false });
               }}
-              onPreview={(id) => beginAlarmInspection(id, "preview")}
+              onPreview={(id, previous) =>
+                beginAlarmInspection(id, "preview", previous)
+              }
             />
           ) : state.level === "room" && rackView === "power" ? (
             <PowerOverview
@@ -4506,6 +4548,7 @@ export function Workspace() {
             captureTaskView={captureTaskView}
             taskReturn={
               (layoutReturning && layoutVisit?.origin) ||
+              (alarmReturning && alarmVisit) ||
               blankingRestore ||
               (peakReturning && peakVisit) ||
               (sourceReturning && sourceVisit) ||
@@ -4542,6 +4585,9 @@ export function Workspace() {
             readings={spatial.readings}
             selectedId={selected}
             roomDevice={roomDevice}
+            alarmOriginId={
+              alarmQueueVisible ? (alarmVisit ?? alarmReturned)?.id : undefined
+            }
             airflow={airflow}
             onAirflowViewChange={setAirflowStageView}
             onExplainAirflow={() => {
@@ -5527,21 +5573,33 @@ export function Workspace() {
                 {airflowInspector}
                 {slicePlaneInspector}
                 {sliceInspector}
-                {!!reading?.alarm && !component && (
-                  <section className="study-alarm-detail">
-                    <h2>进风温度异常</h2>
+                {(!!reading?.alarm || inspectedAlarm) && !component && (
+                  <section
+                    className="study-alarm-detail"
+                    data-active={!!reading?.alarm}
+                  >
+                    <h2>
+                      {reading?.alarm
+                        ? "进风温度异常"
+                        : alarmCurrentStatus(reading)}
+                    </h2>
                     <p>
-                      {alarmSample
+                      {inspectedAlarm &&
+                        reading?.alarm !== inspectedAlarm.severity &&
+                        `${alarmVisitLabel(inspectedAlarm)}。`}
+                      {alarmSample && reading
                         ? inletAssessment(reading, alarmSample).detail
-                        : reading.count > 1
-                          ? `${reading.alarmCount} 台设备存在进风温度告警。`
-                          : "设备进风温度持续超限。"}
+                        : inspectedAlarm
+                          ? alarmCurrentStatus(reading)
+                          : reading && reading.count > 1
+                            ? `${reading.alarmCount} 台设备存在进风温度告警。`
+                            : "设备进风温度持续超限。"}
                     </p>
                     <div className="study-alarm-actions">
                       <button
-                        disabled={!!alarmSample && !ready}
+                        disabled={(!!alarmSample || !!inspectedAlarm) && !ready}
                         onClick={() => {
-                          if (alarmSample)
+                          if (alarmSample || inspectedAlarm)
                             beginAlarmInspection(selected, "analysis");
                           else {
                             jumpToEvents.current = true;
@@ -5551,7 +5609,7 @@ export function Workspace() {
                       >
                         回看告警过程
                       </button>
-                      {alarmSample && (
+                      {(alarmSample || inspectedAlarm) && (
                         <>
                           <button
                             disabled={!ready}

@@ -8,7 +8,18 @@ import {
 import type { SpatialReading } from "./spatial.ts";
 
 export type AlarmSeverity = "all" | "critical" | "warning";
-export type AlarmVisit = { id: string; time: number; severity: 1 | 2 };
+export type AlarmVisit = {
+  id: string;
+  time: number;
+  severity: 1 | 2;
+  temperature: number | null;
+};
+
+export function alarmVisitLabel(visit: AlarmVisit) {
+  const inlet =
+    visit.temperature === null ? "" : ` · ${visit.temperature.toFixed(1)} °C`;
+  return `排查时 ${visit.time.toFixed(0)} s · ${visit.severity === 2 ? "严重" : "预警"}${inlet}`;
+}
 
 /** 只列设备的有效活动告警，不把机柜汇总或部件评估重复计数。 */
 export function alarmQueue(
@@ -74,11 +85,13 @@ export function alarmVisitIncludes(
 }
 
 /** 无有效读数不能宣称恢复；返回后仍解释原排查对象。 */
-export function alarmCurrentStatus(reading: SpatialReading | undefined) {
+export function alarmCurrentStatus(reading: SpatialReading | null | undefined) {
   if (!reading || reading.quality === "missing")
     return "读数缺失，不能判定当前告警";
   if (reading.quality === "offline") return "设备离线，不能判定当前告警";
   if (reading.quality === "stale") return "读数过期，不能判定当前告警";
+  if (reading.lifecycle === "stopped") return "设备停机，当前无进风读数";
+  if (reading.temperature === null) return "无进风读数，不能判定当前告警";
   return reading.alarm === 2
     ? "当前严重告警"
     : reading.alarm === 1

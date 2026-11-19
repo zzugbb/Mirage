@@ -1111,15 +1111,23 @@
   display: none;
 }
 .study-alarm-detail {
+  --alarm-text: #e3c5a7;
+  --alarm-action: #dfad761a;
   margin: 0 22px 18px;
   padding: 10px 0 10px 12px;
   border-left: 2px solid #d18f64;
   background: #dfad7610;
 }
+.study-alarm-detail[data-active="false"] {
+  --alarm-text: #bed3d8;
+  --alarm-action: #93b8c51a;
+  border-color: #708993;
+  background: #94bbc20c;
+}
 .study-alarm-detail h2 {
   font-size: 12px;
   font-weight: 550;
-  color: #e3c5a7;
+  color: var(--alarm-text);
 }
 .study-alarm-detail p {
   color: #acb4bc;
@@ -1142,8 +1150,8 @@
   color: var(--study-text);
 }
 .study-alarm-actions button:first-child:not(:only-child) {
-  background: #dfad761a;
-  color: #e3c5a7;
+  background: var(--alarm-action);
+  color: var(--alarm-text);
 }
 .study-metrics {
   display: grid;
@@ -5698,11 +5706,22 @@
 }
 
 .alarm-queue {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  font-size: 12px;
+}
+.alarm-queue-search {
+  padding: 12px 16px 8px;
+  border-bottom: 1px solid var(--study-line);
+}
+.alarm-queue-list {
   flex: 1;
   min-height: 0;
   overflow: auto;
+  overflow-anchor: none;
   padding: 0 16px 18px;
-  font-size: 12px;
 }
 .study-panel-heading .alarm-queue-exit {
   width: auto;
@@ -5783,14 +5802,22 @@
     display: none;
   }
 }
-.alarm-queue-returned,
 .alarm-queue-followup {
-  padding: 8px;
-  border: 1px solid #41545e;
-  border-radius: 5px;
+  margin-top: 12px;
+  padding: 4px 0 4px 10px;
+  border-left: 2px solid #8aafbc;
 }
-.alarm-queue-count {
-  font-size: 10px;
+.alarm-queue-followup small {
+  display: block;
+  color: var(--study-muted);
+}
+.alarm-queue-count,
+.alarm-queue-visit {
+  margin-top: 4px;
+  font-size: 11px;
+}
+.alarm-queue-search:not(:has(input:focus)) .alarm-queue-count span {
+  visibility: hidden;
 }
 .alarm-queue details {
   margin: 14px 0;
@@ -5800,11 +5827,8 @@
   margin-top: 6px;
 }
 
-.alarm-queue > p {
+.alarm-queue-list > p {
   margin: 8px 0;
-}
-.alarm-queue > label {
-  margin-top: 12px;
 }
 
 /* 端口往返按编号恢复滚动位置，避免浏览器再按详情栏内的其他内容校正。 */
