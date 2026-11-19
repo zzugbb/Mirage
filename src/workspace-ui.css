@@ -5006,30 +5006,67 @@
   cursor: pointer;
 }
 
+.workspace-ui .structure-task-bar:has(.part-sequence) {
+  display: grid;
+  grid-template-columns: 222px 142px auto;
+}
 .part-sequence {
-  display: flex;
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) 32px;
   align-items: center;
   gap: 4px;
-  border-right: 1px solid var(--line);
-  padding-right: 4px;
 }
-.part-sequence [data-part-action="heading"] {
+.workspace-ui .part-sequence [data-part-action="heading"] {
   display: grid;
   justify-items: center;
+  align-content: center;
   gap: 2px;
-  padding: 1px 4px;
+  padding: 2px 3px;
+  min-height: 38px;
+  line-height: 1.2;
   color: #bbdbdf;
   font-size: 12px;
 }
 .part-sequence small {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  white-space: nowrap;
   color: #a9bdc6;
   font-size: 10px;
   font-variant-numeric: tabular-nums;
 }
-.workspace-ui .part-sequence button {
-  min-width: 30px;
+.part-sequence small span {
+  color: #c3e3e4;
+}
+.workspace-ui .part-sequence button[data-part-action="heading"] {
+  border: 1px solid #52636d;
+  background: #28353e;
+}
+.workspace-ui .part-sequence button:not([data-part-action="heading"]) {
+  border: 1px solid #52636d;
+  padding: 0;
   font-size: 18px;
   line-height: 1;
+}
+@container study-scene (max-width: 500px) {
+  .workspace-ui .structure-task-bar:has(.part-sequence) {
+    grid-template-columns: 142px auto;
+    justify-content: center;
+  }
+  .part-sequence {
+    grid-column: 1 / -1;
+  }
+  .workspace-ui .structure-task-bar:has(.part-sequence) .structure-task-menu {
+    position: static;
+  }
+  .workspace-ui
+    .structure-task-bar:has(.part-sequence)
+    .structure-task-menu
+    > div {
+    bottom: calc(100% + 4px);
+    right: 6px;
+  }
 }
 
 .airflow-response-context {
@@ -6178,7 +6215,7 @@
   color: #bbdbdf;
   font-size: 12px;
 }
-.workspace-ui .device-structure-actions > .structure-announcement {
+.workspace-ui .review-object-actions > .structure-announcement {
   display: block;
   position: absolute;
   width: 1px;
@@ -6189,6 +6226,18 @@
 .workspace-ui .device-structure-actions {
   display: grid;
   grid-template-columns: 112px 130px;
+}
+.workspace-ui .rack-device-actions:has(.structure-task-menu),
+.workspace-ui .rack-door-actions {
+  display: grid;
+  grid-template-columns: 186px auto;
+}
+.workspace-ui .rack-door-actions {
+  grid-template-columns: 138px 124px;
+}
+.workspace-ui .rack-door-actions > small {
+  grid-column: 1 / -1;
+  margin: 0;
 }
 .workspace-ui .review-object-actions > small[role="status"] {
   position: absolute;
@@ -6202,6 +6251,7 @@
 .workspace-ui .structure-task-menu {
   position: relative;
 }
+.workspace-ui .rack-door-actions > button,
 .workspace-ui .structure-task-menu > summary,
 .workspace-ui .review-object-actions:has(> .structure-task-menu) > button,
 .workspace-ui .structure-task-menu > div > button {
@@ -6217,6 +6267,7 @@
   font-size: 12px;
   line-height: 20px;
 }
+.workspace-ui .rack-door-actions > button,
 .workspace-ui .review-object-actions:has(> .structure-task-menu) > button {
   justify-content: center;
 }
@@ -6281,6 +6332,7 @@
 .structure-task-menu output {
   text-align: right;
 }
+.workspace-ui .review-object-actions button[aria-disabled="true"],
 .workspace-ui .structure-task-menu button:disabled,
 .workspace-ui
   .review-object-actions:has(> .structure-task-menu)
@@ -6292,10 +6344,12 @@
 }
 @media (hover: hover) {
   .workspace-ui .structure-task-menu summary:hover,
-  .workspace-ui .structure-task-menu button:enabled:hover,
+  .workspace-ui
+    .structure-task-menu
+    button:enabled:not([aria-disabled="true"]):hover,
   .workspace-ui
     .review-object-actions:has(> .structure-task-menu)
-    > button:enabled:hover {
+    > button:enabled:not([aria-disabled="true"]):hover {
     background: #34454f;
   }
   .workspace-ui[data-scene-level="device"]

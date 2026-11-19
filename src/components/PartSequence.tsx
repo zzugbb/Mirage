@@ -20,6 +20,16 @@ export function PartSequence({
   onRestore: () => void;
 }) {
   const { parent, siblings, index, previous, next, children } = sequence;
+  const part = siblings[index];
+  const heading = (
+    <>
+      <b>{part.name}</b>
+      <small>
+        {parent ? "子件" : "模块"} {index + 1}/{siblings.length}
+        {children.length > 0 && <span>检视子件 · {children.length} ↗</span>}
+      </small>
+    </>
+  );
   return (
     <StructureToolbar
       label="逐部件检视"
@@ -55,12 +65,21 @@ export function PartSequence({
         >
           ‹
         </button>
-        <div tabIndex={-1} data-part-action="heading" aria-live="polite">
-          <b>{siblings[index].name}</b>
-          <small>
-            {parent ? "子件" : "模块"} {index + 1}/{siblings.length}
-          </small>
-        </div>
+        {children.length ? (
+          <button
+            data-part-action="heading"
+            aria-label={`检视子件 · ${part.name}（${children.length} 个）`}
+            aria-live="polite"
+            disabled={!ready}
+            onClick={() => onSelect(children[0].id, "heading")}
+          >
+            {heading}
+          </button>
+        ) : (
+          <div tabIndex={-1} data-part-action="heading" aria-live="polite">
+            {heading}
+          </div>
+        )}
         <button
           aria-label="下一个部件"
           title="下一个部件"
@@ -71,14 +90,6 @@ export function PartSequence({
           ›
         </button>
       </div>
-      {children.length > 0 && (
-        <button
-          disabled={!ready}
-          onClick={() => onSelect(children[0].id, "heading")}
-        >
-          检视子件 · {children.length}
-        </button>
-      )}
     </StructureToolbar>
   );
 }

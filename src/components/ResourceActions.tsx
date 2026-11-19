@@ -43,6 +43,8 @@ export function ResourceActions({
   const restoreLabel = exteriorOnly ? "复原外观" : "复原部件";
   const rackDevice = state.level === "rack" ? deviceById(selected) : undefined;
   const deviceControls = state.level === "device" && !preview;
+  const rackDoors = state.level === "rack" && !rackDevice && !preview;
+  const rearMoving = phase === "opening-rear" || phase === "closing-rear";
   const progress = ready
     ? ""
     : deviceControls &&
@@ -53,6 +55,20 @@ export function ResourceActions({
       : ["closed", "open", "extended", "device-ready"].includes(phase)
         ? "场景切换中…"
         : phaseLabels[phase];
+  const layout = deviceControls
+    ? "device-structure-actions"
+    : rackDevice
+      ? "rack-device-actions"
+      : rackDoors
+        ? "rack-door-actions"
+        : "";
+  const trayDevice = deviceById(state.deviceId)!;
+  const rackProgress =
+    rackDevice && pendingId === selected
+      ? `${rackDevice.name} · 正在切换安装位`
+      : progress && (phase === "extracting" || phase === "retracting")
+        ? `${progress} ${trayDevice.name}`
+        : progress;
   const doors = state.level === "rack" && (
     <>
       <button
@@ -62,11 +78,13 @@ export function ResourceActions({
           ready && dispatch({ type: "door", open: !state.doorOpen })
         }
       >
-        {state.trayExtended
-          ? "推回设备并关闭前门"
-          : state.doorOpen
-            ? "关闭前门"
-            : "打开前门"}
+        {rackDoors && progress && !rearMoving
+          ? progress
+          : state.trayExtended
+            ? "推回设备并关闭前门"
+            : state.doorOpen
+              ? "关闭前门"
+              : "打开前门"}
       </button>
       <button
         aria-disabled={!ready}
@@ -76,13 +94,17 @@ export function ResourceActions({
           ready && dispatch({ type: "rear-door", open: !state.rearDoorOpen })
         }
       >
-        {state.rearDoorOpen ? "关闭后门" : "打开后门"}
+        {rackDoors && progress && rearMoving
+          ? progress
+          : state.rearDoorOpen
+            ? "关闭后门"
+            : "打开后门"}
       </button>
     </>
   );
   return (
     <div
-      className={`review-object-actions${deviceControls ? " device-structure-actions" : ""}`}
+      className={`review-object-actions ${layout}`}
       role="group"
       aria-label="对象操作"
     >
@@ -93,11 +115,8 @@ export function ResourceActions({
             aria-disabled={!ready}
             onClick={() => ready && onOpen(selected)}
           >
-            {rackDevice.name} ·{" "}
-            {pendingId === selected
-              ? "正在切换安装位"
-              : resourceOpenLabel(state, selected)}{" "}
-            ↗
+            {rackProgress ||
+              `${rackDevice.name} · ${resourceOpenLabel(state, selected)} ↗`}
           </button>
           {rackDevice.rackId === rackForDevice(state.deviceId).id && (
             <StructureActionMenu key={selected} label="机柜操作">
@@ -108,7 +127,7 @@ export function ResourceActions({
                     ready && dispatch({ type: "tray", extended: false })
                   }
                 >
-                  推回 {deviceById(state.deviceId)!.name}
+                  推回 {trayDevice.name}
                 </button>
               ) : (
                 modelForDevice(selected).category !== "switch" && (
@@ -195,12 +214,12 @@ export function ResourceActions({
           </StructureMenu>
         </>
       )}
-      {deviceControls && (
+      {layout && (
         <span className="structure-announcement" role="status">
-          {progress}
+          {rackDevice ? rackProgress : progress}
         </span>
       )}
-      {state.level !== "room" && !deviceControls && progress && (
+      {state.level !== "room" && !layout && progress && (
         <small role="status">{progress}</small>
       )}
     </div>
