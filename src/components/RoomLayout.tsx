@@ -105,7 +105,9 @@ export function RoomLayout({
         );
       if (
         button?.dataset.layoutId === selected &&
-        (current?.kind === "rack" || current?.kind === "point")
+        (current?.kind === "rack" ||
+          current?.kind === "point" ||
+          current?.kind === "facility")
       ) {
         const entry = host.current.querySelector<HTMLButtonElement>(
           "[data-enter-layout-rack], [data-layout-point-details]",
@@ -463,7 +465,9 @@ export function RoomLayout({
               </button>
               <button
                 data-layout-point-details={
-                  current.kind === "point" ? current.id : undefined
+                  current.kind === "point" || current.kind === "facility"
+                    ? current.id
+                    : undefined
                 }
                 onClick={() => onDetails(current.id)}
               >

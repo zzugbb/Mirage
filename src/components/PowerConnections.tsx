@@ -90,7 +90,7 @@ export function PowerConnections({
             ? "2 个 PDU · 配置"
             : device
               ? `${links.length} 路输入 · 配置`
-              : `${pdus.length} 个出线 · 配置`
+              : `${pdus.length} 个逻辑出线 · 配置`
       }
     >
       {onViewPower && <button onClick={onViewPower}>场景查看 ↗</button>}
@@ -212,7 +212,7 @@ export function PowerConnections({
       {paired ? null : selectedId === powerSettings.sourceId ? (
         <>
           <p>
-            {pdus.length} 个逻辑出线 → {pdus.length} 个 PDU ·{" "}
+            {pdus.length} 个 PDU ·{" "}
             {powerDeviceIds(powerSettings.sourceId).length} 台关联设备
           </p>
           <div className="power-connection-list">
@@ -221,18 +221,20 @@ export function PowerConnections({
               return (
                 <button
                   className="power-rack-link"
+                  aria-label={`查看 ${rack.name} 供电支路`}
+                  aria-describedby={`power-ports-${rack.id}`}
                   key={rack.id}
                   onClick={() => onSelect(rack.id)}
                 >
                   <span>
                     {rack.name}
-                    <small>
+                    <small id={`power-ports-${rack.id}`}>
                       {pair
                         .map((pdu) => `${pdu.sourcePort} / PDU ${pdu.feed}`)
                         .join(" · ")}
                     </small>
                   </span>
-                  <span>查看支路 ↗</span>
+                  <span aria-hidden="true">↗</span>
                 </button>
               );
             })}

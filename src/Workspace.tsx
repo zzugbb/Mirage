@@ -223,6 +223,7 @@ import {
   pduName,
   powerDeviceIds,
   powerLinks,
+  powerSettings,
 } from "./power-config";
 import {
   pduOutlet,
@@ -707,6 +708,7 @@ export function Workspace() {
     id: string;
     crossing?: (typeof roomLayoutCrossings)[number];
     grille?: { name: string; slice: SliceControls };
+    power?: { linkId: string | null; inspection: PduInspection | null };
     query?: string;
     origin?: {
       camera: TaskViewMemory | null;
@@ -1461,6 +1463,10 @@ export function Workspace() {
     if (layoutVisit.origin) layoutScroll.current = layoutVisit.origin.scroll;
     setLayoutCrossing(layoutVisit.crossing?.id ?? null);
     if (layoutVisit.grille) setSliceControls(layoutVisit.grille.slice);
+    if (layoutVisit.power) {
+      setPowerLinkId(layoutVisit.power.linkId);
+      setPduInspection(layoutVisit.power.inspection);
+    }
     if (layoutVisit.query !== undefined) setLayoutQuery(layoutVisit.query);
     control({ type: "layer", layer: layoutVisit.layer });
     control({ type: "analysis", value: false });
@@ -2046,14 +2052,18 @@ export function Workspace() {
     scroll: layoutScroll.current,
   });
   const rememberLayoutSelection = (id: string) => {
-    const point = layoutScope === "fixtures";
-    if (point && layoutVisit?.origin && layoutVisit.id === id) return;
+    const powerCabinet = id === powerSettings.sourceId;
+    const rememberView = layoutScope === "fixtures" || powerCabinet;
+    if (rememberView && layoutVisit?.origin && layoutVisit.id === id) return;
     setLayoutVisit({
       id,
       layer,
       metric,
-      query: point || deviceById(id) ? layoutQuery : undefined,
-      origin: point ? captureLayoutOrigin() : undefined,
+      query: rememberView || deviceById(id) ? layoutQuery : undefined,
+      origin: rememberView ? captureLayoutOrigin() : undefined,
+      power: powerCabinet
+        ? { linkId: powerLinkId, inspection: pduInspection }
+        : undefined,
     });
     setLayoutReturning(false);
     setLayoutRestore(0);
@@ -3121,7 +3131,7 @@ export function Workspace() {
         layoutVisit.crossing?.name ??
         deviceById(layoutVisit.id)?.name ??
         rackById(layoutVisit.id)?.name ??
-        fixtureById(layoutVisit.id)?.name)
+        entityById(layoutVisit.id)?.name)
       : undefined;
   return (
     <div
@@ -3145,6 +3155,56 @@ export function Workspace() {
         <a className="study-brand" href="./" aria-label="Mirage 浮城首页">
           Mirage <span>浮城</span>
         </a>
+        {(layoutVisit || blankingVisit) && (
+          <div
+            className="study-task-return"
+            role="group"
+            aria-label={blankingVisit ? "安装图封板段往返" : "布置导览往返"}
+          >
+            {blankingVisit && (
+              <button
+                className="blanking-return"
+                disabled={!ready}
+                onClick={returnBlanking}
+              >
+                ← 返回 {rackById(blankingVisit.rackId)?.name.split(" ")[0]}{" "}
+                安装图 · {spaceRangeLabel(blankingVisit)} 封板段
+              </button>
+            )}
+            {layoutVisit && (
+              <>
+                <button
+                  disabled={!ready || layoutReturning}
+                  onClick={() => {
+                    setLayoutReturning(true);
+                    // 先退出跨点位的烟感或探头核对，再恢复布置图选择。
+                    if (
+                      state.level !== "room" ||
+                      layoutScope === "fixtures" ||
+                      layoutVisit.query === undefined
+                    )
+                      control({ type: "open-resource", id: "room-01" });
+                  }}
+                >
+                  ← 返回
+                  {layoutReturnName
+                    ? `布置图 · ${layoutReturnName}`
+                    : "机房布置"}
+                </button>
+                <button
+                  aria-label="结束布置导览往返"
+                  disabled={layoutReturning}
+                  onClick={() => {
+                    setLayoutVisit(null);
+                    setLayoutReturning(false);
+                  }}
+                >
+                  ×
+                </button>
+              </>
+            )}
+          </div>
+        )}
         {pduInspection?.outlet != null &&
           (selected !== pduInspection.pduId ||
             review.analysis ||
@@ -3312,56 +3372,6 @@ export function Workspace() {
             >
               ×
             </button>
-          </div>
-        )}
-        {(layoutVisit || blankingVisit) && (
-          <div
-            className="study-task-return"
-            role="group"
-            aria-label={blankingVisit ? "安装图封板段往返" : "布置导览往返"}
-          >
-            {blankingVisit && (
-              <button
-                className="blanking-return"
-                disabled={!ready}
-                onClick={returnBlanking}
-              >
-                ← 返回 {rackById(blankingVisit.rackId)?.name.split(" ")[0]}{" "}
-                安装图 · {spaceRangeLabel(blankingVisit)} 封板段
-              </button>
-            )}
-            {layoutVisit && (
-              <>
-                <button
-                  disabled={!ready || layoutReturning}
-                  onClick={() => {
-                    setLayoutReturning(true);
-                    // 先退出跨点位的烟感或探头核对，再恢复布置图选择。
-                    if (
-                      state.level !== "room" ||
-                      layoutScope === "fixtures" ||
-                      layoutVisit.query === undefined
-                    )
-                      control({ type: "open-resource", id: "room-01" });
-                  }}
-                >
-                  ← 返回
-                  {layoutReturnName
-                    ? `布置图 · ${layoutReturnName}`
-                    : "机房布置"}
-                </button>
-                <button
-                  aria-label="结束布置导览往返"
-                  disabled={layoutReturning}
-                  onClick={() => {
-                    setLayoutVisit(null);
-                    setLayoutReturning(false);
-                  }}
-                >
-                  ×
-                </button>
-              </>
-            )}
           </div>
         )}
         {powerOverviewVisit && (
