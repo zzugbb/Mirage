@@ -318,6 +318,9 @@ export function ReviewScene({
     null,
   );
   const initial = useRef(state);
+  const recoveryPose = useRef<ReturnType<
+    SceneEngine["captureRecoveryPose"]
+  > | null>(null);
   const dataGeometry = useRef<ReviewDataGeometry | null>(null);
   const sliceEvidenceGeometry = useRef<SliceEvidenceGeometry | null>(null);
   const sliceGeometry = useRef<TemperatureSliceGeometry | null>(null);
@@ -415,6 +418,7 @@ export function ReviewScene({
   const closeDisplayMenu = () => {
     if (displayMenu.current) displayMenu.current.open = false;
   };
+  useEffect(closeDisplayMenu, [state.level]);
   const restoreSliceView = () => {
     closeDisplayMenu();
     planeReturning.current = slicePlaneActive;
@@ -656,7 +660,10 @@ export function ReviewScene({
         host.current!,
         initial.current,
         (id, enter) => callbacks.current.onSelect(id, enter),
-        setError,
+        (message) => {
+          recoveryPose.current = active?.captureRecoveryPose() ?? null;
+          setError(message);
+        },
         (phase) => callbacks.current.onPhase(phase),
         (feedback) => {
           setSceneSettled(feedback.settled);
@@ -974,11 +981,12 @@ export function ReviewScene({
   }, [state, retry]);
   useEffect(() => {
     // 演示预设使用相同的空间构图，便于直接比较图层；普通操作不触发。
+    recoveryPose.current = null;
     const next = currentState.current.level === "room" ? "interior" : "iso";
     setTemperatureSliceControls(initialSliceControls());
     engine.current?.view(next);
     setView(next);
-  }, [shotRevision, retry, setTemperatureSliceControls]);
+  }, [shotRevision, setTemperatureSliceControls]);
   useEffect(() => {
     if (engine.current) {
       engine.current.telemetry.mode = presentation.mode;
@@ -1541,7 +1549,20 @@ export function ReviewScene({
   });
   useEffect(() => {
     engine.current?.clearRoomViewMemory();
-  }, [shotRevision, retry]);
+  }, [shotRevision]);
+  useEffect(() => {
+    const active = engine.current;
+    if (!retry || !active) return;
+    if (recoveryPose.current) {
+      active.restoreRecoveryPose(recoveryPose.current);
+      recoveryPose.current = null;
+      setView(active.currentView);
+    }
+    if (document.activeElement === document.body)
+      displayMenu.current
+        ?.querySelector("summary")
+        ?.focus({ preventScroll: true });
+  }, [retry]);
   const camera = (next: View) => {
     onTakeover();
     setOrbit(false);

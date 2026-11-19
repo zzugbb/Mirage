@@ -1643,6 +1643,55 @@ export class SceneEngine {
     this.onFeedback(feedback);
     this.onError("三维图形上下文已丢失，请重新加载场景。");
   };
+  captureRecoveryPose() {
+    return {
+      key: presentationKey(this.state),
+      camera: this.captureObservationView(),
+      destination: this.moving
+        ? {
+            position: this.targetPosition.clone(),
+            target: this.targetLook.clone(),
+          }
+        : null,
+      mechanism: { ...this.presentation.pose },
+      rearDoor: this.presentation.rearDoor,
+      cover: this.cover,
+      explosion: this.explosion,
+      partInspection: this.partInspection,
+      roomView: this.roomViewMemory,
+      pendingDeviceView: this.pendingDeviceView,
+      pendingDeviceFocus: this.pendingDeviceFocus,
+      pendingComponentFocus: this.pendingComponentFocus,
+      pendingReturnView: this.pendingReturnView,
+    };
+  }
+  restoreRecoveryPose(saved: ReturnType<SceneEngine["captureRecoveryPose"]>) {
+    // 故障期间仍可查找或切换对象，旧姿态只属于丢失上下文时的检视。
+    if (saved.key !== presentationKey(this.state)) return;
+    this.presentation.pose = saved.mechanism;
+    this.presentation.rearDoor = saved.rearDoor;
+    this.cover = saved.cover;
+    this.explosion = saved.explosion;
+    this.partInspection = saved.partInspection;
+    this.view(saved.camera.view, saved.camera.focus);
+    this.restoreObservationView(saved.camera);
+    this.camera.position.copy(saved.camera.position);
+    this.controls.target.copy(saved.camera.target);
+    if (saved.destination) {
+      this.targetPosition.copy(saved.destination.position);
+      this.targetLook.copy(saved.destination.target);
+    }
+    this.moving = !!saved.destination;
+    this.pendingDeviceView = saved.pendingDeviceView;
+    this.pendingDeviceFocus = saved.pendingDeviceFocus;
+    this.pendingComponentFocus = saved.pendingComponentFocus;
+    this.pendingReturnView = saved.pendingReturnView;
+    const { width, height } = this.host.getBoundingClientRect();
+    if (saved.roomView?.width === width && saved.roomView.height === height) {
+      this.roomViewMemory = saved.roomView;
+      this.onRoomViewMemory(true);
+    }
+  }
   cancelFlight = () => {
     this.invalidate();
     this.clearNetworkView();
