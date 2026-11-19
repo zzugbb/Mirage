@@ -34,7 +34,6 @@ export function RoomLayout({
   onPreviewCrossing,
   onInspectCrossing,
   onInspectBranch,
-  onDeviceInstallation,
   onScope,
   onQuery,
   ready,
@@ -55,7 +54,6 @@ export function RoomLayout({
   scope: RoomLayoutScope;
   crossingId: string | null;
   onPreviewCrossing: (id: string) => void;
-  onDeviceInstallation: (id: string) => void;
   onInspectBranch: (branch: GrilleBranch) => void;
   onInspectCrossing: (id: string) => void;
   onScope: (scope: RoomLayoutScope) => void;
@@ -95,7 +93,7 @@ export function RoomLayout({
     if (!visible || !host.current) return;
     host.current.scrollTop = scroll.current;
     if (restoreRevision) {
-      const button =
+      let button =
         host.current.querySelector<HTMLButtonElement>(
           `[data-device-result="${selected}"]`,
         ) ??
@@ -105,6 +103,17 @@ export function RoomLayout({
         map.current?.querySelector<HTMLButtonElement>(
           `[data-layout-id="${active}"]`,
         );
+      if (button?.dataset.layoutId === selected && current?.kind === "rack") {
+        const entry = host.current.querySelector<HTMLButtonElement>(
+          "[data-enter-layout-rack]",
+        );
+        const viewport = host.current.getBoundingClientRect();
+        const visible = (element: HTMLElement) => {
+          const rect = element.getBoundingClientRect();
+          return rect.top >= viewport.top && rect.bottom <= viewport.bottom;
+        };
+        if (entry && !visible(button) && visible(entry)) button = entry;
+      }
       button?.focus({ preventScroll: true });
       (button?.closest("[data-layout-device-row]") ?? button)?.scrollIntoView({
         block: "nearest",
@@ -132,6 +141,11 @@ export function RoomLayout({
         (rackHits.length === 1 ? rackHits[0] : undefined))
       : undefined;
   const results = resultRack ? layoutDeviceMatches(resultRack.id, query) : [];
+  const rackCount =
+    current?.kind === "rack"
+      ? devices.filter((device) => device.rackId === current.id).length
+      : 0;
+  const selectedResultRack = selected === resultRack?.id;
   const selectedDevice =
     scope === "equipment"
       ? layoutDeviceRows.find((device) => device.id === selected)
@@ -142,7 +156,7 @@ export function RoomLayout({
       <button
         disabled={!ready}
         aria-label={`查看 ${selectedDevice.name} 安装位`}
-        onClick={() => onDeviceInstallation(selectedDevice.id)}
+        onClick={() => onEnter(selectedDevice.id)}
       >
         查看安装位 ↗
       </button>
@@ -393,30 +407,6 @@ export function RoomLayout({
                 ? "圆点为配置中心 · 实线为感应线，虚线为引线"
                 : `${roomLayoutSize.width} × ${roomLayoutSize.depth} m · 线框按配置尺寸投影`}
       </p>
-      {resultRack && (
-        <section className="layout-device-results" aria-label="匹配设备">
-          <strong>
-            {resultRack.short} · 匹配 {results.length} 台
-          </strong>
-          {results.map((device) => (
-            <div key={device.id} data-layout-device-row>
-              <button
-                data-device-result={device.id}
-                aria-pressed={selected === device.id}
-                aria-label={`预览 ${device.name}`}
-                onClick={() => onPreview(device.id)}
-              >
-                <strong>{device.name}</strong>
-                <small>
-                  {selected === device.id && `${resultRack.short} · `}
-                  {device.units} · {device.model}
-                </small>
-              </button>
-              {selected === device.id && deviceActions}
-            </div>
-          ))}
-        </section>
-      )}
       {scope === "equipment" &&
         query.trim() &&
         rackHits.length > 1 &&
@@ -444,7 +434,7 @@ export function RoomLayout({
               : pair
                 ? `灯罩底面比侧梁顶面${pair.difference >= 0 ? "高" : "低"} ${Math.abs(pair.difference).toFixed(2)} m · 配置表面高差，非最小净距`
                 : current.kind === "rack"
-                  ? `${devices.filter((device) => device.rackId === current.id).length} 台设备 · 柜前朝 +Z`
+                  ? `${rackCount} 台设备${selectedResultRack && results.length !== rackCount ? ` · 匹配 ${results.length} 台` : ""}`
                   : current.kind === "entrance"
                     ? "门洞位置 · 非通行净宽"
                     : current.kind === "point"
@@ -473,7 +463,11 @@ export function RoomLayout({
               </button>
               <button onClick={() => onDetails(current.id)}>详情</button>
               {current.kind === "rack" && (
-                <button disabled={!ready} onClick={() => onEnter(current.id)}>
+                <button
+                  data-enter-layout-rack={current.id}
+                  aria-disabled={!ready}
+                  onClick={() => ready && onEnter(current.id)}
+                >
                   进入机柜 ↗
                 </button>
               )}
@@ -486,6 +480,32 @@ export function RoomLayout({
             ? "选择交叉处预览顶灯，核对时近看两个表面。"
             : "选择一个位置，在三维中预览；定位才移动镜头。"}
         </p>
+      )}
+      {resultRack && (
+        <section className="layout-device-results" aria-label="匹配设备">
+          {!selectedResultRack && (
+            <strong>
+              {resultRack.short} · 匹配 {results.length} 台
+            </strong>
+          )}
+          {results.map((device) => (
+            <div key={device.id} data-layout-device-row>
+              <button
+                data-device-result={device.id}
+                aria-pressed={selected === device.id}
+                aria-label={`预览 ${device.name}`}
+                onClick={() => onPreview(device.id)}
+              >
+                <strong>{device.name}</strong>
+                <small>
+                  {selected === device.id && `${resultRack.short} · `}
+                  {device.units} · {device.model}
+                </small>
+              </button>
+              {selected === device.id && deviceActions}
+            </div>
+          ))}
+        </section>
       )}
       <details
         open={boundaryOpen}

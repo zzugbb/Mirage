@@ -34,6 +34,7 @@
   background: #ffffff09;
 }
 .workspace-ui button:disabled,
+.workspace-ui .room-layout-selection button[aria-disabled="true"],
 .workspace-ui .review-object-actions button[aria-disabled="true"] {
   opacity: 0.32;
   cursor: default;

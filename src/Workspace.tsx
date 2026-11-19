@@ -706,7 +706,7 @@ export function Workspace() {
   const [layoutVisit, setLayoutVisit] = useState<{
     id: string;
     crossingId?: string;
-    deviceQuery?: string;
+    query?: string;
     installation?: { camera: TaskViewMemory | null; inspector: boolean };
     layer: ReviewState["layer"];
     metric: "temperature" | "power";
@@ -1454,8 +1454,7 @@ export function Workspace() {
       return;
     control({ type: "pick", id: layoutVisit.id });
     setLayoutCrossing(layoutVisit.crossingId ?? null);
-    if (layoutVisit.deviceQuery !== undefined)
-      setLayoutQuery(layoutVisit.deviceQuery);
+    if (layoutVisit.query !== undefined) setLayoutQuery(layoutVisit.query);
     control({ type: "layer", layer: layoutVisit.layer });
     control({ type: "analysis", value: false });
     setMetric(layoutVisit.metric);
@@ -2040,7 +2039,7 @@ export function Workspace() {
       id,
       layer,
       metric,
-      deviceQuery: layoutQuery,
+      query: layoutQuery,
       installation: {
         camera: captureTaskView.current?.("room") ?? null,
         inspector,
@@ -2052,8 +2051,11 @@ export function Workspace() {
     setQuery("");
     setFilter("all");
     setOnlyAlarms(false);
-    control({ type: "analysis", value: false });
-    focus(id, { installation: true, showDetails: false });
+    if (rackById(id)) selectObject(id, true);
+    else {
+      control({ type: "analysis", value: false });
+      focus(id, { installation: true, showDetails: false });
+    }
   };
   const analyzeEnvironmentPair = (otherId: string) => {
     if (!pairedEnvironment) {
@@ -3307,14 +3309,14 @@ export function Workspace() {
                     setLayoutReturning(true);
                     if (
                       state.level !== "room" ||
-                      layoutVisit.deviceQuery === undefined
+                      layoutVisit.query === undefined
                     )
                       control({ type: "open-resource", id: "room-01" });
                   }}
                 >
                   ← 返回
-                  {layoutVisit.deviceQuery !== undefined
-                    ? `布置图 · ${deviceById(layoutVisit.id)!.name}`
+                  {layoutVisit.query !== undefined
+                    ? `布置图 · ${deviceById(layoutVisit.id)?.name ?? rackById(layoutVisit.id)!.name}`
                     : "机房布置"}
                 </button>
                 <button
@@ -3826,7 +3828,7 @@ export function Workspace() {
               query={layoutQuery}
               scope={layoutScope}
               crossingId={layoutCrossing}
-              onDeviceInstallation={openLayoutInstallation}
+              onEnter={openLayoutInstallation}
               onInspectBranch={(branch) => {
                 setLayoutVisit({ id: branch.rack.id, layer, metric });
                 setLayoutRestore(0);
@@ -3902,21 +3904,13 @@ export function Workspace() {
                   id,
                   layer,
                   metric,
-                  deviceQuery: deviceById(id) ? layoutQuery : undefined,
+                  query: deviceById(id) ? layoutQuery : undefined,
                 });
                 setLayoutReturning(false);
                 setLayoutRestore(0);
                 setInspector(true);
                 control({ type: "analysis", value: false });
                 if (matchMedia("(max-width: 1099px)").matches) setNav(false);
-              }}
-              onEnter={(id) => {
-                setLayoutVisit({ id, layer, metric });
-                setLayoutReturning(false);
-                setLayoutRestore(0);
-                selectObject(id, true);
-                setRackView("installation");
-                setOnlyAlarms(false);
               }}
             />
           ) : state.level === "room" && rackView === "inlet" ? (
@@ -4639,7 +4633,11 @@ export function Workspace() {
               changeNetworkTrace(null);
             }}
             onSelect={(id, enter) => {
-              if (enter && roomLayoutDevices && deviceById(id))
+              if (
+                enter &&
+                roomLayoutDevices &&
+                (rackById(id) || deviceById(id))
+              )
                 openLayoutInstallation(id);
               else selectObject(id, enter);
             }}
