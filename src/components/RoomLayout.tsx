@@ -103,9 +103,12 @@ export function RoomLayout({
         map.current?.querySelector<HTMLButtonElement>(
           `[data-layout-id="${active}"]`,
         );
-      if (button?.dataset.layoutId === selected && current?.kind === "rack") {
+      if (
+        button?.dataset.layoutId === selected &&
+        (current?.kind === "rack" || current?.kind === "point")
+      ) {
         const entry = host.current.querySelector<HTMLButtonElement>(
-          "[data-enter-layout-rack]",
+          "[data-enter-layout-rack], [data-layout-point-details]",
         );
         const viewport = host.current.getBoundingClientRect();
         const visible = (element: HTMLElement) => {
@@ -199,10 +202,7 @@ export function RoomLayout({
           aria-label="布置图查找"
           value={query}
           placeholder={scopes[scope].hint}
-          onChange={(event) => {
-            scroll.current = 0;
-            onQuery(event.target.value);
-          }}
+          onChange={(event) => onQuery(event.target.value)}
         />
         {query && (
           <button
@@ -438,7 +438,7 @@ export function RoomLayout({
                   : current.kind === "entrance"
                     ? "门洞位置 · 非通行净宽"
                     : current.kind === "point"
-                      ? `${current.location} · 配置 Y ${current.height!.toFixed(3)} m`
+                      ? current.location
                       : "柜体配置位置 · 非监测覆盖"}
           </p>
           {branch ? (
@@ -461,7 +461,14 @@ export function RoomLayout({
               <button disabled={!ready} onClick={() => onLocate(current.id)}>
                 定位此处
               </button>
-              <button onClick={() => onDetails(current.id)}>详情</button>
+              <button
+                data-layout-point-details={
+                  current.kind === "point" ? current.id : undefined
+                }
+                onClick={() => onDetails(current.id)}
+              >
+                详情
+              </button>
               {current.kind === "rack" && (
                 <button
                   data-enter-layout-rack={current.id}
@@ -514,9 +521,7 @@ export function RoomLayout({
         <summary>方向与布置边界</summary>
         <p>
           图上横向为 X、纵向为
-          Z，不表示地理南北。细框为配置占地，名称按钮仅供选择；不随三维镜头旋转。亮边标记柜前，空白不代表通行净距或可用容量。环境与安全层投影七处既有设施的配置中心与检漏路径，标签通过细线连接原位置；配置
-          Y
-          为场景坐标，不是离地净高。点位和路径不代表监测覆盖或设施状态；两处环境探头仅有演示读数。顶灯与桥架按配置投影，交叉不表示接线或碰撞。柜前格栅按最近位置标出代表落点，不表示独占供风或实测风量。
+          Z，不表示地理南北。细框为配置占地，名称按钮仅供选择；不随三维镜头旋转。亮边标记柜前，空白不代表通行净距或可用容量。环境与安全层投影七处既有设施的配置中心与检漏路径，标签通过细线连接原位置。点位和路径不代表监测覆盖或设施状态；两处环境探头仅有演示读数。顶灯与桥架按配置投影，交叉不表示接线或碰撞。柜前格栅按最近位置标出代表落点，不表示独占供风或实测风量。
         </p>
       </details>
     </section>

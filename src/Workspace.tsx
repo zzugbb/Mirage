@@ -2045,6 +2045,19 @@ export function Workspace() {
     inspector,
     scroll: layoutScroll.current,
   });
+  const rememberLayoutSelection = (id: string) => {
+    const point = layoutScope === "fixtures";
+    if (point && layoutVisit?.origin && layoutVisit.id === id) return;
+    setLayoutVisit({
+      id,
+      layer,
+      metric,
+      query: point || deviceById(id) ? layoutQuery : undefined,
+      origin: point ? captureLayoutOrigin() : undefined,
+    });
+    setLayoutReturning(false);
+    setLayoutRestore(0);
+  };
   const openLayoutInstallation = (id: string) => {
     setLayoutVisit({
       id,
@@ -3107,7 +3120,8 @@ export function Workspace() {
       ? (layoutVisit.grille?.name ??
         layoutVisit.crossing?.name ??
         deviceById(layoutVisit.id)?.name ??
-        rackById(layoutVisit.id)?.name)
+        rackById(layoutVisit.id)?.name ??
+        fixtureById(layoutVisit.id)?.name)
       : undefined;
   return (
     <div
@@ -3322,8 +3336,10 @@ export function Workspace() {
                   disabled={!ready || layoutReturning}
                   onClick={() => {
                     setLayoutReturning(true);
+                    // 先退出跨点位的烟感或探头核对，再恢复布置图选择。
                     if (
                       state.level !== "room" ||
+                      layoutScope === "fixtures" ||
                       layoutVisit.query === undefined
                     )
                       control({ type: "open-resource", id: "room-01" });
@@ -3922,21 +3938,12 @@ export function Workspace() {
                 selectObject(id);
               }}
               onLocate={(id) => {
-                setLayoutVisit({ id, layer, metric });
-                setLayoutReturning(false);
-                setLayoutRestore(0);
+                rememberLayoutSelection(id);
                 focus(id, { showDetails: false });
               }}
               onDetails={(id) => {
+                rememberLayoutSelection(id);
                 selectObject(id);
-                setLayoutVisit({
-                  id,
-                  layer,
-                  metric,
-                  query: deviceById(id) ? layoutQuery : undefined,
-                });
-                setLayoutReturning(false);
-                setLayoutRestore(0);
                 setInspector(true);
                 control({ type: "analysis", value: false });
                 if (matchMedia("(max-width: 1099px)").matches) setNav(false);
