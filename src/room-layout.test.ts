@@ -267,3 +267,31 @@ test("布置查找按同一设备匹配，柜内结果按安装位从高到低�
       [d.id],
     );
 });
+
+test("布置图按设备占用的任一 U 位与连续区间查找，保留机型高度与安装位的区别", () => {
+  const rack = roomLayoutItems.find((item) => item.short === "B03")!;
+  const ids = (query: string) =>
+    layoutDeviceMatches(rack.id, query).map((row) => row.id);
+  for (const query of [
+    "B03 U24",
+    "Ｂ０３ Ｕ２４",
+    "rack-a07 / U23–24 SRV-54",
+    "B03机柜 U24 2U",
+  ])
+    assert.deepEqual(ids(query), ["srv-54"]);
+  assert.deepEqual(ids("B03 U24至25"), ["sto-01", "srv-54"]);
+  assert.deepEqual(ids("B03 U27–33"), ["srv-55", "sto-01"]);
+  assert.deepEqual(ids("U38 4U"), ["sto-02"]);
+  for (const query of [
+    "B03 U32",
+    "U43",
+    "U0",
+    "B03 U24 4U",
+    "U27–24",
+    "U23 U25",
+    "A01 U24",
+  ])
+    assert.deepEqual(ids(query), []);
+  for (const item of roomLayoutItems)
+    assert.equal(roomLayoutMatches(item, "B03 U24"), item.id === rack.id);
+});

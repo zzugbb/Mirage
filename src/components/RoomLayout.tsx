@@ -14,12 +14,13 @@ import {
   roomLayoutObject,
   roomLayoutSize,
 } from "../room-layout";
+import { rackUnitQuery } from "../review-resources";
 import { devices } from "../installation";
 
 import { floorGrilles, floorGrilleSettings } from "../floor-grilles";
 import type { GrilleBranch } from "../grille-inspection";
 const scopes = {
-  equipment: { name: "机柜与设备", hint: "查找柜号、设备编号或机型" },
+  equipment: { name: "机柜与设备", hint: "柜号、U 位、设备或机型" },
   fixtures: { name: "环境与安全", hint: "查找设施或配置位置" },
   ceiling: { name: "顶灯与桥架", hint: "查找顶灯、桥架或柜排" },
   grilles: { name: "柜前格栅", hint: "查找柜位、代表设备或格栅" },
@@ -133,14 +134,18 @@ export function RoomLayout({
   }, [visible, selected]);
   const x = (value: number) => 140 + value * 16;
   const z = (value: number) => 126 + value * 16;
-  const matches = items.filter((item) => roomLayoutMatches(item, query));
+  const units =
+    scope === "equipment" ? rackUnitQuery({ level: "room" }, query) : null;
+  const matches = items.filter((item) => roomLayoutMatches(item, query, units));
   const rackHits = matches.filter((i) => i.kind === "rack");
   const resultRack =
     scope === "equipment" && query.trim()
       ? (rackHits.find((i) => i.id === active) ??
         (rackHits.length === 1 ? rackHits[0] : undefined))
       : undefined;
-  const results = resultRack ? layoutDeviceMatches(resultRack.id, query) : [];
+  const results = resultRack
+    ? layoutDeviceMatches(resultRack.id, query, units)
+    : [];
   const rackCount =
     current?.kind === "rack"
       ? devices.filter((device) => device.rackId === current.id).length
@@ -175,8 +180,32 @@ export function RoomLayout({
     if (host.current) host.current.scrollTop = 0;
     onQuery(value);
   };
+  const clearSearch = () => {
+    search.current?.focus({ preventScroll: true });
+    changeQuery("");
+  };
   return (
-    <section className="room-layout-browser" aria-label="机房布置导览">
+    <section
+      className="room-layout-browser"
+      aria-label="机房布置导览"
+      onKeyDown={(event) => {
+        if (event.key !== "Escape") return;
+        const target = event.target as HTMLElement;
+        if (
+          target !== search.current &&
+          !target.closest("[data-device-result], [data-layout-id]")
+        )
+          return;
+        if (event.nativeEvent.isComposing) {
+          event.stopPropagation();
+          return;
+        }
+        if (!query) return;
+        event.preventDefault();
+        event.stopPropagation();
+        clearSearch();
+      }}
+    >
       <div className="room-layout-finder">
         <div className="room-layout-toolbar">
           <select
@@ -227,13 +256,7 @@ export function RoomLayout({
             }}
           />
           {query && (
-            <button
-              aria-label="清除布置查找"
-              onClick={() => {
-                search.current?.focus();
-                changeQuery("");
-              }}
-            >
+            <button aria-label="清除布置查找" onClick={clearSearch}>
               ×
             </button>
           )}
@@ -242,7 +265,8 @@ export function RoomLayout({
           <p id="layout-match-status" role="status">
             {matches.length
               ? `匹配 ${matches.length} / ${items.length} 处`
-              : "当前范围没有匹配位置"}
+              : units?.error ||
+                (units ? "这个 U 位范围没有匹配设备" : "当前范围没有匹配位置")}
             {resultRack && ` · ${resultRack.short} · ${results.length} 台`}
             {single && (
               <span className="layout-key-hint">
@@ -321,9 +345,7 @@ export function RoomLayout({
                   scope !== "equipment" ? "room-layout-context" : undefined
                 }
                 data-selected={scope === "equipment" && active === item.id}
-                data-match={
-                  scope !== "equipment" || roomLayoutMatches(item, query)
-                }
+                data-match={scope !== "equipment" || matches.includes(item)}
               >
                 <rect
                   className="room-layout-footprint"
@@ -412,7 +434,7 @@ export function RoomLayout({
                     key={item.id}
                     className="room-layout-point"
                     data-selected={active === item.id}
-                    data-match={roomLayoutMatches(item, query)}
+                    data-match={matches.includes(item)}
                   >
                     <line
                       x1={x(item.x)}
@@ -432,7 +454,7 @@ export function RoomLayout({
               type="button"
               data-layout-id={item.id}
               data-kind={item.kind}
-              data-match={roomLayoutMatches(item, query)}
+              data-match={matches.includes(item)}
               aria-pressed={active === item.id}
               aria-label={`预览布置 ${item.name}`}
               title={item.name}

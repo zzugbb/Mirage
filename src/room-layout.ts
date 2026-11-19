@@ -7,6 +7,7 @@ import {
   categoryNames,
   unitLabel,
 } from "./catalog.ts";
+import { normalizeResourceTerm, rackUnitQuery } from "./review-resources.ts";
 import { pduById } from "./power-config.ts";
 import {
   lightTrayCrossings,
@@ -218,6 +219,7 @@ export const layoutDeviceRows = devices
       model: model.name,
       units,
       start: device.startUnit,
+      end: device.startUnit + model.units - 1,
       search: [
         rack.name,
         rack.id,
@@ -232,16 +234,28 @@ export const layoutDeviceRows = devices
     };
   })
   .sort((a, b) => b.start - a.start);
-export function layoutDeviceMatches(rackId: string, query: string) {
-  const words = query.trim().toLowerCase().split(/\s+/);
-  return layoutDeviceRows.filter(
-    (d) =>
-      d.rackId === rackId && words.every((word) => d.search.includes(word)),
-  );
+export function layoutDeviceMatches(
+  rackId: string,
+  query: string,
+  units = rackUnitQuery({ level: "room" }, query),
+) {
+  if (units?.error || (units?.rack && units.rack.id !== rackId)) return [];
+  const words = units?.terms ?? query.trim().toLowerCase().split(/\s+/);
+  return layoutDeviceRows.filter((row) => {
+    if (row.rackId !== rackId) return false;
+    if (units && (row.start > units.last || row.end < units.first))
+      return false;
+    const text = units ? normalizeResourceTerm(row.search) : row.search;
+    return words.every((word) => text.includes(word));
+  });
 }
-export function roomLayoutMatches(item: RoomLayoutItem, query: string) {
+export function roomLayoutMatches(
+  item: RoomLayoutItem,
+  query: string,
+  units?: ReturnType<typeof rackUnitQuery>,
+) {
   if (item.kind === "rack")
-    return layoutDeviceMatches(item.id, query).length > 0;
+    return layoutDeviceMatches(item.id, query, units).length > 0;
   const content = [item.id, item.name, item.short, item.location ?? ""]
     .join(" ")
     .toLocaleLowerCase();
