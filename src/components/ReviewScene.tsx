@@ -879,8 +879,10 @@ export function ReviewScene({
   useEffect(() => {
     const active = engine.current;
     if (!active || !rangeViewCommand) return;
-    if (rangeViewCommand.action === "return") active.restoreRangeView();
-    else if (unitRange && layer === "overview") {
+    if (rangeViewCommand.action === "return") {
+      closeDisplayMenu();
+      active.restoreRangeView();
+    } else if (unitRange && layer === "overview") {
       setOrbit(false);
       active.observeRange(
         unitRange,
@@ -1026,6 +1028,7 @@ export function ReviewScene({
     "entry" | "view" | "previous" | "next" | "origin" | null
   >(null);
   const restoreMaintenance = () => {
+    closeDisplayMenu();
     maintenanceFocus.current = "view";
     engine.current?.restoreMaintenanceView();
     if (engine.current) setView(engine.current.currentView);
@@ -1134,6 +1137,7 @@ export function ReviewScene({
     const active = engine.current;
     if (!active || !environmentViewCommand) return;
     if (environmentViewCommand.action === "return") {
+      closeDisplayMenu();
       active.restoreEnvironmentView();
       // 返回起点会一并还原侧栏，画幅变化只更新投影。
       if (!environmentPair) active.preservePanelView();
@@ -1233,6 +1237,7 @@ export function ReviewScene({
     if (!active || !leakViewCommand) return;
     if (!leakViewCommand.view) {
       fixtureReturnEntry.current = leakView ? ".leak-view-entry button" : null;
+      closeDisplayMenu();
       active.restoreLeakView();
     } else if (layer === "overview") {
       fixtureReturnEntry.current = null;

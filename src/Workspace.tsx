@@ -304,6 +304,7 @@ export function Workspace() {
   const [environmentComparisonOpen, setEnvironmentComparisonOpen] =
     useState(false);
   const [environmentPairVisit, setEnvironmentPairVisit] = useState<{
+    camera: TaskViewMemory | null;
     pair: EnvironmentPair;
     layer: typeof layer;
     analysis: boolean;
@@ -331,7 +332,8 @@ export function Workspace() {
     }));
   };
   const [comparability, setComparability] = useState(emptyComparabilityReview);
-  const environmentPairReturning = useRef(false);
+  const [environmentReturn, setEnvironmentReturn] =
+    useState<typeof environmentPairVisit>(null);
   const [environmentPairMetric, setEnvironmentPairMetric] =
     useState<EnvironmentMetric>("ambientTemperature");
   useEffect(() => {
@@ -412,6 +414,11 @@ export function Workspace() {
   const latestFeedback = useRef(feedback);
   latestFeedback.current = feedback;
   const [hidden, setHidden] = useState(() => document.hidden);
+  const tourMenu = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    if (tour.mode === "manual" && !review.pendingTour && tourMenu.current)
+      tourMenu.current.open = false;
+  }, [tour.mode, review.pendingTour]);
   const tourShot = useMemo(
     () =>
       tour.mode === "manual"
@@ -732,6 +739,7 @@ export function Workspace() {
   } | null>(null);
   const [layoutReturning, setLayoutReturning] = useState(false);
   const [smokeVisit, setSmokeVisit] = useState<{
+    camera: TaskViewMemory | null;
     id: string;
     layer: ReviewState["layer"];
     analysis: boolean;
@@ -925,6 +933,7 @@ export function Workspace() {
   const comparisonScroll = useRef(0);
   const [comparisonStart, setComparisonStart] = useState<number | null>(null);
   const [comparisonVisit, setComparisonVisit] = useState<{
+    camera: TaskViewMemory | null;
     range: RackUnitRange;
     scroll: number;
     query: string;
@@ -1105,15 +1114,15 @@ export function Workspace() {
   }, [environmentPairVisit, pairedEnvironment]);
 
   useEffect(() => {
-    if (environmentPairReturning.current && !pairedEnvironment) {
-      environmentPairReturning.current = false;
+    if (environmentReturn && !pairedEnvironment) {
+      setEnvironmentReturn(null);
       const button = document.querySelector<HTMLButtonElement>(
         ".environment-comparison-toggle",
       );
       button?.focus({ preventScroll: true });
       button?.scrollIntoView({ block: "nearest" });
     }
-  }, [pairedEnvironment]);
+  }, [pairedEnvironment, environmentReturn]);
   const maintenance = useMemo(() => maintenanceAreas(selected), [selected]);
   const aisle =
     layer === "overview" && state.level === "room"
@@ -2149,7 +2158,13 @@ export function Workspace() {
     if (!pairedEnvironment) {
       const pair = environmentPair(selected, otherId);
       if (!pair) return;
-      setEnvironmentPairVisit({ pair, layer, analysis: review.analysis, nav });
+      setEnvironmentPairVisit({
+        camera: captureTaskView.current?.("room") ?? null,
+        pair,
+        layer,
+        analysis: review.analysis,
+        nav,
+      });
       setEnvironmentPairMetric("ambientTemperature");
       control({ type: "layer", layer: "environment" });
     }
@@ -2158,8 +2173,8 @@ export function Workspace() {
   const returnEnvironmentPair = () => {
     if (!environmentPairVisit) return;
     const origin = environmentPairVisit;
-    if (environmentView) requestEnvironmentView("return");
-    environmentPairReturning.current = true;
+    if (environmentView && !origin.camera) requestEnvironmentView("return");
+    setEnvironmentReturn(origin);
     setEnvironmentPairVisit(null);
     pick(origin.pair.firstId);
     control({ type: "layer", layer: origin.layer });
@@ -3644,7 +3659,7 @@ export function Workspace() {
             <span className="study-clock-action">分析</span>
           </button>
         </div>
-        <details className="workspace-shots">
+        <details className="workspace-shots" ref={tourMenu}>
           <summary>
             演示{" "}
             <span>
@@ -4231,6 +4246,7 @@ export function Workspace() {
               ready={ready}
               onInspect={(range) => {
                 setComparisonVisit({
+                  camera: captureTaskView.current?.("room") ?? null,
                   range,
                   scroll: comparisonScroll.current,
                   query,
@@ -4619,6 +4635,9 @@ export function Workspace() {
               (alarmReturning && alarmVisit) ||
               (portReturning && portVisit) ||
               (networkMapReturning && networkMapVisit) ||
+              (comparisonReturning && comparisonVisit) ||
+              (smokeReturning && smokeVisit) ||
+              environmentReturn ||
               (powerOverviewReturning && powerOverviewVisit) ||
               (inletReturning && inletInspection) ||
               (inletAirflowReturning && inletAirflowVisit) ||
@@ -4830,7 +4849,8 @@ export function Workspace() {
                   onLocate={() => focus(selected, { showDetails: false })}
                   onReturn={() => {
                     setSmokeReturning(true);
-                    focus(smokeVisit.id);
+                    if (smokeVisit.camera) pick(smokeVisit.id);
+                    else focus(smokeVisit.id);
                   }}
                   onEnd={() => {
                     setSmokeVisit(null);
@@ -5385,6 +5405,7 @@ export function Workspace() {
                   disabled={!ready}
                   onClick={() => {
                     setSmokeVisit({
+                      camera: captureTaskView.current?.("room") ?? null,
                       id: selected,
                       layer,
                       analysis: review.analysis,
