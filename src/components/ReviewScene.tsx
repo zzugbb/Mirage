@@ -84,7 +84,7 @@ import {
 import { type AppState } from "../domain";
 import type { PresentationPhase, SceneFeedback } from "../mechanics";
 import { SceneEngine } from "../scene/engine";
-import type { ObservationMemory, View } from "../scene/engine";
+import type { TaskViewMemory, View } from "../scene/engine";
 import { deviceById, devices, racks, rackForDevice } from "../installation";
 import type { SpatialReading } from "../spatial";
 import type { ReviewLayer } from "../review-model";
@@ -131,8 +131,8 @@ import { NetworkGeometry } from "../scene/network";
 
 export function ReviewScene({
   state,
-  captureRoomView,
-  roomReturn,
+  captureTaskView,
+  taskReturn,
   unitRange = null,
   rangeViewCommand,
   onRangeViewChange,
@@ -216,8 +216,8 @@ export function ReviewScene({
   controls,
   compactTools = false,
 }: {
-  captureRoomView: RefObject<(() => ObservationMemory | null) | null>;
-  roomReturn: { camera: ObservationMemory | null } | null;
+  captureTaskView: RefObject<SceneEngine["captureTaskView"] | null>;
+  taskReturn: { camera: TaskViewMemory | null; selected?: string } | null;
   inletPair: InletViewPair | null;
   inletView: InletInspection | null;
   inletViewCommand: InletViewCommand | null;
@@ -267,7 +267,7 @@ export function ReviewScene({
   state: AppState;
   unitRange?: RackUnitRange | null;
   rangeViewCommand: RangeViewCommand | null;
-  onRangeViewChange: (side: RangeView | null) => void;
+  onRangeViewChange: (side: RangeView | null, segmentId: string | null) => void;
   isolatedPartId?: string | null;
   fanViewRevision?: number;
   fanViewSide?: "front" | "rear";
@@ -775,11 +775,11 @@ export function ReviewScene({
         setView(active!.currentView);
       };
       callbacks.current.onNetworkViewChange(false);
-      active.onRangeView = (side) => {
-        callbacks.current.onRangeViewChange(side);
+      active.onRangeView = (side, segmentId) => {
+        callbacks.current.onRangeViewChange(side, segmentId);
         setView(active!.currentView);
       };
-      callbacks.current.onRangeViewChange(null);
+      callbacks.current.onRangeViewChange(null, null);
       active.onSlicePlaneView = (observing) => {
         callbacks.current.onSlicePlaneChange(observing);
         setView(active!.currentView);
@@ -847,6 +847,13 @@ export function ReviewScene({
     };
   }, [retry]);
   useEffect(() => {
+    // 归位时选回起点对象属于同一次恢复，保留刚还原的柜面分段。
+    if (
+      state.level === "rack" &&
+      taskReturn?.camera?.range &&
+      taskReturn.selected === selectedId
+    )
+      return;
     engine.current?.clearRangeView();
   }, [
     unitRange?.rackId,
@@ -903,22 +910,22 @@ export function ReviewScene({
     setView(next);
   }, [storageViewRevision]);
   useImperativeHandle(
-    captureRoomView,
-    () => () => engine.current?.captureRoomView() ?? null,
+    captureTaskView,
+    () => (level) => engine.current?.captureTaskView(level) ?? null,
     [],
   );
   useEffect(() => {
     const active = engine.current;
     if (!active) return;
-    const previous = roomReturn?.camera;
-    active.roomReturnView = previous ?? null;
-    if (roomReturn && displayMenu.current) displayMenu.current.open = false;
+    const previous = taskReturn?.camera;
+    active.taskReturnView = previous ?? null;
+    if (taskReturn && displayMenu.current) displayMenu.current.open = false;
     if (previous) {
       setOrbit(false);
-      if (active.state.level === "room") active.view(previous.view);
+      if (active.state.level === previous.level) active.view(previous.view);
       setView(previous.view);
     }
-  }, [roomReturn, retry]);
+  }, [taskReturn, retry]);
   useEffect(() => {
     const active = engine.current;
     active?.update(state);

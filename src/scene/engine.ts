@@ -134,6 +134,17 @@ export type ObservationMemory = {
   maxAzimuthAngle: number;
   maxPolarAngle: number;
 };
+type RangeObservation = {
+  range: RackUnitRange;
+  targets: THREE.Vector3[];
+  side: RangeView;
+  segmentId: string | null;
+  previous: ObservationMemory;
+};
+export type TaskViewMemory = ObservationMemory & {
+  level: "room" | "rack";
+  range?: RangeObservation;
+};
 export class SceneEngine {
   renderer: THREE.WebGLRenderer;
   pipeline: RenderPipeline;
@@ -721,9 +732,14 @@ export class SceneEngine {
     this.clearAirflowView();
     this.restoreObservationView(previous);
   }
-  roomReturnView: ObservationMemory | null = null;
-  captureRoomView() {
-    return this.state.level === "room" ? this.captureObservationView() : null;
+  taskReturnView: TaskViewMemory | null = null;
+  captureTaskView(level: TaskViewMemory["level"]): TaskViewMemory | null {
+    if (this.state.level !== level) return null;
+    return {
+      ...this.captureObservationView(),
+      level,
+      range: level === "rack" ? this.rangeObservation : undefined,
+    };
   }
   private captureObservationView(): ObservationMemory {
     return {
@@ -785,18 +801,14 @@ export class SceneEngine {
       },
     };
   }
-  onRangeView: (side: RangeView | null) => void = () => {};
-  private rangeObservation?: {
-    range: RackUnitRange;
-    targets: THREE.Vector3[];
-    side: RangeView;
-    previous: ObservationMemory;
-  };
+  onRangeView: (side: RangeView | null, segmentId: string | null) => void =
+    () => {};
+  private rangeObservation?: RangeObservation;
   clearRangeView() {
     if (!this.rangeObservation) return;
     this.rangeObservation = undefined;
     this.moving = false;
-    this.onRangeView(null);
+    this.onRangeView(null, null);
   }
   observeRange(
     range: RackUnitRange,
@@ -820,7 +832,13 @@ export class SceneEngine {
     this.clearSliceView();
     this.clearAirflowView();
     this.panelViewport = undefined;
-    this.rangeObservation = { range: target, targets, side, previous };
+    this.rangeObservation = {
+      range: target,
+      targets,
+      side,
+      segmentId,
+      previous,
+    };
     this.currentView = side;
     this.currentFocus = false;
     this.interior = false;
@@ -830,7 +848,7 @@ export class SceneEngine {
     this.controls.minDistance = 0.5;
     this.autoOrbit = false;
     this.frameRange();
-    this.onRangeView(side);
+    this.onRangeView(side, segmentId);
   }
   private frameRange() {
     if (!this.rangeObservation) return;
@@ -1862,16 +1880,17 @@ export class SceneEngine {
         ? roomFacilityById(this.state.selected)
         : undefined;
     if (fixture && view === "interior") view = "iso";
+    const returning =
+      this.taskReturnView?.level === this.state.level
+        ? this.taskReturnView
+        : null;
     // 先在当前镜头中完成复原与合盖，再随设备返回机柜。
     if (
       (this.state.level !== "device" &&
         (this.explosion > 0 || this.cover > 0)) ||
       (this.state.level === "room" && this.presentation.rearDoor > 0)
     ) {
-      this.currentView =
-        this.state.level === "room" && this.roomReturnView
-          ? this.roomReturnView.view
-          : view;
+      this.currentView = returning?.view ?? view;
       this.currentFocus = focus;
       this.pendingReturnView = true;
       return;
@@ -1910,8 +1929,12 @@ export class SceneEngine {
     this.skyLight.groundColor.set(inRoom ? "#343333" : "#788796");
     this.skyLight.intensity = inRoom ? 0.45 : 1.25;
     this.scene.environmentIntensity = inRoom ? 0.55 : 1.05;
-    if (inRoom && this.roomReturnView) {
-      this.restoreObservationView(this.roomReturnView);
+    if (returning) {
+      this.restoreObservationView(returning);
+      if (returning.range) {
+        this.rangeObservation = returning.range;
+        this.onRangeView(returning.range.side, returning.range.segmentId);
+      }
       this.preservePanelView();
       return;
     }

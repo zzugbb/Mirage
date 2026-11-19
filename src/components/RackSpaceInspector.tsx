@@ -2,7 +2,13 @@ import { RangeSegments } from "./RangeSegments";
 import type { RangeSegment } from "../range-segments";
 import { RangeViewActions } from "./RangeViewActions";
 import type { RangeView, RangeViewCommand } from "../range-view";
-import { useState, useLayoutEffect, useRef } from "react";
+import {
+  useState,
+  useLayoutEffect,
+  useRef,
+  useImperativeHandle,
+  type RefObject,
+} from "react";
 import { rackInstallation } from "../rack-installation";
 import {
   inspectRackSpace,
@@ -11,6 +17,15 @@ import {
 } from "../rack-space";
 import { spaceRangeLabel } from "../space-inspection";
 
+export type SpaceFormSnapshot = {
+  start: string;
+  byGap: boolean;
+  choice: { first?: number; whole: boolean };
+  scroll: number;
+  segmentsOpen: boolean;
+  boundaryOpen: boolean;
+};
+
 export function RackSpaceInspector({
   segments,
   segmentId,
@@ -18,6 +33,7 @@ export function RackSpaceInspector({
   view,
   onView,
   restore,
+  capture,
   ready,
   rackId,
   range,
@@ -35,16 +51,17 @@ export function RackSpaceInspector({
   view: RangeView | null;
   onView: (action: RangeViewCommand["action"]) => void;
   restore: {
-    rackId: string;
+    range: RackUnitRange;
     deviceId: string;
-    start: string;
-    scroll: number;
+    form: SpaceFormSnapshot | null;
+    source: "list" | "segment" | "details";
   } | null;
+  capture: RefObject<(() => SpaceFormSnapshot) | null>;
   ready: boolean;
   rackId: string;
   range: RackUnitRange | null;
   onRange: (range: RackUnitRange) => void;
-  onDevice: (id: string, start: string, scroll: number) => void;
+  onDevice: (id: string, source: "segment" | "list") => void;
   onClear: () => void;
   queryMessage?: string;
   size: number;
@@ -52,17 +69,55 @@ export function RackSpaceInspector({
   onCompare?: () => void;
 }) {
   const panel = useRef<HTMLElement>(null);
-  const [start, setStart] = useState(String(range?.first ?? 1));
-  const [byGap, setByGap] = useState(false);
-  const [choice, setChoice] = useState({ first: range?.first, whole: false });
+  const snapshot = restore?.range.rackId === rackId ? restore.form : null;
+  const [start, setStart] = useState(
+    snapshot?.start ?? String(range?.first ?? 1),
+  );
+  const [byGap, setByGap] = useState(snapshot?.byGap ?? false);
+  const [choice, setChoice] = useState<SpaceFormSnapshot["choice"]>(
+    snapshot?.choice ?? { first: range?.first, whole: false },
+  );
+  const segmentsDisclosure = () =>
+    panel.current?.querySelector<HTMLDetailsElement>(
+      ".range-segments-disclosure",
+    );
+  const boundary = useRef<HTMLDetailsElement>(null);
+  useImperativeHandle(
+    capture,
+    () => () => ({
+      start,
+      byGap,
+      choice,
+      scroll: panel.current?.scrollTop ?? 0,
+      segmentsOpen: !!segmentsDisclosure()?.open,
+      boundaryOpen: !!boundary.current?.open,
+    }),
+    [start, byGap, choice],
+  );
   useLayoutEffect(() => {
-    if (!restore || restore.rackId !== rackId || !panel.current) return;
-    setStart(restore.start);
-    panel.current
-      .querySelector<HTMLElement>(`[data-space-device="${restore.deviceId}"]`)
-      ?.focus({ preventScroll: true });
-    panel.current.scrollTop = restore.scroll;
-  }, [restore, rackId]);
+    if (!snapshot || !restore || !panel.current) return;
+    if (
+      start !== snapshot.start ||
+      byGap !== snapshot.byGap ||
+      choice !== snapshot.choice
+    ) {
+      setStart(snapshot.start);
+      setByGap(snapshot.byGap);
+      setChoice(snapshot.choice);
+      return;
+    }
+    const disclosure = segmentsDisclosure();
+    if (disclosure) disclosure.open = snapshot.segmentsOpen;
+    if (boundary.current) boundary.current.open = snapshot.boundaryOpen;
+    const target =
+      restore.source === "segment"
+        ? panel.current.querySelector<HTMLElement>("[data-segment-device]")
+        : panel.current.querySelector<HTMLElement>(
+            `[data-space-device="${restore.deviceId}"]`,
+          );
+    if (restore.source !== "details") target?.focus({ preventScroll: true });
+    panel.current.scrollTop = snapshot.scroll;
+  }, [snapshot, restore, start, byGap, choice]);
   const layout = rackInstallation(rackId)!;
   const candidates = rackSpaceCandidates(rackId, size);
   const result = range ? inspectRackSpace(range) : null;
@@ -226,18 +281,14 @@ export function RackSpaceInspector({
             onReturn={() => onView("return")}
             ready={ready}
             onSegment={onSegment}
-            onDevice={(id) =>
-              onDevice(id, start, panel.current?.scrollTop ?? 0)
-            }
+            onDevice={(id) => onDevice(id, "segment")}
           />
           {result.conflicts.map((d) => (
             <button
               key={d.id}
               disabled={!ready}
               data-space-device={d.id}
-              onClick={() =>
-                onDevice(d.id, start, panel.current?.scrollTop ?? 0)
-              }
+              onClick={() => onDevice(d.id, "list")}
               aria-label={`查看冲突设备 ${d.name}`}
             >
               {d.name} <span>{spaceRangeLabel(d)} ↗</span>
@@ -249,7 +300,7 @@ export function RackSpaceInspector({
           <button onClick={onClear}>清除范围标记</button>
         </section>
       )}
-      <details className="rack-space-boundary">
+      <details className="rack-space-boundary" ref={boundary}>
         <summary>核查依据与限制</summary>
         <p>按本柜完整安装配置计算。抽出的设备仍占原位，后置 PDU 为 0U 附件。</p>
         <p>

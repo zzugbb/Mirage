@@ -79,7 +79,11 @@ export function RangeSegments({
                 {current.name} 完整安装 {spaceRangeLabel(current)}
                 ；括线只标与核查范围相交部分。
               </p>
-              <button disabled={!ready} onClick={() => onDevice(current.id)}>
+              <button
+                data-segment-device={current.id}
+                disabled={!ready}
+                onClick={() => onDevice(current.id)}
+              >
                 检视本段设备 {current.name} ↗
               </button>
             </>

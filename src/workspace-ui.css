@@ -5164,34 +5164,31 @@
   font-size: 11px;
 }
 
-.space-inspection-return {
+.space-inspection-context {
+  position: relative;
   border-block: 1px solid var(--line);
-  padding: 14px 20px;
+  padding: 10px 20px;
   font-size: 11px;
   line-height: 1.6;
 }
-.space-inspection-return p {
+.space-inspection-context summary {
+  padding-right: 76px;
+  cursor: pointer;
+}
+.space-inspection-context p {
   margin-block: 8px;
 }
-.space-inspection-return small {
+.space-inspection-context small {
   display: block;
   color: #a6b6c0;
-  margin-bottom: 7px;
 }
-.space-inspection-return > div {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-  margin-block: 10px;
-}
-.workspace-ui .space-inspection-return button {
+.workspace-ui .space-inspection-context button {
+  position: absolute;
+  top: 6px;
+  right: 18px;
   font-size: 11px;
-  padding: 6px 8px;
+  padding: 4px 8px;
   border: 1px solid #3a4d58;
-}
-.workspace-ui .space-inspection-end {
-  margin-left: 6px;
-  color: #a6b6c0;
 }
 
 .airflow-interval-review {

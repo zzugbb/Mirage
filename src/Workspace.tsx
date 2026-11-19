@@ -151,7 +151,10 @@ import { InletOverview } from "./components/InletOverview";
 import { NetworkOverview } from "./components/NetworkOverview";
 import { environmentProbe } from "./environment-monitoring";
 import { EnvironmentDetails } from "./components/EnvironmentDetails";
-import { RackSpaceInspector } from "./components/RackSpaceInspector";
+import {
+  RackSpaceInspector,
+  type SpaceFormSnapshot,
+} from "./components/RackSpaceInspector";
 import type { RackUnitRange } from "./rack-space";
 import { RoomSpaceComparison } from "./components/RoomSpaceComparison";
 import { isolatedPart, partInspectionSequence } from "./part-inspection";
@@ -165,6 +168,7 @@ import {
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useReducer,
   useRef,
@@ -251,7 +255,7 @@ import {
 import { coolingCapacityAt } from "./simulation";
 import { inletAssessment } from "./inlet-assessment";
 import { ResourceActions } from "./components/ResourceActions";
-import type { ObservationMemory } from "./scene/engine";
+import type { TaskViewMemory } from "./scene/engine";
 import { ReviewScene } from "./components/ReviewScene";
 import { ReviewTrend } from "./components/ReviewTrend";
 import { InletAssessment } from "./components/InletAssessment";
@@ -380,7 +384,6 @@ export function Workspace() {
     segmentId = rangeSegmentId,
   ) => {
     if (action === "return") rangeReturning.current = true;
-    else setRangeSegmentId(segmentId);
     if (action !== "return" && !rangeView)
       rangeEntry.current = document.activeElement as HTMLElement;
     if (action !== "return") control({ type: "layer", layer: "overview" });
@@ -519,7 +522,7 @@ export function Workspace() {
   };
   const [grilleVisit, setGrilleVisit] = useState<
     | (GrilleInspection & {
-        camera: ObservationMemory | null;
+        camera: TaskViewMemory | null;
         metric: "temperature" | "power";
         layer: ReviewState["layer"];
         slice: SliceControls;
@@ -545,9 +548,11 @@ export function Workspace() {
     useState(initialCoolingRange);
   const [coolingRangeOpen, setCoolingRangeOpen] = useState(false);
   const coolingRangeScroll = useRef({ list: 0, panel: 0, restore: false });
-  const captureRoomView = useRef<(() => ObservationMemory | null) | null>(null);
+  const captureTaskView = useRef<
+    ((level: TaskViewMemory["level"]) => TaskViewMemory | null) | null
+  >(null);
   const [coolingVisit, setCoolingVisit] = useState<{
-    camera: ObservationMemory | null;
+    camera: TaskViewMemory | null;
     metric: typeof metric;
     rackId: string;
     layer: ReviewState["layer"];
@@ -842,12 +847,19 @@ export function Workspace() {
   const [spaceSize, setSpaceSize] = useState(2);
   const [spaceVisit, setSpaceVisit] = useState<
     | (SpaceInspection & {
+        camera: TaskViewMemory | null;
         query: string;
         filter: ResourceFilter;
         onlyAlarms: boolean;
         size: number;
-        start: string;
-        scroll: number;
+        form: SpaceFormSnapshot | null;
+        selected: string;
+        doorOpen: boolean;
+        rearDoorOpen: boolean;
+        nav: boolean;
+        rackView: typeof rackView;
+        source: "list" | "segment" | "details";
+        detailScroll: number;
         layer: ReviewState["layer"];
         inspector: boolean;
         analysis: boolean;
@@ -857,12 +869,8 @@ export function Workspace() {
     | null
   >(null);
   const [spaceReturning, setSpaceReturning] = useState(false);
-  const [spaceRestore, setSpaceRestore] = useState<{
-    rackId: string;
-    deviceId: string;
-    start: string;
-    scroll: number;
-  } | null>(null);
+  const [spaceRestore, setSpaceRestore] = useState<typeof spaceVisit>(null);
+  const captureSpaceForm = useRef<(() => SpaceFormSnapshot) | null>(null);
   useEffect(() => {
     if (
       spaceVisit &&
@@ -1692,10 +1700,14 @@ export function Workspace() {
     const entry = rangeEntry.current;
     if (entry?.isConnected && entry.getClientRects().length)
       entry.focus({ preventScroll: true });
-    else
-      document
-        .querySelector<HTMLElement>('[aria-label="展开资源导航"]')
-        ?.focus();
+    else {
+      const side = entry?.dataset.rangeView;
+      const panel = nav ? navigationRef.current : inspectorRef.current;
+      const action = panel?.querySelector<HTMLElement>(
+        side ? `[data-range-view="${side}"]` : '[aria-label="观察范围分段"]',
+      );
+      (action ?? navigationOpenerRef.current)?.focus({ preventScroll: true });
+    }
   }, [rangeView, ready]);
   useEffect(() => {
     if (!blankingVisit) return;
@@ -1761,25 +1773,28 @@ export function Workspace() {
       : null;
   const requestRangeSegment = (id: string | null) =>
     requestRangeView(rangeView ?? "front", id);
-  const inspectRangeDevice = (id: string, start?: string, scroll?: number) => {
+  const inspectRangeDevice = (
+    id: string,
+    source: "list" | "segment" | "details" = "details",
+  ) => {
     const visit = spaceRange && beginSpaceInspection(spaceRange, id);
     if (!visit || !ready) return;
-    const panel = navigationRef.current?.querySelector<HTMLElement>(
-      ".rack-space-inspector",
-    );
     setSpaceRestore(null);
     setSpaceVisit({
       ...visit,
+      camera: captureTaskView.current?.("rack") ?? null,
       query,
       filter,
       onlyAlarms,
       size: spaceSize,
-      start:
-        start ??
-        panel?.querySelector<HTMLInputElement>('[aria-label="核查起始U位"]')
-          ?.value ??
-        String(spaceRange!.first),
-      scroll: scroll ?? panel?.scrollTop ?? 0,
+      form: captureSpaceForm.current?.() ?? null,
+      selected,
+      doorOpen: state.doorOpen,
+      rearDoorOpen: state.rearDoorOpen,
+      nav,
+      rackView,
+      source,
+      detailScroll: inspectorRef.current?.scrollTop ?? 0,
       layer,
       inspector,
       analysis: review.analysis,
@@ -2533,7 +2548,7 @@ export function Workspace() {
       [branch.row.id]: branch.rack.id,
     }));
     setGrilleVisit({
-      camera: captureRoomView.current?.() ?? null,
+      camera: captureTaskView.current?.("room") ?? null,
       layer,
       metric,
       slice: sliceControls,
@@ -2630,7 +2645,7 @@ export function Workspace() {
     action: CoolingRangeAction,
   ) => {
     setCoolingVisit({
-      camera: captureRoomView.current?.() ?? null,
+      camera: captureTaskView.current?.("room") ?? null,
       metric,
       rackId,
       layer,
@@ -2664,36 +2679,43 @@ export function Workspace() {
     control({ type: "open-resource", id: origin.range.rackId });
     control({ type: "layer", layer: origin.layer });
     control({ type: "analysis", value: origin.analysis });
-    setRackView("space");
+    setRackView(origin.rackView);
     setSpaceSize(origin.size);
     setQuery(origin.query);
     setFilter(origin.filter);
     setOnlyAlarms(origin.onlyAlarms);
     setMetric(origin.metric);
     setSliceControls(origin.slice);
-    skipNavigationSearch.current = true;
-    setNav(true);
-    setInspector(origin.inspector);
+    const medium = matchMedia("(max-width: 1099px)").matches;
+    const restoreNav = origin.nav && !(medium && origin.source === "details");
+    if (restoreNav && !nav) skipNavigationSearch.current = true;
+    setNav(restoreNav);
+    setInspector(origin.inspector && !(medium && restoreNav));
   };
   useEffect(() => {
     if (!spaceReturning) return;
     if (
       !spaceVisit ||
-      (!review.pendingId && selected !== spaceVisit.range.rackId)
+      (!review.pendingId &&
+        selected !== spaceVisit.range.rackId &&
+        selected !== spaceVisit.selected)
     ) {
       setSpaceReturning(false);
       setSpaceVisit(null);
-    } else if (
-      ready &&
-      state.level === "rack" &&
-      selected === spaceVisit.range.rackId
-    ) {
-      setSpaceRestore({
-        rackId: spaceVisit.range.rackId,
-        deviceId: spaceVisit.deviceId,
-        start: spaceVisit.start,
-        scroll: spaceVisit.scroll,
-      });
+    } else if (ready && state.level === "rack") {
+      if (state.doorOpen !== spaceVisit.doorOpen) {
+        dispatch({ type: "door", open: spaceVisit.doorOpen });
+        return;
+      }
+      if (state.rearDoorOpen !== spaceVisit.rearDoorOpen) {
+        dispatch({ type: "rear-door", open: spaceVisit.rearDoorOpen });
+        return;
+      }
+      if (spaceVisit.selected !== selected) {
+        control({ type: "pick", id: spaceVisit.selected });
+        return;
+      }
+      setSpaceRestore(spaceVisit);
       setSpaceReturning(false);
       setSpaceVisit(null);
     }
@@ -2702,9 +2724,31 @@ export function Workspace() {
     spaceVisit,
     ready,
     state.level,
+    state.doorOpen,
+    state.rearDoorOpen,
     selected,
     review.pendingId,
   ]);
+  useLayoutEffect(() => {
+    if (!spaceRestore) return;
+    // 等两栏恢复原内容与高度，再把键盘和滚动交还给发起检视的入口。
+    const frame = requestAnimationFrame(() => {
+      if (spaceRestore.source === "details") {
+        const panel = inspectorRef.current;
+        const entry = panel?.querySelector<HTMLButtonElement>(
+          "[data-segment-device]",
+        );
+        if (entry && panel) {
+          const disclosure = entry.closest("details");
+          if (disclosure) disclosure.open = true;
+          entry.focus({ preventScroll: true });
+          panel.scrollTop = spaceRestore.detailScroll;
+        }
+      }
+      setSpaceRestore(null);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [spaceRestore]);
   const returnInletOverview = () => {
     skipNavigationSearch.current = !nav;
     if (inletPair) inletScroll.current = inletPair.scroll;
@@ -3039,6 +3083,13 @@ export function Workspace() {
     />
   );
 
+  const rackRangeName =
+    spaceVisit &&
+    `${rackById(spaceVisit.range.rackId)!.name.split(" ")[0]} · ${spaceRangeLabel(spaceVisit.range)}`;
+  const roomRangeName =
+    comparisonVisit &&
+    `返回机房核查（${rackById(comparisonVisit.range.rackId)!.name.split(" ")[0]} · ${spaceRangeLabel(comparisonVisit.range)}）`;
+
   return (
     <div
       className="mirage-workspace workspace-ui"
@@ -3291,25 +3342,51 @@ export function Workspace() {
             )}
           </div>
         )}
-        {comparisonVisit && (
+        {(spaceVisit || comparisonVisit) && (
           <div
             className="study-task-return"
             role="group"
             aria-label="空间核查往返"
           >
-            <button
-              disabled={!ready || comparisonReturning}
-              onClick={() => {
-                setComparisonReturning(true);
-                setSpaceVisit(null);
-                setSpaceRestore(null);
-                setBlankingVisit(null);
-                control({ type: "analysis", value: false });
-                control({ type: "open-resource", id: "room-01" });
-              }}
-            >
-              {`← 返回机房核查（${rackById(comparisonVisit.range.rackId)!.name.split(" ")[0]} · ${spaceRangeLabel(comparisonVisit.range)}）`}
-            </button>
+            {spaceVisit && (
+              <>
+                <button
+                  disabled={!ready || spaceReturning}
+                  aria-label={`返回${rackRangeName} 核查`}
+                  onClick={returnSpaceInspection}
+                >
+                  ← {rackRangeName} 核查
+                </button>
+                <button
+                  aria-label="结束范围占用检视"
+                  title="结束检视，留在当前位置"
+                  disabled={spaceReturning}
+                  onClick={() => setSpaceVisit(null)}
+                >
+                  ×
+                </button>
+              </>
+            )}
+            {comparisonVisit && (
+              <button
+                aria-label={roomRangeName ?? undefined}
+                title={roomRangeName ?? undefined}
+                disabled={!ready || comparisonReturning || spaceReturning}
+                onClick={() => {
+                  setComparisonReturning(true);
+                  setSpaceVisit(null);
+                  setSpaceRestore(null);
+                  setBlankingVisit(null);
+                  control({ type: "analysis", value: false });
+                  control({ type: "open-resource", id: "room-01" });
+                }}
+              >
+                ←{" "}
+                {spaceVisit
+                  ? `机房 · ${spaceRangeLabel(comparisonVisit.range)}`
+                  : roomRangeName}
+              </button>
+            )}
           </div>
         )}
         {(networkMapVisit ||
@@ -3993,6 +4070,7 @@ export function Workspace() {
                   ? undefined
                   : () => selectObject("room-01", true)
               }
+              capture={captureSpaceForm}
               restore={spaceRestore}
               ready={ready}
               range={spaceRange}
@@ -4340,16 +4418,18 @@ export function Workspace() {
             </nav>
           </div>
           <ReviewScene
-            captureRoomView={captureRoomView}
-            roomReturn={
+            captureTaskView={captureTaskView}
+            taskReturn={
+              spaceRestore ||
+              (spaceReturning && spaceVisit) ||
               (grilleReturning && grilleVisit) ||
               (coolingReturning && coolingVisit) ||
               null
             }
             rangeViewCommand={rangeViewCommand}
-            onRangeViewChange={(side) => {
+            onRangeViewChange={(side, segmentId) => {
               setRangeView(side);
-              if (!side) setRangeSegmentId(null);
+              setRangeSegmentId(segmentId);
             }}
             fanViewRevision={fanViewRevision}
             fanViewSide={activeFanVisit?.side ?? "front"}
@@ -4875,56 +4955,28 @@ export function Workspace() {
                 onFinish={finishStructureCheck}
               />
             )}
-            {spaceVisit && !spaceReturning && (
-              <section
-                className="space-inspection-return"
-                aria-label="范围占用检视往返"
-              >
-                <strong>
-                  {rackById(spaceVisit.range.rackId)?.name} · 核查{" "}
-                  {spaceRangeLabel(spaceVisit.range)}
-                </strong>
-                <p>
-                  {spaceVisit.device.name} 完整安装{" "}
-                  {spaceRangeLabel(spaceVisit.device)}；与原范围相交{" "}
-                  {spaceRangeLabel(spaceVisit.overlap)}，占{" "}
-                  {spaceVisit.overlap.units} U。
-                </p>
-                <small>
-                  原范围设备占用 {spaceVisit.occupied} U · 未安装{" "}
-                  {spaceVisit.blanked} U。仅核对配置，不代表可分配容量。
-                </small>
-                <small>
-                  {state.level === "rack" && layer === "overview"
-                    ? "三维括线保留原核查范围，选择轮廓对应整台设备；抽出不释放原安装位。"
-                    : "范围括线仅在所属机柜的总览显示；当前检视不改变原安装配置。"}
-                </small>
-                <div>
-                  <button
-                    disabled={!ready}
-                    onClick={() =>
-                      focus(spaceVisit.deviceId, { installation: true })
-                    }
-                  >
-                    查看占用设备安装位
-                  </button>
-                  {state.level === "rack" && (
-                    <button
-                      disabled={!ready}
-                      onClick={() => pick(spaceVisit.deviceId, true)}
-                    >
-                      {resourceOpenLabel(state, spaceVisit.deviceId)} ↗
-                    </button>
-                  )}
-                </div>
-                <button disabled={!ready} onClick={returnSpaceInspection}>
-                  ← 返回原范围核查
-                </button>
+            {spaceVisit && !spaceReturning && !review.analysis && (
+              <section className="space-inspection-context">
+                <details>
+                  <summary>
+                    范围占用 · 相交 {spaceRangeLabel(spaceVisit.overlap)}（
+                    {spaceVisit.overlap.units} U）
+                  </summary>
+                  <p>
+                    {spaceVisit.device.name} 完整安装{" "}
+                    {spaceRangeLabel(spaceVisit.device)}。原核查范围{" "}
+                    {spaceRangeLabel(spaceVisit.range)}，其中设备占用{" "}
+                    {spaceVisit.occupied} U、未安装 {spaceVisit.blanked} U。
+                  </p>
+                  <small>抽出设备仍占原安装位。未安装位置仅供几何核对。</small>
+                </details>
                 <button
-                  className="space-inspection-end"
-                  onClick={() => setSpaceVisit(null)}
+                  disabled={!ready}
+                  onClick={() =>
+                    focus(spaceVisit.deviceId, { installation: true })
+                  }
                 >
-                  结束范围检视
+                  定位安装位
                 </button>
               </section>
             )}
