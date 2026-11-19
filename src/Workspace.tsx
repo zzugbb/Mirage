@@ -639,6 +639,7 @@ export function Workspace() {
   const [portVisit, setPortVisit] = useState<{
     check: SwitchPortCheck;
     portOffset: number;
+    camera: TaskViewMemory | null;
     localActionsOpen: boolean;
     level: "room" | "rack";
     query: string;
@@ -4549,6 +4550,7 @@ export function Workspace() {
             taskReturn={
               (layoutReturning && layoutVisit?.origin) ||
               (alarmReturning && alarmVisit) ||
+              (portReturning && portVisit) ||
               blankingRestore ||
               (peakReturning && peakVisit) ||
               (sourceReturning && sourceVisit) ||
@@ -5996,15 +5998,18 @@ export function Workspace() {
                           const button = panel.querySelector<HTMLButtonElement>(
                             `.switch-ports [data-port="${check.port}"]`,
                           )!;
+                          const level =
+                            state.level === "room" ? "room" : "rack";
                           setPortVisit({
                             check,
+                            level,
+                            camera: captureTaskView.current?.(level) ?? null,
                             localActionsOpen: !!panel.querySelector(
                               ".switch-local-actions[open]",
                             ),
                             portOffset:
                               button.getBoundingClientRect().top -
                               panel.getBoundingClientRect().top,
-                            level: state.level === "room" ? "room" : "rack",
                             query,
                             filter,
                             rackView,
