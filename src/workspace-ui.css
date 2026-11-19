@@ -4775,31 +4775,6 @@
   font-size: 11px;
   color: #a3b6c2;
 }
-.cooling-range-return {
-  margin: 0 22px 16px;
-  padding: 10px 0;
-  display: grid;
-  gap: 8px;
-  border-bottom: 1px solid var(--line);
-}
-.cooling-range-return small {
-  color: #a3b6c2;
-  font-size: 11px;
-}
-.cooling-range-return > div {
-  display: flex;
-  gap: 8px;
-}
-.cooling-range-return button {
-  background: transparent;
-  border: 1px solid #3d4e59;
-  color: #d1e5e8;
-  border-radius: 4px;
-  padding: 6px 8px;
-  cursor: pointer;
-  text-align: left;
-}
-
 .workspace-ui .grille-branches > p {
   color: #a3b6c2;
   font-size: 11px;

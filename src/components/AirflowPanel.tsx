@@ -3,6 +3,7 @@ import type { AirflowSnapshot } from "../airflow";
 import { airflowViews, type AirflowView } from "../airflow-view";
 import type { AirflowInspection } from "../airflow-inspection";
 import { entityById } from "../domain";
+import { deviceById } from "../installation";
 
 export function AirflowPanel({
   snapshot,
@@ -17,6 +18,7 @@ export function AirflowPanel({
   onReturnEndpoint,
   onExplain,
   onRoom,
+  onOpenInstallation,
   analysisControl,
 }: {
   snapshot: AirflowSnapshot | null;
@@ -31,6 +33,7 @@ export function AirflowPanel({
   onReturnEndpoint: () => void;
   onExplain: () => void;
   onRoom: () => void;
+  onOpenInstallation?: () => void;
   analysisControl: ReactNode;
 }) {
   const explain = useRef<HTMLButtonElement>(null);
@@ -51,7 +54,13 @@ export function AirflowPanel({
       {route ? (
         <>
           <div className="airflow-view-actions">
-            <strong>{entityById(route.deviceId)?.name}</strong>
+            {onOpenInstallation ? (
+              <button disabled={!ready} onClick={onOpenInstallation}>
+                {deviceById(route.deviceId)?.name} · 安装位 ↗
+              </button>
+            ) : (
+              <strong>{entityById(route.deviceId)?.name}</strong>
+            )}
             <select
               aria-label="气流观察范围"
               value={view ?? ""}

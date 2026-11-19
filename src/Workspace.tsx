@@ -105,10 +105,7 @@ import {
   type LeakViewCommand,
 } from "./leak-view";
 import { LeakInspectionDetails } from "./components/LeakInspectionDetails";
-import {
-  GrilleBranches,
-  type GrilleReturnFocus,
-} from "./components/GrilleBranches";
+import { GrilleBranches } from "./components/GrilleBranches";
 import {
   grilleInspectionIncludes,
   type GrilleInspection,
@@ -522,7 +519,7 @@ export function Workspace() {
   };
   const [grilleVisit, setGrilleVisit] = useState<
     | (GrilleInspection & {
-        grilleId: string;
+        camera: ObservationMemory | null;
         metric: "temperature" | "power";
         layer: ReviewState["layer"];
         slice: SliceControls;
@@ -535,7 +532,6 @@ export function Workspace() {
     | null
   >(null);
   const [grilleReturning, setGrilleReturning] = useState(false);
-  const grilleReturnFocus = useRef<GrilleReturnFocus>(null);
   const [grilleRack, setGrilleRack] = useState<Record<string, string>>({});
   useEffect(() => {
     if (
@@ -2532,26 +2528,21 @@ export function Workspace() {
   }, [peakReturning, peakVisit, ready, selected, review.analysis]);
   const visitGrilleBranch = (branch: GrilleBranch, scroll: number) => {
     if (!ready) return;
-    grilleReturnFocus.current = null;
     setGrilleRack((current) => ({
       ...current,
       [branch.row.id]: branch.rack.id,
     }));
     setGrilleVisit({
-      ...(grilleVisit?.rowId === branch.row.id
-        ? grilleVisit
-        : {
-            layer,
-            metric,
-            slice: sliceControls,
-            nav,
-            query,
-            filter,
-            onlyAlarms,
-            scroll,
-          }),
+      camera: captureRoomView.current?.() ?? null,
+      layer,
+      metric,
+      slice: sliceControls,
+      nav,
+      query,
+      filter,
+      onlyAlarms,
+      scroll,
       rowId: branch.row.id,
-      grilleId: branch.grille.id,
       rackId: branch.rack.id,
       deviceId: branch.device.id,
     });
@@ -2561,12 +2552,8 @@ export function Workspace() {
     if (!grilleVisit || !ready) return;
     const origin = grilleVisit;
     setGrilleReturning(true);
-    grilleReturnFocus.current = {
-      rowId: origin.rowId,
-      rackId: origin.rackId,
-      scroll: origin.scroll,
-    };
-    focus(origin.rowId);
+    if (origin.camera) pick(origin.rowId, state.level !== "room");
+    else focus(origin.rowId);
     control({ type: "layer", layer: origin.layer });
     control({ type: "analysis", value: false });
     setSliceControls(origin.slice);
@@ -2574,14 +2561,15 @@ export function Workspace() {
     setQuery(origin.query);
     setFilter(origin.filter);
     setOnlyAlarms(origin.onlyAlarms);
-    setNav(origin.nav);
+    const restoreNav = origin.nav && !matchMedia("(max-width: 1099px)").matches;
+    if (restoreNav && !nav) skipNavigationSearch.current = true;
+    setNav(restoreNav);
   };
   useEffect(() => {
     if (!grilleReturning || !grilleVisit) return;
     if (!review.pendingId && selected !== grilleVisit.rowId) {
       setGrilleReturning(false);
       setGrilleVisit(null);
-      grilleReturnFocus.current = null;
     } else if (
       ready &&
       state.level === "room" &&
@@ -2822,7 +2810,6 @@ export function Workspace() {
     setEnvironmentPairVisit(null);
     setGrilleVisit(null);
     setGrilleReturning(false);
-    grilleReturnFocus.current = null;
     setGrilleRack({});
     setCoolingRangeState(initialCoolingRange());
     setCoolingRangeOpen(false);
@@ -3110,6 +3097,25 @@ export function Workspace() {
               </button>
             </div>
           )}
+        {grilleVisit && (
+          <div
+            className="study-task-return"
+            role="group"
+            aria-label="格栅气流检视往返"
+          >
+            <button disabled={!ready || grilleReturning} onClick={returnGrille}>
+              ← 返回格栅布置 · {rackById(grilleVisit.rackId)?.name}
+            </button>
+            <button
+              aria-label="结束格栅气流检视往返"
+              title="结束核对，留在当前位置"
+              disabled={grilleReturning}
+              onClick={() => setGrilleVisit(null)}
+            >
+              ×
+            </button>
+          </div>
+        )}
         {coolingVisit && (
           <div
             className="study-task-return"
@@ -4335,8 +4341,10 @@ export function Workspace() {
           </div>
           <ReviewScene
             captureRoomView={captureRoomView}
-            roomReturnView={
-              coolingReturning ? (coolingVisit?.camera ?? null) : null
+            roomReturn={
+              (grilleReturning && grilleVisit) ||
+              (coolingReturning && coolingVisit) ||
+              null
             }
             rangeViewCommand={rangeViewCommand}
             onRangeViewChange={(side) => {
@@ -4459,6 +4467,12 @@ export function Workspace() {
                     deviceId: sliceCheck.deviceId,
                   }
                 : null
+            }
+            onOpenAirflowInstallation={
+              grilleVisit &&
+              airflow?.routes[0]?.deviceId === grilleVisit.deviceId
+                ? () => selectObject(grilleVisit.deviceId, true)
+                : undefined
             }
             onShowRoomAirflow={() => showAirflow(state.deviceId)}
             onInspectBudget={
@@ -4911,44 +4925,6 @@ export function Workspace() {
                   onClick={() => setSpaceVisit(null)}
                 >
                   结束范围检视
-                </button>
-              </section>
-            )}
-            {grilleVisit && !grilleReturning && (
-              <section
-                className="cooling-range-return"
-                aria-label="格栅气流检视往返"
-              >
-                <small>
-                  来自{grilleRowById(grilleVisit.rowId)?.name} ·{" "}
-                  {rackById(grilleVisit.rackId)?.name}
-                </small>
-                <small>
-                  代表支路 · 格栅 {grilleVisit.grilleId.split("-").at(-1)} →{" "}
-                  {grilleVisit.deviceId.toUpperCase()}
-                </small>
-                <button disabled={!ready} onClick={returnGrille}>
-                  ← 返回格栅布置
-                </button>
-                <div>
-                  <button
-                    disabled={!ready}
-                    onClick={() => showAirflow(grilleVisit.deviceId)}
-                  >
-                    机房代表气流 ↗
-                  </button>
-                  <button
-                    disabled={!ready}
-                    onClick={() => pick(grilleVisit.deviceId, true)}
-                  >
-                    {resourceOpenLabel(state, grilleVisit.deviceId)} ↗
-                  </button>
-                </div>
-                <button
-                  aria-label="结束格栅气流检视往返"
-                  onClick={() => setGrilleVisit(null)}
-                >
-                  结束核对
                 </button>
               </section>
             )}
@@ -5530,7 +5506,7 @@ export function Workspace() {
                           rowId={fixture.id}
                           ready={ready}
                           activeRack={grilleRack[fixture.id]}
-                          restore={grilleReturnFocus}
+                          restore={grilleReturning ? grilleVisit : null}
                           onPreview={pick}
                           onLocate={focus}
                           onAirflow={visitGrilleBranch}

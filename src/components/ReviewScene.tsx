@@ -132,7 +132,7 @@ import { NetworkGeometry } from "../scene/network";
 export function ReviewScene({
   state,
   captureRoomView,
-  roomReturnView,
+  roomReturn,
   unitRange = null,
   rangeViewCommand,
   onRangeViewChange,
@@ -159,6 +159,7 @@ export function ReviewScene({
   onExplainAirflow,
   onAirflowViewChange,
   onShowRoomAirflow,
+  onOpenAirflowInstallation,
   airflowVisit,
   airflowResponseActive,
   onCompareAirflow,
@@ -216,7 +217,7 @@ export function ReviewScene({
   compactTools = false,
 }: {
   captureRoomView: RefObject<(() => ObservationMemory | null) | null>;
-  roomReturnView: ObservationMemory | null;
+  roomReturn: { camera: ObservationMemory | null } | null;
   inletPair: InletViewPair | null;
   inletView: InletInspection | null;
   inletViewCommand: InletViewCommand | null;
@@ -286,6 +287,7 @@ export function ReviewScene({
     view: import("../airflow-view").AirflowView | null,
   ) => void;
   onShowRoomAirflow: () => void;
+  onOpenAirflowInstallation?: () => void;
   airflowResponseActive: boolean;
   onCompareAirflow: (route: AirflowRoute, preserveView: () => void) => void;
   onReturnAirflowEndpoint: () => void;
@@ -908,14 +910,15 @@ export function ReviewScene({
   useEffect(() => {
     const active = engine.current;
     if (!active) return;
-    active.roomReturnView = roomReturnView;
-    if (roomReturnView) {
-      if (displayMenu.current) displayMenu.current.open = false;
+    const previous = roomReturn?.camera;
+    active.roomReturnView = previous ?? null;
+    if (roomReturn && displayMenu.current) displayMenu.current.open = false;
+    if (previous) {
       setOrbit(false);
-      if (active.state.level === "room") active.view(roomReturnView.view);
-      setView(roomReturnView.view);
+      if (active.state.level === "room") active.view(previous.view);
+      setView(previous.view);
     }
-  }, [roomReturnView, retry]);
+  }, [roomReturn, retry]);
   useEffect(() => {
     const active = engine.current;
     active?.update(state);
@@ -2289,6 +2292,7 @@ export function ReviewScene({
                     onExplainAirflow();
                   }}
                   onRoom={onShowRoomAirflow}
+                  onOpenInstallation={onOpenAirflowInstallation}
                   analysisControl={airflowResponseControl}
                 />
               )}

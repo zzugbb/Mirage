@@ -1,8 +1,8 @@
-import { useLayoutEffect, useRef, type RefObject } from "react";
+import { useLayoutEffect, useRef } from "react";
 import { grilleBranches, type GrilleBranch } from "../grille-inspection";
 import { unitLabel } from "../catalog";
 
-export type GrilleReturnFocus = {
+type GrilleReturnFocus = {
   rowId: string;
   rackId: string;
   scroll: number;
@@ -20,22 +20,20 @@ export function GrilleBranches({
   rowId: string;
   ready: boolean;
   activeRack?: string;
-  restore: RefObject<GrilleReturnFocus>;
+  restore: GrilleReturnFocus;
   onPreview: (id: string) => void;
   onLocate: (id: string) => void;
   onAirflow: (branch: GrilleBranch, scroll: number) => void;
 }) {
   const host = useRef<HTMLDetailsElement>(null);
   useLayoutEffect(() => {
-    const target = restore.current;
-    if (!ready || target?.rowId !== rowId || !host.current) return;
+    if (!ready || restore?.rowId !== rowId || !host.current) return;
     host.current.open = true;
     const panel = host.current.closest<HTMLElement>(".study-inspector");
-    if (panel) panel.scrollTop = target.scroll;
+    if (panel) panel.scrollTop = restore.scroll;
     host.current
-      .querySelector<HTMLButtonElement>(`[data-branch="${target.rackId}"]`)
+      .querySelector<HTMLButtonElement>(`[data-branch="${restore.rackId}"]`)
       ?.focus({ preventScroll: true });
-    restore.current = null;
   }, [rowId, ready, restore]);
   const branches = grilleBranches(rowId);
   return (
