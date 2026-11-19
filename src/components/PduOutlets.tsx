@@ -14,7 +14,6 @@ export function PduOutlets({
   inScene,
   onChange,
   onSelect,
-  onLocate,
   onPreview,
   onInspect,
 }: {
@@ -25,7 +24,6 @@ export function PduOutlets({
   inScene: boolean;
   onChange: (visit: PduInspection) => void;
   onSelect: (outlet: number) => void;
-  onLocate: () => void;
   onPreview: (id: string) => void;
   onInspect: (linkId: string) => void;
 }) {
@@ -76,11 +74,11 @@ export function PduOutlets({
           }
         />
       </label>
-      <small className="pdu-outlet-matches">
-        {current.query
-          ? `${rows.filter((row) => row.matches).length} 个匹配 · 全部位置保留`
-          : `${rows.filter((row) => row.link).length} 已接 / 24 配置位置`}
-      </small>
+      {current.query && (
+        <small className="pdu-outlet-matches">
+          {rows.filter((row) => row.matches).length} 个匹配 · 保留全部位置
+        </small>
+      )}
       <div
         className="pdu-outlet-map"
         ref={list}
@@ -110,22 +108,22 @@ export function PduOutlets({
       )}
       {chosen ? (
         <div className="pdu-outlet-selected" aria-label="当前插座核对">
-          <button
-            className="pdu-outlet-clear"
-            onClick={() => onChange({ ...current, outlet: null })}
-          >
-            清除标记
-          </button>
-          <strong>
-            {pduName(pduId)} · 插座 {String(chosen.outlet).padStart(2, "0")}
-          </strong>
-          {chosen.link && chosen.device ? (
+          <header>
+            <strong>
+              插座 {String(chosen.outlet).padStart(2, "0")} ·{" "}
+              {chosen.device?.name ?? "未连接"}
+            </strong>
+            <button
+              className="pdu-outlet-clear"
+              onClick={() => onChange({ ...current, outlet: null })}
+            >
+              清除标记
+            </button>
+          </header>
+          {chosen.link && chosen.device && (
             <>
-              <span>
-                {chosen.device.name} · {unitLabel(chosen.device.id)}
-              </span>
               <small>
-                输入 {chosen.link.inlet} /{" "}
+                {unitLabel(chosen.device.id)} · 输入 {chosen.link.inlet} /{" "}
                 {
                   entityById(
                     inletPart(chosen.device.modelId, chosen.link.inlet),
@@ -133,13 +131,12 @@ export function PduOutlets({
                 }
               </small>
               <span>
-                关联整机输入：
+                关联整机输入 ·{" "}
                 {value ??
                   (reading?.quality === "valid"
                     ? "无有效功耗"
                     : qualityNames[reading?.quality ?? "missing"])}
               </span>
-              <small>不是本插座负载；A/B 关联值不能相加。</small>
               <div className="pdu-outlet-actions">
                 <button onClick={() => onPreview(chosen.device!.id)}>
                   预览对端
@@ -152,22 +149,19 @@ export function PduOutlets({
                 </button>
               </div>
             </>
-          ) : (
-            <>
-              <span>未连接 · 没有配置对端</span>
-              <small>不表示可用容量、断电、故障或零功耗。</small>
-            </>
           )}
-          <button disabled={!ready} onClick={onLocate}>
-            定位所选插座 ↗
-          </button>
         </div>
       ) : (
-        <p>选择一个位置，在三维中核对配置插座；已接位置沿用既有供电支路。</p>
+        <p>选择插座以核对配置对端。</p>
       )}
-      <small className="power-boundary">
-        位置与编号对应本场景 PDU 配置，不代表真实插座类型或现场接线。
-      </small>
+      <details className="pdu-outlet-boundary">
+        <summary>插座编号与计量口径</summary>
+        <p>
+          编号和接线沿用演示配置。插座未计量，关联整机输入不按 A/B
+          分摊或相加。未连接仅表示没有配置对端，不能据此判断容量或通电状态。A/B
+          上游独立性未定义。
+        </p>
+      </details>
     </section>
   );
 }

@@ -94,7 +94,7 @@ export function PowerConnections({
       }
     >
       {onViewPower && <button onClick={onViewPower}>场景查看 ↗</button>}
-      {!paired && (
+      {!paired && !pdu && (
         <p className="power-boundary">
           配置示意 · A/B 未定义独立上游；回路与插座未计量，整机输入不分摊。
         </p>
@@ -279,7 +279,7 @@ export function PowerConnections({
             <span>→ {pduName(pdu.id)}</span>
           </div>
           <button disabled={!ready} onClick={() => onLocate(pdu.id)}>
-            定位到机柜后侧
+            定位 PDU 后侧
           </button>
           <PduOutlets
             key={pdu.id}
@@ -290,7 +290,6 @@ export function PowerConnections({
             ready={ready}
             onChange={onPduChange}
             onSelect={(outlet) => onPduSelect(pdu.id, outlet)}
-            onLocate={() => onLocate(pdu.id)}
             onPreview={onSelect}
             onInspect={onInspect}
           />

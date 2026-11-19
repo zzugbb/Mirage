@@ -544,6 +544,7 @@
 }
 .workspace-ui .review-anchors {
   inset: 0;
+  overflow: clip;
 }
 .workspace-ui .review-anchor {
   border: 1px solid #ffffff1a;
@@ -4014,7 +4015,7 @@
   margin-bottom: 8px;
 }
 .pdu-outlet-map {
-  max-height: 270px;
+  max-height: 198px;
   overflow: auto;
   scrollbar-width: thin;
   overscroll-behavior: contain;
@@ -4083,25 +4084,12 @@
   display: flex;
   gap: 6px;
 }
-.pdu-inspection-return {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  margin: 0 20px 15px;
-  padding: 10px 0;
-  border-block: 1px solid #a9c9d033;
-  font-size: 11px;
-}
-.pdu-inspection-return small {
-  flex-basis: 100%;
+.pdu-outlet-boundary {
+  margin-top: 12px;
   color: #9fb5bf;
 }
-.pdu-inspection-return button {
-  padding: 5px 0;
-}
-.pdu-inspection-return button:last-child {
-  margin-left: auto;
+.pdu-outlet-boundary summary {
+  cursor: pointer;
 }
 
 .inlet-process details {

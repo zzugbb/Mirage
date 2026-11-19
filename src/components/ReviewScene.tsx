@@ -1497,6 +1497,8 @@ export function ReviewScene({
         ?.closest(".study-stage")
         ?.scrollIntoView({ block: "nearest" });
   };
+  const foldPowerScale =
+    powerViewActive || (pduInspection?.outlet != null && !!supply);
   const powerScale = layer === "power" && (
     <>
       <span>
@@ -2493,7 +2495,7 @@ export function ReviewScene({
                   )}
                 </div>
               )}
-              {!powerViewActive && powerScale}
+              {!foldPowerScale && powerScale}
               {layer === "power" && supply && (
                 <div className="power-scene-key" aria-label="供电路径示意">
                   <strong>{supply.caption}</strong>
@@ -2557,7 +2559,7 @@ export function ReviewScene({
                   </small>
                 </div>
               )}
-              {powerViewActive && powerScale && (
+              {foldPowerScale && powerScale && (
                 <details className="power-scale-details">
                   <summary>功耗标尺</summary>
                   {powerScale}

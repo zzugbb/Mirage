@@ -647,13 +647,13 @@ export function Workspace() {
   const [pduInspection, setPduInspection] = useState<PduInspection | null>(
     null,
   );
-  const pduReturnPending = useRef(false);
+  const [pduReturning, setPduReturning] = useState(false);
   useEffect(() => {
     if (
       !pduInspection ||
       !pduInspectionIncludes(pduInspection, selected, state.deviceId)
     ) {
-      pduReturnPending.current = false;
+      setPduReturning(false);
       if (pduInspection) setPduInspection(null);
     }
   }, [pduInspection, selected, state.deviceId]);
@@ -1436,20 +1436,47 @@ export function Workspace() {
   }, [ready, selected, isolatedPartId]);
 
   useEffect(() => {
+    if (!pduReturning) return;
+    const cancel = () => setPduReturning(false);
+    document.addEventListener("pointerdown", cancel, true);
+    document.addEventListener("keydown", cancel, true);
+    return () => {
+      document.removeEventListener("pointerdown", cancel, true);
+      document.removeEventListener("keydown", cancel, true);
+    };
+  }, [pduReturning]);
+  useEffect(() => {
     if (
-      !pduReturnPending.current ||
+      !pduReturning ||
+      powerViewPaired ||
       !ready ||
       review.analysis ||
-      selected !== pduInspection?.pduId
+      selected !== pduInspection?.pduId ||
+      state.selected !== selected ||
+      state.level !== "rack"
     )
       return;
-    const panel = document.querySelector<HTMLElement>(".pdu-outlets");
-    if (panel) {
-      pduReturnPending.current = false;
-      panel.scrollIntoView({ block: "start" });
-      panel.focus({ preventScroll: true });
+    const row = inspectorRef.current?.querySelector<HTMLButtonElement>(
+      '.pdu-outlet-map button[aria-pressed="true"]',
+    );
+    if (row) {
+      const section = row.closest("details");
+      if (section) section.open = true;
+      row.closest(".pdu-outlets")?.scrollIntoView({ block: "start" });
+      row.focus({ preventScroll: true });
+      row.scrollIntoView({ block: "nearest" });
     }
-  }, [ready, selected, review.analysis, pduInspection?.pduId]);
+    setPduReturning(false);
+  }, [
+    pduReturning,
+    powerViewPaired,
+    ready,
+    selected,
+    review.analysis,
+    pduInspection?.pduId,
+    state.selected,
+    state.level,
+  ]);
 
   useEffect(() => {
     if (!comparisonVisit || state.level !== "room" || !ready) return;
@@ -2721,7 +2748,7 @@ export function Workspace() {
     setLayoutReturning(false);
     setSliceCheck(null);
     setPduInspection(null);
-    pduReturnPending.current = false;
+    setPduReturning(false);
     setInspectionDevice(null);
     setEnvironmentComparisonOpen(false);
     setEnvironmentPairVisit(null);
@@ -2979,6 +3006,42 @@ export function Workspace() {
         <a className="study-brand" href="./" aria-label="Mirage 浮城首页">
           Mirage <span>浮城</span>
         </a>
+        {pduInspection?.outlet != null &&
+          (selected !== pduInspection.pduId ||
+            review.analysis ||
+            pduReturning ||
+            powerViewPaired) && (
+            <div
+              className="study-task-return"
+              role="group"
+              aria-label="插座核对往返"
+            >
+              <button
+                disabled={!ready || pduReturning}
+                onClick={() => {
+                  setPduReturning(true);
+                  focus(pduInspection.pduId);
+                  setPowerLinkId(
+                    pduOutlet(pduInspection.pduId, pduInspection.outlet)?.link
+                      ?.id ?? null,
+                  );
+                  control({ type: "layer", layer: "power" });
+                  control({ type: "analysis", value: false });
+                }}
+              >
+                ← 返回 {pduName(pduInspection.pduId)} · 插座{" "}
+                {String(pduInspection.outlet).padStart(2, "0")}
+              </button>
+              <button
+                aria-label="结束插座核对往返"
+                title="结束核对，留在当前位置"
+                disabled={pduReturning}
+                onClick={() => setPduInspection(null)}
+              >
+                ×
+              </button>
+            </div>
+          )}
         {alarmVisit && (
           <div
             className="study-task-return"
@@ -4319,7 +4382,9 @@ export function Workspace() {
             onClearPower={() => {
               takeover();
               setPduInspection((current) =>
-                current ? { ...current, outlet: null } : null,
+                current?.pduId === selected
+                  ? { ...current, outlet: null }
+                  : current,
               );
               setPowerLinkId(null);
             }}
@@ -4824,37 +4889,6 @@ export function Workspace() {
                 </button>
               </section>
             )}
-            {pduInspection?.outlet !== null &&
-              pduInspection &&
-              (selected !== pduInspection.pduId || review.analysis) && (
-                <div className="pdu-inspection-return">
-                  <small>
-                    插座核对 · {pduName(pduInspection.pduId)} /{" "}
-                    {String(pduInspection.outlet).padStart(2, "0")}
-                  </small>
-                  <button
-                    disabled={!ready}
-                    onClick={() => {
-                      pduReturnPending.current = true;
-                      focus(pduInspection.pduId);
-                      setPowerLinkId(
-                        pduOutlet(pduInspection.pduId, pduInspection.outlet)
-                          ?.link?.id ?? null,
-                      );
-                      control({ type: "layer", layer: "power" });
-                      control({ type: "analysis", value: false });
-                    }}
-                  >
-                    ← 返回原插座核对
-                  </button>
-                  <button
-                    aria-label="结束插座核对往返"
-                    onClick={() => setPduInspection(null)}
-                  >
-                    ×
-                  </button>
-                </div>
-              )}
             {peakVisit && peakReview && !peakReturning && (
               <section
                 className="peak-inspection-return"
@@ -5703,7 +5737,9 @@ export function Workspace() {
                           setPowerLinkId(id);
                           if (!id)
                             setPduInspection((current) =>
-                              current ? { ...current, outlet: null } : null,
+                              current?.pduId === selected
+                                ? { ...current, outlet: null }
+                                : current,
                             );
                           if (id) control({ type: "layer", layer: "power" });
                           else takeover();
