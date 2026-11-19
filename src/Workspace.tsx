@@ -756,6 +756,12 @@ export function Workspace() {
   const powerScroll = useRef(0);
   const [powerRestore, setPowerRestore] = useState(0);
   const [powerOverviewVisit, setPowerOverviewVisit] = useState<{
+    camera: TaskViewMemory | null;
+    listQuery: string;
+    listFilter: PowerOverviewFilter;
+    scope: PowerOverviewScope;
+    order: PowerOverviewOrder;
+    scroll: number;
     id: string;
     inspector: boolean;
     query: string;
@@ -778,7 +784,6 @@ export function Workspace() {
     firstId: string;
     secondId: string;
     slice: SliceControls;
-    scroll: number;
   } | null>(null);
   const [inletDifferenceReview, setInletDifferenceReview] = useState(
     emptyInletDifferenceReview,
@@ -787,6 +792,7 @@ export function Workspace() {
     setInletDifferenceReview(emptyInletDifferenceReview);
   }, [inletPair, state.replayCycle]);
   const [inletAirflowVisit, setInletAirflowVisit] = useState<{
+    camera: TaskViewMemory | null;
     id: string;
     inspector: boolean;
     rack: string;
@@ -801,14 +807,29 @@ export function Workspace() {
     onlyAlarms: boolean;
   } | null>(null);
   const [inletAirflowReturning, setInletAirflowReturning] = useState(false);
+  const [inletReturning, setInletReturning] = useState(false);
   const [inletInspection, setInletInspection] = useState<{
+    camera: TaskViewMemory | null;
+    query: string;
+    scope: InletOverviewScope;
+    order: InletOverviewOrder;
+    filter: InletOverviewFilter;
+    scroll: number;
     id: string;
     inspector: boolean;
   } | null>(null);
   const beginInletInspection = (id: string) => {
-    setInletInspection((previous) =>
-      previous?.id === id ? previous : { id, inspector },
-    );
+    if (inletInspection?.id === id) return;
+    setInletInspection({
+      id,
+      inspector,
+      camera: captureTaskView.current?.("room") ?? null,
+      query: inletQuery,
+      scope: inletScope,
+      order: inletOrder,
+      filter: inletFilter,
+      scroll: inletScroll.current,
+    });
   };
   const [inletSession, setInletSession] = useState(false);
   useEffect(() => {
@@ -825,6 +846,7 @@ export function Workspace() {
   const [networkMapRack, setNetworkMapRack] = useState("rack-a01");
   const [networkMapQuery, setNetworkMapQuery] = useState("");
   const [networkMapVisit, setNetworkMapVisit] = useState<{
+    camera: TaskViewMemory | null;
     linkId: string | null;
     selection: string;
     scope: NetworkOverviewScope;
@@ -1314,6 +1336,11 @@ export function Workspace() {
     control({ type: "analysis", value: false });
     setMetric("power");
     setRackView("power");
+    setPowerQuery(powerOverviewVisit.listQuery);
+    setPowerFilter(powerOverviewVisit.listFilter);
+    setPowerScope(powerOverviewVisit.scope);
+    setPowerOrder(powerOverviewVisit.order);
+    powerScroll.current = powerOverviewVisit.scroll;
     setQuery(powerOverviewVisit.query);
     setFilter(powerOverviewVisit.filter);
     setOnlyAlarms(powerOverviewVisit.onlyAlarms);
@@ -1373,13 +1400,22 @@ export function Workspace() {
   useEffect(() => {
     if (
       inletInspection &&
+      !inletReturning &&
       !pairedInlet &&
       ready &&
       state.level === "room" &&
       (rackView !== "inlet" || inletInspection.id !== selected)
     )
       setInletInspection(null);
-  }, [inletInspection, pairedInlet, ready, state.level, rackView, selected]);
+  }, [
+    inletInspection,
+    inletReturning,
+    pairedInlet,
+    ready,
+    state.level,
+    rackView,
+    selected,
+  ]);
   useEffect(() => {
     if (
       inletAirflowVisit &&
@@ -2216,16 +2252,23 @@ export function Workspace() {
     action: "installation" | "internal" | "analysis" | "details",
   ) => {
     if (!ready) return;
-    setPowerOverviewVisit({
-      id,
-      query,
-      filter,
-      onlyAlarms,
-      inspector:
-        powerOverviewVisit?.id === id
-          ? powerOverviewVisit.inspector
-          : inspector,
-    });
+    setPowerOverviewVisit(
+      powerOverviewVisit?.id === id
+        ? powerOverviewVisit
+        : {
+            camera: captureTaskView.current?.("room") ?? null,
+            listQuery: powerQuery,
+            listFilter: powerFilter,
+            scope: powerScope,
+            order: powerOrder,
+            scroll: powerScroll.current,
+            id,
+            query,
+            filter,
+            onlyAlarms,
+            inspector,
+          },
+    );
     setPowerRestore(0);
     control({ type: "analysis", value: false });
     setMetric("power");
@@ -2329,6 +2372,7 @@ export function Workspace() {
   };
   const rememberNetworkMap = (selection: string, linkId: string | null) => {
     setNetworkMapVisit({
+      camera: captureTaskView.current?.("room") ?? null,
       selection,
       linkId,
       scope: networkMapScope,
@@ -2823,7 +2867,14 @@ export function Workspace() {
   }, [spaceRestore]);
   const returnInletOverview = () => {
     skipNavigationSearch.current = !nav;
-    if (inletPair) inletScroll.current = inletPair.scroll;
+    if (inletInspection) {
+      setInletReturning(true);
+      setInletQuery(inletInspection.query);
+      setInletScope(inletInspection.scope);
+      setInletOrder(inletInspection.order);
+      setInletFilter(inletInspection.filter);
+      inletScroll.current = inletInspection.scroll;
+    }
     setInletRestoreRevision((value) => value + 1);
     setRackView("inlet");
     setSliceControls(inletPair?.slice ?? inletSlice.current);
@@ -2837,9 +2888,19 @@ export function Workspace() {
       !!inletInspection?.inspector &&
         !matchMedia("(max-width: 1099px)").matches,
     );
-    setInletInspection(null);
     setNav(true);
   };
+  useEffect(() => {
+    if (
+      inletReturning &&
+      ready &&
+      state.level === "room" &&
+      !review.pendingId
+    ) {
+      setInletInspection(null);
+      setInletReturning(false);
+    }
+  }, [inletReturning, ready, state.level, review.pendingId]);
   useEffect(() => {
     if (
       (review.pendingId || review.pendingEndpoint) &&
@@ -2957,6 +3018,7 @@ export function Workspace() {
     setInletReference(null);
     setInletPair(null);
     setInletSession(false);
+    setInletReturning(false);
     setInletInspection(null);
     setInletRack("rack-a01");
     setInletQuery("");
@@ -3442,7 +3504,12 @@ export function Workspace() {
             role="group"
             aria-label="进风对照往返"
             onKeyDown={(event) => {
-              if (event.key === "Escape" && ready && !inletAirflowReturning) {
+              if (
+                event.key === "Escape" &&
+                ready &&
+                !inletReturning &&
+                !inletAirflowReturning
+              ) {
                 event.preventDefault();
                 event.stopPropagation();
                 if (inletAirflowVisit) returnInletAirflow();
@@ -3451,7 +3518,7 @@ export function Workspace() {
             }}
           >
             <button
-              disabled={!ready || inletAirflowReturning}
+              disabled={!ready || inletReturning || inletAirflowReturning}
               onClick={
                 inletAirflowVisit ? returnInletAirflow : returnInletOverview
               }
@@ -4013,7 +4080,6 @@ export function Workspace() {
                   firstId: id,
                   secondId: inletReference,
                   slice: sliceControls,
-                  scroll: inletScroll.current,
                 });
                 setInletSelection(id);
                 inletSlice.current = sliceControls;
@@ -4023,6 +4089,7 @@ export function Workspace() {
               onAirflow={(id) => {
                 if (!ready) return;
                 setInletAirflowVisit({
+                  camera: captureTaskView.current?.("room") ?? null,
                   id,
                   inspector,
                   rack: selectedRackId ?? inletRack,
@@ -4551,6 +4618,10 @@ export function Workspace() {
               (layoutReturning && layoutVisit?.origin) ||
               (alarmReturning && alarmVisit) ||
               (portReturning && portVisit) ||
+              (networkMapReturning && networkMapVisit) ||
+              (powerOverviewReturning && powerOverviewVisit) ||
+              (inletReturning && inletInspection) ||
+              (inletAirflowReturning && inletAirflowVisit) ||
               blankingRestore ||
               (peakReturning && peakVisit) ||
               (sourceReturning && sourceVisit) ||

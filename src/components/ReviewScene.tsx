@@ -412,6 +412,14 @@ export function ReviewScene({
     return () => cancelAnimationFrame(frame);
   }, [slicePlaneActive]);
   const displayMenu = useRef<HTMLDetailsElement>(null);
+  const closeDisplayMenu = () => {
+    if (displayMenu.current) displayMenu.current.open = false;
+  };
+  const restoreSliceView = () => {
+    closeDisplayMenu();
+    planeReturning.current = slicePlaneActive;
+    engine.current?.restoreSliceView();
+  };
   const temperatureTools = useRef<HTMLDetailsElement>(null);
   const inletSnapshot = inletView
     ? inletPairSnapshot(
@@ -921,7 +929,7 @@ export function ReviewScene({
     if (!active) return;
     const previous = taskReturn?.camera;
     active.taskReturnView = previous ?? null;
-    if (taskReturn && displayMenu.current) displayMenu.current.open = false;
+    if (taskReturn) closeDisplayMenu();
     if (previous) {
       setOrbit(false);
       if (active.state.level === previous.level) active.view(previous.view);
@@ -1100,6 +1108,7 @@ export function ReviewScene({
     const active = engine.current;
     if (!active || !inletViewCommand) return;
     if (inletViewCommand.action === "return") {
+      closeDisplayMenu();
       active.restoreInletView();
     } else if (inletPair && layer === "environment") {
       setOrbit(false);
@@ -1272,6 +1281,7 @@ export function ReviewScene({
     const active = engine.current;
     if (!active || !powerViewCommand) return;
     if (powerViewCommand.action === "return") {
+      closeDisplayMenu();
       powerReturning.current = true;
       active.restorePowerView();
     } else if (layer === "power") {
@@ -1325,8 +1335,10 @@ export function ReviewScene({
   useEffect(() => {
     const active = engine.current;
     if (!active || !networkViewCommand) return;
-    if (networkViewCommand.action === "return") active.restoreNetworkView();
-    else if (layer === "overview") {
+    if (networkViewCommand.action === "return") {
+      closeDisplayMenu();
+      active.restoreNetworkView();
+    } else if (layer === "overview") {
       setOrbit(false);
       active.observeNetwork(selectedId, networkLinkId);
     }
@@ -1342,8 +1354,7 @@ export function ReviewScene({
     const active = engine.current;
     if (!active || !sliceViewCommand) return;
     if (sliceViewCommand.action === "return") {
-      planeReturning.current = slicePlaneActive;
-      active.restoreSliceView();
+      restoreSliceView();
     } else if (sliceInspection?.context && slice && sliceVisible) {
       setOrbit(false);
       active.observeSlice(sliceInspection.context);
@@ -2438,8 +2449,7 @@ export function ReviewScene({
                               ) {
                                 event.preventDefault();
                                 event.stopPropagation();
-                                planeReturning.current = true;
-                                engine.current?.restoreSliceView();
+                                restoreSliceView();
                               }
                             }}
                           >
@@ -2449,8 +2459,7 @@ export function ReviewScene({
                               onClick={() => {
                                 onTakeover();
                                 if (slicePlaneActive) {
-                                  planeReturning.current = true;
-                                  engine.current?.restoreSliceView();
+                                  restoreSliceView();
                                 } else {
                                   setOrbit(false);
                                   if (temperatureTools.current)
