@@ -13,7 +13,6 @@ import type {
   EnvironmentViewCommand,
 } from "../environment-view";
 import { EnvironmentViewGeometry } from "../scene/environment-view";
-import { EnvironmentViewActions } from "./EnvironmentViewActions";
 import {
   entranceViewIncludes,
   type EntranceInspection,
@@ -166,7 +165,6 @@ export function ReviewScene({
   environmentViewCommand,
   onEnvironmentViewChange,
   onEnvironmentView,
-  onReturnEnvironmentPair,
   maintenanceView,
   onMaintenanceViewChange,
   entranceView,
@@ -216,7 +214,6 @@ export function ReviewScene({
   environmentViewCommand: EnvironmentViewCommand | null;
   onEnvironmentViewChange: (inspection: EnvironmentInspection | null) => void;
   onEnvironmentView: (action: EnvironmentViewCommand["action"]) => void;
-  onReturnEnvironmentPair: () => void;
   maintenanceView: MaintenanceInspection | null;
   onMaintenanceViewChange: (inspection: MaintenanceInspection | null) => void;
   entranceView: EntranceInspection | null;
@@ -311,9 +308,6 @@ export function ReviewScene({
   const powerGeometry = useRef<PowerGeometry | null>(null);
   const inletGeometry = useRef<InletViewGeometry | null>(null);
   const environmentGeometry = useRef<EnvironmentViewGeometry | null>(null);
-  const environmentEntry = useRef<HTMLElement | null>(null);
-  const environmentEntryArea = useRef(".environment-pair-analysis");
-  const environmentReturning = useRef(false);
   const entranceGeometry = useRef<EntranceViewGeometry | null>(null);
   const entranceEntry = useRef<HTMLElement | null>(null);
   const entranceReturning = useRef(false);
@@ -1087,18 +1081,10 @@ export function ReviewScene({
     const active = engine.current;
     if (!active || !environmentViewCommand) return;
     if (environmentViewCommand.action === "return") {
-      environmentReturning.current = !!environmentView;
       active.restoreEnvironmentView();
+      // 返回起点会一并还原侧栏，画幅变化只更新投影。
+      if (!environmentPair) active.preservePanelView();
     } else if (environmentPair && layer === "environment") {
-      if (!environmentView) {
-        environmentEntry.current = document.activeElement as HTMLElement;
-        environmentEntryArea.current = document.activeElement?.closest(
-          ".environment-scene-key",
-        )
-          ? ".environment-scene-key"
-          : ".environment-pair-analysis";
-      }
-      environmentReturning.current = false;
       setOrbit(false);
       active.observeEnvironment(environmentPair);
     }
@@ -1114,35 +1100,6 @@ export function ReviewScene({
     )
       engine.current?.clearEnvironmentView();
   }, [environmentView, environmentPair, state.level, layer]);
-  useEffect(() => {
-    if (environmentView || !environmentReturning.current) return;
-    let frame = 0;
-    const focus = () => {
-      const workspace = host.current?.closest(".workspace-ui");
-      const entry = environmentEntry.current?.isConnected
-        ? environmentEntry.current
-        : (workspace?.querySelector<HTMLElement>(
-            `${environmentEntryArea.current} .environment-view-actions button`,
-          ) ??
-          workspace?.querySelector<HTMLElement>(
-            ".environment-comparison-toggle",
-          ) ??
-          workspace?.querySelector<HTMLElement>(
-            ".review-camera button, .review-camera select",
-          ));
-      if (
-        engine.current?.moving ||
-        (entry instanceof HTMLButtonElement && entry.disabled)
-      ) {
-        frame = requestAnimationFrame(focus);
-        return;
-      }
-      entry?.focus({ preventScroll: true });
-      environmentReturning.current = false;
-    };
-    frame = requestAnimationFrame(focus);
-    return () => cancelAnimationFrame(frame);
-  }, [environmentView, sceneSettled]);
   useEffect(() => {
     const active = engine.current;
     if (!active || !entranceViewCommand) return;
@@ -2290,22 +2247,22 @@ export function ReviewScene({
                   : "环境测点 · 模拟"}
               </strong>
               {environmentPair ? (
-                <>
-                  <small>① 起点 · 实线 / ② 对照 · 虚线</small>
-                  <EnvironmentViewActions
-                    inspection={environmentView}
-                    ready={sceneSettled}
-                    available={state.level === "room"}
-                    onObserve={() => onEnvironmentView("observe")}
-                    onReturn={() => onEnvironmentView("return")}
-                  />
-                  {environmentView && (
-                    <small>竖线为各自高度参考，不是探测覆盖。</small>
-                  )}
-                  <button onClick={onReturnEnvironmentPair}>
-                    ← 返回起点测点
-                  </button>
-                </>
+                <button
+                  className="environment-camera-action"
+                  aria-disabled={!sceneSettled}
+                  onClick={() => {
+                    if (sceneSettled)
+                      onEnvironmentView(environmentView ? "return" : "observe");
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key !== "Escape" || !environmentView) return;
+                    event.preventDefault();
+                    event.stopPropagation();
+                    if (sceneSettled) onEnvironmentView("return");
+                  }}
+                >
+                  {environmentView ? "返回原视角" : "同框观察两测点"}
+                </button>
               ) : (
                 <>
                   <EnvironmentProbeList

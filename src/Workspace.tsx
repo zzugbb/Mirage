@@ -1026,8 +1026,6 @@ export function Workspace() {
   const environment = environmentProbe(selected);
   const pairedEnvironment =
     environmentPairVisit &&
-    review.analysis &&
-    inspector &&
     layer === "environment" &&
     environmentPairIncludes(environmentPairVisit.pair, selected)
       ? environmentPairVisit.pair
@@ -1959,14 +1957,14 @@ export function Workspace() {
     focus(id, { installation: true, showDetails: false });
   };
   const analyzeEnvironmentPair = (otherId: string) => {
-    const pair = environmentPair(selected, otherId);
-    if (!pair) return;
-    setEnvironmentPairVisit({ pair, layer, analysis: review.analysis, nav });
-    setEnvironmentPairMetric("ambientTemperature");
-    control({ type: "layer", layer: "environment" });
-    control({ type: "analysis", value: true });
-    setInspector(true);
-    if (matchMedia("(max-width: 1099px)").matches) setNav(false);
+    if (!pairedEnvironment) {
+      const pair = environmentPair(selected, otherId);
+      if (!pair) return;
+      setEnvironmentPairVisit({ pair, layer, analysis: review.analysis, nav });
+      setEnvironmentPairMetric("ambientTemperature");
+      control({ type: "layer", layer: "environment" });
+    }
+    analyze();
   };
   const returnEnvironmentPair = () => {
     if (!environmentPairVisit) return;
@@ -1978,7 +1976,7 @@ export function Workspace() {
     control({ type: "layer", layer: origin.layer });
     control({ type: "analysis", value: origin.analysis });
     setEnvironmentComparisonOpen(true);
-    setNav(origin.nav);
+    setNav(origin.nav && !matchMedia("(max-width: 1099px)").matches);
   };
   const locateEventDevice = (id: string) => {
     setQuery("");
@@ -3136,6 +3134,18 @@ export function Workspace() {
             </button>
           </div>
         )}
+        {pairedEnvironment && (
+          <div
+            className="study-task-return"
+            role="group"
+            aria-label="环境测点对照往返"
+          >
+            <button disabled={!ready} onClick={returnEnvironmentPair}>
+              ← 返回起点 ·{" "}
+              {environmentProbe(pairedEnvironment.firstId)!.fixture.name}
+            </button>
+          </div>
+        )}
         <nav className="study-path" aria-label="空间路径">
           {getPath(state).map((item, i) => (
             <span key={item}>
@@ -4242,7 +4252,6 @@ export function Workspace() {
             environmentViewCommand={environmentViewCommand}
             onEnvironmentViewChange={setEnvironmentView}
             onEnvironmentView={requestEnvironmentView}
-            onReturnEnvironmentPair={returnEnvironmentPair}
             maintenanceView={maintenanceView}
             onMaintenanceViewChange={setMaintenanceView}
             entranceView={entranceView}
@@ -4498,7 +4507,9 @@ export function Workspace() {
             key={
               review.analysis && pairedInlet
                 ? `inlet:${pairedInlet.firstId}:${pairedInlet.secondId}`
-                : `${selected}:${review.analysis}`
+                : review.analysis && pairedEnvironment
+                  ? `environment:${pairedEnvironment.firstId}:${pairedEnvironment.secondId}`
+                  : `${selected}:${review.analysis}`
             }
             aria-label={review.analysis ? "时间分析面板" : "对象详情"}
           >
@@ -5174,8 +5185,6 @@ export function Workspace() {
                     onComparability={setComparability}
                     inspection={environmentView}
                     inRoom={state.level === "room"}
-                    onObserve={() => requestEnvironmentView("observe")}
-                    onRestoreView={() => requestEnvironmentView("return")}
                     time={state.time}
                     selected={selected}
                     ready={ready}
@@ -5183,7 +5192,6 @@ export function Workspace() {
                     onSeek={(time) => dispatch({ type: "seek", time })}
                     onPreview={pick}
                     onLocate={focus}
-                    onReturn={returnEnvironmentPair}
                     onClose={() => setEnvironmentPairVisit(null)}
                   />
                 ) : environment && fixture ? (

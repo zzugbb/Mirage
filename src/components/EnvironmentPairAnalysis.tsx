@@ -1,6 +1,5 @@
 import { EnvironmentComparability } from "./EnvironmentComparability";
 import type { ComparabilityReview } from "../environment-comparability";
-import { EnvironmentViewActions } from "./EnvironmentViewActions";
 import type { EnvironmentInspection } from "../environment-view";
 import { useEffect, useRef, useState } from "react";
 import type { EnvironmentPair } from "../environment-pair";
@@ -22,15 +21,12 @@ export function EnvironmentPairAnalysis({
   ready,
   inspection: viewInspection,
   inRoom,
-  onObserve,
-  onRestoreView,
   comparability,
   onComparability,
   onMetric,
   onSeek,
   onPreview,
   onLocate,
-  onReturn,
   onClose,
 }: {
   pair: EnvironmentPair;
@@ -40,15 +36,12 @@ export function EnvironmentPairAnalysis({
   ready: boolean;
   inspection: EnvironmentInspection | null;
   inRoom: boolean;
-  onObserve: () => void;
-  onRestoreView: () => void;
   comparability: ComparabilityReview;
   onComparability: (state: ComparabilityReview) => void;
   onMetric: (metric: EnvironmentMetric) => void;
   onSeek: (time: number) => void;
   onPreview: (id: string) => void;
   onLocate: (id: string) => void;
-  onReturn: () => void;
   onClose: () => void;
 }) {
   const heading = useRef<HTMLElement>(null);
@@ -97,63 +90,42 @@ export function EnvironmentPairAnalysis({
           </button>
         ))}
       </div>
-      <EnvironmentViewActions
-        inspection={viewInspection}
-        ready={ready}
-        available={inRoom}
-        onObserve={onObserve}
-        onReturn={onRestoreView}
-      />
-      {viewInspection && (
-        <p className="environment-view-description">
-          两点配置直线间距 {viewInspection.distance.toFixed(2)} m；
-          {viewInspection.probes
-            .map(
-              (probe, index) =>
-                `${index ? "②" : "①"} 中心高 ${probe.point.y.toFixed(2)} m`,
-            )
-            .join("，")}
-          。 高度以机房 Y=0 为参考；间距不表示覆盖、布线长度或区域梯度。
-        </p>
-      )}
       <div className="environment-pair-readings">
         {[first, second].map((probe, index) => {
           const reading = index ? row.right : row.left;
           return (
-            <div
+            <button
               key={probe.fixtureId}
               className={index ? "pair-reference" : "pair-primary"}
-              aria-current={selected === probe.fixtureId ? "true" : undefined}
+              aria-label={`预览对照测点 ${probe.fixture.name}`}
+              aria-describedby={`pair-reading-${probe.fixtureId}`}
+              aria-pressed={selected === probe.fixtureId}
+              onClick={() => onPreview(probe.fixtureId)}
             >
-              <small>{index ? "② 对照 · 虚线" : "① 起点 · 实线"}</small>
+              <small>{index ? "② 对照" : "① 起点"}</small>
               <strong>{probe.fixture.name}</strong>
-              <small>{probe.fixture.location}</small>
-              <b>{environmentValue(reading.value, unit)}</b>
-              <small>
-                {reading.status} ·{" "}
-                {reading.observedAt === null
-                  ? "无可用采样"
-                  : `采样 t+${reading.observedAt}s`}
-              </small>
-              <div>
-                <button
-                  aria-label={`预览对照测点 ${probe.fixture.name}`}
-                  aria-pressed={selected === probe.fixtureId}
-                  onClick={() => onPreview(probe.fixtureId)}
-                >
-                  预览
-                </button>
-                <button
-                  disabled={!ready}
-                  aria-label={`定位对照测点 ${probe.fixture.name}`}
-                  onClick={() => onLocate(probe.fixtureId)}
-                >
-                  定位
-                </button>
-              </div>
-            </div>
+              <span id={`pair-reading-${probe.fixtureId}`}>
+                <small>{probe.fixture.location}</small>
+                <b>{environmentValue(reading.value, unit)}</b>
+                <small>
+                  {reading.status} ·{" "}
+                  {reading.observedAt === null
+                    ? "无可用采样"
+                    : `采样 t+${reading.observedAt}s`}
+                </small>
+              </span>
+            </button>
           );
         })}
+      </div>
+      <div className="environment-pair-location">
+        <button disabled={!ready} onClick={() => onLocate(selected)}>
+          定位
+          {selected === first.fixtureId
+            ? first.fixture.name
+            : second.fixture.name}
+        </button>
+        {!inRoom && <small>定位到机房后可同框观察</small>}
       </div>
       <div className="environment-pair-delta">
         <span>① − ②</span>
@@ -185,15 +157,26 @@ export function EnvironmentPairAnalysis({
         onChange={onComparability}
         onSeek={onSeek}
       />
-      <p>
-        两条曲线共用刻度，只绘制已发生的有效观测；无效处断开，不补零。采样不同步时仍可分别查看读数，但不计算差值。露点为推导值，不是独立测点。
-      </p>
-      <p>
-        预览保留镜头和结构，定位沿用安全归位。点位差异不代表区域梯度、异常阈值或凝露风险。
-      </p>
-      <button className="environment-pair-return" onClick={onReturn}>
-        ← 返回起点测点
-      </button>
+      <details className="environment-pair-notes">
+        <summary>读数与点位说明</summary>
+        {viewInspection && (
+          <p>
+            配置直线间距 {viewInspection.distance.toFixed(2)}{" "}
+            m。相对机房地面（Y=0）的中心高度：
+            {viewInspection.probes
+              .map(
+                (probe, index) =>
+                  `${index ? "②" : "①"} ${probe.point.y.toFixed(2)} m`,
+              )
+              .join("，")}
+            。 竖线标示安装高度，覆盖范围和布线长度未知。
+          </p>
+        )}
+        <p>
+          实线为起点，虚线为对照。两侧采样都有效且同秒才计算差值。曲线保留无效读数的空缺。
+        </p>
+        <p>露点由点位温湿度推导。点位差异不能判断区域梯度或凝露风险。</p>
+      </details>
     </section>
   );
 }

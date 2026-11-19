@@ -4605,17 +4605,22 @@
   grid-template-columns: 1fr 1fr;
   gap: 12px;
 }
-.environment-pair-readings > div {
+.workspace-ui .environment-pair-readings > button {
+  text-align: left;
   display: grid;
   align-content: start;
   gap: 7px;
   min-width: 0;
   border-top: 2px solid #bddbd2;
-  padding-top: 10px;
+  padding: 8px;
 }
-.environment-pair-readings > .pair-reference {
+.workspace-ui .environment-pair-readings > .pair-reference {
   border-top-style: dashed;
   border-color: #b7b9dc;
+}
+.environment-pair-readings small,
+.environment-pair-readings b {
+  display: block;
 }
 .environment-pair-readings small {
   font-size: 10px;
@@ -4625,9 +4630,11 @@
 .environment-pair-readings b {
   font-size: 17px;
 }
-.environment-pair-readings > div > div {
+.environment-pair-location {
   display: flex;
-  gap: 5px;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
 }
 .environment-pair-delta {
   display: flex;
@@ -4641,9 +4648,12 @@
   width: 100%;
   color: #9fb2bd;
 }
-.environment-pair-return {
-  width: 100%;
-  text-align: left;
+.environment-pair-notes {
+  margin: 10px 0;
+  font-size: 11px;
+}
+.environment-pair-notes summary {
+  cursor: pointer;
 }
 .workspace-ui .review-environment-pair-anchor small {
   display: block;
@@ -5017,29 +5027,23 @@
   grid-column: 1 / -1;
 }
 
-.environment-view-actions {
+.workspace-ui[data-layer="environment"]
+  .review-legend:has(.environment-camera-action) {
+  width: fit-content;
+  padding: 8px 10px;
+}
+.workspace-ui .environment-scene-key:has(.environment-camera-action) {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-block: 10px;
+  align-items: center;
+  gap: 8px;
 }
-.environment-view-actions button {
-  padding: 7px 9px;
-  border: 1px solid var(--line);
-  font-size: 11px;
-  cursor: pointer;
+.workspace-ui .environment-scene-key > .environment-camera-action {
+  padding: 5px 8px;
+  border: 1px solid var(--study-line);
+  border-radius: 4px;
 }
-.environment-view-actions button[aria-pressed="true"] {
-  background: #32454e;
-  color: #d3e5e9;
-}
-.environment-view-actions small {
-  flex-basis: 100%;
-  color: #91aab7;
-}
-.environment-view-description {
-  color: #b6cbd3;
-  line-height: 1.6;
+.environment-camera-action[aria-disabled="true"] {
+  opacity: 0.55;
 }
 
 .environment-comparability {
