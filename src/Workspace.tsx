@@ -941,7 +941,9 @@ export function Workspace() {
     | (PeakInspection & {
         anchor: string;
         level: "room" | "rack";
+        camera: TaskViewMemory | null;
         nav: boolean;
+        rackView: typeof rackView;
         layer: ReviewState["layer"];
         metric: "temperature" | "power";
         slice: SliceControls;
@@ -2452,16 +2454,17 @@ export function Workspace() {
           ? current.value
           : { ...emptyPeakProcess, open: true },
     }));
+    const level =
+      state.level === "rack" && rackById(selected) ? "rack" : "room";
     setPeakVisit({
       ...(peakVisit?.scopeId === selected
         ? peakVisit
         : {
             anchor: sourceAnchor,
-            level:
-              state.level === "rack" && rackById(selected)
-                ? ("rack" as const)
-                : ("room" as const),
+            level,
+            camera: captureTaskView.current?.(level) ?? null,
             nav,
+            rackView,
             layer,
             metric,
             slice: sliceControls,
@@ -2495,6 +2498,7 @@ export function Workspace() {
     control({ type: "analysis", value: true });
     setInspector(true);
     setSliceControls(origin.slice);
+    setRackView(origin.rackView);
     setMetric(origin.metric);
     setQuery(origin.query);
     setFilter(origin.filter);
@@ -3086,6 +3090,8 @@ export function Workspace() {
     />
   );
 
+  const analysisScopeId = peakVisit?.scopeId ?? sourceVisit?.check.sourceId;
+  const analysisTask = peakVisit ? "最高来源" : "输入";
   const rackRangeName =
     spaceVisit &&
     `${rackById(spaceVisit.range.rackId)!.name.split(" ")[0]} · ${spaceRangeLabel(spaceVisit.range)}`;
@@ -3151,25 +3157,34 @@ export function Workspace() {
               </button>
             </div>
           )}
-        {sourceVisit && (
+        {analysisScopeId && (
           <div
             className="study-task-return"
             role="group"
-            aria-label="输入核对往返"
+            aria-label={`${analysisTask}核对往返`}
           >
-            <button disabled={!ready || sourceReturning} onClick={returnSource}>
-              ← 返回{entityById(sourceVisit.check.sourceId)?.name} ·{" "}
-              {sourceVisit.check.metric === "temperature" ? "进风" : "功耗"}
-              输入核对
+            <button
+              disabled={!ready || peakReturning || sourceReturning}
+              onClick={peakVisit ? returnPeakSource : returnSource}
+            >
+              ← 返回{entityById(analysisScopeId)?.name} ·{" "}
+              {sourceVisit &&
+                (sourceVisit.check.metric === "temperature" ? "进风" : "功耗")}
+              {analysisTask}核对
             </button>
             <button
-              aria-label="结束输入检视往返"
+              aria-label={`结束${analysisTask}检视往返`}
               title="结束核对，留在当前位置"
-              disabled={sourceReturning}
+              disabled={peakReturning || sourceReturning}
               onClick={() => {
-                setSourceVisit(null);
-                setSourceCheck(null);
-                sourceReturnFocus.current = null;
+                if (peakVisit) {
+                  setPeakReview(null);
+                  setPeakVisit(null);
+                } else {
+                  setSourceVisit(null);
+                  setSourceCheck(null);
+                  sourceReturnFocus.current = null;
+                }
               }}
             >
               ×
@@ -4448,6 +4463,7 @@ export function Workspace() {
           <ReviewScene
             captureTaskView={captureTaskView}
             taskReturn={
+              (peakReturning && peakVisit) ||
               (sourceReturning && sourceVisit) ||
               spaceRestore ||
               (spaceReturning && spaceVisit) ||
@@ -5015,8 +5031,7 @@ export function Workspace() {
                 aria-label="最高来源检视往返"
               >
                 <small>
-                  来自 {entityById(peakVisit.scopeId)?.name} · t+
-                  {peakVisit.time}s 最高来源
+                  t+{peakVisit.time}s 最高来源
                   {peakVisit.sources.length > 1 ? "之一" : ""}
                 </small>
                 <small>
@@ -5028,9 +5043,6 @@ export function Workspace() {
                   {peakInspectionStatus(peakVisit, spatial.readings)}
                   ；不表示故障根因。
                 </small>
-                <button disabled={!ready} onClick={returnPeakSource}>
-                  ← 返回最高来源核对
-                </button>
                 <div>
                   <button
                     disabled={!ready}
@@ -5046,15 +5058,6 @@ export function Workspace() {
                     }}
                   >
                     {resourceOpenLabel(state, peakVisit.deviceId)} ↗
-                  </button>
-                  <button
-                    aria-label="结束最高来源检视往返"
-                    onClick={() => {
-                      setPeakReview(null);
-                      setPeakVisit(null);
-                    }}
-                  >
-                    结束核对
                   </button>
                 </div>
               </section>
