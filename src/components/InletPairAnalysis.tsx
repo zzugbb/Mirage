@@ -1,6 +1,5 @@
 import type { InletDifferenceReview } from "../inlet-difference";
 import { InletDifferenceProcess } from "./InletDifferenceProcess";
-import { InletViewActions } from "./InletViewActions";
 import { useMemo, useState, type Ref } from "react";
 import { inletHistory, inletPairSnapshot } from "../inlet-pair";
 import { reviewEvents } from "../review-model";
@@ -13,10 +12,6 @@ const valueText = (value: number | null) =>
 export function InletPairAnalysis({
   differenceReview,
   onDifferenceReview,
-  viewActive,
-  viewAvailable,
-  onObserve,
-  onRestoreView,
   firstId,
   secondId,
   time,
@@ -32,10 +27,6 @@ export function InletPairAnalysis({
 }: {
   differenceReview: InletDifferenceReview;
   onDifferenceReview: (state: InletDifferenceReview) => void;
-  viewActive: boolean;
-  viewAvailable: boolean;
-  onObserve: () => void;
-  onRestoreView: () => void;
   firstId: string;
   secondId: string;
   time: number;
@@ -52,6 +43,7 @@ export function InletPairAnalysis({
   const [inspection, setInspection] = useState<number | null>(null);
   const cursor = Math.min(time, inspection ?? time);
   const pair = inletPairSnapshot(firstId, secondId, cursor)!;
+  const current = pair.second.id === selectedId ? pair.second : pair.first;
   const first = useMemo(() => inletHistory(firstId), [firstId]);
   const second = useMemo(() => inletHistory(secondId), [secondId]);
   const events = useMemo(
@@ -70,59 +62,55 @@ export function InletPairAnalysis({
           : `游标 t+${cursor}s · 场景 t+${time}s`}{" "}
         · 整机进风模拟
       </p>
-      <InletViewActions
-        active={viewActive}
-        available={viewAvailable}
-        ready={ready}
-        onObserve={onObserve}
-        onReturn={onRestoreView}
-      />
       <div className="inlet-pair-readings">
         {[pair.first, pair.second].map((point, index) => (
-          <div
+          <button
             key={point.id}
             className={index ? "pair-reference" : "pair-primary"}
-            aria-current={selectedId === point.id ? "true" : undefined}
+            aria-label={`预览对照设备 ${point.name}`}
+            aria-describedby={`inlet-pair-reading-${point.id}`}
+            aria-pressed={selectedId === point.id}
+            onClick={() => onPreview(point.id)}
           >
             <span className="inlet-pair-label">
-              {index ? "基准 · 虚线" : "所查 · 实线"}
+              {index ? "② 基准" : "① 所查"}
             </span>
             <strong>{point.name}</strong>
-            <small>{point.location}</small>
-            <b className="inlet-pair-value">{valueText(point.value)}</b>
-            <small>
-              {point.reason} · {point.lifecycle}
-            </small>
-            {point.lastValue !== null && (
+            <span id={`inlet-pair-reading-${point.id}`}>
+              <small>{point.location}</small>
+              <b className="inlet-pair-value">{valueText(point.value)}</b>
               <small>
-                最后观测 {point.observedAt}s · {valueText(point.lastValue)}
+                {point.reason} · {point.lifecycle}
               </small>
-            )}
-            <div className="inlet-pair-actions">
-              <button
-                onClick={() => onPreview(point.id)}
-                aria-label={`预览对照设备 ${point.name}`}
-                aria-pressed={selectedId === point.id}
-              >
-                预览
-              </button>
-              <button
-                disabled={!ready}
-                onClick={() => onLocate(point.id)}
-                aria-label={`定位对照设备 ${point.name} 安装位`}
-              >
-                安装位
-              </button>
-              <button
-                disabled={!ready}
-                onClick={() => onAirflow(point.id)}
-                aria-label={`查看对照设备 ${point.name} 气流`}
-              >
-                气流
-              </button>
-            </div>
-          </div>
+              {point.lastValue !== null && (
+                <small>
+                  最后观测 {point.observedAt}s · {valueText(point.lastValue)}
+                </small>
+              )}
+            </span>
+          </button>
         ))}
+      </div>
+      <div
+        className="inlet-pair-actions"
+        role="group"
+        aria-label={`${current.name} 设备操作`}
+      >
+        <span>{current.name}</span>
+        <button
+          disabled={!ready}
+          onClick={() => onLocate(current.id)}
+          aria-label={`定位对照设备 ${current.name} 安装位`}
+        >
+          定位安装位
+        </button>
+        <button
+          disabled={!ready}
+          onClick={() => onAirflow(current.id)}
+          aria-label={`查看对照设备 ${current.name} 气流`}
+        >
+          查看气流
+        </button>
       </div>
       <div className="inlet-pair-difference">
         <span>所查 − 基准</span>
@@ -131,11 +119,7 @@ export function InletPairAnalysis({
             ? "—"
             : `${pair.difference > 0 ? "+" : ""}${pair.difference.toFixed(1)} °C`}
         </strong>
-        <small>
-          {pair.difference === null
-            ? "缺少同秒有效进风，暂不计算差值"
-            : "同秒有效读数之差"}
-        </small>
+        {pair.difference === null && <small>缺少同秒有效读数</small>}
       </div>
       <ReviewTrend
         series={first}
@@ -159,9 +143,13 @@ export function InletPairAnalysis({
           onSeek(target);
         }}
       />
-      <p className="inlet-pair-boundary">
-        同框轮廓对应两台设备的完整安装跨度，不代表真实风口或供风覆盖；柜前标签跟随场景时间，图表游标不改动场景。两条曲线共用温度刻度，只绘制已发生的有效读数。预览不改变镜头与结构；定位后可检视设备，再返回原对照。差值不表示异常阈值、冷却效果或故障根因。
-      </p>
+      <details className="inlet-pair-boundary">
+        <summary>对照读数说明</summary>
+        <p>
+          实线为所查设备，虚线为基准设备。两条曲线共用温度刻度，空白表示当时无有效读数。游标只预览，回看同步到场景。
+        </p>
+        <p>温差仅比较同秒有效进风，不能据此判断故障或冷却效果。</p>
+      </details>
       <AnalysisEvents
         title="两台设备已发生事件"
         events={events}

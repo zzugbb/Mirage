@@ -8,7 +8,6 @@ import type {
 } from "../inlet-view";
 import { inletPairSnapshot } from "../inlet-pair";
 import { InletViewGeometry } from "../scene/inlet-view";
-import { InletViewActions } from "./InletViewActions";
 import type {
   EnvironmentInspection,
   EnvironmentViewCommand,
@@ -311,8 +310,6 @@ export function ReviewScene({
   const maintenanceGeometry = useRef<MaintenanceGeometry | null>(null);
   const powerGeometry = useRef<PowerGeometry | null>(null);
   const inletGeometry = useRef<InletViewGeometry | null>(null);
-  const inletEntry = useRef<HTMLElement | null>(null);
-  const inletReturning = useRef(false);
   const environmentGeometry = useRef<EnvironmentViewGeometry | null>(null);
   const environmentEntry = useRef<HTMLElement | null>(null);
   const environmentEntryArea = useRef(".environment-pair-analysis");
@@ -1065,12 +1062,8 @@ export function ReviewScene({
     const active = engine.current;
     if (!active || !inletViewCommand) return;
     if (inletViewCommand.action === "return") {
-      inletReturning.current = !!inletView;
       active.restoreInletView();
     } else if (inletPair && layer === "environment") {
-      if (!inletView)
-        inletEntry.current = document.activeElement as HTMLElement;
-      inletReturning.current = false;
       setOrbit(false);
       active.observeInlet(inletPair);
     }
@@ -1090,30 +1083,6 @@ export function ReviewScene({
     )
       engine.current?.clearInletView();
   }, [inletView, inletPair, state.level, layer]);
-  useEffect(() => {
-    if (inletView || !inletReturning.current) return;
-    let frame = 0;
-    const focus = () => {
-      const entry = inletEntry.current?.isConnected
-        ? inletEntry.current
-        : host.current
-            ?.closest(".workspace-ui")
-            ?.querySelector<HTMLElement>(
-              ".inlet-pair-analysis .inlet-view-actions button",
-            );
-      if (
-        engine.current?.moving ||
-        (entry instanceof HTMLButtonElement && entry.disabled)
-      ) {
-        frame = requestAnimationFrame(focus);
-        return;
-      }
-      entry?.focus({ preventScroll: true });
-      inletReturning.current = false;
-    };
-    frame = requestAnimationFrame(focus);
-    return () => cancelAnimationFrame(frame);
-  }, [inletView, sceneSettled]);
   useEffect(() => {
     const active = engine.current;
     if (!active || !environmentViewCommand) return;
@@ -2313,21 +2282,7 @@ export function ReviewScene({
                 </>
               )}
             </div>
-          ) : inletView ? (
-            <div className="inlet-scene-key">
-              <strong>双设备进风 · t+{state.time}s</strong>
-              <small>① 所查 · 实线 / ② 基准 · 虚线</small>
-              <InletViewActions
-                active
-                ready={sceneSettled}
-                available
-                onObserve={() => onInletView("observe")}
-                onReturn={() => onInletView("return")}
-              />
-              <small>柜前轮廓为安装跨度 · 非真实风口</small>
-              <small>切片已暂收，结束观察后恢复。</small>
-            </div>
-          ) : ambientSelected ? (
+          ) : inletView ? null : ambientSelected ? (
             <div className="environment-scene-key">
               <strong>
                 {environmentPair
@@ -2699,6 +2654,28 @@ export function ReviewScene({
                 </details>
               )}
             </>
+          )}
+          {inletPair && state.level === "room" && layer === "environment" && (
+            <div className="inlet-scene-key">
+              <strong>
+                {inletView ? "进风对照 · 安装跨度" : "双设备进风"}
+              </strong>
+              <button
+                aria-disabled={!sceneSettled}
+                onClick={() => {
+                  if (sceneSettled)
+                    onInletView(inletView ? "return" : "observe");
+                }}
+                onKeyDown={(event) => {
+                  if (event.key !== "Escape" || !inletView) return;
+                  event.preventDefault();
+                  event.stopPropagation();
+                  if (sceneSettled) onInletView("return");
+                }}
+              >
+                {inletView ? "返回原视角" : "同框观察两台设备"}
+              </button>
+            </div>
           )}
         </div>
         {error && (

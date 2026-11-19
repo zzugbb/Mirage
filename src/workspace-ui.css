@@ -3905,17 +3905,21 @@
   grid-template-columns: 1fr 1fr;
   gap: 12px;
 }
-.inlet-pair-readings > div {
+.workspace-ui .inlet-pair-readings > button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
   min-width: 0;
   padding: 10px;
   border: 1px solid #34434e;
   border-top: 2px solid #b2d8d6;
   border-radius: 4px;
 }
-.inlet-pair-readings > .pair-reference {
+.workspace-ui .inlet-pair-readings > .pair-reference {
   border-top: 2px dashed #b7b9dc;
 }
-.inlet-pair-readings > div[aria-current="true"] {
+.workspace-ui .inlet-pair-readings > button[aria-pressed="true"] {
   background: #233139;
 }
 .inlet-pair-readings strong,
@@ -3945,8 +3949,10 @@
 }
 .inlet-pair-actions {
   display: flex;
+  align-items: center;
+  font-size: 11px;
   flex-wrap: wrap;
-  gap: 3px;
+  gap: 6px;
   margin-top: 8px;
 }
 .workspace-ui .inlet-pair-actions button {
@@ -5132,42 +5138,34 @@
   cursor: pointer;
 }
 
-.inlet-view-actions {
+.workspace-ui .review-legend > .inlet-scene-key {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin: 10px 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: auto;
+  pointer-events: auto;
 }
-.inlet-view-actions button {
-  border: 1px solid var(--line);
+.review-slice-legend[data-slice-visible="true"] .inlet-scene-key {
+  border-top: 1px solid var(--study-line);
+  padding-top: 6px;
+  margin-top: 6px;
+}
+.workspace-ui[data-layer="environment"]
+  .review-legend[data-slice-visible="false"]:has(.inlet-scene-key) {
+  width: fit-content;
+  padding: 8px 10px;
+}
+.workspace-ui .inlet-scene-key button {
+  padding: 5px 8px;
+  border: 1px solid var(--study-line);
   border-radius: 4px;
-  background: #26343c;
-  color: inherit;
-  padding: 7px 9px;
   font-size: 11px;
 }
-.inlet-view-actions button[aria-pressed="true"] {
-  border-color: #a2e1df;
-}
-.inlet-view-actions small {
-  flex-basis: 100%;
-}
-.workspace-ui .review-legend > .inlet-scene-key {
-  display: grid;
-  gap: 7px;
-}
-.inlet-scene-key .inlet-view-actions {
-  max-width: 250px;
-  margin: 0;
+.inlet-scene-key button[aria-disabled="true"] {
+  opacity: 0.55;
 }
 
-.workspace-ui .review-legend:has(.inlet-scene-key) {
-  pointer-events: auto;
-  width: 285px;
-  max-width: calc(100% - 36px);
-  padding: 14px;
-  white-space: normal;
-}
 .workspace-ui .review-inlet-pair-anchor {
   pointer-events: auto;
   cursor: pointer;

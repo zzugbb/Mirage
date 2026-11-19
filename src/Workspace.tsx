@@ -4495,7 +4495,11 @@ export function Workspace() {
           <aside
             ref={inspectorRef}
             className={`study-inspector ${review.analysis ? "is-analysis" : ""}`}
-            key={`${selected}:${review.analysis}`}
+            key={
+              review.analysis && pairedInlet
+                ? `inlet:${pairedInlet.firstId}:${pairedInlet.secondId}`
+                : `${selected}:${review.analysis}`
+            }
             aria-label={review.analysis ? "时间分析面板" : "对象详情"}
           >
             <div className="study-panel-heading">
@@ -5207,12 +5211,6 @@ export function Workspace() {
                     key={`${pairedInlet.firstId}:${pairedInlet.secondId}`}
                     differenceReview={inletDifferenceReview}
                     onDifferenceReview={setInletDifferenceReview}
-                    viewActive={!!inletView}
-                    viewAvailable={
-                      state.level === "room" && layer === "environment"
-                    }
-                    onObserve={() => requestInletView("observe")}
-                    onRestoreView={() => requestInletView("return")}
                     firstId={pairedInlet.firstId}
                     secondId={pairedInlet.secondId}
                     time={state.time}
