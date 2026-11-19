@@ -5438,12 +5438,29 @@
 }
 
 /* 布置图仅辅助查找位置，三维继续承担定位与结构检视。 */
+.room-layout-browser {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  font-size: 11px;
+}
+.room-layout-finder {
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--study-line);
+}
+.room-layout-finder p {
+  margin-top: 6px;
+  color: #abbec8;
+}
+.room-layout-search:not(:focus-within) + p .layout-key-hint {
+  visibility: hidden;
+}
 .room-layout {
   flex: 1;
   overflow: auto;
   min-height: 0;
-  padding: 12px 16px 20px;
-  font-size: 11px;
+  padding: 0 16px 20px;
 }
 .room-layout > p,
 .room-layout-selection p,
@@ -5475,7 +5492,7 @@
   right: 0;
   top: 0;
 }
-.room-layout input {
+.room-layout-search input {
   width: 100%;
   min-width: 0;
   box-sizing: border-box;
@@ -6544,10 +6561,17 @@
   background: #88b7bd13;
 }
 .layout-device-results [data-device-result] {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
   width: 100%;
   text-align: left;
   padding: 5px 8px;
   font: inherit;
+}
+.layout-device-results [data-device-result] > span {
+  color: #c4d4da;
+  font-variant-numeric: tabular-nums;
 }
 .layout-device-results .layout-device-actions {
   padding: 0 8px 6px;
@@ -6558,6 +6582,7 @@
   background: #ffffff08;
 }
 .layout-device-results small {
+  grid-column: 1 / -1;
   display: block;
   color: #a9bcc4;
   margin-top: 3px;

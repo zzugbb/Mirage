@@ -71,7 +71,7 @@ export function RoomLayout({
   onBoundaryOpen: (open: boolean) => void;
 }) {
   const search = useRef<HTMLInputElement>(null);
-  const host = useRef<HTMLElement>(null),
+  const host = useRef<HTMLDivElement>(null),
     map = useRef<HTMLDivElement>(null);
   const items = roomLayoutScopeItems(scope);
   const pair =
@@ -145,7 +145,6 @@ export function RoomLayout({
     current?.kind === "rack"
       ? devices.filter((device) => device.rackId === current.id).length
       : 0;
-  const selectedResultRack = selected === resultRack?.id;
   const selectedDevice =
     scope === "equipment"
       ? layoutDeviceRows.find((device) => device.id === selected)
@@ -168,355 +167,417 @@ export function RoomLayout({
       </button>
     </div>
   );
+  const hasQuery = !!query.trim();
+  const single = hasQuery && matches.length === 1 ? matches[0] : undefined;
+  const singleDevice =
+    single?.kind === "rack" && results.length === 1 ? results[0] : undefined;
+  const changeQuery = (value: string) => {
+    if (host.current) host.current.scrollTop = 0;
+    onQuery(value);
+  };
   return (
-    <section
-      ref={host}
-      className="room-layout"
-      aria-label="机房布置导览"
-      onScroll={(event) => {
-        scroll.current = event.currentTarget.scrollTop;
-      }}
-    >
-      <div className="room-layout-toolbar">
-        <select
-          aria-label="布置图范围"
-          value={scope}
-          onChange={(event) => onScope(event.target.value as RoomLayoutScope)}
-        >
-          {(Object.keys(scopes) as RoomLayoutScope[]).map((key) => (
-            <option key={key} value={key}>
-              {scopes[key].name}
-            </option>
-          ))}
-        </select>
-        <button disabled={!ready} onClick={onPlan}>
-          俯看三维布置
-        </button>
-      </div>
-      <div className="room-layout-search">
-        <input
-          ref={search}
-          aria-label="布置图查找"
-          value={query}
-          placeholder={scopes[scope].hint}
-          onChange={(event) => onQuery(event.target.value)}
-        />
-        {query && (
-          <button
-            aria-label="清除布置查找"
-            onClick={() => {
-              search.current?.focus();
-              onQuery("");
+    <section className="room-layout-browser" aria-label="机房布置导览">
+      <div className="room-layout-finder">
+        <div className="room-layout-toolbar">
+          <select
+            aria-label="布置图范围"
+            value={scope}
+            onChange={(event) => {
+              if (host.current) host.current.scrollTop = 0;
+              onScope(event.target.value as RoomLayoutScope);
             }}
           >
-            ×
+            {(Object.keys(scopes) as RoomLayoutScope[]).map((key) => (
+              <option key={key} value={key}>
+                {scopes[key].name}
+              </option>
+            ))}
+          </select>
+          <button disabled={!ready} onClick={onPlan}>
+            俯看三维布置
           </button>
+        </div>
+        <div className="room-layout-search">
+          <input
+            ref={search}
+            aria-label="布置图查找"
+            value={query}
+            placeholder={scopes[scope].hint}
+            aria-describedby={hasQuery ? "layout-match-status" : undefined}
+            onChange={(event) => changeQuery(event.target.value)}
+            onKeyDown={(event) => {
+              if (
+                event.key !== "Enter" ||
+                event.nativeEvent.isComposing ||
+                !single
+              )
+                return;
+              const target = singleDevice
+                ? host.current?.querySelector<HTMLButtonElement>(
+                    `[data-device-result="${singleDevice.id}"]`,
+                  )
+                : map.current?.querySelector<HTMLButtonElement>(
+                    `[data-layout-id="${single.id}"]`,
+                  );
+              if (target) {
+                event.preventDefault();
+                target.focus();
+                target.click();
+              }
+            }}
+          />
+          {query && (
+            <button
+              aria-label="清除布置查找"
+              onClick={() => {
+                search.current?.focus();
+                changeQuery("");
+              }}
+            >
+              ×
+            </button>
+          )}
+        </div>
+        {hasQuery && (
+          <p id="layout-match-status" role="status">
+            {matches.length
+              ? `匹配 ${matches.length} / ${items.length} 处`
+              : "当前范围没有匹配位置"}
+            {resultRack && ` · ${resultRack.short} · ${results.length} 台`}
+            {single && (
+              <span className="layout-key-hint">
+                {" · Enter 预览"}
+                {singleDevice
+                  ? "设备"
+                  : single.kind === "rack"
+                    ? "柜位"
+                    : "位置"}
+              </span>
+            )}
+          </p>
         )}
       </div>
       <div
-        ref={map}
-        className="room-layout-map"
-        role="group"
-        aria-label="机房位置图"
-        onKeyDown={(event) => {
-          const id = (event.target as HTMLElement).dataset.layoutId;
-          if (!id) return;
-          const next =
-            event.key === "Home"
-              ? items[0].id
-              : event.key === "End"
-                ? items.at(-1)!.id
-                : roomLayoutNeighbor(id, event.key, scope);
-          if (
-            [
-              "ArrowUp",
-              "ArrowDown",
-              "ArrowLeft",
-              "ArrowRight",
-              "Home",
-              "End",
-            ].includes(event.key)
-          ) {
-            event.preventDefault();
-            event.stopPropagation();
-            map.current
-              ?.querySelector<HTMLButtonElement>(`[data-layout-id="${next}"]`)
-              ?.focus();
-          }
+        ref={host}
+        className="room-layout"
+        onScroll={(event) => {
+          scroll.current = event.currentTarget.scrollTop;
         }}
       >
-        <svg viewBox="0 0 280 252" aria-hidden="true">
-          <rect
-            className="room-layout-boundary"
-            x={x(-roomLayoutSize.width / 2)}
-            y={z(-roomLayoutSize.depth / 2)}
-            width={roomLayoutSize.width * 16}
-            height={roomLayoutSize.depth * 16}
-          />
-          <text x="140" y={scope === "fixtures" ? 10 : 18} textAnchor="middle">
-            入口侧 · −Z
-          </text>
-          <text x="140" y="244" textAnchor="middle">
-            柜前方向 ↓ +Z
-          </text>
-          {roomLayoutItems.map((item) => (
-            <g
-              key={item.id}
-              className={
-                scope !== "equipment" ? "room-layout-context" : undefined
-              }
-              data-selected={scope === "equipment" && active === item.id}
-              data-match={
-                scope !== "equipment" || roomLayoutMatches(item, query)
-              }
+        <div
+          ref={map}
+          className="room-layout-map"
+          role="group"
+          aria-label="机房位置图"
+          onKeyDown={(event) => {
+            const id = (event.target as HTMLElement).dataset.layoutId;
+            if (!id) return;
+            const next =
+              event.key === "Home"
+                ? items[0].id
+                : event.key === "End"
+                  ? items.at(-1)!.id
+                  : roomLayoutNeighbor(id, event.key, scope);
+            if (
+              [
+                "ArrowUp",
+                "ArrowDown",
+                "ArrowLeft",
+                "ArrowRight",
+                "Home",
+                "End",
+              ].includes(event.key)
+            ) {
+              event.preventDefault();
+              event.stopPropagation();
+              map.current
+                ?.querySelector<HTMLButtonElement>(`[data-layout-id="${next}"]`)
+                ?.focus();
+            }
+          }}
+        >
+          <svg viewBox="0 0 280 252" aria-hidden="true">
+            <rect
+              className="room-layout-boundary"
+              x={x(-roomLayoutSize.width / 2)}
+              y={z(-roomLayoutSize.depth / 2)}
+              width={roomLayoutSize.width * 16}
+              height={roomLayoutSize.depth * 16}
+            />
+            <text
+              x="140"
+              y={scope === "fixtures" ? 10 : 18}
+              textAnchor="middle"
             >
-              <rect
-                className="room-layout-footprint"
-                x={x(item.x - item.width / 2)}
-                y={z(item.z - item.depth / 2)}
-                width={item.width * 16}
-                height={item.depth * 16}
-              />
-              {item.kind === "rack" && (
-                <path
-                  className="room-layout-front"
-                  d={`M ${x(item.x - item.width / 2)} ${z(item.z + item.depth / 2)} h ${item.width * 16}`}
-                />
-              )}
-            </g>
-          ))}
-          {scope === "grilles" && (
-            <g className="room-layout-grilles">
-              {floorGrilles.map((g) => (
-                <rect
-                  key={g.id}
-                  data-active={branch?.grille.id === g.id}
-                  x={x(g.position[0] - floorGrilleSettings.width / 2)}
-                  y={z(g.position[2] - floorGrilleSettings.depth / 2)}
-                  width={floorGrilleSettings.width * 16}
-                  height={floorGrilleSettings.depth * 16}
-                />
-              ))}
-              {branch && (
-                <line
-                  x1={x(branch.grille.position[0])}
-                  y1={z(branch.grille.position[2])}
-                  x2={x(branch.rack.position[0])}
-                  y2={z(branch.rack.position[2] + current!.depth / 2)}
-                />
-              )}
-            </g>
-          )}
-          {scope === "ceiling" &&
-            roomLayoutCeilingFootprints.map((f) => (
+              入口侧 · −Z
+            </text>
+            <text x="140" y="244" textAnchor="middle">
+              柜前方向 ↓ +Z
+            </text>
+            {roomLayoutItems.map((item) => (
               <g
-                key={f.id}
-                className="room-layout-ceiling"
-                data-kind={f.kind}
-                data-selected={f.id === pair?.lightId || f.id === pair?.trayId}
+                key={item.id}
+                className={
+                  scope !== "equipment" ? "room-layout-context" : undefined
+                }
+                data-selected={scope === "equipment" && active === item.id}
+                data-match={
+                  scope !== "equipment" || roomLayoutMatches(item, query)
+                }
               >
                 <rect
-                  x={x(f.x - f.width / 2)}
-                  y={z(f.z - f.depth / 2)}
-                  width={f.width * 16}
-                  height={f.depth * 16}
+                  className="room-layout-footprint"
+                  x={x(item.x - item.width / 2)}
+                  y={z(item.z - item.depth / 2)}
+                  width={item.width * 16}
+                  height={item.depth * 16}
                 />
-                {f.kind === "light" && (
-                  <text
-                    x={x(f.x)}
-                    y={z(f.z - f.depth / 2) - 7}
-                    textAnchor="middle"
-                  >
-                    {f.name}
-                  </text>
+                {item.kind === "rack" && (
+                  <path
+                    className="room-layout-front"
+                    d={`M ${x(item.x - item.width / 2)} ${z(item.z + item.depth / 2)} h ${item.width * 16}`}
+                  />
                 )}
               </g>
             ))}
-          {scope === "fixtures" && (
-            <>
-              <g
-                className="room-layout-leak"
-                data-selected={active === roomLayoutLeakPath.id}
-              >
-                <polyline
-                  className="room-layout-lead"
-                  points={roomLayoutLeakPath.lead
-                    .map(([px, pz]) => `${x(px)},${z(pz)}`)
-                    .join(" ")}
-                />
-                <polyline
-                  points={roomLayoutLeakPath.sensing
-                    .map(([px, pz]) => `${x(px)},${z(pz)}`)
-                    .join(" ")}
-                />
-              </g>
-              {items.map((item) => (
-                <g
-                  key={item.id}
-                  className="room-layout-point"
-                  data-selected={active === item.id}
-                  data-match={roomLayoutMatches(item, query)}
-                >
-                  <line
-                    x1={x(item.x)}
-                    y1={z(item.z)}
-                    x2={x(item.x) + item.labelOffset![0]}
-                    y2={z(item.z) + item.labelOffset![1]}
+            {scope === "grilles" && (
+              <g className="room-layout-grilles">
+                {floorGrilles.map((g) => (
+                  <rect
+                    key={g.id}
+                    data-active={branch?.grille.id === g.id}
+                    x={x(g.position[0] - floorGrilleSettings.width / 2)}
+                    y={z(g.position[2] - floorGrilleSettings.depth / 2)}
+                    width={floorGrilleSettings.width * 16}
+                    height={floorGrilleSettings.depth * 16}
                   />
-                  <circle cx={x(item.x)} cy={z(item.z)} r={3} />
+                ))}
+                {branch && (
+                  <line
+                    x1={x(branch.grille.position[0])}
+                    y1={z(branch.grille.position[2])}
+                    x2={x(branch.rack.position[0])}
+                    y2={z(branch.rack.position[2] + current!.depth / 2)}
+                  />
+                )}
+              </g>
+            )}
+            {scope === "ceiling" &&
+              roomLayoutCeilingFootprints.map((f) => (
+                <g
+                  key={f.id}
+                  className="room-layout-ceiling"
+                  data-kind={f.kind}
+                  data-selected={
+                    f.id === pair?.lightId || f.id === pair?.trayId
+                  }
+                >
+                  <rect
+                    x={x(f.x - f.width / 2)}
+                    y={z(f.z - f.depth / 2)}
+                    width={f.width * 16}
+                    height={f.depth * 16}
+                  />
+                  {f.kind === "light" && (
+                    <text
+                      x={x(f.x)}
+                      y={z(f.z - f.depth / 2) - 7}
+                      textAnchor="middle"
+                    >
+                      {f.name}
+                    </text>
+                  )}
                 </g>
               ))}
-            </>
-          )}
-        </svg>
-        {items.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            data-layout-id={item.id}
-            data-kind={item.kind}
-            data-match={roomLayoutMatches(item, query)}
-            aria-pressed={active === item.id}
-            aria-label={`预览布置 ${item.name}`}
-            title={item.name}
-            style={{
-              left: `${((x(item.x) + (item.labelOffset?.[0] ?? 0)) / 280) * 100}%`,
-              top: `${((z(item.z) + (item.labelOffset?.[1] ?? 0)) / 252) * 100}%`,
-            }}
-            onClick={() =>
-              item.kind === "crossing"
-                ? onPreviewCrossing(item.id)
-                : onPreview(item.id)
-            }
-          >
-            <span>{item.short}</span>
-          </button>
-        ))}
-      </div>
-      <p className="room-layout-result" role="status">
-        {query.trim()
-          ? `匹配 ${matches.length} / ${items.length} 处；其余位置保留`
-          : scope === "grilles"
-            ? "小格为地面格栅；选择柜位查看代表落点"
-            : scope === "ceiling"
-              ? "纵向为灯体，横向为桥架；A / B 为对应柜排"
-              : scope === "fixtures"
-                ? "圆点为配置中心 · 实线为感应线，虚线为引线"
-                : `${roomLayoutSize.width} × ${roomLayoutSize.depth} m · 线框按配置尺寸投影`}
-      </p>
-      {scope === "equipment" &&
-        query.trim() &&
-        rackHits.length > 1 &&
-        !resultRack && <p>选择亮起的机柜，查看柜内匹配设备。</p>}
-      {selectedDevice ? (
-        !selectedInResults && (
-          <div className="room-layout-selection" aria-label="布置当前设备">
-            <strong>{selectedDevice.name}</strong>
-            <p>
-              {current?.name} · {selectedDevice.units} · {selectedDevice.model}
-            </p>
-            {deviceActions}
-          </div>
-        )
-      ) : current ? (
-        <div className="room-layout-selection" aria-label="布置当前对象">
-          <strong>
-            {!branch && !pair && selected !== current.id
-              ? `所属位置 · ${current.name}`
-              : current.name}
-          </strong>
-          <p>
-            {branch
-              ? `格栅 ${branch.grille.id.split("-").at(-1)} → ${branch.device.name}`
-              : pair
-                ? `灯罩底面比侧梁顶面${pair.difference >= 0 ? "高" : "低"} ${Math.abs(pair.difference).toFixed(2)} m · 配置表面高差，非最小净距`
-                : current.kind === "rack"
-                  ? `${rackCount} 台设备${selectedResultRack && results.length !== rackCount ? ` · 匹配 ${results.length} 台` : ""}`
-                  : (current.location ?? "柜体配置位置 · 非监测覆盖")}
-          </p>
-          {branch ? (
-            <div>
-              <button disabled={!ready} onClick={() => onInspectBranch(branch)}>
-                查看代表气流 ↗
-              </button>
-            </div>
-          ) : pair ? (
-            <div>
-              <button
-                disabled={!ready}
-                onClick={() => onInspectCrossing(pair.id)}
-              >
-                核对交叉高度 ↗
-              </button>
-            </div>
-          ) : (
-            <div>
-              <button disabled={!ready} onClick={() => onLocate(current.id)}>
-                定位此处
-              </button>
-              <button
-                data-layout-point-details={
-                  current.kind === "rack" ? undefined : current.id
-                }
-                onClick={() => onDetails(current.id)}
-              >
-                详情
-              </button>
-              {current.kind === "rack" && (
-                <button
-                  data-enter-layout-rack={current.id}
-                  aria-disabled={!ready}
-                  onClick={() => ready && onEnter(current.id)}
+            {scope === "fixtures" && (
+              <>
+                <g
+                  className="room-layout-leak"
+                  data-selected={active === roomLayoutLeakPath.id}
                 >
-                  进入机柜 ↗
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-      ) : (
-        <p>
-          {scope === "ceiling"
-            ? "选择交叉处预览顶灯，核对时近看两个表面。"
-            : "选择一个位置，在三维中预览；定位才移动镜头。"}
-        </p>
-      )}
-      {resultRack && (
-        <section className="layout-device-results" aria-label="匹配设备">
-          {!selectedResultRack && (
-            <strong>
-              {resultRack.short} · 匹配 {results.length} 台
-            </strong>
-          )}
-          {results.map((device) => (
-            <div key={device.id} data-layout-device-row>
-              <button
-                data-device-result={device.id}
-                aria-pressed={selected === device.id}
-                aria-label={`预览 ${device.name}`}
-                onClick={() => onPreview(device.id)}
-              >
-                <strong>{device.name}</strong>
-                <small>
-                  {selected === device.id && `${resultRack.short} · `}
-                  {device.units} · {device.model}
-                </small>
-              </button>
-              {selected === device.id && deviceActions}
-            </div>
+                  <polyline
+                    className="room-layout-lead"
+                    points={roomLayoutLeakPath.lead
+                      .map(([px, pz]) => `${x(px)},${z(pz)}`)
+                      .join(" ")}
+                  />
+                  <polyline
+                    points={roomLayoutLeakPath.sensing
+                      .map(([px, pz]) => `${x(px)},${z(pz)}`)
+                      .join(" ")}
+                  />
+                </g>
+                {items.map((item) => (
+                  <g
+                    key={item.id}
+                    className="room-layout-point"
+                    data-selected={active === item.id}
+                    data-match={roomLayoutMatches(item, query)}
+                  >
+                    <line
+                      x1={x(item.x)}
+                      y1={z(item.z)}
+                      x2={x(item.x) + item.labelOffset![0]}
+                      y2={z(item.z) + item.labelOffset![1]}
+                    />
+                    <circle cx={x(item.x)} cy={z(item.z)} r={3} />
+                  </g>
+                ))}
+              </>
+            )}
+          </svg>
+          {items.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              data-layout-id={item.id}
+              data-kind={item.kind}
+              data-match={roomLayoutMatches(item, query)}
+              aria-pressed={active === item.id}
+              aria-label={`预览布置 ${item.name}`}
+              title={item.name}
+              style={{
+                left: `${((x(item.x) + (item.labelOffset?.[0] ?? 0)) / 280) * 100}%`,
+                top: `${((z(item.z) + (item.labelOffset?.[1] ?? 0)) / 252) * 100}%`,
+              }}
+              onClick={() =>
+                item.kind === "crossing"
+                  ? onPreviewCrossing(item.id)
+                  : onPreview(item.id)
+              }
+            >
+              <span>{item.short}</span>
+            </button>
           ))}
-        </section>
-      )}
-      <details
-        open={boundaryOpen}
-        onToggle={(event) => onBoundaryOpen(event.currentTarget.open)}
-      >
-        <summary>方向与布置边界</summary>
-        <p>
-          图上横向为 X、纵向为
-          Z，不表示地理南北。细框为配置占地，名称按钮仅供选择；不随三维镜头旋转。亮边标记柜前，空白不代表通行净距或可用容量。环境与安全层投影七处既有设施的配置中心与检漏路径，标签通过细线连接原位置。点位和路径不代表监测覆盖或设施状态；两处环境探头仅有演示读数。顶灯与桥架按配置投影，交叉不表示接线或碰撞。柜前格栅按最近位置标出代表落点，不表示独占供风或实测风量。
-        </p>
-      </details>
+        </div>
+        {!hasQuery && (
+          <p className="room-layout-result">
+            {scope === "grilles"
+              ? "小格为地面格栅；选择柜位查看代表落点"
+              : scope === "ceiling"
+                ? "纵向为灯体，横向为桥架；A / B 为对应柜排"
+                : scope === "fixtures"
+                  ? "圆点为配置中心 · 实线为感应线，虚线为引线"
+                  : `${roomLayoutSize.width} × ${roomLayoutSize.depth} m · 线框按配置尺寸投影`}
+          </p>
+        )}
+        {scope === "equipment" &&
+          query.trim() &&
+          rackHits.length > 1 &&
+          !resultRack && <p>选择亮起的机柜，查看柜内匹配设备。</p>}
+        {selectedDevice ? (
+          !selectedInResults && (
+            <div className="room-layout-selection" aria-label="布置当前设备">
+              <strong>{selectedDevice.name}</strong>
+              <p>
+                {current?.name} · {selectedDevice.units} ·{" "}
+                {selectedDevice.model}
+              </p>
+              {deviceActions}
+            </div>
+          )
+        ) : current ? (
+          <div className="room-layout-selection" aria-label="布置当前对象">
+            <strong>
+              {!branch && !pair && selected !== current.id
+                ? `所属位置 · ${current.name}`
+                : current.name}
+            </strong>
+            <p>
+              {branch
+                ? `格栅 ${branch.grille.id.split("-").at(-1)} → ${branch.device.name}`
+                : pair
+                  ? `灯罩底面比侧梁顶面${pair.difference >= 0 ? "高" : "低"} ${Math.abs(pair.difference).toFixed(2)} m · 配置表面高差，非最小净距`
+                  : current.kind === "rack"
+                    ? `${rackCount} 台设备`
+                    : (current.location ?? "柜体配置位置 · 非监测覆盖")}
+            </p>
+            {branch ? (
+              <div>
+                <button
+                  disabled={!ready}
+                  onClick={() => onInspectBranch(branch)}
+                >
+                  查看代表气流 ↗
+                </button>
+              </div>
+            ) : pair ? (
+              <div>
+                <button
+                  disabled={!ready}
+                  onClick={() => onInspectCrossing(pair.id)}
+                >
+                  核对交叉高度 ↗
+                </button>
+              </div>
+            ) : (
+              <div>
+                <button disabled={!ready} onClick={() => onLocate(current.id)}>
+                  定位此处
+                </button>
+                <button
+                  data-layout-point-details={
+                    current.kind === "rack" ? undefined : current.id
+                  }
+                  onClick={() => onDetails(current.id)}
+                >
+                  详情
+                </button>
+                {current.kind === "rack" && (
+                  <button
+                    data-enter-layout-rack={current.id}
+                    aria-disabled={!ready}
+                    onClick={() => ready && onEnter(current.id)}
+                  >
+                    进入机柜 ↗
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        ) : (
+          <p>
+            {scope === "ceiling"
+              ? "选择交叉处预览顶灯，核对时近看两个表面。"
+              : "选择一个位置，在三维中预览；定位才移动镜头。"}
+          </p>
+        )}
+        {resultRack && (
+          <section className="layout-device-results" aria-label="匹配设备">
+            {results.map((device) => (
+              <div key={device.id} data-layout-device-row>
+                <button
+                  data-device-result={device.id}
+                  aria-pressed={selected === device.id}
+                  aria-label={`预览 ${device.name}`}
+                  onClick={() => onPreview(device.id)}
+                >
+                  <strong>{device.name}</strong>
+                  <span>{device.units}</span>
+                  <small>{device.model}</small>
+                </button>
+                {selected === device.id && deviceActions}
+              </div>
+            ))}
+          </section>
+        )}
+        <details
+          open={boundaryOpen}
+          onToggle={(event) => onBoundaryOpen(event.currentTarget.open)}
+        >
+          <summary>方向与布置边界</summary>
+          <p>
+            图上横向为 X、纵向为 Z，方向固定。
+            {scope === "equipment"
+              ? "细框按配置占地投影，亮边标记柜前。名称标签仅供选择，空白不代表通行净距或可用容量。"
+              : scope === "fixtures"
+                ? "细线连接标签与配置中心。点位和检漏路径不代表监测覆盖或设施状态，两处环境探头仅有演示读数。"
+                : scope === "ceiling"
+                  ? "灯体与桥架按配置投影，交叉不表示接线或碰撞。"
+                  : "柜前格栅按最近位置标出代表落点，不表示独占供风或实测风量。"}
+          </p>
+        </details>
+      </div>
     </section>
   );
 }

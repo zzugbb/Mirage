@@ -184,7 +184,7 @@ import {
 } from "./reading-sources";
 import { RackInstallation } from "./components/RackInstallation";
 import { rackBlankingUnits, unitRanges } from "./rack-blanking";
-import { fixtureById, roomFacilityById } from "./fixtures";
+import { fixtureById } from "./fixtures";
 import { powerContextIncludes, powerLinkById } from "./power-trace";
 import { rackTrayRelations } from "./cable-trays";
 import { leakRelations } from "./leak-detection";
@@ -709,8 +709,8 @@ export function Workspace() {
     crossing?: (typeof roomLayoutCrossings)[number];
     grille?: { name: string; slice: SliceControls };
     power?: { linkId: string | null; inspection: PduInspection | null };
-    query?: string;
-    origin?: {
+    query: string;
+    origin: {
       camera: TaskViewMemory | null;
       inspector: boolean;
       scroll: number;
@@ -1460,14 +1460,14 @@ export function Workspace() {
     )
       return;
     control({ type: "pick", id: layoutVisit.id });
-    if (layoutVisit.origin) layoutScroll.current = layoutVisit.origin.scroll;
+    layoutScroll.current = layoutVisit.origin.scroll;
     setLayoutCrossing(layoutVisit.crossing?.id ?? null);
     if (layoutVisit.grille) setSliceControls(layoutVisit.grille.slice);
     if (layoutVisit.power) {
       setPowerLinkId(layoutVisit.power.linkId);
       setPduInspection(layoutVisit.power.inspection);
     }
-    if (layoutVisit.query !== undefined) setLayoutQuery(layoutVisit.query);
+    setLayoutQuery(layoutVisit.query);
     control({ type: "layer", layer: layoutVisit.layer });
     control({ type: "analysis", value: false });
     setMetric(layoutVisit.metric);
@@ -1475,7 +1475,7 @@ export function Workspace() {
     skipNavigationSearch.current = true;
     setNav(true);
     if (matchMedia("(max-width: 1099px)").matches) setInspector(false);
-    else if (layoutVisit.origin) setInspector(layoutVisit.origin.inspector);
+    else setInspector(layoutVisit.origin.inspector);
     setLayoutRestore((value) => value + 1);
     setLayoutReturning(false);
     setLayoutVisit(null);
@@ -2053,14 +2053,13 @@ export function Workspace() {
   });
   const rememberLayoutSelection = (id: string) => {
     const powerCabinet = id === powerSettings.sourceId;
-    const rememberView = !!roomFacilityById(id);
-    if (rememberView && layoutVisit?.origin && layoutVisit.id === id) return;
+    if (layoutVisit?.id === id) return;
     setLayoutVisit({
       id,
       layer,
       metric,
-      query: rememberView || deviceById(id) ? layoutQuery : undefined,
-      origin: rememberView ? captureLayoutOrigin() : undefined,
+      query: layoutQuery,
+      origin: captureLayoutOrigin(),
       power: powerCabinet
         ? { linkId: powerLinkId, inspection: pduInspection }
         : undefined,
@@ -2075,15 +2074,7 @@ export function Workspace() {
       layoutVisit?.id !== coolingSource.id ||
       !coolingRangeIncludes(coolingVisit.rackId, id, state.deviceId)
     )
-      setLayoutVisit({
-        id,
-        layer,
-        metric,
-        query: layoutQuery,
-        origin: captureLayoutOrigin(),
-      });
-    setLayoutRestore(0);
-    setLayoutReturning(false);
+      rememberLayoutSelection(id);
     setRackView("installation");
     setQuery("");
     setFilter("all");
@@ -3131,14 +3122,13 @@ export function Workspace() {
     comparisonVisit &&
     `返回机房核查（${rackById(comparisonVisit.range.rackId)!.name.split(" ")[0]} · ${spaceRangeLabel(comparisonVisit.range)}）`;
 
-  const layoutReturnName =
-    layoutVisit?.query !== undefined
-      ? (layoutVisit.grille?.name ??
-        layoutVisit.crossing?.name ??
-        deviceById(layoutVisit.id)?.name ??
-        rackById(layoutVisit.id)?.name ??
-        entityById(layoutVisit.id)?.name)
-      : undefined;
+  const layoutReturnName = layoutVisit
+    ? (layoutVisit.grille?.name ??
+      layoutVisit.crossing?.name ??
+      deviceById(layoutVisit.id)?.name ??
+      rackById(layoutVisit.id)?.name ??
+      entityById(layoutVisit.id)?.name)
+    : undefined;
   return (
     <div
       className="mirage-workspace workspace-ui"
@@ -3187,16 +3177,12 @@ export function Workspace() {
                     if (
                       state.level !== "room" ||
                       layoutScope === "fixtures" ||
-                      entranceView ||
-                      layoutVisit.query === undefined
+                      entranceView
                     )
                       control({ type: "open-resource", id: "room-01" });
                   }}
                 >
-                  ← 返回
-                  {layoutReturnName
-                    ? `布置图 · ${layoutReturnName}`
-                    : "机房布置"}
+                  ← 返回布置图 · {layoutReturnName}
                 </button>
                 <button
                   aria-label="结束布置导览往返"
