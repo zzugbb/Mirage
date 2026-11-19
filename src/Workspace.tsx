@@ -906,6 +906,7 @@ export function Workspace() {
         key: string;
         anchor: string;
         level: "room" | "rack";
+        camera: TaskViewMemory | null;
         nav: boolean;
         analysis: boolean;
         layer: ReviewState["layer"];
@@ -2331,14 +2332,16 @@ export function Workspace() {
     setPeakVisit(null);
     setPeakReturning(false);
     peakReturnFocus.current = null;
+    const level =
+      state.level === "rack" && (rackById(selected) || pduById(selected))
+        ? "rack"
+        : "room";
     setSourceVisit({
       ...target,
       key: peakKey,
       anchor: sourceAnchor,
-      level:
-        state.level === "rack" && (rackById(selected) || pduById(selected))
-          ? "rack"
-          : "room",
+      level,
+      camera: captureTaskView.current?.(level) ?? null,
       nav,
       analysis: review.analysis,
       layer,
@@ -3148,6 +3151,31 @@ export function Workspace() {
               </button>
             </div>
           )}
+        {sourceVisit && (
+          <div
+            className="study-task-return"
+            role="group"
+            aria-label="输入核对往返"
+          >
+            <button disabled={!ready || sourceReturning} onClick={returnSource}>
+              ← 返回{entityById(sourceVisit.check.sourceId)?.name} ·{" "}
+              {sourceVisit.check.metric === "temperature" ? "进风" : "功耗"}
+              输入核对
+            </button>
+            <button
+              aria-label="结束输入检视往返"
+              title="结束核对，留在当前位置"
+              disabled={sourceReturning}
+              onClick={() => {
+                setSourceVisit(null);
+                setSourceCheck(null);
+                sourceReturnFocus.current = null;
+              }}
+            >
+              ×
+            </button>
+          </div>
+        )}
         {grilleVisit && (
           <div
             className="study-task-return"
@@ -4420,6 +4448,7 @@ export function Workspace() {
           <ReviewScene
             captureTaskView={captureTaskView}
             taskReturn={
+              (sourceReturning && sourceVisit) ||
               spaceRestore ||
               (spaceReturning && spaceVisit) ||
               (grilleReturning && grilleVisit) ||
@@ -5039,13 +5068,6 @@ export function Workspace() {
                   aria-label="输入检视往返"
                 >
                   <small>
-                    来自 {entityById(sourceVisit.check.sourceId)?.name} ·{" "}
-                    {sourceVisit.check.metric === "temperature"
-                      ? "进风"
-                      : "功耗"}
-                    输入核对
-                  </small>
-                  <small>
                     t+{sourceVisit.time}s · {sourceVisit.row.name} ·{" "}
                     {sourceVisit.row.reason}
                     {sourceVisit.row.included
@@ -5063,9 +5085,6 @@ export function Workspace() {
                   {!currentSourceRow.included && (
                     <small>{currentSourceRow.detail}</small>
                   )}
-                  <button disabled={!ready} onClick={returnSource}>
-                    ← 返回输入核对
-                  </button>
                   <div>
                     {sourceVisit.check.metric === "temperature" ? (
                       <button
@@ -5104,16 +5123,6 @@ export function Workspace() {
                       }}
                     >
                       {resourceOpenLabel(state, sourceVisit.deviceId)} ↗
-                    </button>
-                    <button
-                      aria-label="结束输入检视往返"
-                      onClick={() => {
-                        setSourceVisit(null);
-                        setSourceCheck(null);
-                        sourceReturnFocus.current = null;
-                      }}
-                    >
-                      结束核对
                     </button>
                   </div>
                   <small>
