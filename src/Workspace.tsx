@@ -705,9 +705,13 @@ export function Workspace() {
   const [layoutRestore, setLayoutRestore] = useState(0);
   const [layoutVisit, setLayoutVisit] = useState<{
     id: string;
-    crossingId?: string;
+    crossing?: (typeof roomLayoutCrossings)[number];
     query?: string;
-    installation?: { camera: TaskViewMemory | null; inspector: boolean };
+    origin?: {
+      camera: TaskViewMemory | null;
+      inspector: boolean;
+      scroll: number;
+    };
     layer: ReviewState["layer"];
     metric: "temperature" | "power";
   } | null>(null);
@@ -1453,7 +1457,8 @@ export function Workspace() {
     )
       return;
     control({ type: "pick", id: layoutVisit.id });
-    setLayoutCrossing(layoutVisit.crossingId ?? null);
+    if (layoutVisit.origin) layoutScroll.current = layoutVisit.origin.scroll;
+    setLayoutCrossing(layoutVisit.crossing?.id ?? null);
     if (layoutVisit.query !== undefined) setLayoutQuery(layoutVisit.query);
     control({ type: "layer", layer: layoutVisit.layer });
     control({ type: "analysis", value: false });
@@ -1462,8 +1467,7 @@ export function Workspace() {
     skipNavigationSearch.current = true;
     setNav(true);
     if (matchMedia("(max-width: 1099px)").matches) setInspector(false);
-    else if (layoutVisit.installation)
-      setInspector(layoutVisit.installation.inspector);
+    else if (layoutVisit.origin) setInspector(layoutVisit.origin.inspector);
     setLayoutRestore((value) => value + 1);
     setLayoutReturning(false);
     setLayoutVisit(null);
@@ -2034,16 +2038,18 @@ export function Workspace() {
       stageRef.current?.scrollIntoView({ block: "nearest" });
     }
   };
+  const captureLayoutOrigin = () => ({
+    camera: captureTaskView.current?.("room") ?? null,
+    inspector,
+    scroll: layoutScroll.current,
+  });
   const openLayoutInstallation = (id: string) => {
     setLayoutVisit({
       id,
       layer,
       metric,
       query: layoutQuery,
-      installation: {
-        camera: captureTaskView.current?.("room") ?? null,
-        inspector,
-      },
+      origin: captureLayoutOrigin(),
     });
     setLayoutRestore(0);
     setLayoutReturning(false);
@@ -3094,6 +3100,12 @@ export function Workspace() {
     comparisonVisit &&
     `返回机房核查（${rackById(comparisonVisit.range.rackId)!.name.split(" ")[0]} · ${spaceRangeLabel(comparisonVisit.range)}）`;
 
+  const layoutReturnName =
+    layoutVisit?.query !== undefined
+      ? (layoutVisit.crossing?.name ??
+        deviceById(layoutVisit.id)?.name ??
+        rackById(layoutVisit.id)?.name)
+      : undefined;
   return (
     <div
       className="mirage-workspace workspace-ui"
@@ -3315,8 +3327,8 @@ export function Workspace() {
                   }}
                 >
                   ← 返回
-                  {layoutVisit.query !== undefined
-                    ? `布置图 · ${deviceById(layoutVisit.id)?.name ?? rackById(layoutVisit.id)!.name}`
+                  {layoutReturnName
+                    ? `布置图 · ${layoutReturnName}`
                     : "机房布置"}
                 </button>
                 <button
@@ -3855,12 +3867,15 @@ export function Workspace() {
                 if (!point || !ready) return;
                 const pair = fixtureCrossing(point.lightId, point.trayId);
                 if (!pair) return;
-                setLayoutVisit({
-                  id: point.lightId,
-                  crossingId: id,
-                  layer,
-                  metric,
-                });
+                if (crossing?.id !== id || layoutVisit?.crossing?.id !== id)
+                  setLayoutVisit({
+                    id: point.lightId,
+                    crossing: point,
+                    query: layoutQuery,
+                    origin: captureLayoutOrigin(),
+                    layer,
+                    metric,
+                  });
                 setLayoutReturning(false);
                 setLayoutRestore(0);
                 control({ type: "layer", layer: "overview" });
@@ -4464,7 +4479,7 @@ export function Workspace() {
           <ReviewScene
             captureTaskView={captureTaskView}
             taskReturn={
-              (layoutReturning && layoutVisit?.installation) ||
+              (layoutReturning && layoutVisit?.origin) ||
               blankingRestore ||
               (peakReturning && peakVisit) ||
               (sourceReturning && sourceVisit) ||
@@ -5279,9 +5294,14 @@ export function Workspace() {
                   <b>{Math.abs(crossing.difference).toFixed(2)} m</b>。
                   {crossing.boundary}
                 </p>
-                <button disabled={!ready} onClick={() => requestCrossing(null)}>
-                  ← 返回核对前视角
-                </button>
+                {layoutVisit?.crossing?.id !== crossing.id && (
+                  <button
+                    disabled={!ready}
+                    onClick={() => requestCrossing(null)}
+                  >
+                    ← 返回核对前视角
+                  </button>
+                )}
               </section>
             )}
             {review.analysis ? (
