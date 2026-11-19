@@ -117,6 +117,7 @@
   scrollbar-width: none;
   white-space: nowrap;
 }
+.study-path > div,
 .study-path span {
   display: flex;
   align-items: center;
@@ -1427,6 +1428,20 @@
   .study-header {
     gap: 8px;
     padding-inline: 16px;
+  }
+  .study-task-return ~ .study-task-return ~ .study-path {
+    margin-left: 0;
+    /* 两个返回入口并列时，从当前对象一端显示可滚动的空间路径。 */
+    direction: rtl;
+  }
+  .study-task-return ~ .study-task-return ~ .study-path > div {
+    direction: ltr;
+    margin-right: auto;
+  }
+  .study-task-return ~ .study-task-return ~ .study-path button {
+    padding-inline: 3px;
+    white-space: normal;
+    word-break: keep-all;
   }
 }
 @media (max-width: 600px) {

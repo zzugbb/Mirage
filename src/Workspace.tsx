@@ -184,7 +184,7 @@ import {
 } from "./reading-sources";
 import { RackInstallation } from "./components/RackInstallation";
 import { rackBlankingUnits, unitRanges } from "./rack-blanking";
-import { fixtureById } from "./fixtures";
+import { fixtureById, roomFacilityById } from "./fixtures";
 import { powerContextIncludes, powerLinkById } from "./power-trace";
 import { rackTrayRelations } from "./cable-trays";
 import { leakRelations } from "./leak-detection";
@@ -2053,10 +2053,7 @@ export function Workspace() {
   });
   const rememberLayoutSelection = (id: string) => {
     const powerCabinet = id === powerSettings.sourceId;
-    const rememberView =
-      layoutScope === "fixtures" ||
-      powerCabinet ||
-      fixtureById(id)?.kind === "entrance";
+    const rememberView = !!roomFacilityById(id);
     if (rememberView && layoutVisit?.origin && layoutVisit.id === id) return;
     setLayoutVisit({
       id,
@@ -2072,13 +2069,19 @@ export function Workspace() {
     setLayoutRestore(0);
   };
   const openLayoutInstallation = (id: string) => {
-    setLayoutVisit({
-      id,
-      layer,
-      metric,
-      query: layoutQuery,
-      origin: captureLayoutOrigin(),
-    });
+    // 从服务范围继续查看关联设备时，布置图的起点仍是制冷单元。
+    if (
+      !coolingVisit ||
+      layoutVisit?.id !== coolingSource.id ||
+      !coolingRangeIncludes(coolingVisit.rackId, id, state.deviceId)
+    )
+      setLayoutVisit({
+        id,
+        layer,
+        metric,
+        query: layoutQuery,
+        origin: captureLayoutOrigin(),
+      });
     setLayoutRestore(0);
     setLayoutReturning(false);
     setRackView("installation");
@@ -3517,14 +3520,16 @@ export function Workspace() {
           </div>
         )}
         <nav className="study-path" aria-label="空间路径">
-          {getPath(state).map((item, i) => (
-            <span key={item}>
-              {i > 0 && <i>/</i>}
-              <button onClick={() => selectObject(item, true)}>
-                {entityById(item)?.name ?? item}
-              </button>
-            </span>
-          ))}
+          <div>
+            {getPath(state).map((item, i) => (
+              <span key={item}>
+                {i > 0 && <i>/</i>}
+                <button onClick={() => selectObject(item, true)}>
+                  {entityById(item)?.name ?? item}
+                </button>
+              </span>
+            ))}
+          </div>
         </nav>
         <div className="study-clock">
           <button
