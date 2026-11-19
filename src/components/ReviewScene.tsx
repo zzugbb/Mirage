@@ -14,21 +14,23 @@ import type {
 } from "../environment-view";
 import { EnvironmentViewGeometry } from "../scene/environment-view";
 import {
+  entranceViews,
   entranceViewIncludes,
   type EntranceInspection,
   type EntranceView,
   type EntranceViewCommand,
 } from "../entrance-view";
 import { EntranceViewGeometry } from "../scene/entrance-view";
-import { EntranceViewActions } from "./EntranceViewActions";
+import { FixtureObservationControls } from "./FixtureObservationControls";
 import {
+  leakViews,
   leakViewIncludes,
   type LeakInspection,
   type LeakView,
   type LeakViewCommand,
 } from "../leak-view";
 import { LeakViewGeometry } from "../scene/leak-view";
-import { LeakViewActions } from "./LeakViewActions";
+
 import {
   maintenanceViews,
   maintenanceViewIncludes,
@@ -309,12 +311,10 @@ export function ReviewScene({
   const inletGeometry = useRef<InletViewGeometry | null>(null);
   const environmentGeometry = useRef<EnvironmentViewGeometry | null>(null);
   const entranceGeometry = useRef<EntranceViewGeometry | null>(null);
-  const entranceReturning = useRef(false);
-  const entranceRangeFocus = useRef(false);
+  const fixtureReturnEntry = useRef<string | null>(null);
+  const fixtureRangeFocus = useRef(false);
   const leakGeometry = useRef<LeakViewGeometry | null>(null);
-  const leakEntry = useRef<HTMLElement | null>(null);
-  const leakReturning = useRef(false);
-  const leakFocusTarget = useRef<string | null>(null);
+
   const crossingGeometry = useRef<CrossingGeometry | null>(null);
   const powerReturning = useRef(false);
   const networkGeometry = useRef<NetworkGeometry | null>(null);
@@ -1103,11 +1103,13 @@ export function ReviewScene({
     const active = engine.current;
     if (!active || !entranceViewCommand) return;
     if (!entranceViewCommand.view) {
-      entranceReturning.current = !!entranceView;
+      fixtureReturnEntry.current = entranceView
+        ? ".entrance-view-entry button"
+        : null;
       active.restoreEntranceView();
     } else if (layer === "overview") {
-      entranceReturning.current = false;
-      entranceRangeFocus.current = true;
+      fixtureReturnEntry.current = null;
+      fixtureRangeFocus.current = true;
       setOrbit(false);
       active.observeEntrance(entranceViewCommand.view);
     }
@@ -1126,25 +1128,28 @@ export function ReviewScene({
       engine.current?.clearEntranceView();
   }, [entranceView, layer, state.level, selectedId]);
   useEffect(() => {
-    if (!entranceView || !entranceRangeFocus.current) return;
+    if (!(entranceView || leakView) || !fixtureRangeFocus.current) return;
     let frame = 0;
     const focus = () => {
       const select = host.current
         ?.closest(".study-stage")
-        ?.querySelector<HTMLSelectElement>(".entrance-scene-key select");
+        ?.querySelector<HTMLSelectElement>(
+          ".fixture-observation-controls select",
+        );
       if (!select) return;
       if (engine.current?.moving || select.disabled) {
         frame = requestAnimationFrame(focus);
         return;
       }
       select.focus({ preventScroll: true });
-      entranceRangeFocus.current = false;
+      fixtureRangeFocus.current = false;
     };
     frame = requestAnimationFrame(focus);
     return () => cancelAnimationFrame(frame);
-  }, [entranceView, sceneSettled]);
+  }, [entranceView, leakView, sceneSettled]);
   useEffect(() => {
-    if (entranceView || !entranceReturning.current) return;
+    const entrySelector = fixtureReturnEntry.current;
+    if (entranceView || leakView || !entrySelector) return;
     let frame = 0;
     const focus = () => {
       if (engine.current?.moving) {
@@ -1152,9 +1157,8 @@ export function ReviewScene({
         return;
       }
       const workspace = host.current?.closest(".workspace-ui");
-      const detailsEntry = workspace?.querySelector<HTMLButtonElement>(
-        ".entrance-view-entry button",
-      );
+      const detailsEntry =
+        workspace?.querySelector<HTMLButtonElement>(entrySelector);
       const entry = detailsEntry?.getClientRects().length
         ? detailsEntry
         : workspace?.querySelector<HTMLElement>(
@@ -1165,25 +1169,20 @@ export function ReviewScene({
         return;
       }
       entry?.focus({ preventScroll: true });
-      entranceReturning.current = false;
+      fixtureReturnEntry.current = null;
     };
     frame = requestAnimationFrame(focus);
     return () => cancelAnimationFrame(frame);
-  }, [entranceView, sceneSettled]);
+  }, [entranceView, leakView, sceneSettled]);
   useEffect(() => {
     const active = engine.current;
     if (!active || !leakViewCommand) return;
     if (!leakViewCommand.view) {
-      leakReturning.current = !!leakView;
+      fixtureReturnEntry.current = leakView ? ".leak-view-entry button" : null;
       active.restoreLeakView();
     } else if (layer === "overview") {
-      if (!leakView) leakEntry.current = document.activeElement as HTMLElement;
-      leakReturning.current = false;
-      leakFocusTarget.current = document.activeElement?.closest(
-        ".leak-scene-key",
-      )
-        ? ".leak-scene-key"
-        : ".leak-view-details";
+      fixtureReturnEntry.current = null;
+      fixtureRangeFocus.current = true;
       setOrbit(false);
       active.observeLeak(leakViewCommand.view);
     }
@@ -1201,52 +1200,6 @@ export function ReviewScene({
     )
       engine.current?.clearLeakView();
   }, [leakView, layer, state.level, selectedId]);
-  useEffect(() => {
-    if (!leakView || !leakFocusTarget.current) return;
-    let frame = 0;
-    const focus = () => {
-      const button = host.current
-        ?.closest(".workspace-ui")
-        ?.querySelector<HTMLButtonElement>(
-          `${leakFocusTarget.current} button[aria-pressed="true"]`,
-        );
-      if (!button) {
-        leakFocusTarget.current = null;
-        return;
-      }
-      if (engine.current?.moving || button.disabled) {
-        frame = requestAnimationFrame(focus);
-        return;
-      }
-      button.focus();
-      leakFocusTarget.current = null;
-    };
-    frame = requestAnimationFrame(focus);
-    return () => cancelAnimationFrame(frame);
-  }, [leakView, sceneSettled]);
-  useEffect(() => {
-    if (leakView || !leakReturning.current) return;
-    let frame = 0;
-    const focus = () => {
-      if (engine.current?.moving) {
-        frame = requestAnimationFrame(focus);
-        return;
-      }
-      const workspace = host.current?.closest(".workspace-ui");
-      const entry = leakEntry.current?.isConnected
-        ? leakEntry.current
-        : (workspace?.querySelector<HTMLElement>(".leak-view-entry button") ??
-          workspace?.querySelector<HTMLElement>(".review-camera button"));
-      if (entry instanceof HTMLButtonElement && entry.disabled) {
-        frame = requestAnimationFrame(focus);
-        return;
-      }
-      entry?.focus({ preventScroll: true });
-      leakReturning.current = false;
-    };
-    frame = requestAnimationFrame(focus);
-    return () => cancelAnimationFrame(frame);
-  }, [leakView, sceneSettled]);
   useEffect(() => {
     const active = engine.current;
     if (!active || !crossingCommand) return;
@@ -2019,15 +1972,21 @@ export function ReviewScene({
           data-slice-visible={sliceVisible}
         >
           {entranceView && (
-            <EntranceViewActions
-              inspection={entranceView}
+            <FixtureObservationControls
+              title="入口布置"
+              subject="入口"
+              views={entranceViews}
+              value={entranceView.view}
               ready={sceneSettled}
               onView={onEntranceView}
             />
           )}
           {leakView && (
-            <LeakViewActions
-              inspection={leakView}
+            <FixtureObservationControls
+              title="检漏路径"
+              subject="检漏"
+              views={leakViews}
+              value={leakView.view}
               ready={sceneSettled}
               onView={onLeakView}
             />

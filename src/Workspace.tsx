@@ -101,7 +101,7 @@ import {
   type LeakView,
   type LeakViewCommand,
 } from "./leak-view";
-import { LeakViewActions } from "./components/LeakViewActions";
+import { LeakInspectionDetails } from "./components/LeakInspectionDetails";
 import {
   GrilleBranches,
   type GrilleReturnFocus,
@@ -4504,8 +4504,8 @@ export function Workspace() {
             ref={inspectorRef}
             className={`study-inspector ${review.analysis ? "is-analysis" : ""}`}
             key={
-              entranceView && !review.analysis
-                ? "entrance-inspection"
+              (entranceView || leakView) && !review.analysis
+                ? "fixture-inspection"
                 : review.analysis && pairedInlet
                   ? `inlet:${pairedInlet.firstId}:${pairedInlet.secondId}`
                   : review.analysis && pairedEnvironment
@@ -5079,15 +5079,6 @@ export function Workspace() {
                 }}
               />
             )}
-            {leakView && (
-              <LeakViewActions
-                inspection={leakView}
-                compact={review.analysis}
-                ready={ready}
-                onView={requestLeakView}
-                onPreview={pick}
-              />
-            )}
             {crossing && (
               <section
                 className="crossing-details"
@@ -5199,6 +5190,10 @@ export function Workspace() {
                     onPreview={pick}
                     onLocate={focus}
                   />
+                ) : fixture && leakView ? (
+                  <p className="leak-analysis-note">
+                    此设施未接入漏水信号，没有历史曲线或事件。
+                  </p>
                 ) : fixture ? (
                   <FixtureDetails
                     fixture={fixture}
@@ -5365,7 +5360,15 @@ export function Workspace() {
                     </div>
                   </section>
                 )}
-                {environment && fixture ? (
+                {leakView ? (
+                  <LeakInspectionDetails
+                    inspection={leakView}
+                    selectedId={selected}
+                    onPreview={pick}
+                    onLocate={focus}
+                    ready={ready}
+                  />
+                ) : environment && fixture ? (
                   <EnvironmentDetails
                     onAnalyzePair={analyzeEnvironmentPair}
                     comparisonOpen={environmentComparisonOpen}
@@ -5391,7 +5394,6 @@ export function Workspace() {
                         ? () => requestLeakView("all")
                         : undefined
                     }
-                    leakViewActive={!!leakView}
                     onPreview={pick}
                     onLocate={focus}
                     grilleRelations={

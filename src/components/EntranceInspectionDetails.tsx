@@ -1,56 +1,6 @@
-import {
-  entranceViews,
-  type EntranceInspection,
-  type EntranceView,
-} from "../entrance-view";
 import { entranceSettings, entranceRelations } from "../entrance";
 
-export function EntranceViewActions({
-  inspection,
-  ready,
-  onView,
-}: {
-  inspection: EntranceInspection;
-  ready: boolean;
-  onView: (view: EntranceView | null) => void;
-}) {
-  return (
-    <section
-      className="entrance-scene-key"
-      aria-label="入口分段观察"
-      onKeyDown={(event) => {
-        if (event.key !== "Escape" || !ready) return;
-        event.preventDefault();
-        event.stopPropagation();
-        onView(null);
-      }}
-    >
-      <label>
-        入口布置
-        <select
-          aria-label="入口观察范围"
-          value={inspection.view}
-          disabled={!ready}
-          onChange={(event) => {
-            const range = entranceViews.find(
-              ({ id }) => id === event.target.value,
-            );
-            if (range) onView(range.id);
-          }}
-        >
-          {entranceViews.map(({ id, label }) => (
-            <option key={id} value={id}>
-              {label}
-            </option>
-          ))}
-        </select>
-      </label>
-      <button disabled={!ready} onClick={() => onView(null)}>
-        返回原视角
-      </button>
-    </section>
-  );
-}
+import type { EntranceInspection } from "../entrance-view";
 
 export function EntranceInspectionDetails({
   inspection,

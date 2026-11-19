@@ -1,4 +1,4 @@
-import { EntranceInspectionDetails } from "./EntranceViewActions";
+import { EntranceInspectionDetails } from "./EntranceInspectionDetails";
 import {
   entranceViewIncludes,
   type EntranceInspection,
@@ -34,7 +34,6 @@ export function FixtureDetails({
   onInspectEntrance,
   entranceInspection,
   onInspectLeak,
-  leakViewActive = false,
   onCompare,
   onCompareRack,
   comparisonReady = false,
@@ -47,7 +46,6 @@ export function FixtureDetails({
   onInspectEntrance?: () => void;
   entranceInspection?: EntranceInspection | null;
   onInspectLeak?: () => void;
-  leakViewActive?: boolean;
   onCompare?: (id: string) => void;
   onCompareRack?: (id: string) => void;
   comparisonReady?: boolean;
@@ -207,7 +205,7 @@ export function FixtureDetails({
           )}
         </div>
       )}
-      {!analysis && isLeakFixture(fixture.id) && !leakViewActive && (
+      {!analysis && isLeakFixture(fixture.id) && (
         <div className="leak-view-entry">
           {onInspectLeak ? (
             <button disabled={!comparisonReady} onClick={onInspectLeak}>
