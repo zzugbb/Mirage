@@ -66,7 +66,7 @@ export function FanInspection({
       {visit.mode === "group" ? (
         <>
           <div className="structure-check-heading">
-            <strong>维护子件 · {assembly.fans.length}</strong>
+            <strong>风扇清单</strong>
             <button disabled={!ready || visit.pending} onClick={onInspect}>
               只看所选子件 ↗
             </button>
@@ -80,6 +80,7 @@ export function FanInspection({
               <button
                 key={fan.id}
                 data-fan-id={fan.id}
+                aria-label={`${fan.name} · ${fan.slot}`}
                 disabled={!ready || visit.pending}
                 aria-pressed={visit.fanId === fan.id}
                 onClick={() => onSelect(fan.id)}
@@ -112,7 +113,7 @@ export function FanInspection({
                     ?.focus();
                 }}
               >
-                {fan.name}
+                {fan.slot}
               </button>
             ))}
           </div>
@@ -134,9 +135,9 @@ export function FanInspection({
         </label>
       )}
       <details className="structure-check-boundary">
-        <summary>配置与读数口径</summary>
+        <summary>风扇编号与观察方向</summary>
         <p>
-          前、后侧沿设备坐标。清单按维护子件计数，同一子件可含多个叶轮。编号沿用机型配置。
+          编号按机型配置排列，每个维护子件可含多个叶轮。前、后侧沿设备坐标。
         </p>
         <p>
           部件读数来自模型推导。真实槽序、气流方向、转速和冗余状态均未接入。

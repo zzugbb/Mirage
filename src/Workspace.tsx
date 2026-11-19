@@ -4375,6 +4375,10 @@ export function Workspace() {
                   analysis={review.analysis}
                   ready={ready}
                   dispatch={dispatch}
+                  onFront={() => {
+                    takeover();
+                    setStorageViewRevision((n) => n + 1);
+                  }}
                   onGroup={activeFanVisit ? returnFanGroup : returnStorageGroup}
                   onFinish={finishStructureCheck}
                   onSide={(side) => {

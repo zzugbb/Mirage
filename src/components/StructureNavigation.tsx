@@ -12,6 +12,7 @@ export function StructureNavigation({
   ready,
   dispatch,
   onSide,
+  onFront,
   onGroup,
   onFinish,
 }: {
@@ -21,6 +22,7 @@ export function StructureNavigation({
   ready: boolean;
   dispatch: (action: Action) => void;
   onSide: (side: FanInspection["side"]) => void;
+  onFront: () => void;
   onGroup: () => void;
   onFinish: () => void;
 }) {
@@ -55,25 +57,41 @@ export function StructureNavigation({
         )
       }
     >
-      <b>
-        {visit.pending ? (fan ? "正在展开风扇组" : "正在展开盘组") : scope}
-        {visit.mode !== "group" && part && ` · ${part.slot}`}
-      </b>
-      {fan?.mode === "group" && !analysis && (
-        <div role="group" aria-label="整组观察方向" className="fan-view-sides">
-          {(["front", "rear"] as const).map((side) => (
-            <button
-              key={side}
-              disabled={disabled}
-              aria-label={side === "front" ? "前侧观察" : "后侧观察"}
-              aria-pressed={fan.side === side}
-              onClick={() => onSide(side)}
+      <div className="structure-check-scope">
+        <b>
+          {visit.pending ? "正在展开" : scope}
+          {visit.mode !== "group" && part && ` · ${part.slot}`}
+        </b>
+        {visit.mode === "group" &&
+          !analysis &&
+          (fan ? (
+            <div
+              role="group"
+              aria-label="整组观察方向"
+              className="fan-view-sides"
             >
-              {side === "front" ? "前侧" : "后侧"}
+              {(["front", "rear"] as const).map((side) => (
+                <button
+                  key={side}
+                  disabled={disabled}
+                  aria-label={side === "front" ? "前侧观察" : "后侧观察"}
+                  aria-pressed={fan.side === side}
+                  onClick={() => onSide(side)}
+                >
+                  {side === "front" ? "前侧" : "后侧"}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <button
+              disabled={disabled}
+              onClick={onFront}
+              aria-label="正面观察盘组"
+            >
+              正面观察
             </button>
           ))}
-        </div>
-      )}
+      </div>
     </StructureToolbar>
   );
 }

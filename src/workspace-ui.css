@@ -6391,10 +6391,33 @@
 .fan-inspection p {
   line-height: 1.6;
 }
+.workspace-ui .structure-task-bar:has(.structure-check-scope) {
+  display: grid;
+  grid-template-columns: 148px 132px auto;
+  align-items: center;
+}
+.structure-check-scope,
 .fan-view-sides {
   display: flex;
-  border-inline: 1px solid #ffffff18;
-  padding-inline: 4px;
+  align-items: center;
+  gap: 4px;
+}
+.structure-check-scope {
+  justify-content: center;
+  color: #bbdbdf;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.workspace-ui .structure-check-scope button {
+  min-height: 32px;
+  padding: 4px 7px;
+  border: 1px solid #52636d;
+  border-radius: 4px;
+  background: #28353e;
+}
+.workspace-ui .structure-check-scope button[aria-pressed="true"] {
+  border-color: #93b7be;
+  background: #354951;
 }
 .fan-inspection button {
   padding: 7px 8px;
@@ -6402,10 +6425,19 @@
   border-radius: 4px;
 }
 .fan-inspection-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  gap: 4px;
   margin: 10px 0;
+}
+.fan-inspection-list button {
+  padding-inline: 2px;
+  font-variant-numeric: tabular-nums;
+}
+.structure-check-heading [role="status"] {
+  font-variant-numeric: tabular-nums;
+  color: #a9bdc9;
 }
 .fan-inspection button[aria-pressed="true"] {
   background: #31545b;

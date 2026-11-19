@@ -70,6 +70,7 @@ export function StorageSlots({
         if (event.key === "Escape") {
           event.preventDefault();
           event.stopPropagation();
+          if (!ready || visit.pending) return;
           if (visit.mode !== "group") onGroup();
           else onFinish();
         }
@@ -79,9 +80,11 @@ export function StorageSlots({
         <>
           <div className="structure-check-heading">
             <strong>正面盘位图</strong>
-            <button disabled={!ready || visit.pending} onClick={onGroup}>
-              正面观察盘组
-            </button>
+            <span role="status">
+              {current
+                ? `第 ${current.row} 行 · 第 ${current.column} 列`
+                : "请选择盘位"}
+            </span>
           </div>
           <div
             className="storage-slot-grid"
@@ -144,15 +147,6 @@ export function StorageSlots({
           </select>
         </label>
       )}
-      {visit.mode !== "disk" && (
-        <p role="status">
-          {current
-            ? visit.mode === "contact"
-              ? "盘尾接触面 ↔ 中板接点 · 装配示意"
-              : `${current.slot} · 第 ${current.row} 行第 ${current.column} 列`
-            : "选择要核对的盘位"}
-        </p>
-      )}
       {current && (
         <div className="storage-slot-actions">
           {visit.mode !== "disk" && (
@@ -174,14 +168,14 @@ export function StorageSlots({
         </div>
       )}
       <details className="structure-check-boundary">
-        <summary>配置与读数口径</summary>
+        <summary>盘位编号与装配示意</summary>
         <p>
           正面由上至下、由左至右排列。{slots.length}{" "}
           个盘位沿用演示配置，外观机型的真实槽号未经核对。单盘读数为模型推导，磁盘健康、空槽和可用容量均未接入。
         </p>
         {visit.mode === "contact" && (
           <p>
-            虚线表示装配对应。展开间距仅用于观察，真实电路、接通状态和拔插步骤均未建模。
+            虚线连接盘尾接触面与中板接点，表示装配对应。展开间距仅用于观察，真实电路、接通状态和拔插步骤均未建模。
           </p>
         )}
       </details>

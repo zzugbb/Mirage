@@ -1,3 +1,4 @@
+import { storageDriveGroup } from "../storage-slots";
 import { AirflowPanel } from "./AirflowPanel";
 import { useAirflowWorkspace } from "../use-airflow-workspace";
 import type { RangeView, RangeViewCommand } from "../range-view";
@@ -1388,10 +1389,10 @@ export function ReviewScene({
         : [
             ...partsForDevice(state.deviceId).filter((p) => {
               if (isolatedPartId === p.id) {
-                // 风扇组身份已在操作条呈现，整组总览只标出所选子件。
+                // 核对中选了子件后，整组名称已在操作条呈现。
                 return (
                   layer !== "overview" ||
-                  p.node !== "fans" ||
+                  (p.node !== "fans" && p.id !== storageDriveGroup) ||
                   p.id === selectedId
                 );
               }
