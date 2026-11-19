@@ -122,7 +122,7 @@ import {
 } from "./hardware";
 
 export type View = CameraView;
-type ObservationMemory = {
+export type ObservationMemory = {
   position: THREE.Vector3;
   target: THREE.Vector3;
   view: View;
@@ -720,6 +720,10 @@ export class SceneEngine {
     if (!previous) return;
     this.clearAirflowView();
     this.restoreObservationView(previous);
+  }
+  roomReturnView: ObservationMemory | null = null;
+  captureRoomView() {
+    return this.state.level === "room" ? this.captureObservationView() : null;
   }
   private captureObservationView(): ObservationMemory {
     return {
@@ -1864,7 +1868,10 @@ export class SceneEngine {
         (this.explosion > 0 || this.cover > 0)) ||
       (this.state.level === "room" && this.presentation.rearDoor > 0)
     ) {
-      this.currentView = view;
+      this.currentView =
+        this.state.level === "room" && this.roomReturnView
+          ? this.roomReturnView.view
+          : view;
       this.currentFocus = focus;
       this.pendingReturnView = true;
       return;
@@ -1903,6 +1910,11 @@ export class SceneEngine {
     this.skyLight.groundColor.set(inRoom ? "#343333" : "#788796");
     this.skyLight.intensity = inRoom ? 0.45 : 1.25;
     this.scene.environmentIntensity = inRoom ? 0.55 : 1.05;
+    if (inRoom && this.roomReturnView) {
+      this.restoreObservationView(this.roomReturnView);
+      this.preservePanelView();
+      return;
+    }
     this.controls.maxPolarAngle =
       fixture && "kind" in fixture && fixture.kind === "smoke"
         ? Math.PI * 0.65

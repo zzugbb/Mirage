@@ -47,7 +47,6 @@ export function CoolingConnections({
       onInteract={onInteract}
       open={source ? rangeOpen : undefined}
       onOpenChange={source ? onRangeOpen : undefined}
-      active={!source && active}
       title={source ? "配置服务范围" : "冷却关联"}
       className="cooling-connections"
       summary={
@@ -56,14 +55,14 @@ export function CoolingConnections({
           : `${ids.length} 台设备 · 前进后出假设`
       }
     >
-      <div className="cooling-heading">
-        {!airflowVisible && (
+      {!airflowVisible && !(source && state.level === "room") && (
+        <div className="cooling-heading">
           <button disabled={!ready} onClick={onViewAirflow}>
             {state.level === "room" ? "查看气流" : "机房气流"} ↗
           </button>
-        )}
-      </div>
-      {!source && (
+        </div>
+      )}
+      {!source && !active && (
         <button
           className="cooling-source-link"
           onClick={() => onSelect(coolingSource.id)}
@@ -72,23 +71,10 @@ export function CoolingConnections({
         </button>
       )}
       {source ? (
-        <>
-          <p className="cooling-boundary">
-            按配置关联{" "}
-            {
-              racks.filter((rack) =>
-                ids.some((id) => deviceById(id)?.rackId === rack.id),
-              ).length
-            }{" "}
-            柜 / {ids.length} 台设备；不表示独占覆盖或已校核制冷量。
-          </p>
-          {range}
-        </>
+        range
       ) : rack ? (
         <>
-          <p className="cooling-boundary">
-            {rack.name} · {ids.length} 台关联设备。预览设备可切换当前代表路径。
-          </p>
+          <p className="cooling-boundary">按安装位置预览设备进风。</p>
           <div className="cooling-range-list">
             {ids.map((id) => {
               const reading = readings.get(id),
@@ -126,7 +112,7 @@ export function CoolingConnections({
         </>
       ) : device ? (
         <p>
-          {rackForDevice(device.id).name} / {device.name} · 假设前进后出
+          {rackForDevice(device.id).name} / {device.name}
         </p>
       ) : null}
       <details className="cooling-path-boundary">
@@ -138,10 +124,10 @@ export function CoolingConnections({
           <li>上方回风 → 制冷单元逻辑入口</li>
         </ol>
         <p>
-          同向双排布置，尚无架空地板风腔或封闭冷热通道。逻辑端点不是已识别的真实风口；不提供送/回风温度、风量、制冷功率或设施告警。部件温度不作为新的进风测点。
+          配置关联不表示独占覆盖或已校核制冷量。同向双排布置，尚无架空地板风腔或封闭冷热通道。逻辑端点不是已识别的真实风口；不提供送/回风温度、风量、制冷功率或设施告警。部件温度不作为新的进风测点。
         </p>
       </details>
-      {!source && (
+      {!source && !active && (
         <button
           disabled={!ready}
           className="cooling-source-link"

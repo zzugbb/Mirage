@@ -4690,6 +4690,10 @@
   color: #a3b6c2;
 }
 
+.study-inspector:has(.cooling-range-browser),
+.cooling-range-groups {
+  overflow-anchor: none;
+}
 .cooling-range-browser {
   display: grid;
   gap: 9px;
@@ -4744,7 +4748,8 @@
 }
 .cooling-range-actions {
   display: flex;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 4px;
   padding: 8px 0;
 }
 .cooling-range-device {

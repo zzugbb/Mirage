@@ -115,7 +115,11 @@ import {
   type GrilleBranch,
 } from "./grille-inspection";
 import { CoolingRange } from "./components/CoolingRange";
-import { coolingRangeIncludes, initialCoolingRange } from "./cooling-range";
+import {
+  coolingRangeIncludes,
+  initialCoolingRange,
+  type CoolingRangeAction,
+} from "./cooling-range";
 import type { MaintenanceInspection } from "./maintenance-view";
 import {
   environmentPair,
@@ -250,6 +254,7 @@ import {
 import { coolingCapacityAt } from "./simulation";
 import { inletAssessment } from "./inlet-assessment";
 import { ResourceActions } from "./components/ResourceActions";
+import type { ObservationMemory } from "./scene/engine";
 import { ReviewScene } from "./components/ReviewScene";
 import { ReviewTrend } from "./components/ReviewTrend";
 import { InletAssessment } from "./components/InletAssessment";
@@ -544,7 +549,10 @@ export function Workspace() {
     useState(initialCoolingRange);
   const [coolingRangeOpen, setCoolingRangeOpen] = useState(false);
   const coolingRangeScroll = useRef({ list: 0, panel: 0, restore: false });
+  const captureRoomView = useRef<(() => ObservationMemory | null) | null>(null);
   const [coolingVisit, setCoolingVisit] = useState<{
+    camera: ObservationMemory | null;
+    metric: typeof metric;
     rackId: string;
     layer: ReviewState["layer"];
     slice: SliceControls;
@@ -2593,6 +2601,7 @@ export function Workspace() {
   const returnCoolingRange = () => {
     if (!coolingVisit || !ready) return;
     const origin = coolingVisit;
+    coolingRangeScroll.current.restore = true;
     setCoolingReturning(true);
     pick(coolingSource.id, state.level !== "room");
     control({ type: "layer", layer: origin.layer });
@@ -2601,7 +2610,10 @@ export function Workspace() {
     setQuery(origin.query);
     setFilter(origin.filter);
     setOnlyAlarms(origin.onlyAlarms);
-    setNav(origin.nav);
+    const restoreNav = !matchMedia("(max-width: 1099px)").matches && origin.nav;
+    if (restoreNav && !nav) skipNavigationSearch.current = true;
+    setNav(restoreNav);
+    setMetric(origin.metric);
     setCoolingRangeOpen(true);
   };
   useEffect(() => {
@@ -2624,8 +2636,14 @@ export function Workspace() {
     setCoolingReturning(false);
     setCoolingVisit(null);
   }, [coolingReturning, ready, selected, state.level, review.pendingId]);
-  const visitCoolingRange = (id: string, rackId: string, airflow = false) => {
+  const visitCoolingRange = (
+    id: string,
+    rackId: string,
+    action: CoolingRangeAction,
+  ) => {
     setCoolingVisit({
+      camera: captureRoomView.current?.() ?? null,
+      metric,
       rackId,
       layer,
       slice: sliceControls,
@@ -2634,8 +2652,8 @@ export function Workspace() {
       filter,
       onlyAlarms,
     });
-    if (airflow) showAirflow(id);
-    else pick(id);
+    if (action === "airflow") showAirflow(id);
+    else pick(id, action === "enter");
   };
   const coolingRangeBrowser = (
     <CoolingRange
@@ -2645,8 +2663,7 @@ export function Workspace() {
       open={coolingRangeOpen}
       scroll={coolingRangeScroll}
       onChange={setCoolingRangeState}
-      onPreview={visitCoolingRange}
-      onAirflow={(id, rackId) => visitCoolingRange(id, rackId, true)}
+      onVisit={visitCoolingRange}
     />
   );
   const returnSpaceInspection = () => {
@@ -3093,6 +3110,28 @@ export function Workspace() {
               </button>
             </div>
           )}
+        {coolingVisit && (
+          <div
+            className="study-task-return"
+            role="group"
+            aria-label="服务范围检视往返"
+          >
+            <button
+              disabled={!ready || coolingReturning}
+              onClick={returnCoolingRange}
+            >
+              ← 返回服务范围 · {rackById(coolingVisit.rackId)?.name}
+            </button>
+            <button
+              aria-label="结束服务范围检视往返"
+              title="结束核对，留在当前位置"
+              disabled={coolingReturning}
+              onClick={() => setCoolingVisit(null)}
+            >
+              ×
+            </button>
+          </div>
+        )}
         {portVisit && (
           <div
             className="study-task-return"
@@ -4295,6 +4334,10 @@ export function Workspace() {
             </nav>
           </div>
           <ReviewScene
+            captureRoomView={captureRoomView}
+            roomReturnView={
+              coolingReturning ? (coolingVisit?.camera ?? null) : null
+            }
             rangeViewCommand={rangeViewCommand}
             onRangeViewChange={(side) => {
               setRangeView(side);
@@ -4904,41 +4947,6 @@ export function Workspace() {
                 <button
                   aria-label="结束格栅气流检视往返"
                   onClick={() => setGrilleVisit(null)}
-                >
-                  结束核对
-                </button>
-              </section>
-            )}
-            {coolingVisit && selected !== coolingSource.id && (
-              <section
-                className="cooling-range-return"
-                aria-label="服务范围检视往返"
-              >
-                <small>
-                  来自制冷服务范围 · {rackById(coolingVisit.rackId)?.name}
-                </small>
-                <button disabled={!ready} onClick={returnCoolingRange}>
-                  ← 返回制冷服务范围
-                </button>
-                {inletId && (
-                  <div>
-                    <button
-                      disabled={!ready}
-                      onClick={() => showAirflow(inletId)}
-                    >
-                      机房气流 ↗
-                    </button>
-                    <button
-                      disabled={!ready}
-                      onClick={() => pick(inletId, true)}
-                    >
-                      {resourceOpenLabel(state, inletId)} ↗
-                    </button>
-                  </div>
-                )}
-                <button
-                  aria-label="结束服务范围检视往返"
-                  onClick={() => setCoolingVisit(null)}
                 >
                   结束核对
                 </button>
@@ -5616,11 +5624,7 @@ export function Workspace() {
                       airflowVisible={
                         layer === "airflow" && state.level === "room"
                       }
-                      onSelect={(id) =>
-                        coolingVisit && id === coolingSource.id
-                          ? returnCoolingRange()
-                          : pick(id)
-                      }
+                      onSelect={pick}
                       onLocateSource={() => pick(coolingSource.id, true)}
                       onViewAirflow={() => showAirflow(selected)}
                     />
@@ -5941,11 +5945,7 @@ export function Workspace() {
                         airflowVisible={
                           layer === "airflow" && state.level === "room"
                         }
-                        onSelect={(id) =>
-                          coolingVisit && id === coolingSource.id
-                            ? returnCoolingRange()
-                            : pick(id)
-                        }
+                        onSelect={pick}
                         onLocateSource={() => pick(coolingSource.id, true)}
                         onViewAirflow={() => showAirflow(selected)}
                       />

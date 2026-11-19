@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef, type RefObject } from "react";
 import {
   coolingRangeRows,
   type CoolingRangeState,
+  type CoolingRangeAction,
   type CoolingRangeFilter,
 } from "../cooling-range";
 import { unitLabel } from "../catalog";
@@ -15,8 +16,7 @@ export function CoolingRange({
   open,
   scroll,
   onChange,
-  onPreview,
-  onAirflow,
+  onVisit,
 }: {
   value: CoolingRangeState;
   readings: Map<string, SpatialReading>;
@@ -24,8 +24,7 @@ export function CoolingRange({
   open: boolean;
   scroll: RefObject<{ list: number; panel: number; restore: boolean }>;
   onChange: (value: CoolingRangeState) => void;
-  onPreview: (id: string, rackId: string) => void;
-  onAirflow: (id: string, rackId: string) => void;
+  onVisit: (id: string, rackId: string, action: CoolingRangeAction) => void;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const rows = coolingRangeRows(readings, value.query, value.filter);
@@ -39,16 +38,21 @@ export function CoolingRange({
       ?.focus({ preventScroll: true });
     scroll.current.restore = false;
   }, [open, ready, scroll]);
-  const visit = (id: string, rackId: string, airflow = false) => {
+  const visit = (
+    id: string,
+    rackId: string,
+    action: CoolingRangeAction = "preview",
+  ) => {
     if (host.current)
       scroll.current = {
-        restore: true,
+        restore: false,
         list: host.current.scrollTop,
         panel:
           host.current.closest<HTMLElement>(".study-inspector")?.scrollTop ?? 0,
       };
-    (airflow ? onAirflow : onPreview)(id, rackId);
+    onVisit(id, rackId, action);
   };
+  const filtered = !!value.query.trim() || value.filter !== "all";
   const matching = rows.reduce((n, row) => n + row.matching.length, 0);
   return (
     <section className="cooling-range-browser" aria-label="制冷服务范围核对">
@@ -59,7 +63,6 @@ export function CoolingRange({
           value={value.query}
           placeholder="机柜、设备编号或机型"
           onChange={(e) => {
-            scroll.current.list = 0;
             if (host.current) host.current.scrollTop = 0;
             onChange({ ...value, query: e.target.value });
           }}
@@ -71,7 +74,6 @@ export function CoolingRange({
           aria-label="服务范围筛选"
           value={value.filter}
           onChange={(e) => {
-            scroll.current.list = 0;
             if (host.current) host.current.scrollTop = 0;
             onChange({
               ...value,
@@ -84,17 +86,12 @@ export function CoolingRange({
           <option value="alarm">当前设备告警</option>
         </select>
       </label>
-      <p className="cooling-range-count" role="status">
-        匹配 {matching} / {rows.reduce((n, row) => n + row.summary.count, 0)} 台
-        · 筛选不改变配置范围
-      </p>
-      <div
-        className="cooling-range-groups"
-        ref={host}
-        onScroll={(e) => {
-          scroll.current.list = e.currentTarget.scrollTop;
-        }}
-      >
+      {filtered && (
+        <p className="cooling-range-count" role="status">
+          匹配 {matching} 台设备
+        </p>
+      )}
+      <div className="cooling-range-groups" ref={host}>
         {rows.map(({ rack, summary, matching }) => (
           <section key={rack.id} className="cooling-range-group">
             <button
@@ -111,30 +108,38 @@ export function CoolingRange({
               <strong>
                 {rack.name}{" "}
                 <span>
-                  {matching.length}/{summary.count} 台{" "}
-                  {value.rackId === rack.id ? "−" : "+"}
+                  {filtered
+                    ? `${matching.length}/${summary.count}`
+                    : summary.count}{" "}
+                  台 {value.rackId === rack.id ? "−" : "+"}
                 </span>
               </strong>
               <small>
-                最高{" "}
+                最高进风{" "}
                 {summary.maximum === null
                   ? "—"
                   : `${summary.maximum.toFixed(1)} °C`}{" "}
                 · 有效 {summary.coverage}/{summary.count} ·{" "}
-                {summary.alarmIds.length} 台告警
+                {summary.alarmIds.length
+                  ? `${summary.alarmIds.length} 台告警`
+                  : "无设备告警"}
               </small>
             </button>
             {value.rackId === rack.id && (
               <div id={`cooling-range-${rack.id}`}>
                 <div className="cooling-range-actions">
-                  <button onClick={() => visit(rack.id, rack.id)}>
-                    预览机柜
-                  </button>
                   <button
                     disabled={!ready}
-                    onClick={() => visit(rack.id, rack.id, true)}
+                    onClick={() => visit(rack.id, rack.id, "enter")}
                   >
-                    查看本柜气流 ↗
+                    进入机柜 ↗
+                  </button>
+                  <button onClick={() => visit(rack.id, rack.id)}>预览</button>
+                  <button
+                    disabled={!ready}
+                    onClick={() => visit(rack.id, rack.id, "airflow")}
+                  >
+                    本柜气流 ↗
                   </button>
                 </div>
                 {matching.map((device) => {
@@ -156,30 +161,23 @@ export function CoolingRange({
                           {valid
                             ? `${r.temperature!.toFixed(1)} °C`
                             : r?.quality === "valid"
-                              ? r.lifecycle === "stopped"
-                                ? "停机 · 无进风值"
-                                : "无有效进风"
+                              ? "无有效进风"
                               : qualityNames[r?.quality ?? "missing"]}
+                          {r ? ` · ${lifecycleNames[r.lifecycle]}` : ""}
                           {r?.alarm ? " · 告警" : ""}
                         </span>
-                        <small>
-                          {r ? lifecycleNames[r.lifecycle] : "未定义"} ·
-                          整机进风
-                        </small>
                       </button>
                       <button
                         disabled={!ready}
                         aria-label={`查看 ${device.name}气流`}
-                        onClick={() => visit(device.id, rack.id, true)}
+                        onClick={() => visit(device.id, rack.id, "airflow")}
                       >
                         气流 ↗
                       </button>
                     </div>
                   );
                 })}
-                {!matching.length && (
-                  <p>本柜没有匹配设备，配置与汇总仍保留。</p>
-                )}
+                {!matching.length && <p>本柜没有匹配设备。</p>}
               </div>
             )}
           </section>
@@ -187,7 +185,6 @@ export function CoolingRange({
       </div>
       {!matching && (
         <p>
-          没有匹配设备。
           <button
             onClick={() => onChange({ ...value, query: "", filter: "all" })}
           >

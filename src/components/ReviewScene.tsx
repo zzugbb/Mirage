@@ -73,12 +73,18 @@ import { TemperatureDisclosure } from "./TemperatureDisclosure";
 import { SliceDeviceContext } from "./SliceDeviceContext";
 import { SliceInputPreview } from "./SliceInputPreview";
 import { fixtureById, roomFacilityById } from "../fixtures";
-import type { Dispatch, SetStateAction, ReactNode } from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import type { Dispatch, SetStateAction, ReactNode, RefObject } from "react";
+import {
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { type AppState } from "../domain";
 import type { PresentationPhase, SceneFeedback } from "../mechanics";
 import { SceneEngine } from "../scene/engine";
-import type { View } from "../scene/engine";
+import type { ObservationMemory, View } from "../scene/engine";
 import { deviceById, devices, racks, rackForDevice } from "../installation";
 import type { SpatialReading } from "../spatial";
 import type { ReviewLayer } from "../review-model";
@@ -125,6 +131,8 @@ import { NetworkGeometry } from "../scene/network";
 
 export function ReviewScene({
   state,
+  captureRoomView,
+  roomReturnView,
   unitRange = null,
   rangeViewCommand,
   onRangeViewChange,
@@ -207,6 +215,8 @@ export function ReviewScene({
   controls,
   compactTools = false,
 }: {
+  captureRoomView: RefObject<(() => ObservationMemory | null) | null>;
+  roomReturnView: ObservationMemory | null;
   inletPair: InletViewPair | null;
   inletView: InletInspection | null;
   inletViewCommand: InletViewCommand | null;
@@ -397,6 +407,7 @@ export function ReviewScene({
     frame = requestAnimationFrame(restoreFocus);
     return () => cancelAnimationFrame(frame);
   }, [slicePlaneActive]);
+  const displayMenu = useRef<HTMLDetailsElement>(null);
   const temperatureTools = useRef<HTMLDetailsElement>(null);
   const inletSnapshot = inletView
     ? inletPairSnapshot(
@@ -889,6 +900,22 @@ export function ReviewScene({
     engine.current?.view(next, true);
     setView(next);
   }, [storageViewRevision]);
+  useImperativeHandle(
+    captureRoomView,
+    () => () => engine.current?.captureRoomView() ?? null,
+    [],
+  );
+  useEffect(() => {
+    const active = engine.current;
+    if (!active) return;
+    active.roomReturnView = roomReturnView;
+    if (roomReturnView) {
+      if (displayMenu.current) displayMenu.current.open = false;
+      setOrbit(false);
+      if (active.state.level === "room") active.view(roomReturnView.view);
+      setView(roomReturnView.view);
+    }
+  }, [roomReturnView, retry]);
   useEffect(() => {
     const active = engine.current;
     active?.update(state);
@@ -2664,7 +2691,7 @@ export function ReviewScene({
             >
               {compactTools ? "聚焦" : "聚焦选择"} <kbd>F</kbd>
             </button>
-            <details>
+            <details ref={displayMenu}>
               <summary>{compactTools ? "显示" : "画面"}</summary>
               <div>
                 {state.level === "room" && (

@@ -7,6 +7,7 @@ import {
 } from "./catalog.ts";
 import type { SpatialReading } from "./spatial.ts";
 
+export type CoolingRangeAction = "preview" | "airflow" | "enter";
 export type CoolingRangeFilter = "all" | "unavailable" | "alarm";
 export type CoolingRangeState = {
   query: string;
