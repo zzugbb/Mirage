@@ -707,6 +707,7 @@ export function Workspace() {
     id: string;
     crossingId?: string;
     deviceQuery?: string;
+    installation?: { camera: TaskViewMemory | null; inspector: boolean };
     layer: ReviewState["layer"];
     metric: "temperature" | "power";
   } | null>(null);
@@ -1462,6 +1463,8 @@ export function Workspace() {
     skipNavigationSearch.current = true;
     setNav(true);
     if (matchMedia("(max-width: 1099px)").matches) setInspector(false);
+    else if (layoutVisit.installation)
+      setInspector(layoutVisit.installation.inspector);
     setLayoutRestore((value) => value + 1);
     setLayoutReturning(false);
     setLayoutVisit(null);
@@ -2033,7 +2036,16 @@ export function Workspace() {
     }
   };
   const openLayoutInstallation = (id: string) => {
-    setLayoutVisit({ id, layer, metric, deviceQuery: layoutQuery });
+    setLayoutVisit({
+      id,
+      layer,
+      metric,
+      deviceQuery: layoutQuery,
+      installation: {
+        camera: captureTaskView.current?.("room") ?? null,
+        inspector,
+      },
+    });
     setLayoutRestore(0);
     setLayoutReturning(false);
     setRackView("installation");
@@ -3302,7 +3314,7 @@ export function Workspace() {
                 >
                   ← 返回
                   {layoutVisit.deviceQuery !== undefined
-                    ? "布置图设备"
+                    ? `布置图 · ${deviceById(layoutVisit.id)!.name}`
                     : "机房布置"}
                 </button>
                 <button
@@ -4458,6 +4470,7 @@ export function Workspace() {
           <ReviewScene
             captureTaskView={captureTaskView}
             taskReturn={
+              (layoutReturning && layoutVisit?.installation) ||
               blankingRestore ||
               (peakReturning && peakVisit) ||
               (sourceReturning && sourceVisit) ||
