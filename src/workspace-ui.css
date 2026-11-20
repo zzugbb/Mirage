@@ -279,20 +279,12 @@
   font-size: 13px;
   font-weight: 550;
 }
-.study-panel-heading > span {
-  margin-left: auto;
-  font-size: 11px;
-  color: #98abba;
-}
 .study-panel-heading > button {
   margin-left: auto;
   font-size: 19px;
   width: 32px;
   padding: 4px;
   color: #81909d;
-}
-.study-panel-heading > span + button {
-  margin-left: 0;
 }
 .study-search {
   margin: 0 16px 10px;
@@ -487,9 +479,13 @@
 }
 @media (hover: hover) {
   .study-resource-list
+    .study-resource:not(.selected):not(:hover):not(:focus-within) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .study-resource-list
     .study-resource:not(.selected):not(:hover):not(:focus-within)
     .study-row-actions {
-    visibility: hidden;
+    display: none;
   }
 }
 .study-row-actions[data-installation-only] button {
@@ -1039,21 +1035,9 @@
   filter: blur(8px);
   pointer-events: none;
 }
-.study-room-summary > span {
-  font-size: 11px;
-  color: #98abba;
-  letter-spacing: 0.1em;
-}
-.study-room-summary h1 {
-  font-size: 21px;
-  font-weight: 450;
-  letter-spacing: 0.04em;
-  margin-top: 8px;
-}
 .study-room-summary > div {
   display: flex;
   gap: 28px;
-  margin-top: 22px;
 }
 .study-room-summary p {
   display: flex;
@@ -1102,11 +1086,6 @@
   font-size: 12px;
   margin-left: 10px;
   color: #a2acb4;
-}
-.study-alert-caption p {
-  margin-top: 10px;
-  font-size: 11px;
-  color: #98abba;
 }
 .study-show-detail {
   position: absolute;
@@ -1615,12 +1594,8 @@
     top: 118px;
     left: 20px;
   }
-  .study-room-summary h1 {
-    font-size: 18px;
-  }
   .study-room-summary > div {
     gap: 22px;
-    margin-top: 14px;
   }
   .study-room-summary strong {
     font-size: 22px;
@@ -3829,10 +3804,6 @@
 }
 .inlet-overview-options select:last-child {
   grid-column: 1 / -1;
-}
-.inlet-rack-summary summary {
-  cursor: pointer;
-  padding: 8px 0;
 }
 .inlet-reading-notes {
   margin: 12px 0;
@@ -6153,6 +6124,21 @@
   margin-top: 14px;
 }
 
+.workspace-ui .overview-list-filters {
+  margin: 0 0 8px;
+}
+.overview-list-filters > summary,
+.inlet-rack-summary > summary,
+.power-rack-summary > summary {
+  cursor: pointer;
+  padding-block: 7px;
+}
+.overview-list-filters > summary small,
+.inlet-rack-summary > summary small,
+.power-rack-summary > summary small {
+  margin-inline-start: 6px;
+  color: var(--study-muted);
+}
 .power-overview-options {
   display: grid;
   grid-template-columns: 1fr 1.35fr;
@@ -6465,12 +6451,6 @@
     .review-object-actions:has(> .structure-task-menu)
     > button:enabled:not([aria-disabled="true"]):hover {
     background: #34454f;
-  }
-  .workspace-ui[data-scene-level="device"]
-    .study-resource:not(.selected):not(:hover):not(:focus-within)
-    .study-row-actions
-    button:first-child {
-    visibility: hidden;
   }
 }
 .storage-slot-check button {

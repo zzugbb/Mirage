@@ -25,7 +25,6 @@ export function InletOverview({
   onOrder,
   onFilter,
   selected,
-  time,
   scroll,
   ready,
   onRack,
@@ -51,7 +50,6 @@ export function InletOverview({
   onOrder: (value: InletOverviewOrder) => void;
   onFilter: (value: InletOverviewFilter) => void;
   selected: string;
-  time: number;
   scroll: RefObject<number>;
   ready: boolean;
   onRack: (id: string) => void;
@@ -175,15 +173,14 @@ export function InletOverview({
           if (visible) scroll.current = e.currentTarget.scrollTop;
         }}
       >
-        <header>
-          <strong>机房进风对照</strong>
-          <p>
-            模拟 {time} 秒 · 有效 {all.reduce((n, r) => n + r.coverage, 0)}/
-            {all.reduce((n, r) => n + r.rows.length, 0)} 台
-          </p>
-        </header>
         <details className="inlet-rack-summary" ref={rackSummary}>
-          <summary>八柜分布与切换</summary>
+          <summary>
+            机柜切换{" "}
+            <small>
+              有效 {all.reduce((n, item) => n + item.coverage, 0)}/
+              {all.reduce((n, item) => n + item.rows.length, 0)} 台
+            </small>
+          </summary>
           {rackGrid}
         </details>
         <label className="inlet-search">
@@ -200,33 +197,48 @@ export function InletOverview({
             }}
           />
         </label>
-        <div className="inlet-overview-options">
-          <select
-            aria-label="进风对照查找范围"
-            value={scope}
-            onChange={(e) => onScope(e.target.value as InletOverviewScope)}
-          >
-            <option value="rack">当前机柜</option>
-            <option value="room">整间机房</option>
-          </select>
-          <select
-            aria-label="进风对照排列"
-            value={order}
-            onChange={(e) => onOrder(e.target.value as InletOverviewOrder)}
-          >
-            <option value="installation">安装位置</option>
-            <option value="temperature">进风从高到低</option>
-          </select>
-          <select
-            aria-label="进风对照数据范围"
-            value={filter}
-            onChange={(e) => onFilter(e.target.value as InletOverviewFilter)}
-          >
-            <option value="all">全部设备</option>
-            <option value="included">有效进风</option>
-            <option value="excluded">无当前进风</option>
-          </select>
-        </div>
+        <details className="overview-list-filters">
+          <summary>
+            筛选与排序{" "}
+            <small>
+              {[
+                scope === "room" && "全机房",
+                filter !== "all" && (filter === "included" ? "有效" : "未计入"),
+                order !== "installation" && "进风降序",
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </small>
+          </summary>
+
+          <div className="inlet-overview-options">
+            <select
+              aria-label="进风对照查找范围"
+              value={scope}
+              onChange={(e) => onScope(e.target.value as InletOverviewScope)}
+            >
+              <option value="rack">当前机柜</option>
+              <option value="room">整间机房</option>
+            </select>
+            <select
+              aria-label="进风对照排列"
+              value={order}
+              onChange={(e) => onOrder(e.target.value as InletOverviewOrder)}
+            >
+              <option value="installation">安装位置</option>
+              <option value="temperature">进风从高到低</option>
+            </select>
+            <select
+              aria-label="进风对照数据范围"
+              value={filter}
+              onChange={(e) => onFilter(e.target.value as InletOverviewFilter)}
+            >
+              <option value="all">全部设备</option>
+              <option value="included">有效进风</option>
+              <option value="excluded">无当前进风</option>
+            </select>
+          </div>
+        </details>
         <div className="inlet-list-heading">
           <strong>{scope === "room" ? "整间机房" : current.rack.name}</strong>
           <span>{rows.length} 台匹配</span>

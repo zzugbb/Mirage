@@ -59,11 +59,10 @@ export function AlarmQueue({
     <section className="alarm-queue" aria-label="当前告警设备">
       <div className="alarm-queue-search">
         <label>
-          查找设备或柜位
           <input
             ref={search}
             aria-label="查找告警设备"
-            placeholder="设备、机柜或 U 位"
+            placeholder="查找设备、机柜或 U 位"
             value={query}
             onKeyDown={(event) => {
               if (event.nativeEvent.isComposing) return;

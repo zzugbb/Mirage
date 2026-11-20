@@ -3814,7 +3814,6 @@ export function Workspace() {
                     ? "机柜资源"
                     : "机房资源"}
             </h2>
-            <span>{reviewLayers.find((item) => item.id === layer)?.name}</span>
             <button aria-label="收起资源导航" onClick={() => setNav(false)}>
               ×
             </button>
@@ -3971,7 +3970,6 @@ export function Workspace() {
               onScope={setPowerScope}
               onOrder={setPowerOrder}
               selected={selected}
-              time={state.time}
               visible={nav}
               ready={ready}
               scroll={powerScroll}
@@ -4140,7 +4138,6 @@ export function Workspace() {
               rackId={selectedRackId ?? inletRack}
               query={inletQuery}
               selected={selected}
-              time={state.time}
               scroll={inletScroll}
               ready={ready}
               onRack={(id) => {
@@ -4640,13 +4637,13 @@ export function Workspace() {
               )}
             </div>
           )}
-          {!alarmQueueVisible && navigationView === "list" && (
-            <footer className="study-nav-caption">
-              {state.level === "device"
-                ? "部件状态为模型评估，非独立告警"
-                : "选中资源可定位或进入"}
-            </footer>
-          )}
+          {!alarmQueueVisible &&
+            navigationView === "list" &&
+            state.level === "device" && (
+              <footer className="study-nav-caption">
+                部件状态为模型评估，非独立告警
+              </footer>
+            )}
         </aside>
         <section
           ref={stageRef}
@@ -5021,9 +5018,11 @@ export function Workspace() {
             !coolingFacility &&
             !powerFacility &&
             !activeNetworkLink && (
-              <div className="study-room-summary">
-                <span>01 号机房</span>
-                <h1>运行概览</h1>
+              <div
+                className="study-room-summary"
+                role="group"
+                aria-label="机房运行概览"
+              >
                 <div>
                   <p>
                     <strong>
@@ -5054,7 +5053,6 @@ export function Workspace() {
                   {room.alarmCount}
                   <small>台设备</small>
                 </strong>
-                <p>点击空间标记查看对应对象</p>
                 <button
                   onClick={() => {
                     takeover();
@@ -5117,7 +5115,6 @@ export function Workspace() {
               <div className="study-identity">
                 <small>气流代表支路 · 模拟对照</small>
                 <h1>冷却输入与设备进风</h1>
-                <span>保留三维观察 · 与场景共享时间</span>
               </div>
             ) : (
               <div className="study-identity">
@@ -5729,21 +5726,23 @@ export function Workspace() {
                   >
                     <h2>
                       {reading?.alarm
-                        ? "进风温度异常"
+                        ? reading.count > 1
+                          ? `${reading.alarmCount} 台设备进风温度异常`
+                          : "设备进风温度持续超限"
                         : alarmCurrentStatus(reading)}
                     </h2>
-                    <p>
-                      {inspectedAlarm &&
-                        reading?.alarm !== inspectedAlarm.severity &&
-                        `${alarmVisitLabel(inspectedAlarm)}。`}
-                      {alarmSample && reading
-                        ? inletAssessment(reading, alarmSample).detail
-                        : inspectedAlarm
-                          ? alarmCurrentStatus(reading)
-                          : reading && reading.count > 1
-                            ? `${reading.alarmCount} 台设备存在进风温度告警。`
-                            : "设备进风温度持续超限。"}
-                    </p>
+                    {((alarmSample && reading) ||
+                      (inspectedAlarm &&
+                        reading?.alarm !== inspectedAlarm.severity)) && (
+                      <p>
+                        {inspectedAlarm &&
+                          reading?.alarm !== inspectedAlarm.severity &&
+                          `${alarmVisitLabel(inspectedAlarm)}。`}
+                        {alarmSample &&
+                          reading &&
+                          inletAssessment(reading, alarmSample).detail}
+                      </p>
+                    )}
                     <div className="study-alarm-actions">
                       <button
                         disabled={(!!alarmSample || !!inspectedAlarm) && !ready}
@@ -5973,20 +5972,25 @@ export function Workspace() {
                             {(reading.power ?? 0) >= 1000 ? "kW" : "W"}
                           </small>
                         </strong>
-                        {(reading.count > 1 || reading.coveragePower !== 1) && (
-                          <small>
-                            有效覆盖 {reading.coveragePower}/{reading.count}
-                          </small>
+                        {sources && availableSourceMetrics.includes("power") ? (
+                          <button
+                            className="reading-coverage-link"
+                            aria-label="核对功耗输入与预算"
+                            onClick={() => openSourceCheck("power")}
+                          >
+                            {reading.count > 1 || reading.coveragePower !== 1
+                              ? `有效覆盖 ${reading.coveragePower}/${reading.count}`
+                              : "核对输入与预算"}{" "}
+                            ↗
+                          </button>
+                        ) : (
+                          (reading.count > 1 ||
+                            reading.coveragePower !== 1) && (
+                            <small>
+                              有效覆盖 {reading.coveragePower}/{reading.count}
+                            </small>
+                          )
                         )}
-                        {sources &&
-                          availableSourceMetrics.includes("power") && (
-                            <button
-                              className="reading-coverage-link"
-                              onClick={() => openSourceCheck("power")}
-                            >
-                              核对功耗输入与预算 ↗
-                            </button>
-                          )}
                         {powerFacility && (
                           <small>关联设备汇总 · 非设施或支路计量</small>
                         )}

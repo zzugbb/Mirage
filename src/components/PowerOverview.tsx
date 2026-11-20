@@ -21,7 +21,6 @@ export function PowerOverview({
   onScope,
   onOrder,
   selected,
-  time,
   visible,
   ready,
   scroll,
@@ -43,7 +42,6 @@ export function PowerOverview({
   onScope: (scope: PowerOverviewScope) => void;
   onOrder: (order: PowerOverviewOrder) => void;
   selected: string;
-  time: number;
   visible: boolean;
   ready: boolean;
   scroll: RefObject<number>;
@@ -130,16 +128,14 @@ export function PowerOverview({
           if (visible) scroll.current = event.currentTarget.scrollTop;
         }}
       >
-        <header>
-          <strong>机房功耗对照</strong>
-          <p>
-            模拟 {time.toFixed(0)} s · 有效{" "}
-            {all.reduce((n, item) => n + item.coverage, 0)}/
-            {all.reduce((n, item) => n + item.count, 0)} 台
-          </p>
-        </header>
         <details className="power-rack-summary">
-          <summary>八柜汇总与切换</summary>
+          <summary>
+            机柜切换{" "}
+            <small>
+              有效 {all.reduce((n, item) => n + item.coverage, 0)}/
+              {all.reduce((n, item) => n + item.count, 0)} 台
+            </small>
+          </summary>
           {rackGrid}
         </details>
         <label>
@@ -156,41 +152,62 @@ export function PowerOverview({
             }}
           />
         </label>
-        <select
-          aria-label="功耗对照数据范围"
-          value={filter}
-          onChange={(event) =>
-            onFilter(event.target.value as PowerOverviewFilter)
-          }
-        >
-          <option value="all">全部设备</option>
-          <option value="included">有效输入</option>
-          <option value="excluded">未计入输入</option>
-          <option value="zero">有效零值</option>
-        </select>
-        <div className="power-overview-options">
+        <details className="overview-list-filters">
+          <summary>
+            筛选与排序{" "}
+            <small>
+              {[
+                scope === "room" && "全机房",
+                filter !== "all" &&
+                  (filter === "included"
+                    ? "有效"
+                    : filter === "zero"
+                      ? "有效零值"
+                      : "未计入"),
+                order !== "installation" &&
+                  (order === "budget" ? "预算降序" : "功耗降序"),
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </small>
+          </summary>
+
           <select
-            aria-label="功耗对照查找范围"
-            value={scope}
+            aria-label="功耗对照数据范围"
+            value={filter}
             onChange={(event) =>
-              onScope(event.target.value as PowerOverviewScope)
+              onFilter(event.target.value as PowerOverviewFilter)
             }
           >
-            <option value="rack">当前机柜</option>
-            <option value="room">整间机房</option>
+            <option value="all">全部设备</option>
+            <option value="included">有效输入</option>
+            <option value="excluded">未计入输入</option>
+            <option value="zero">有效零值</option>
           </select>
-          <select
-            aria-label="功耗对照排列"
-            value={order}
-            onChange={(event) =>
-              onOrder(event.target.value as PowerOverviewOrder)
-            }
-          >
-            <option value="installation">安装位置</option>
-            <option value="power">功耗从高到低</option>
-            <option value="budget">预算占比从高到低</option>
-          </select>
-        </div>
+          <div className="power-overview-options">
+            <select
+              aria-label="功耗对照查找范围"
+              value={scope}
+              onChange={(event) =>
+                onScope(event.target.value as PowerOverviewScope)
+              }
+            >
+              <option value="rack">当前机柜</option>
+              <option value="room">整间机房</option>
+            </select>
+            <select
+              aria-label="功耗对照排列"
+              value={order}
+              onChange={(event) =>
+                onOrder(event.target.value as PowerOverviewOrder)
+              }
+            >
+              <option value="installation">安装位置</option>
+              <option value="power">功耗从高到低</option>
+              <option value="budget">预算占比从高到低</option>
+            </select>
+          </div>
+        </details>
         <div className="power-overview-heading">
           <strong>{scope === "room" ? "整间机房" : current.rack.name}</strong>
           <small>{rows.length} 台匹配</small>

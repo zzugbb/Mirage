@@ -451,7 +451,7 @@ export function ReviewScene({
     if (smokeInspectionActive) setOrbit(false);
   }, [smokeInspectionActive]);
   const [cutaway, setCutaway] = useState(false);
-  const [moreLabels, setMoreLabels] = useState(true);
+  const [moreLabels, setMoreLabels] = useState(false);
   const airflowWorkspace = useAirflowWorkspace({
     engine,
     scope: `${layer}:${state.level}:${shotRevision}`,
@@ -550,11 +550,14 @@ export function ReviewScene({
   const [showPowerInputs, setShowPowerInputs] = useState(false);
   useEffect(
     () => setShowPowerInputs(false),
-    [layer, state.level, state.deviceId],
+    [layer, state.level, state.deviceId, supply?.rackId],
   );
   const optionalInputs =
-    state.level === "device" &&
     supply &&
+    !powerViewActive &&
+    !pduInspection &&
+    !pduById(selectedId) &&
+    selectedId !== powerSettings.sourceId &&
     !supply.traceId &&
     !supply.labels.some((label) => label.partId === selectedId);
   const showSupply = !optionalInputs || showPowerInputs;
@@ -1473,8 +1476,8 @@ export function ReviewScene({
     if (engine.current) engine.current.comparedAisle = comparison;
   }, [maintenance, comparison, retry]);
   useEffect(() => {
-    powerGeometry.current?.update(supply);
-  }, [supply, retry]);
+    powerGeometry.current?.update(showSupply ? supply : null);
+  }, [supply, showSupply, retry]);
   useEffect(() => {
     networkGeometry.current?.update(network);
   }, [network, retry]);
@@ -1539,7 +1542,7 @@ export function ReviewScene({
       layer,
       selectedId,
       alarmOriginId,
-      more: moreLabels,
+      more: moreLabels || !!sliceRow,
       estimates: slice?.rackEstimates,
       hasPath: !!visibleAirflow || !!supply || network.length > 0,
       annotatedIds: [
@@ -1684,7 +1687,7 @@ export function ReviewScene({
             onInspectBudget();
           }}
         >
-          核对所查范围功耗预算 ↗
+          核对功耗预算 ↗
         </button>
       )}
     </>
@@ -2584,13 +2587,13 @@ export function ReviewScene({
                           {state.level === "device" ? "80 °C" : "45 °C"}
                         </span>
                       </div>
-                      <small>
-                        {slice
-                          ? slice.orientation === "horizontal"
+                      {slice && (
+                        <small>
+                          {slice.orientation === "horizontal"
                             ? "局部插值示意 · 空白无估计"
-                            : `高 ${sliceSettings.height.min.toFixed(2)}–${sliceSettings.height.max.toFixed(2)} m · 插值示意 · 空白无估计`
-                          : "蓝色低温 → 暖色高温"}
-                      </small>
+                            : `高 ${sliceSettings.height.min.toFixed(2)}–${sliceSettings.height.max.toFixed(2)} m · 插值示意 · 空白无估计`}
+                        </small>
+                      )}
                     </>
                   )}
                 </>

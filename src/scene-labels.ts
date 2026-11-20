@@ -43,7 +43,7 @@ export function sceneLabels<T extends { id: string }>(
     ? standardLimit
     : layer === "overview" || layer === "alarms"
       ? 1
-      : options.hasPath
+      : options.hasPath || level === "device"
         ? 2
         : Math.min(4, standardLimit);
   return candidates
