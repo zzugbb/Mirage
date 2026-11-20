@@ -8,14 +8,26 @@ import definition from "../../assets/public/scenes/room-01.json" with { type: "j
 
 /** 线性纹理背景与模型经过同一色调映射，标准和后处理画质保持一致。 */
 export function createBackdrop() {
-  const pixels = [3, 4, 5, 255];
-  const backdrop = new THREE.DataTexture(
-    new Uint8Array(pixels),
-    1,
-    pixels.length / 4,
+  const stops = definition.rendering.roomBackdrop.stops.map(
+    (c) => new THREE.Color(c),
   );
-  backdrop.magFilter = THREE.LinearFilter;
-  backdrop.colorSpace = THREE.LinearSRGBColorSpace;
+  const pixels = new Uint8Array(128 * 4);
+  const color = new THREE.Color();
+  for (let row = 0; row < 128; row++) {
+    const t = (row / 127) * (stops.length - 1),
+      i = Math.min(stops.length - 2, Math.floor(t));
+    color
+      .lerpColors(
+        stops[i],
+        stops[i + 1],
+        THREE.MathUtils.smoothstep(t - i, 0, 1),
+      )
+      .convertLinearToSRGB();
+    pixels.set([color.r * 255, color.g * 255, color.b * 255, 255], row * 4);
+  }
+  const backdrop = new THREE.DataTexture(pixels, 1, 128);
+  backdrop.magFilter = backdrop.minFilter = THREE.LinearFilter;
+  backdrop.colorSpace = THREE.SRGBColorSpace;
   backdrop.needsUpdate = true;
   return backdrop;
 }

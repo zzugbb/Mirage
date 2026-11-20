@@ -4,12 +4,15 @@
   color: var(--text);
   background: var(--bg);
   font-synthesis: none;
-  --bg: #0a0d0f;
-  --panel: #13181c;
-  --line: #30373b;
-  --muted: #939e9d;
-  --accent: #dca774;
-  --text: #e9ece7;
+  --bg: #0d1722;
+  --panel: #162634;
+  --raised: #203444;
+  --toolbar: #192d3cef;
+  --selected: #344f61;
+  --line: #344858;
+  --muted: #a2b5c3;
+  --accent: #a1dddd;
+  --text: #e3edf3;
 }
 * {
   box-sizing: border-box;

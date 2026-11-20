@@ -1,6 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { observationColor } from "./scene/metric-color.ts";
+import { workspaceColors } from "./workspace-colors.ts";
+import definition from "../assets/public/scenes/room-01.json" with { type: "json" };
+import {
+  powerColor,
+  temperatureColor,
+  observationColor,
+} from "./scene/metric-color.ts";
 import { spatialSnapshot } from "./spatial.ts";
 import { signalStyles } from "./status.ts";
 
@@ -26,11 +32,11 @@ test("温度和功耗采用独立连续色阶；未知、过期和离线保持�
       { ...device, temperature: 45 },
       "temperature",
     ).getHexString(),
-    "fa3348",
+    "fa5655",
   );
   assert.equal(
     observationColor({ ...device, power: 0 }, "power").getHexString(),
-    "1a386e",
+    "8979ad",
   );
   assert.equal(
     observationColor({ ...device, budget: null }, "power").getHexString(),
@@ -47,4 +53,33 @@ test("温度和功耗采用独立连续色阶；未知、过期和离线保持�
       signalStyles[signal].color,
     );
   }
+});
+
+test("温度和预算图例与场景在各色标处一致，超量程钳制到两端", () => {
+  const { temperature, power } = definition.rendering.observationColors;
+  const colors = workspaceColors as Record<string, string>;
+  for (const [metric, stops, sample] of [
+    ["temperature", temperature, (t: number) => temperatureColor(20 + t * 25)],
+    ["power", power, powerColor],
+  ] as const) {
+    assert.deepEqual(colors[`--${metric}-ramp`].match(/#[a-f0-9]{6}/g), stops);
+    stops.forEach((stop, i) =>
+      assert.equal("#" + sample(i / (stops.length - 1)).getHexString(), stop),
+    );
+    assert.equal("#" + sample(-1).getHexString(), stops[0]);
+    assert.equal("#" + sample(2).getHexString(), stops.at(-1));
+  }
+});
+
+test("同一对象可同时保留告警与过期读数，各图层呈现各自语义", () => {
+  const device = spatialSnapshot(60).readings.get("srv-01")!;
+  const reading = { ...device, quality: "stale", alarm: 2 } as const;
+  assert.equal(
+    "#" + observationColor(reading, "power").getHexString(),
+    signalStyles.stale.color,
+  );
+  assert.equal(
+    "#" + observationColor(reading, "alarms").getHexString(),
+    signalStyles.critical.color,
+  );
 });

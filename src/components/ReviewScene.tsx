@@ -1023,13 +1023,15 @@ export function ReviewScene({
   }, [shotRevision, setTemperatureSliceControls]);
   useEffect(() => {
     if (engine.current) {
+      engine.current.analysisLayer = layer !== "overview";
       engine.current.telemetry.mode = presentation.mode;
+      engine.current.invalidate();
       // 旧遥测关系线与新的布置路径分开，避免重复叠加。
       engine.current.telemetry.enabled = false;
       engine.current.telemetry.root.visible = false;
       engine.current.showLabels = true;
     }
-  }, [presentation.mode, retry]);
+  }, [layer, presentation.mode, retry]);
   useEffect(() => {
     if (engine.current) engine.current.pipeline.enabled = quality;
   }, [quality, retry]);

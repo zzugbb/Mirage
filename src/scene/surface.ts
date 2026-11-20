@@ -6,7 +6,15 @@ import { rackForDevice } from "../installation.ts";
 import type { SceneModel } from "./models";
 import type { InstallationScene } from "./installation";
 
+import { temperatureStops, powerStops } from "./metric-color.ts";
+import { budgetRatio } from "../power-budget.ts";
+import { signalStyles } from "../status.ts";
+
+const warning = new THREE.Color(signalStyles.warning.color);
+const critical = new THREE.Color(signalStyles.critical.color);
+
 type Uniforms = {
+  qualityColor: { value: THREE.Color };
   mode: { value: number };
   temperature: { value: number };
   load: { value: number };
@@ -18,6 +26,7 @@ type Uniforms = {
 };
 const uniforms = (): Uniforms => ({
   mode: { value: 0 },
+  qualityColor: { value: new THREE.Color(signalStyles.missing.color) },
   temperature: { value: 27 },
   load: { value: 0 },
   alarm: { value: 0 },
@@ -58,6 +67,11 @@ export class SurfaceObservation {
           material.onBeforeCompile = (shader) => {
             Object.assign(shader.uniforms, {
               mMode: u.mode,
+              mTemperatureStops: { value: temperatureStops },
+              mPowerStops: { value: powerStops },
+              mQualityColor: u.qualityColor,
+              mWarning: { value: warning },
+              mCritical: { value: critical },
               mTemperature: u.temperature,
               mLoad: u.load,
               mAlarm: u.alarm,
@@ -75,22 +89,26 @@ export class SurfaceObservation {
             shader.fragmentShader =
               `varying vec3 vMirageWorld;
               uniform float mMode; uniform float mTemperature; uniform float mLoad; uniform float mAlarm; uniform vec2 mRange; uniform vec3 mCenter; uniform float mSpan; uniform float mGradient;
+              uniform vec3 mTemperatureStops[5],mPowerStops[3],mQualityColor,mWarning,mCritical;
               vec3 thermalColor(float x) {
-                vec3 a=vec3(.04,.24,.48),b=vec3(.06,.51,.67),c=vec3(.18,.74,.78),d=vec3(.98,.64,.19),e=vec3(.98,.20,.28);
-                if(x<.25)return mix(a,b,x*4.);if(x<.5)return mix(b,c,(x-.25)*4.);if(x<.75)return mix(c,d,(x-.5)*4.);return mix(d,e,clamp((x-.75)*4.,0.,1.));
+                int i=min(3,int(x*4.));
+                return mix(mTemperatureStops[i],mTemperatureStops[i+1],x*4.-float(i));
               }
-              vec3 loadColor(float x){return x<.5?mix(vec3(.10,.22,.43),vec3(.13,.67,.83),x*2.):mix(vec3(.13,.67,.83),vec3(.99,.68,.23),(x-.5)*2.);}
+              vec3 loadColor(float x){
+                int i=min(1,int(x*2.));
+                return mix(mPowerStops[i],mPowerStops[i+1],x*2.-float(i));
+              }
               ` + shader.fragmentShader;
             shader.fragmentShader = shader.fragmentShader.replace(
               "#include <map_fragment>",
               `#include <map_fragment>
               if(mMode>.5){
                 float detail=mix(.52,1.,clamp(dot(diffuseColor.rgb,vec3(.2126,.7152,.0722))*1.7,0.,1.));
-                vec3 tint=vec3(.24,.29,.35);
+                vec3 tint=mQualityColor;
                 if(mMode<1.5){float gradient=clamp((mCenter.z-vMirageWorld.z)/max(.03,mSpan),-0.5,.5)*6.*mGradient;tint=thermalColor(clamp((mTemperature+gradient-mRange.x)/(mRange.y-mRange.x),0.,1.));}
                 else if(mMode<2.5)tint=loadColor(clamp(mLoad,0.,1.));
-                else if(mMode<3.5)tint=mAlarm>1.5?vec3(.95,.18,.10):mAlarm>.5?vec3(.98,.64,.12):vec3(.24,.31,.39);
-                diffuseColor.rgb=mix(diffuseColor.rgb,pow(max(tint,vec3(0.)),vec3(2.2))*detail,mMode>3.5?.18:(mMode>2.5?(mAlarm>.5?.22:0.):(mGradient>.5?.6:.16)));
+                else if(mMode<3.5)tint=mAlarm>1.5?mCritical:mWarning;
+                diffuseColor.rgb=mix(diffuseColor.rgb,tint*detail,mMode>3.5?.18:(mMode>2.5?(mAlarm>.5?.22:0.):(mGradient>.5?.6:.16)));
               }`,
             );
             shader.fragmentShader = shader.fragmentShader.replace(
@@ -170,6 +188,7 @@ export class SurfaceObservation {
       }
       const reading: SpatialReading | undefined =
         this.snapshot.readings.get(id);
+      const ratio = reading ? budgetRatio(reading.power, reading.budget) : null;
       u.mode.value =
         mode === "object" || mode === "status"
           ? 0
@@ -180,15 +199,17 @@ export class SurfaceObservation {
                 ? 4
                 : 1
               : mode === "power"
-                ? reading.power === null || !reading.budget
+                ? ratio === null
                   ? 4
                   : 2
                 : 3;
+      u.qualityColor.value.set(
+        signalStyles[
+          reading && reading.quality !== "valid" ? reading.quality : "missing"
+        ].color,
+      );
       u.temperature.value = reading?.temperature ?? 27;
-      u.load.value =
-        reading?.power !== null && reading?.budget
-          ? reading.power / reading.budget
-          : 0;
+      u.load.value = ratio ?? 0;
       u.alarm.value = reading?.alarm ?? 0;
       u.range.value.set(20, state.level === "device" ? 80 : 45);
       u.gradient.value = state.level === "device" ? 1 : 0;

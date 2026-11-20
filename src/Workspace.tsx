@@ -284,6 +284,7 @@ import {
 import type { WorkspaceShot } from "./workspace-presets";
 import { tourSteps } from "./tour";
 import "./scene-ui.css";
+import { workspaceColors } from "./workspace-colors";
 import "./workspace-ui.css";
 
 const airflowRacks = racks.map((rack) => ({
@@ -3305,6 +3306,7 @@ export function Workspace() {
   return (
     <div
       className="mirage-workspace workspace-ui"
+      style={workspaceColors}
       data-analysis={review.analysis}
       data-layer={layer}
       data-scene-level={state.level}
@@ -5655,6 +5657,7 @@ export function Workspace() {
                 {(!!reading?.alarm || inspectedAlarm) && !component && (
                   <section
                     className="study-alarm-detail"
+                    data-severity={reading?.alarm ?? 0}
                     data-active={!!reading?.alarm}
                   >
                     <h2>

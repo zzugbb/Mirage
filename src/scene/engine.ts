@@ -250,6 +250,7 @@ export class SceneEngine {
   environment: THREE.WebGLRenderTarget;
   showLabels = false;
   retainMaterials = false;
+  analysisLayer = false;
   onRenderFrame: ((time: number, roomReady: boolean) => void) | null = null;
   pendingComponentFocus = false;
   onAnchorsProjected: (() => void) | null = null;
@@ -343,7 +344,11 @@ export class SceneEngine {
     ground.position.y = -0.3;
     ground.receiveShadow = true;
     this.roomGround.add(ground);
-    const grid = new THREE.GridHelper(40, 80, "#393d42", "#24282d");
+    const grid = new THREE.GridHelper(
+      40,
+      80,
+      ...(definition.rendering.roomBackdrop.grid as [string, string]),
+    );
     grid.position.y = -0.285;
     (grid.material as THREE.Material).transparent = true;
     (grid.material as THREE.Material).opacity = 0.2;
@@ -2733,7 +2738,8 @@ export class SceneEngine {
         trail.visible =
           this.dockSweep > 0 &&
           this.dockWithdrawal === 0 &&
-          !this.reducedMotion;
+          !this.reducedMotion &&
+          !this.analysisLayer;
         const t = THREE.MathUtils.smoothstep(this.dockSweep, 0, 1);
         trail.scale.z = 1 - 0.9 * THREE.MathUtils.smoothstep(t, 0.85, 1);
         trail.position.z = (t - 0.5) * (depth - 0.12) - 0.0575 * trail.scale.z;
@@ -2832,21 +2838,23 @@ export class SceneEngine {
           frame.relocation > 0.58,
           this.controls.getAzimuthalAngle(),
           this.explosion,
-          this.reducedMotion,
+          this.reducedMotion || this.analysisLayer,
         )
       : this.roomBackdrop;
     this.scene.backgroundIntensity = studio
-      ? 1 - 0.32 * THREE.MathUtils.smoothstep(this.explosion, 0, 0.85)
+      ? (this.analysisLayer ? 0.66 : 1) *
+        (1 - 0.32 * THREE.MathUtils.smoothstep(this.explosion, 0, 0.85))
       : 1;
     this.keyLight.shadow.intensity = studio ? 0.45 : 1;
     if (studio) {
+      this.inspectionBackdrop.dial.rotor.visible = !this.analysisLayer;
       this.inspectionBackdrop.update(
         frame.relocation,
         this.dockWithdrawal,
         !!this.partInspection,
         this.controls.getAzimuthalAngle(),
         delta,
-        this.reducedMotion,
+        this.reducedMotion || this.analysisLayer,
       );
       this.inspectionBackdrop.position.lerpVectors(
         this.models.rack.position,
@@ -3178,6 +3186,7 @@ export class SceneEngine {
       (this.state.playing && !this.reducedMotion);
     const rotatingDial =
       studio &&
+      !this.analysisLayer &&
       this.inspectionBackdrop.dial.root.visible &&
       !this.reducedMotion;
     if (rotatingDial && time - this.lastDialDraw >= 1000 / 24) {

@@ -6,6 +6,7 @@ import {
   type PowerOverviewOrder,
   type PowerOverviewFilter,
 } from "../power-overview";
+import { powerColor } from "../scene/metric-color";
 import { budgetRatio } from "../power-budget";
 import { sourceValue } from "../reading-sources";
 import type { SpatialReading } from "../spatial";
@@ -101,6 +102,10 @@ export function PowerOverview({
           >
             <i
               style={{
+                backgroundColor:
+                  item.budget!.ratio === null
+                    ? undefined
+                    : `#${powerColor(item.budget!.ratio).getHexString()}`,
                 width: `${Math.min(100, (item.budget!.ratio ?? 0) * 100)}%`,
               }}
             />

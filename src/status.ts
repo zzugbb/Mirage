@@ -6,11 +6,11 @@ export const signalStyles = {
   warning: { label: "预警", icon: "▲", color: "#f4c46c" },
   critical: { label: "严重", icon: "◆", color: "#ff685d" },
   maintenance: { label: "维护", icon: "◇", color: "#8c9ee8" },
-  offline: { label: "离线", icon: "⊘", color: "#869db5" },
-  missing: { label: "未配置", icon: "○", color: "#677789" },
+  offline: { label: "离线", icon: "⊘", color: "#91aec7" },
+  missing: { label: "未配置", icon: "○", color: "#98a3af" },
   stale: { label: "数据过期", icon: "◷", color: "#bea86c" },
   stopped: { label: "停机", icon: "■", color: "#afc1d3" },
-  partial: { label: "数据不全", icon: "◐", color: "#869db5" },
+  partial: { label: "数据不全", icon: "◐", color: "#abbcc5" },
 } as const;
 export type Signal = keyof typeof signalStyles;
 export const lifecycleNames: Record<Lifecycle, string> = {

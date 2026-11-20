@@ -1,11 +1,11 @@
 /* 正式工作区共用的场景、图例与分析样式。 */
 .mirage-workspace {
-  --review-bg: #121617;
-  --review-panel: #191e20;
-  --review-line: #30383a;
-  --review-muted: #9aa8aa;
-  --review-text: #e7e8e2;
-  --review-accent: #b6d7cf;
+  --review-bg: var(--bg);
+  --review-panel: var(--panel);
+  --review-line: var(--line);
+  --review-muted: var(--muted);
+  --review-text: var(--text);
+  --review-accent: var(--accent);
   color: var(--review-text);
   background: var(--review-bg);
   font-family: "SF Pro Display", "PingFang SC", "Microsoft YaHei", sans-serif;
@@ -174,7 +174,7 @@
   left: 22px;
   top: 75px;
   color: #b4c2bb;
-  background: #202b2ee6;
+  background: var(--toolbar);
   border: 1px solid #526367;
   padding: 6px 9px;
   font-size: 10px;
@@ -191,7 +191,7 @@
 .review-scene-tools summary {
   padding: 8px 10px;
   border: 1px solid #3e4b4d;
-  background: #172022e8;
+  background: var(--toolbar);
   font-size: 10px;
   border-radius: 3px;
 }
@@ -212,7 +212,7 @@
   width: 145px;
   padding: 15px;
   border: 1px solid #4d6260;
-  background: #202c2c;
+  background: var(--panel);
   font-size: 11px;
 }
 .review-scene-tools label {
@@ -230,7 +230,7 @@
   color: #b3c4c3;
   pointer-events: none;
   padding: 9px 10px;
-  background: #142022ed;
+  background: var(--toolbar);
   border: 1px solid #3e4e4d;
   border-radius: 3px;
 }
@@ -239,17 +239,10 @@
   margin: 8px 0 5px;
   width: 175px;
   height: 5px;
-  background: linear-gradient(
-    to right,
-    #0a3d7a,
-    #0f82ab,
-    #2ebdc7,
-    #faa330,
-    #fa3348
-  );
+  background: var(--temperature-ramp);
 }
 .review-scale.power {
-  background: linear-gradient(to right, #1a386e, #21abd4, #fcad3b);
+  background: var(--power-ramp);
 }
 .review-legend > div:not(.review-status-key) {
   width: 175px;
@@ -275,13 +268,13 @@
   line-height: 1.6;
 }
 .review-status-key .legend-normal {
-  color: #6ed9bc;
+  color: var(--signal-normal);
 }
 .review-status-key .legend-warning {
-  color: #f4c46c;
+  color: var(--signal-warning);
 }
 .review-status-key .legend-critical {
-  color: #ff8878;
+  color: var(--signal-critical);
 }
 .review-error {
   position: absolute;
@@ -292,7 +285,7 @@
   align-items: center;
   justify-content: center;
   padding: 28px;
-  background: #172024f5;
+  background: var(--toolbar);
   text-align: center;
 }
 .review-error h2 {
@@ -314,7 +307,7 @@
   gap: 8px;
   padding: 8px 16px;
   border-top: 1px solid var(--review-line);
-  background: #1a2122;
+  background: var(--panel);
 }
 .review-object-actions > span {
   color: #8c9f9b;
@@ -333,7 +326,7 @@
   white-space: nowrap;
 }
 .review-object-actions button[aria-pressed="true"] {
-  background: #2d4039;
+  background: var(--selected);
   border-color: #769287;
 }
 .review-object-actions > small {
@@ -358,7 +351,7 @@
   font-variant-numeric: tabular-nums;
 }
 .review-inspector {
-  background: #1b2223;
+  background: var(--panel);
   border-left: 1px solid var(--review-line);
   padding: 19px 21px 24px;
   min-height: 0;
@@ -367,8 +360,24 @@
   scrollbar-width: thin;
   scrollbar-color: #51615c transparent;
 }
+.review-trend,
+.review-compare-metric {
+  --series-color: #90d9cd;
+}
+:is(.review-trend, .review-compare-metric).power {
+  --series-color: #f2c985;
+}
+:is(.review-trend, .review-compare-metric).cooling {
+  --series-color: #9dcedf;
+}
+:is(.review-trend, .review-compare-metric).humidity {
+  --series-color: #86bcec;
+}
+:is(.review-trend, .review-compare-metric).dewPoint {
+  --series-color: #d7aad1;
+}
 .review-trend {
-  color: #8da69d;
+  color: var(--review-muted);
   width: 100%;
 }
 .review-trend svg {
@@ -391,17 +400,14 @@
   stroke-width: 0.6;
 }
 .review-trend .review-series {
-  stroke: #9ecfc1;
+  stroke: var(--series-color);
   stroke-width: 1.8;
   fill: none;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
-.review-trend.power .review-series {
-  stroke: #d7ba84;
-}
 .review-trend circle {
-  fill: #d2e9d7;
+  fill: var(--series-color);
 }
 .review-trend .review-cursor {
   stroke: #cbd7c7;
@@ -410,7 +416,7 @@
 }
 .review-analysis {
   flex-shrink: 0;
-  background: #1b2525;
+  background: var(--panel);
   border-top: 1px solid #465b54;
 }
 .review-analysis-head {
@@ -460,7 +466,7 @@
   padding: 5px 0;
 }
 .review-playback select {
-  background: #1b2b23;
+  background: var(--panel);
   border: 1px solid #465b50;
   border-radius: 3px;
   color: #d5e3d8;

@@ -494,7 +494,7 @@
     "cornerRadius": 0.12,
     "samples": 64,
     "visualCyclesPerSecond": 0.12,
-    "colors": { "supply": "#5fc9df", "through": "#b5e0d7", "return": "#c2bfae", "unknown": "#89989d" }
+    "colors": { "supply": "#63d5ec", "through": "#b8e9d5", "return": "#e7c398", "unknown": "#a0abb7" }
   },
   "rack": {
     "id": "rack-a01",
@@ -1666,6 +1666,14 @@
     "railThickness": 0.001
   },
   "rendering": {
+    "roomBackdrop": {
+      "stops": ["#1e3546", "#294354", "#172539", "#101a29"],
+      "grid": ["#486477", "#334a5a"]
+    },
+    "observationColors": {
+      "temperature": ["#487eaf", "#359aba", "#58ccc3", "#f5b85f", "#fa5655"],
+      "power": ["#8979ad", "#c996c0", "#ffcf78"]
+    },
     "inspectionStudio": {
       "description": "机柜方位盘与设备对开托架共享浮城夜航配色",
       "rackSky": ["#080f1e", "#193b51", "#182e41", "#080f1b"],
@@ -1696,7 +1704,7 @@
       "samples": 8
     },
     "floor": {
-      "color": "#505965",
+      "color": "#506575",
       "tileSize": 0.5,
       "thickness": 0.045,
       "surfaceY": 0.0445,
@@ -1710,22 +1718,22 @@
     },
     "shell": {
       "wall": {
-        "color": "#5f6a74",
+        "color": "#657c8a",
         "metalness": 0.04,
         "roughness": 0.88
       },
       "frame": {
-        "color": "#53606b",
+        "color": "#465e70",
         "metalness": 0.25,
         "roughness": 0.7
       },
       "trim": {
-        "color": "#7a8791",
+        "color": "#879ba8",
         "metalness": 0.4,
         "roughness": 0.62
       },
       "joint": {
-        "color": "#54606a",
+        "color": "#465c6a",
         "metalness": 0.04,
         "roughness": 0.9
       },

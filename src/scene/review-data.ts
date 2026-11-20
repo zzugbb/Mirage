@@ -88,7 +88,7 @@ export class ReviewDataGeometry {
             [x + 0.033, y + height / 2, z + 0.004],
           );
           box(color, [0.14, 0.016, 0.025], [x + 0.025, y + height, z + 0.008]);
-        } else box("#a0abb2", [0.12, 0.012, 0.022], [x + 0.02, y + 0.03, z]);
+        } else box(color, [0.12, 0.012, 0.022], [x + 0.02, y + 0.03, z]);
       }
     }
     for (const [mesh, glyphs] of [
