@@ -29,7 +29,6 @@ import {
 
 export function FixtureDetails({
   fixture,
-  analysis = false,
   grilleRelations,
   onInspectEntrance,
   entranceInspection,
@@ -41,7 +40,6 @@ export function FixtureDetails({
   onLocate,
 }: {
   fixture: RoomFixture;
-  analysis?: boolean;
   grilleRelations?: ReactNode;
   onInspectEntrance?: () => void;
   entranceInspection?: EntranceInspection | null;
@@ -178,7 +176,7 @@ export function FixtureDetails({
           </div>
         )}
       </dl>
-      {isTray && !analysis && (
+      {isTray && (
         <details className="fixture-relations">
           <summary>
             端点配置 <span>2</span>
@@ -194,7 +192,7 @@ export function FixtureDetails({
           <p>X / Y / Z 为机房坐标，端点未登记外部连接。</p>
         </details>
       )}
-      {!analysis && entranceViewIncludes(fixture.id) && (
+      {entranceViewIncludes(fixture.id) && (
         <div className="entrance-view-entry">
           {onInspectEntrance ? (
             <button disabled={!comparisonReady} onClick={onInspectEntrance}>
@@ -205,7 +203,7 @@ export function FixtureDetails({
           )}
         </div>
       )}
-      {!analysis && isLeakFixture(fixture.id) && (
+      {isLeakFixture(fixture.id) && (
         <div className="leak-view-entry">
           {onInspectLeak ? (
             <button disabled={!comparisonReady} onClick={onInspectLeak}>
@@ -216,21 +214,20 @@ export function FixtureDetails({
           )}
         </div>
       )}
-      {!analysis &&
-        (grilleRow && grilleRelations ? (
-          grilleRelations
-        ) : (
-          <FixtureRelations
-            title={grilleRow ? "对应柜排" : "布置关系"}
-            relations={relations}
-            onCompare={isTray ? onCompareRack : undefined}
-            compareLabel="核对柜顶高差"
-            comparisonReady={comparisonReady}
-            onPreview={onPreview}
-            onLocate={onLocate}
-          />
-        ))}
-      {!analysis && (light || isTray) && (
+      {grilleRow && grilleRelations ? (
+        grilleRelations
+      ) : (
+        <FixtureRelations
+          title={grilleRow ? "对应柜排" : "布置关系"}
+          relations={relations}
+          onCompare={isTray ? onCompareRack : undefined}
+          compareLabel="核对柜顶高差"
+          comparisonReady={comparisonReady}
+          onPreview={onPreview}
+          onLocate={onLocate}
+        />
+      )}
+      {(light || isTray) && (
         <FixtureRelations
           title={light ? "投影相交的桥架" : "投影相交的顶灯"}
           relations={lightTrayRelations(fixture.id)}
@@ -240,13 +237,10 @@ export function FixtureDetails({
           onLocate={onLocate}
         />
       )}
-      <p>
-        {analysis
-          ? fixture.dataStatus === "not-applicable"
-            ? "此对象为静态结构布置，没有运行曲线或事件。共享时间仍可用于回看机房设备。"
-            : "此设施尚未接入数据，没有历史曲线或事件。共享时间仍可用于回看机房设备。"
-          : fixtureBoundary(fixture)}
-      </p>
+      <details className="fixture-relations">
+        <summary>配置与数据说明</summary>
+        <p>{fixtureBoundary(fixture)}</p>
+      </details>
       <small>位置与高度为场景配置示意</small>
     </section>
   );

@@ -67,6 +67,17 @@
   position: absolute;
   inset: 0;
 }
+.rack-surface-hint {
+  position: absolute;
+  z-index: 2;
+  padding: 4px 8px;
+  border-left: 2px solid #abd6d8;
+  background: #17222bf0;
+  color: #e3edef;
+  font-size: 12px;
+  white-space: nowrap;
+  pointer-events: none;
+}
 .review-canvas canvas {
   display: block;
   width: 100%;

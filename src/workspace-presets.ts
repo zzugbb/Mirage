@@ -1,5 +1,6 @@
 import { reviewTransition } from "./review-model.ts";
-import type { ReviewState } from "./review-model.ts";
+import type { ReviewLayer, ReviewState } from "./review-model.ts";
+import type { Level } from "./domain.ts";
 import type { Resource } from "./review-resources.ts";
 import type { SpatialReading } from "./spatial.ts";
 
@@ -10,6 +11,35 @@ export const workspaceShots = [
   { id: "time", name: "时间分析" },
 ] as const;
 export type WorkspaceShot = (typeof workspaceShots)[number]["id"];
+
+export const resourceViews = {
+  list: "列表",
+  installation: "安装图",
+  layout: "布置图",
+  space: "空间核查",
+  network: "网络接入",
+  inlet: "进风对照",
+  power: "功耗对照",
+} as const;
+export type ResourceView = keyof typeof resourceViews;
+
+// 第一项是从其他图层进入时使用的清单。已选的呈现只在当前范围支持时保留。
+export function navigationViews(
+  level: Level,
+  layer: ReviewLayer,
+): ResourceView[] {
+  if (level === "device") return ["list"];
+  if (level === "rack") {
+    if (layer === "overview") return ["installation", "list", "space"];
+    return layer === "alarms"
+      ? ["list", "installation"]
+      : ["installation", "list"];
+  }
+  if (layer === "overview") return ["list", "layout", "space", "network"];
+  if (layer === "environment") return ["inlet", "list"];
+  if (layer === "power") return ["power", "list"];
+  return ["list"];
+}
 
 export function workspacePreset(
   current: ReviewState,

@@ -109,7 +109,7 @@ export class InstallationScene {
       add([0.468, height, depth], "#5e6973", [[0, 0, 0]], 0.7);
       add(
         [0.47, height - 0.004, 0.014],
-        model.category === "switch" ? "#35413c" : "#1e282f",
+        model.category === "switch" ? "#35413c" : "#45515a",
         [[0, 0, depth / 2 + 0.005]],
         0.5,
       );
@@ -146,6 +146,20 @@ export class InstallationScene {
           0.8,
         );
       } else {
+        if (model.id === "server-2u") {
+          // 盘组两侧的压筋让整机面板与相邻无设备的平封板可辨。
+          add(
+            [0.11, 0.0025, 0.003],
+            "#232b31",
+            [-0.144, 0.144].flatMap((x) =>
+              [-0.018, -0.009, 0, 0.009, 0.018].map((y) => [
+                x,
+                y,
+                depth / 2 + 0.015,
+              ]),
+            ),
+          );
+        }
         const count = model.drives,
           span = model.id === "server-2u" ? 0.137 : 0.41;
         const lff = model.category === "storage";

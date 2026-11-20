@@ -18,6 +18,7 @@ export function AirflowPanel({
   onReturnEndpoint,
   onExplain,
   onRoom,
+  targetName,
   onOpenInstallation,
   analysisControl,
 }: {
@@ -33,6 +34,7 @@ export function AirflowPanel({
   onReturnEndpoint: () => void;
   onExplain: () => void;
   onRoom: () => void;
+  targetName: string | null;
   onOpenInstallation?: () => void;
   analysisControl: ReactNode;
 }) {
@@ -117,15 +119,12 @@ export function AirflowPanel({
             )}
           </div>
         </>
+      ) : targetName ? (
+        <button disabled={!ready} onClick={onRoom}>
+          查看 {targetName} 机房气流
+        </button>
       ) : (
-        <>
-          <p>
-            代表路径定义在机房。当前保留结构检视；查看机房气流会先安全归位。
-          </p>
-          <button disabled={!ready} onClick={onRoom}>
-            查看该设备机房气流
-          </button>
-        </>
+        <p>当前对象没有已配置的代表气流路径。</p>
       )}
     </section>
   );

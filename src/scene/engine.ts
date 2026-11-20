@@ -82,7 +82,7 @@ import {
   fixtureSightOffsets,
   fixtureMountReference,
 } from "../fixtures";
-import { modelForDevice, partsForDevice } from "../catalog";
+import { modelForDevice, partsForDevice, unitLabel } from "../catalog";
 import { createEquipmentAssembly } from "./equipment-model";
 import { advanceAssembly, assemblyPartPosition } from "../assembly-motion";
 import { createExteriorAssembly, poseExterior } from "./equipment-exterior";
@@ -223,6 +223,7 @@ export class SceneEngine {
   moving = true;
   pointerStart = new THREE.Vector2();
   raycaster = new THREE.Raycaster();
+  private rackHint = document.createElement("span");
   reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
   onSelect: (id: string, enter?: boolean) => void;
   onError: (message: string) => void;
@@ -306,7 +307,9 @@ export class SceneEngine {
       "webglcontextlost",
       this.contextLost,
     );
-    host.append(this.renderer.domElement);
+    this.rackHint.className = "rack-surface-hint";
+    this.rackHint.hidden = true;
+    host.append(this.renderer.domElement, this.rackHint);
     this.scene.fog = new THREE.FogExp2("#0b0e10", 0.008);
     this.scene.add(this.skyLight);
     const key = (this.keyLight = new THREE.DirectionalLight("#fff9f0", 1.6));
@@ -411,6 +414,7 @@ export class SceneEngine {
     this.controls.maxDistance = 24;
     this.controls.addEventListener("start", this.cancelFlight);
     this.controls.addEventListener("change", this.invalidate);
+    this.controls.addEventListener("change", this.hideRackHint);
     this.camera.position.set(13, 11, 16);
     this.controls.target.set(0, 0.8, 0);
     this.pipeline = new RenderPipeline(this.renderer, this.scene, this.camera);
@@ -421,6 +425,10 @@ export class SceneEngine {
     this.renderer.domElement.addEventListener("pointerup", this.pointerUp);
     this.renderer.domElement.addEventListener("dblclick", this.doubleClick);
     this.renderer.domElement.addEventListener("pointermove", this.hover);
+    this.renderer.domElement.addEventListener(
+      "pointerleave",
+      this.hideRackHint,
+    );
     this.activateAssembly(state);
     this.update(state);
     this.controls.autoRotateSpeed = 0.35;
@@ -1634,6 +1642,7 @@ export class SceneEngine {
       this.view(this.currentView, this.currentFocus);
   }
   contextLost = (event: Event) => {
+    this.hideRackHint();
     event.preventDefault();
     this.contextAvailable = false;
     this.loop.setEnabled(false);
@@ -1825,6 +1834,13 @@ export class SceneEngine {
       this.activateAssembly(state);
     }
     const levelChanged = state.level !== this.state.level;
+    if (
+      levelChanged ||
+      deviceChanged ||
+      state.doorOpen !== this.state.doorOpen ||
+      state.trayExtended !== this.state.trayExtended
+    )
+      this.hideRackHint();
     if (levelChanged || state.selected !== this.state.selected)
       this.pendingComponentFocus = false;
     const explosionChanged = state.explosion !== this.state.explosion;
@@ -2212,7 +2228,9 @@ export class SceneEngine {
     this.camera.position.copy(this.controls.target).add(offset);
     this.controls.update();
   }
-  pick(event: MouseEvent | PointerEvent) {
+  private pickSurface(
+    event: MouseEvent | PointerEvent,
+  ): { id: string; blankUnit?: number } | null {
     const rect = this.renderer.domElement.getBoundingClientRect();
     this.raycaster.setFromCamera(
       new THREE.Vector2(
@@ -2233,26 +2251,40 @@ export class SceneEngine {
         hit.object.userData.instanceEntityIds
       ) {
         if (hit.object.userData.instanceVisible[hit.instanceId])
-          return hit.object.userData.instanceEntityIds[
-            hit.instanceId
-          ] as string;
+          return { id: hit.object.userData.instanceEntityIds[hit.instanceId] };
         continue;
       }
       let object: THREE.Object3D | null = hit.object;
       while (object) {
         if (object.userData.entityId) {
           const id = object.userData.entityId as string;
-          return entityById(id)?.kind === "part" &&
-            this.state.level !== "device"
-            ? this.state.deviceId
-            : id;
+          const index = hit.instanceId;
+          const blankUnit =
+            index !== undefined && hit.object.parent?.name === "rack-blanking"
+              ? hit.object.parent.userData.units[
+                  hit.object.name === "blanking-fasteners"
+                    ? Math.floor(index / 2)
+                    : index
+                ]
+              : undefined;
+          return {
+            id:
+              entityById(id)?.kind === "part" && this.state.level !== "device"
+                ? this.state.deviceId
+                : id,
+            blankUnit,
+          };
         }
         object = object.parent;
       }
     }
     return null;
   }
+  pick(event: MouseEvent | PointerEvent) {
+    return this.pickSurface(event)?.id ?? null;
+  }
   pointerDown = (event: PointerEvent) => {
+    this.hideRackHint();
     this.pointerStart.set(event.clientX, event.clientY);
   };
   pointerUp = (event: PointerEvent) => {
@@ -2269,10 +2301,52 @@ export class SceneEngine {
     const id = this.pick(event);
     if (id) this.onSelect(id, true);
   };
+  private hideRackHint = () => {
+    this.rackHint.hidden = true;
+  };
   hover = (event: PointerEvent) => {
-    this.renderer.domElement.style.cursor = this.pick(event)
-      ? "pointer"
-      : "grab";
+    const surface = this.pickSurface(event);
+    this.renderer.domElement.style.cursor = surface ? "pointer" : "grab";
+    if (
+      event.buttons ||
+      event.pointerType === "touch" ||
+      this.moving ||
+      this.state.level !== "rack" ||
+      !this.state.doorOpen ||
+      !surface
+    ) {
+      this.hideRackHint();
+      return;
+    }
+    const device = deviceById(surface.id);
+    const label = device
+      ? `${device.name} · ${unitLabel(device.id)}`
+      : surface.blankUnit
+        ? `U${surface.blankUnit} · 空置封板`
+        : null;
+    if (!label) {
+      this.hideRackHint();
+      return;
+    }
+    const rect = this.host.getBoundingClientRect();
+    this.rackHint.textContent = label;
+    this.rackHint.hidden = false;
+    this.rackHint.style.left =
+      Math.max(
+        0,
+        Math.min(
+          event.clientX - rect.left + 12,
+          rect.width - this.rackHint.offsetWidth,
+        ),
+      ) + "px";
+    this.rackHint.style.top =
+      Math.max(
+        0,
+        Math.min(
+          event.clientY - rect.top + 12,
+          rect.height - this.rackHint.offsetHeight,
+        ),
+      ) + "px";
   };
   private projectAnchor(
     element: HTMLElement,
@@ -2908,6 +2982,7 @@ export class SceneEngine {
     this.observer.disconnect();
     this.controls.removeEventListener("start", this.cancelFlight);
     this.controls.removeEventListener("change", this.invalidate);
+    this.controls.removeEventListener("change", this.hideRackHint);
     this.controls.dispose();
     this.pipeline.dispose();
     this.surface.dispose();
@@ -2919,6 +2994,8 @@ export class SceneEngine {
     canvas.removeEventListener("pointerup", this.pointerUp);
     canvas.removeEventListener("dblclick", this.doubleClick);
     canvas.removeEventListener("pointermove", this.hover);
+    canvas.removeEventListener("pointerleave", this.hideRackHint);
+    this.rackHint.remove();
     canvas.removeEventListener("webglcontextlost", this.contextLost);
     disposeModels(this.scene);
     for (const fade of this.fades)

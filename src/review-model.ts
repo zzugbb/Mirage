@@ -625,7 +625,7 @@ export function reviewPresentation(
     return {
       mode: "alarms" as const,
       title: "告警定位",
-      description: "在下方列表选择设备，再定位到空间；不会自动抽出或拆开设备。",
+      description: "在资源栏选择告警设备，可定位到柜内安装位置。",
     };
   if (layer === "environment")
     return {

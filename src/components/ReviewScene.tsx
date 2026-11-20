@@ -1,3 +1,4 @@
+import { roomAirflowTarget } from "../cooling";
 import { useDismissibleMenu } from "../use-dismissible-menu";
 import { storageDriveGroup } from "../storage-slots";
 import { AirflowPanel } from "./AirflowPanel";
@@ -82,7 +83,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { presentationKey, type AppState } from "../domain";
+import { entityById, presentationKey, type AppState } from "../domain";
 import type { PresentationPhase, SceneFeedback } from "../mechanics";
 import { SceneEngine } from "../scene/engine";
 import type { TaskViewMemory, View } from "../scene/engine";
@@ -1620,6 +1621,10 @@ export function ReviewScene({
         ?.closest(".study-stage")
         ?.scrollIntoView({ block: "nearest" });
   };
+  const flowTarget =
+    layer === "airflow" && state.level !== "room"
+      ? roomAirflowTarget(selectedId, state.deviceId)
+      : null;
   const foldPowerScale =
     powerViewActive || (pduInspection?.outlet != null && !!supply);
   const powerScale = layer === "power" && (
@@ -2309,7 +2314,7 @@ export function ReviewScene({
           ) : layer === "alarms" ? (
             <div className="review-status-key">
               {state.level === "device" ? (
-                <small>设备告警见详情 · 部件不独立告警</small>
+                <small>整机告警见详情 · 部件颜色表示模型评估</small>
               ) : (
                 <>
                   <span className="legend-warning">▲ 预警</span>
@@ -2384,6 +2389,13 @@ export function ReviewScene({
                     engine.current?.preservePanelView();
                     onExplainAirflow();
                   }}
+                  targetName={
+                    flowTarget
+                      ? (deviceById(flowTarget.id)?.name ??
+                        entityById(flowTarget.id)?.name ??
+                        flowTarget.id)
+                      : null
+                  }
                   onRoom={onShowRoomAirflow}
                   onOpenInstallation={onOpenAirflowInstallation}
                   analysisControl={airflowResponseControl}
@@ -2677,7 +2689,7 @@ export function ReviewScene({
                   <small>
                     {supply.unconnectedOutlet
                       ? "配置空位 · 可用容量未定义"
-                      : "支路未计量 · 上游独立性未定义"}
+                      : "线型区分配置支路 · 支路功耗未计量"}
                   </small>
                 </div>
               )}

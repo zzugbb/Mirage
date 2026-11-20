@@ -266,6 +266,9 @@ import { InletAssessment } from "./components/InletAssessment";
 import { ReviewAnalysis } from "./components/ReviewAnalysis";
 import type { PresentationPhase, SceneFeedback } from "./mechanics";
 import {
+  navigationViews,
+  resourceViews,
+  type ResourceView,
   workspacePreset,
   workspaceShots,
   visibleResourceRows,
@@ -652,14 +655,7 @@ export function Workspace() {
     level: "room" | "rack";
     query: string;
     filter: ResourceFilter;
-    rackView:
-      | "list"
-      | "installation"
-      | "space"
-      | "network"
-      | "inlet"
-      | "power"
-      | "layout";
+    rackView: ResourceView;
     nav: boolean;
     onlyAlarms: boolean;
     metric: "temperature" | "power";
@@ -698,9 +694,9 @@ export function Workspace() {
       ? networkLinkId
       : null;
   const [query, setQuery] = useState("");
-  const [rackView, setRackView] = useState<
-    "list" | "installation" | "space" | "network" | "inlet" | "power" | "layout"
-  >("installation");
+  const [rackView, setRackView] = useState<ResourceView>("installation");
+  const views = navigationViews(state.level, layer);
+  const navigationView = views.includes(rackView) ? rackView : views[0];
   const [alarmQuery, setAlarmQuery] = useState("");
   const [alarmSeverity, setAlarmSeverity] = useState<AlarmSeverity>("all");
   const [alarmVisit, setAlarmVisit] = useState<
@@ -947,7 +943,8 @@ export function Workspace() {
   const [comparisonReturning, setComparisonReturning] = useState(false);
   const [comparisonFocus, setComparisonFocus] = useState(false);
   const [expanded, setExpanded] = useState<string[]>([]);
-  const [filter, setFilter] = useState<ResourceFilter>("all");
+  const [resourceFilter, setFilter] = useState<ResourceFilter>("all");
+  const filter = state.level === "device" ? "all" : resourceFilter;
   const [onlyAlarms, setOnlyAlarms] = useState(false);
   const [metric, setMetric] = useState<"temperature" | "power">("temperature");
   const [sourceCheck, setSourceCheck] = useState<SourceCheck | null>(null);
@@ -1006,6 +1003,28 @@ export function Workspace() {
   >(null);
   const [peakReturning, setPeakReturning] = useState(false);
   const inspectorRef = useRef<HTMLElement>(null);
+  const inspectorOpener = useRef<HTMLButtonElement>(null);
+  const panelFocus = useRef<"heading" | "opener" | null>(null);
+  const returnToDetails = useCallback(() => {
+    panelFocus.current = "heading";
+    control({ type: "analysis", value: false });
+  }, [control]);
+  const collapseInspector = useCallback(() => {
+    panelFocus.current = "opener";
+    setInspector(false);
+    control({ type: "analysis", value: false });
+  }, [control]);
+  useLayoutEffect(() => {
+    const destination = panelFocus.current;
+    panelFocus.current = null;
+    if (destination === "heading")
+      inspectorRef.current
+        ?.querySelector<HTMLElement>(".study-panel-heading h2")
+        ?.focus({ preventScroll: true });
+    else if (destination === "opener")
+      inspectorOpener.current?.focus({ preventScroll: true });
+  }, [inspector, review.analysis]);
+
   const peakReturnFocus = useRef<{
     scopeId: string;
     deviceId: string;
@@ -1477,7 +1496,7 @@ export function Workspace() {
     state.level === "room" &&
     layer === "alarms" &&
     onlyAlarms &&
-    ["list", "installation"].includes(rackView);
+    navigationView === "list";
   const inspectedAlarm =
     alarmQueueVisible && alarmVisit?.id === selected ? alarmVisit : null;
   const alarmSample =
@@ -2954,10 +2973,14 @@ export function Workspace() {
         ) {
           setQuery("");
           navigationRef.current.querySelector("input")?.focus();
-        } else if (review.analysis) control({ type: "analysis", value: false });
-        else if (inspector) setInspector(false);
-        else if (nav && matchMedia("(max-width: 1099px)").matches)
+        } else if (
+          nav &&
+          (navigationRef.current?.contains(target) ||
+            matchMedia("(max-width: 1099px)").matches)
+        )
           setNav(false);
+        else if (review.analysis) returnToDetails();
+        else if (inspector) collapseInspector();
         else dispatch({ type: "back" });
       }
       if ((event.target as HTMLElement).closest("input,select,textarea"))
@@ -2968,7 +2991,16 @@ export function Workspace() {
     };
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
-  }, [selected, review.analysis, nav, inspector, query, dispatch]);
+  }, [
+    selected,
+    review.analysis,
+    nav,
+    inspector,
+    query,
+    dispatch,
+    returnToDetails,
+    collapseInspector,
+  ]);
   const load = (next: WorkspaceShot) => {
     roomSearchOrigin.current = null;
     roomSearchFocus.current = null;
@@ -3733,10 +3765,10 @@ export function Workspace() {
                   CFD。
                 </p>
                 <p>
-                  温度切片由设备进风代表位置局部插值；气流是按当前布置与风向假设绘制的路径，均非环境实测。门禁、烟感与环境探头仅作布置示意。
+                  温度切片由设备进风局部插值，箭头表示配置的代表气流方向。两处环境探头各有温湿度模拟序列，露点由同次有效采样推导。
                 </p>
                 <p>
-                  交换机、存储内部及环境读数仍为演示；可分配容量、完整连接与园区入口尚未实施。
+                  门禁、烟感和检漏仅展示布置。交换机与存储的内部结构按配置示意。
                 </p>
               </div>
             </details>
@@ -3758,9 +3790,11 @@ export function Workspace() {
             <h2>
               {alarmQueueVisible
                 ? "机房告警"
-                : layer === "alarms" && state.level !== "device"
-                  ? "告警资源"
-                  : "资源"}
+                : state.level === "device"
+                  ? "设备部件"
+                  : state.level === "rack"
+                    ? "机柜资源"
+                    : "机房资源"}
             </h2>
             {alarmQueueVisible ? (
               <button
@@ -3776,11 +3810,7 @@ export function Workspace() {
               </button>
             ) : (
               <span>
-                {state.level === "room"
-                  ? "机房"
-                  : state.level === "rack"
-                    ? "机柜"
-                    : "部件"}
+                {reviewLayers.find((item) => item.id === layer)?.name}
               </span>
             )}
             <button aria-label="收起资源导航" onClick={() => setNav(false)}>
@@ -3788,18 +3818,18 @@ export function Workspace() {
             </button>
           </div>
           {!alarmQueueVisible &&
-            !(
-              state.level === "room" &&
-              ["space", "network", "inlet", "power", "layout"].includes(
-                rackView,
-              )
-            ) && (
+            (navigationView === "list" ||
+              navigationView === "installation") && (
               <>
                 <label className="study-search">
                   <span aria-hidden="true">⌕</span>
                   <input
                     aria-label="查找资源"
-                    placeholder="名称、编号或 U 位"
+                    placeholder={
+                      state.level === "device"
+                        ? "部件名称或资源编号"
+                        : "名称、编号或 U 位"
+                    }
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                   />
@@ -3809,136 +3839,76 @@ export function Workspace() {
                     </button>
                   )}
                 </label>
-                <div className="study-filters">
-                  <select
-                    aria-label="资源类型"
-                    value={filter}
-                    onChange={(e) =>
-                      setFilter(e.target.value as ResourceFilter)
-                    }
-                  >
-                    <option value="all">全部类型</option>
-                    <option value="server">服务器</option>
-                    <option value="switch">交换机</option>
-                    <option value="storage">存储</option>
-                    <option value="facility">设施</option>
-                  </select>
-                  {layer === "alarms" && state.level !== "device" && (
-                    <button
-                      aria-label="仅看告警"
-                      aria-pressed={onlyAlarms}
-                      onClick={() => setOnlyAlarms((v) => !v)}
+                {state.level !== "device" && (
+                  <div className="study-filters">
+                    <select
+                      aria-label="资源类型"
+                      value={filter}
+                      onChange={(e) =>
+                        setFilter(e.target.value as ResourceFilter)
+                      }
                     >
-                      <span aria-hidden="true">{onlyAlarms ? "✓ " : ""}</span>
-                      仅看告警
-                    </button>
-                  )}
-                </div>
+                      <option value="all">全部类型</option>
+                      {state.level === "room" && (
+                        <option value="rack">机柜</option>
+                      )}
+                      <option value="server">服务器</option>
+                      <option value="switch">交换机</option>
+                      <option value="storage">存储</option>
+                      <option value="facility">设施</option>
+                    </select>
+                    {layer === "alarms" && (
+                      <button
+                        aria-label="仅看告警"
+                        aria-pressed={onlyAlarms}
+                        onClick={() => setOnlyAlarms((v) => !v)}
+                      >
+                        <span aria-hidden="true">{onlyAlarms ? "✓ " : ""}</span>
+                        仅看告警
+                      </button>
+                    )}
+                  </div>
+                )}
               </>
             )}
 
-          {state.level !== "room" && (
-            <button
-              className="study-parent"
-              onClick={() => dispatch({ type: "back" })}
-            >
-              ←{" "}
-              {state.level === "device"
-                ? rackForDevice(state.deviceId).name
-                : "01号机房"}
-            </button>
-          )}
-          {state.level !== "device" && !alarmQueueVisible && (
+          {!alarmQueueVisible && views.length > 1 && (
             <div
               className={`rack-navigation-view ${state.level === "room" ? "is-room" : ""}`}
               role="group"
               aria-label="资源呈现"
             >
-              {state.level === "rack" && (
+              {views.map((view) => (
                 <button
-                  aria-pressed={rackView === "installation"}
-                  onClick={() => setRackView("installation")}
-                >
-                  安装图
-                </button>
-              )}
-              <button
-                aria-pressed={
-                  rackView === "list" ||
-                  (state.level === "room" &&
-                    !["space", "network", "inlet", "power", "layout"].includes(
-                      rackView,
-                    ))
-                }
-                onClick={() => setRackView("list")}
-              >
-                列表
-              </button>
-              {state.level === "room" && (
-                <button
-                  aria-pressed={rackView === "layout"}
+                  key={view}
+                  aria-pressed={navigationView === view}
                   onClick={() => {
                     takeover();
-                    setRackView("layout");
-                    setLayoutVisit(null);
-                    setLayoutReturning(false);
-                  }}
-                >
-                  布置图
-                </button>
-              )}
-              <button
-                aria-pressed={rackView === "space"}
-                onClick={() => {
-                  takeover();
-                  setSpaceVisit(null);
-                  setSpaceRestore(null);
-                  setRackView("space");
-                }}
-              >
-                空间核查
-              </button>
-              {state.level === "room" && (
-                <button
-                  aria-pressed={rackView === "inlet" || rackView === "power"}
-                  onClick={() => {
-                    takeover();
-                    if (layer === "power" || rackView === "power") {
-                      setRackView("power");
-                      control({ type: "layer", layer: "power" });
-                      setMetric("power");
-                      setOnlyAlarms(false);
-                      return;
+                    setRackView(view);
+                    if (view === "layout") {
+                      setLayoutVisit(null);
+                      setLayoutReturning(false);
+                    } else if (view === "space") {
+                      setSpaceVisit(null);
+                      setSpaceRestore(null);
+                    } else if (view === "inlet") {
+                      if (selectedRackId) {
+                        setInletSelection(selected);
+                        setInletRack(selectedRackId);
+                      }
+                      const target = roomAirflowTarget(
+                        selected,
+                        state.deviceId,
+                      );
+                      setSliceControls((current) =>
+                        alignAirflowSlice(current, target?.rowId ?? null),
+                      );
                     }
-                    setRackView("inlet");
-                    control({ type: "layer", layer: "environment" });
-                    if (selectedRackId) {
-                      setInletSelection(selected);
-                      setInletRack(selectedRackId);
-                    }
-                    const target = roomAirflowTarget(selected, state.deviceId);
-                    setSliceControls((current) =>
-                      alignAirflowSlice(current, target?.rowId ?? null),
-                    );
                   }}
                 >
-                  {layer === "power" || rackView === "power"
-                    ? "功耗对照"
-                    : "进风对照"}
+                  {resourceViews[view]}
                 </button>
-              )}
-              {state.level === "room" && (
-                <button
-                  aria-pressed={rackView === "network"}
-                  onClick={() => {
-                    takeover();
-                    setRackView("network");
-                    control({ type: "layer", layer: "overview" });
-                  }}
-                >
-                  网络接入
-                </button>
-              )}
+              ))}
             </div>
           )}
           {alarmQueueVisible ? (
@@ -3962,7 +3932,7 @@ export function Workspace() {
                 beginAlarmInspection(id, "preview", previous)
               }
             />
-          ) : state.level === "room" && rackView === "power" ? (
+          ) : state.level === "room" && navigationView === "power" ? (
             <PowerOverview
               readings={spatial.readings}
               query={powerQuery}
@@ -3991,7 +3961,7 @@ export function Workspace() {
               onDetails={(id) => inspectPowerOverview(id, "details")}
               onAnalyze={(id) => inspectPowerOverview(id, "analysis")}
             />
-          ) : state.level === "room" && rackView === "layout" ? (
+          ) : state.level === "room" && navigationView === "layout" ? (
             <RoomLayout
               selected={selected}
               deviceId={state.deviceId}
@@ -4088,7 +4058,7 @@ export function Workspace() {
                 if (matchMedia("(max-width: 1099px)").matches) setNav(false);
               }}
             />
-          ) : state.level === "room" && rackView === "inlet" ? (
+          ) : state.level === "room" && navigationView === "inlet" ? (
             <InletOverview
               visible={nav}
               restoreRevision={inletRestoreRevision}
@@ -4180,7 +4150,7 @@ export function Workspace() {
                 control({ type: "analysis", value: false });
               }}
             />
-          ) : state.level === "room" && rackView === "network" ? (
+          ) : state.level === "room" && navigationView === "network" ? (
             <NetworkOverview
               scope={networkMapScope}
               role={networkMapRole}
@@ -4227,7 +4197,7 @@ export function Workspace() {
                 control({ type: "analysis", value: false });
               }}
             />
-          ) : state.level === "room" && rackView === "space" ? (
+          ) : state.level === "room" && navigationView === "space" ? (
             <RoomSpaceComparison
               size={comparisonSize}
               rowId={comparisonRow}
@@ -4273,7 +4243,7 @@ export function Workspace() {
                 setOnlyAlarms(false);
               }}
             />
-          ) : state.level === "rack" && rackView === "space" ? (
+          ) : state.level === "rack" && navigationView === "space" ? (
             <RackSpaceInspector
               segments={segments}
               segmentId={activeSegmentId}
@@ -4315,7 +4285,7 @@ export function Workspace() {
                 setQuery("");
               }}
             />
-          ) : state.level === "rack" && rackView === "installation" ? (
+          ) : state.level === "rack" && navigationView === "installation" ? (
             <RackInstallation
               restoreBlanking={blankingRestore}
               onBlankingFocus={finishBlankingFocus}
@@ -4492,7 +4462,15 @@ export function Workspace() {
                                     : "—"}
                               </span>
                             </span>
-                            <small>{text.detail}</small>
+                            <small>
+                              {text.detail}
+                              {layer === "environment" &&
+                                data?.temperature != null &&
+                                ` · ${temperature(data.temperature)} °C`}
+                              {layer === "power" &&
+                                data?.power != null &&
+                                ` · ${power(data.power)} ${data.power >= 1000 ? "kW" : "W"}`}
+                            </small>
                           </button>
                           <div
                             className="study-row-actions"
@@ -4571,20 +4549,13 @@ export function Workspace() {
               )}
             </div>
           )}
-          {!alarmQueueVisible &&
-            !(
-              state.level === "room" &&
-              ["inlet", "power", "network"].includes(rackView)
-            ) &&
-            !(state.level === "room" && rackView === "layout") &&
-            !(state.level !== "device" && rackView === "space") &&
-            !(state.level === "rack" && rackView === "installation") && (
-              <footer className="study-nav-caption">
-                {state.level === "device"
-                  ? "部件状态为模型评估，非独立告警"
-                  : "单击选择 · 定位聚焦 · 进入下一级"}
-              </footer>
-            )}
+          {!alarmQueueVisible && navigationView === "list" && (
+            <footer className="study-nav-caption">
+              {state.level === "device"
+                ? "部件状态为模型评估，非独立告警"
+                : "选中资源可定位或进入"}
+            </footer>
+          )}
         </aside>
         <section
           ref={stageRef}
@@ -4612,13 +4583,8 @@ export function Workspace() {
                   aria-pressed={layer === l.id}
                   onClick={() => {
                     control({ type: "layer", layer: l.id });
-                    if (
-                      state.level === "room" &&
-                      ["inlet", "power"].includes(rackView)
-                    ) {
-                      if (l.id === "power") setRackView("power");
-                      else if (l.id === "environment") setRackView("inlet");
-                    }
+                    if (layer !== l.id && state.level !== "device")
+                      setRackView(navigationViews(state.level, l.id)[0]);
                     if (
                       l.id === "alarms" &&
                       selected === "room-01" &&
@@ -4790,7 +4756,7 @@ export function Workspace() {
                 ? () => selectObject(grilleVisit.deviceId, true)
                 : undefined
             }
-            onShowRoomAirflow={() => showAirflow(state.deviceId)}
+            onShowRoomAirflow={() => showAirflow(selected)}
             onInspectBudget={
               availableSourceMetrics.includes("power")
                 ? () => {
@@ -4956,6 +4922,7 @@ export function Workspace() {
           />
           {state.level === "room" &&
             layer === "overview" &&
+            (!nav || navigationView === "list") &&
             !roomDevice &&
             maintenance.length === 0 &&
             !fixture &&
@@ -5012,6 +4979,7 @@ export function Workspace() {
             )}
           {(!inspector || nav) && (
             <button
+              ref={inspectorOpener}
               className="study-show-detail"
               onClick={() => {
                 takeover();
@@ -5039,23 +5007,17 @@ export function Workspace() {
             aria-label={review.analysis ? "时间分析面板" : "对象详情"}
           >
             <div className="study-panel-heading">
-              <h2>{review.analysis ? "时间分析" : "对象详情"}</h2>
+              <h2 tabIndex={-1}>{review.analysis ? "时间分析" : "对象详情"}</h2>
               {review.analysis && (
                 <button
                   className="study-return-detail"
                   aria-label="返回对象详情"
-                  onClick={() => control({ type: "analysis", value: false })}
+                  onClick={returnToDetails}
                 >
                   详情
                 </button>
               )}
-              <button
-                aria-label="收起详情面板"
-                onClick={() => {
-                  setInspector(false);
-                  control({ type: "analysis", value: false });
-                }}
-              >
+              <button aria-label="收起详情面板" onClick={collapseInspector}>
                 ×
               </button>
             </div>
@@ -5550,12 +5512,11 @@ export function Workspace() {
                     此设施未接入漏水信号，没有历史曲线或事件。
                   </p>
                 ) : fixture ? (
-                  <FixtureDetails
-                    fixture={fixture}
-                    analysis
-                    onPreview={pick}
-                    onLocate={focus}
-                  />
+                  <p className="fixture-analysis-note">
+                    {fixture.dataStatus === "not-applicable"
+                      ? "静态布置对象，没有运行曲线或事件。"
+                      : "此设施尚未接入遥测，没有历史曲线或事件。"}
+                  </p>
                 ) : pairedInlet ? (
                   <InletPairAnalysis
                     key={`${pairedInlet.firstId}:${pairedInlet.secondId}`}
@@ -5658,7 +5619,7 @@ export function Workspace() {
                     onSeek={(time) => dispatch({ type: "seek", time })}
                     onReplay={() => dispatch({ type: "replay" })}
                     onRate={(rate) => dispatch({ type: "rate", rate })}
-                    onClose={() => control({ type: "analysis", value: false })}
+                    onClose={returnToDetails}
                   />
                 )}
                 {airflowInspector}
@@ -5919,27 +5880,18 @@ export function Workspace() {
                             {(reading.power ?? 0) >= 1000 ? "kW" : "W"}
                           </small>
                         </strong>
-                        {(reading.count > 1 || reading.coveragePower !== 1) &&
-                          (sources ? (
-                            <button
-                              className="reading-coverage-link"
-                              aria-label="核对输入功耗来源"
-                              onClick={() => openSourceCheck("power")}
-                            >
-                              有效覆盖 {reading.coveragePower}/{reading.count} ↗
-                            </button>
-                          ) : (
-                            <small>
-                              有效覆盖 {reading.coveragePower}/{reading.count}
-                            </small>
-                          ))}
+                        {(reading.count > 1 || reading.coveragePower !== 1) && (
+                          <small>
+                            有效覆盖 {reading.coveragePower}/{reading.count}
+                          </small>
+                        )}
                         {sources &&
                           availableSourceMetrics.includes("power") && (
                             <button
                               className="reading-coverage-link"
                               onClick={() => openSourceCheck("power")}
                             >
-                              核对功耗预算 ↗
+                              核对功耗输入与预算 ↗
                             </button>
                           )}
                         {powerFacility && (

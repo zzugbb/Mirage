@@ -179,9 +179,11 @@ export function NetworkOverview({
                 onClick={() => onRack(item.rack.id)}
               >
                 <b>{item.rack.name.split(" ")[0]}</b>
-                <small>
-                  {item.matching.length}/{item.sources.length} 台
-                </small>
+                {query.trim() && (
+                  <small>
+                    {item.matching.length}/{item.sources.length} 台
+                  </small>
+                )}
               </button>
             ))}
           </div>
@@ -203,20 +205,15 @@ export function NetworkOverview({
                   接入 {sw.role} · {sw.device.name}
                 </b>
                 <small>
-                  {unitLabel(sw.device.id)} · {sw.configured}/{sw.ports}{" "}
-                  口已配置
+                  {unitLabel(sw.device.id)} · 已配 {sw.configured}/{sw.ports}
                 </small>
-                <small>{sw.uplinks} 个 100G 口未配置上联</small>
               </button>
             ))}
           </div>
-          <p className="network-map-hint">
-            左右为 A/B 交换机逻辑口。点端口查看连接两端，点设备预览安装位置。
-          </p>
           <div className="network-map-columns" aria-hidden="true">
-            <span>A 端口</span>
+            <span>A 口</span>
             <span>设备 / U 位</span>
-            <span>B 端口</span>
+            <span>B 口</span>
           </div>
           <div className="network-map-nodes">
             {current.matching.map(({ device, connections }) => (
@@ -269,7 +266,14 @@ export function NetworkOverview({
       )}
       <details className="network-map-hint">
         <summary>配置与查找说明</summary>
+        {scope === "rack" &&
+          current.switches.map((sw) => (
+            <p key={sw.device.id}>
+              {sw.device.name} · {sw.uplinks} 个 100G 口未配置上联
+            </p>
+          ))}
         <p>
+          两侧为交换机逻辑端口，点击查看连接两端；中间为设备，点击预览安装位置。
           查找词以空格分隔，共同匹配一条连接。仅展示柜内已登记的 25G
           接入。连线不表示流向或实际布线；未采集链路状态、协商速率与流量，A/B
           不证明上联独立或冗余保障。

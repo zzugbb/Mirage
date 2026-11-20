@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   workspacePreset,
+  navigationViews,
   visibleResourceRows,
   resourceRowText,
 } from "./workspace-presets.ts";
@@ -78,4 +79,31 @@ test("资源行将设备编号与类型位置分离，机柜和部件保留可�
   });
   const part = catalog.find((r) => r.kind === "part")!;
   assert.equal(resourceRowText(part).title, part.name);
+});
+
+test("三层资源入口按观察视图收敛，默认清单也属于可见入口", () => {
+  assert.deepEqual(navigationViews("room", "overview"), [
+    "list",
+    "layout",
+    "space",
+    "network",
+  ]);
+  assert.deepEqual(navigationViews("room", "environment"), ["inlet", "list"]);
+  assert.deepEqual(navigationViews("room", "power"), ["power", "list"]);
+  for (const layer of ["airflow", "alarms"] as const)
+    assert.deepEqual(navigationViews("room", layer), ["list"]);
+  assert.equal(navigationViews("rack", "alarms")[0], "list");
+  for (const layer of [
+    "overview",
+    "environment",
+    "airflow",
+    "power",
+    "alarms",
+  ] as const) {
+    assert.equal(
+      navigationViews("rack", layer).includes("space"),
+      layer === "overview",
+    );
+    assert.deepEqual(navigationViews("device", layer), ["list"]);
+  }
 });

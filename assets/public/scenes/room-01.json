@@ -507,8 +507,8 @@
       "width": 0.465,
       "depth": 0.012,
       "gap": 0.002,
-      "frontZ": 0.54,
-      "color": "#343a40",
+      "frontZ": 0.522,
+      "color": "#20272c",
       "fastenerX": 0.224,
       "fastenerSize": [0.006, 0.006, 0.003],
       "fastenerColor": "#737b82"
