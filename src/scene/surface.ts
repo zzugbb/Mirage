@@ -6,7 +6,7 @@ import { rackForDevice } from "../installation.ts";
 import type { SceneModel } from "./models";
 import type { InstallationScene } from "./installation";
 
-import { temperatureStops, powerStops } from "./metric-color.ts";
+import { temperatureStops, powerColor } from "./metric-color.ts";
 import { budgetRatio } from "../power-budget.ts";
 import { signalStyles } from "../status.ts";
 
@@ -15,6 +15,7 @@ const critical = new THREE.Color(signalStyles.critical.color);
 
 type Uniforms = {
   qualityColor: { value: THREE.Color };
+  powerTint: { value: THREE.Color };
   mode: { value: number };
   temperature: { value: number };
   load: { value: number };
@@ -26,6 +27,7 @@ type Uniforms = {
 };
 const uniforms = (): Uniforms => ({
   mode: { value: 0 },
+  powerTint: { value: new THREE.Color() },
   qualityColor: { value: new THREE.Color(signalStyles.missing.color) },
   temperature: { value: 27 },
   load: { value: 0 },
@@ -68,7 +70,7 @@ export class SurfaceObservation {
             Object.assign(shader.uniforms, {
               mMode: u.mode,
               mTemperatureStops: { value: temperatureStops },
-              mPowerStops: { value: powerStops },
+              mPowerTint: u.powerTint,
               mQualityColor: u.qualityColor,
               mWarning: { value: warning },
               mCritical: { value: critical },
@@ -89,14 +91,10 @@ export class SurfaceObservation {
             shader.fragmentShader =
               `varying vec3 vMirageWorld;
               uniform float mMode; uniform float mTemperature; uniform float mLoad; uniform float mAlarm; uniform vec2 mRange; uniform vec3 mCenter; uniform float mSpan; uniform float mGradient;
-              uniform vec3 mTemperatureStops[5],mPowerStops[3],mQualityColor,mWarning,mCritical;
+              uniform vec3 mTemperatureStops[5],mPowerTint,mQualityColor,mWarning,mCritical;
               vec3 thermalColor(float x) {
                 int i=min(3,int(x*4.));
                 return mix(mTemperatureStops[i],mTemperatureStops[i+1],x*4.-float(i));
-              }
-              vec3 loadColor(float x){
-                int i=min(1,int(x*2.));
-                return mix(mPowerStops[i],mPowerStops[i+1],x*2.-float(i));
               }
               ` + shader.fragmentShader;
             shader.fragmentShader = shader.fragmentShader.replace(
@@ -116,7 +114,7 @@ export class SurfaceObservation {
               if (mMode > .5 && mMode < 2.5) {
                 float gradient = clamp((mCenter.z-vMirageWorld.z)/max(.03,mSpan),-.5,.5)*6.*mGradient;
                 float temperature = clamp((mTemperature+gradient-mRange.x)/(mRange.y-mRange.x),0.,1.);
-                vec3 metricColor = mMode < 1.5 ? thermalColor(temperature) : loadColor(clamp(mLoad,0.,1.));
+                vec3 metricColor = mMode < 1.5 ? thermalColor(temperature) : mPowerTint;
                 float light = clamp(dot(gl_FragColor.rgb,vec3(.2126,.7152,.0722)),0.,1.);
                 float relief = mix(.27,1.,sqrt(light));
                 float strength = mMode < 1.5 ? mix(.66,.96,smoothstep(.26,.56,temperature))
@@ -227,6 +225,8 @@ export class SurfaceObservation {
       );
       u.temperature.value = reading?.temperature ?? 27;
       u.load.value = ratio ?? 0;
+      if (u.mode.value === 2)
+        powerColor(u.load.value, u.powerTint.value, reading?.budgetState);
       u.alarm.value = reading?.alarm ?? 0;
       u.range.value.set(20, state.level === "device" ? 80 : 45);
       u.gradient.value = state.level === "device" ? 1 : 0;

@@ -1,4 +1,5 @@
-import { deviceById } from "./installation.ts";
+import { budgetRatio, budgetStateAt } from "./power-budget.ts";
+import { deviceById, type devices } from "./installation.ts";
 import { simulate, normalizeTime } from "./simulation.ts";
 import type { DataQuality, Lifecycle } from "./status.ts";
 /** 观测适配：失联没有数值；过期设备固定保留第 44 秒的最后观测，不随回放伪更新。 */
@@ -41,5 +42,26 @@ export function observedHistory(
   return Array.from({ length: observation.observedAt + 1 }, (_, t) => {
     const point = deviceObservation(t, deviceId);
     return { observedAt: t, value: point[metric]! };
+  });
+}
+
+/** 预算回看使用该时刻可计入的整机以及同一批配置预算，包括有效零值。 */
+export function inputBudgetState(
+  id: string,
+  members: typeof devices,
+  ratio: number | null,
+  time: number,
+) {
+  return budgetStateAt(id, ratio, time, (at) => {
+    let watts = 0,
+      available = 0;
+    for (const device of members) {
+      const previous = deviceObservation(at, device.id);
+      if (previous.quality !== "valid" || previous.power === null) continue;
+      if (budgetRatio(0, device.budgetWatts) === null) return null;
+      watts += previous.power;
+      available += device.budgetWatts;
+    }
+    return budgetRatio(watts, available);
   });
 }

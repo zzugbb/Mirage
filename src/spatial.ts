@@ -1,4 +1,10 @@
-import { deviceObservation } from "./device-data.ts";
+import {
+  budgetRatio,
+  budgetStateAt,
+  type BudgetState,
+} from "./power-budget.ts";
+import { normalizeTime } from "./simulation.ts";
+import { deviceObservation, inputBudgetState } from "./device-data.ts";
 import type { Lifecycle, DataQuality } from "./status.ts";
 import { racks, devices, deviceById } from "./installation.ts";
 import { partsForDevice, subpartsForDevice } from "./catalog.ts";
@@ -7,6 +13,9 @@ import type { SimulationSnapshot } from "./simulation.ts";
 import { associatedInputReading } from "./power-config.ts";
 export type SpatialReading = {
   temperatureLimits?: number[];
+  budgetState?: BudgetState;
+  memberBudgetLevel?: BudgetState["level"];
+  memberBudgetCount?: number;
   lifecycle: Lifecycle;
   quality: DataQuality;
   observedAt: number | null;
@@ -95,7 +104,7 @@ export function componentReading(
         .findIndex((part) => part.id === id)
     : 0;
   // 散热器与上盖是被动构件，零耗电与未定义盘位耗电分开。
-  const power =
+  const allocationPower = (sample: SimulationSnapshot) =>
     child?.parent === "storage-01"
       ? 0
       : rule.watts
@@ -104,6 +113,7 @@ export function componentReading(
             rule.share) /
           (child ? count : 1)
         : 0;
+  const power = allocationPower(sample);
   let temperature: number | null =
     Math.round(
       (sample.temperature +
@@ -151,8 +161,23 @@ export function componentReading(
         : temperature >= limits[0]
           ? 1
           : 0;
+  const budget =
+    rule.budget === null ? null : rule.budget / (child ? count : 1);
+  const key = `${deviceId}/${id}`;
   return {
-    id: `${deviceId}/${id}`,
+    id: key,
+    budget,
+    budgetState: budgetStateAt(
+      key,
+      quality === "valid" ? budgetRatio(observedPower, budget) : null,
+      currentTime,
+      (at) => {
+        const previous = deviceObservation(at, deviceId);
+        return previous.quality === "valid"
+          ? budgetRatio(allocationPower(previous.sample), budget)
+          : null;
+      },
+    ),
     temperatureLimits: limits,
     name: child?.name ?? part.name,
     temperature,
@@ -172,12 +197,6 @@ export function componentReading(
       [lifecycle]: 1,
     },
     qualityCounts: { valid: 0, missing: 0, stale: 0, offline: 0, [quality]: 1 },
-    budget:
-      power === null
-        ? null
-        : rule.budget === null
-          ? null
-          : rule.budget / (child ? count : 1),
     alarm: 0,
     alarmCount: 0,
     count: 1,
@@ -193,6 +212,8 @@ function aggregate(
   id: string,
   name: string,
   children: SpatialReading[],
+  time: number,
+  members: typeof devices,
 ): SpatialReading {
   const freshTemperature = children.filter(
     (item) => item.quality === "valid" && item.temperature !== null,
@@ -222,6 +243,19 @@ function aggregate(
     (sum, item) => sum + item.coveragePower,
     0,
   );
+  const power = freshPower.length
+    ? freshPower.reduce((sum, item) => sum + item.power!, 0)
+    : null;
+  const budget = freshPower.some((item) => item.budget === null)
+    ? null
+    : freshPower.reduce((sum, item) => sum + item.budget!, 0);
+  const memberBudgetCount = children.reduce(
+    (sum, item) => sum + (item.memberBudgetCount ?? Number(!!item.budgetState)),
+    0,
+  );
+  const severeMember = children.some(
+    (item) => (item.memberBudgetLevel ?? item.budgetState?.level) === "over",
+  );
   return {
     id,
     name,
@@ -239,10 +273,20 @@ function aggregate(
     temperature: freshTemperature.length
       ? Math.max(...freshTemperature.map((item) => item.temperature!))
       : null,
-    power: freshPower.length
-      ? freshPower.reduce((sum, item) => sum + item.power!, 0)
-      : null,
-    budget: freshPower.reduce((sum, item) => sum + (item.budget ?? 0), 0),
+    power,
+    budget,
+    memberBudgetCount,
+    memberBudgetLevel: memberBudgetCount
+      ? severeMember
+        ? "over"
+        : "near"
+      : undefined,
+    budgetState: inputBudgetState(
+      id,
+      members,
+      budgetRatio(power, budget),
+      time,
+    ),
     alarm: Math.max(...children.map((item) => item.alarm)) as 0 | 1 | 2,
     alarmCount: children.reduce((sum, item) => sum + item.alarmCount, 0),
     count,
@@ -253,6 +297,7 @@ function aggregate(
   };
 }
 export function spatialSnapshot(time: number, cycle = 0, deviceId = "srv-01") {
+  time = normalizeTime(time);
   const readings = new Map<string, SpatialReading>();
   const observations = new Map(
     devices.map((device) => [
@@ -272,6 +317,12 @@ export function spatialSnapshot(time: number, cycle = 0, deviceId = "srv-01") {
       temperature,
       power,
       budget: device.budgetWatts,
+      budgetState: inputBudgetState(
+        device.id,
+        [device],
+        quality === "valid" ? budgetRatio(power, device.budgetWatts) : null,
+        time,
+      ),
       lifecycle,
       quality,
       observedAt,
@@ -306,23 +357,27 @@ export function spatialSnapshot(time: number, cycle = 0, deviceId = "srv-01") {
         "独立演示负载、生命周期与数据质量配置；无真实设备接入。停机零功耗是有效模拟值，离线数据不等于零。",
     });
   }
-  for (const rack of racks)
+  for (const rack of racks) {
+    const members = devices.filter((d) => d.rackId === rack.id);
     readings.set(
       rack.id,
       aggregate(
         rack.id,
         rack.name,
-        devices
-          .filter((device) => device.rackId === rack.id)
-          .map((device) => readings.get(device.id)!),
+        members.map((device) => readings.get(device.id)!),
+        time,
+        members,
       ),
     );
+  }
   readings.set(
     "room-01",
     aggregate(
       "room-01",
       "01号机房",
       racks.map((rack) => readings.get(rack.id)!),
+      time,
+      devices,
     ),
   );
   for (const part of [

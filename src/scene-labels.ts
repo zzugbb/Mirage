@@ -33,6 +33,11 @@ export function sceneLabels<T extends { id: string }>(
           -Infinity)
       : (reading.power ?? -Infinity);
   };
+  const budgetPriority = (item: T) => {
+    const r = readings.get(item.id);
+    const levels = [r?.budgetState?.level, r?.memberBudgetLevel];
+    return levels.includes("over") ? 2 : levels.includes("near") ? 1 : 0;
+  };
   const standardLimit = level === "room" ? 6 : 3;
   const limit = more
     ? standardLimit
@@ -60,6 +65,7 @@ export function sceneLabels<T extends { id: string }>(
     .sort(
       (a, b) =>
         Number(selected(b)) - Number(selected(a)) ||
+        (layer === "power" ? budgetPriority(b) - budgetPriority(a) : 0) ||
         (layer === "overview"
           ? 0
           : layer === "alarms"

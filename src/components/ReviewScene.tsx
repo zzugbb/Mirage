@@ -128,7 +128,7 @@ import { powerScene } from "../power-paths";
 import { PowerGeometry } from "../scene/power";
 import { pduById, powerSettings } from "../power-config";
 import { temperatureColor, powerColor } from "../scene/metric-color";
-import { budgetRatio } from "../power-budget";
+import { budgetPercent, budgetRatio, budgetStateText } from "../power-budget";
 import { alarmCurrentStatus } from "../alarm-queue";
 import { qualityNames, signalStyles } from "../status";
 import { networkMarkers, networkLinkById, switchRole } from "../network";
@@ -547,6 +547,18 @@ export function ReviewScene({
         : focusedPowerScene(supplyBase, powerViewActive),
     [supplyBase, powerViewActive, powerViewPaired],
   );
+  const [showPowerInputs, setShowPowerInputs] = useState(false);
+  useEffect(
+    () => setShowPowerInputs(false),
+    [layer, state.level, state.deviceId],
+  );
+  const optionalInputs =
+    state.level === "device" &&
+    supply &&
+    !supply.traceId &&
+    !supply.labels.some((label) => label.partId === selectedId);
+  const showSupply = !optionalInputs || showPowerInputs;
+  const supplyLabels = showSupply ? supply?.labels : undefined;
   const network = useMemo(
     () =>
       isolatedPartId ? [] : networkMarkers(state, selectedId, networkLinkId),
@@ -1532,7 +1544,7 @@ export function ReviewScene({
       hasPath: !!visibleAirflow || !!supply || network.length > 0,
       annotatedIds: [
         ...network.map((marker) => marker.partId ?? marker.deviceId),
-        ...(supply?.labels.flatMap((label) =>
+        ...(supplyLabels?.flatMap((label) =>
           label.partId ? [label.partId] : [],
         ) ?? []),
       ],
@@ -1556,7 +1568,7 @@ export function ReviewScene({
     (visibleAirflow?.routes.map((route) => route.id).join(":") ?? "") +
     flowView +
     areaLabels.map((label) => label.id).join(":") +
-    (supply?.labels.map((label) => label.id).join(":") ?? "") +
+    (supplyLabels?.map((label) => label.id).join(":") ?? "") +
     (supply?.deviceId ?? "") +
     networkLinkId +
     network.map((marker) => marker.id).join(":");
@@ -1659,7 +1671,11 @@ export function ReviewScene({
         <span>50%</span>
         <span>100%</span>
       </div>
-      <small>蓝色越亮，占比越高 · 灰色表示数据或预算未定义</small>
+      <small>
+        <span style={{ color: signalStyles.warning.color }}>▲</span> 近预算　
+        <span style={{ color: signalStyles.critical.color }}>◆</span>{" "}
+        持续超限　灰色未知
+      </small>
       {onInspectBudget && (
         <button
           className="power-budget-entry"
@@ -1887,7 +1903,7 @@ export function ReviewScene({
               <b>{marker.title}</b>
             </div>
           ))}
-          {supply?.labels.map((label) => (
+          {supplyLabels?.map((label) => (
             <div
               key={label.id}
               hidden
@@ -1973,6 +1989,15 @@ export function ReviewScene({
               ? slice.rackEstimates.get(item.id)
               : reading.temperature;
             const ratio = budgetRatio(reading.power, reading.budget);
+            const ownBudget =
+              layer === "power"
+                ? budgetStateText(reading.budgetState, ratio)
+                : undefined;
+            const memberLevel =
+              layer === "power" ? reading.memberBudgetLevel : undefined;
+            const memberHint = memberLevel
+              ? `柜内 ${reading.memberBudgetCount} 台设备需关注预算`
+              : undefined;
             let accent: string | undefined = alarm?.color;
             if (
               reading.quality !== "valid" &&
@@ -1989,7 +2014,13 @@ export function ReviewScene({
                     state.level === "device" ? 80 : 45,
                   ).getHexString();
               if (layer === "power" && ratio !== null)
-                accent = "#" + powerColor(ratio).getHexString();
+                accent =
+                  "#" +
+                  powerColor(
+                    ratio,
+                    undefined,
+                    reading.budgetState,
+                  ).getHexString();
             }
             return (
               <button
@@ -1998,7 +2029,8 @@ export function ReviewScene({
                 title={
                   slicePlaneActive
                     ? "柜旁读数为该柜切面最高估计，不是整柜输入最高值"
-                    : undefined
+                    : [ownBudget, memberHint].filter(Boolean).join(" · ") ||
+                      undefined
                 }
                 data-anchor={item.id}
                 data-anchor-kind={
@@ -2023,6 +2055,19 @@ export function ReviewScene({
                   {state.level === "device"
                     ? item.name
                     : item.name.split(" ")[0]}
+                  {memberLevel && (
+                    <small
+                      aria-label={memberHint}
+                      style={{
+                        color:
+                          signalStyles[
+                            memberLevel === "over" ? "critical" : "warning"
+                          ].color,
+                      }}
+                    >
+                      {memberLevel === "over" ? " ◆" : " ▲"}
+                    </small>
+                  )}
                 </b>
                 {alarm && (
                   <small style={{ color: alarm.color }}>
@@ -2066,10 +2111,16 @@ export function ReviewScene({
                     <em
                       className="power-label-load"
                       title={
-                        reading.count > 1 ? "占有效设备预算" : "占配置预算"
+                        ownBudget ??
+                        (reading.count > 1 ? "占有效设备预算" : "占配置预算")
                       }
                     >
-                      {(ratio * 100).toFixed(0)}%
+                      {reading.budgetState?.level === "over"
+                        ? "◆ "
+                        : reading.budgetState
+                          ? "▲ "
+                          : ""}
+                      {budgetPercent(ratio)}
                       <i aria-hidden="true">
                         <i
                           style={{
@@ -2135,7 +2186,7 @@ export function ReviewScene({
             {areaLabels.map((area) => (
               <line key={area.id} data-flow-line={area.id} />
             ))}
-            {supply?.labels.map((label) => (
+            {supplyLabels?.map((label) => (
               <line key={label.id} data-flow-line={label.id} />
             ))}
             {network.map((marker) => (
@@ -2694,7 +2745,16 @@ export function ReviewScene({
                 </div>
               )}
               {!foldPowerScale && powerScale}
-              {layer === "power" && supply && (
+              {optionalInputs && (
+                <button
+                  className="power-input-disclosure"
+                  aria-expanded={showPowerInputs}
+                  onClick={() => setShowPowerInputs(!showPowerInputs)}
+                >
+                  供电接入 {showPowerInputs ? "▴" : "▾"}
+                </button>
+              )}
+              {layer === "power" && supply && showSupply && (
                 <div className="power-scene-key" aria-label="供电路径示意">
                   <strong>{supply.caption}</strong>
                   {powerViewPoints(state, selectedId, supply.traceId).length ===

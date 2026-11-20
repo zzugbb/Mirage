@@ -119,6 +119,7 @@ export function ReadingSources({
           {sources.budget && (
             <PowerBudgetSummary
               budget={sources.budget}
+              state={sources.budgetState}
               group={current.group}
               onGroup={(group) => onChange({ ...current, group })}
             />

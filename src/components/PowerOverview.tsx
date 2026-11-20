@@ -7,7 +7,7 @@ import {
   type PowerOverviewFilter,
 } from "../power-overview";
 import { powerColor } from "../scene/metric-color";
-import { budgetRatio } from "../power-budget";
+import { budgetPercent, budgetRatio, budgetStateText } from "../power-budget";
 import { sourceValue } from "../reading-sources";
 import type { SpatialReading } from "../spatial";
 
@@ -65,7 +65,7 @@ export function PowerOverview({
   const rackSelected = selected === current.rack.id;
   const host = useRef<HTMLDivElement>(null);
   const ratioText = (ratio: number | null) =>
-    ratio === null ? "—" : `${(ratio * 100).toFixed(1)}%`;
+    ratio === null ? "—" : budgetPercent(ratio, 1);
   useLayoutEffect(() => {
     if (!visible || !host.current) return;
     host.current.scrollTop = scroll.current;
@@ -105,7 +105,7 @@ export function PowerOverview({
                 backgroundColor:
                   item.budget!.ratio === null
                     ? undefined
-                    : `#${powerColor(item.budget!.ratio).getHexString()}`,
+                    : `#${powerColor(item.budget!.ratio, undefined, readings.get(item.rack.id)?.budgetState).getHexString()}`,
                 width: `${Math.min(100, (item.budget!.ratio ?? 0) * 100)}%`,
               }}
             />
@@ -202,6 +202,10 @@ export function PowerOverview({
               <button
                 key={row.id}
                 data-power-id={row.id}
+                title={budgetStateText(
+                  readings.get(row.id)?.budgetState,
+                  ratio,
+                )}
                 aria-pressed={selected === row.id}
                 onClick={() => onPreview(row.id)}
               >
@@ -226,7 +230,12 @@ export function PowerOverview({
                         style={{
                           width: `${Math.min(100, ratio * 100)}%`,
                           backgroundColor:
-                            "#" + powerColor(ratio).getHexString(),
+                            "#" +
+                            powerColor(
+                              ratio,
+                              undefined,
+                              readings.get(row.id)?.budgetState,
+                            ).getHexString(),
                         }}
                       />
                     </i>

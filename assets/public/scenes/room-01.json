@@ -4114,6 +4114,10 @@
       }
     ],
     "powerDistribution": {
+      "budgetPolicy": {
+        "default": { "attentionRatio": 0.9, "overSeconds": 5 },
+        "overrides": {}
+      },
       "mount": "rear-0u",
       "perRack": 2,
       "outletsPerPdu": 24,

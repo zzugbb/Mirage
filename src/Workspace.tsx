@@ -285,7 +285,7 @@ import type { WorkspaceShot } from "./workspace-presets";
 import { tourSteps } from "./tour";
 import "./scene-ui.css";
 import { observationColor } from "./scene/metric-color";
-import { budgetRatio } from "./power-budget";
+import { budgetPercent, budgetRatio, budgetStateText } from "./power-budget";
 import { workspaceColors } from "./workspace-colors";
 import "./workspace-ui.css";
 
@@ -4453,6 +4453,10 @@ export function Workspace() {
                       const rowRatio = data
                         ? budgetRatio(data.power, data.budget)
                         : null;
+                      const budgetHint =
+                        metricLayer === "power"
+                          ? budgetStateText(data?.budgetState, rowRatio)
+                          : undefined;
                       const hasMetric =
                         data?.quality === "valid" &&
                         (metricLayer === "temperature"
@@ -4493,8 +4497,17 @@ export function Workspace() {
                           <button
                             className="study-resource-text"
                             aria-pressed={selected === row.id}
-                            title={`${row.name} · ${row.location} · ${rowStatus}`}
-                            aria-label={`${row.name}，${rowStatus}`}
+                            title={[
+                              row.name,
+                              row.location,
+                              rowStatus,
+                              budgetHint,
+                            ]
+                              .filter(Boolean)
+                              .join(" · ")}
+                            aria-label={[row.name, rowStatus, budgetHint]
+                              .filter(Boolean)
+                              .join("，")}
                             onClick={() => selectObject(row.id)}
                           >
                             <span className="study-resource-title">
@@ -4523,7 +4536,14 @@ export function Workspace() {
                             >
                               <span>{text.detail}</span>
                               {metricLayer && data && (
-                                <span className="resource-measure">
+                                <span
+                                  className="resource-measure"
+                                  data-budget-level={
+                                    metricLayer === "power"
+                                      ? data.budgetState?.level
+                                      : undefined
+                                  }
+                                >
                                   {metricColor && (
                                     <i
                                       aria-hidden="true"
@@ -4538,7 +4558,7 @@ export function Workspace() {
                                         : `${temperature(data.temperature)} °C`
                                       : data.power === null
                                         ? "—"
-                                        : `${power(data.power)} ${data.power >= 1000 ? "kW" : "W"}${rowRatio == null ? "" : ` · ${Math.round(rowRatio * 100)}%`}`}
+                                        : `${power(data.power)} ${data.power >= 1000 ? "kW" : "W"}${rowRatio == null ? "" : ` · ${budgetPercent(rowRatio)}`}`}
                                 </span>
                               )}
                             </small>

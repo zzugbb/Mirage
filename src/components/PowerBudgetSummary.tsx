@@ -1,13 +1,19 @@
 import { powerColor } from "../scene/metric-color";
-import type { powerBudget } from "../power-budget";
+import {
+  budgetPercent,
+  type powerBudget,
+  type BudgetState,
+} from "../power-budget";
 import { sourceValue } from "../reading-sources";
 
 export function PowerBudgetSummary({
   budget,
+  state,
   group,
   onGroup,
 }: {
   budget: ReturnType<typeof powerBudget>;
+  state?: BudgetState;
   group: "included" | "excluded";
   onGroup: (group: "included" | "excluded") => void;
 }) {
@@ -16,14 +22,15 @@ export function PowerBudgetSummary({
     <section className="power-budget-summary" aria-label="功耗预算口径">
       <header>
         <strong>有效设备预算占比</strong>
-        <b>{ratio === null ? "—" : `${(ratio * 100).toFixed(1)}%`}</b>
+        <b>{ratio === null ? "—" : budgetPercent(ratio, 1)}</b>
       </header>
       <div className="power-budget-meter" aria-hidden="true">
         {ratio !== null && (
           <i
             style={{
               width: `${Math.min(100, ratio * 100)}%`,
-              backgroundColor: "#" + powerColor(ratio).getHexString(),
+              backgroundColor:
+                "#" + powerColor(ratio, undefined, state).getHexString(),
             }}
           />
         )}

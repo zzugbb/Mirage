@@ -1,3 +1,4 @@
+import { inputBudgetState } from "./device-data.ts";
 import { powerBudget, budgetRatio } from "./power-budget.ts";
 import {
   devices,
@@ -91,8 +92,22 @@ export function readingSources(
       a.id.localeCompare(b.id),
   );
   const included = rows.filter((r) => r.included);
+  const budget = metric === "power" ? powerBudget(rows) : null;
+  const scopeReading = readings.get(id);
+  const budgetState =
+    budget && !scopeReading
+      ? inputBudgetState(
+          id,
+          rows.map((row) => deviceById(row.id)!),
+          budget.ratio,
+          readings.get("room-01")?.observedAt ?? 0,
+        )
+      : budget
+        ? scopeReading?.budgetState
+        : undefined;
   return {
-    budget: metric === "power" ? powerBudget(rows) : null,
+    budget,
+    budgetState,
     sourceId: id,
     metric,
     rows,

@@ -8,6 +8,7 @@ import {
   observationColor,
 } from "./scene/metric-color.ts";
 import { spatialSnapshot } from "./spatial.ts";
+import { budgetPercent, budgetStateAt } from "./power-budget.ts";
 import { signalStyles } from "./status.ts";
 
 test("温度和功耗采用独立连续色阶；未知、过期和离线保持质量标记", () => {
@@ -109,4 +110,94 @@ test("功耗占比只沿蓝色提高亮度，设备列表与模型共用表面�
     observationColor(part, "temperature", 80).getHex(),
     temperatureColor(part.temperature!, undefined, 80).getHex(),
   );
+});
+
+test("预算关注、持续超限与进风告警独立，回看及循环从模拟时刻重新判定", () => {
+  const partAt = (at: number, id: string, cycle = 0) =>
+    spatialSnapshot(at, cycle, id).readings.get("processor-02")!;
+  const over = partAt(52, "srv-01");
+  assert.deepEqual(over.budgetState, { level: "over", seconds: 52 });
+  assert.equal(over.alarm, 0);
+  assert.equal(
+    "#" + observationColor(over, "power").getHexString(),
+    signalStyles.critical.color,
+  );
+  assert.deepEqual(partAt(4, "srv-01").budgetState, {
+    level: "near",
+    seconds: 4,
+  });
+  assert.deepEqual(partAt(5, "srv-01").budgetState, {
+    level: "over",
+    seconds: 5,
+  });
+  assert.deepEqual(partAt(0, "srv-01", 1).budgetState, {
+    level: "near",
+    seconds: 0,
+  });
+  assert.equal(partAt(52, "srv-10").budgetState?.level, "near");
+  assert.equal(partAt(52, "srv-12").budgetState, undefined);
+  for (const id of ["srv-25", "srv-56", "srv-59", "srv-63"])
+    assert.equal(partAt(60, id).budgetState, undefined);
+});
+
+test("预算边界、采样中断与回落按当前连续区间计算", () => {
+  const samples = [
+    0.899,
+    0.9,
+    1,
+    1.1,
+    null,
+    1.1,
+    1.1,
+    1.1,
+    1.1,
+    1.1,
+    1.1,
+    1,
+    0.85,
+    0,
+  ];
+  const levels = samples.map(
+    (v, t) => budgetStateAt("example", v, t, (at) => samples[at])?.level,
+  );
+  assert.deepEqual(levels, [
+    undefined,
+    "near",
+    "near",
+    "near",
+    undefined,
+    "near",
+    "near",
+    "near",
+    "near",
+    "near",
+    "over",
+    "near",
+    undefined,
+    undefined,
+  ]);
+});
+
+test("整柜占比与柜内整机关注分别表达，接近满量程时保留越界方向", () => {
+  const rules: Record<string, { attentionRatio: number }> =
+    definition.installation.powerDistribution.budgetPolicy.overrides;
+  rules["srv-01"] = { attentionRatio: 0.73 };
+  try {
+    const { readings } = spatialSnapshot(60);
+    const rack = readings.get("rack-a01")!;
+    assert.equal(rack.budgetState, undefined);
+    assert.equal(rack.memberBudgetCount, 1);
+    assert.equal(rack.memberBudgetLevel, "near");
+    assert.equal(readings.get("srv-01")?.budgetState?.level, "near");
+    assert.equal(
+      spatialSnapshot(0).readings.get("rack-a01")?.memberBudgetCount,
+      0,
+    );
+  } finally {
+    delete rules["srv-01"];
+  }
+  assert.equal(budgetPercent(1.000833), "100.1%");
+  assert.equal(budgetPercent(1.00001), ">100%");
+  assert.equal(budgetPercent(0.99999), "<100%");
+  assert.equal(budgetPercent(1), "100%");
 });

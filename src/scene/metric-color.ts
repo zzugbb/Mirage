@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import type { SpatialReading } from "../spatial.ts";
-import { budgetRatio } from "../power-budget.ts";
+import { budgetRatio, type BudgetState } from "../power-budget.ts";
 import { signalFor, signalStyles } from "../status.ts";
 import definition from "../../assets/public/scenes/room-01.json" with { type: "json" };
 const ramps = definition.rendering.observationColors;
@@ -8,7 +8,15 @@ export const temperatureStops = ramps.temperature.map(
   (c) => new THREE.Color(c),
 );
 export const powerStops = ramps.power.map((c) => new THREE.Color(c));
-export function powerColor(ratio: number, target = new THREE.Color()) {
+export function powerColor(
+  ratio: number,
+  target = new THREE.Color(),
+  state?: BudgetState,
+) {
+  if (state)
+    return target.set(
+      signalStyles[state.level === "over" ? "critical" : "warning"].color,
+    );
   const x = THREE.MathUtils.clamp(ratio, 0, 1) * 2;
   const i = Math.min(1, Math.floor(x));
   return target.lerpColors(powerStops[i], powerStops[i + 1], x - i);
@@ -45,5 +53,5 @@ export function observationColor(
   const ratio = budgetRatio(reading.power, reading.budget);
   return ratio === null
     ? color.set(signalStyles.missing.color)
-    : powerColor(ratio, color);
+    : powerColor(ratio, color, reading.budgetState);
 }
