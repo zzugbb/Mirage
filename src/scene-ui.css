@@ -365,7 +365,7 @@
   --series-color: #90d9cd;
 }
 :is(.review-trend, .review-compare-metric).power {
-  --series-color: #f2c985;
+  --series-color: var(--power-series);
 }
 :is(.review-trend, .review-compare-metric).cooling {
   --series-color: #9dcedf;

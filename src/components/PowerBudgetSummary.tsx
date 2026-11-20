@@ -1,3 +1,4 @@
+import { powerColor } from "../scene/metric-color";
 import type { powerBudget } from "../power-budget";
 import { sourceValue } from "../reading-sources";
 
@@ -19,7 +20,12 @@ export function PowerBudgetSummary({
       </header>
       <div className="power-budget-meter" aria-hidden="true">
         {ratio !== null && (
-          <i style={{ width: `${Math.min(100, ratio * 100)}%` }} />
+          <i
+            style={{
+              width: `${Math.min(100, ratio * 100)}%`,
+              backgroundColor: "#" + powerColor(ratio).getHexString(),
+            }}
+          />
         )}
       </div>
       <p>

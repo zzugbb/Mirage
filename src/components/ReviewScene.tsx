@@ -1659,7 +1659,7 @@ export function ReviewScene({
         <span>50%</span>
         <span>100%</span>
       </div>
-      <small>灰色：数据或预算未定义</small>
+      <small>蓝色越亮，占比越高 · 灰色表示数据或预算未定义</small>
       {onInspectBudget && (
         <button
           className="power-budget-entry"

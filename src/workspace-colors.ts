@@ -10,6 +10,7 @@ const flow = definition.airflow.colors;
 export const workspaceColors = {
   "--temperature-ramp": ramp(temperature),
   "--power-ramp": ramp(power),
+  "--power-series": power[2],
   "--flow-supply": flow.supply,
   "--flow-through": flow.through,
   "--flow-return": flow.return,

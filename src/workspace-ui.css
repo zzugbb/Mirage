@@ -437,6 +437,29 @@
   text-overflow: ellipsis;
   line-height: 17px;
 }
+.study-resource-text small.has-resource-measure {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.has-resource-measure > span:first-child {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.resource-measure {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.resource-measure i {
+  width: 5px;
+  height: 10px;
+  border-radius: 1px;
+}
 .study-row-status {
   flex: none;
   font-size: 10px;
@@ -4309,7 +4332,6 @@
 .power-budget-meter i {
   display: block;
   height: 100%;
-  background: #9cbec1;
 }
 .workspace-ui .power-budget-entry {
   pointer-events: auto;
@@ -6070,6 +6092,24 @@
 }
 .power-overview-devices small {
   color: #afc0cd;
+}
+.power-row-load {
+  float: right;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+.power-row-load > i {
+  width: 32px;
+  height: 4px;
+  background: #344854;
+}
+.power-row-load > i > i {
+  display: block;
+  height: 100%;
 }
 .power-overview-selection {
   flex: 0 0 auto;

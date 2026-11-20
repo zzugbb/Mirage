@@ -28,7 +28,11 @@ export function temperatureColor(
   );
 }
 /** 连续指标色阶与离散状态分开；过期值用质量色，不能伪装成当前热场。 */
-export function observationColor(reading: SpatialReading, mode: string) {
+export function observationColor(
+  reading: SpatialReading,
+  mode: string,
+  maximum = 45,
+) {
   const color = new THREE.Color(signalStyles[signalFor(reading)].color);
   if (mode !== "temperature" && mode !== "power") return color;
   if (reading.quality !== "valid")
@@ -36,7 +40,7 @@ export function observationColor(reading: SpatialReading, mode: string) {
   if (mode === "temperature") {
     return reading.temperature === null
       ? color.set(signalStyles.missing.color)
-      : temperatureColor(reading.temperature, color);
+      : temperatureColor(reading.temperature, color, maximum);
   }
   const ratio = budgetRatio(reading.power, reading.budget);
   return ratio === null

@@ -219,6 +219,22 @@ export function PowerOverview({
                     : row.location.split(" / ")[1]}{" "}
                   {row.reason !== "有效输入" && ` · ${row.reason}`}
                 </small>
+                {ratio !== null && (
+                  <span className="power-row-load">
+                    <i aria-hidden="true">
+                      <i
+                        style={{
+                          width: `${Math.min(100, ratio * 100)}%`,
+                          backgroundColor:
+                            "#" + powerColor(ratio).getHexString(),
+                        }}
+                      />
+                    </i>
+                    {order === "budget"
+                      ? sourceValue(row.value, "power")
+                      : ratioText(ratio)}
+                  </span>
+                )}
               </button>
             );
           })}

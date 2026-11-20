@@ -102,17 +102,26 @@ export class SurfaceObservation {
             shader.fragmentShader = shader.fragmentShader.replace(
               "#include <map_fragment>",
               `#include <map_fragment>
-              if(mMode>.5){
-                float detail=mix(.52,1.,clamp(dot(diffuseColor.rgb,vec3(.2126,.7152,.0722))*1.7,0.,1.));
-                vec3 tint=mQualityColor;
-                if(mMode<1.5){float gradient=clamp((mCenter.z-vMirageWorld.z)/max(.03,mSpan),-0.5,.5)*6.*mGradient;tint=thermalColor(clamp((mTemperature+gradient-mRange.x)/(mRange.y-mRange.x),0.,1.));}
-                else if(mMode<2.5)tint=loadColor(clamp(mLoad,0.,1.));
-                else if(mMode<3.5)tint=mAlarm>1.5?mCritical:mWarning;
-                float weight = .18;
-                if (mMode < 1.5) weight = mix(.24, .84, smoothstep(.18,.8,(mTemperature-mRange.x)/(mRange.y-mRange.x)));
-                else if (mMode < 2.5) weight = mix(.22, .88, smoothstep(.15,.95,mLoad));
-                else if (mMode < 3.5) weight = mAlarm>.5 ? .22 : 0.;
-                diffuseColor.rgb=mix(diffuseColor.rgb,tint*detail,weight);
+              if (mMode > 2.5) {
+                vec3 tint = mMode > 3.5 ? mQualityColor : (mAlarm > 1.5 ? mCritical : mWarning);
+                float weight = mMode > 3.5 ? .18 : (mAlarm > .5 ? .22 : 0.);
+                float detail = mix(.52,1.,clamp(dot(diffuseColor.rgb,vec3(.2126,.7152,.0722))*1.7,0.,1.));
+                diffuseColor.rgb = mix(diffuseColor.rgb, tint*detail, weight);
+              }`,
+            );
+            // 金属高光容易洗掉数据色。在色调映射后保留结构明暗，再输出到显示色域。
+            shader.fragmentShader = shader.fragmentShader.replace(
+              "#include <tonemapping_fragment>",
+              `#include <tonemapping_fragment>
+              if (mMode > .5 && mMode < 2.5) {
+                float gradient = clamp((mCenter.z-vMirageWorld.z)/max(.03,mSpan),-.5,.5)*6.*mGradient;
+                float temperature = clamp((mTemperature+gradient-mRange.x)/(mRange.y-mRange.x),0.,1.);
+                vec3 metricColor = mMode < 1.5 ? thermalColor(temperature) : loadColor(clamp(mLoad,0.,1.));
+                float light = clamp(dot(gl_FragColor.rgb,vec3(.2126,.7152,.0722)),0.,1.);
+                float relief = mix(.27,1.,sqrt(light));
+                float strength = mMode < 1.5 ? mix(.66,.96,smoothstep(.26,.56,temperature))
+                                             : mix(.56,.93,smoothstep(.12,.75,mLoad));
+                gl_FragColor.rgb = mix(gl_FragColor.rgb,metricColor*relief,strength);
               }`,
             );
             shader.fragmentShader = shader.fragmentShader.replace(

@@ -1671,8 +1671,8 @@
       "grid": ["#486477", "#334a5a"]
     },
     "observationColors": {
-      "temperature": ["#346cc6", "#268fc9", "#34b69e", "#ff923f", "#ee4847"],
-      "power": ["#485ca9", "#9465e0", "#ffbd39"]
+      "temperature": ["#2459bd", "#16a9cc", "#ffca45", "#fa721e", "#dd332e"],
+      "power": ["#295388", "#318de5", "#9edfff"]
     },
     "inspectionStudio": {
       "description": "机柜方位盘与设备对开托架共享浮城夜航配色",
@@ -4175,7 +4175,7 @@
         ],
         "colors": {
           "A": "#86bfd4",
-          "B": "#beb6d9"
+          "B": "#bbc6d0"
         }
       },
       "pdus": [

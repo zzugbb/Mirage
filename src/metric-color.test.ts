@@ -32,11 +32,11 @@ test("温度和功耗采用独立连续色阶；未知、过期和离线保持�
       { ...device, temperature: 45 },
       "temperature",
     ).getHexString(),
-    "ee4847",
+    "dd332e",
   );
   assert.equal(
     observationColor({ ...device, power: 0 }, "power").getHexString(),
-    "485ca9",
+    "295388",
   );
   assert.equal(
     observationColor({ ...device, budget: null }, "power").getHexString(),
@@ -92,5 +92,21 @@ test("设备表面与机房进风图例按各自量程标注同一色阶", () =>
   assert.notEqual(
     temperatureColor(39, undefined, 80).getHex(),
     temperatureColor(39).getHex(),
+  );
+});
+
+test("功耗占比只沿蓝色提高亮度，设备列表与模型共用表面温度量程", () => {
+  let previous = -1;
+  for (let percent = 0; percent <= 100; percent++) {
+    const { r, g, b } = powerColor(percent / 100);
+    assert.ok(b > g && g > r);
+    const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    assert.ok(luminance > previous);
+    previous = luminance;
+  }
+  const part = spatialSnapshot(43, 0, "srv-12").readings.get("processor-02")!;
+  assert.equal(
+    observationColor(part, "temperature", 80).getHex(),
+    temperatureColor(part.temperature!, undefined, 80).getHex(),
   );
 });

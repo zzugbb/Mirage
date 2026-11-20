@@ -205,7 +205,7 @@ import {
 } from "./review-model";
 import type { ReviewAction, ResourceAction, ReviewState } from "./review-model";
 import { spatialSnapshot, selectedReading } from "./spatial";
-import { signalFor, signalStyles, signalText } from "./status";
+import { qualityNames, signalFor, signalStyles, signalText } from "./status";
 import {
   findResources,
   rackUnitQuery,
@@ -284,6 +284,8 @@ import {
 import type { WorkspaceShot } from "./workspace-presets";
 import { tourSteps } from "./tour";
 import "./scene-ui.css";
+import { observationColor } from "./scene/metric-color";
+import { budgetRatio } from "./power-budget";
 import { workspaceColors } from "./workspace-colors";
 import "./workspace-ui.css";
 
@@ -4440,7 +4442,31 @@ export function Workspace() {
                             (!!query.trim() || filter !== "all"),
                         ),
                         data = spatial.readings.get(row.id),
-                        style = signalStyles[signalFor(data)];
+                        signal = signalFor(data),
+                        style = signalStyles[signal];
+                      const metricLayer =
+                        layer === "environment"
+                          ? "temperature"
+                          : layer === "power"
+                            ? "power"
+                            : null;
+                      const rowRatio = data
+                        ? budgetRatio(data.power, data.budget)
+                        : null;
+                      const hasMetric =
+                        data?.quality === "valid" &&
+                        (metricLayer === "temperature"
+                          ? data.temperature != null
+                          : metricLayer === "power" && rowRatio !== null);
+                      const metricColor =
+                        hasMetric && metricLayer
+                          ? "#" +
+                            observationColor(
+                              data,
+                              metricLayer,
+                              state.level === "device" ? 80 : 45,
+                            ).getHexString()
+                          : undefined;
                       const rowStatus = data
                         ? signalText(data)
                         : isCoolingSource(row.id)
@@ -4473,27 +4499,48 @@ export function Workspace() {
                           >
                             <span className="study-resource-title">
                               <strong>{text.title}</strong>
-                              <span
-                                className="study-row-status"
-                                style={{ color: style.color }}
-                                title={rowStatus}
-                              >
-                                {data
-                                  ? style.icon
-                                  : isCoolingSource(row.id) ||
-                                      environmentProbe(row.id)
-                                    ? "◇"
-                                    : "—"}
-                              </span>
+                              {(!metricLayer || signal !== "normal") && (
+                                <span
+                                  className="study-row-status"
+                                  style={{ color: style.color }}
+                                  title={rowStatus}
+                                >
+                                  {data
+                                    ? style.icon
+                                    : isCoolingSource(row.id) ||
+                                        environmentProbe(row.id)
+                                      ? "◇"
+                                      : "—"}
+                                </span>
+                              )}
                             </span>
-                            <small>
-                              {text.detail}
-                              {layer === "environment" &&
-                                data?.temperature != null &&
-                                ` · ${temperature(data.temperature)} °C`}
-                              {layer === "power" &&
-                                data?.power != null &&
-                                ` · ${power(data.power)} ${data.power >= 1000 ? "kW" : "W"}`}
+                            <small
+                              className={
+                                metricLayer && data
+                                  ? "has-resource-measure"
+                                  : undefined
+                              }
+                            >
+                              <span>{text.detail}</span>
+                              {metricLayer && data && (
+                                <span className="resource-measure">
+                                  {metricColor && (
+                                    <i
+                                      aria-hidden="true"
+                                      style={{ backgroundColor: metricColor }}
+                                    />
+                                  )}
+                                  {data.quality !== "valid"
+                                    ? qualityNames[data.quality]
+                                    : metricLayer === "temperature"
+                                      ? data.temperature === null
+                                        ? "—"
+                                        : `${temperature(data.temperature)} °C`
+                                      : data.power === null
+                                        ? "—"
+                                        : `${power(data.power)} ${data.power >= 1000 ? "kW" : "W"}${rowRatio == null ? "" : ` · ${Math.round(rowRatio * 100)}%`}`}
+                                </span>
+                              )}
                             </small>
                           </button>
                           <div
