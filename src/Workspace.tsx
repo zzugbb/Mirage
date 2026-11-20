@@ -1,3 +1,4 @@
+import { useDismissibleMenu } from "./use-dismissible-menu";
 import {
   StructureTools,
   type StructureTool,
@@ -414,7 +415,7 @@ export function Workspace() {
   const latestFeedback = useRef(feedback);
   latestFeedback.current = feedback;
   const [hidden, setHidden] = useState(() => document.hidden);
-  const tourMenu = useRef<HTMLDetailsElement>(null);
+  const tourMenu = useDismissibleMenu();
   useEffect(() => {
     if (tour.mode === "manual" && !review.pendingTour && tourMenu.current)
       tourMenu.current.open = false;
@@ -2935,16 +2936,24 @@ export function Workspace() {
     document.title = "Mirage · 浮城 — 三维工作区";
     const key = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        if (query) {
-          setQuery("");
-          return;
-        }
-        const popup = document.querySelector<HTMLDetailsElement>(
-          ".workspace-ui details[open]",
-        );
+        const target = event.target instanceof Element ? event.target : null;
+        const popup =
+          target?.closest<HTMLDetailsElement>("details[open]") ??
+          document.querySelector<HTMLDetailsElement>(
+            ".workspace-shots[open], .review-scene-tools details[open]",
+          );
         if (popup) {
+          event.preventDefault();
           popup.open = false;
           popup.querySelector("summary")?.focus();
+        } else if (
+          nav &&
+          query &&
+          navigationRef.current?.contains(target) &&
+          navigationRef.current.querySelector(".study-search")
+        ) {
+          setQuery("");
+          navigationRef.current.querySelector("input")?.focus();
         } else if (review.analysis) control({ type: "analysis", value: false });
         else if (inspector) setInspector(false);
         else if (nav && matchMedia("(max-width: 1099px)").matches)
@@ -4972,13 +4981,9 @@ export function Workspace() {
                     <span>已知输入功耗</span>
                   </p>
                 </div>
-                <button
-                  onClick={() => {
-                    pick("room-01");
-                  }}
-                >
-                  查看机房详情
-                </button>
+                {selected !== "room-01" && (
+                  <button onClick={() => pick("room-01")}>查看机房详情</button>
+                )}
               </div>
             )}
           {layer === "alarms" &&
@@ -5473,16 +5478,12 @@ export function Workspace() {
             {review.analysis ? (
               <>
                 <div className="study-time-control">
-                  <button onClick={() => dispatch({ type: "play" })}>
-                    {state.playing ? "暂停" : "播放"}
-                  </button>
-                  <time>{clock(state.time)}</time>
-                  <span>/ 02:00</span>
-                  <small>
-                    {state.playing ? "播放中" : "已暂停"} · 场景同步
-                  </small>
+                  <label htmlFor="study-review-time">回看时刻</label>
+                  <span>00:00 – 02:00</span>
                   <input
+                    id="study-review-time"
                     aria-label="共享模拟时间"
+                    aria-valuetext={clock(state.time)}
                     type="range"
                     min="0"
                     max="120"

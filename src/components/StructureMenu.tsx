@@ -1,4 +1,5 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import type { ReactNode } from "react";
+import { useDismissibleMenu } from "../use-dismissible-menu";
 
 export function StructureMenu({
   amount,
@@ -42,23 +43,7 @@ export function StructureActionMenu({
   percent?: number;
   children: ReactNode;
 }) {
-  const menu = useRef<HTMLDetailsElement>(null);
-  useEffect(() => {
-    const dismissOutside = (event: Event) => {
-      if (
-        menu.current?.open &&
-        event.target instanceof Node &&
-        !menu.current.contains(event.target)
-      )
-        menu.current.open = false;
-    };
-    document.addEventListener("pointerdown", dismissOutside, true);
-    document.addEventListener("focusin", dismissOutside, true);
-    return () => {
-      document.removeEventListener("pointerdown", dismissOutside, true);
-      document.removeEventListener("focusin", dismissOutside, true);
-    };
-  }, []);
+  const menu = useDismissibleMenu();
   return (
     <details
       ref={menu}

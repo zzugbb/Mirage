@@ -1,3 +1,4 @@
+import { useDismissibleMenu } from "../use-dismissible-menu";
 import { storageDriveGroup } from "../storage-slots";
 import { AirflowPanel } from "./AirflowPanel";
 import { useAirflowWorkspace } from "../use-airflow-workspace";
@@ -420,7 +421,7 @@ export function ReviewScene({
     frame = requestAnimationFrame(restoreFocus);
     return () => cancelAnimationFrame(frame);
   }, [slicePlaneActive]);
-  const displayMenu = useRef<HTMLDetailsElement>(null);
+  const displayMenu = useDismissibleMenu();
   const closeDisplayMenu = () => {
     if (displayMenu.current) displayMenu.current.open = false;
   };

@@ -1251,27 +1251,17 @@
   padding: 12px;
   display: flex;
   align-items: center;
-  gap: 10px;
+  justify-content: space-between;
+  gap: 6px;
   flex-wrap: wrap;
   background: #242d36;
   border-radius: 6px;
-}
-.study-time-control button {
-  background: #3a4b56;
-  padding: 4px 12px;
-}
-.study-time-control time {
-  font-size: 14px;
-  font-variant-numeric: tabular-nums;
+  font-size: 12px;
 }
 .study-time-control > span {
+  color: #a5b5bf;
   font-size: 11px;
-  color: #8498a6;
-}
-.study-time-control > small {
-  margin-left: auto;
-  font-size: 10px;
-  color: #91a5b2;
+  font-variant-numeric: tabular-nums;
 }
 .study-inspector .study-return-detail {
   margin-left: auto;
@@ -1285,7 +1275,6 @@
   width: 100%;
   flex-basis: 100%;
   accent-color: #b1dede;
-  margin-top: 6px;
 }
 .workspace-ui .review-analysis {
   background: transparent;
