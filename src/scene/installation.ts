@@ -1,4 +1,3 @@
-import definition from "../../assets/public/scenes/room-01.json" with { type: "json" };
 import { updateRackBlanking } from "./rack-blanking";
 import { createEquipmentRearProxy } from "./equipment-rear-proxy";
 import { equipmentModels, modelForDevice } from "../catalog";
@@ -25,30 +24,12 @@ export class InstallationScene {
   racks = new Map<string, THREE.Group>();
   devices = new Map<string, THREE.Group>();
   batches: ProxyBatch[] = [];
-  private cabinetBounds = new Map<string, THREE.Box3>();
-  private sight = new THREE.Ray();
-  private intersection = new THREE.Vector3();
-  private hiddenRacks = new Set<string>();
   visibilityKey = "";
   appearanceKey = "";
   private models: SceneModel;
-  private labels = new Map<string, THREE.Sprite>();
   constructor(models: SceneModel) {
     this.models = models;
     for (const rack of racks) {
-      const [x, y, z] = rack.position;
-      const [width, height, depth] = definition.rack.size;
-      this.cabinetBounds.set(
-        rack.id,
-        new THREE.Box3(
-          new THREE.Vector3(x - width / 2 - 0.22, y, z - depth / 2 - 0.12),
-          new THREE.Vector3(
-            x + width / 2 + 0.22,
-            y + height + 0.1,
-            z + depth / 2 + 0.12,
-          ),
-        ),
-      );
       const group = models.rack.clone(true);
       group.traverse((object) => {
         object.userData = {};
@@ -62,10 +43,7 @@ export class InstallationScene {
       this.racks.set(rack.id, group);
       for (const child of [...group.children])
         if (child instanceof THREE.Sprite) group.remove(child);
-      this.labels.set(
-        rack.id,
-        text(group, rack.name.slice(0, 3), [0, 2.36, 0], 0.1),
-      );
+      text(group, rack.name.slice(0, 3), [0, 2.36, 0], 0.1);
       for (const child of group.children)
         if (child.name === "rack-door") child.rotation.y = 0;
     }
@@ -290,44 +268,24 @@ export class InstallationScene {
     });
     this.visibilityKey = this.appearanceKey = "";
   }
-  update(
-    state: AppState,
-    camera: THREE.Vector3,
-    device: THREE.Vector3,
-    relocation: number,
-  ) {
+  update(state: AppState, relocation: number) {
     const activeRack = rackForDevice(state.deviceId).id;
-    const closeup = state.level !== "room" || relocation > 0;
-    this.hiddenRacks.clear();
-    if (closeup) {
-      // 只让挡在镜头和观察对象之间的柜体让位，背景继续提供柜排尺度。
-      this.sight.origin.copy(camera);
-      this.sight.direction.subVectors(device, camera).normalize();
-      const distance = device.distanceToSquared(camera);
-      for (const [id, bounds] of this.cabinetBounds) {
-        if (id === activeRack && relocation < 1) continue;
-        if (
-          bounds.containsPoint(camera) ||
-          (this.sight.intersectBox(bounds, this.intersection) &&
-            this.intersection.distanceToSquared(camera) < distance)
-        )
-          this.hiddenRacks.add(id);
-      }
-    }
-    this.models.rack.visible = !this.hiddenRacks.has(activeRack);
-    for (const [id, group] of this.racks) {
-      group.visible = id !== activeRack && !this.hiddenRacks.has(id);
-      this.labels.get(id)!.visible = !closeup;
-    }
-    const key = state.deviceId + ":" + [...this.hiddenRacks].join(",");
+    const room = state.level === "room" && relocation === 0;
+    const cabinet = relocation < 1;
+    const key = `${state.deviceId}:${room}:${cabinet}`;
     if (key === this.visibilityKey) return;
     this.visibilityKey = key;
+    this.models.surroundings.visible = room;
+    this.models.rack.visible = cabinet;
+    for (const [id, group] of this.racks)
+      group.visible = room && id !== activeRack;
     const matrix = new THREE.Matrix4(),
       position = new THREE.Vector3(),
       scale = new THREE.Vector3();
     for (const [id, group] of this.devices)
       group.visible =
-        id !== state.deviceId && !this.hiddenRacks.has(rackForDevice(id).id);
+        id !== state.deviceId &&
+        (room || (cabinet && group.userData.rackId === activeRack));
     for (const batch of this.batches) {
       batch.ids.forEach((id, index) => {
         const group = this.devices.get(id)!;
@@ -348,23 +306,13 @@ export class InstallationScene {
     mode: string,
     readings: Map<string, SpatialReading>,
   ) {
-    const activeRack = this.models.rack.userData.entityId;
-    const key = `${state.time}:${state.replayCycle}:${mode}:${state.level}:${activeRack}`;
+    const key = `${state.time}:${state.replayCycle}:${mode}`;
     if (key === this.appearanceKey) return;
     this.appearanceKey = key;
     const color = new THREE.Color(),
       white = new THREE.Color("#ffffff");
     for (const batch of this.batches) {
       batch.ids.forEach((id, index) => {
-        const contextual =
-          state.level === "device" ||
-          (state.level === "rack" &&
-            this.devices.get(id)!.userData.rackId !== activeRack);
-        if (contextual) {
-          color.set(batch.light ? "#5e8a7f" : "#ffffff");
-          batch.mesh.setColorAt(index, color);
-          return;
-        }
         const reading = readings.get(id)!;
         const signal = signalFor(reading);
         color.set(signalStyles[signal].color);

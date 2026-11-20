@@ -10,6 +10,10 @@ export const cameraMinimumDistance = {
   device: 0.35,
 } as const;
 
+const paddedFocalLength = 1.12 / Math.tan((40 * Math.PI) / 360);
+const availableField = (inset: number) =>
+  1 - 2 * Math.min(0.45, Math.max(0, inset));
+
 /** 根据取景方向投影包围盒八角，保留 12% 边距；不以包围球对细长设备过度缩小。 */
 export function boundsFrameDistance(
   size: number[],
@@ -17,6 +21,7 @@ export function boundsFrameDistance(
   aspect: number,
   minimum: number,
   topInsetFraction = 0,
+  bottomInsetFraction = 0,
 ) {
   const points: number[][] = [];
   for (const x of [-size[0] / 2, size[0] / 2])
@@ -28,6 +33,7 @@ export function boundsFrameDistance(
     aspect,
     minimum,
     topInsetFraction,
+    bottomInsetFraction,
   );
 }
 
@@ -49,10 +55,9 @@ export function pointsFrameDistance(
     n[2] * right[0] - n[0] * right[2],
     n[0] * right[1] - n[1] * right[0],
   ];
-  const tangent = Math.tan((40 * Math.PI) / 360);
   // 保持目标中心，分别为场景上下沿的操作区留出画幅。
-  const upperField = 1 - 2 * Math.min(0.45, Math.max(0, topInsetFraction));
-  const lowerField = 1 - 2 * Math.min(0.45, Math.max(0, bottomInsetFraction));
+  const upperField = availableField(topInsetFraction);
+  const lowerField = availableField(bottomInsetFraction);
   let result = minimum;
   for (const point of points) {
     const dot = (axis: number[]) =>
@@ -60,10 +65,10 @@ export function pointsFrameDistance(
     const vertical = dot(up);
     result = Math.max(
       result,
-      (Math.abs(dot(right)) * 1.12) / (tangent * Math.max(0.2, aspect)) +
+      (Math.abs(dot(right)) * paddedFocalLength) / Math.max(0.2, aspect) +
         dot(n),
-      ((vertical > 0 ? vertical / upperField : -vertical / lowerField) * 1.12) /
-        tangent +
+      (vertical > 0 ? vertical / upperField : -vertical / lowerField) *
+        paddedFocalLength +
         dot(n),
     );
   }

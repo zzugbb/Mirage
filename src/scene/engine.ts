@@ -165,7 +165,6 @@ export class SceneEngine {
     ),
   );
   fixtureTargets = [new THREE.Vector3()];
-  private closeupTargets = [new THREE.Vector3(), new THREE.Vector3()];
   scene = new THREE.Scene();
   private roomBackdrop = createBackdrop();
   private skyLight = new THREE.HemisphereLight("#faf9f5", "#343333", 0.45);
@@ -208,7 +207,10 @@ export class SceneEngine {
   onFeedback: (feedback: SceneFeedback) => void;
   lastFeedback = "";
   assemblyModel = "server-2u";
-  assemblies = new Map<string, ReturnType<typeof createEquipmentAssembly>>();
+  assemblies = new Map<
+    string,
+    ReturnType<typeof createEquipmentAssembly> & { baseHeight: number }
+  >();
   paused = false;
   contextAvailable = true;
   state: AppState;
@@ -448,7 +450,7 @@ export class SceneEngine {
             result.representations.exterior,
           );
         const old = this.assemblies.get(id);
-        this.assemblies.set(id, result);
+        this.registerAssembly(id, result);
         if (modelForDevice(this.state.deviceId).id === id) {
           this.assemblyModel = "";
           this.activateAssembly(this.state);
@@ -712,6 +714,7 @@ export class SceneEngine {
     };
   }
   private restoreObservationView(previous: ObservationMemory) {
+    this.deviceOrbit = undefined;
     this.panelViewport = undefined;
     this.currentView = previous.view;
     this.currentFocus = previous.focus;
@@ -1682,15 +1685,26 @@ export class SceneEngine {
     this.moving = false;
     this.lastManualInteraction = performance.now();
   };
+  private registerAssembly(
+    id: string,
+    assembly: ReturnType<typeof createEquipmentAssembly>,
+  ) {
+    // 在装配尚未挂入场景、部件仍在原位时量取底面。不同外观的实际高度可略超出名义 U 高。
+    const body = assembly.representations?.exterior ?? assembly.root;
+    const baseHeight = -new THREE.Box3().setFromObject(body).min.y;
+    const registered = { ...assembly, baseHeight };
+    this.assemblies.set(id, registered);
+    return registered;
+  }
   activateAssembly(state: AppState) {
     this.partIsolation.restore();
     const model = modelForDevice(state.deviceId);
     if (model.id === this.assemblyModel) return;
-    let assembly = this.assemblies.get(model.id);
-    if (!assembly) {
-      assembly = createEquipmentAssembly(model.id);
-      this.assemblies.set(model.id, assembly);
-    }
+    const assembly =
+      this.assemblies.get(model.id) ??
+      this.registerAssembly(model.id, createEquipmentAssembly(model.id));
+    this.presentation.workbench.y =
+      definition.inspectionBench.surfaceY + assembly.baseHeight;
     this.surface?.dispose();
     const cachedRoots = new Set(
       [...this.assemblies.values()].map((value) => value.root),
@@ -1723,11 +1737,13 @@ export class SceneEngine {
       rack.position[2] + definition.inspectionBench.frontOffset,
     );
     this.presentation.workbench.copy(this.models.bench.position);
+    const model = modelForDevice(state.deviceId);
+    const baseHeight =
+      this.assemblies.get(model.id)?.baseHeight ??
+      this.models.server.position.y -
+        new THREE.Box3().setFromObject(this.models.server).min.y;
     this.presentation.workbench.y =
-      definition.inspectionBench.surfaceY +
-      (modelForDevice(state.deviceId).units * definition.rack.unitPitch -
-        0.003) /
-        2;
+      definition.inspectionBench.surfaceY + baseHeight;
     this.models.rack.userData.entityId = rack.id;
     this.host.dataset.blankingUnits = updateRackBlanking(
       this.models.rack,
@@ -1831,6 +1847,47 @@ export class SceneEngine {
     if (state.level === "device" && (explosionChanged || coverChanged))
       this.view(this.currentView);
   }
+  private deviceOrbit?: {
+    center: THREE.Vector3;
+    size: number[];
+    direction: THREE.Vector3;
+    fit: number;
+    top: number;
+    bottom: number;
+  };
+  private adaptDeviceOrbit() {
+    const frame = this.deviceOrbit;
+    if (
+      !frame ||
+      this.moving ||
+      frame.center.distanceToSquared(this.controls.target) > 1e-6
+    )
+      return;
+    const offset = this.camera.position.clone().sub(this.controls.target);
+    const distance = offset.length();
+    offset.normalize();
+    if (offset.distanceToSquared(frame.direction) < 1e-8) return;
+    const fit = boundsFrameDistance(
+      frame.size,
+      offset.toArray(),
+      this.camera.aspect,
+      this.controls.minDistance,
+      frame.top,
+      frame.bottom,
+    );
+    // 随当前投影调整取景，保留用户相对整机的缩放比例。平移或聚焦部件时交还镜头。
+    const radius = THREE.MathUtils.clamp(
+      (distance * fit) / frame.fit,
+      this.controls.minDistance,
+      this.controls.maxDistance,
+    );
+    this.camera.position
+      .copy(this.controls.target)
+      .addScaledVector(offset, radius);
+    this.camera.updateMatrixWorld();
+    frame.direction.copy(offset);
+    frame.fit = fit;
+  }
   deviceBounds(points?: THREE.Vector3[]) {
     const include = (box: THREE.Box3) => {
       if (box.isEmpty()) return;
@@ -1896,6 +1953,7 @@ export class SceneEngine {
     return object.visible && (!object.parent || this.visible(object.parent));
   }
   view(view: View, focus = false) {
+    this.deviceOrbit = undefined;
     this.invalidate();
     this.clearNetworkView();
     this.clearPowerView();
@@ -1995,9 +2053,11 @@ export class SceneEngine {
       level === "device" &&
       !inspectionTarget &&
       (!focus || this.state.selected === this.state.deviceId);
+    const wholeRack =
+      level === "rack" && (!focus || object === this.models.rack);
     const bounds = wholeDevice
       ? this.deviceBounds(framingPoints)
-      : object && focus
+      : object && focus && !wholeRack
         ? new THREE.Box3().setFromObject(object)
         : null;
     const contactPair =
@@ -2080,7 +2140,21 @@ export class SceneEngine {
       : cameraMinimumDistance[level];
     let topInsetFraction = 0;
     let bottomInsetFraction = 0;
-    if (wholeDevice) {
+    if (wholeRack) {
+      const [width, height, depth] = definition.rack.size;
+      const rack = this.models.rack.position;
+      center.copy(rack);
+      center.y += height / 2;
+      // 包含前后门的旋转范围与导轨行程，开门、抽出时不跳动镜头。
+      for (const x of [-width, width])
+        for (const y of [0, height + 0.05])
+          for (const z of [
+            -depth / 2 - width / 2,
+            depth / 2 + Math.max(width, definition.rack.motion.trayTravel),
+          ])
+            framingPoints.push(new THREE.Vector3(x, y, z).add(rack));
+    }
+    if (wholeDevice || wholeRack) {
       const frame = this.host.getBoundingClientRect();
       const actions = this.host
         .closest(".study-stage")
@@ -2090,15 +2164,17 @@ export class SceneEngine {
         bottomInsetFraction = (frame.bottom - actions.top) / frame.height;
     }
     if (
-      level === "room" &&
-      focus &&
-      (roomDevice ||
-        entityById(this.state.selected)?.kind === "rack" ||
-        (fixture &&
-          "kind" in fixture &&
-          ["cable-tray", "ceiling-light", "floor-grille-row"].includes(
-            fixture.kind,
-          )))
+      wholeRack ||
+      wholeDevice ||
+      (level === "room" &&
+        focus &&
+        (roomDevice ||
+          entityById(this.state.selected)?.kind === "rack" ||
+          (fixture &&
+            "kind" in fixture &&
+            ["cable-tray", "ceiling-light", "floor-grille-row"].includes(
+              fixture.kind,
+            ))))
     ) {
       const frame = this.host.getBoundingClientRect();
       const controls = this.host
@@ -2115,43 +2191,68 @@ export class SceneEngine {
           );
       }
     }
-    const distance = framingPoints.length
-      ? pointsFrameDistance(
-          framingPoints.map((point) => point.sub(center).toArray()),
+    const radius = framingPoints.reduce(
+      (r, point) => Math.max(r, point.distanceTo(center)),
+      0,
+    );
+    const orbitMinimum = Math.max(minimum, radius + 2 * this.camera.near);
+    const deviceSize =
+      wholeDevice && bounds
+        ? bounds.getSize(new THREE.Vector3()).toArray()
+        : undefined;
+    const distance = deviceSize
+      ? boundsFrameDistance(
+          deviceSize,
           direction.toArray(),
           this.camera.aspect,
-          minimum,
+          orbitMinimum,
           topInsetFraction,
           bottomInsetFraction,
         )
-      : bounds
-        ? boundsFrameDistance(
-            bounds.getSize(new THREE.Vector3()).toArray(),
+      : framingPoints.length
+        ? pointsFrameDistance(
+            framingPoints.map((point) => point.sub(center).toArray()),
             direction.toArray(),
             this.camera.aspect,
-            minimum,
+            orbitMinimum,
             topInsetFraction,
+            bottomInsetFraction,
           )
-        : level === "room" && view === "top"
+        : bounds
           ? boundsFrameDistance(
-              definition.room.size,
+              bounds.getSize(new THREE.Vector3()).toArray(),
               direction.toArray(),
               this.camera.aspect,
               minimum,
-              0.1,
+              topInsetFraction,
             )
-          : frameDistance(size, this.camera.aspect, minimum);
-    if (!bounds && level === "rack") {
-      center.x = rackForDevice(this.state.deviceId).position[0];
-      center.z = rackForDevice(this.state.deviceId).position[2];
-    }
+          : level === "room" && view === "top"
+            ? boundsFrameDistance(
+                definition.room.size,
+                direction.toArray(),
+                this.camera.aspect,
+                minimum,
+                0.1,
+              )
+            : frameDistance(size, this.camera.aspect, minimum);
+    if (deviceSize)
+      this.deviceOrbit = {
+        center: center.clone(),
+        size: deviceSize,
+        direction: direction.clone(),
+        fit: distance,
+        top: topInsetFraction,
+        bottom: bottomInsetFraction,
+      };
     this.targetLook.copy(center);
     this.targetPosition
       .copy(center)
       .addScaledVector(direction, contactPair ? distance * 1.15 : distance);
     // 柜式设施的初始取景给工具栏和周边设施留出空间，随后仍可手动拉近。
     this.controls.minDistance =
-      fixture && "size" in fixture ? cameraMinimumDistance[level] : minimum;
+      fixture && "size" in fixture
+        ? cameraMinimumDistance[level]
+        : orbitMinimum;
     this.controls.maxDistance = Math.max(
       distance * 1.1,
       level === "device" ? 5 : level === "rack" ? 9 : 24,
@@ -2512,6 +2613,8 @@ export class SceneEngine {
     }
     this.poseParts();
     this.updatePartInspection();
+    this.models.bench.visible =
+      frame.overBench && this.explosion === 0 && !this.partInspection;
     if (
       this.pendingReturnView &&
       this.cover === 0 &&
@@ -2550,7 +2653,10 @@ export class SceneEngine {
       !assemblyBusy &&
       !this.reducedMotion &&
       time - this.lastManualInteraction > 4000;
-    if (!this.paused) this.controls.update();
+    if (!this.paused) {
+      this.controls.update();
+      this.adaptDeviceOrbit();
+    }
     const observedPowerRack =
       this.powerObservation && this.state.level === "room"
         ? rackForDevice(this.powerObservation.sourceId).id
@@ -2586,11 +2692,7 @@ export class SceneEngine {
       }
       this.fixtureTargets.length = offsets.length;
     }
-    const closeup = this.state.level !== "room";
-    if (closeup) {
-      this.closeupTargets[0].copy(this.controls.target);
-      this.closeupTargets[1].copy(this.models.server.position);
-    }
+    this.installation.update(this.state, frame.relocation);
     const cutCount = this.shellCutaway.update(
       this.camera.position,
       this.inletObservation?.inspection.points ??
@@ -2603,12 +2705,8 @@ export class SceneEngine {
         this.networkObservation?.targets ??
         this.sliceObservation?.targets ??
         this.airflowObservation?.targets ??
-        (closeup
-          ? this.closeupTargets
-          : selectedFixture
-            ? this.fixtureTargets
-            : this.shellTargets),
-      this.models.room.visible,
+        (selectedFixture ? this.fixtureTargets : this.shellTargets),
+      this.models.surroundings.visible,
       this.environmentObservation
         ? this.models.fixtures.get(
             fixtureMountReference(
@@ -2638,7 +2736,6 @@ export class SceneEngine {
                     fixtureMountReference(this.state.selected),
                   )
                 : undefined,
-      closeup || this.shellCutaway.enabled,
     );
     this.host.dataset.fixtureTarget = selectedFixture
       ? this.state.selected
@@ -2665,12 +2762,6 @@ export class SceneEngine {
       this.camera.position,
       this.presentation.pose.inspection > 0,
       this.rangeObservation?.range ?? this.unitRange,
-    );
-    this.installation.update(
-      this.state,
-      this.camera.position,
-      this.models.server.position,
-      frame.relocation,
     );
     this.models.root.updateMatrixWorld(true);
     this.telemetry.update(

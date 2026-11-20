@@ -102,18 +102,17 @@ export function buildModels() {
   const root = new THREE.Group();
   const room = identify(new THREE.Group(), "room-01");
   root.add(room);
-  const { occluders: shellOccluders, fixtures } = buildRoomShell(
-    room,
-    box,
-    glow,
-    text,
-  );
+  const {
+    occluders: shellOccluders,
+    fixtures,
+    surroundings,
+  } = buildRoomShell(room, box, glow, text);
   const facilities = new Map<string, THREE.Group>();
   const fans: THREE.Group[] = [];
   for (const config of definition.facilities) {
     const group = identify(new THREE.Group(), config.id);
     group.position.fromArray(config.position);
-    room.add(group);
+    surroundings.add(group);
     facilities.set(config.id, group);
     box(group, config.size, [0, 0, 0], config.color, 0.45);
     box(
@@ -156,7 +155,7 @@ export function buildModels() {
       box(group, [0.035, 0.3, 0.04], [0.28, -0.05, 0.3], "#abc4ca", 0.8);
     }
   }
-  // 临时检视台只在设备离开导轨时出现。支脚和柜脚共享机房地坪。
+  // 临时检视台支撑到位的整机。支脚和柜脚共享机房地坪。
   const bench = new THREE.Group();
   bench.name = "inspection-bench";
   const { surfaceY, width, depth, thickness } = definition.inspectionBench;
@@ -389,6 +388,7 @@ export function buildModels() {
   return {
     root,
     room,
+    surroundings,
     shellOccluders,
     rack,
     rackDoor,

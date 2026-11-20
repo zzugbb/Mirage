@@ -29,11 +29,13 @@ export function buildRoomShell(
   glow: Box,
   text: Text,
 ) {
+  const surroundings = new THREE.Group();
+  room.add(surroundings);
   const occluders: THREE.Group[] = [];
   const structure = (name: string) => {
     const group = new THREE.Group();
     group.name = name;
-    room.add(group);
+    surroundings.add(group);
     occluders.push(group);
     return group;
   };
@@ -127,7 +129,7 @@ export function buildRoomShell(
     .map((fixture) => [fixture.mountId, structure(fixture.mountId)] as const);
   const fixtures = buildRoomFixtures(
     new Map([
-      ["room-01", room],
+      ["room-01", surroundings],
       [leftWall.name, leftWall],
       [backWall.name, backWall],
       ...overheadMounts,
@@ -135,5 +137,5 @@ export function buildRoomShell(
     box,
     glow,
   );
-  return { occluders, fixtures };
+  return { occluders, fixtures, surroundings };
 }

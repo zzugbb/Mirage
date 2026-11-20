@@ -142,3 +142,40 @@ test("整机展开的最低部件避开底部操作条", () => {
     }
   }
 });
+
+test("展开整机从后侧转至斜侧时按当前投影留出上下操作区", () => {
+  const size = [1.1, 0.48, 1.6];
+  for (const aspect of [0.57, 1.45, 2.1]) {
+    const camera = new PerspectiveCamera(40, aspect, 0.01, 150);
+    const point = new Vector3();
+    for (let angle = 0; angle < 360; angle += 10) {
+      const yaw = (angle * Math.PI) / 180;
+      const direction = new Vector3(
+        Math.cos(yaw),
+        0.2,
+        Math.sin(yaw),
+      ).normalize();
+      const distance = boundsFrameDistance(
+        size,
+        direction.toArray(),
+        aspect,
+        0.35,
+        0.13,
+        0.1,
+      );
+      camera.position.copy(direction).multiplyScalar(distance);
+      camera.lookAt(0, 0, 0);
+      camera.updateMatrixWorld();
+      for (const x of [-size[0] / 2, size[0] / 2])
+        for (const y of [-size[1] / 2, size[1] / 2])
+          for (const z of [-size[2] / 2, size[2] / 2]) {
+            point.set(x, y, z).project(camera);
+            assert.ok(
+              Math.abs(point.x) < 1 &&
+                point.y < 1 - 2 * 0.13 &&
+                point.y > -1 + 2 * 0.1,
+            );
+          }
+    }
+  }
+});

@@ -1,3 +1,6 @@
+import definition from "../assets/public/scenes/room-01.json" with { type: "json" };
+import { modelForDevice } from "./catalog.ts";
+import { deviceHeight, rackForDevice } from "./installation.ts";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { advanceAssembly, assemblyPartPosition } from "./assembly-motion.ts";
@@ -116,7 +119,7 @@ test("返回机柜和切换实例须等待上盖合拢，再离开结构工作�
     railMount: new THREE.Group(),
   } as unknown as SceneModel;
   const presentation = new StructurePresentation(models);
-  presentation.workbench.set(-3, 0.8, 2);
+  presentation.workbench.set(0, 0.8, 2);
   presentation.pose = { door: 1, tray: 1, inspection: 1 };
   const rack = transition(
     transition(createState(), { type: "navigate", level: "device" }),
@@ -126,11 +129,62 @@ test("返回机柜和切换实例须等待上盖合拢，再离开结构工作�
     const frame = presentation.step(rack, 1 / 60, false, 0, 1);
     assert.equal(presentation.pose.inspection, 1);
     assert.equal(frame.phase, "closing-cover");
-    assert.ok(models.bench.visible);
+    assert.ok(frame.overBench);
     assert.ok(models.server.position.equals(presentation.workbench));
   }
   presentation.step(rack, 1 / 60, false, 0, 0);
   assert.ok(presentation.pose.inspection < 1);
-  presentation.step(rack, 0, true, 0, 0);
-  assert.equal(models.bench.visible, false);
+  assert.equal(presentation.step(rack, 0, true, 0, 0).overBench, false);
+});
+
+test("各机型从原 U 位水平出柜，落台和返回时机箱底部避开台面", () => {
+  for (const id of ["srv-07", "srv-08", "sto-02", "sw-14"]) {
+    const models = {
+      rack: new THREE.Group().add(createRackRearDoors()),
+      server: new THREE.Group(),
+      rackDoor: new THREE.Group(),
+      rackSlide: new THREE.Group(),
+      railMount: new THREE.Group(),
+    } as unknown as SceneModel;
+    const rack = rackForDevice(id);
+    const model = modelForDevice(id);
+    const halfHeight = (model.units * definition.rack.unitPitch - 0.003) / 2;
+    const bench = definition.inspectionBench;
+    models.rack.position.fromArray(rack.position);
+    const presentation = new StructurePresentation(models);
+    presentation.mounted.set(
+      rack.position[0],
+      deviceHeight(id),
+      rack.position[2] + 0.555 - model.depth / 2,
+    );
+    presentation.workbench.set(
+      rack.position[0],
+      bench.surfaceY + halfHeight,
+      rack.position[2] + bench.frontOffset,
+    );
+    const device = { ...createState(), level: "device" as const, deviceId: id };
+    const mounted = { ...device, level: "rack" as const };
+    for (const target of [device, mounted]) {
+      let overBench = false;
+      for (let i = 0; i < 200; i++) {
+        const frame = presentation.step(target, 1 / 60, false, 0);
+        const position = models.server.position;
+        const tail = position.z - model.depth / 2;
+        if (tail < rack.position[2] + definition.rack.size[2] / 2)
+          assert.equal(position.y, presentation.mounted.y, id);
+        if (frame.overBench) {
+          overBench = true;
+          assert.equal(position.z, presentation.workbench.z, id);
+          assert.ok(position.y - halfHeight >= bench.surfaceY - 1e-8, id);
+        }
+      }
+      assert.ok(overBench, id);
+      assert.ok(
+        models.server.position.distanceTo(
+          target === device ? presentation.workbench : presentation.mounted,
+        ) < 1e-8,
+        id,
+      );
+    }
+  }
 });
