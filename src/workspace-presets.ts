@@ -18,6 +18,8 @@ export const resourceViews = {
   layout: "布置图",
   space: "空间核查",
   network: "网络接入",
+  airflow: "气流路径",
+  alarms: "告警清单",
   inlet: "进风对照",
   power: "功耗对照",
 } as const;
@@ -38,7 +40,7 @@ export function navigationViews(
   if (layer === "overview") return ["list", "layout", "space", "network"];
   if (layer === "environment") return ["inlet", "list"];
   if (layer === "power") return ["power", "list"];
-  return ["list"];
+  return layer === "airflow" ? ["airflow", "list"] : ["alarms", "list"];
 }
 
 export function workspacePreset(

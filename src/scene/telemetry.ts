@@ -69,7 +69,6 @@ export class TelemetryOverlay {
     models: SceneModel,
     inspection: number,
     explosion: number,
-    roomOpacity: number,
   ) {
     const observation = deviceObservation(
       state.time,
@@ -81,7 +80,6 @@ export class TelemetryOverlay {
       this.mode === "temperature" &&
       this.enabled &&
       state.level === "room" &&
-      roomOpacity === 1 &&
       inspection === 0;
     this.alarmBox.visible =
       current &&

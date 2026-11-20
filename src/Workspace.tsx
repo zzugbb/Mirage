@@ -55,6 +55,7 @@ import { roomLayoutCrossings, type RoomLayoutScope } from "./room-layout";
 import type { AirflowView } from "./airflow-view";
 import {
   airflowSnapshot,
+  representativeAirflowDevice,
   type AirflowRoute,
   type FlowEndpoint,
 } from "./airflow";
@@ -214,7 +215,13 @@ import {
   componentGroups,
 } from "./review-resources";
 import type { ResourceFilter } from "./review-resources";
-import { devices, deviceById, rackById, rackForDevice } from "./installation";
+import {
+  devices,
+  deviceById,
+  racks,
+  rackById,
+  rackForDevice,
+} from "./installation";
 import {
   maintenanceAreas,
   maintenanceAisle,
@@ -279,6 +286,10 @@ import { tourSteps } from "./tour";
 import "./scene-ui.css";
 import "./workspace-ui.css";
 
+const airflowRacks = racks.map((rack) => ({
+  rack,
+  device: representativeAirflowDevice(rack.id),
+}));
 const clock = (time: number) =>
   `${String(Math.floor(time / 60)).padStart(2, "0")}:${String(time % 60).padStart(2, "0")}`;
 const temperature = (value: number | null | undefined) =>
@@ -696,7 +707,6 @@ export function Workspace() {
   const [query, setQuery] = useState("");
   const [rackView, setRackView] = useState<ResourceView>("installation");
   const views = navigationViews(state.level, layer);
-  const navigationView = views.includes(rackView) ? rackView : views[0];
   const [alarmQuery, setAlarmQuery] = useState("");
   const [alarmSeverity, setAlarmSeverity] = useState<AlarmSeverity>("all");
   const [alarmVisit, setAlarmVisit] = useState<
@@ -946,6 +956,14 @@ export function Workspace() {
   const [resourceFilter, setFilter] = useState<ResourceFilter>("all");
   const filter = state.level === "device" ? "all" : resourceFilter;
   const [onlyAlarms, setOnlyAlarms] = useState(false);
+  const roomAlarms = state.level === "room" && layer === "alarms";
+  const navigationView = roomAlarms
+    ? onlyAlarms
+      ? "alarms"
+      : "list"
+    : views.includes(rackView)
+      ? rackView
+      : views[0];
   const [metric, setMetric] = useState<"temperature" | "power">("temperature");
   const [sourceCheck, setSourceCheck] = useState<SourceCheck | null>(null);
   const [sourceVisit, setSourceVisit] = useState<
@@ -1492,11 +1510,7 @@ export function Workspace() {
     setInletAirflowVisit(null);
     setInletAirflowReturning(false);
   }, [inletAirflowVisit, inletAirflowReturning, ready, state.level, selected]);
-  const alarmQueueVisible =
-    state.level === "room" &&
-    layer === "alarms" &&
-    onlyAlarms &&
-    navigationView === "list";
+  const alarmQueueVisible = navigationView === "alarms";
   const inspectedAlarm =
     alarmQueueVisible && alarmVisit?.id === selected ? alarmVisit : null;
   const alarmSample =
@@ -3796,27 +3810,54 @@ export function Workspace() {
                     ? "机柜资源"
                     : "机房资源"}
             </h2>
-            {alarmQueueVisible ? (
-              <button
-                className="alarm-queue-exit"
-                onClick={() => {
-                  setOnlyAlarms(false);
-                  setQuery("");
-                  setFilter("all");
-                  setAlarmVisit(null);
-                }}
-              >
-                查看全部资源
-              </button>
-            ) : (
-              <span>
-                {reviewLayers.find((item) => item.id === layer)?.name}
-              </span>
-            )}
+            <span>{reviewLayers.find((item) => item.id === layer)?.name}</span>
             <button aria-label="收起资源导航" onClick={() => setNav(false)}>
               ×
             </button>
           </div>
+          {views.length > 1 && (
+            <div
+              className={`rack-navigation-view ${state.level === "room" ? "is-room" : ""}`}
+              role="group"
+              aria-label="资源呈现"
+            >
+              {views.map((view) => (
+                <button
+                  key={view}
+                  aria-pressed={navigationView === view}
+                  onClick={() => {
+                    takeover();
+                    setRackView(view);
+                    if (roomAlarms) {
+                      setOnlyAlarms(view === "alarms");
+                      setAlarmVisit(null);
+                    }
+                    if (view === "layout") {
+                      setLayoutVisit(null);
+                      setLayoutReturning(false);
+                    } else if (view === "space") {
+                      setSpaceVisit(null);
+                      setSpaceRestore(null);
+                    } else if (view === "inlet") {
+                      if (selectedRackId) {
+                        setInletSelection(selected);
+                        setInletRack(selectedRackId);
+                      }
+                      const target = roomAirflowTarget(
+                        selected,
+                        state.deviceId,
+                      );
+                      setSliceControls((current) =>
+                        alignAirflowSlice(current, target?.rowId ?? null),
+                      );
+                    }
+                  }}
+                >
+                  {resourceViews[view]}
+                </button>
+              ))}
+            </div>
+          )}
           {!alarmQueueVisible &&
             (navigationView === "list" ||
               navigationView === "installation") && (
@@ -3857,7 +3898,7 @@ export function Workspace() {
                       <option value="storage">存储</option>
                       <option value="facility">设施</option>
                     </select>
-                    {layer === "alarms" && (
+                    {layer === "alarms" && state.level === "rack" && (
                       <button
                         aria-label="仅看告警"
                         aria-pressed={onlyAlarms}
@@ -3872,45 +3913,6 @@ export function Workspace() {
               </>
             )}
 
-          {!alarmQueueVisible && views.length > 1 && (
-            <div
-              className={`rack-navigation-view ${state.level === "room" ? "is-room" : ""}`}
-              role="group"
-              aria-label="资源呈现"
-            >
-              {views.map((view) => (
-                <button
-                  key={view}
-                  aria-pressed={navigationView === view}
-                  onClick={() => {
-                    takeover();
-                    setRackView(view);
-                    if (view === "layout") {
-                      setLayoutVisit(null);
-                      setLayoutReturning(false);
-                    } else if (view === "space") {
-                      setSpaceVisit(null);
-                      setSpaceRestore(null);
-                    } else if (view === "inlet") {
-                      if (selectedRackId) {
-                        setInletSelection(selected);
-                        setInletRack(selectedRackId);
-                      }
-                      const target = roomAirflowTarget(
-                        selected,
-                        state.deviceId,
-                      );
-                      setSliceControls((current) =>
-                        alignAirflowSlice(current, target?.rowId ?? null),
-                      );
-                    }
-                  }}
-                >
-                  {resourceViews[view]}
-                </button>
-              ))}
-            </div>
-          )}
           {alarmQueueVisible ? (
             <AlarmQueue
               readings={spatial.readings}
@@ -3932,6 +3934,26 @@ export function Workspace() {
                 beginAlarmInspection(id, "preview", previous)
               }
             />
+          ) : navigationView === "airflow" ? (
+            <section
+              className="airflow-rack-list"
+              aria-label="按机柜选择代表气流路径"
+            >
+              <h3>各柜代表路径</h3>
+              {airflowRacks.map(
+                ({ rack, device }) =>
+                  device && (
+                    <button
+                      key={rack.id}
+                      aria-pressed={airflowDevice === device.id}
+                      onClick={() => selectObject(device.id)}
+                    >
+                      <strong>{rack.name}</strong>
+                      <span>{device.name}</span>
+                    </button>
+                  ),
+              )}
+            </section>
           ) : state.level === "room" && navigationView === "power" ? (
             <PowerOverview
               readings={spatial.readings}
@@ -4582,8 +4604,9 @@ export function Workspace() {
                   key={l.id}
                   aria-pressed={layer === l.id}
                   onClick={() => {
+                    if (l.id === layer) return;
                     control({ type: "layer", layer: l.id });
-                    if (layer !== l.id && state.level !== "device")
+                    if (state.level !== "device")
                       setRackView(navigationViews(state.level, l.id)[0]);
                     if (
                       l.id === "alarms" &&

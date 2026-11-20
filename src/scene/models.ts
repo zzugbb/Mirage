@@ -156,6 +156,39 @@ export function buildModels() {
       box(group, [0.035, 0.3, 0.04], [0.28, -0.05, 0.3], "#abc4ca", 0.8);
     }
   }
+  // 临时检视台只在设备离开导轨时出现。支脚和柜脚共享机房地坪。
+  const bench = new THREE.Group();
+  bench.name = "inspection-bench";
+  const { surfaceY, width, depth, thickness } = definition.inspectionBench;
+  const floorY = definition.rendering.floor.surfaceY;
+  box(
+    bench,
+    [width, thickness, depth],
+    [0, surfaceY - thickness / 2, 0],
+    "#475459",
+    0.25,
+  );
+  const legHeight = surfaceY - thickness - floorY;
+  for (const x of [-1, 1].map((side) => side * (width / 2 - 0.05))) {
+    const inset = depth / 2 - 0.07;
+    for (const z of [-inset, inset])
+      box(
+        bench,
+        [0.035, legHeight, 0.035],
+        [x, floorY + legHeight / 2, z],
+        "#60686b",
+        0.55,
+      );
+    box(
+      bench,
+      [0.025, 0.045, inset * 2],
+      [x, floorY + 0.18, 0],
+      "#525b60",
+      0.5,
+    );
+  }
+  bench.visible = false;
+  root.add(bench);
   const rack = identify(new THREE.Group(), definition.rack.id);
   root.add(rack);
   const [rw, rh, rd] = definition.rack.size;
@@ -165,13 +198,14 @@ export function buildModels() {
     roughness: 0.94,
     metalness: 0,
   });
+  const footHeight = 0.0785 - floorY;
   for (const x of [-0.25, 0.25])
     for (const z of [-0.45, 0.45]) {
       const foot = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.024, 0.025, 0.026, 16),
+        new THREE.CylinderGeometry(0.024, 0.025, footHeight, 16),
         rubber,
       );
-      foot.position.set(x, 0.0655, z);
+      foot.position.set(x, floorY + footHeight / 2, z);
       foot.castShadow = true;
       foot.receiveShadow = true;
       rack.add(foot);
@@ -359,6 +393,7 @@ export function buildModels() {
     rack,
     rackDoor,
     rackSlide,
+    bench,
     railMount,
     server,
     facilities,

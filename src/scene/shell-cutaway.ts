@@ -29,6 +29,7 @@ export class ShellCutaway {
     targets: THREE.Vector3[],
     roomVisible: boolean,
     protectedObject?: THREE.Object3D | THREE.Object3D[],
+    enabled = this.enabled,
   ) {
     let count = 0;
     for (const entry of this.entries) {
@@ -42,7 +43,7 @@ export class ShellCutaway {
       }
       const cut =
         !containsSelection &&
-        this.enabled &&
+        enabled &&
         roomVisible &&
         entry.bounds.some((part) => {
           const bounds = this.padded

@@ -152,7 +152,7 @@ export class SceneEngine {
     powerPreference: "high-performance",
   });
   pipeline: RenderPipeline;
-  roomLights: THREE.RectAreaLight[];
+  private inspectionLight = new THREE.PointLight("#f4f2ed", 0, 4);
   shellCutaway: ShellCutaway;
   shellTargets = definition.installation.racks.flatMap((rack) =>
     [definition.rack.size[1] / 2, definition.rack.size[1]].map(
@@ -165,9 +165,9 @@ export class SceneEngine {
     ),
   );
   fixtureTargets = [new THREE.Vector3()];
+  private closeupTargets = [new THREE.Vector3(), new THREE.Vector3()];
   scene = new THREE.Scene();
   private roomBackdrop = createBackdrop();
-  private inspectionBackdrop = createBackdrop(true);
   private skyLight = new THREE.HemisphereLight("#faf9f5", "#343333", 0.45);
 
   camera = new THREE.PerspectiveCamera(40, 1, 0.01, 150);
@@ -232,17 +232,6 @@ export class SceneEngine {
   explosion = 0;
   cover = 0;
   environment: THREE.WebGLRenderTarget;
-  fades: {
-    group: THREE.Group;
-    opacity: number;
-    materials: {
-      material: THREE.Material;
-      opacity: number;
-      transparent: boolean;
-      depthWrite: boolean;
-    }[];
-  }[] = [];
-  keyLight: THREE.DirectionalLight;
   showLabels = false;
   retainMaterials = false;
   onRenderFrame: ((time: number, roomReady: boolean) => void) | null = null;
@@ -312,7 +301,7 @@ export class SceneEngine {
     host.append(this.renderer.domElement, this.rackHint);
     this.scene.fog = new THREE.FogExp2("#0b0e10", 0.008);
     this.scene.add(this.skyLight);
-    const key = (this.keyLight = new THREE.DirectionalLight("#fff9f0", 1.6));
+    const key = new THREE.DirectionalLight("#fff9f0", 1.6);
     key.position.set(0, 9, 4);
     key.castShadow = true;
     key.shadow.mapSize.set(2048, 2048);
@@ -328,7 +317,8 @@ export class SceneEngine {
     const rim = new THREE.DirectionalLight("#ffead2", 0.85);
     rim.position.set(4, 2, 3);
     this.scene.add(rim);
-    this.roomLights = createRoomLights(this.models.room);
+    createRoomLights(this.models.room);
+    this.scene.add(this.inspectionLight);
     const ground = new THREE.Mesh(
       new THREE.PlaneGeometry(200, 200),
       new THREE.ShadowMaterial({ opacity: 0.25 }),
@@ -353,30 +343,6 @@ export class SceneEngine {
       ...this.models.parts.values(),
     ])
       this.batch(group);
-    for (const group of [this.models.room, this.models.rack]) {
-      const clones = new Map<THREE.Material, THREE.Material>();
-      group.traverse((object) => {
-        if (object instanceof THREE.Mesh || object instanceof THREE.Sprite) {
-          const convert = (mat: THREE.Material) => {
-            if (!clones.has(mat)) clones.set(mat, mat.clone());
-            return clones.get(mat)!;
-          };
-          object.material = Array.isArray(object.material)
-            ? object.material.map(convert)
-            : convert(object.material);
-        }
-      });
-      this.fades.push({
-        group,
-        opacity: 1,
-        materials: [...clones.values()].map((material) => ({
-          material,
-          opacity: material.opacity,
-          transparent: material.transparent,
-          depthWrite: material.depthWrite,
-        })),
-      });
-    }
     this.shellCutaway = new ShellCutaway(this.models.shellOccluders);
     this.scene.add(this.models.root);
     this.scene.add(this.telemetry.root, this.signals.root);
@@ -539,24 +505,6 @@ export class SceneEngine {
         });
         group.clear();
         group.add(normalized);
-        const fade = this.fades.find(
-          (item) => item.group === this.models.room,
-        )!;
-        const materials = new Set<THREE.Material>();
-        normalized.traverse((object) => {
-          if (object instanceof THREE.Mesh)
-            for (const material of Array.isArray(object.material)
-              ? object.material
-              : [object.material])
-              materials.add(material);
-        });
-        for (const material of materials)
-          fade.materials.push({
-            material,
-            opacity: material.opacity,
-            transparent: material.transparent,
-            depthWrite: material.depthWrite,
-          });
       }
       this.invalidate();
     } catch (error) {
@@ -1769,6 +1717,17 @@ export class SceneEngine {
     if (this.models.rack.userData.entityId !== rack.id)
       this.presentation.resetRearDoor();
     this.models.rack.position.fromArray(rack.position);
+    this.models.bench.position.set(
+      rack.position[0],
+      0,
+      rack.position[2] + definition.inspectionBench.frontOffset,
+    );
+    this.presentation.workbench.copy(this.models.bench.position);
+    this.presentation.workbench.y =
+      definition.inspectionBench.surfaceY +
+      (modelForDevice(state.deviceId).units * definition.rack.unitPitch -
+        0.003) /
+        2;
     this.models.rack.userData.entityId = rack.id;
     this.host.dataset.blankingUnits = updateRackBlanking(
       this.models.rack,
@@ -1978,13 +1937,6 @@ export class SceneEngine {
       return;
     }
     this.pendingReturnView = false;
-    const shadowExtent = this.state.level === "device" ? 1.6 : 7;
-    const shadowCamera = this.keyLight.shadow.camera;
-    if (shadowCamera.right !== shadowExtent) {
-      shadowCamera.left = shadowCamera.bottom = -shadowExtent;
-      shadowCamera.right = shadowCamera.top = shadowExtent;
-      shadowCamera.updateProjectionMatrix();
-    }
     this.currentView = view;
     const pixelRatio = Math.min(
       devicePixelRatio,
@@ -2004,13 +1956,6 @@ export class SceneEngine {
     }
     const level: Level = deferDevice ? "rack" : this.state.level;
     if (deferDevice) focus = false;
-    const inRoom = level === "room";
-    this.scene.background = inRoom
-      ? this.roomBackdrop
-      : this.inspectionBackdrop;
-    this.skyLight.groundColor.set(inRoom ? "#343333" : "#788796");
-    this.skyLight.intensity = inRoom ? 0.45 : 1.25;
-    this.scene.environmentIntensity = inRoom ? 0.55 : 1.05;
     if (returning) {
       this.restoreObservationView(returning);
       if (returning.range) {
@@ -2240,7 +2185,16 @@ export class SceneEngine {
       this.camera,
     );
     for (const hit of this.raycaster.intersectObjects(
-      [this.models.root, this.signals.root],
+      this.state.level === "device"
+        ? [this.models.server]
+        : this.state.level === "rack"
+          ? [
+              this.models.rack,
+              this.models.server,
+              ...this.installation.batches.map((batch) => batch.mesh),
+              this.signals.root,
+            ]
+          : [this.models.root, this.signals.root],
       true,
     )) {
       if (!(hit.object instanceof THREE.Mesh) || !this.visible(hit.object))
@@ -2250,8 +2204,13 @@ export class SceneEngine {
         hit.instanceId !== undefined &&
         hit.object.userData.instanceEntityIds
       ) {
-        if (hit.object.userData.instanceVisible[hit.instanceId])
-          return { id: hit.object.userData.instanceEntityIds[hit.instanceId] };
+        const id = hit.object.userData.instanceEntityIds[hit.instanceId];
+        if (
+          hit.object.userData.instanceVisible[hit.instanceId] &&
+          (this.state.level !== "rack" ||
+            deviceById(id)?.rackId === this.models.rack.userData.entityId)
+        )
+          return { id };
         continue;
       }
       let object: THREE.Object3D | null = hit.object;
@@ -2497,31 +2456,22 @@ export class SceneEngine {
         this.controls.target.copy(this.targetLook);
       }
     }
-    for (const fade of this.fades) {
-      const target =
-        fade.group === this.models.room
-          ? this.state.level === "room" && frame.relocation === 0
-            ? 1
-            : 0
-          : frame.rackOpacity;
-      fade.opacity = instant
-        ? target
-        : THREE.MathUtils.damp(fade.opacity, target, 9, delta);
-      if (Math.abs(fade.opacity - target) < 0.005) fade.opacity = target;
-      fade.group.visible = fade.opacity > 0;
-      if (fade.group === this.models.room)
-        for (const light of this.roomLights)
-          light.intensity = 2.4 * fade.opacity;
-      for (const item of fade.materials) {
-        const transparent = item.transparent || fade.opacity < 1;
-        if (item.material.transparent !== transparent) {
-          item.material.transparent = transparent;
-          item.material.needsUpdate = true;
-        }
-        item.material.opacity = item.opacity * fade.opacity;
-        item.material.depthWrite = item.depthWrite && fade.opacity === 1;
-      }
-    }
+    // 补光随镜头靠近自然增强，室内光源和地面一直保留。
+    const near =
+      1 -
+      THREE.MathUtils.smoothstep(
+        this.camera.position.distanceTo(this.models.server.position),
+        1.5,
+        7,
+      );
+    this.inspectionLight.position
+      .copy(this.camera.position)
+      .sub(this.controls.target)
+      .normalize()
+      .multiplyScalar(1.6)
+      .add(this.controls.target);
+    this.inspectionLight.position.y += 0.8;
+    this.inspectionLight.intensity = this.state.level === "room" ? 0 : 3 * near;
     const explosionTarget =
       this.state.level === "device" && frame.ready ? this.state.explosion : 0;
     const hasCover = modelForDevice(this.state.deviceId).category === "server";
@@ -2636,6 +2586,11 @@ export class SceneEngine {
       }
       this.fixtureTargets.length = offsets.length;
     }
+    const closeup = this.state.level !== "room";
+    if (closeup) {
+      this.closeupTargets[0].copy(this.controls.target);
+      this.closeupTargets[1].copy(this.models.server.position);
+    }
     const cutCount = this.shellCutaway.update(
       this.camera.position,
       this.inletObservation?.inspection.points ??
@@ -2648,7 +2603,11 @@ export class SceneEngine {
         this.networkObservation?.targets ??
         this.sliceObservation?.targets ??
         this.airflowObservation?.targets ??
-        (selectedFixture ? this.fixtureTargets : this.shellTargets),
+        (closeup
+          ? this.closeupTargets
+          : selectedFixture
+            ? this.fixtureTargets
+            : this.shellTargets),
       this.models.room.visible,
       this.environmentObservation
         ? this.models.fixtures.get(
@@ -2679,6 +2638,7 @@ export class SceneEngine {
                     fixtureMountReference(this.state.selected),
                   )
                 : undefined,
+      closeup || this.shellCutaway.enabled,
     );
     this.host.dataset.fixtureTarget = selectedFixture
       ? this.state.selected
@@ -2692,13 +2652,7 @@ export class SceneEngine {
         !this.moving &&
         !frame.busy &&
         this.explosion === explosionTarget &&
-        this.cover === coverTarget &&
-        this.fades.every((fade) =>
-          fade.group === this.models.room
-            ? fade.opacity ===
-              (this.state.level === "room" && frame.relocation === 0 ? 1 : 0)
-            : fade.opacity === frame.rackOpacity,
-        ),
+        this.cover === coverTarget,
     };
     const feedbackKey = `${feedback.key}:${feedback.phase}:${feedback.settled}`;
     if (feedbackKey !== this.lastFeedback) {
@@ -2712,7 +2666,12 @@ export class SceneEngine {
       this.presentation.pose.inspection > 0,
       this.rangeObservation?.range ?? this.unitRange,
     );
-    this.installation.update(this.state, this.presentation.pose.inspection);
+    this.installation.update(
+      this.state,
+      this.camera.position,
+      this.models.server.position,
+      frame.relocation,
+    );
     this.models.root.updateMatrixWorld(true);
     this.telemetry.update(
       this.state,
@@ -2720,7 +2679,6 @@ export class SceneEngine {
       this.models,
       this.presentation.pose.inspection,
       this.explosion,
-      this.fades.find((fade) => fade.group === this.models.room)!.opacity,
     );
     const object = this.objectFor(this.state.selected);
     const showSelection =
@@ -2951,14 +2909,9 @@ export class SceneEngine {
       this.state.level === "room" &&
         frame.relocation === 0 &&
         !frame.busy &&
-        !assemblyBusy &&
-        this.fades.find((fade) => fade.group === this.models.room)!.opacity ===
-          1,
+        !assemblyBusy,
     );
-    const structureBusy =
-      frame.busy ||
-      assemblyBusy ||
-      this.fades.some((fade) => fade.opacity > 0 && fade.opacity < 1);
+    const structureBusy = frame.busy || assemblyBusy;
     this.camera.updateMatrixWorld();
     this.renderView.set(this.camera.matrixWorld.elements);
     this.renderView.set(this.camera.projectionMatrix.elements, 16);
@@ -2998,11 +2951,8 @@ export class SceneEngine {
     this.rackHint.remove();
     canvas.removeEventListener("webglcontextlost", this.contextLost);
     disposeModels(this.scene);
-    for (const fade of this.fades)
-      for (const item of fade.materials) item.material.dispose();
     this.environment.dispose();
     this.roomBackdrop.dispose();
-    this.inspectionBackdrop.dispose();
     this.renderer.dispose();
     canvas.remove();
   }

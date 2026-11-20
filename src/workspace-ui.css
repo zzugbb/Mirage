@@ -291,8 +291,7 @@
   padding: 4px;
   color: #81909d;
 }
-.study-panel-heading > span + button,
-.study-panel-heading > .alarm-queue-exit + button {
+.study-panel-heading > span + button {
   margin-left: 0;
 }
 .study-search {
@@ -5711,12 +5710,6 @@
   overflow-anchor: none;
   padding: 0 16px 18px;
 }
-.study-panel-heading .alarm-queue-exit {
-  width: auto;
-  white-space: nowrap;
-  font-size: 11px;
-  color: var(--study-muted);
-}
 .alarm-queue p {
   color: #91a3ae;
   line-height: 1.6;
@@ -6598,4 +6591,27 @@
   display: block;
   color: #a9bcc4;
   margin-top: 3px;
+}
+
+.airflow-rack-list {
+  overflow-y: auto;
+  padding: 0 14px 16px;
+}
+.airflow-rack-list h3 {
+  color: var(--study-muted);
+  font-size: 12px;
+}
+.airflow-rack-list button {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 8px;
+  border-bottom: 1px solid #ffffff12;
+}
+.airflow-rack-list button[aria-pressed="true"] {
+  background: #293c43;
+}
+.airflow-rack-list span {
+  color: #b1c1ca;
 }

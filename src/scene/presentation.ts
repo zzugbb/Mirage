@@ -4,7 +4,6 @@ import {
   advanceRearDoor,
   advanceMechanism,
   initialMechanism,
-  inspectionStaging,
   mechanismPhase,
   mechanismTransform,
 } from "../mechanics.ts";
@@ -19,7 +18,7 @@ export class StructurePresentation {
   rearDoor = 0;
   rearDoors: THREE.Object3D;
   mounted: THREE.Vector3;
-  workbench = new THREE.Vector3(0, 0.65, 0);
+  workbench = new THREE.Vector3();
   models: SceneModel;
   constructor(models: SceneModel) {
     this.models = models;
@@ -54,14 +53,15 @@ export class StructurePresentation {
     };
     this.pose = advanceMechanism(this.pose, target, delta, reducedMotion);
     const transform = mechanismTransform(this.pose);
-    const stage = inspectionStaging(transform.inspection);
+    const relocation = transform.inspection;
+    this.models.bench.visible = relocation > 0;
     this.models.rackDoor.rotation.y = transform.doorAngle;
     const fixed = modelForDevice(state.deviceId).category === "switch";
     this.models.rackSlide.visible = this.models.railMount.visible = !fixed;
     this.models.rackSlide.position.z = fixed ? 0 : transform.trayOffset;
     this.models.server.position.copy(this.mounted);
     this.models.server.position.z += fixed ? 0 : transform.trayOffset;
-    this.models.server.position.lerp(this.workbench, stage.relocation);
+    this.models.server.position.lerp(this.workbench, relocation);
     const phase: PresentationPhase = rearBusy
       ? rearOpen
         ? "opening-rear"
@@ -73,7 +73,7 @@ export class StructurePresentation {
         : mechanismPhase(this.pose, target);
     return {
       phase,
-      ...stage,
+      relocation,
       ready: phase === "device-ready",
       busy: !["closed", "open", "extended", "device-ready"].includes(phase),
     };

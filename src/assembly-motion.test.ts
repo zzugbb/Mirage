@@ -111,10 +111,12 @@ test("返回机柜和切换实例须等待上盖合拢，再离开结构工作�
     rack: new THREE.Group().add(createRackRearDoors()),
     server: new THREE.Group(),
     rackDoor: new THREE.Group(),
+    bench: new THREE.Group(),
     rackSlide: new THREE.Group(),
     railMount: new THREE.Group(),
   } as unknown as SceneModel;
   const presentation = new StructurePresentation(models);
+  presentation.workbench.set(-3, 0.8, 2);
   presentation.pose = { door: 1, tray: 1, inspection: 1 };
   const rack = transition(
     transition(createState(), { type: "navigate", level: "device" }),
@@ -124,7 +126,11 @@ test("返回机柜和切换实例须等待上盖合拢，再离开结构工作�
     const frame = presentation.step(rack, 1 / 60, false, 0, 1);
     assert.equal(presentation.pose.inspection, 1);
     assert.equal(frame.phase, "closing-cover");
+    assert.ok(models.bench.visible);
+    assert.ok(models.server.position.equals(presentation.workbench));
   }
   presentation.step(rack, 1 / 60, false, 0, 0);
   assert.ok(presentation.pose.inspection < 1);
+  presentation.step(rack, 0, true, 0, 0);
+  assert.equal(models.bench.visible, false);
 });

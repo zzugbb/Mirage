@@ -26,7 +26,10 @@ test("原材质与实例着色互不串值，增强模型载入后重绑仍能�
   } as unknown as InstallationScene;
   let state = transition(createState(), { type: "seek", time: 60 });
   const first = new SurfaceObservation(models, installation, () => state);
-  const firstKey = material.customProgramCacheKey();
+  const rackMaterial = () =>
+    (rack.children[0] as THREE.Mesh).material as THREE.Material;
+  assert.notEqual(rackMaterial(), material);
+  const firstKey = rackMaterial().customProgramCacheKey();
   const capture = (source: THREE.Material) => {
     const shader = {
       uniforms: {},
@@ -37,7 +40,7 @@ test("原材质与实例着色互不串值，增强模型载入后重绑仍能�
     source.onBeforeCompile(shader, {} as THREE.WebGLRenderer);
     return shader;
   };
-  const rackShader = capture(material);
+  const rackShader = capture(rackMaterial());
   const contextShader = capture(
     (contextRack.children[0] as THREE.Mesh).material as THREE.Material,
   );
@@ -51,14 +54,23 @@ test("原材质与实例着色互不串值，增强模型载入后重绑仍能�
       rackShader.uniforms.mTemperature.value!,
   );
   assert.equal(rackShader.uniforms.mGradient.value, 0);
+  first.update({ ...state, level: "rack" }, "temperature");
+  assert.equal(contextShader.uniforms.mMode.value, 0, "背景机柜使用原材质");
+  assert.equal(rackShader.uniforms.mMode.value, 1, "当前机柜保留温度着色");
+  first.update({ ...state, level: "device" }, "temperature");
+  assert.equal(
+    rackShader.uniforms.mMode.value,
+    0,
+    "进入设备后原柜只作位置参照",
+  );
   first.update(state, "object");
   assert.equal(rackShader.uniforms.mMode.value, 0);
   assert.equal(material.color.getHexString(), "2a3038");
   assert.equal(material.metalness, 0.7);
   first.dispose();
   const second = new SurfaceObservation(models, installation, () => state);
-  assert.notEqual(material.customProgramCacheKey(), firstKey);
-  const rebound = capture(material);
+  assert.notEqual(rackMaterial().customProgramCacheKey(), firstKey);
+  const rebound = capture(rackMaterial());
   state = transition(state, { type: "seek", time: 0 });
   second.update(state, "temperature");
   assert.equal(

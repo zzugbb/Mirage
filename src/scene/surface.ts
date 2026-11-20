@@ -30,8 +30,12 @@ const uniforms = (): Uniforms => ({
 export class SurfaceObservation {
   static nextGeneration = 0;
   generation = SurfaceObservation.nextGeneration++;
-  bindings: { object: THREE.Object3D; id: () => string; uniforms: Uniforms }[] =
-    [];
+  bindings: {
+    object: THREE.Object3D;
+    id: () => string;
+    rack: boolean;
+    uniforms: Uniforms;
+  }[] = [];
   materials: THREE.Material[] = [];
   cachedKey = "";
   snapshot = spatialSnapshot(0);
@@ -40,17 +44,17 @@ export class SurfaceObservation {
     installation: InstallationScene,
     getState: () => AppState,
   ) {
-    const bind = (root: THREE.Object3D, id: () => string, clone = true) => {
+    const bind = (root: THREE.Object3D, id: () => string, rack = false) => {
       const cache = new Map<THREE.Material, THREE.Material>();
       const u = uniforms();
-      this.bindings.push({ object: root, id, uniforms: u });
+      this.bindings.push({ object: root, id, rack, uniforms: u });
       root.traverse((object) => {
         if (!(object instanceof THREE.Mesh)) return;
         const apply = (source: THREE.Material) => {
           if (cache.has(source)) return cache.get(source)!;
           if (!(source instanceof THREE.MeshStandardMaterial)) return source;
-          const material = clone ? source.clone() : source;
-          if (clone) this.materials.push(material);
+          const material = source.clone();
+          this.materials.push(material);
           material.onBeforeCompile = (shader) => {
             Object.assign(shader.uniforms, {
               mMode: u.mode,
@@ -109,7 +113,7 @@ export class SurfaceObservation {
           : apply(object.material);
       });
     };
-    bind(models.rack, () => rackForDevice(getState().deviceId).id, false);
+    bind(models.rack, () => rackForDevice(getState().deviceId).id, true);
     // 每个网格按最近的已登记模组归属着色，子件不会继承其他模组的状态。
     const roots = [...models.parts.values()];
     for (const root of roots) {
@@ -132,7 +136,7 @@ export class SurfaceObservation {
       baseMeshes.push(object);
     });
     for (const mesh of baseMeshes) bind(mesh, () => getState().deviceId);
-    for (const [id, group] of installation.racks) bind(group, () => id);
+    for (const [id, group] of installation.racks) bind(group, () => id, true);
   }
   update(
     state: AppState,
@@ -148,15 +152,24 @@ export class SurfaceObservation {
       );
     }
     const box = new THREE.Box3();
+    const activeRack = rackForDevice(state.deviceId).id;
     for (const binding of this.bindings) {
       let ancestor: THREE.Object3D | null = binding.object;
       while (ancestor && ancestor.visible) ancestor = ancestor.parent;
       if (ancestor) continue;
 
-      const reading: SpatialReading | undefined = this.snapshot.readings.get(
-        binding.id(),
-      );
+      const id = binding.id();
       const u = binding.uniforms;
+      if (
+        binding.rack &&
+        (state.level === "device" ||
+          (state.level === "rack" && id !== activeRack))
+      ) {
+        u.mode.value = 0;
+        continue;
+      }
+      const reading: SpatialReading | undefined =
+        this.snapshot.readings.get(id);
       u.mode.value =
         mode === "object" || mode === "status"
           ? 0

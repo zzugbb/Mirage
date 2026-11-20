@@ -70,12 +70,13 @@ test("结构命令与层级协调，关门会先请求推回，进入设备自�
   assert.equal(state.doorOpen, false);
 });
 
-test("进入结构工作台先隐去机柜，再移动设备；返回顺序对称", async () => {
-  const { inspectionStaging } = await import("./mechanics.ts");
-  for (let i = 0; i <= 100; i++) {
-    const stage = inspectionStaging(i / 100);
-    if (stage.relocation > 0) assert.equal(stage.rackOpacity, 0);
-  }
-  assert.deepEqual(inspectionStaging(0), { rackOpacity: 1, relocation: 0 });
-  assert.deepEqual(inspectionStaging(1), { rackOpacity: 0, relocation: 1 });
+test("抽出后的设备在安装位和检视位之间连续移动", () => {
+  const offsets = [0, 0.25, 0.5, 0.75, 1].map(
+    (inspection) =>
+      mechanismTransform({ door: 1, tray: 1, inspection }).inspection,
+  );
+  assert.equal(offsets[0], 0);
+  assert.equal(offsets.at(-1), 1);
+  for (let i = 1; i < offsets.length; i++)
+    assert.ok(offsets[i] > offsets[i - 1]);
 });

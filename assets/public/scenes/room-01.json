@@ -3,6 +3,14 @@
   "id": "mirage-room-01-v1",
   "unit": "m",
   "description": "原创机房与计算、网络、存储及配电附件的通用配置，非真实现场或厂商精确结构",
+  "inspectionBench": {
+    "description": "设备检视时在所属柜前显示的临时支撑台",
+    "surfaceY": 0.76,
+    "frontOffset": 2.12,
+    "width": 0.68,
+    "depth": 1.06,
+    "thickness": 0.035
+  },
   "fanModule": {
     "description": "交换机与存储风扇的静态配置示意，不代表精确叶型、转速或风量",
     "focusDirection": [0.28, 0.25, -1],

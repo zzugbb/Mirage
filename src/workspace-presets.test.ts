@@ -91,7 +91,7 @@ test("三层资源入口按观察视图收敛，默认清单也属于可见入�
   assert.deepEqual(navigationViews("room", "environment"), ["inlet", "list"]);
   assert.deepEqual(navigationViews("room", "power"), ["power", "list"]);
   for (const layer of ["airflow", "alarms"] as const)
-    assert.deepEqual(navigationViews("room", layer), ["list"]);
+    assert.deepEqual(navigationViews("room", layer), [layer, "list"]);
   assert.equal(navigationViews("rack", "alarms")[0], "list");
   for (const layer of [
     "overview",

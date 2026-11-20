@@ -122,6 +122,7 @@ test("后门合拢前不进入设备展示台，关闭动作纳入场景就绪�
     rack: new Group().add(createRackRearDoors()),
     server: new Group(),
     rackDoor: new Group(),
+    bench: new Group(),
     rackSlide: new Group(),
     railMount: new Group(),
   } as unknown as SceneModel;

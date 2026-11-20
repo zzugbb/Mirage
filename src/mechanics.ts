@@ -118,14 +118,6 @@ export function mechanismPhase(
   return pose.tray === 1 ? "extended" : pose.door === 1 ? "open" : "closed";
 }
 
-export function inspectionStaging(progress: number) {
-  const p = Math.max(0, Math.min(1, progress));
-  return {
-    rackOpacity: 1 - smooth(Math.min(1, p / 0.3)),
-    relocation: smooth(Math.max(0, (p - 0.3) / 0.7)),
-  };
-}
-
 /** 后门只控制结构展示，与前门、导轨及共享时钟独立。 */
 export function advanceRearDoor(
   progress: number,
