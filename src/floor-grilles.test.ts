@@ -9,6 +9,7 @@ import {
   nearestFloorGrille,
 } from "./floor-grilles.ts";
 import { createFloorGrilles } from "./scene/floor-grilles.ts";
+import { InspectionBackdrop } from "./scene/inspection-backdrop.ts";
 import { createRoomFloor } from "./scene/room-surfaces.ts";
 import { airflowSnapshot, airflowSettings } from "./airflow.ts";
 import { AirflowGeometry } from "./scene/airflow.ts";
@@ -40,6 +41,48 @@ function dispose(root: THREE.Object3D) {
     m.dispose();
   });
 }
+
+test("机柜近景只延展外圈地面，检视背景不遮挡柜体和台面", () => {
+  const backdrop = new InspectionBackdrop(new THREE.MeshStandardMaterial());
+  const rack = new THREE.Vector3().fromArray(racks.at(-1)!.position);
+  const target = rack.clone().add(new THREE.Vector3(0, 1, 0));
+  const ray = new THREE.Raycaster();
+  const hits = () => {
+    backdrop.updateMatrixWorld(true);
+    const meshes: THREE.Object3D[] = [];
+    backdrop.traverseVisible((object) => {
+      if (object instanceof THREE.Mesh) meshes.push(object);
+    });
+    return ray.intersectObjects(meshes, false);
+  };
+  for (const offset of [
+    [0, 0.5, 4],
+    [0, 0.5, -4],
+    [8, 2, 0],
+    [0, 9, 0.01],
+  ]) {
+    const camera = target.clone().add(new THREE.Vector3(...offset));
+    for (const relocation of [0, 0.8, 1]) {
+      backdrop.update(camera, rack, true, relocation);
+      ray.set(camera, target.clone().sub(camera).normalize());
+      assert.ok(
+        hits().every((hit) => hit.distance > camera.distanceTo(target)),
+      );
+    }
+  }
+  backdrop.update(target, rack, true, 0);
+  const [x, , z] = floorGrilles[0].position;
+  ray.set(new THREE.Vector3(x, 1, z), new THREE.Vector3(0, -1, 0));
+  assert.equal(hits().length, 0);
+  ray.ray.origin.x = definition.room.size[0] / 2 + 0.1;
+  close(hits()[0].point.y, floorSurfaceY);
+  backdrop.update(target, rack, true, 1);
+  ray.ray.origin.x = x;
+  close(hits()[0].point.y, floorSurfaceY);
+  backdrop.update(target, rack, false, 0);
+  assert.equal(hits().length, 0);
+  dispose(backdrop);
+});
 
 test("34 处格栅与全部设备代表路径共用铺设位置，回看不移动落点", () => {
   assert.equal(floorGrilles.length, 34);

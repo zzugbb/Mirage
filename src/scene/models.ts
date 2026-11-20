@@ -97,6 +97,40 @@ export function text(
   return sprite;
 }
 
+// 台垫上的接触暗部随整机落下加深，标准画质也能辨认机箱底边。
+function benchContactShadow() {
+  const size = 96;
+  const pixels = new Uint8Array(size * size * 4);
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const edge = Math.max(
+        Math.abs((2 * x + 1) / size - 1),
+        Math.abs((2 * y + 1) / size - 1),
+      );
+      const alpha = 1 - THREE.MathUtils.smoothstep(edge, 0.83, 1);
+      pixels[(y * size + x) * 4 + 3] = Math.round(alpha * 255);
+    }
+  }
+  const map = new THREE.DataTexture(pixels, size, size);
+  map.magFilter = map.minFilter = THREE.LinearFilter;
+  map.needsUpdate = true;
+  const shadow = new THREE.Mesh(
+    new THREE.PlaneGeometry(1, 1),
+    new THREE.MeshBasicMaterial({
+      map,
+      transparent: true,
+      depthWrite: false,
+      polygonOffset: true,
+      polygonOffsetFactor: -1,
+      polygonOffsetUnits: -1,
+    }),
+  );
+  shadow.rotation.x = -Math.PI / 2;
+  shadow.position.y = definition.inspectionBench.surfaceY;
+  shadow.userData.excludeFromContactShadows = true;
+  return shadow;
+}
+
 export function buildModels() {
   // 生成器为技术代码；场景尺寸、构图与装配编排由登记的原创资产定义。
   const root = new THREE.Group();
@@ -106,6 +140,8 @@ export function buildModels() {
     occluders: shellOccluders,
     fixtures,
     surroundings,
+    floorGroup,
+    floor,
   } = buildRoomShell(room, box, glow, text);
   const facilities = new Map<string, THREE.Group>();
   const fans: THREE.Group[] = [];
@@ -158,15 +194,44 @@ export function buildModels() {
   // 临时检视台支撑到位的整机。支脚和柜脚共享机房地坪。
   const bench = new THREE.Group();
   bench.name = "inspection-bench";
-  const { surfaceY, width, depth, thickness } = definition.inspectionBench;
+  const {
+    surfaceY,
+    width,
+    depth,
+    thickness,
+    matDepth,
+    lipInset,
+    matColor,
+    edgeColor,
+  } = definition.inspectionBench;
   const floorY = definition.rendering.floor.surfaceY;
+  // 垫面与落台标高对齐，金属台沿低于机箱底面。
   box(
     bench,
-    [width, thickness, depth],
-    [0, surfaceY - thickness / 2, 0],
-    "#475459",
-    0.25,
+    [width, thickness - matDepth, depth],
+    [0, surfaceY - (thickness + matDepth) / 2, 0],
+    edgeColor,
+    0.55,
   );
+  box(
+    bench,
+    [width - lipInset * 2, matDepth, depth - lipInset * 2],
+    [0, surfaceY - matDepth / 2, 0],
+    matColor,
+    0.06,
+    0.91,
+  );
+  for (const side of [-1, 1]) {
+    box(
+      bench,
+      [width - 0.06, 0.052, 0.018],
+      [0, surfaceY - thickness - 0.026, side * (depth / 2 - 0.04)],
+      edgeColor,
+      0.48,
+    );
+  }
+  const benchContact = benchContactShadow();
+  bench.add(benchContact);
   const legHeight = surfaceY - thickness - floorY;
   for (const x of [-1, 1].map((side) => side * (width / 2 - 0.05))) {
     const inset = depth / 2 - 0.07;
@@ -389,11 +454,14 @@ export function buildModels() {
     root,
     room,
     surroundings,
+    floorGroup,
+    floor,
     shellOccluders,
     rack,
     rackDoor,
     rackSlide,
     bench,
+    benchContact,
     railMount,
     server,
     facilities,

@@ -42,8 +42,17 @@ export function buildRoomShell(
   const [width, height, depth] = definition.room.size;
   const left = -width / 2,
     back = -depth / 2;
-  box(room, [width + 0.1, 0.2, depth + 0.1], [0, -0.11, 0], "#323a45", 0.35);
-  room.add(createRoomFloor(width, depth));
+  const floorGroup = new THREE.Group();
+  room.add(floorGroup);
+  box(
+    floorGroup,
+    [width + 0.1, 0.2, depth + 0.1],
+    [0, -0.11, 0],
+    "#323a45",
+    0.35,
+  );
+  const floor = createRoomFloor(width, depth);
+  floorGroup.add(floor);
   const surface = (
     parent: THREE.Object3D,
     size: number[],
@@ -113,10 +122,10 @@ export function buildRoomShell(
   }
   text(backWall, "MIRAGE  /  01", [-2.6, 3.38, back + 0.15], 0.25);
   // 两排机柜前方保留通行与送风格栅，地面线只作空间导向。
-  room.add(createFloorGrilles());
+  floorGroup.add(createFloorGrilles());
   for (const { z } of definition.airflow.floorOutlets) {
     for (const x of [-4.6, 4.6])
-      box(room, [0.018, 0.007, 1.15], [x, 0.058, z], "#6c9da9", 0.1);
+      box(floorGroup, [0.018, 0.007, 1.15], [x, 0.058, z], "#6c9da9", 0.1);
   }
   const overheadMounts = [
     ...definition.room.fixtures,
@@ -137,5 +146,5 @@ export function buildRoomShell(
     box,
     glow,
   );
-  return { occluders, fixtures, surroundings };
+  return { occluders, fixtures, surroundings, floorGroup, floor };
 }

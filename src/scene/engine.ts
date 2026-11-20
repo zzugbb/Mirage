@@ -89,6 +89,7 @@ import { createExteriorAssembly, poseExterior } from "./equipment-exterior";
 import { mapCompactServer } from "./compact-server";
 import { SpatialSignals } from "./signals";
 import { SurfaceObservation } from "./surface";
+import { InspectionBackdrop } from "./inspection-backdrop";
 import { InstallationScene } from "./installation";
 import { rackForDevice, deviceById, deviceHeight } from "../installation";
 import * as THREE from "three";
@@ -172,6 +173,9 @@ export class SceneEngine {
   camera = new THREE.PerspectiveCamera(40, 1, 0.01, 150);
   controls: OrbitControls;
   models = buildModels();
+  private inspectionBackdrop = new InspectionBackdrop(
+    this.models.floor.material,
+  );
   unitRange: RackUnitRange | null = null;
   isolatedPartId: string | null = null;
   storageContact = false;
@@ -336,6 +340,7 @@ export class SceneEngine {
     this.scene.add(grid);
     for (const group of [
       this.models.room,
+      this.models.floorGroup,
       ...this.models.shellOccluders,
       this.models.rack,
       this.models.rackDoor,
@@ -346,7 +351,7 @@ export class SceneEngine {
     ])
       this.batch(group);
     this.shellCutaway = new ShellCutaway(this.models.shellOccluders);
-    this.scene.add(this.models.root);
+    this.scene.add(this.models.root, this.inspectionBackdrop);
     this.scene.add(this.telemetry.root, this.signals.root);
     this.scene.add(this.storageContactGuide.root);
     this.installation = new InstallationScene(this.models);
@@ -1738,6 +1743,11 @@ export class SceneEngine {
     );
     this.presentation.workbench.copy(this.models.bench.position);
     const model = modelForDevice(state.deviceId);
+    this.models.benchContact.scale.set(
+      definition.server.size[0] + 0.05,
+      model.depth + 0.06,
+      1,
+    );
     const baseHeight =
       this.assemblies.get(model.id)?.baseHeight ??
       this.models.server.position.y -
@@ -2615,6 +2625,8 @@ export class SceneEngine {
     this.updatePartInspection();
     this.models.bench.visible =
       frame.overBench && this.explosion === 0 && !this.partInspection;
+    this.models.benchContact.material.opacity =
+      0.36 * THREE.MathUtils.smoothstep(frame.relocation, 0.88, 1);
     if (
       this.pendingReturnView &&
       this.cover === 0 &&
@@ -2693,6 +2705,13 @@ export class SceneEngine {
       this.fixtureTargets.length = offsets.length;
     }
     this.installation.update(this.state, frame.relocation);
+    this.models.floorGroup.visible = frame.relocation < 1;
+    this.inspectionBackdrop.update(
+      this.camera.position,
+      this.models.rack.position,
+      !this.models.surroundings.visible,
+      frame.relocation,
+    );
     const cutCount = this.shellCutaway.update(
       this.camera.position,
       this.inletObservation?.inspection.points ??

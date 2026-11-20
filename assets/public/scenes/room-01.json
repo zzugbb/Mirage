@@ -9,7 +9,11 @@
     "frontOffset": 2.12,
     "width": 0.68,
     "depth": 1.06,
-    "thickness": 0.035
+    "thickness": 0.035,
+    "matDepth": 0.005,
+    "lipInset": 0.014,
+    "matColor": "#35474a",
+    "edgeColor": "#718088"
   },
   "fanModule": {
     "description": "交换机与存储风扇的静态配置示意，不代表精确叶型、转速或风量",
@@ -1666,6 +1670,15 @@
     "railThickness": 0.001
   },
   "rendering": {
+    "inspectionBackdrop": {
+      "description": "近景的方向背景，仅作环境参照",
+      "wall": "#58636b",
+      "ceiling": "#566069",
+      "cabinet": "#454e56",
+      "trim": "#64717a",
+      "diffuser": "#98a5ab",
+      "workFloor": "#424c55"
+    },
     "contactShadows": {
       "roomRadius": 0.18,
       "deviceRadius": 0.032,
