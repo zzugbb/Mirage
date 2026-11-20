@@ -17,6 +17,18 @@ export function observeLabelLayout(
     ]
       .filter((element) => element.getClientRects().length)
       .map((element) => element.getBoundingClientRect());
+    const hotspots = Array.from(
+      anchors.querySelectorAll<HTMLElement>("[data-hotspot]:not([hidden])"),
+    );
+    let hotspotCenter = 0;
+    for (const point of hotspots) {
+      const x = Number(point.dataset.screenX),
+        y = Number(point.dataset.screenY);
+      hotspotCenter += x / hotspots.length;
+      accepted.push(
+        new DOMRect(sceneRect.left + x - 14, sceneRect.top + y - 10, 28, 20),
+      );
+    }
     for (const label of anchors.querySelectorAll<HTMLElement>(
       "[data-anchor]",
     ) ?? []) {
@@ -30,6 +42,7 @@ export function observeLabelLayout(
         (["position", "power-part", "part-position"].includes(
           label.dataset.anchorKind ?? "",
         ) ||
+          label.dataset.hotspot ||
           label.classList.contains("selected")) &&
         sceneRect
       ) {
@@ -44,6 +57,7 @@ export function observeLabelLayout(
           label.offsetHeight,
           sceneRect,
           accepted,
+          !!label.dataset.hotspot && x < hotspotCenter,
         );
         label.style.visibility = rect ? "" : "hidden";
         if (rect) {

@@ -8,6 +8,7 @@ export function placeFlowLabel(
   height: number,
   bounds: Rect,
   blocked: Rect[],
+  preferLeft = false,
 ) {
   if (
     width > bounds.right - bounds.left - 16 ||
@@ -15,9 +16,11 @@ export function placeFlowLabel(
   )
     return null;
   for (const gap of [14, 42, 78, 120]) {
+    const right = x + gap,
+      leftSide = x - width - gap;
     for (const [candidateLeft, candidateTop] of [
-      [x + gap, y - height / 2],
-      [x - width - gap, y - height / 2],
+      [preferLeft ? leftSide : right, y - height / 2],
+      [preferLeft ? right : leftSide, y - height / 2],
       [x - width / 2, y - height - gap],
       [x - width / 2, y + gap],
       [x + gap, y - height - gap],

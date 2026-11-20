@@ -128,8 +128,13 @@ export function AirflowPanel({
           </div>
         </>
       ) : targetName ? (
-        <button disabled={!ready} onClick={onRoom}>
-          查看 {targetName} 机房气流
+        <button
+          className="airflow-room-entry"
+          title={targetName}
+          disabled={!ready}
+          onClick={onRoom}
+        >
+          查看机房气流路径 ↗
         </button>
       ) : (
         <p>当前对象没有已配置的代表气流路径。</p>

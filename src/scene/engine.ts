@@ -148,7 +148,7 @@ type RangeObservation = {
   previous: ObservationMemory;
 };
 export type TaskViewMemory = ObservationMemory & {
-  level: "room" | "rack";
+  level: AppState["level"];
   range?: RangeObservation;
 };
 export class SceneEngine {
@@ -3082,8 +3082,9 @@ export class SceneEngine {
           this.models.server.getWorldPosition(this.anchorPosition);
           this.anchorPosition.z += 0.46;
         }
-        this.anchorPosition.y +=
-          id === "srv-01"
+        this.anchorPosition.y += element.dataset.hotspot
+          ? 0
+          : id === "srv-01"
             ? 0.16
             : id === "rack-a01"
               ? 1.17

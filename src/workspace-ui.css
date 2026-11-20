@@ -5380,6 +5380,46 @@
   gap: 7px;
   font-size: 11px;
 }
+.workspace-ui .review-legend[data-closeup-airflow] {
+  width: fit-content;
+  padding: 0;
+  background: transparent;
+}
+.workspace-ui .review-legend .airflow-room-entry {
+  pointer-events: auto;
+  background: var(--toolbar);
+  color: var(--study-text);
+  border: 1px solid var(--study-line);
+  border-radius: 6px;
+  padding: 8px 12px;
+}
+.slice-heading-height {
+  display: none;
+}
+@media (min-width: 601px) and (max-width: 1099px) {
+  .workspace-ui[data-layer="environment"] .review-slice-legend {
+    padding: 9px 12px;
+  }
+  .workspace-ui[data-layer="environment"] .review-slice-heading {
+    gap: 6px;
+    margin-bottom: 4px;
+  }
+  .workspace-ui[data-layer="environment"] .review-slice-controls {
+    gap: 4px;
+    margin-top: 5px;
+    padding-top: 4px;
+  }
+  .workspace-ui[data-layer="environment"] .slice-heading-height {
+    display: inline;
+    font-variant-numeric: tabular-nums;
+  }
+  .workspace-ui[data-layer="environment"]
+    .review-legend[data-slice-orientation="horizontal"]
+    .review-slice-controls
+    > label {
+    display: none;
+  }
+}
 .workspace-ui .airflow-panel > small {
   color: #a8c0c6;
   line-height: 1.5;

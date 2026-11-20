@@ -83,7 +83,12 @@ import {
   useRef,
   useState,
 } from "react";
-import { entityById, presentationKey, type AppState } from "../domain";
+import {
+  componentById,
+  entityById,
+  presentationKey,
+  type AppState,
+} from "../domain";
 import type { PresentationPhase, SceneFeedback } from "../mechanics";
 import { SceneEngine } from "../scene/engine";
 import type { TaskViewMemory, View } from "../scene/engine";
@@ -164,6 +169,7 @@ export function ReviewScene({
   airflow,
   onExplainAirflow,
   onAirflowViewChange,
+  frameRoomAirflow,
   onShowRoomAirflow,
   onOpenAirflowInstallation,
   airflowVisit,
@@ -293,6 +299,7 @@ export function ReviewScene({
   onAirflowViewChange: (
     view: import("../airflow-view").AirflowView | null,
   ) => void;
+  frameRoomAirflow: boolean;
   onShowRoomAirflow: () => void;
   onOpenAirflowInstallation?: () => void;
   airflowResponseActive: boolean;
@@ -467,6 +474,15 @@ export function ReviewScene({
       setView("top");
     }
   }, [layoutViewRevision]);
+  const framedRoomEntry = useRef(false);
+  useEffect(() => {
+    if (state.level !== "room") framedRoomEntry.current = false;
+    const route = airflow?.routes[0];
+    if (frameRoomAirflow && route && !framedRoomEntry.current) {
+      framedRoomEntry.current = true;
+      airflowWorkspace.observe(route, "all");
+    }
+  }, [state.level, frameRoomAirflow, airflow, airflowWorkspace]);
   const flowView = airflowWorkspace.view;
   const stage = airflowStage(flowView);
   const sliceControls =
@@ -1559,7 +1575,9 @@ export function ReviewScene({
         ? roomFacilityById(selectedId)
         : fixtureById(selectedId)
       : undefined;
+  const partTemperatures = state.level === "device" && layer === "environment";
   const labelKey =
+    layer +
     (inletView?.devices.map((device) => device.id).join(":") ?? "") +
     environmentMarkers.map((marker) => marker.id).join(":") +
     (maintenanceView?.view ?? "") +
@@ -2032,10 +2050,13 @@ export function ReviewScene({
                 title={
                   slicePlaneActive
                     ? "柜旁读数为该柜切面最高估计，不是整柜输入最高值"
-                    : [ownBudget, memberHint].filter(Boolean).join(" · ") ||
-                      undefined
+                    : partTemperatures
+                      ? item.name
+                      : [ownBudget, memberHint].filter(Boolean).join(" · ") ||
+                        undefined
                 }
                 data-anchor={item.id}
+                data-hotspot={partTemperatures || undefined}
                 data-anchor-kind={
                   alarmDevice || item.id === roomDevice?.id
                     ? "device"
@@ -2056,7 +2077,9 @@ export function ReviewScene({
               >
                 <b>
                   {state.level === "device"
-                    ? item.name
+                    ? partTemperatures
+                      ? (componentById(item.id)?.slot ?? item.name)
+                      : item.name
                     : item.name.split(" ")[0]}
                   {memberLevel && (
                     <small
@@ -2154,7 +2177,9 @@ export function ReviewScene({
           maintenance.length > 0 ||
           supply ||
           network.length > 0 ||
-          labels.some((item) => item.id === selectedId)) && (
+          labels.some(
+            (item) => partTemperatures || item.id === selectedId,
+          )) && (
           <svg className="review-flow-lines" aria-hidden="true" ref={flowLines}>
             {inletView?.devices.map((device) => (
               <line
@@ -2182,7 +2207,7 @@ export function ReviewScene({
                 <line data-flow-line={selectedFixture.id} />
               )}
             {labels
-              .filter((item) => item.id === selectedId)
+              .filter((item) => partTemperatures || item.id === selectedId)
               .map((item) => (
                 <line key={item.id} data-flow-line={item.id} />
               ))}
@@ -2213,6 +2238,8 @@ export function ReviewScene({
         <div
           className={`review-legend ${slice || layer === "airflow" ? "review-slice-legend" : ""}`}
           aria-label="当前图层图例"
+          data-closeup-airflow={!!flowTarget || undefined}
+          data-slice-orientation={slice?.orientation}
           data-flow-observation={!!flowView}
           data-slice-visible={sliceVisible}
         >
@@ -2537,6 +2564,15 @@ export function ReviewScene({
                           <option value="horizontal">水平切片</option>
                           <option value="vertical">垂直切片</option>
                         </select>
+                        {layer === "environment" &&
+                          slice.orientation === "horizontal" && (
+                            <output
+                              className="slice-heading-height"
+                              htmlFor="temperature-slice-position"
+                            >
+                              {slice.height.toFixed(2)} m
+                            </output>
+                          )}
                         {layer === "airflow" && (
                           <span
                             className="airflow-slice-scale"

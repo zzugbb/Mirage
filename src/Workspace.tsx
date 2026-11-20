@@ -303,13 +303,37 @@ const power = (value: number | null | undefined) =>
     : value >= 1000
       ? (value / 1000).toFixed(2)
       : value.toFixed(1);
+type AirflowOriginPose = Pick<
+  ReviewState["scene"],
+  | "level"
+  | "deviceId"
+  | "selected"
+  | "doorOpen"
+  | "rearDoorOpen"
+  | "trayExtended"
+  | "coverOpen"
+  | "explosion"
+>;
 function reducer(
   state: ReviewState,
   action:
     | ReviewAction
     | ResourceAction
-    | { type: "workspace-shot"; shot: WorkspaceShot },
+    | { type: "workspace-shot"; shot: WorkspaceShot }
+    | {
+        type: "return-airflow-origin";
+        pose: AirflowOriginPose;
+        selected: string;
+        analysis: boolean;
+      },
 ) {
+  if (action.type === "return-airflow-origin")
+    return {
+      ...state,
+      scene: { ...state.scene, ...action.pose },
+      selectedId: action.selected,
+      analysis: action.analysis,
+    };
   return action.type === "workspace-shot"
     ? workspacePreset(state, action.shot)
     : reviewTransition(state, action);
@@ -486,6 +510,20 @@ export function Workspace() {
       navigationOpenerRef.current?.focus();
   }, [nav]);
   const [inspector, setInspector] = useState(false);
+  const [airflowOrigin, setAirflowOrigin] = useState<{
+    pose: AirflowOriginPose;
+    selected: string;
+    target: string;
+    camera: TaskViewMemory | null;
+    nav: boolean;
+    inspector: boolean;
+    analysis: boolean;
+    rackView: ResourceView;
+    query: string;
+    filter: ResourceFilter;
+    onlyAlarms: boolean;
+  } | null>(null);
+  const [returningFromAirflow, setReturningFromAirflow] = useState(false);
   const [airflowVisit, setAirflowVisit] = useState<AirflowInspection | null>(
     null,
   );
@@ -2465,9 +2503,90 @@ export function Workspace() {
     setAirflowResponse(null);
     control({ type: "room-inlet", id: inletAirflowVisit.id });
   };
-  const showAirflow = (id: string) => {
+  useEffect(() => {
+    if (!airflowOrigin) return;
+    if (
+      returningFromAirflow &&
+      ready &&
+      state.level === airflowOrigin.pose.level
+    ) {
+      stageRef.current
+        ?.querySelector<HTMLButtonElement>(".airflow-room-entry")
+        ?.focus({ preventScroll: true });
+      setReturningFromAirflow(false);
+      setAirflowOrigin(null);
+    } else if (
+      !returningFromAirflow &&
+      (layer !== "airflow" ||
+        (ready &&
+          (state.level !== "room" ||
+            (selected !== airflowOrigin.target && !activeAirflowVisit))))
+    ) {
+      setAirflowOrigin(null);
+    }
+  }, [
+    airflowOrigin,
+    returningFromAirflow,
+    ready,
+    state.level,
+    layer,
+    selected,
+    activeAirflowVisit,
+  ]);
+  const returnFromRoomAirflow = () => {
+    if (!ready || !airflowOrigin) return;
+    setReturningFromAirflow(true);
+    setAirflowVisit(null);
+    setAirflowResponse(null);
+    setQuery(airflowOrigin.query);
+    setFilter(airflowOrigin.filter);
+    setRackView(airflowOrigin.rackView);
+    setOnlyAlarms(airflowOrigin.onlyAlarms);
+    setInspector(airflowOrigin.inspector);
+    setNav(airflowOrigin.nav);
+    control({
+      type: "return-airflow-origin",
+      pose: airflowOrigin.pose,
+      selected: airflowOrigin.selected,
+      analysis: airflowOrigin.analysis,
+    });
+  };
+  const showAirflow = (id: string, rememberCloseUp = false) => {
     const target = roomAirflowTarget(id, state.deviceId);
     if (!target || !ready) return;
+    if (rememberCloseUp && state.level !== "room") {
+      const {
+        level,
+        deviceId,
+        doorOpen,
+        rearDoorOpen,
+        trayExtended,
+        coverOpen,
+        explosion,
+      } = state;
+      setAirflowOrigin({
+        pose: {
+          level,
+          deviceId,
+          selected: state.selected,
+          doorOpen,
+          rearDoorOpen,
+          trayExtended,
+          coverOpen,
+          explosion,
+        },
+        selected,
+        target: target.id,
+        camera: captureTaskView.current?.(level) ?? null,
+        nav,
+        inspector,
+        analysis: review.analysis,
+        rackView,
+        query,
+        filter: resourceFilter,
+        onlyAlarms,
+      });
+    }
     setAirflowVisit(null);
     if (review.analysis && state.playing)
       dispatch({ type: "seek", time: state.time });
@@ -2478,8 +2597,9 @@ export function Workspace() {
     }
     setMetric("temperature");
     setOnlyAlarms(false);
-    setInspector(true);
-    if (matchMedia("(max-width: 1099px)").matches) setNav(false);
+    setInspector(!rememberCloseUp);
+    if (!rememberCloseUp && matchMedia("(max-width: 1099px)").matches)
+      setNav(false);
   };
   const visitSource = (id: string) => {
     if (!sourceCheck) return;
@@ -3019,6 +3139,8 @@ export function Workspace() {
     collapseInspector,
   ]);
   const load = (next: WorkspaceShot) => {
+    setAirflowOrigin(null);
+    setReturningFromAirflow(false);
     roomSearchOrigin.current = null;
     roomSearchFocus.current = null;
     setSmokeVisit(null);
@@ -3328,6 +3450,19 @@ export function Workspace() {
         <a className="study-brand" href="./" aria-label="Mirage 浮城首页">
           Mirage <span>浮城</span>
         </a>
+        {airflowOrigin && state.level === "room" && layer === "airflow" && (
+          <div className="study-task-return">
+            <button
+              disabled={!ready || returningFromAirflow}
+              onClick={returnFromRoomAirflow}
+            >
+              ← 返回{" "}
+              {airflowOrigin.pose.level === "rack"
+                ? rackForDevice(airflowOrigin.pose.deviceId).name
+                : deviceById(airflowOrigin.pose.deviceId)?.name}
+            </button>
+          </div>
+        )}
         {(layoutVisit || blankingVisit) && (
           <div
             className="study-task-return"
@@ -4695,6 +4830,7 @@ export function Workspace() {
           <ReviewScene
             captureTaskView={captureTaskView}
             taskReturn={
+              (returningFromAirflow && airflowOrigin) ||
               (layoutReturning && layoutVisit?.origin) ||
               (alarmReturning && alarmVisit) ||
               (portReturning && portVisit) ||
@@ -4845,7 +4981,14 @@ export function Workspace() {
                 ? () => selectObject(grilleVisit.deviceId, true)
                 : undefined
             }
-            onShowRoomAirflow={() => showAirflow(selected)}
+            frameRoomAirflow={
+              !!airflowOrigin &&
+              !returningFromAirflow &&
+              ready &&
+              state.level === "room" &&
+              selected === airflowOrigin.target
+            }
+            onShowRoomAirflow={() => showAirflow(selected, true)}
             onInspectBudget={
               availableSourceMetrics.includes("power")
                 ? () => {
