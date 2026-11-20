@@ -11,7 +11,7 @@ const options = {
   selectedId: "room-01",
   more: false,
 } as const;
-test("总览只标选择，告警只标选中异常；更多标签不改变原始告警范围", () => {
+test("总览只标选择；机房告警优先提示最高级别，选柜和更多标签保留原始范围", () => {
   const readings = spatialSnapshot(60).readings;
   assert.deepEqual(sceneLabels(racks, readings, options), []);
   assert.deepEqual(
@@ -20,6 +20,12 @@ test("总览只标选择，告警只标选中异常；更多标签不改变原�
     ),
     ["rack-a03"],
   );
+  const firstAlarm = sceneLabels(racks, readings, {
+    ...options,
+    layer: "alarms",
+  });
+  assert.equal(firstAlarm.length, 1);
+  assert.equal(readings.get(firstAlarm[0].id)?.alarm, 2);
   assert.equal(
     sceneLabels(racks, readings, { ...options, more: true }).length,
     6,

@@ -127,7 +127,10 @@ import { MaintenanceGeometry } from "../scene/maintenance";
 import { powerScene } from "../power-paths";
 import { PowerGeometry } from "../scene/power";
 import { pduById, powerSettings } from "../power-config";
-import { qualityNames } from "../status";
+import { temperatureColor, powerColor } from "../scene/metric-color";
+import { budgetRatio } from "../power-budget";
+import { alarmCurrentStatus } from "../alarm-queue";
+import { qualityNames, signalStyles } from "../status";
 import { networkMarkers, networkLinkById, switchRole } from "../network";
 import { NetworkGeometry } from "../scene/network";
 
@@ -1630,6 +1633,17 @@ export function ReviewScene({
       : null;
   const foldPowerScale =
     powerViewActive || (pduInspection?.outlet != null && !!supply);
+  const deviceAlarm =
+    state.level === "device" && layer === "alarms"
+      ? readings.get(state.deviceId)
+      : undefined;
+  const deviceSeverity =
+    deviceAlarm?.quality === "valid" &&
+    deviceAlarm.lifecycle !== "stopped" &&
+    deviceAlarm.temperature !== null &&
+    deviceAlarm.alarm
+      ? signalStyles[deviceAlarm.alarm === 2 ? "critical" : "warning"]
+      : null;
   const powerScale = layer === "power" && (
     <>
       <span>
@@ -1642,6 +1656,7 @@ export function ReviewScene({
       <i className="review-scale power" />
       <div className="power-scale-limits">
         <span>0%</span>
+        <span>50%</span>
         <span>100%</span>
       </div>
       <small>灰色：数据或预算未定义</small>
@@ -1756,11 +1771,6 @@ export function ReviewScene({
               <p>
                 气流示意 · 冷却输入 <b>{visibleAirflow.coolingCapacity}%</b>
               </p>
-              <div>
-                <span className="flow-supply">→ 送风</span>
-                <span className="flow-through">⇢ 穿柜</span>
-                <span className="flow-return">⇢ 回风假设</span>
-              </div>
               <small>{visibleAirflow.label}</small>
             </div>
           )}
@@ -1955,6 +1965,32 @@ export function ReviewScene({
             )}
           {labels.map((item) => {
             const reading = readings.get(item.id)!;
+            const alarm =
+              layer === "alarms" && reading.alarm
+                ? signalStyles[reading.alarm === 2 ? "critical" : "warning"]
+                : null;
+            const temperature = slice
+              ? slice.rackEstimates.get(item.id)
+              : reading.temperature;
+            const ratio = budgetRatio(reading.power, reading.budget);
+            let accent: string | undefined = alarm?.color;
+            if (
+              reading.quality !== "valid" &&
+              (layer === "power" || layer === "environment")
+            ) {
+              accent = signalStyles[reading.quality].color;
+            } else if (reading.quality === "valid") {
+              if (layer === "environment" && temperature != null)
+                accent =
+                  "#" +
+                  temperatureColor(
+                    temperature,
+                    undefined,
+                    state.level === "device" ? 80 : 45,
+                  ).getHexString();
+              if (layer === "power" && ratio !== null)
+                accent = "#" + powerColor(ratio).getHexString();
+            }
             return (
               <button
                 hidden
@@ -1974,6 +2010,11 @@ export function ReviewScene({
                         ? "device"
                         : "part"
                 }
+                style={
+                  accent
+                    ? { borderInlineStart: `3px solid ${accent}` }
+                    : undefined
+                }
                 className={`review-anchor ${item.id === state.selected ? "selected" : ""}`}
                 onClick={() => onSelect(item.id)}
                 onDoubleClick={() => onSelect(item.id, true)}
@@ -1983,6 +2024,14 @@ export function ReviewScene({
                     ? item.name
                     : item.name.split(" ")[0]}
                 </b>
+                {alarm && (
+                  <small style={{ color: alarm.color }}>
+                    {alarm.icon} {alarm.label}
+                    {reading.count > 1 && reading.alarmCount > 1
+                      ? ` · ${reading.alarmCount} 台异常`
+                      : ""}
+                  </small>
+                )}
                 {roomDevice && item.id === roomDevice.id && (
                   <span>
                     {rackForDevice(item.id).name} · {unitLabel(item.id)}
@@ -1993,11 +2042,7 @@ export function ReviewScene({
                   layer !== "airflow" && (
                     <span>
                       {reading.quality !== "valid"
-                        ? layer === "power"
-                          ? qualityNames[reading.quality]
-                          : reading.quality === "stale"
-                            ? "数据过期"
-                            : "无有效数据"
+                        ? `${signalStyles[reading.quality].icon} ${qualityNames[reading.quality]}`
                         : layer === "environment"
                           ? slice
                             ? slice.rackEstimates.get(item.id) == null
@@ -2017,15 +2062,22 @@ export function ReviewScene({
                   )}
                 {layer === "power" &&
                   reading.quality === "valid" &&
-                  reading.power !== null &&
-                  reading.budget !== null &&
-                  reading.budget > 0 && (
+                  ratio !== null && (
                     <em
+                      className="power-label-load"
                       title={
                         reading.count > 1 ? "占有效设备预算" : "占配置预算"
                       }
                     >
-                      {((reading.power / reading.budget) * 100).toFixed(0)}%
+                      {(ratio * 100).toFixed(0)}%
+                      <i aria-hidden="true">
+                        <i
+                          style={{
+                            width: `${Math.min(ratio, 1) * 100}%`,
+                            backgroundColor: accent,
+                          }}
+                        />
+                      </i>
                     </em>
                   )}
               </button>
@@ -2317,7 +2369,13 @@ export function ReviewScene({
           ) : layer === "alarms" ? (
             <div className="review-status-key">
               {state.level === "device" ? (
-                <small>整机告警见详情 · 部件颜色表示模型评估</small>
+                <div className="device-alarm-summary">
+                  <strong style={{ color: deviceSeverity?.color }}>
+                    {deviceSeverity?.icon} {deviceAlarm?.name} ·{" "}
+                    {alarmCurrentStatus(deviceAlarm)}
+                  </strong>
+                  <small>部件列表显示模型评估</small>
+                </div>
               ) : (
                 <>
                   <span className="legend-warning">▲ 预警</span>
@@ -2468,6 +2526,9 @@ export function ReviewScene({
                       <i className="review-scale environment" />
                       <div>
                         <span>20 °C</span>
+                        <span>
+                          {state.level === "device" ? "50 °C" : "32.5 °C"}
+                        </span>
                         <span>
                           {state.level === "device" ? "80 °C" : "45 °C"}
                         </span>

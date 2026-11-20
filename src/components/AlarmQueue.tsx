@@ -102,6 +102,7 @@ export function AlarmQueue({
           ).map(([value, label, count]) => (
             <button
               key={value}
+              data-active-severity={count > 0 ? value : undefined}
               aria-pressed={severity === value}
               onClick={() => {
                 scroll.current = 0;

@@ -84,7 +84,15 @@ export function AirflowPanel({
               ))}
             </select>
           </div>
-          {!route.animated && <small>{route.status}</small>}
+          {route.animated ? (
+            <div className="airflow-path-key" aria-label="路径图例">
+              <span>送风</span>
+              <span>穿柜</span>
+              <span>回风假设</span>
+            </div>
+          ) : (
+            <small>{route.status}</small>
+          )}
           {visit && (
             <div className="airflow-inspection-return">
               <button

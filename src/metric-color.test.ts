@@ -32,11 +32,11 @@ test("温度和功耗采用独立连续色阶；未知、过期和离线保持�
       { ...device, temperature: 45 },
       "temperature",
     ).getHexString(),
-    "fa5655",
+    "ee4847",
   );
   assert.equal(
     observationColor({ ...device, power: 0 }, "power").getHexString(),
-    "8979ad",
+    "485ca9",
   );
   assert.equal(
     observationColor({ ...device, budget: null }, "power").getHexString(),
@@ -81,5 +81,16 @@ test("同一对象可同时保留告警与过期读数，各图层呈现各自�
   assert.equal(
     "#" + observationColor(reading, "alarms").getHexString(),
     signalStyles.critical.color,
+  );
+});
+
+test("设备表面与机房进风图例按各自量程标注同一色阶", () => {
+  assert.equal(
+    temperatureColor(50, undefined, 80).getHex(),
+    temperatureColor(32.5).getHex(),
+  );
+  assert.notEqual(
+    temperatureColor(39, undefined, 80).getHex(),
+    temperatureColor(39).getHex(),
   );
 });

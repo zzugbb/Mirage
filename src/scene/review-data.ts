@@ -84,7 +84,7 @@ export class ReviewDataGeometry {
           const height = Math.max(0.008, mark.height * mark.fraction);
           box(
             color,
-            [0.045, height, 0.024],
+            [0.085, height, 0.03],
             [x + 0.033, y + height / 2, z + 0.004],
           );
           box(color, [0.14, 0.016, 0.025], [x + 0.025, y + height, z + 0.008]);

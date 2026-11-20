@@ -13,8 +13,13 @@ export function powerColor(ratio: number, target = new THREE.Color()) {
   const i = Math.min(1, Math.floor(x));
   return target.lerpColors(powerStops[i], powerStops[i + 1], x - i);
 }
-export function temperatureColor(value: number, target = new THREE.Color()) {
-  const position = THREE.MathUtils.clamp((value - 20) / 25, 0, 1) * 4;
+export function temperatureColor(
+  value: number,
+  target = new THREE.Color(),
+  maximum = 45,
+) {
+  const position =
+    THREE.MathUtils.clamp((value - 20) / (maximum - 20), 0, 1) * 4;
   const index = Math.min(3, Math.floor(position));
   return target.lerpColors(
     temperatureStops[index],

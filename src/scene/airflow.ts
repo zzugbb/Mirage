@@ -337,9 +337,11 @@ export class AirflowGeometry {
       const emphasis = airflowStageEmphasis(view, batch.kind);
       batch.band.material.opacity =
         (batch.kind === "supply"
-          ? 0.55 + snapshot.coolingCapacity * 0.003
-          : 0.7) * emphasis;
-      batch.arrows.material.opacity = 0.72 * emphasis;
+          ? 0.64 + snapshot.coolingCapacity * 0.003
+          : batch.kind === "through"
+            ? 0.9
+            : 0.68) * emphasis;
+      batch.arrows.material.opacity = 0.94 * emphasis;
     });
     this.animate(snapshot.time, false, true);
   }

@@ -558,6 +558,30 @@
   font-size: 12px;
   font-weight: 550;
 }
+.power-label-load {
+  display: inline-grid;
+  gap: 2px;
+  min-width: 24px;
+  align-self: center;
+  font-variant-numeric: tabular-nums;
+}
+.power-label-load > i {
+  height: 3px;
+  background: #576673;
+  border-radius: 2px;
+  overflow: hidden;
+}
+.power-label-load > i > i {
+  display: block;
+  height: 100%;
+}
+.device-alarm-summary {
+  display: grid;
+  gap: 3px;
+  background: var(--toolbar);
+  border-radius: 4px;
+  padding: 5px 8px;
+}
 .workspace-ui .review-anchor small {
   font-size: 10px;
 }
@@ -5351,6 +5375,29 @@
   color: #a8c0c6;
   line-height: 1.5;
 }
+.airflow-path-key {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 3px 12px;
+  font-size: 10px;
+  color: var(--muted);
+}
+.airflow-path-key span::before {
+  content: "";
+  display: inline-block;
+  width: 12px;
+  margin-right: 4px;
+  vertical-align: middle;
+  border-top: 2px solid var(--flow-supply);
+}
+.airflow-path-key span:nth-child(2)::before {
+  border-color: var(--flow-through);
+}
+.airflow-path-key span:last-child::before {
+  border-color: var(--flow-return);
+  border-top-style: dashed;
+}
 .workspace-ui .airflow-panel-actions {
   display: flex;
   flex-wrap: wrap;
@@ -5724,6 +5771,12 @@
 }
 .alarm-queue-filters button {
   flex: 1;
+}
+.alarm-queue-filters [data-active-severity="warning"] {
+  color: var(--signal-warning);
+}
+.alarm-queue-filters [data-active-severity="critical"] {
+  color: var(--signal-critical);
 }
 .alarm-queue-filters button[aria-pressed="true"] {
   background: #334650;

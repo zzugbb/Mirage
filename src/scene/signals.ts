@@ -63,7 +63,7 @@ export class SpatialSignals {
         depthWrite: false,
       });
       const root = new THREE.Mesh(this.geometries.warning, material);
-      root.scale.setScalar(rack ? 0.068 : 0.018);
+      root.scale.setScalar(rack ? 0.098 : 0.025);
       root.userData.entityId = id;
       this.root.add(root);
       return { root, material, id };

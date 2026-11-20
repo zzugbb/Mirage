@@ -108,7 +108,11 @@ export class SurfaceObservation {
                 if(mMode<1.5){float gradient=clamp((mCenter.z-vMirageWorld.z)/max(.03,mSpan),-0.5,.5)*6.*mGradient;tint=thermalColor(clamp((mTemperature+gradient-mRange.x)/(mRange.y-mRange.x),0.,1.));}
                 else if(mMode<2.5)tint=loadColor(clamp(mLoad,0.,1.));
                 else if(mMode<3.5)tint=mAlarm>1.5?mCritical:mWarning;
-                diffuseColor.rgb=mix(diffuseColor.rgb,tint*detail,mMode>3.5?.18:(mMode>2.5?(mAlarm>.5?.22:0.):(mGradient>.5?.6:.16)));
+                float weight = .18;
+                if (mMode < 1.5) weight = mix(.24, .84, smoothstep(.18,.8,(mTemperature-mRange.x)/(mRange.y-mRange.x)));
+                else if (mMode < 2.5) weight = mix(.22, .88, smoothstep(.15,.95,mLoad));
+                else if (mMode < 3.5) weight = mAlarm>.5 ? .22 : 0.;
+                diffuseColor.rgb=mix(diffuseColor.rgb,tint*detail,weight);
               }`,
             );
             shader.fragmentShader = shader.fragmentShader.replace(
@@ -189,8 +193,12 @@ export class SurfaceObservation {
       const reading: SpatialReading | undefined =
         this.snapshot.readings.get(id);
       const ratio = reading ? budgetRatio(reading.power, reading.budget) : null;
+      const chassis =
+        state.level === "device" &&
+        id === state.deviceId &&
+        (state.coverOpen || state.explosion > 0);
       u.mode.value =
-        mode === "object" || mode === "status"
+        chassis || mode === "object" || mode === "status"
           ? 0
           : !reading || reading.quality !== "valid"
             ? 4

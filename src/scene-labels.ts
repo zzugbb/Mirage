@@ -49,7 +49,10 @@ export function sceneLabels<T extends { id: string }>(
       if (layer === "alarms")
         return (
           (selected(item) && item.id === options.alarmOriginId) ||
-          (reading.alarm > 0 && (more || selected(item)))
+          (reading.alarm > 0 &&
+            (more ||
+              selected(item) ||
+              (level === "room" && selectedId === "room-01")))
         );
       if (layer === "overview") return more || selected(item);
       return true;
