@@ -42,7 +42,7 @@ function dispose(root: THREE.Object3D) {
   });
 }
 
-test("检视工位仅有接触地坪，柜前与柜后均无背景实体", () => {
+test("检视转盘贴地，正反面无实体遮挡；减弱动效静止，拆解基准只随整机展开显示", () => {
   const studio = new InspectionBackdrop();
   assert.equal(studio.visible, false);
   studio.visible = true;
@@ -53,7 +53,16 @@ test("检视工位仅有接触地坪，柜前与柜后均无背景实体", () =>
     center.clone().add(new THREE.Vector3(0, 1, 0)),
     new THREE.Vector3(0, -1, 0),
   );
-  close(down.intersectObject(studio)[0].point.y, floorSurfaceY);
+  close(down.intersectObject(studio)[0].point.y, floorSurfaceY + 0.002);
+  studio.update(0, 0, false, 0.8, 0.1, false);
+  assert.ok(studio.dial.rotor.rotation.y > 0);
+  close(studio.dial.bearing.rotation.y, 0.8);
+  studio.update(0, 0, false, 0.8, 0.1, true);
+  close(studio.dial.rotor.rotation.y, 0);
+  studio.update(1, 1, false, 0.8, 0.1, false);
+  assert.ok(!studio.dial.root.visible && studio.datum.visible);
+  studio.update(1, 1, true, 0.8, 0.1, false);
+  assert.ok(!studio.datum.visible);
   for (const z of [-5, 5]) {
     const eye = center.clone().add(new THREE.Vector3(0, 1, z));
     assert.equal(
@@ -64,7 +73,7 @@ test("检视工位仅有接触地坪，柜前与柜后均无背景实体", () =>
       0,
     );
   }
-  studio.background.dispose();
+  studio.disposeSkies();
   dispose(studio);
 });
 

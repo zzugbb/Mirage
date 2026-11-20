@@ -4,16 +4,12 @@
   "unit": "m",
   "description": "原创机房与计算、网络、存储及配电附件的通用配置，非真实现场或厂商精确结构",
   "inspectionBench": {
-    "description": "设备检视时在所属柜前显示的临时支撑台",
+    "description": "带刻度与导光夹层的对开式检修托架",
     "surfaceY": 0.76,
     "frontOffset": 2.12,
     "width": 0.68,
     "depth": 1.06,
-    "thickness": 0.035,
-    "matDepth": 0.005,
-    "lipInset": 0.014,
-    "matColor": "#35474a",
-    "edgeColor": "#718088"
+    "thickness": 0.042
   },
   "fanModule": {
     "description": "交换机与存储风扇的静态配置示意，不代表精确叶型、转速或风量",
@@ -1671,9 +1667,12 @@
   },
   "rendering": {
     "inspectionStudio": {
-      "description": "机柜与设备的独立检视工位",
-      "background": ["#18212b", "#3f505b", "#293440"],
-      "floor": "#333e48",
+      "description": "机柜方位盘与设备对开托架共享浮城夜航配色",
+      "rackSky": ["#080f1e", "#193b51", "#182e41", "#080f1b"],
+      "deviceSky": ["#0a101f", "#172e41", "#122337", "#080f1b"],
+      "orientation": {"ice": "#70e2e4", "violet": "#799bea", "brass": "#ffbc73", "radiansPerSecond": 0.38},
+      "shorelines": [[-10, 552, 1], [1365, 1936, 0.64]],
+      "floor": "#1c3243",
       "softboxes": [
         {"color": "#d5f2ff", "intensity": 5, "width": 0.65, "height": 2.8, "position": [-1.8, 2.1, 1.7]},
         {"color": "#e8dccc", "intensity": 4, "width": 1.2, "height": 2.4, "position": [1.7, 1.9, -1.6]}

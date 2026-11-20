@@ -173,6 +173,7 @@ export class SceneEngine {
   camera = new THREE.PerspectiveCamera(40, 1, 0.01, 150);
   controls: OrbitControls;
   models = buildModels();
+  private lastDialDraw = 0;
   private inspectionBackdrop = new InspectionBackdrop();
   private roomGround = new THREE.Group();
   private roomTransition?: HTMLCanvasElement;
@@ -1748,6 +1749,8 @@ export class SceneEngine {
     );
     this.presentation.workbench.copy(this.models.bench.position);
     const model = modelForDevice(state.deviceId);
+    this.inspectionBackdrop.datum.scale.z =
+      model.depth / definition.server.size[2];
     this.models.benchContact.scale.set(
       definition.server.size[0] + 0.05,
       model.depth + 0.06,
@@ -2667,10 +2670,26 @@ export class SceneEngine {
     }
     this.poseParts();
     this.updatePartInspection();
+    const arrival = THREE.MathUtils.smoothstep(frame.relocation, 0.58, 0.88);
     this.models.bench.visible =
-      frame.overBench && this.explosion === 0 && !this.partInspection;
+      arrival > 0 && this.explosion < 0.54 && !this.partInspection;
+    if (this.models.bench.visible) {
+      const open = THREE.MathUtils.smoothstep(this.explosion, 0, 0.54);
+      this.models.dockHalves.forEach((half, i) => {
+        half.position.x =
+          (i === 0 ? -1 : 1) *
+          (definition.inspectionBench.width * 0.25 + open * 0.17);
+        half.position.y =
+          definition.inspectionBench.surfaceY -
+          open * 0.16 -
+          (1 - arrival) * 0.12;
+        half.scale.setScalar(arrival * (1 - open));
+      });
+    }
     this.models.benchContact.material.opacity =
-      0.36 * THREE.MathUtils.smoothstep(frame.relocation, 0.88, 1);
+      0.36 *
+      (1 - THREE.MathUtils.smoothstep(this.explosion, 0, 0.12)) *
+      THREE.MathUtils.smoothstep(frame.relocation, 0.88, 1);
     if (
       this.pendingReturnView &&
       this.cover === 0 &&
@@ -2753,15 +2772,27 @@ export class SceneEngine {
     this.models.floorGroup.visible = this.roomGround.visible = !studio;
     this.inspectionBackdrop.visible = studio;
     this.scene.background = studio
-      ? this.inspectionBackdrop.background
+      ? this.inspectionBackdrop.sky(frame.relocation > 0.58)
       : this.roomBackdrop;
     this.keyLight.shadow.intensity = studio ? 0.45 : 1;
-    if (studio)
+    if (studio) {
+      this.inspectionBackdrop.update(
+        frame.relocation,
+        this.explosion,
+        !!this.partInspection,
+        this.controls.getAzimuthalAngle(),
+        delta,
+        this.reducedMotion,
+      );
       this.inspectionBackdrop.position.lerpVectors(
         this.models.rack.position,
         this.models.bench.position,
         frame.relocation,
       );
+      this.inspectionBackdrop.dial.root.position
+        .copy(this.models.rack.position)
+        .sub(this.inspectionBackdrop.position);
+    }
     const cutCount = this.shellCutaway.update(
       this.camera.position,
       this.inletObservation?.inspection.points ??
@@ -3080,10 +3111,23 @@ export class SceneEngine {
       this.moving ||
       this.models.selection.animating ||
       (this.state.playing && !this.reducedMotion);
+    const rotatingDial =
+      studio &&
+      this.inspectionBackdrop.dial.root.visible &&
+      !this.reducedMotion;
+    if (rotatingDial && time - this.lastDialDraw >= 1000 / 24) {
+      this.lastDialDraw = time;
+      this.renderDemand.invalidate();
+    }
     const drawn = this.renderDemand.consume(this.renderView, animating);
     if (drawn) this.pipeline.render(delta, frame.relocation, structureBusy);
     // 补齐终态并让镜头阻尼收敛后休止。环绕开启时保留手动接管后的等待期。
-    return drawn || animating || (this.autoOrbit && !this.reducedMotion);
+    return (
+      drawn ||
+      animating ||
+      rotatingDial ||
+      (this.autoOrbit && !this.reducedMotion)
+    );
   };
   dispose() {
     this.partIsolation.restore();
@@ -3114,7 +3158,7 @@ export class SceneEngine {
     disposeModels(this.scene);
     this.environment.dispose();
     this.roomBackdrop.dispose();
-    this.inspectionBackdrop.background.dispose();
+    this.inspectionBackdrop.disposeSkies();
     this.renderer.dispose();
     canvas.remove();
   }

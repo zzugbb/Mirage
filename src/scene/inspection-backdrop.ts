@@ -1,32 +1,12 @@
 import * as THREE from "three";
 import definition from "../../assets/public/scenes/room-01.json" with { type: "json" };
 
+import { createRackDial, createAssemblyDatum } from "./inspection-platforms.ts";
+import { createStudioSky } from "./studio-sky.ts";
+
 const studio = definition.rendering.inspectionStudio;
 
-function studioBackground() {
-  const stops = studio.background.map((color) => new THREE.Color(color));
-  const pixels = new Uint8Array(128 * 4);
-  const shade = new THREE.Color();
-  for (let y = 0; y < 128; y++) {
-    const t = y / 127;
-    const i = t < 0.52 ? 0 : 1;
-    shade
-      .lerpColors(
-        stops[i],
-        stops[i + 1],
-        THREE.MathUtils.smoothstep(t, i ? 0.52 : 0, i ? 1 : 0.52),
-      )
-      .convertLinearToSRGB();
-    pixels.set([shade.r * 255, shade.g * 255, shade.b * 255, 255], y * 4);
-  }
-  const texture = new THREE.DataTexture(pixels, 1, 128);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  texture.magFilter = texture.minFilter = THREE.LinearFilter;
-  texture.needsUpdate = true;
-  return texture;
-}
-
-// 中心细分较密，远端渐隐；材质与柜脚、台脚共用同一接触高度。
+// 中心细分较密，远端渐隐，让方位盘和装配工位融入远景。
 function studioFloor() {
   const geometry = new THREE.PlaneGeometry(2, 2, 56, 56);
   const positions = geometry.getAttribute("position"),
@@ -72,6 +52,8 @@ function studioFloor() {
       metalness: 0.08,
       vertexColors: true,
       transparent: true,
+      opacity: 0.4,
+      depthWrite: false,
     }),
   );
   floor.position.y = definition.rendering.floor.surfaceY;
@@ -80,10 +62,40 @@ function studioFloor() {
 }
 
 export class InspectionBackdrop extends THREE.Group {
-  background = studioBackground();
+  readonly dial = createRackDial();
+  readonly datum = createAssemblyDatum();
+  private skies: Partial<Record<"rack" | "device", THREE.Texture>> = {};
+  sky(device: boolean) {
+    const key = device ? "device" : "rack";
+    return (this.skies[key] ??= createStudioSky(device));
+  }
+  disposeSkies() {
+    for (const sky of Object.values(this.skies)) sky.dispose();
+  }
+  update(
+    relocation: number,
+    explosion: number,
+    isolated: boolean,
+    azimuth: number,
+    delta: number,
+    reduced: boolean,
+  ) {
+    const dial = this.dial;
+    const scale = 1 - THREE.MathUtils.smoothstep(relocation, 0, 0.58);
+    dial.root.visible = scale > 0.001;
+    dial.root.scale.setScalar(scale);
+    dial.bearing.rotation.y = azimuth;
+    if (reduced) dial.rotor.rotation.y = 0;
+    else if (dial.root.visible)
+      dial.rotor.rotation.y =
+        (dial.rotor.rotation.y + delta * studio.orientation.radiansPerSecond) %
+        (2 * Math.PI);
+    this.datum.visible = relocation > 0.98 && explosion > 0.01 && !isolated;
+  }
   constructor() {
     super();
-    this.add(studioFloor());
+    this.add(studioFloor(), this.dial.root, this.datum);
+    this.datum.visible = false;
     for (const panel of studio.softboxes) {
       const light = new THREE.RectAreaLight(
         panel.color,

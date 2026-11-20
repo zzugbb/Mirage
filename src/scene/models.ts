@@ -4,6 +4,7 @@ import {
   createRackRearDoors,
   createRackRoof,
 } from "./rack-enclosure";
+import { createDeviceDock } from "./inspection-platforms.ts";
 import { SelectionCorners } from "./selection";
 import * as THREE from "three";
 import definition from "../../assets/public/scenes/room-01.json" with { type: "json" };
@@ -191,66 +192,9 @@ export function buildModels() {
       box(group, [0.035, 0.3, 0.04], [0.28, -0.05, 0.3], "#abc4ca", 0.8);
     }
   }
-  // 临时检视台支撑到位的整机。支脚和柜脚共享机房地坪。
-  const bench = new THREE.Group();
-  bench.name = "inspection-bench";
-  const {
-    surfaceY,
-    width,
-    depth,
-    thickness,
-    matDepth,
-    lipInset,
-    matColor,
-    edgeColor,
-  } = definition.inspectionBench;
-  const floorY = definition.rendering.floor.surfaceY;
-  // 垫面与落台标高对齐，金属台沿低于机箱底面。
-  box(
-    bench,
-    [width, thickness - matDepth, depth],
-    [0, surfaceY - (thickness + matDepth) / 2, 0],
-    edgeColor,
-    0.55,
-  );
-  box(
-    bench,
-    [width - lipInset * 2, matDepth, depth - lipInset * 2],
-    [0, surfaceY - matDepth / 2, 0],
-    matColor,
-    0.06,
-    0.91,
-  );
-  for (const side of [-1, 1]) {
-    box(
-      bench,
-      [width - 0.06, 0.052, 0.018],
-      [0, surfaceY - thickness - 0.026, side * (depth / 2 - 0.04)],
-      edgeColor,
-      0.48,
-    );
-  }
+  const { root: bench, halves: dockHalves } = createDeviceDock();
   const benchContact = benchContactShadow();
   bench.add(benchContact);
-  const legHeight = surfaceY - thickness - floorY;
-  for (const x of [-1, 1].map((side) => side * (width / 2 - 0.05))) {
-    const inset = depth / 2 - 0.07;
-    for (const z of [-inset, inset])
-      box(
-        bench,
-        [0.035, legHeight, 0.035],
-        [x, floorY + legHeight / 2, z],
-        "#60686b",
-        0.55,
-      );
-    box(
-      bench,
-      [0.025, 0.045, inset * 2],
-      [x, floorY + 0.18, 0],
-      "#525b60",
-      0.5,
-    );
-  }
   bench.visible = false;
   root.add(bench);
   const rack = identify(new THREE.Group(), definition.rack.id);
@@ -262,6 +206,7 @@ export function buildModels() {
     roughness: 0.94,
     metalness: 0,
   });
+  const floorY = definition.rendering.floor.surfaceY;
   const footHeight = 0.0785 - floorY;
   for (const x of [-0.25, 0.25])
     for (const z of [-0.45, 0.45]) {
@@ -462,6 +407,7 @@ export function buildModels() {
     rackSlide,
     bench,
     benchContact,
+    dockHalves,
     railMount,
     server,
     facilities,
