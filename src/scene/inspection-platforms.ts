@@ -46,6 +46,7 @@ function strokes(parent: THREE.Group, segments: number[], color: number) {
   lines.raycast = () => {};
   parent.add(lines);
 }
+export const dialBearingRadius = 1.102;
 export function createRackDial() {
   const root = new THREE.Group(),
     rotor = new THREE.Group(),
@@ -56,8 +57,8 @@ export function createRackDial() {
     new THREE.CylinderGeometry(0.93, 0.98, 0.056, 96),
     new THREE.MeshStandardMaterial({
       color: 0x192f41,
-      metalness: 0.55,
-      roughness: 0.42,
+      metalness: 0.18,
+      roughness: 0.86,
     }),
   );
   deck.position.y = y - 0.026;
@@ -107,7 +108,15 @@ export function createRackDial() {
   for (const offset of [-0.065, 0.065])
     band(root, 0.81, 0.9, Math.PI / 2 + offset - 0.023, 0.046, y + 0.009, ice);
   // 外弧始终落在观察者一侧，固定刻度经过弧下时可读出手动转动的方向。
-  band(bearing, 1.09, 1.102, -Math.PI / 2 - 0.2, 0.4, y + 0.014, ice);
+  band(
+    bearing,
+    1.09,
+    dialBearingRadius,
+    -Math.PI / 2 - 0.2,
+    0.4,
+    y + 0.014,
+    ice,
+  );
   return { root, rotor, bearing };
 }
 
@@ -152,6 +161,27 @@ export function createDeviceDock() {
   const root = new THREE.Group();
   root.name = "inspection-bench";
   const { width, depth, surfaceY, thickness } = definition.inspectionBench;
+  // 后细前亮的短光迹沿两条外边行进，抵达端标时收短。
+  const trailGeometry = new THREE.PlaneGeometry(0.013, 0.115, 1, 10);
+  const vertices = trailGeometry.getAttribute("position");
+  const colors: number[] = [];
+  for (let i = 0; i < vertices.count; i++) {
+    const head = 0.5 - vertices.getY(i) / 0.115;
+    vertices.setX(i, vertices.getX(i) * (0.18 + 0.82 * head));
+    colors.push(0.7, 0.98, 1, head * head);
+  }
+  trailGeometry.setAttribute(
+    "color",
+    new THREE.Float32BufferAttribute(colors, 4),
+  );
+  trailGeometry.rotateX(-Math.PI / 2);
+  const trailMaterial = new THREE.MeshBasicMaterial({
+    vertexColors: true,
+    transparent: true,
+    depthWrite: false,
+    toneMapped: false,
+  });
+  const trails: THREE.Mesh[] = [];
   const halves = [-1, 1].map((side) => {
     const half = new THREE.Group();
     half.position.set(side * width * 0.25, surfaceY, 0);
@@ -182,11 +212,14 @@ export function createDeviceDock() {
       ink(side === 1 ? palette.brass : palette.ice),
     );
     key.position.set(side * 0.09, 0.001, depth / 2 - 0.018);
-    half.add(key);
+    const trail = new THREE.Mesh(trailGeometry, trailMaterial);
+    trail.position.set(side * (width * 0.25 - 0.02), 0.003, 0);
+    half.add(key, trail);
+    trails.push(trail);
     root.add(half);
     return half;
   });
-  return { root, halves };
+  return { root, halves, trails };
 }
 
 // 在展开件下保留机箱原点。只用短线与四角定位，斜看不会挡住部件。

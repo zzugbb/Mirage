@@ -192,7 +192,11 @@ export function buildModels() {
       box(group, [0.035, 0.3, 0.04], [0.28, -0.05, 0.3], "#abc4ca", 0.8);
     }
   }
-  const { root: bench, halves: dockHalves } = createDeviceDock();
+  const {
+    root: bench,
+    halves: dockHalves,
+    trails: dockTrails,
+  } = createDeviceDock();
   const benchContact = benchContactShadow();
   bench.add(benchContact);
   bench.visible = false;
@@ -408,6 +412,7 @@ export function buildModels() {
     bench,
     benchContact,
     dockHalves,
+    dockTrails,
     railMount,
     server,
     facilities,

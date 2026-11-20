@@ -89,6 +89,7 @@ import { createExteriorAssembly, poseExterior } from "./equipment-exterior";
 import { mapCompactServer } from "./compact-server";
 import { SpatialSignals } from "./signals";
 import { SurfaceObservation } from "./surface";
+import { dialBearingRadius } from "./inspection-platforms";
 import { InspectionBackdrop } from "./inspection-backdrop";
 import { InstallationScene } from "./installation";
 import { rackForDevice, deviceById, deviceHeight } from "../installation";
@@ -173,6 +174,8 @@ export class SceneEngine {
   camera = new THREE.PerspectiveCamera(40, 1, 0.01, 150);
   controls: OrbitControls;
   models = buildModels();
+  private dockSweep = 0;
+  private dockWithdrawal = 0;
   private lastDialDraw = 0;
   private inspectionBackdrop = new InspectionBackdrop();
   private roomGround = new THREE.Group();
@@ -2212,6 +2215,19 @@ export class SceneEngine {
         for (const y of [0, height + 0.03])
           for (const z of [-depth / 2 - width / 2, depth / 2 + width])
             framingPoints.push(new THREE.Vector3(x, y, z).add(rack));
+      const dialRadius =
+        dialBearingRadius *
+        definition.rendering.inspectionStudio.dialWidthScale;
+      for (let i = 0; i < 24; i++) {
+        const angle = (i * Math.PI) / 12;
+        framingPoints.push(
+          new THREE.Vector3(
+            rack.x + dialRadius * Math.cos(angle),
+            rack.y + definition.rendering.floor.surfaceY,
+            rack.z + dialRadius * Math.sin(angle),
+          ),
+        );
+      }
       const mounted = this.presentation.mounted;
       for (const x of [-width / 2, width / 2])
         for (const dy of [-0.1, 0.1])
@@ -2671,24 +2687,47 @@ export class SceneEngine {
     this.poseParts();
     this.updatePartInspection();
     const arrival = THREE.MathUtils.smoothstep(frame.relocation, 0.58, 0.88);
+    const withdrawalTarget = THREE.MathUtils.smoothstep(
+      Math.max(explosionTarget, this.explosion),
+      0,
+      0.54,
+    );
+    const withdrawStep = instant ? 1 : delta / 0.78;
+    this.dockWithdrawal += THREE.MathUtils.clamp(
+      withdrawalTarget - this.dockWithdrawal,
+      -withdrawStep,
+      withdrawStep,
+    );
+    if (frame.relocation < 0.88 || this.state.level !== "device")
+      this.dockSweep = 0;
+    else
+      this.dockSweep = instant ? 1 : Math.min(1, this.dockSweep + delta / 0.92);
     this.models.bench.visible =
-      arrival > 0 && this.explosion < 0.54 && !this.partInspection;
+      arrival > 0 && this.dockWithdrawal < 1 && !this.partInspection;
     if (this.models.bench.visible) {
-      const open = THREE.MathUtils.smoothstep(this.explosion, 0, 0.54);
+      const part = THREE.MathUtils.smoothstep(this.dockWithdrawal, 0, 0.46);
+      const sink = THREE.MathUtils.smoothstep(this.dockWithdrawal, 0.46, 1);
+      const { width, depth, surfaceY } = definition.inspectionBench;
       this.models.dockHalves.forEach((half, i) => {
-        half.position.x =
-          (i === 0 ? -1 : 1) *
-          (definition.inspectionBench.width * 0.25 + open * 0.17);
-        half.position.y =
-          definition.inspectionBench.surfaceY -
-          open * 0.16 -
-          (1 - arrival) * 0.12;
-        half.scale.setScalar(arrival * (1 - open));
+        half.position.x = (i === 0 ? -1 : 1) * (width * 0.25 + part * 0.12);
+        half.position.y = surfaceY - sink * 0.16 - (1 - arrival) * 0.12;
+        half.scale.setScalar(arrival * (1 - sink));
+        const trail = this.models.dockTrails[i];
+        trail.visible =
+          this.dockSweep > 0 &&
+          this.dockWithdrawal === 0 &&
+          !this.reducedMotion;
+        const t = THREE.MathUtils.smoothstep(this.dockSweep, 0, 1);
+        trail.scale.z = 1 - 0.9 * THREE.MathUtils.smoothstep(t, 0.85, 1);
+        trail.position.z = (t - 0.5) * (depth - 0.12) - 0.0575 * trail.scale.z;
       });
     }
+    const dockMoving =
+      this.dockWithdrawal !== withdrawalTarget ||
+      (this.dockSweep > 0 && this.dockSweep < 1 && this.models.bench.visible);
     this.models.benchContact.material.opacity =
       0.36 *
-      (1 - THREE.MathUtils.smoothstep(this.explosion, 0, 0.12)) *
+      (1 - THREE.MathUtils.smoothstep(this.dockWithdrawal, 0, 0.32)) *
       THREE.MathUtils.smoothstep(frame.relocation, 0.88, 1);
     if (
       this.pendingReturnView &&
@@ -2774,11 +2813,14 @@ export class SceneEngine {
     this.scene.background = studio
       ? this.inspectionBackdrop.sky(frame.relocation > 0.58)
       : this.roomBackdrop;
+    this.scene.backgroundIntensity = studio
+      ? 1 - 0.32 * THREE.MathUtils.smoothstep(this.explosion, 0, 0.85)
+      : 1;
     this.keyLight.shadow.intensity = studio ? 0.45 : 1;
     if (studio) {
       this.inspectionBackdrop.update(
         frame.relocation,
-        this.explosion,
+        this.dockWithdrawal,
         !!this.partInspection,
         this.controls.getAzimuthalAngle(),
         delta,
@@ -3107,6 +3149,7 @@ export class SceneEngine {
     this.renderView.set(this.camera.matrixWorld.elements);
     this.renderView.set(this.camera.projectionMatrix.elements, 16);
     const animating =
+      dockMoving ||
       structureBusy ||
       this.moving ||
       this.models.selection.animating ||

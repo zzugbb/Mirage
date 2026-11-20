@@ -74,7 +74,7 @@ export class InspectionBackdrop extends THREE.Group {
   }
   update(
     relocation: number,
-    explosion: number,
+    withdrawal: number,
     isolated: boolean,
     azimuth: number,
     delta: number,
@@ -83,14 +83,15 @@ export class InspectionBackdrop extends THREE.Group {
     const dial = this.dial;
     const scale = 1 - THREE.MathUtils.smoothstep(relocation, 0, 0.58);
     dial.root.visible = scale > 0.001;
-    dial.root.scale.setScalar(scale);
+    const radius = scale * studio.dialWidthScale;
+    dial.root.scale.set(radius, scale, radius);
     dial.bearing.rotation.y = azimuth;
     if (reduced) dial.rotor.rotation.y = 0;
     else if (dial.root.visible)
       dial.rotor.rotation.y =
         (dial.rotor.rotation.y + delta * studio.orientation.radiansPerSecond) %
         (2 * Math.PI);
-    this.datum.visible = relocation > 0.98 && explosion > 0.01 && !isolated;
+    this.datum.visible = relocation > 0.98 && withdrawal > 0.8 && !isolated;
   }
   constructor() {
     super();

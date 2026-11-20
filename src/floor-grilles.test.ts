@@ -57,8 +57,16 @@ test("检视转盘贴地，正反面无实体遮挡；减弱动效静止，拆�
   studio.update(0, 0, false, 0.8, 0.1, false);
   assert.ok(studio.dial.rotor.rotation.y > 0);
   close(studio.dial.bearing.rotation.y, 0.8);
+  close(
+    studio.dial.root.scale.x,
+    definition.rendering.inspectionStudio.dialWidthScale,
+  );
+  close(studio.dial.root.scale.y, 1);
+  close(studio.dial.root.scale.z, studio.dial.root.scale.x);
   studio.update(0, 0, false, 0.8, 0.1, true);
   close(studio.dial.rotor.rotation.y, 0);
+  studio.update(1, 0.46, false, 0.8, 0.1, false);
+  assert.ok(!studio.datum.visible);
   studio.update(1, 1, false, 0.8, 0.1, false);
   assert.ok(!studio.dial.root.visible && studio.datum.visible);
   studio.update(1, 1, true, 0.8, 0.1, false);
