@@ -42,46 +42,30 @@ function dispose(root: THREE.Object3D) {
   });
 }
 
-test("机柜近景只延展外圈地面，检视背景不遮挡柜体和台面", () => {
-  const backdrop = new InspectionBackdrop(new THREE.MeshStandardMaterial());
-  const rack = new THREE.Vector3().fromArray(racks.at(-1)!.position);
-  const target = rack.clone().add(new THREE.Vector3(0, 1, 0));
-  const ray = new THREE.Raycaster();
-  const hits = () => {
-    backdrop.updateMatrixWorld(true);
-    const meshes: THREE.Object3D[] = [];
-    backdrop.traverseVisible((object) => {
-      if (object instanceof THREE.Mesh) meshes.push(object);
-    });
-    return ray.intersectObjects(meshes, false);
-  };
-  for (const offset of [
-    [0, 0.5, 4],
-    [0, 0.5, -4],
-    [8, 2, 0],
-    [0, 9, 0.01],
-  ]) {
-    const camera = target.clone().add(new THREE.Vector3(...offset));
-    for (const relocation of [0, 0.8, 1]) {
-      backdrop.update(camera, rack, true, relocation);
-      ray.set(camera, target.clone().sub(camera).normalize());
-      assert.ok(
-        hits().every((hit) => hit.distance > camera.distanceTo(target)),
-      );
-    }
+test("检视工位仅有接触地坪，柜前与柜后均无背景实体", () => {
+  const studio = new InspectionBackdrop();
+  assert.equal(studio.visible, false);
+  studio.visible = true;
+  studio.position.fromArray(racks[1].position);
+  studio.updateMatrixWorld(true);
+  const center = studio.position.clone();
+  const down = new THREE.Raycaster(
+    center.clone().add(new THREE.Vector3(0, 1, 0)),
+    new THREE.Vector3(0, -1, 0),
+  );
+  close(down.intersectObject(studio)[0].point.y, floorSurfaceY);
+  for (const z of [-5, 5]) {
+    const eye = center.clone().add(new THREE.Vector3(0, 1, z));
+    assert.equal(
+      new THREE.Raycaster(
+        eye,
+        new THREE.Vector3(0, 0, -Math.sign(z)),
+      ).intersectObject(studio).length,
+      0,
+    );
   }
-  backdrop.update(target, rack, true, 0);
-  const [x, , z] = floorGrilles[0].position;
-  ray.set(new THREE.Vector3(x, 1, z), new THREE.Vector3(0, -1, 0));
-  assert.equal(hits().length, 0);
-  ray.ray.origin.x = definition.room.size[0] / 2 + 0.1;
-  close(hits()[0].point.y, floorSurfaceY);
-  backdrop.update(target, rack, true, 1);
-  ray.ray.origin.x = x;
-  close(hits()[0].point.y, floorSurfaceY);
-  backdrop.update(target, rack, false, 0);
-  assert.equal(hits().length, 0);
-  dispose(backdrop);
+  studio.background.dispose();
+  dispose(studio);
 });
 
 test("34 处格栅与全部设备代表路径共用铺设位置，回看不移动落点", () => {

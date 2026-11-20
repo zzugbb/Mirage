@@ -59,17 +59,16 @@ export function pointsFrameDistance(
   const upperField = availableField(topInsetFraction);
   const lowerField = availableField(bottomInsetFraction);
   let result = minimum;
-  for (const point of points) {
-    const dot = (axis: number[]) =>
-      point.reduce((sum, value, i) => sum + value * axis[i], 0);
-    const vertical = dot(up);
+  for (const [x, y, z] of points) {
+    const vertical = x * up[0] + y * up[1] + z * up[2];
+    const lateral = x * right[0] + z * right[2];
+    const depth = x * n[0] + y * n[1] + z * n[2];
     result = Math.max(
       result,
-      (Math.abs(dot(right)) * paddedFocalLength) / Math.max(0.2, aspect) +
-        dot(n),
+      (Math.abs(lateral) * paddedFocalLength) / Math.max(0.2, aspect) + depth,
       (vertical > 0 ? vertical / upperField : -vertical / lowerField) *
         paddedFocalLength +
-        dot(n),
+        depth,
     );
   }
   return result;

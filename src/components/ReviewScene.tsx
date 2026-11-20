@@ -1015,6 +1015,7 @@ export function ReviewScene({
     // 演示预设使用相同的空间构图，便于直接比较图层；普通操作不触发。
     recoveryPose.current = null;
     startupView.current = null;
+    if (engine.current) engine.current.studioOrigin = null;
     const next = currentState.current.level === "room" ? "interior" : "iso";
     setTemperatureSliceControls(initialSliceControls());
     engine.current?.view(next);

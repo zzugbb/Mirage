@@ -173,9 +173,11 @@ export class SceneEngine {
   camera = new THREE.PerspectiveCamera(40, 1, 0.01, 150);
   controls: OrbitControls;
   models = buildModels();
-  private inspectionBackdrop = new InspectionBackdrop(
-    this.models.floor.material,
-  );
+  private inspectionBackdrop = new InspectionBackdrop();
+  private roomGround = new THREE.Group();
+  private roomTransition?: HTMLCanvasElement;
+  studioOrigin: TaskViewMemory | null = null;
+  private keyLight = new THREE.DirectionalLight("#fff9f0", 1.6);
   unitRange: RackUnitRange | null = null;
   isolatedPartId: string | null = null;
   storageContact = false;
@@ -307,7 +309,7 @@ export class SceneEngine {
     host.append(this.renderer.domElement, this.rackHint);
     this.scene.fog = new THREE.FogExp2("#0b0e10", 0.008);
     this.scene.add(this.skyLight);
-    const key = new THREE.DirectionalLight("#fff9f0", 1.6);
+    const key = this.keyLight;
     key.position.set(0, 9, 4);
     key.castShadow = true;
     key.shadow.mapSize.set(2048, 2048);
@@ -332,12 +334,13 @@ export class SceneEngine {
     ground.rotation.x = -Math.PI / 2;
     ground.position.y = -0.3;
     ground.receiveShadow = true;
-    this.scene.add(ground);
+    this.roomGround.add(ground);
     const grid = new THREE.GridHelper(40, 80, "#393d42", "#24282d");
     grid.position.y = -0.285;
     (grid.material as THREE.Material).transparent = true;
     (grid.material as THREE.Material).opacity = 0.2;
-    this.scene.add(grid);
+    this.roomGround.add(grid);
+    this.scene.add(this.roomGround);
     for (const group of [
       this.models.room,
       this.models.floorGroup,
@@ -1640,6 +1643,7 @@ export class SceneEngine {
       },
       partInspection: this.partInspection,
       roomView: this.roomViewMemory,
+      studioOrigin: this.studioOrigin,
       pendingDeviceView: this.pendingDeviceView,
       pendingDeviceFocus: this.pendingDeviceFocus,
       pendingComponentFocus: this.pendingComponentFocus,
@@ -1664,6 +1668,7 @@ export class SceneEngine {
       this.targetLook.copy(saved.destination.target);
     }
     this.moving = !!saved.destination;
+    this.studioOrigin = saved.studioOrigin;
     this.pendingDeviceView = saved.pendingDeviceView;
     this.pendingDeviceFocus = saved.pendingDeviceFocus;
     this.pendingComponentFocus = saved.pendingComponentFocus;
@@ -1809,10 +1814,49 @@ export class SceneEngine {
           ? this.models.server
           : (this.models.facilities.get(id) ?? this.models.parts.get(id));
   }
+  // 保留进入前的一帧作短过渡，随后整柜在新工位继续靠近；快照不接收操作。
+  private fadeRoomView() {
+    this.roomTransition?.remove();
+    if (
+      !this.contextAvailable ||
+      this.paused ||
+      this.reducedMotion ||
+      !this.lastTime
+    )
+      return;
+    const source = this.renderer.domElement;
+    const snapshot = document.createElement("canvas");
+    snapshot.width = source.width;
+    snapshot.height = source.height;
+    const context = snapshot.getContext("2d");
+    if (!context) return;
+    this.pipeline.render(0, 0, false);
+    context.drawImage(source, 0, 0);
+    snapshot.className = "inspection-transition";
+    snapshot.setAttribute("aria-hidden", "true");
+    source.after(snapshot);
+    this.roomTransition = snapshot;
+    const fade = snapshot.animate([{ opacity: 1 }, { opacity: 0 }], {
+      duration: 280,
+      easing: "ease-out",
+      fill: "forwards",
+    });
+    fade.onfinish = () => {
+      snapshot.remove();
+      if (this.roomTransition === snapshot) this.roomTransition = undefined;
+    };
+  }
   update(state: AppState) {
     this.invalidate();
     if (state.level !== "room" && this.roomViewMemory)
       this.clearRoomViewMemory();
+    if (this.state.level === "room" && state.level !== "room") {
+      this.studioOrigin = this.captureTaskView("room");
+      this.fadeRoomView();
+    } else if (state.level === "room") {
+      this.roomTransition?.remove();
+      if (state.selected !== "room-01") this.studioOrigin = null;
+    }
     const deviceChanged = state.deviceId !== this.state.deviceId;
     if (deviceChanged) {
       this.installDevice(state);
@@ -1859,7 +1903,7 @@ export class SceneEngine {
   }
   private deviceOrbit?: {
     center: THREE.Vector3;
-    size: number[];
+    points: number[][];
     direction: THREE.Vector3;
     fit: number;
     top: number;
@@ -1877,8 +1921,8 @@ export class SceneEngine {
     const distance = offset.length();
     offset.normalize();
     if (offset.distanceToSquared(frame.direction) < 1e-8) return;
-    const fit = boundsFrameDistance(
-      frame.size,
+    const fit = pointsFrameDistance(
+      frame.points,
       offset.toArray(),
       this.camera.aspect,
       this.controls.minDistance,
@@ -1992,7 +2036,9 @@ export class SceneEngine {
     const returning =
       this.taskReturnView?.level === this.state.level
         ? this.taskReturnView
-        : null;
+        : this.state.level === "room"
+          ? this.studioOrigin
+          : null;
     // 先在当前镜头中完成复原与合盖，再随设备返回机柜。
     if (
       (this.state.level !== "device" &&
@@ -2025,6 +2071,7 @@ export class SceneEngine {
     const level: Level = deferDevice ? "rack" : this.state.level;
     if (deferDevice) focus = false;
     if (returning) {
+      if (level === "room") this.studioOrigin = null;
       this.restoreObservationView(returning);
       if (returning.range) {
         this.rangeObservation = returning.range;
@@ -2126,8 +2173,10 @@ export class SceneEngine {
             : view === "right"
               ? [1, 0.2, 0.001]
               : level === "rack"
-                ? [0.45, 0.42, 1.5]
-                : [0.85, 0.85, 1.05]) as [number, number, number]),
+                ? [0.48, 0.28, 1.5]
+                : wholeDevice && this.state.explosion > 0
+                  ? [-0.58, 0.65, 1.22]
+                  : [0.85, 0.85, 1.05]) as [number, number, number]),
     ).normalize();
     if (level === "device" && focus && view === "iso" && object) {
       const part = partsForDevice(this.state.deviceId).find(
@@ -2155,14 +2204,21 @@ export class SceneEngine {
       const rack = this.models.rack.position;
       center.copy(rack);
       center.y += height / 2;
-      // 包含前后门的旋转范围与导轨行程，开门、抽出时不跳动镜头。
-      for (const x of [-width, width])
-        for (const y of [0, height + 0.05])
-          for (const z of [
-            -depth / 2 - width / 2,
-            depth / 2 + Math.max(width, definition.rack.motion.trayTravel),
-          ])
+      // 柜门占整高，伸出的导轨仅占所选 U 位；不为上方的空角预留导轨行程。
+      for (const x of [-width / 2, width / 2])
+        for (const y of [0, height + 0.03])
+          for (const z of [-depth / 2 - width / 2, depth / 2 + width])
             framingPoints.push(new THREE.Vector3(x, y, z).add(rack));
+      const mounted = this.presentation.mounted;
+      for (const x of [-width / 2, width / 2])
+        for (const dy of [-0.1, 0.1])
+          framingPoints.push(
+            new THREE.Vector3(
+              rack.x + x,
+              mounted.y + dy,
+              rack.z + depth / 2 + definition.rack.motion.trayTravel,
+            ),
+          );
     }
     if (wholeDevice || wholeRack) {
       const frame = this.host.getBoundingClientRect();
@@ -2206,49 +2262,37 @@ export class SceneEngine {
       0,
     );
     const orbitMinimum = Math.max(minimum, radius + 2 * this.camera.near);
-    const deviceSize =
-      wholeDevice && bounds
-        ? bounds.getSize(new THREE.Vector3()).toArray()
-        : undefined;
-    const distance = deviceSize
-      ? boundsFrameDistance(
-          deviceSize,
+    const points = framingPoints.map((point) => point.sub(center).toArray());
+    const distance = points.length
+      ? pointsFrameDistance(
+          points,
           direction.toArray(),
           this.camera.aspect,
           orbitMinimum,
           topInsetFraction,
           bottomInsetFraction,
         )
-      : framingPoints.length
-        ? pointsFrameDistance(
-            framingPoints.map((point) => point.sub(center).toArray()),
+      : bounds
+        ? boundsFrameDistance(
+            bounds.getSize(new THREE.Vector3()).toArray(),
             direction.toArray(),
             this.camera.aspect,
-            orbitMinimum,
+            minimum,
             topInsetFraction,
-            bottomInsetFraction,
           )
-        : bounds
+        : level === "room" && view === "top"
           ? boundsFrameDistance(
-              bounds.getSize(new THREE.Vector3()).toArray(),
+              definition.room.size,
               direction.toArray(),
               this.camera.aspect,
               minimum,
-              topInsetFraction,
+              0.1,
             )
-          : level === "room" && view === "top"
-            ? boundsFrameDistance(
-                definition.room.size,
-                direction.toArray(),
-                this.camera.aspect,
-                minimum,
-                0.1,
-              )
-            : frameDistance(size, this.camera.aspect, minimum);
-    if (deviceSize)
+          : frameDistance(size, this.camera.aspect, minimum);
+    if (wholeDevice && points.length)
       this.deviceOrbit = {
         center: center.clone(),
-        size: deviceSize,
+        points,
         direction: direction.clone(),
         fit: distance,
         top: topInsetFraction,
@@ -2705,13 +2749,19 @@ export class SceneEngine {
       this.fixtureTargets.length = offsets.length;
     }
     this.installation.update(this.state, frame.relocation);
-    this.models.floorGroup.visible = frame.relocation < 1;
-    this.inspectionBackdrop.update(
-      this.camera.position,
-      this.models.rack.position,
-      !this.models.surroundings.visible,
-      frame.relocation,
-    );
+    const studio = !this.models.surroundings.visible;
+    this.models.floorGroup.visible = this.roomGround.visible = !studio;
+    this.inspectionBackdrop.visible = studio;
+    this.scene.background = studio
+      ? this.inspectionBackdrop.background
+      : this.roomBackdrop;
+    this.keyLight.shadow.intensity = studio ? 0.45 : 1;
+    if (studio)
+      this.inspectionBackdrop.position.lerpVectors(
+        this.models.rack.position,
+        this.models.bench.position,
+        frame.relocation,
+      );
     const cutCount = this.shellCutaway.update(
       this.camera.position,
       this.inletObservation?.inspection.points ??
@@ -3047,6 +3097,7 @@ export class SceneEngine {
     this.controls.removeEventListener("change", this.invalidate);
     this.controls.removeEventListener("change", this.hideRackHint);
     this.controls.dispose();
+    this.roomTransition?.remove();
     this.pipeline.dispose();
     this.surface.dispose();
     this.signals.dispose();
@@ -3063,6 +3114,7 @@ export class SceneEngine {
     disposeModels(this.scene);
     this.environment.dispose();
     this.roomBackdrop.dispose();
+    this.inspectionBackdrop.background.dispose();
     this.renderer.dispose();
     canvas.remove();
   }

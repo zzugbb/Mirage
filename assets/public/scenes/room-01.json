@@ -1670,14 +1670,14 @@
     "railThickness": 0.001
   },
   "rendering": {
-    "inspectionBackdrop": {
-      "description": "近景的方向背景，仅作环境参照",
-      "wall": "#58636b",
-      "ceiling": "#566069",
-      "cabinet": "#454e56",
-      "trim": "#64717a",
-      "diffuser": "#98a5ab",
-      "workFloor": "#424c55"
+    "inspectionStudio": {
+      "description": "机柜与设备的独立检视工位",
+      "background": ["#18212b", "#3f505b", "#293440"],
+      "floor": "#333e48",
+      "softboxes": [
+        {"color": "#d5f2ff", "intensity": 5, "width": 0.65, "height": 2.8, "position": [-1.8, 2.1, 1.7]},
+        {"color": "#e8dccc", "intensity": 4, "width": 1.2, "height": 2.4, "position": [1.7, 1.9, -1.6]}
+      ]
     },
     "contactShadows": {
       "roomRadius": 0.18,
