@@ -196,6 +196,7 @@ export function buildModels() {
     root: bench,
     halves: dockHalves,
     trails: dockTrails,
+    halfBounds: dockHalfBounds,
   } = createDeviceDock();
   const benchContact = benchContactShadow();
   bench.add(benchContact);
@@ -413,6 +414,7 @@ export function buildModels() {
     benchContact,
     dockHalves,
     dockTrails,
+    dockHalfBounds,
     railMount,
     server,
     facilities,

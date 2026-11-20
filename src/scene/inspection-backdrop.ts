@@ -65,9 +65,17 @@ export class InspectionBackdrop extends THREE.Group {
   readonly dial = createRackDial();
   readonly datum = createAssemblyDatum();
   private skies: Partial<Record<"rack" | "device", THREE.Texture>> = {};
-  sky(device: boolean) {
+  sky(device: boolean, azimuth: number, explosion: number, reduced: boolean) {
     const key = device ? "device" : "rack";
-    return (this.skies[key] ??= createStudioSky(device));
+    const sky = (this.skies[key] ??= createStudioSky(device));
+    if (device) {
+      sky.repeat.set(0.978, 0.99);
+      sky.offset.set(
+        0.011 + (reduced ? 0 : 0.01 * Math.sin(azimuth)),
+        0.005 + (reduced ? 0 : 0.004 * explosion),
+      );
+    }
+    return sky;
   }
   disposeSkies() {
     for (const sky of Object.values(this.skies)) sky.dispose();

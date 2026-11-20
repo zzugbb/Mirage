@@ -4,12 +4,12 @@
   "unit": "m",
   "description": "原创机房与计算、网络、存储及配电附件的通用配置，非真实现场或厂商精确结构",
   "inspectionBench": {
-    "description": "带刻度与导光夹层的对开式检修托架",
+    "description": "带侧边导光槽与定位刻线的对开式检修托架",
     "surfaceY": 0.76,
     "frontOffset": 2.12,
-    "width": 0.68,
-    "depth": 1.06,
-    "thickness": 0.042
+    "width": 0.646,
+    "depth": 1.02,
+    "thickness": 0.03
   },
   "fanModule": {
     "description": "交换机与存储风扇的静态配置示意，不代表精确叶型、转速或风量",
@@ -1671,6 +1671,10 @@
       "rackSky": ["#080f1e", "#193b51", "#182e41", "#080f1b"],
       "deviceSky": ["#0a101f", "#172e41", "#122337", "#080f1b"],
       "orientation": {"ice": "#70e2e4", "violet": "#799bea", "brass": "#ffbc73", "radiansPerSecond": 0.38},
+      "deviceTraces": [
+        {"fromRight": false, "height": 602, "count": 6, "pitch": 12, "elbow": 108, "rise": 91, "span": 445},
+        {"fromRight": true, "height": 339, "count": 3, "pitch": 17, "elbow": 166, "rise": 62, "span": 334}
+      ],
       "dialWidthScale": 1.12,
       "rackArcs": [
         [-35, 578, 185, 604, 437, 388, 756, 417],

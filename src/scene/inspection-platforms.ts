@@ -124,21 +124,24 @@ function plate(
   width: number,
   depth: number,
   height: number,
+  side: number,
   cut: number,
   color: number,
 ) {
   const w = width / 2,
     d = depth / 2;
   const outline = new THREE.Shape();
+  const left = side < 0 ? cut : 0.005,
+    right = side > 0 ? cut : 0.005;
   const corners = [
-    [-w + cut, -d],
-    [w - cut, -d],
-    [w, -d + cut],
-    [w, d - cut],
-    [w - cut, d],
-    [-w + cut, d],
-    [-w, d - cut],
-    [-w, -d + cut],
+    [-w + left, -d],
+    [w - right, -d],
+    [w, -d + right],
+    [w, d - right],
+    [w - right, d],
+    [-w + left, d],
+    [-w, d - left],
+    [-w, -d + left],
   ];
   corners.forEach(([x, z], i) =>
     i ? outline.lineTo(x, z) : outline.moveTo(x, z),
@@ -185,33 +188,68 @@ export function createDeviceDock() {
   const halves = [-1, 1].map((side) => {
     const half = new THREE.Group();
     half.position.set(side * width * 0.25, surfaceY, 0);
-    const body = plate(width * 0.5 - 0.003, depth, thickness, 0.045, 0x223d4a);
-    body.position.y = -thickness;
-    const keel = plate(width * 0.43, depth * 0.88, 0.043, 0.055, 0x182834);
-    keel.position.y = -thickness - 0.055;
-    const light = plate(width * 0.504, depth * 0.987, 0.011, 0.04, 0x55c6cf);
-    light.material.emissive.setHex(0x3cabb8);
-    light.position.y = -thickness - 0.011;
-    half.add(keel, light, body);
+    const outerX = side * width * 0.25;
+    const body = plate(
+      width * 0.5 - 0.003,
+      depth,
+      thickness,
+      side,
+      0.033,
+      0x354653,
+    );
+    body.position.y = -thickness - 0.003;
+    const face = plate(
+      width * 0.5 - 0.008,
+      depth - 0.006,
+      0.003,
+      side,
+      0.032,
+      0x273a45,
+    );
+    face.material.roughness = 0.72;
+    face.position.y = -0.003;
+    const keel = plate(
+      width * 0.435,
+      depth * 0.89,
+      0.025,
+      side,
+      0.047,
+      0x172632,
+    );
+    keel.position.y = -thickness - 0.033;
+    half.add(keel, body, face);
+    // 导光带嵌在外侧壁，前端单留一小段，合拢的中缝保持暗色。
+    const guide = ink(0x64b4c3);
+    for (const [z, length] of [
+      [-0.07, 0.64],
+      [0.335, 0.095],
+    ]) {
+      const strip = new THREE.Mesh(
+        new THREE.BoxGeometry(0.0018, 0.004, depth * length),
+        guide,
+      );
+      strip.position.set(outerX - side * 0.0013, -thickness * 0.6, z * depth);
+      half.add(strip);
+    }
     const bars: number[] = [];
-    for (let i = 0; i < 32; i++) {
-      const z = ((i - 15.5) * depth) / 36;
-      const x = side * (width * 0.25 - 0.016);
+    for (let i = 0; i < 25; i++) {
+      const z = ((i - 12) * depth) / 28;
+      const x = outerX - side * 0.012;
       bars.push(
         x,
-        0.001,
+        0.0008,
         z,
-        x - side * (i % 4 === 0 ? 0.025 : 0.012),
-        0.001,
+        x - side * (i % 4 === 0 ? 0.017 : 0.006),
+        0.0008,
         z,
       );
     }
-    strokes(half, bars, 0x8ab6c0);
+    strokes(half, bars, 0x627e8a);
     const key = new THREE.Mesh(
-      new THREE.BoxGeometry(0.04, 0.004, 0.008),
+      new THREE.BoxGeometry(0.015, 0.002, 0.025),
       ink(side === 1 ? palette.brass : palette.ice),
     );
-    key.position.set(side * 0.09, 0.001, depth / 2 - 0.018);
+    key.position.set(outerX - side * 0.02, 0.001, (depth - 0.12) / 2);
     const trail = new THREE.Mesh(trailGeometry, trailMaterial);
     trail.position.set(side * (width * 0.25 - 0.02), 0.003, 0);
     half.add(key, trail);
@@ -219,8 +257,31 @@ export function createDeviceDock() {
     root.add(half);
     return half;
   });
-  return { root, halves, trails };
+  const halfBounds = new THREE.Box3()
+    .setFromObject(halves[0])
+    .translate(halves[0].position.clone().negate());
+  return { root, halves, trails, halfBounds };
 }
+
+// 画幅与可见托架共用同一姿态；复原时按最终落点取景。
+export function dockScaleAndPosition(
+  withdrawal: number,
+  arrival: number,
+  side: number,
+  position: THREE.Vector3,
+) {
+  const part = THREE.MathUtils.smoothstep(withdrawal, 0, 0.46);
+  const sink = THREE.MathUtils.smoothstep(withdrawal, 0.46, 1);
+  const { width, surfaceY } = definition.inspectionBench;
+  position.set(
+    side * (width * 0.25 + part * 0.12),
+    surfaceY - sink * 0.16 - (1 - arrival) * 0.12,
+    0,
+  );
+  return arrival * (1 - sink);
+}
+export const dockWithdrawalAt = (explosion: number) =>
+  THREE.MathUtils.smoothstep(explosion, 0, 0.54);
 
 // 在展开件下保留机箱原点。只用短线与四角定位，斜看不会挡住部件。
 export function createAssemblyDatum() {

@@ -89,7 +89,11 @@ import { createExteriorAssembly, poseExterior } from "./equipment-exterior";
 import { mapCompactServer } from "./compact-server";
 import { SpatialSignals } from "./signals";
 import { SurfaceObservation } from "./surface";
-import { dialBearingRadius } from "./inspection-platforms";
+import {
+  dialBearingRadius,
+  dockScaleAndPosition,
+  dockWithdrawalAt,
+} from "./inspection-platforms";
 import { InspectionBackdrop } from "./inspection-backdrop";
 import { InstallationScene } from "./installation";
 import { rackForDevice, deviceById, deviceHeight } from "../installation";
@@ -1960,6 +1964,18 @@ export class SceneEngine {
     };
     this.models.server.updateWorldMatrix(true, true);
     const bounds = new THREE.Box3();
+    const withdrawal = dockWithdrawalAt(this.state.explosion);
+    if (withdrawal < 1) {
+      const offset = new THREE.Vector3();
+      for (const side of [-1, 1]) {
+        const scale = dockScaleAndPosition(withdrawal, 1, side, offset);
+        offset.add(this.models.bench.position);
+        const box = this.models.dockHalfBounds.clone();
+        box.min.multiplyScalar(scale);
+        box.max.multiplyScalar(scale);
+        include(box.translate(offset));
+      }
+    }
     const representations = this.assemblies.get(
       this.assemblyModel,
     )?.representations;
@@ -2687,10 +2703,8 @@ export class SceneEngine {
     this.poseParts();
     this.updatePartInspection();
     const arrival = THREE.MathUtils.smoothstep(frame.relocation, 0.58, 0.88);
-    const withdrawalTarget = THREE.MathUtils.smoothstep(
+    const withdrawalTarget = dockWithdrawalAt(
       Math.max(explosionTarget, this.explosion),
-      0,
-      0.54,
     );
     const withdrawStep = instant ? 1 : delta / 0.78;
     this.dockWithdrawal += THREE.MathUtils.clamp(
@@ -2705,13 +2719,16 @@ export class SceneEngine {
     this.models.bench.visible =
       arrival > 0 && this.dockWithdrawal < 1 && !this.partInspection;
     if (this.models.bench.visible) {
-      const part = THREE.MathUtils.smoothstep(this.dockWithdrawal, 0, 0.46);
-      const sink = THREE.MathUtils.smoothstep(this.dockWithdrawal, 0.46, 1);
-      const { width, depth, surfaceY } = definition.inspectionBench;
+      const { depth } = definition.inspectionBench;
       this.models.dockHalves.forEach((half, i) => {
-        half.position.x = (i === 0 ? -1 : 1) * (width * 0.25 + part * 0.12);
-        half.position.y = surfaceY - sink * 0.16 - (1 - arrival) * 0.12;
-        half.scale.setScalar(arrival * (1 - sink));
+        half.scale.setScalar(
+          dockScaleAndPosition(
+            this.dockWithdrawal,
+            arrival,
+            i === 0 ? -1 : 1,
+            half.position,
+          ),
+        );
         const trail = this.models.dockTrails[i];
         trail.visible =
           this.dockSweep > 0 &&
@@ -2811,7 +2828,12 @@ export class SceneEngine {
     this.models.floorGroup.visible = this.roomGround.visible = !studio;
     this.inspectionBackdrop.visible = studio;
     this.scene.background = studio
-      ? this.inspectionBackdrop.sky(frame.relocation > 0.58)
+      ? this.inspectionBackdrop.sky(
+          frame.relocation > 0.58,
+          this.controls.getAzimuthalAngle(),
+          this.explosion,
+          this.reducedMotion,
+        )
       : this.roomBackdrop;
     this.scene.backgroundIntensity = studio
       ? 1 - 0.32 * THREE.MathUtils.smoothstep(this.explosion, 0, 0.85)
