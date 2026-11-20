@@ -1574,7 +1574,8 @@ export class SceneEngine {
     const previousAspect = this.camera.aspect;
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
-    this.renderer.setSize(width, height);
+    // 画布随容器布局，只调整绘图缓冲区，避免折叠侧栏时旧宽度撑出滚动条。
+    this.renderer.setSize(width, height, false);
     this.pipeline.resize(width, height);
     if (this.maintenanceObservation) {
       this.frameMaintenance();
