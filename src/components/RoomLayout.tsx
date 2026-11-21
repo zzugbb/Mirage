@@ -31,6 +31,7 @@ export function RoomLayout({
   deviceId,
   query,
   scope,
+  onOpenFixtureRoster,
   crossingId,
   onPreviewCrossing,
   onInspectCrossing,
@@ -53,6 +54,7 @@ export function RoomLayout({
   deviceId: string;
   query: string;
   scope: RoomLayoutScope;
+  onOpenFixtureRoster: () => void;
   crossingId: string | null;
   onPreviewCrossing: (id: string) => void;
   onInspectBranch: (branch: GrilleBranch) => void;
@@ -222,6 +224,9 @@ export function RoomLayout({
               </option>
             ))}
           </select>
+          {scope === "fixtures" && (
+            <button onClick={onOpenFixtureRoster}>设施名单</button>
+          )}
           <button disabled={!ready} onClick={onPlan}>
             俯看三维布置
           </button>

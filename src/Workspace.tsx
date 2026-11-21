@@ -52,6 +52,8 @@ import {
   type AlarmSeverity,
   type AlarmVisit,
 } from "./alarm-queue";
+import { FixtureRoster } from "./components/FixtureRoster";
+import { fixtureRoster, type FixtureSource } from "./fixture-roster";
 import { RoomLayout } from "./components/RoomLayout";
 import { roomLayoutCrossings, type RoomLayoutScope } from "./room-layout";
 import type { AirflowView } from "./airflow-view";
@@ -815,10 +817,16 @@ export function Workspace() {
   const [layoutScope, setLayoutScope] = useState<RoomLayoutScope>("equipment");
   const [layoutQuery, setLayoutQuery] = useState("");
   const [layoutCrossing, setLayoutCrossing] = useState<string | null>(null);
+  const [showFixtureRoster, setShowFixtureRoster] = useState(false);
+  const [fixtureSource, setFixtureSource] = useState<FixtureSource>("all");
+  const [fixtureQuery, setFixtureQuery] = useState("");
+  const fixtureScroll = useRef(0);
+  const fixtureRestore = useRef<string | null>(null);
   const layoutScroll = useRef(0);
   const [layoutRestore, setLayoutRestore] = useState(0);
   const [layoutVisit, setLayoutVisit] = useState<{
     id: string;
+    roster?: { source: FixtureSource; query: string; scroll: number };
     crossing?: (typeof roomLayoutCrossings)[number];
     grille?: { name: string; slice: SliceControls };
     power?: { linkId: string | null; inspection: PduInspection | null };
@@ -1789,6 +1797,14 @@ export function Workspace() {
       setPowerLinkId(layoutVisit.power.linkId);
       setPduInspection(layoutVisit.power.inspection);
     }
+    setShowFixtureRoster(!!layoutVisit.roster);
+    if (layoutVisit.roster) {
+      setLayoutScope("fixtures");
+      setFixtureQuery(layoutVisit.roster.query);
+      setFixtureSource(layoutVisit.roster.source);
+      fixtureScroll.current = layoutVisit.roster.scroll;
+      fixtureRestore.current = layoutVisit.id;
+    }
     setLayoutQuery(layoutVisit.query);
     control({ type: "layer", layer: layoutVisit.layer });
     control({ type: "analysis", value: false });
@@ -2389,21 +2405,53 @@ export function Workspace() {
     inspector,
     scroll: layoutScroll.current,
   });
-  const rememberLayoutSelection = (id: string) => {
+  const openFixtureRoster = () => {
+    takeover();
+    if (layoutScope !== "fixtures") {
+      setLayoutQuery("");
+      layoutScroll.current = 0;
+    }
+    setRackView("layout");
+    setLayoutScope("fixtures");
+    setShowFixtureRoster(true);
+    setLayoutVisit(null);
+    setLayoutReturning(false);
+    fixtureRestore.current = null;
+  };
+  const rememberLayoutSelection = (
+    id: string,
+    roster?: NonNullable<typeof layoutVisit>["roster"],
+  ) => {
     const powerCabinet = id === powerSettings.sourceId;
-    if (layoutVisit?.id === id) return;
+    if (
+      layoutVisit?.id === id &&
+      layoutVisit.roster?.source === roster?.source &&
+      layoutVisit.roster?.query === roster?.query
+    )
+      return;
     setLayoutVisit({
       id,
       layer,
       metric,
       query: layoutQuery,
       origin: captureLayoutOrigin(),
+      roster,
       power: powerCabinet
         ? { linkId: powerLinkId, inspection: pduInspection }
         : undefined,
     });
     setLayoutReturning(false);
     setLayoutRestore(0);
+  };
+  const inspectFixtureRow = (id: string) => {
+    if (!ready) return;
+    rememberLayoutSelection(id, {
+      source: fixtureSource,
+      query: fixtureQuery,
+      scroll: fixtureScroll.current,
+    });
+    control({ type: "analysis", value: false });
+    focus(id);
   };
   const openLayoutInstallation = (id: string) => {
     // 从服务范围继续查看关联设备时，布置图的起点仍是制冷单元。
@@ -3425,6 +3473,11 @@ export function Workspace() {
     setLayoutBoundary(false);
     setLayoutQuery("");
     setLayoutScope("equipment");
+    setShowFixtureRoster(false);
+    setFixtureQuery("");
+    setFixtureSource("all");
+    fixtureScroll.current = 0;
+    fixtureRestore.current = null;
     setLayoutCrossing(null);
     layoutScroll.current = 0;
     setLayoutRestore(0);
@@ -3762,7 +3815,8 @@ export function Workspace() {
                       control({ type: "open-resource", id: "room-01" });
                   }}
                 >
-                  ← 返回布置图 · {layoutReturnName}
+                  ← 返回{layoutVisit.roster ? "设施名单" : "布置图"} ·{" "}
+                  {layoutReturnName}
                 </button>
                 <button
                   aria-label="结束布置导览往返"
@@ -4250,6 +4304,7 @@ export function Workspace() {
                       setAlarmVisit(null);
                     }
                     if (view === "layout") {
+                      setShowFixtureRoster(false);
                       setLayoutVisit(null);
                       setLayoutReturning(false);
                     } else if (view === "space") {
@@ -4315,6 +4370,14 @@ export function Workspace() {
                       <option value="storage">存储</option>
                       <option value="facility">设施</option>
                     </select>
+                    {layer === "overview" && state.level === "room" && (
+                      <button
+                        className="fixture-roster-entry"
+                        onClick={openFixtureRoster}
+                      >
+                        环境与安全 ↗
+                      </button>
+                    )}
                     {layer === "alarms" && state.level === "rack" && (
                       <button
                         aria-label="仅看告警"
@@ -4440,12 +4503,35 @@ export function Workspace() {
               onDetails={(id) => inspectPowerOverview(id, "details")}
               onAnalyze={(id) => inspectPowerOverview(id, "analysis")}
             />
+          ) : state.level === "room" &&
+            navigationView === "layout" &&
+            showFixtureRoster ? (
+            <FixtureRoster
+              source={fixtureSource}
+              query={fixtureQuery}
+              time={state.time}
+              selected={selected}
+              visible={nav}
+              ready={ready}
+              restore={fixtureRestore}
+              scroll={fixtureScroll}
+              onQuery={setFixtureQuery}
+              onSource={setFixtureSource}
+              onInspect={inspectFixtureRow}
+              onMap={() => {
+                setShowFixtureRoster(false);
+                setLayoutVisit(null);
+                setLayoutReturning(false);
+                setLayoutRestore(0);
+              }}
+            />
           ) : state.level === "room" && navigationView === "layout" ? (
             <RoomLayout
               selected={selected}
               deviceId={state.deviceId}
               query={layoutQuery}
               scope={layoutScope}
+              onOpenFixtureRoster={openFixtureRoster}
               crossingId={layoutCrossing}
               onEnter={openLayoutInstallation}
               onInspectBranch={(branch) => {
@@ -5620,7 +5706,9 @@ export function Workspace() {
                     fixture.dataStatus === "not-applicable" ? (
                       "— 结构布置 · 无运行数据"
                     ) : (
-                      "— 布置示意 · 未接入数据"
+                      "— 仅布置 · " +
+                      (fixtureRoster.find((row) => row.fixture.id === selected)
+                        ?.signal ?? "未接入数据")
                     )
                   ) : coolingFacility ? (
                     "◇ 冷却输入 · 模拟"

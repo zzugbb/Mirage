@@ -17,6 +17,7 @@ import {
 } from "./ceiling-lights.ts";
 import { cableTraySettings, trayOuterWidth } from "./cable-trays.ts";
 
+import { fixtureRoster } from "./fixture-roster.ts";
 import { grilleBranches } from "./grille-inspection.ts";
 import { floorGrilleRows } from "./floor-grilles.ts";
 
@@ -137,17 +138,8 @@ export const roomLayoutCeilingFootprints = [
     })),
 ];
 /** 点位只投影配置中心；按钮偏移以避让相邻点，不表示占地或覆盖。 */
-export const roomLayoutFixtures: RoomLayoutItem[] = definition.room.fixtures
-  .filter((item) =>
-    [
-      "environment",
-      "smoke",
-      "access",
-      "leak-controller",
-      "leak-cable",
-    ].includes(item.kind),
-  )
-  .map((item) => ({
+export const roomLayoutFixtures: RoomLayoutItem[] = fixtureRoster.map(
+  ({ fixture: item }) => ({
     id: item.id,
     name: item.name,
     short: item.name
@@ -172,7 +164,8 @@ export const roomLayoutFixtures: RoomLayoutItem[] = definition.room.fixtures
             : item.id === "smoke-01"
               ? [52, 16]
               : [0, 16],
-  }));
+  }),
+);
 export const roomLayoutLeakPath = {
   id: definition.room.leakDetection.cableId,
   lead: definition.room.leakDetection.leadPoints.map(([x, , z]) => [x, z]),

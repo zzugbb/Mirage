@@ -6872,3 +6872,87 @@
   align-items: center;
   justify-content: space-between;
 }
+.study-filters .fixture-roster-entry,
+.fixture-roster header button {
+  background: #243640;
+  color: #c4dee1;
+  border: 1px solid #3f535c;
+  border-radius: 4px;
+}
+.fixture-roster {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  padding: 0 14px 8px;
+  gap: 9px;
+}
+.fixture-roster header,
+.fixture-roster-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 7px;
+}
+.fixture-roster h3 {
+  margin: 2px 0;
+  font-size: 14px;
+}
+.fixture-roster header button,
+.fixture-roster-filters button {
+  padding: 4px 7px;
+  font-size: 11px;
+}
+.fixture-roster input {
+  width: 100%;
+  padding: 7px 9px;
+  border: 1px solid #3b4d57;
+  background: #182631;
+  border-radius: 4px;
+}
+.fixture-roster-filters {
+  display: flex;
+  gap: 4px;
+}
+.fixture-roster-filters button {
+  flex: 1;
+  border: 1px solid #394b57;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+.fixture-roster-filters [aria-pressed="true"] {
+  background: #2f4751;
+  border-color: #88aeb5;
+}
+.fixture-roster-rows {
+  overflow: auto;
+  min-height: 0;
+  scrollbar-width: thin;
+}
+.fixture-roster-rows > button {
+  display: grid;
+  width: 100%;
+  gap: 4px;
+  text-align: left;
+  border-top: 1px solid #34454f;
+  padding: 9px 5px;
+  color: #b8c8d2;
+  font-size: 11px;
+}
+.fixture-roster-rows strong {
+  color: #e2edf1;
+  font-size: 13px;
+}
+.fixture-roster-title small {
+  font-size: 10px;
+}
+.fixture-roster-rows > button:is([aria-pressed="true"], :focus-visible) {
+  background: #293f49;
+}
+.fixture-roster-rows > button:focus-visible {
+  outline-offset: -2px;
+}
+.fixture-roster-reading {
+  color: #cbd9de;
+  font-variant-numeric: tabular-nums;
+}
