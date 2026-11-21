@@ -1,9 +1,16 @@
 import { updateRackBlanking } from "./rack-blanking";
 import { createEquipmentRearProxy } from "./equipment-rear-proxy";
-import { equipmentModels, modelForDevice } from "../catalog";
+import { patchSettings } from "../network-patch";
+import { equipmentModels, modelForDevice, partsForDevice } from "../catalog";
 import * as THREE from "three";
 import { observationColor } from "./metric-color";
-import { racks, devices, rackForDevice, deviceHeight } from "../installation";
+import {
+  racks,
+  devices,
+  rackForDevice,
+  deviceHeight,
+  installedFrontZ,
+} from "../installation";
 import type { AppState } from "../domain";
 import type { SpatialReading } from "../spatial";
 import { signalFor, signalStyles } from "../status";
@@ -57,7 +64,9 @@ export class InstallationScene {
       group.position.set(
         rack.position[0],
         deviceHeight(device.id),
-        rack.position[2] + 0.555 - modelForDevice(device.id).depth / 2,
+        rack.position[2] +
+          installedFrontZ -
+          modelForDevice(device.id).depth / 2,
       );
       const bounds = new THREE.Mesh(boundsGeometry, boundsMaterial);
       const model = modelForDevice(device.id);
@@ -74,11 +83,13 @@ export class InstallationScene {
       metalness = 0.5,
       light = false,
       modelId = "server-2u",
+      deviceId?: string,
     ) => {
       const ids: string[] = [],
         positions: THREE.Vector3[] = [];
       for (const device of devices.filter(
-        (device) => device.modelId === modelId,
+        (device) =>
+          device.modelId === modelId && (!deviceId || device.id === deviceId),
       ))
         for (const offset of offsets) {
           ids.push(device.id);
@@ -99,6 +110,25 @@ export class InstallationScene {
       this.root.add(mesh);
       this.batches.push({ mesh, offsets: positions, ids, light });
     };
+    // 样板存储的简模在后部风扇上方留出两个控制器区域，详细外观到达后随简模替换。
+    const storage = modelForDevice(patchSettings.sourceId);
+    const panelDepth = patchSettings.controllerPanelDepth;
+    const controllerCenters = partsForDevice(patchSettings.sourceId)
+      .filter((part) => part.node === "controller")
+      .map((part) => [
+        part.position[0],
+        patchSettings.controllerPanelY,
+        -storage.depth / 2 - panelDepth / 2,
+      ]);
+    batch(
+      [0.096, 0.024, panelDepth],
+      "#58656c",
+      controllerCenters,
+      0.5,
+      false,
+      storage.id,
+      patchSettings.sourceId,
+    );
     for (const model of equipmentModels) {
       const height = model.units * 0.04445 - 0.003,
         depth = model.depth;

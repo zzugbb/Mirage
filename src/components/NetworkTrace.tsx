@@ -4,6 +4,7 @@ import {
   switchRole,
   type NetworkLink,
 } from "../network";
+import { unitLabel } from "../catalog";
 import { deviceById } from "../installation";
 
 export function NetworkBranchPicker({
@@ -38,6 +39,9 @@ export function NetworkTrace({
   link,
   deviceId,
   inside,
+  patchAvailable,
+  patchActive,
+  onTogglePatch,
   showEndMark,
   ready,
   onPreview,
@@ -48,6 +52,9 @@ export function NetworkTrace({
   link: NetworkLink;
   deviceId: string | null;
   inside: string | null;
+  patchAvailable: boolean;
+  patchActive: boolean;
+  onTogglePatch: () => void;
   showEndMark: boolean;
   ready: boolean;
   onPreview: (id: string) => void;
@@ -61,6 +68,15 @@ export function NetworkTrace({
     <section className="network-trace" aria-label="当前网络连接">
       <header>
         <NetworkBranchPicker link={link} ready={ready} onTrace={onTrace} />
+        {patchAvailable && (
+          <button
+            disabled={!ready}
+            aria-pressed={patchActive}
+            onClick={onTogglePatch}
+          >
+            布线示意
+          </button>
+        )}
         {showEndMark && <button onClick={() => onTrace(null)}>结束标记</button>}
       </header>
       <div
@@ -80,6 +96,12 @@ export function NetworkTrace({
               {end.ordinal} {end.side === "source" ? "设备端" : "交换机端"}
             </small>
             <strong>{end.name}</strong>
+            {patchActive && (
+              <small>
+                {unitLabel(end.deviceId)} ·{" "}
+                {end.side === "source" ? end.partName : "接入口组"}
+              </small>
+            )}
           </button>
         ))}
       </div>

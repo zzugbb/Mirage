@@ -97,8 +97,14 @@ import {
 } from "./inspection-platforms";
 import { InspectionBackdrop } from "./inspection-backdrop";
 import { InstallationScene } from "./installation";
-import { rackForDevice, deviceById, deviceHeight } from "../installation";
+import {
+  rackForDevice,
+  deviceById,
+  deviceHeight,
+  installedFrontZ,
+} from "../installation";
 import * as THREE from "three";
+import { observationFrame } from "../observation-frame";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
@@ -969,6 +975,7 @@ export class SceneEngine {
     this.clearSliceView();
     this.restoreObservationView(previous);
   }
+  patchPoints: THREE.Vector3[] | null = null;
   onNetworkView: (active: boolean) => void = () => {};
   private networkObservation?: {
     sourceId: string;
@@ -1002,10 +1009,10 @@ export class SceneEngine {
     this.networkObservation = {
       sourceId,
       targets,
-      key: JSON.stringify(targets),
+      key: JSON.stringify(this.patchPoints ?? targets),
       previous,
     };
-    this.currentView = "front";
+    this.currentView = this.patchPoints ? "iso" : "front";
     this.currentFocus = false;
     this.interior = false;
     this.controls.minAzimuthAngle = -Infinity;
@@ -1027,7 +1034,7 @@ export class SceneEngine {
       this.clearPowerView();
       return;
     }
-    const key = JSON.stringify(targets);
+    const key = JSON.stringify(this.patchPoints ?? targets);
     if (key === this.networkObservation.key) return;
     this.networkObservation.targets = targets;
     this.networkObservation.key = key;
@@ -1035,6 +1042,10 @@ export class SceneEngine {
   }
   private frameNetwork() {
     if (!this.networkObservation) return;
+    if (this.patchPoints) {
+      this.frameNetworkPatch(this.patchPoints, "iso");
+      return;
+    }
     const { width, height, rect } = this.observationViewport();
     const fit = networkViewFrame(
       this.networkObservation.targets,
@@ -1045,6 +1056,37 @@ export class SceneEngine {
     this.targetPosition.copy(fit.position);
     this.targetLook.copy(fit.target);
     this.controls.maxDistance = Math.max(45, fit.distance * 1.2);
+    this.moving = true;
+    this.invalidate();
+  }
+  private frameNetworkPatch(
+    points: THREE.Vector3[],
+    view: "iso" | "front" | "rear",
+  ) {
+    const { width, height, rect, legendRect } = this.observationViewport();
+    const direction =
+      view === "iso"
+        ? new THREE.Vector3(1.05, 0.32, 1)
+        : new THREE.Vector3(0, 0.1, view === "rear" ? -1 : 1);
+    const fit = observationFrame(
+      points,
+      direction,
+      width,
+      height,
+      {
+        ...rect,
+        left: width - rect.right,
+        bottom: Math.min(
+          rect.bottom,
+          legendRect ? legendRect.top - 12 : rect.bottom,
+        ),
+      },
+      1.55,
+      0.18,
+    );
+    this.targetPosition.copy(fit.position);
+    this.targetLook.copy(fit.target);
+    this.controls.minDistance = 0.5;
     this.moving = true;
     this.invalidate();
   }
@@ -1807,7 +1849,9 @@ export class SceneEngine {
     this.presentation.mounted.set(
       rack.position[0],
       deviceHeight(state.deviceId),
-      rack.position[2] + 0.555 - modelForDevice(state.deviceId).depth / 2,
+      rack.position[2] +
+        installedFrontZ -
+        modelForDevice(state.deviceId).depth / 2,
     );
   }
   objectFor(id: string) {
@@ -2126,6 +2170,15 @@ export class SceneEngine {
       this.controls.maxDistance = 45;
       this.moving = true;
       this.invalidate();
+      return;
+    }
+    if (
+      this.state.level === "rack" &&
+      !focus &&
+      this.patchPoints &&
+      (view === "iso" || view === "front" || view === "rear")
+    ) {
+      this.frameNetworkPatch(this.patchPoints, view);
       return;
     }
     // 机房内聚焦设备时保留整柜参照，选择轮廓仍落在设备的实际安装位。
@@ -2833,6 +2886,9 @@ export class SceneEngine {
       this.powerObservation && this.state.level === "room"
         ? rackForDevice(this.powerObservation.sourceId).id
         : null;
+    const patchCutaway =
+      !!this.patchPoints && this.state.level === "rack" && !frame.busy;
+    this.models.rackRightSide.visible = !patchCutaway;
     const rearObservation =
       (this.state.level === "rack" &&
         (!!pduById(this.state.selected) || this.telemetry.mode === "power")) ||
@@ -2846,7 +2902,7 @@ export class SceneEngine {
     this.models.rack.getObjectByName("rack-rear-shell")!.visible =
       !rearObservation;
     this.models.rack.getObjectByName("rack-rear-doors")!.visible =
-      !rearObservation ||
+      (!rearObservation && !patchCutaway) ||
       this.state.rearDoorOpen ||
       this.presentation.rearDoor > 0;
     this.host.dataset.rearObservation = String(rearObservation);
@@ -2967,7 +3023,7 @@ export class SceneEngine {
     this.unitGuide.update(
       this.state,
       this.camera.position,
-      this.presentation.pose.inspection > 0,
+      patchCutaway || this.presentation.pose.inspection > 0,
       this.rangeObservation?.range ?? this.unitRange,
     );
     this.models.root.updateMatrixWorld(true);
@@ -3084,6 +3140,17 @@ export class SceneEngine {
           x > this.host.clientWidth ||
           y < 0 ||
           y > this.host.clientHeight;
+        if (!hidden && element.dataset.patchDevice) {
+          // 两端保留安装简模的整机占位，短标排在其投影轮廓外。
+          this.anchorBounds.setFromObject(
+            this.installation.devices.get(element.dataset.patchDevice)!,
+          );
+          this.projectHotspotBounds(
+            element,
+            this.host.clientWidth,
+            this.host.clientHeight,
+          );
+        }
         if (!hidden && element.dataset.inletDevice) {
           const device = this.inletObservation?.inspection.devices.find(
             (item) => item.id === element.dataset.inletDevice,

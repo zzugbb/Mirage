@@ -1,4 +1,6 @@
 import definition from "../assets/public/scenes/room-01.json" with { type: "json" };
+export const installedFrontZ =
+  definition.server.position[2] + definition.server.size[2] / 2;
 export const racks = definition.installation.racks;
 export const devices = definition.installation.devices;
 export const deviceById = (id: string) =>

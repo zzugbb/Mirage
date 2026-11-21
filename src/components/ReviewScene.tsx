@@ -137,6 +137,7 @@ import { budgetPercent, budgetRatio, budgetStateText } from "../power-budget";
 import { alarmCurrentStatus } from "../alarm-queue";
 import { metricAttentionColor, qualityNames, signalStyles } from "../status";
 import { networkMarkers, networkLinkById, switchRole } from "../network";
+import { networkPatch } from "../network-patch";
 import { NetworkGeometry } from "../scene/network";
 
 export function ReviewScene({
@@ -178,6 +179,7 @@ export function ReviewScene({
   onReturnAirflowEndpoint,
   aisle,
   networkLinkId = null,
+  showNetworkPatch = false,
   canStartInletPair,
   inletPair,
   inletView,
@@ -309,6 +311,7 @@ export function ReviewScene({
   onReturnAirflowEndpoint: () => void;
   aisle?: MaintenanceAisle;
   networkLinkId?: string | null;
+  showNetworkPatch?: boolean;
   powerLinkId?: string | null;
   pduInspection?: PduInspection | null;
   onClearPower?: () => void;
@@ -588,19 +591,40 @@ export function ReviewScene({
     !supply.labels.some((label) => label.partId === selectedId);
   const showSupply = !optionalInputs || showPowerInputs;
   const supplyLabels = showSupply ? supply?.labels : undefined;
-  const network = useMemo(
+  const networkLink = networkLinkById(networkLinkId);
+  const patch = useMemo(
     () =>
-      isolatedPartId ? [] : networkMarkers(state, selectedId, networkLinkId),
+      showNetworkPatch && networkLink
+        ? networkPatch(state, networkLink, assets)
+        : null,
     [
+      showNetworkPatch,
+      networkLink,
       state.level,
-      state.deviceId,
       state.trayExtended,
-      selectedId,
-      networkLinkId,
-      isolatedPartId,
+      state.deviceId,
+      assets,
     ],
   );
-  const networkLink = networkLinkById(networkLinkId);
+  const network = useMemo(() => {
+    const markers = isolatedPartId
+      ? []
+      : networkMarkers(state, selectedId, networkLinkId);
+    return patch
+      ? markers.map((marker, index) => ({
+          ...marker,
+          point: (index === 0 ? patch[0] : patch[patch.length - 1]).toArray(),
+        }))
+      : markers;
+  }, [
+    state.level,
+    state.deviceId,
+    state.trayExtended,
+    selectedId,
+    networkLinkId,
+    patch,
+    isolatedPartId,
+  ]);
   const availableAisle = networkLinkId ? undefined : aisle;
   const rackAreas = useMemo(
     () =>
@@ -1440,6 +1464,10 @@ export function ReviewScene({
     setView(active.currentView);
   }, [networkViewCommand?.revision]);
   useEffect(() => {
+    networkGeometry.current?.update(network, patch, selectedId);
+    if (engine.current) engine.current.patchPoints = patch;
+  }, [network, patch, selectedId, retry]);
+  useEffect(() => {
     engine.current?.updateNetworkView(
       selectedId,
       layer === "overview" && !isolatedPartId ? networkLinkId : null,
@@ -1506,9 +1534,6 @@ export function ReviewScene({
   useEffect(() => {
     powerGeometry.current?.update(showSupply ? supply : null);
   }, [supply, showSupply, retry]);
-  useEffect(() => {
-    networkGeometry.current?.update(network);
-  }, [network, retry]);
   useEffect(() => {
     if (engine.current) engine.current.shellCutaway.enabled = cutaway;
   }, [cutaway, retry]);
@@ -1758,6 +1783,7 @@ export function ReviewScene({
       data-power-device={supply?.deviceId}
       data-power-trace={supply?.traceId ?? undefined}
       data-environment-probe={ambient?.id}
+      data-network-patch={patch ? networkLinkId : undefined}
       data-network-link={network.length ? networkLinkId : undefined}
     >
       <div className="review-viewport">
@@ -1947,13 +1973,18 @@ export function ReviewScene({
               hidden
               aria-hidden="true"
               data-anchor={marker.id}
+              data-hotspot={patch ? "bounds" : undefined}
+              data-patch-device={patch ? marker.deviceId : undefined}
               data-anchor-part={marker.partId}
               data-anchor-kind={marker.partId ? "part-position" : "position"}
               data-anchor-level={state.level}
               data-anchor-position={marker.point?.join(",")}
               className="review-flow-anchor review-network-anchor"
             >
-              <b>{marker.title}</b>
+              <b>
+                {marker.title}
+                {patch && ` · ${unitLabel(marker.deviceId)}`}
+              </b>
             </div>
           ))}
           {supplyLabels?.map((label) => (
@@ -2337,8 +2368,13 @@ export function ReviewScene({
             <div className="network-scene-key">
               <strong>网络接入 {switchRole(networkLink.target)}</strong>
               <small>
-                {state.level === "device" ? "所属部件示意" : "设备位置示意"}
+                {state.level === "device"
+                  ? "所属部件示意"
+                  : patch
+                    ? "布线示意 · 柜前看右侧"
+                    : "设备位置示意"}
               </small>
+              {patch && <small>后门及右侧板剖示 · 虚线为遮挡段</small>}
               <div className="network-view-actions">
                 {network.length === 2 &&
                   network.every((marker) => marker.point) && (

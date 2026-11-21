@@ -249,6 +249,7 @@ import {
   type PduInspection,
 } from "./pdu-outlets";
 import { PowerConnections } from "./components/PowerConnections";
+import { canShowNetworkPatch } from "./network-patch";
 import { NetworkTrace } from "./components/NetworkTrace";
 import { NetworkConnections } from "./components/NetworkConnections";
 import {
@@ -920,6 +921,14 @@ export function Workspace() {
   } | null>(null);
   const originalNetworkLink = networkLinkById(networkMapVisit?.linkId ?? null);
   const networkTrace = networkLinkById(activeNetworkLink);
+  const [patchEntry, setPatchEntry] = useState<{ doorOpen: boolean } | null>(
+    null,
+  );
+  const patchAvailable = canShowNetworkPatch(state, networkTrace);
+  useEffect(() => {
+    if (!patchAvailable || !state.doorOpen) setPatchEntry(null);
+  }, [patchAvailable, state.doorOpen]);
+  const patchActive = !!patchEntry && patchAvailable && state.doorOpen;
   const portOwnsTrace =
     !!networkTrace &&
     portCheck?.switchId === networkTrace.target &&
@@ -2552,7 +2561,11 @@ export function Workspace() {
   const changeNetworkTrace = (id: string | null) => {
     const link = networkLinkById(id);
     if (link && !networkContextIncludes(selected, state.deviceId, id))
-      pick(link.source);
+      pick(
+        patchActive && selected === networkTrace?.target
+          ? link.target
+          : link.source,
+      );
     setNetworkLinkId(id);
     if (!id) setNetworkMapVisit(null);
   };
@@ -5007,6 +5020,7 @@ export function Workspace() {
             }}
             aisle={aisle}
             networkLinkId={activeNetworkLink}
+            showNetworkPatch={patchActive}
             powerViewCommand={powerViewCommand}
             powerViewActive={powerViewActive}
             powerViewPaired={powerViewPaired}
@@ -5393,6 +5407,18 @@ export function Workspace() {
             {networkTrace && !portOwnsTrace && !review.analysis && (
               <NetworkTrace
                 link={networkTrace}
+                patchAvailable={patchAvailable}
+                patchActive={patchActive}
+                onTogglePatch={() => {
+                  if (patchEntry) {
+                    if (!patchEntry.doorOpen)
+                      dispatch({ type: "door", open: false });
+                    setPatchEntry(null);
+                  } else {
+                    setPatchEntry({ doorOpen: state.doorOpen });
+                    if (!state.doorOpen) dispatch({ type: "door", open: true });
+                  }
+                }}
                 deviceId={networkDeviceId(selected, state.deviceId)}
                 inside={state.level === "device" ? state.deviceId : null}
                 ready={ready}

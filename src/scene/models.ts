@@ -239,9 +239,12 @@ export function buildModels() {
         "#5d6369",
         0.8,
       );
+  const rackRightSide = new THREE.Group();
+  rackRightSide.name = "rack-side-right";
+  rack.add(rackRightSide);
   for (const x of [-rw / 2, rw / 2])
     box(
-      rack,
+      x > 0 ? rackRightSide : rack,
       [0.025, rh - 0.1, rd - 0.05],
       [x, rh / 2 + 0.05, 0],
       "#24272b",
@@ -409,6 +412,7 @@ export function buildModels() {
     shellOccluders,
     rack,
     rackDoor,
+    rackRightSide,
     rackSlide,
     bench,
     benchContact,

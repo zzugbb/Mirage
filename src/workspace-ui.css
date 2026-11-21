@@ -2147,6 +2147,14 @@
   border-radius: 4px;
   padding: 4px;
 }
+.network-trace header button[aria-pressed] {
+  border: 1px solid #52675f;
+  padding: 5px 8px;
+}
+.network-trace header button[aria-pressed="true"] {
+  background: #29424a;
+  border-color: #a6d8d8;
+}
 .network-endpoint-picker {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

@@ -5533,6 +5533,23 @@
         ]
       },
       "switchPartId": "net-ports",
+      "patchIllustration": {
+        "rackId": "rack-a07",
+        "sourceId": "sto-01",
+        "description": "柜前看右侧理线示意，端点仅定位控制器区域与接入口组",
+        "sideX": 0.269,
+        "postBypassX": 0.242,
+        "rearClearance": 0.047,
+        "frontClearance": 0.038,
+        "controllerPanelY": 0.052,
+        "controllerPanelDepth": 0.008,
+        "exteriorInterfaceWidth": 0.105,
+        "exteriorInterfaceY": 0.023,
+        "accessBankX": -0.045,
+        "bendRadius": 0.022,
+        "cableRadius": 0.0048,
+        "color": "#83d6c8"
+      },
       "objectMarkerOffset": [
         0,
         0,
