@@ -77,22 +77,18 @@ export class InstallationScene {
       this.devices.set(device.id, group);
     }
     const batch = (
+      memberIds: string[],
       size: number[],
       color: string,
       offsets: number[][],
       metalness = 0.5,
       light = false,
-      modelId = "server-2u",
-      deviceId?: string,
     ) => {
       const ids: string[] = [],
         positions: THREE.Vector3[] = [];
-      for (const device of devices.filter(
-        (device) =>
-          device.modelId === modelId && (!deviceId || device.id === deviceId),
-      ))
+      for (const id of memberIds)
         for (const offset of offsets) {
-          ids.push(device.id);
+          ids.push(id);
           positions.push(new THREE.Vector3(...offset));
         }
       const material = light
@@ -110,26 +106,28 @@ export class InstallationScene {
       this.root.add(mesh);
       this.batches.push({ mesh, offsets: positions, ids, light });
     };
-    // 样板存储的简模在后部风扇上方留出两个控制器区域，详细外观到达后随简模替换。
-    const storage = modelForDevice(patchSettings.sourceId);
-    const panelDepth = patchSettings.controllerPanelDepth;
-    const controllerCenters = partsForDevice(patchSettings.sourceId)
-      .filter((part) => part.node === "controller")
-      .map((part) => [
-        part.position[0],
-        patchSettings.controllerPanelY,
-        -storage.depth / 2 - panelDepth / 2,
-      ]);
-    batch(
-      [0.096, 0.024, panelDepth],
-      "#58656c",
-      controllerCenters,
-      0.5,
-      false,
-      storage.id,
-      patchSettings.sourceId,
-    );
     for (const model of equipmentModels) {
+      const ids = devices
+        .filter((device) => device.modelId === model.id)
+        .map((device) => device.id);
+      const patchIds = ids.filter((id) => patchSettings.sourceIds.includes(id));
+      if (patchIds.length) {
+        // 同型号样板共用后面板几何，各实例按自己的安装位平移。
+        const panelDepth = patchSettings.controllerPanelDepth;
+        const controllerCenters = partsForDevice(patchIds[0])
+          .filter((part) => part.node === "controller")
+          .map((part) => [
+            part.position[0],
+            patchSettings.controllerPanelY,
+            -model.depth / 2 - panelDepth / 2,
+          ]);
+        batch(
+          patchIds,
+          [0.096, 0.024, panelDepth],
+          "#58656c",
+          controllerCenters,
+        );
+      }
       const height = model.units * 0.04445 - 0.003,
         depth = model.depth;
       const add = (
@@ -138,7 +136,7 @@ export class InstallationScene {
         offsets: number[][],
         metalness = 0.5,
         light = false,
-      ) => batch(size, color, offsets, metalness, light, model.id);
+      ) => batch(ids, size, color, offsets, metalness, light);
       add([0.468, height, depth], "#5e6973", [[0, 0, 0]], 0.7);
       add(
         [0.47, height - 0.004, 0.014],
@@ -231,9 +229,6 @@ export class InstallationScene {
         0,
         true,
       );
-      const ids = devices
-        .filter((device) => device.modelId === model.id)
-        .map((device) => device.id);
       const rear = createEquipmentRearProxy(model.id);
       for (const object of rear.children) {
         const source = object as THREE.Mesh;

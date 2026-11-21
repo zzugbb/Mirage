@@ -5534,8 +5534,7 @@
       },
       "switchPartId": "net-ports",
       "patchIllustration": {
-        "rackId": "rack-a07",
-        "sourceId": "sto-01",
+        "sourceIds": ["sto-01", "sto-03"],
         "description": "柜前看右侧理线示意，端点仅定位控制器区域与接入口组",
         "sideX": 0.269,
         "postBypassX": 0.242,

@@ -21,10 +21,9 @@ export function canShowNetworkPatch(state: AppState, link?: NetworkLink) {
     !!link &&
     state.level === "rack" &&
     !state.trayExtended &&
-    link.source === patchSettings.sourceId &&
-    [state.deviceId, link.source, link.target].every(
-      (id) => rackForDevice(id).id === patchSettings.rackId,
-    )
+    patchSettings.sourceIds.includes(link.source) &&
+    rackForDevice(link.source).id === rackForDevice(state.deviceId).id &&
+    rackForDevice(link.target).id === rackForDevice(link.source).id
   );
 }
 

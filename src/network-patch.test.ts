@@ -21,7 +21,7 @@ const rack = { ...createState(), level: "rack" as const, deviceId: "sw-14" };
 const assets = initialModelLoads();
 const links = networkLinks.filter((link) => canShowNetworkPatch(rack, link));
 
-test("只开放 B03 的两条存储接入，控制器、端口组与高度跟随当前配置", () => {
+test("B03 柜内只显示本柜的两条样板接入，控制器、端口组与高度跟随配置", () => {
   assert.deepEqual(
     links.map((link) => link.target),
     ["sw-13", "sw-14"],
@@ -132,4 +132,57 @@ test("从存储安装位查看时避开后置风扇，已加载外观改用后�
       );
   }
   geometry.dispose();
+});
+
+test("B04 的 STO-03 仅启用两条同柜接入，复用 B03 在各装配状态下的局部走线", () => {
+  const b04 = { ...rack, deviceId: "sw-16" };
+  const branches = networkLinks.filter((link) =>
+    canShowNetworkPatch(b04, link),
+  );
+  assert.deepEqual(
+    branches.map((link) => [link.source, link.target, link.targetPort]),
+    [
+      ["sto-03", "sw-15", 9],
+      ["sto-03", "sw-16", 9],
+    ],
+  );
+  const allowed = networkLinks.filter((link) =>
+    canShowNetworkPatch({ ...rack, deviceId: link.source }, link),
+  );
+  assert.equal(allowed.length, 4);
+  for (const [index, link] of branches.entries()) {
+    const original = links[index];
+    assert.equal(networkPatch(rack, link, assets), null);
+    const ends = networkEndpoints(link.id);
+    assert.equal(ends[0].location, "B04 机柜 / U25–28");
+    assert.equal(ends[0].partName, index === 0 ? "控制器 A" : "控制器 B");
+    assert.equal(
+      ends[1].location,
+      index === 0 ? "B04 机柜 / U39" : "B04 机柜 / U41",
+    );
+    for (const activeEnd of ["source", "target"] as const) {
+      for (const loads of [
+        assets,
+        { ...assets, "storage-4u": "ready", "switch-1u": "ready" },
+      ] as const) {
+        const previous = networkPatch(
+          { ...rack, deviceId: original[activeEnd] },
+          original,
+          loads,
+        )!;
+        const next = networkPatch(
+          { ...b04, deviceId: link[activeEnd] },
+          link,
+          loads,
+        )!;
+        const translation = new Vector3(
+          ...rackForDevice(link.source).position,
+        ).sub(new Vector3(...rackForDevice(original.source).position));
+        assert.equal(previous.length, next.length);
+        next.forEach((p, i) =>
+          assert.ok(p.distanceTo(previous[i].clone().add(translation)) < 1e-8),
+        );
+      }
+    }
+  }
 });
