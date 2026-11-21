@@ -45,18 +45,21 @@ export function signalFor(reading: SpatialReading | null | undefined): Signal {
       ? "warning"
       : "normal";
 }
+export function budgetAttentionStyle(
+  reading: SpatialReading | null | undefined,
+) {
+  if (reading?.quality !== "valid" || !reading.budgetState) return undefined;
+  return signalStyles[
+    reading.budgetState.level === "over" ? "critical" : "warning"
+  ];
+}
 /** 只强调当前读数自己的判定，柜内异常和部件模型评估由各自的状态表达。 */
 export function metricAttentionColor(
   reading: SpatialReading | undefined,
   metric: "temperature" | "power",
 ) {
   if (!reading || reading.quality !== "valid") return undefined;
-  if (metric === "power")
-    return reading.budgetState
-      ? signalStyles[
-          reading.budgetState.level === "over" ? "critical" : "warning"
-        ].color
-      : undefined;
+  if (metric === "power") return budgetAttentionStyle(reading)?.color;
   return reading.count === 1 && reading.temperature !== null && reading.alarm
     ? signalStyles[reading.alarm === 2 ? "critical" : "warning"].color
     : undefined;

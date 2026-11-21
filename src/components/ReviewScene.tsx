@@ -1515,14 +1515,20 @@ export function ReviewScene({
   const scope = readings.get(
     state.level === "room" ? "room-01" : rackForDevice(state.deviceId).id,
   )!;
+  // 点选整机时用它的输入占比替换所属柜卡，供电追踪仍由原有端点说明。
+  const roomLabelDevice =
+    roomDevice ??
+    (state.level === "room" && layer === "power" && !(supply && showSupply)
+      ? deviceById(selectedId)
+      : undefined);
   const candidates: { id: string; name: string }[] =
     state.level === "room"
       ? sliceRow
         ? racks.filter((rack) => sliceRow.rackIds.includes(rack.id))
-        : roomDevice
+        : roomLabelDevice
           ? [
-              roomDevice,
-              ...racks.filter((rack) => rack.id !== roomDevice.rackId),
+              roomLabelDevice,
+              ...racks.filter((rack) => rack.id !== roomLabelDevice.rackId),
             ]
           : racks
       : state.level === "rack"
@@ -2074,13 +2080,13 @@ export function ReviewScene({
                       ? "center"
                       : "bounds"
                     : state.level === "rack" &&
-                        alarm &&
+                        (alarm || ownBudget) &&
                         item.id === state.selected
                       ? "bounds"
                       : undefined
                 }
                 data-anchor-kind={
-                  alarmDevice || item.id === roomDevice?.id
+                  alarmDevice || item.id === roomLabelDevice?.id
                     ? "device"
                     : state.level === "room"
                       ? "rack"

@@ -207,6 +207,7 @@ import {
 import type { ReviewAction, ResourceAction, ReviewState } from "./review-model";
 import { spatialSnapshot, selectedReading } from "./spatial";
 import {
+  budgetAttentionStyle,
   metricAttentionColor,
   qualityNames,
   signalFor,
@@ -1189,6 +1190,12 @@ export function Workspace() {
   const reading = selectedReading({ ...state, selected }, spatial.readings);
   const currentTemperature = currentMetricValue(reading, "temperature");
   const currentPower = currentMetricValue(reading, "power");
+  const powerAttention =
+    layer === "power" ? budgetAttentionStyle(reading) : undefined;
+  const attentionRatio =
+    powerAttention && reading
+      ? budgetRatio(currentPower, reading.budget)
+      : null;
   const room = spatial.readings.get("room-01")!;
   const resource = resourceCatalog(state.deviceId).find(
     (r) => r.id === selected,
@@ -6167,7 +6174,24 @@ export function Workspace() {
                         </div>
                       )}
                       <div>
-                        <span>{reading.powerLabel}</span>
+                        <span
+                          title={
+                            powerAttention
+                              ? budgetStateText(
+                                  reading.budgetState,
+                                  attentionRatio,
+                                )
+                              : undefined
+                          }
+                        >
+                          {reading.powerLabel}
+                          {powerAttention && attentionRatio !== null && (
+                            <>
+                              <br />
+                              {`${powerAttention.icon} ${budgetPercent(attentionRatio)}`}
+                            </>
+                          )}
+                        </span>
                         <strong
                           style={{
                             color: metricAttentionColor(reading, "power"),

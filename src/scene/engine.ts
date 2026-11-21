@@ -87,7 +87,7 @@ import { createEquipmentAssembly } from "./equipment-model";
 import { advanceAssembly, assemblyPartPosition } from "../assembly-motion";
 import { createExteriorAssembly, poseExterior } from "./equipment-exterior";
 import { mapCompactServer } from "./compact-server";
-import { signalStyles } from "../status.ts";
+import { budgetAttentionStyle, signalStyles } from "../status.ts";
 import { SpatialSignals, visibleSignal } from "./signals";
 import { SurfaceObservation } from "./surface";
 import {
@@ -3009,19 +3009,20 @@ export class SceneEngine {
       this.state.level !== "device"
         ? this.installation.devices.get(this.state.selected)
         : undefined;
-    const rackAlarm =
-      installed && this.state.level === "rack"
-        ? visibleSignal(
-            this.surface.snapshot.readings.get(this.state.selected),
-            this.telemetry.mode,
-          )
-        : null;
+    let faceColor: string | undefined;
+    if (installed && this.state.level === "rack") {
+      const reading = this.surface.snapshot.readings.get(this.state.selected);
+      const alarm = visibleSignal(reading, this.telemetry.mode);
+      if (alarm) faceColor = signalStyles[alarm].color;
+      else if (this.telemetry.mode === "power")
+        faceColor = budgetAttentionStyle(reading)?.color;
+    }
     if (object && showSelection) {
       if (installed)
         this.models.selection.setInstalledBox(
           object,
           installed,
-          rackAlarm ? this.camera.position.z : undefined,
+          faceColor ? this.camera.position.z : undefined,
         );
       else this.models.selection.box.setFromObject(object);
     }
@@ -3034,7 +3035,7 @@ export class SceneEngine {
       this.state.level === "device" || selectedFixture || installed
         ? 0.006
         : 0.025,
-      rackAlarm ? signalStyles[rackAlarm].color : undefined,
+      faceColor,
     );
     this.host.dataset.selectionTarget = showSelection
       ? this.state.selected
@@ -3097,6 +3098,7 @@ export class SceneEngine {
           ? this.presentation.pose.inspection === 0 &&
             ((this.state.level === "room" &&
               (this.telemetry.mode === "alarms" ||
+                this.telemetry.mode === "power" ||
                 this.telemetry.mode === "status") &&
               id === this.state.selected) ||
               (this.state.level === "rack" &&
@@ -3127,9 +3129,9 @@ export class SceneEngine {
         continue;
       }
       if (target && show) {
-        const alarmFace =
+        const emphasizedFace =
           deviceAnchor &&
-          rackAlarm &&
+          faceColor &&
           showSelection &&
           id === this.state.selected;
         if (rackAnchor || deviceAnchor)
@@ -3160,7 +3162,7 @@ export class SceneEngine {
           this.anchorPosition.y += 2.38;
         }
         if (deviceAnchor) {
-          if (alarmFace) {
+          if (emphasizedFace) {
             this.anchorBounds
               .copy(this.models.selection.box)
               .getCenter(this.anchorPosition);
@@ -3186,7 +3188,7 @@ export class SceneEngine {
         if (
           !hidden &&
           element.dataset.hotspot === "bounds" &&
-          (!deviceAnchor || alarmFace)
+          (!deviceAnchor || emphasizedFace)
         )
           this.projectHotspotBounds(
             element,

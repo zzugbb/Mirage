@@ -45,7 +45,7 @@ export class SelectionCorners extends THREE.LineSegments<
         object.getWorldPosition(this.center),
         this.box.getSize(this.size),
       );
-    // 告警定位仅描出朝向观察者的一面，保持 1U、2U 的实际安装高度。
+    // 异常定位仅描出朝向观察者的一面，保持 1U、2U 的实际安装高度。
     if (faceCameraZ !== undefined) {
       const { min, max } = this.box;
       if (faceCameraZ >= (min.z + max.z) / 2) min.z = max.z;
@@ -57,11 +57,11 @@ export class SelectionCorners extends THREE.LineSegments<
     time: number,
     reduced: boolean,
     padding = 0.006,
-    alarmColor?: string,
+    faceColor?: string,
   ) {
-    this.material.color.set(alarmColor ?? "#b7e8e8");
-    this.material.depthTest = !alarmColor;
-    this.renderOrder = alarmColor ? 10 : 0;
+    this.material.color.set(faceColor ?? "#b7e8e8");
+    this.material.depthTest = !faceColor;
+    this.renderOrder = faceColor ? 10 : 0;
     this.animating = false;
     this.visible = !!key && !this.box.isEmpty();
     if (!this.visible) {
@@ -86,7 +86,7 @@ export class SelectionCorners extends THREE.LineSegments<
     let index = 0;
     const sizes = this.size.toArray(),
       center = this.center.toArray();
-    const maxLeg = this.size.length() * (alarmColor ? 0.18 : 0.06);
+    const maxLeg = this.size.length() * (faceColor ? 0.18 : 0.06);
     for (const x of [-1, 1])
       for (const y of [-1, 1])
         for (const z of [-1, 1]) {

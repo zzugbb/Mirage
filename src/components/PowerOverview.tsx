@@ -8,6 +8,7 @@ import {
 } from "../power-overview";
 import { powerColor } from "../scene/metric-color";
 import { budgetPercent, budgetRatio, budgetStateText } from "../power-budget";
+import { budgetAttentionStyle } from "../status";
 import { sourceValue } from "../reading-sources";
 import type { SpatialReading } from "../spatial";
 
@@ -215,22 +216,28 @@ export function PowerOverview({
         <div className="power-overview-devices">
           {rows.map((row) => {
             const ratio = budgetRatio(row.value, row.budget);
+            const reading = readings.get(row.id);
+            const attention = budgetAttentionStyle(reading);
+            const percent = attention
+              ? `${attention.icon} ${ratioText(ratio)}`
+              : ratioText(ratio);
             return (
               <button
                 key={row.id}
                 data-power-id={row.id}
-                title={budgetStateText(
-                  readings.get(row.id)?.budgetState,
-                  ratio,
-                )}
+                title={budgetStateText(reading?.budgetState, ratio)}
                 aria-pressed={selected === row.id}
                 onClick={() => onPreview(row.id)}
               >
                 <span>
                   <b>{row.name}</b>
-                  <strong>
+                  <strong
+                    style={{
+                      color: order === "budget" ? attention?.color : undefined,
+                    }}
+                  >
                     {order === "budget"
-                      ? ratioText(ratio)
+                      ? percent
                       : sourceValue(row.value, "power")}
                   </strong>
                 </span>
@@ -241,7 +248,12 @@ export function PowerOverview({
                   {row.reason !== "有效输入" && ` · ${row.reason}`}
                 </small>
                 {ratio !== null && (
-                  <span className="power-row-load">
+                  <span
+                    className="power-row-load"
+                    style={{
+                      color: order !== "budget" ? attention?.color : undefined,
+                    }}
+                  >
                     <i aria-hidden="true">
                       <i
                         style={{
@@ -251,14 +263,14 @@ export function PowerOverview({
                             powerColor(
                               ratio,
                               undefined,
-                              readings.get(row.id)?.budgetState,
+                              reading?.budgetState,
                             ).getHexString(),
                         }}
                       />
                     </i>
                     {order === "budget"
                       ? sourceValue(row.value, "power")
-                      : ratioText(ratio)}
+                      : percent}
                   </span>
                 )}
               </button>
