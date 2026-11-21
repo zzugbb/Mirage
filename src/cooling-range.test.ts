@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import { coolingRangeRows, coolingRangeIncludes } from "./cooling-range.ts";
 import { coolingDeviceIds, coolingSource, coolingSummary } from "./cooling.ts";
 import { devices, racks } from "./installation.ts";
-import { partsForDevice, subpartsForDevice } from "./catalog.ts";
+import { airflowSnapshot } from "./airflow.ts";
+import { partsForDevice, subpartsForDevice, unitLabel } from "./catalog.ts";
 import { spatialSnapshot } from "./spatial.ts";
 
 test("制冷范围按真实关联分柜与 U 位排序，查找保留八柜及完整汇总", () => {
@@ -131,4 +132,38 @@ test("检视往返覆盖所查柜的四种机型及子件，换柜或环境点�
     for (const id of ["room-01", "power-01", "environment-01", "unknown"])
       assert.equal(coolingRangeIncludes(device.rackId, id, device.id), false);
   }
+});
+
+test("复合查找按同一台关联设备和安装位匹配，每柜落点与三维气流一致", () => {
+  const readings = spatialSnapshot(60).readings;
+  for (const row of coolingRangeRows(readings)) {
+    for (const device of row.matching) {
+      const query = [
+        device.name.toLowerCase(),
+        row.rack.name,
+        unitLabel(device.id),
+      ].join(" ");
+      const found = coolingRangeRows(readings, query).flatMap(
+        (r) => r.matching,
+      );
+      assert.deepEqual(
+        found.map((d) => d.id),
+        [device.id],
+      );
+      assert.ok(row.grille);
+      const path = airflowSnapshot(60, readings, device.id).routes[0];
+      assert.equal(row.grille.id, path.floorGrille.id);
+      assert.equal(path.sourceId, coolingSource.id);
+    }
+  }
+  assert.deepEqual(
+    coolingRangeRows(readings, "B03 U30").flatMap((r) =>
+      r.matching.map((d) => d.id),
+    ),
+    ["srv-55"],
+  );
+  assert.deepEqual(
+    coolingRangeRows(readings, "A01 SRV-55").flatMap((r) => r.matching),
+    [],
+  );
 });

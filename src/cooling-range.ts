@@ -1,13 +1,18 @@
 import { coolingDeviceIds, coolingSource, coolingSummary } from "./cooling.ts";
 import { devices, racks, deviceById } from "./installation.ts";
-import {
-  modelForDevice,
-  partsForDevice,
-  subpartsForDevice,
-} from "./catalog.ts";
+import { partsForDevice, subpartsForDevice } from "./catalog.ts";
+import { layoutDeviceMatches } from "./room-layout.ts";
+import { rackUnitQuery } from "./review-resources.ts";
+import { grilleRowForRack, nearestFloorGrille } from "./floor-grilles.ts";
 import type { SpatialReading } from "./spatial.ts";
 
-export type CoolingRangeAction = "preview" | "airflow" | "enter";
+export type CoolingRangeAction =
+  "preview" | "airflow" | "enter" | "installation";
+export type CoolingRangePosition = {
+  list: number;
+  panel: number;
+  focusKey?: string;
+};
 export type CoolingRangeFilter = "all" | "unavailable" | "alarm";
 export type CoolingRangeState = {
   query: string;
@@ -25,15 +30,23 @@ export function coolingRangeRows(
   filter: CoolingRangeFilter = "all",
 ) {
   const linked = new Set(coolingDeviceIds(coolingSource.id));
-  const search = query.trim().toLocaleLowerCase();
+  const units = rackUnitQuery({ level: "room" }, query);
   return racks.flatMap((rack) => {
     const configured = devices
       .filter((d) => d.rackId === rack.id && linked.has(d.id))
       .sort((a, b) => b.startUnit - a.startUnit || a.id.localeCompare(b.id));
     if (!configured.length) return [];
+    const matchIds = query.trim()
+      ? new Set(
+          layoutDeviceMatches(rack.id, query, units).map((device) => device.id),
+        )
+      : null;
+    const row = grilleRowForRack(rack.id);
+    const grille = row && nearestFloorGrille(row.rowId, rack.position[0]);
     return [
       {
         rack,
+        grille,
         summary: coolingSummary(
           configured.map((d) => d.id),
           readings,
@@ -45,16 +58,7 @@ export function coolingRangeRows(
             reading.temperature !== null &&
             Number.isFinite(reading.temperature);
           return (
-            [
-              rack.id,
-              rack.name,
-              device.id,
-              device.name,
-              modelForDevice(device.id).name,
-            ]
-              .join(" ")
-              .toLocaleLowerCase()
-              .includes(search) &&
+            (!matchIds || matchIds.has(device.id)) &&
             (filter === "all" ||
               (filter === "unavailable" ? !valid : (reading?.alarm ?? 0) > 0))
           );

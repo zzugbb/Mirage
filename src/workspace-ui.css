@@ -6851,3 +6851,24 @@
   border-color: #89b3ba;
   background: #2b434f;
 }
+.airflow-rack-list .cooling-range-entry {
+  border: 1px solid #405660;
+  border-radius: 5px;
+  background: #243741;
+}
+.cooling-range-group .cooling-grille-location {
+  margin: 8px 0 0;
+  color: #b3c7cf;
+  font-size: 11px;
+}
+.cooling-range-device:focus-within {
+  background: #263a44;
+}
+.cooling-connections > summary {
+  scroll-margin-top: 66px;
+}
+.cooling-range-browser .cooling-range-count {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}

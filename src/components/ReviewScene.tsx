@@ -171,6 +171,7 @@ export function ReviewScene({
   onExplainAirflow,
   onAirflowViewChange,
   frameRoomAirflow,
+  coolingRangeObservation,
   onShowRoomAirflow,
   onOpenAirflowInstallation,
   airflowVisit,
@@ -304,6 +305,7 @@ export function ReviewScene({
     view: import("../airflow-view").AirflowView | null,
   ) => void;
   frameRoomAirflow: boolean;
+  coolingRangeObservation: boolean;
   onShowRoomAirflow: () => void;
   onOpenAirflowInstallation?: () => void;
   airflowResponseActive: boolean;
@@ -489,6 +491,16 @@ export function ReviewScene({
     }
   }, [state.level, frameRoomAirflow, airflow, airflowWorkspace]);
   const flowView = airflowWorkspace.view;
+  const serviceStage =
+    coolingRangeObservation &&
+    !!flowView &&
+    state.level === "room" &&
+    layer === "airflow";
+  const [stageCutaway, setStageCutaway] = useState(true);
+  useEffect(() => {
+    if (!serviceStage) setStageCutaway(true);
+  }, [serviceStage]);
+  const shellCutaway = serviceStage ? stageCutaway : cutaway;
   useEffect(() => {
     if (!flowView) return;
     const legend = airflowWorkspace.panel.current?.closest(".review-legend");
@@ -1535,8 +1547,8 @@ export function ReviewScene({
     powerGeometry.current?.update(showSupply ? supply : null);
   }, [supply, showSupply, retry]);
   useEffect(() => {
-    if (engine.current) engine.current.shellCutaway.enabled = cutaway;
-  }, [cutaway, retry]);
+    if (engine.current) engine.current.shellCutaway.enabled = shellCutaway;
+  }, [shellCutaway, retry]);
   // 外部图形、画质和显示选项在本次提交的 effect 中更新；统一使下一帧失效。
   useEffect(() => {
     engine.current?.invalidate();
@@ -3100,11 +3112,15 @@ export function ReviewScene({
                 <label title="按视线剖切挡住机柜的墙体与顶架；取消可恢复完整建筑">
                   <input
                     type="checkbox"
-                    checked={cutaway}
+                    checked={shellCutaway}
                     disabled={state.level !== "room"}
-                    onChange={(e) => setCutaway(e.target.checked)}
+                    onChange={(e) =>
+                      serviceStage
+                        ? setStageCutaway(e.target.checked)
+                        : setCutaway(e.target.checked)
+                    }
                   />
-                  自动建筑剖切
+                  {serviceStage ? "观察段建筑剖切" : "自动建筑剖切"}
                 </label>
                 <label>
                   <input
