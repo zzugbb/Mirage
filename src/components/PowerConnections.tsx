@@ -95,7 +95,7 @@ export function PowerConnections({
               : `${pdus.length} 个逻辑出线 · 配置`
       }
     >
-      {onViewPower && <button onClick={onViewPower}>场景查看 ↗</button>}
+      {onViewPower && <button onClick={onViewPower}>查看功耗视图 ↗</button>}
       {onOpenFeeders && (selectedId === powerSettings.sourceId || pdu) && (
         <button onClick={() => onOpenFeeders(pdu?.id)}>
           {pdu ? "核对出线 " + pdu.sourcePort : "核对配电出线"} ↗

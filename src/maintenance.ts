@@ -90,6 +90,13 @@ const aisles = racks.flatMap((lower) => {
   ];
 });
 export type MaintenanceAisle = (typeof aisles)[number];
+export function findMaintenanceAisles(query: string) {
+  const terms = query.normalize("NFKC").trim().toLowerCase().split(/\s+/);
+  return aisles.filter(({ front, rear }) => {
+    const names = [front, rear].map((area) => area.rackName.toLowerCase());
+    return terms.every((term) => names.some((name) => name.includes(term)));
+  });
+}
 export function maintenanceAisle(rackId: string) {
   return aisles.find(
     (a) => a.front.rackId === rackId || a.rear.rackId === rackId,

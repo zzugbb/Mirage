@@ -195,6 +195,9 @@ export function ReviewScene({
   onEnvironmentView,
   smokeInspectionActive,
   maintenanceView,
+  aisleCommand,
+  aisleRosterVisible,
+  onReturnToAisles,
   onMaintenanceViewChange,
   entranceView,
   entranceViewCommand,
@@ -248,6 +251,9 @@ export function ReviewScene({
   onEnvironmentView: (action: EnvironmentViewCommand["action"]) => void;
   smokeInspectionActive: boolean;
   maintenanceView: MaintenanceInspection | null;
+  aisleCommand: { rackId: string | null } | null;
+  aisleRosterVisible: boolean;
+  onReturnToAisles?: () => void;
   onMaintenanceViewChange: (inspection: MaintenanceInspection | null) => void;
   entranceView: EntranceInspection | null;
   entranceViewCommand: EntranceViewCommand | null;
@@ -1233,6 +1239,22 @@ export function ReviewScene({
     )
       engine.current?.clearMaintenanceView();
   }, [maintenanceView, layer, state.level, networkLinkId, selectedId]);
+  useEffect(() => {
+    const active = engine.current;
+    if (!active || !aisleCommand) return;
+    maintenanceFocus.current = null;
+    if (!aisleCommand.rackId) {
+      active.clearMaintenanceView();
+      setMaintenanceScope(null);
+      return;
+    }
+    const { rackId } = aisleCommand;
+    aisleOrigin.current = rackId;
+    setMaintenanceScope({ rackId, paired: true });
+    setOrbit(false);
+    maintenanceFocus.current = "view";
+    active.observeMaintenance(rackId, "aisle");
+  }, [aisleCommand]);
   useEffect(() => {
     const active = engine.current;
     if (!active || !inletViewCommand) return;
@@ -2416,7 +2438,7 @@ export function ReviewScene({
             </div>
           )}
           {layer === "overview" ? (
-            rackAreas.length > 0 ? (
+            rackAreas.length > 0 && (inspecting || !aisleRosterVisible) ? (
               <div
                 className="review-status-key aisle-legend"
                 ref={maintenanceControls}
@@ -2424,7 +2446,8 @@ export function ReviewScene({
                   if (event.key !== "Escape" || !inspecting) return;
                   event.preventDefault();
                   event.stopPropagation();
-                  leaveMaintenanceStep();
+                  if (onReturnToAisles) onReturnToAisles();
+                  else leaveMaintenanceStep();
                 }}
               >
                 {inspecting ? (
@@ -2468,12 +2491,14 @@ export function ReviewScene({
                             </option>
                           ))}
                       </select>
-                      <button
-                        disabled={!sceneSettled}
-                        onClick={leaveMaintenanceStep}
-                      >
-                        {maintenanceView ? "返回原视角" : "结束核对"}
-                      </button>
+                      {!onReturnToAisles && (
+                        <button
+                          disabled={!sceneSettled}
+                          onClick={leaveMaintenanceStep}
+                        >
+                          {maintenanceView ? "返回原视角" : "结束核对"}
+                        </button>
+                      )}
                     </div>
                     {aisleSequence && comparison && (
                       <div
@@ -2504,22 +2529,24 @@ export function ReviewScene({
                         >
                           →
                         </button>
-                        <button
-                          data-aisle-step="origin"
-                          disabled={
-                            !sceneSettled ||
-                            !aisleOrigin.current ||
-                            selectedId === aisleOrigin.current
-                          }
-                          onClick={() =>
-                            moveAlongAisle(
-                              aisleOrigin.current ?? undefined,
-                              "origin",
-                            )
-                          }
-                        >
-                          回到起点
-                        </button>
+                        {!onReturnToAisles && (
+                          <button
+                            data-aisle-step="origin"
+                            disabled={
+                              !sceneSettled ||
+                              !aisleOrigin.current ||
+                              selectedId === aisleOrigin.current
+                            }
+                            onClick={() =>
+                              moveAlongAisle(
+                                aisleOrigin.current ?? undefined,
+                                "origin",
+                              )
+                            }
+                          >
+                            回到起点
+                          </button>
+                        )}
                       </div>
                     )}
                   </>

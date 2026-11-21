@@ -6872,7 +6872,6 @@
   align-items: center;
   justify-content: space-between;
 }
-.study-filters .fixture-roster-entry,
 .fixture-roster header button {
   background: #243640;
   color: #c4dee1;
@@ -6955,4 +6954,76 @@
 .fixture-roster-reading {
   color: #cbd9de;
   font-variant-numeric: tabular-nums;
+}
+
+.space-mode {
+  display: flex;
+  gap: 4px;
+  padding: 0 14px 10px;
+}
+.space-mode button {
+  flex: 1;
+  border: 1px solid #394b57;
+  border-radius: 4px;
+  padding: 5px 6px;
+  font-size: 12px;
+}
+.space-mode button[aria-pressed="true"] {
+  background: #2f4751;
+  border-color: #88aeb5;
+}
+.aisle-roster {
+  padding: 0 14px 8px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  font-size: 12px;
+}
+.aisle-roster input {
+  background: #182631;
+  border: 1px solid #3b4d57;
+  border-radius: 4px;
+  padding: 7px 9px;
+}
+.aisle-roster-count,
+.aisle-roster p {
+  color: #afc2cb;
+  margin: 10px 0;
+}
+.aisle-roster-rows {
+  overflow: auto;
+  min-height: 0;
+}
+.aisle-roster-rows button {
+  display: grid;
+  width: 100%;
+  text-align: left;
+  padding: 12px 5px;
+  gap: 4px;
+  border-top: 1px solid #34454f;
+}
+.aisle-roster-rows button[aria-pressed="true"] {
+  background: #293f49;
+}
+.aisle-roster-rows button[aria-disabled="true"] {
+  opacity: 0.65;
+  cursor: default;
+}
+.aisle-roster-rows button:focus-visible {
+  outline-offset: -2px;
+}
+.aisle-roster-rows strong {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+}
+.aisle-roster-rows small {
+  color: #b8c8d2;
+  font-size: 11px;
+}
+
+@media (min-width: 1100px) {
+  .airflow-rack-list .cooling-range-entry[data-range-open="true"] {
+    display: none;
+  }
 }

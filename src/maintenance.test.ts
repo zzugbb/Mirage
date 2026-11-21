@@ -4,6 +4,7 @@ import definition from "../assets/public/scenes/room-01.json" with { type: "json
 import {
   maintenanceAisle,
   maintenanceAisleSequence,
+  findMaintenanceAisles,
   reserveGapText,
   maintenanceAreas,
   maintenanceSettings,
@@ -192,4 +193,14 @@ test("沿排核对按实际横向位置移动，保留当前预览侧，边界�
       next: row[index + 1]?.id,
     });
   }
+});
+
+test("通道名单每组只列一次，可用任一侧柜号或两端组合查找", () => {
+  const all = findMaintenanceAisles("");
+  assert.equal(all.length, 4);
+  assert.equal(new Set(all.map(({ id }) => id)).size, all.length);
+  const target = maintenanceAisle("rack-a07")!;
+  assert.deepEqual(findMaintenanceAisles("Ｂ０３"), [target]);
+  assert.deepEqual(findMaintenanceAisles("a03 B03"), [target]);
+  assert.deepEqual(findMaintenanceAisles("A02 B03"), []);
 });

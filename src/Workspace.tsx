@@ -166,6 +166,7 @@ import {
   type SpaceFormSnapshot,
 } from "./components/RackSpaceInspector";
 import type { RackUnitRange } from "./rack-space";
+import { MaintenanceAisles } from "./components/MaintenanceAisles";
 import { RoomSpaceComparison } from "./components/RoomSpaceComparison";
 import { isolatedPart, partInspectionSequence } from "./part-inspection";
 import { grilleRowById, rackGrilleRelations } from "./floor-grilles";
@@ -237,6 +238,7 @@ import {
   rackForDevice,
 } from "./installation";
 import {
+  type MaintenanceAisle,
   maintenanceAreas,
   maintenanceAisle,
   reserveGapText,
@@ -1043,6 +1045,20 @@ export function Workspace() {
     )
       setSpaceVisit(null);
   }, [spaceVisit, spaceReturning, selected, state.deviceId]);
+  const [spaceMode, setSpaceMode] = useState<"units" | "aisles">("units");
+  const [aisleQuery, setAisleQuery] = useState("");
+  const [aisleCommand, setAisleCommand] = useState<{
+    rackId: string | null;
+  } | null>(null);
+  const [aisleVisit, setAisleVisit] = useState<{
+    aisle: MaintenanceAisle;
+    rackId: string;
+    scroll: number;
+    query: string;
+    inspector: boolean;
+    camera: TaskViewMemory | null;
+  } | null>(null);
+  const [aisleReturn, setAisleReturn] = useState<typeof aisleVisit>(null);
   const [comparisonSize, setComparisonSize] = useState(2);
   const [comparisonRow, setComparisonRow] = useState("all");
   const [comparisonRack, setComparisonRack] = useState<string | null>(null);
@@ -1073,6 +1089,10 @@ export function Workspace() {
     : views.includes(rackView)
       ? rackView
       : views[0];
+  const roomAisles =
+    state.level === "room" &&
+    navigationView === "space" &&
+    spaceMode === "aisles";
   const [metric, setMetric] = useState<"temperature" | "power">("temperature");
   const [sourceCheck, setSourceCheck] = useState<SourceCheck | null>(null);
   const [sourceVisit, setSourceVisit] = useState<
@@ -1207,13 +1227,12 @@ export function Workspace() {
     () => spatialSnapshot(state.time, state.replayCycle, state.deviceId),
     [state.time, state.replayCycle, state.deviceId],
   );
-  const serviceRack =
+  const showingCoolingRange =
     selected === coolingSource.id &&
     inspector &&
     coolingRangeOpen &&
-    !review.analysis
-      ? coolingRangeState.rackId
-      : null;
+    !review.analysis;
+  const serviceRack = showingCoolingRange ? coolingRangeState.rackId : null;
   const airflowSelection =
     activeAirflowVisit?.deviceId ??
     locatedCoolingDevice ??
@@ -1907,6 +1926,7 @@ export function Workspace() {
       return;
     }
     setRackView("space");
+    setSpaceMode("units");
     setComparisonRack(range.rackId);
     setComparisonStart(range.first);
     comparisonScroll.current = comparisonVisit.scroll;
@@ -2407,12 +2427,6 @@ export function Workspace() {
   });
   const openFixtureRoster = () => {
     takeover();
-    if (layoutScope !== "fixtures") {
-      setLayoutQuery("");
-      layoutScroll.current = 0;
-    }
-    setRackView("layout");
-    setLayoutScope("fixtures");
     setShowFixtureRoster(true);
     setLayoutVisit(null);
     setLayoutReturning(false);
@@ -2443,6 +2457,47 @@ export function Workspace() {
     setLayoutReturning(false);
     setLayoutRestore(0);
   };
+  const inspectAisle = (aisle: MaintenanceAisle, scroll: number) => {
+    if (!ready) return;
+    const rackId = aisle.front.rackId;
+    if (aisleVisit?.aisle.id !== aisle.id || aisleVisit.query !== aisleQuery)
+      setAisleVisit({
+        aisle,
+        rackId,
+        scroll,
+        query: aisleQuery,
+        inspector,
+        camera: captureTaskView.current?.("room") ?? null,
+      });
+    setAisleReturn(null);
+    setLayoutVisit(null);
+    setNetworkMapVisit(null);
+    setNetworkLinkId(null);
+    control({ type: "analysis", value: false });
+    pick(rackId);
+    setAisleCommand({ rackId });
+  };
+  const returnToAisles = () => {
+    if (!aisleVisit || !ready) return;
+    setAisleCommand({ rackId: null });
+    setAisleQuery(aisleVisit.query);
+    setAisleReturn(aisleVisit);
+    setAisleVisit(null);
+    selectObject(aisleVisit.rackId);
+    control({ type: "analysis", value: false });
+    setInspector(
+      aisleVisit.inspector && !matchMedia("(max-width: 1099px)").matches,
+    );
+    skipNavigationSearch.current = !nav;
+    setNav(true);
+  };
+  useEffect(() => {
+    if (!aisleVisit) return;
+    if (!roomAisles || !rackById(selected)) {
+      setAisleVisit(null);
+      setAisleCommand({ rackId: null });
+    }
+  }, [aisleVisit, roomAisles, selected]);
   const inspectFixtureRow = (id: string) => {
     if (!ready) return;
     rememberLayoutSelection(id, {
@@ -3517,6 +3572,11 @@ export function Workspace() {
     setSpaceVisit(null);
     setSpaceReturning(false);
     setSpaceRestore(null);
+    setSpaceMode("units");
+    setAisleQuery("");
+    setAisleVisit(null);
+    setAisleReturn(null);
+    setAisleCommand(null);
     setComparisonSize(2);
     setInletAirflowVisit(null);
     setInletAirflowReturning(false);
@@ -4075,6 +4135,14 @@ export function Workspace() {
             )}
           </div>
         )}
+        {aisleVisit && (
+          <div className="study-task-return">
+            <button disabled={!ready} onClick={returnToAisles}>
+              ← 返回通道名单 · {aisleVisit.aisle.front.rackName.split(" ")[0]} /{" "}
+              {aisleVisit.aisle.rear.rackName.split(" ")[0]}
+            </button>
+          </div>
+        )}
         {(spaceVisit || comparisonVisit) && (
           <div
             className="study-task-return"
@@ -4330,6 +4398,22 @@ export function Workspace() {
               ))}
             </div>
           )}
+          {state.level === "room" && navigationView === "space" && (
+            <div className="space-mode" role="group" aria-label="空间核查范围">
+              <button
+                aria-pressed={spaceMode === "units"}
+                onClick={() => setSpaceMode("units")}
+              >
+                安装 U 位
+              </button>
+              <button
+                aria-pressed={spaceMode === "aisles"}
+                onClick={() => setSpaceMode("aisles")}
+              >
+                排间通道
+              </button>
+            </div>
+          )}
           {!alarmQueueVisible &&
             (navigationView === "list" ||
               navigationView === "installation") && (
@@ -4370,14 +4454,6 @@ export function Workspace() {
                       <option value="storage">存储</option>
                       <option value="facility">设施</option>
                     </select>
-                    {layer === "overview" && state.level === "room" && (
-                      <button
-                        className="fixture-roster-entry"
-                        onClick={openFixtureRoster}
-                      >
-                        环境与安全 ↗
-                      </button>
-                    )}
                     {layer === "alarms" && state.level === "rack" && (
                       <button
                         aria-label="仅看告警"
@@ -4421,6 +4497,7 @@ export function Workspace() {
             >
               <button
                 className="cooling-range-entry"
+                data-range-open={showingCoolingRange}
                 disabled={!ready}
                 onClick={() => {
                   coolingSearchFocus.current = true;
@@ -4758,6 +4835,17 @@ export function Workspace() {
                 control({ type: "layer", layer: "overview" });
                 control({ type: "analysis", value: false });
               }}
+            />
+          ) : roomAisles ? (
+            <MaintenanceAisles
+              query={aisleQuery}
+              onQuery={setAisleQuery}
+              selected={selected}
+              ready={ready}
+              visible={nav}
+              restore={aisleReturn}
+              onRestored={() => setAisleReturn(null)}
+              onInspect={inspectAisle}
             />
           ) : state.level === "room" && navigationView === "space" ? (
             <RoomSpaceComparison
@@ -5245,6 +5333,7 @@ export function Workspace() {
             taskReturn={
               (returningFromAirflow && airflowOrigin) ||
               (layoutReturning && layoutVisit?.origin) ||
+              aisleReturn ||
               (alarmReturning && alarmVisit) ||
               (portReturning && portVisit) ||
               (networkMapReturning && networkMapVisit) ||
@@ -5349,6 +5438,9 @@ export function Workspace() {
             onEnvironmentViewChange={setEnvironmentView}
             onEnvironmentView={requestEnvironmentView}
             smokeInspectionActive={!!smokeVisit}
+            aisleCommand={aisleCommand}
+            aisleRosterVisible={roomAisles && nav}
+            onReturnToAisles={aisleVisit ? returnToAisles : undefined}
             maintenanceView={maintenanceView}
             onMaintenanceViewChange={setMaintenanceView}
             entranceView={entranceView}
@@ -6785,7 +6877,7 @@ export function Workspace() {
                           })
                         }
                         onViewPower={
-                          layer === "power"
+                          layer === "power" || state.level === "room"
                             ? undefined
                             : () => control({ type: "layer", layer: "power" })
                         }
