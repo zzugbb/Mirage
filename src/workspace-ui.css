@@ -7067,3 +7067,14 @@
   color: #aabec7;
   font-size: 11px;
 }
+
+.workspace-ui .structure-task-bar:has(select[aria-label="处理器槽位"]) {
+  grid-template-columns: auto auto auto;
+}
+.structure-check-scope select {
+  color: inherit;
+  background: #28353e;
+  border: 1px solid #52636d;
+  border-radius: 4px;
+  min-height: 32px;
+}

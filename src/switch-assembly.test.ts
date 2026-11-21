@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as THREE from "three";
 import { createEquipmentAssembly } from "./scene/equipment-model.ts";
-import { switchBoardAssembly } from "./part-inspection.ts";
+import { assemblyCheck } from "./assembly-pairs.ts";
 import { devices } from "./installation.ts";
 import { modelById } from "./catalog.ts";
 
@@ -107,9 +107,13 @@ test("交换机后部模块处于 1U 机箱范围，四个风扇仍可从后侧�
 
 test("只有 N1 安装实例提供主板装配核查，两个选择沿用其部件槽位", () => {
   for (const device of devices) {
-    const pair = switchBoardAssembly(device.id);
+    const check = assemblyCheck(device.id);
+    const pair = check?.tool === "switch-board" ? check.pairs[0] : null;
     if (device.modelId === "switch-1u") {
-      assert.deepEqual([pair?.board.slot, pair?.asic.slot], ["CTRL", "ASIC"]);
+      assert.deepEqual(
+        [pair?.primary.slot, pair?.companion.slot],
+        ["CTRL", "ASIC"],
+      );
     } else assert.equal(pair, null);
   }
 });

@@ -1,3 +1,4 @@
+import { assemblyCheck } from "./assembly-pairs";
 import { modelForDevice } from "./catalog";
 import { CompactDriveBays } from "./components/CompactDriveBays";
 import { compactBayForPart, compactDriveBays } from "./compact-drive-bays";
@@ -174,11 +175,7 @@ import {
 import type { RackUnitRange } from "./rack-space";
 import { MaintenanceAisles } from "./components/MaintenanceAisles";
 import { RoomSpaceComparison } from "./components/RoomSpaceComparison";
-import {
-  isolatedPart,
-  partInspectionSequence,
-  switchBoardAssembly,
-} from "./part-inspection";
+import { isolatedPart, partInspectionSequence } from "./part-inspection";
 import { grilleRowById, rackGrilleRelations } from "./floor-grilles";
 import {
   activeAirflowInspection,
@@ -416,22 +413,22 @@ export function Workspace() {
   const [fanViewRevision, setFanViewRevision] = useState(0);
   const [fanFocusRevision, setFanFocusRevision] = useState(0);
   const activeFanVisit = activeFanInspection(fanVisit, state, selected);
-  const [boardVisit, setBoardVisit] = useState<string | null>(null);
-  const boardAssembly = useMemo(
-    () =>
-      state.level === "device" ? switchBoardAssembly(state.deviceId) : null,
-    [state.level, state.deviceId],
+  const [pairDevice, setPairDevice] = useState<string | null>(null);
+  const assembly =
+    state.level === "device" ? assemblyCheck(state.deviceId) : null;
+  const selectedPair = assembly?.pairs.find(
+    ({ primary, companion }) =>
+      selected === primary.id || selected === companion.id,
   );
-  const boardMember =
-    !!boardAssembly &&
-    (selected === boardAssembly.asic.id || selected === boardAssembly.board.id);
-  const boardToolAvailable =
-    !!boardAssembly && (selected === state.deviceId || boardMember);
-  const activeBoardCheck =
-    boardVisit === state.deviceId && boardMember && canInspectPart(state);
+  const pairToolAvailable =
+    assembly && (selected === state.deviceId || selectedPair) ? assembly : null;
+  const activePair =
+    pairDevice === state.deviceId && canInspectPart(state)
+      ? selectedPair
+      : undefined;
   useEffect(() => {
-    if (boardVisit && !activeBoardCheck) setBoardVisit(null);
-  }, [boardVisit, activeBoardCheck]);
+    if (pairDevice && !activePair) setPairDevice(null);
+  }, [pairDevice, activePair]);
   const [structureReturn, setStructureReturn] = useState<{
     deviceId: string;
     tool: StructureTool;
@@ -445,8 +442,8 @@ export function Workspace() {
     )
       setStructureReturn(null);
   }, [structureReturn, state.level, state.deviceId, selected]);
-  const isolatedPartId = activeBoardCheck
-    ? boardAssembly.board.id
+  const isolatedPartId = activePair
+    ? activePair.primary.id
     : activeFanVisit && !activeFanVisit.pending
       ? activeFanVisit.mode === "group"
         ? fanAssembly(state.deviceId)!.group.id
@@ -610,7 +607,7 @@ export function Workspace() {
     return () => medium.removeEventListener("change", adapt);
   }, [activeAirflowResponse]);
   useEffect(() => {
-    if (!activeStorageVisit && !activeFanVisit && !activeBoardCheck) return;
+    if (!activeStorageVisit && !activeFanVisit && !activePair) return;
     const medium = matchMedia("(max-width: 1099px)");
     const adapt = () => {
       if (medium.matches) setNav(false);
@@ -618,11 +615,7 @@ export function Workspace() {
     adapt();
     medium.addEventListener("change", adapt);
     return () => medium.removeEventListener("change", adapt);
-  }, [
-    activeStorageVisit?.deviceId,
-    activeFanVisit?.deviceId,
-    activeBoardCheck,
-  ]);
+  }, [activeStorageVisit?.deviceId, activeFanVisit?.deviceId, activePair]);
   const [powerViewActive, setPowerViewActive] = useState(false);
   const [powerViewCommand, setPowerViewCommand] =
     useState<PowerViewCommand | null>(null);
@@ -2758,12 +2751,15 @@ export function Workspace() {
   const startStructureTool = (tool: StructureTool) => {
     if (!ready || state.level !== "device") return;
     setStructureReturn(null);
-    if (tool === "switch-board") {
-      if (!boardToolAvailable) return;
+    if (tool !== "fans" && tool !== "storage") {
+      if (!pairToolAvailable || tool !== pairToolAvailable.tool) return;
       setInspectionDevice(null);
-      setBoardVisit(state.deviceId);
+      setPairDevice(state.deviceId);
       control({ type: "analysis", value: false });
-      focus(boardMember ? selected : boardAssembly.board.id);
+      // 从装配态开始时给两件留出观察间距，已有展开比例由用户掌控。
+      if (tool === "processor-pair" && !canInspectPart(state))
+        dispatch({ type: "explode", amount: 0.55 });
+      focus(selectedPair ? selected : pairToolAvailable.pairs[0].primary.id);
       return;
     }
     if (tool === "fans") {
@@ -2830,19 +2826,20 @@ export function Workspace() {
   };
   const structureVisit = activeFanVisit ?? activeStorageVisit;
   const finishStructureCheck = () => {
-    if (!ready || !(structureVisit || activeBoardCheck)) return;
+    if (!ready || !(structureVisit || activePair)) return;
     if (inspector)
       setStructureReturn({
         deviceId: state.deviceId,
-        tool: activeBoardCheck
-          ? "switch-board"
-          : activeFanVisit
-            ? "fans"
-            : "storage",
+        tool:
+          activePair && assembly
+            ? assembly.tool
+            : activeFanVisit
+              ? "fans"
+              : "storage",
       });
     else partSequenceFocus.current = "heading";
     control({ type: "analysis", value: false });
-    setBoardVisit(null);
+    setPairDevice(null);
     setStorageVisit(null);
     setFanVisit(null);
     setInspectionDevice(null);
@@ -3613,7 +3610,7 @@ export function Workspace() {
     setSliceCheck(null);
     setPduInspection(null);
     setPduReturning(false);
-    setBoardVisit(null);
+    setPairDevice(null);
     setInspectionDevice(null);
     setEnvironmentComparisonOpen(false);
     setEnvironmentPairVisit(null);
@@ -5439,7 +5436,7 @@ export function Workspace() {
             fanViewSide={activeFanVisit?.side ?? "front"}
             storageViewRevision={storageViewRevision}
             storageContact={activeStorageVisit?.mode === "contact"}
-            companionPartId={activeBoardCheck ? boardAssembly.asic.id : null}
+            companionPartId={activePair ? activePair.companion.id : null}
             isolatedPartId={isolatedPartId}
             state={state}
             unitRange={
@@ -5655,9 +5652,9 @@ export function Workspace() {
                     setSmokeRestore(true);
                   }}
                 />
-              ) : activeBoardCheck ? (
+              ) : activePair && assembly ? (
                 <StructureToolbar
-                  label="主板装配核查"
+                  label={assembly.name + "核查"}
                   state={state}
                   dispatch={dispatch}
                   disabled={!ready}
@@ -5665,24 +5662,48 @@ export function Workspace() {
                   onBack={finishStructureCheck}
                 >
                   <div className="structure-check-scope">
+                    {assembly.pairs.length > 1 && (
+                      <select
+                        aria-label="处理器槽位"
+                        value={activePair.primary.id}
+                        disabled={!ready}
+                        onChange={(event) => {
+                          const next = assembly.pairs.find(
+                            (pair) => pair.primary.id === event.target.value,
+                          );
+                          if (next)
+                            pick(
+                              selected === activePair.companion.id
+                                ? next.companion.id
+                                : next.primary.id,
+                            );
+                        }}
+                      >
+                        {assembly.pairs.map(({ primary }) => (
+                          <option key={primary.id} value={primary.id}>
+                            {primary.slot}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                     <div
                       role="group"
-                      aria-label="主板装配部件"
+                      aria-label={assembly.name + "部件"}
                       className="fan-view-sides"
                     >
-                      {[boardAssembly.board, boardAssembly.asic].map((part) => (
-                        <button
-                          key={part.id}
-                          disabled={!ready}
-                          aria-label={part.name}
-                          aria-pressed={selected === part.id}
-                          onClick={() => pick(part.id)}
-                        >
-                          {part.id === boardAssembly.board.id
-                            ? "控制主板"
-                            : "芯片与散热器"}
-                        </button>
-                      ))}
+                      {[activePair.primary, activePair.companion].map(
+                        (part, index) => (
+                          <button
+                            key={part.id}
+                            disabled={!ready}
+                            aria-label={part.name}
+                            aria-pressed={selected === part.id}
+                            onClick={() => pick(part.id)}
+                          >
+                            {assembly.labels[index]}
+                          </button>
+                        ),
+                      )}
                     </div>
                   </div>
                 </StructureToolbar>
@@ -6893,15 +6914,15 @@ export function Workspace() {
                       </button>
                     </section>
                     {state.level === "device" &&
-                      !activeBoardCheck &&
+                      !activePair &&
                       !activeFanVisit &&
                       !activeStorageVisit &&
-                      (boardToolAvailable ||
+                      (pairToolAvailable ||
                         compactBayContext ||
                         fanInspectionContext(state.deviceId, selected) ||
                         storageSlotContext(state.deviceId, selected)) && (
                         <StructureTools
-                          switchBoard={boardToolAvailable}
+                          assembly={pairToolAvailable}
                           key={`${revision}:${state.deviceId}:${compactBayContext ? "bays" : selected}`}
                           showSelection={
                             compactBayContext && selected !== state.deviceId

@@ -1,12 +1,14 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
-export type StructureTool = "fans" | "storage" | "switch-board";
+import type { AssemblyCheck } from "../assembly-pairs";
+
+export type StructureTool = "fans" | "storage" | AssemblyCheck["tool"];
 
 /** 未开始的核对工具按需展开；明确结束后才恢复入口，不跟随回看抢焦点。 */
 export function StructureTools({
   children,
   showSelection = false,
-  switchBoard,
+  assembly,
   fans,
   slots,
   ready,
@@ -16,7 +18,7 @@ export function StructureTools({
 }: {
   children?: React.ReactNode;
   showSelection?: boolean;
-  switchBoard: boolean;
+  assembly: AssemblyCheck | null;
   fans: number;
   slots: number;
   ready: boolean;
@@ -76,7 +78,7 @@ export function StructureTools({
         <strong>结构核对</strong>
         <small>
           {[
-            switchBoard ? "主板装配" : "",
+            assembly?.name,
             fans ? "风扇组" : "",
             slots || children ? "盘位" : "",
           ]
@@ -86,16 +88,16 @@ export function StructureTools({
       </summary>
       <div role="group" aria-label="结构核对工具">
         {children}
-        {switchBoard && (
+        {assembly && (
           <button
-            data-structure-tool="switch-board"
+            data-structure-tool={assembly.tool}
             disabled={!ready}
-            onClick={() => onStart("switch-board")}
+            onClick={() => onStart(assembly.tool)}
           >
             <strong>
-              核对主板与交换芯片 <span>↗</span>
+              {assembly.entry} <span>↗</span>
             </strong>
-            <small>对照板上安装区与芯片散热组件</small>
+            <small>{assembly.detail}</small>
           </button>
         )}
         {fans > 0 && (

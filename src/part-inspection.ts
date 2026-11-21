@@ -1,8 +1,4 @@
-import {
-  modelForDevice,
-  partsForDevice,
-  subpartsForDevice,
-} from "./catalog.ts";
+import { partsForDevice, subpartsForDevice } from "./catalog.ts";
 import { deviceById } from "./installation.ts";
 import type { AppState } from "./domain.ts";
 
@@ -10,15 +6,6 @@ import type { AppState } from "./domain.ts";
 export const internalStructureThreshold = 0.015;
 export const canInspectPart = (state: AppState) =>
   state.level === "device" && state.explosion > internalStructureThreshold;
-
-/** 交换机的板与芯片沿用装配配置的两个独立维护身份。 */
-export function switchBoardAssembly(deviceId: string) {
-  if (modelForDevice(deviceId).id !== "switch-1u") return null;
-  const parts = partsForDevice(deviceId);
-  const board = parts.find((part) => part.id === "net-board");
-  const asic = parts.find((part) => part.id === "net-asic");
-  return board && asic ? { board, asic } : null;
-}
 
 /** 单部件检视只作用于当前已展开的设备；换实例或复原即结束。 */
 export function isolatedPart(

@@ -1,3 +1,4 @@
+import { processorPairs } from "../assembly-pairs.ts";
 import { compactBayForPart } from "../compact-drive-bays.ts";
 import { createFanModule } from "./fan-module.ts";
 import { switchBoard, switchAsic } from "./switch-model.ts";
@@ -468,6 +469,7 @@ export function createEquipmentAssembly(modelId: string): Assembly {
       }
     }
   }
+  if (modelId === "server-2u") seatProcessors(groups, positions);
   root.updateMatrixWorld(true);
   return { root, groups, positions };
 }
@@ -485,12 +487,6 @@ export function completeServerAssembly(
     const group = new THREE.Group();
     group.userData.entityId = part.id;
     group.position.fromArray(part.position);
-    if (part.id.startsWith("processor-")) {
-      const sink = groups.get(part.id.endsWith("01") ? "cpu-01" : "cpu-02")!;
-      const b = new THREE.Box3().setFromObject(sink);
-      b.getCenter(group.position);
-      group.position.y = b.min.y + 0.002;
-    }
     if (part.id === "drives-01") {
       group.position.set(0, 0, 0);
       for (let i = 1; i <= 8; i++) {
@@ -526,5 +522,24 @@ export function completeServerAssembly(
     groups.set(part.id, group);
     positions.set(part.id, group.position.clone());
   }
+  seatProcessors(groups, positions);
   root.updateMatrixWorld(true);
+}
+
+// 组装阶段的节点位于同一设备坐标系，封装上表面贴合同号散热器底面。
+function seatProcessors(
+  groups: Assembly["groups"],
+  positions: Assembly["positions"],
+) {
+  for (const { primary, companion } of processorPairs) {
+    const chip = groups.get(primary.id)!;
+    const sink = new THREE.Box3().setFromObject(groups.get(companion.id)!);
+    const cap = new THREE.Box3().setFromObject(chip);
+    const offset = sink
+      .getCenter(new THREE.Vector3())
+      .sub(cap.getCenter(new THREE.Vector3()));
+    offset.y = sink.min.y - cap.max.y;
+    chip.position.add(offset);
+    positions.set(primary.id, chip.position.clone());
+  }
 }
