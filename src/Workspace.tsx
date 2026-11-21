@@ -1224,11 +1224,16 @@ export function Workspace() {
   const opposite =
     aisle && (aisle.front.rackId === selected ? aisle.rear : aisle.front);
   const component = entity.kind === "part";
+  const deviceTemperatureView =
+    state.level === "device" && layer === "environment";
+  const inspectingInletPair =
+    deviceTemperatureView &&
+    (inletPair?.firstId === state.deviceId ||
+      inletPair?.secondId === state.deviceId);
   const inletComparison =
     component &&
-    state.level === "device" &&
-    layer === "environment" &&
-    inletInspection?.id === state.deviceId
+    deviceTemperatureView &&
+    (inspectingInletPair || inletInspection?.id === state.deviceId)
       ? spatial.readings.get(state.deviceId)
       : undefined;
   const parentInlet = currentMetricValue(inletComparison, "temperature");
@@ -2192,12 +2197,26 @@ export function Workspace() {
       }
       if (enter) rememberRoomSearch(id);
       control({ type: enter ? "open-resource" : "pick", id });
+      if (
+        inspectingInletPair &&
+        review.analysis &&
+        entityById(id)?.kind === "part"
+      )
+        control({ type: "analysis", value: false });
       if (enter && !fixtureById(id)) {
         setQuery("");
         setFilter("all");
       }
     },
-    [state.level, state.deviceId, rackView, inletView, rememberRoomSearch],
+    [
+      state.level,
+      state.deviceId,
+      rackView,
+      inletView,
+      inspectingInletPair,
+      review.analysis,
+      rememberRoomSearch,
+    ],
   );
   const pick = useCallback(
     (id: string, enter = false, keepNavigation = false) => {
