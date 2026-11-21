@@ -43,6 +43,18 @@ function powerPair(modelId: string) {
     parts.find((part) => part.id === inletPart(modelId, feed))!;
   return { primary: psu("A"), companion: psu("B") };
 }
+function rearPowerCheck(modelId: "switch-1u" | "storage-4u") {
+  return {
+    tool: modelId === "switch-1u" ? "switch-power" : "storage-power",
+    name: "双电源",
+    entry: "核对双电源",
+    detail: "从机后对照两个电源模块及其输入槽位",
+    labels: ["电源 A", "电源 B"],
+    startExplosion: 0.2,
+    pairs: [powerPair(modelId)],
+  } as const;
+}
+
 function processorCheck(modelId: string) {
   return {
     tool: "processor-pair",
@@ -78,6 +90,7 @@ const checks = {
       startExplosion: 0.3,
       pairs: [{ primary: controllerA, companion: controllerB }],
     },
+    rearPowerCheck("storage-4u"),
   ],
   "server-2u": [
     processorCheck("server-2u"),
@@ -107,15 +120,7 @@ const checks = {
         },
       ],
     },
-    {
-      tool: "switch-power",
-      name: "双电源",
-      entry: "核对双电源",
-      detail: "从机后对照两个电源模块及其输入槽位",
-      labels: ["电源 A", "电源 B"],
-      startExplosion: 0.2,
-      pairs: [powerPair("switch-1u")],
-    },
+    rearPowerCheck("switch-1u"),
   ],
 } as const;
 

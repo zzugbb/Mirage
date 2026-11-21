@@ -4,6 +4,7 @@ import * as THREE from "three";
 import { createEquipmentAssembly } from "./scene/equipment-model.ts";
 import { assemblyChecks } from "./assembly-pairs.ts";
 import { devices } from "./installation.ts";
+import { inletPart, powerLinks } from "./power-config.ts";
 import { sourcePorts } from "./network.ts";
 import { modelById } from "./catalog.ts";
 
@@ -120,6 +121,60 @@ test("S4 核查选择与配置槽位、逻辑端口归属及后面板拾取一�
     for (const id of ["sto-psu-a", "sto-psu-b", "sto-fans", "sto-midplane"]) {
       const other = bounds(assembly.groups.get(id)!);
       assert.ok(!a.intersectsBox(other) && !b.intersectsBox(other), id);
+    }
+  }
+});
+
+test("S4 两个电源槽与配置输入和安装面板一致，从机后点选能命中对应模块", () => {
+  const model = modelById("storage-4u");
+  const assembly = createEquipmentAssembly(model.id);
+  for (const device of devices) {
+    const check = assemblyChecks(device.id).find(
+      (c) => c.tool === "storage-power",
+    );
+    assert.equal(Boolean(check), device.modelId === model.id);
+    if (!check) continue;
+    const [{ primary, companion }] = check.pairs;
+    assert.ok(
+      bounds(assembly.groups.get(primary.id)!).max.x <
+        bounds(assembly.groups.get(companion.id)!).min.x,
+    );
+    for (const [feed, part] of [
+      ["A", primary],
+      ["B", companion],
+    ] as const) {
+      assert.equal(part.id, inletPart(model.id, feed));
+      assert.equal(part.slot, "PSU-" + feed);
+      assert.deepEqual(assemblyChecks(device.id, part.id), [check]);
+      assert.ok(
+        powerLinks.some(
+          (link) => link.deviceId === device.id && link.inlet === feed,
+        ),
+      );
+      const psu = assembly.groups.get(part.id)!;
+      const face = psu.getObjectByName("psu-rear-panel")!;
+      const panel = model.rearPanels.find(
+        (p) => p.kind === "power" && p.center[0] === psu.position.x,
+      )!;
+      const faceSize = bounds(face).getSize(new THREE.Vector3());
+      close(center(face).y, panel.center[1]);
+      close(faceSize.x, panel.size[0]);
+      close(faceSize.y, panel.size[1]);
+      for (const id of ["sto-controller-a", "sto-controller-b", "sto-fans"]) {
+        assert.equal(
+          bounds(psu).intersectsBox(bounds(assembly.groups.get(id)!)),
+          false,
+          id,
+        );
+      }
+      const origin = center(face);
+      origin.z = -model.depth;
+      let hit: THREE.Object3D | null =
+        new THREE.Raycaster(origin, new THREE.Vector3(0, 0, 1)).intersectObject(
+          assembly.root,
+        )[0]?.object ?? null;
+      while (hit && !hit.userData.entityId) hit = hit.parent;
+      assert.equal(hit, psu);
     }
   }
 });
