@@ -420,7 +420,7 @@ function reviewInteractionTransition(
     ) {
       scene =
         current.level === "device"
-          ? transition(current, { type: "back" })
+          ? { ...transition(current, { type: "back" }), doorOpen: !leavesRack }
           : {
               ...current,
               trayExtended: false,

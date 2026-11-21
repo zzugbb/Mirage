@@ -239,7 +239,7 @@ test("安装位置定位从展开设备先归位，自身与跨柜结果都停�
     type: "scene",
     action: { type: "seek", time: 49 },
   });
-  for (const id of [start.scene.deviceId, "sto-01"]) {
+  for (const id of [start.scene.deviceId, "srv-02", "sto-01"]) {
     const preview = reviewTransition(start, { type: "pick", id });
     assert.deepEqual(preview.scene, start.scene);
     const returning = reviewTransition(preview, {
@@ -249,6 +249,10 @@ test("安装位置定位从展开设备先归位，自身与跨柜结果都停�
     assert.equal(returning.pendingId, id);
     assert.equal(returning.scene.explosion, 0);
     assert.equal(returning.scene.deviceId, start.scene.deviceId);
+    assert.equal(
+      returning.scene.doorOpen,
+      rackForDevice(id).id === rackForDevice(start.scene.deviceId).id,
+    );
     assert.equal(
       reviewTransition(returning, {
         type: "navigation-ready",
