@@ -20,6 +20,7 @@ export function observeLabelLayout(
     const hotspots = Array.from(
       anchors.querySelectorAll<HTMLElement>("[data-hotspot]:not([hidden])"),
     );
+    const footprints = new Map<HTMLElement, DOMRect>();
     let hotspotCenter = 0;
     for (const point of hotspots) {
       const x = Number(point.dataset.screenX),
@@ -28,6 +29,20 @@ export function observeLabelLayout(
       accepted.push(
         new DOMRect(sceneRect.left + x - 14, sceneRect.top + y - 10, 28, 20),
       );
+      if (point.dataset.hotspot === "bounds" && point.dataset.hotspotBounds) {
+        const [left, top, right, bottom] = point.dataset.hotspotBounds
+          .split(",")
+          .map(Number);
+        footprints.set(
+          point,
+          new DOMRect(
+            sceneRect.left + left,
+            sceneRect.top + top,
+            right - left,
+            bottom - top,
+          ),
+        );
+      }
     }
     for (const label of anchors.querySelectorAll<HTMLElement>(
       "[data-anchor]",
@@ -48,17 +63,30 @@ export function observeLabelLayout(
       ) {
         const x = Number(label.dataset.screenX),
           y = Number(label.dataset.screenY);
-        const rect = placeFlowLabel(
+        const anchorX =
           x +
-            sceneRect.left +
-            (label.classList.contains("review-fixture-anchor") ? 56 : 0),
+          sceneRect.left +
+          (label.classList.contains("review-fixture-anchor") ? 56 : 0);
+        const layoutArgs = [
+          anchorX,
           y + sceneRect.top,
           label.offsetWidth,
           label.offsetHeight,
           sceneRect,
-          accepted,
-          !!label.dataset.hotspot && x < hotspotCenter,
-        );
+        ] as const;
+        const preferLeft = !!label.dataset.hotspot && x < hotspotCenter;
+        const footprint = footprints.get(label);
+        // 整组被放大到占满视口时，仍为当前对象保留就近可读的位置。
+        const outside =
+          footprint &&
+          placeFlowLabel(
+            ...layoutArgs,
+            [...accepted, ...footprints.values()],
+            preferLeft,
+            footprint,
+          );
+        const rect =
+          outside ?? placeFlowLabel(...layoutArgs, accepted, preferLeft);
         label.style.visibility = rect ? "" : "hidden";
         if (rect) {
           label.style.transform = `translate(${rect.left - sceneRect.left}px,${rect.top - sceneRect.top}px)`;

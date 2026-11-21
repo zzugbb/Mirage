@@ -2068,7 +2068,13 @@ export function ReviewScene({
                         .join(" · ") || undefined
                 }
                 data-anchor={item.id}
-                data-hotspot={partMeasures || undefined}
+                data-hotspot={
+                  partMeasures
+                    ? model.category === "server"
+                      ? "center"
+                      : "bounds"
+                    : undefined
+                }
                 data-anchor-kind={
                   alarmDevice || item.id === roomDevice?.id
                     ? "device"

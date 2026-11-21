@@ -34,6 +34,8 @@ export const resourceFilters = [
 ] as const;
 export type ResourceFilter = (typeof resourceFilters)[number][0];
 export const componentGroups = [
+  "交换芯片与端口",
+  "存储控制器",
   "计算与内存",
   "磁盘与背板",
   "散热组件",
@@ -68,10 +70,10 @@ const groups: Record<string, string> = {
   "riser-01": "网络与扩展",
   "riser-02": "网络与扩展",
   "io-01": "网络与扩展",
-  "net-ports": "网络与扩展",
-  "net-asic": "网络与扩展",
-  "sto-controller-a": "网络与扩展",
-  "sto-controller-b": "网络与扩展",
+  "net-ports": "交换芯片与端口",
+  "net-asic": "交换芯片与端口",
+  "sto-controller-a": "存储控制器",
+  "sto-controller-b": "存储控制器",
 };
 export function resourceCatalog(deviceId: string): Resource[] {
   const modules = partsForDevice(deviceId),

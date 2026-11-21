@@ -260,6 +260,7 @@ export class SceneEngine {
   anchorElements: HTMLElement[] = [];
   anchorPosition = new THREE.Vector3();
   anchorBounds = new THREE.Box3();
+  private anchorCorner = new THREE.Vector3();
   axesElements: HTMLElement[] = [];
   axesQuaternion = new THREE.Quaternion();
   axesVector = new THREE.Vector3();
@@ -2519,6 +2520,37 @@ export class SceneEngine {
     if (element.hidden !== point.hidden) element.hidden = point.hidden;
     this.anchorsChanged = true;
   }
+  private projectHotspotBounds(
+    element: HTMLElement,
+    width: number,
+    height: number,
+  ) {
+    const { min, max } = this.anchorBounds;
+    let left = Infinity,
+      right = -Infinity,
+      top = Infinity,
+      bottom = -Infinity;
+    for (let i = 0; i < 8; i++) {
+      const corner = this.anchorCorner
+        .set(
+          i & 1 ? max.x : min.x,
+          i & 2 ? max.y : min.y,
+          i & 4 ? max.z : min.z,
+        )
+        .project(this.camera);
+      const x = ((corner.x + 1) * width) / 2,
+        y = ((1 - corner.y) * height) / 2;
+      left = Math.min(left, x);
+      right = Math.max(right, x);
+      top = Math.min(top, y);
+      bottom = Math.max(bottom, y);
+    }
+    const bounds = [left, top, right, bottom].map(Math.round).join(",");
+    if (element.dataset.hotspotBounds !== bounds) {
+      element.dataset.hotspotBounds = bounds;
+      this.anchorsChanged = true;
+    }
+  }
   bindAnchors(element: HTMLElement) {
     this.invalidate();
     this.anchorProjection = new AnchorProjection();
@@ -3115,6 +3147,12 @@ export class SceneEngine {
           x > this.host.clientWidth ||
           y < 0 ||
           y > this.host.clientHeight;
+        if (!hidden && element.dataset.hotspot === "bounds")
+          this.projectHotspotBounds(
+            element,
+            this.host.clientWidth,
+            this.host.clientHeight,
+          );
         this.projectAnchor(element, x, y, hidden);
       }
     }

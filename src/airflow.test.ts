@@ -114,6 +114,26 @@ test("气流标签就近避开控件、已放标签和边界，空间不足时�
   assert.equal(placeFlowLabel(180, 320, 150, 40, bounds, [bounds]), null);
 });
 
+test("端口排占满横向空间时，读数避开整个部件与上方控件", () => {
+  const viewport = { left: 0, top: 0, right: 400, bottom: 400 };
+  const ports = { left: 35, top: 140, right: 380, bottom: 200 };
+  const controls = { left: 0, top: 0, right: 400, bottom: 135 };
+  const label = placeFlowLabel(
+    210,
+    170,
+    120,
+    35,
+    viewport,
+    [ports, controls],
+    false,
+    ports,
+  );
+  assert.ok(label);
+  assert.ok(
+    label.top >= ports.bottom + 8 && label.bottom <= viewport.bottom - 8,
+  );
+});
+
 test("送风与回风绕开柜体，穿柜沿实际U位从正面向背面，回风不穿过上方桥架", () => {
   const readings = spatialSnapshot(60).readings;
   for (const device of devices) {
