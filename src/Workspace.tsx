@@ -821,8 +821,7 @@ export function Workspace() {
   const [powerQuery, setPowerQuery] = useState("");
   const [powerFilter, setPowerFilter] = useState<PowerOverviewFilter>("all");
   const [powerScope, setPowerScope] = useState<PowerOverviewScope>("rack");
-  const [powerOrder, setPowerOrder] =
-    useState<PowerOverviewOrder>("installation");
+  const [powerOrder, setPowerOrder] = useState<PowerOverviewOrder>("budget");
   const powerScroll = useRef(0);
   const [powerRestore, setPowerRestore] = useState(0);
   const [powerOverviewVisit, setPowerOverviewVisit] = useState<{
@@ -3188,7 +3187,7 @@ export function Workspace() {
     setSmokeReturning(false);
     setSmokeRestore(false);
     setPowerScope("rack");
-    setPowerOrder("installation");
+    setPowerOrder("budget");
     setPowerRack("rack-a01");
     setPowerQuery("");
     setPowerFilter("all");

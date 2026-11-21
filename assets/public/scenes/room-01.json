@@ -2438,7 +2438,7 @@
         "baseline": 27,
         "thermalFactor": 1,
         "loadFactor": 1,
-        "budgetWatts": 350,
+        "budgetWatts": 240,
         "lifecycle": "running",
         "telemetry": "valid",
         "modelId": "server-2u"
@@ -2555,7 +2555,7 @@
         "baseline": 25.18,
         "thermalFactor": 0.55,
         "loadFactor": 0.867,
-        "budgetWatts": 350,
+        "budgetWatts": 235,
         "lifecycle": "running",
         "telemetry": "valid",
         "modelId": "server-2u"

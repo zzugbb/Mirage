@@ -19,7 +19,10 @@ test("侧栏读数按本对象的进风告警和预算分别强调", () => {
     metricAttentionColor(device, "temperature"),
     signalStyles.critical.color,
   );
-  assert.equal(metricAttentionColor(device, "power"), undefined);
+  assert.equal(
+    metricAttentionColor(device, "power"),
+    signalStyles.critical.color,
+  );
   assert.equal(metricAttentionColor(cpu, "power"), signalStyles.critical.color);
   assert.equal(metricAttentionColor(cpu, "temperature"), undefined);
   assert.equal(
@@ -65,7 +68,10 @@ test("温度和功耗采用独立连续色阶；未知、过期和离线保持�
     "dd332e",
   );
   assert.equal(
-    observationColor({ ...device, power: 0 }, "power").getHexString(),
+    observationColor(
+      { ...device, power: 0, budgetState: undefined },
+      "power",
+    ).getHexString(),
     "295388",
   );
   assert.equal(
@@ -208,23 +214,24 @@ test("预算边界、采样中断与回落按当前连续区间计算", () => {
 });
 
 test("整柜占比与柜内整机关注分别表达，接近满量程时保留越界方向", () => {
-  const rules: Record<string, { attentionRatio: number }> =
-    definition.installation.powerDistribution.budgetPolicy.overrides;
-  rules["srv-01"] = { attentionRatio: 0.73 };
-  try {
-    const { readings } = spatialSnapshot(60);
-    const rack = readings.get("rack-a01")!;
-    assert.equal(rack.budgetState, undefined);
-    assert.equal(rack.memberBudgetCount, 1);
-    assert.equal(rack.memberBudgetLevel, "near");
-    assert.equal(readings.get("srv-01")?.budgetState?.level, "near");
-    assert.equal(
-      spatialSnapshot(0).readings.get("rack-a01")?.memberBudgetCount,
-      0,
-    );
-  } finally {
-    delete rules["srv-01"];
-  }
+  const { readings } = spatialSnapshot(60);
+  const rack = readings.get("rack-a01")!;
+  assert.equal(rack.budgetState, undefined);
+  assert.equal(rack.memberBudgetCount, 2);
+  assert.equal(rack.memberBudgetLevel, "over");
+  assert.deepEqual(readings.get("srv-01")?.budgetState, {
+    level: "over",
+    seconds: 60,
+  });
+  assert.equal(readings.get("srv-10")?.budgetState?.level, "near");
+  assert.equal(
+    spatialSnapshot(4).readings.get("srv-01")?.budgetState?.level,
+    "near",
+  );
+  assert.equal(
+    spatialSnapshot(5).readings.get("srv-01")?.budgetState?.level,
+    "over",
+  );
   assert.equal(budgetPercent(1.000833), "100.1%");
   assert.equal(budgetPercent(1.00001), ">100%");
   assert.equal(budgetPercent(0.99999), "<100%");
