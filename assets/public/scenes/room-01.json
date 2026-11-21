@@ -1080,7 +1080,7 @@
       "node": "riser",
       "slot": "PCIe-02",
       "position": [
-        -0.19,
+        0.11,
         0.005,
         -0.3
       ],
@@ -6768,9 +6768,9 @@
       "network": "双口 25G",
       "storage": "8 × 1.92 TB SAS SSD",
       "rearPanels": [
-        {"kind": "power", "center": [-0.185, 0], "size": [0.065, 0.06872]},
-        {"kind": "power", "center": [0.185, 0], "size": [0.065, 0.06872]},
-        {"kind": "interface", "center": [-0.06, -0.015462], "size": [0.09, 0.029206]},
+        {"kind": "power", "partId": "psu-01", "center": [-0.10702, -0.0216], "size": [0.07015, 0.04026], "depth": 0.22683, "explode": [0.04, 0.06, -0.25]},
+        {"kind": "power", "partId": "psu-02", "center": [-0.17841, -0.0216], "size": [0.07015, 0.04026], "depth": 0.22683, "explode": [-0.04, 0.06, -0.25]},
+        {"kind": "interface", "center": [-0.0315, -0.015462], "size": [0.065, 0.029206]},
         {"kind": "interface", "center": [0.04, -0.015462], "size": [0.065, 0.029206]},
         {"kind": "vent", "center": [0, 0.019757], "size": [0.26, 0.02577]}
       ]

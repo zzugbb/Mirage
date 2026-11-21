@@ -55,6 +55,18 @@ function rearPowerCheck(modelId: "switch-1u" | "storage-4u") {
   } as const;
 }
 
+function serverPowerCheck(modelId: "server-1u" | "server-2u") {
+  return {
+    tool: "server-power",
+    name: "双电源",
+    entry: "核对双电源",
+    detail: "从机后对照电源槽位与配置输入 A、B",
+    labels: ["输入 A", "输入 B"],
+    startExplosion: 0.35,
+    pairs: [powerPair(modelId)],
+  } as const;
+}
+
 function processorCheck(modelId: string) {
   return {
     tool: "processor-pair",
@@ -68,18 +80,7 @@ function processorCheck(modelId: string) {
   } as const;
 }
 const checks = {
-  "server-1u": [
-    processorCheck("server-1u"),
-    {
-      tool: "compact-power",
-      name: "双电源",
-      entry: "核对双电源",
-      detail: "从机后对照电源槽位与配置输入 A、B",
-      labels: ["输入 A", "输入 B"],
-      startExplosion: 0.35,
-      pairs: [powerPair("server-1u")],
-    },
-  ],
+  "server-1u": [processorCheck("server-1u"), serverPowerCheck("server-1u")],
   "storage-4u": [
     {
       tool: "storage-controllers",
@@ -104,6 +105,7 @@ const checks = {
       startExplosion: 1,
       pairs: drivePairs,
     },
+    serverPowerCheck("server-2u"),
   ],
   "switch-1u": [
     {

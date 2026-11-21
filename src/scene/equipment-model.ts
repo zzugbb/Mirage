@@ -167,23 +167,18 @@ function detail(root: THREE.Group, node: string, size: number[], box: Box) {
         0.8,
       );
   } else if (node === "psu") {
-    box(root, size, [0, 0, 0], "#7f8a93", 0.8);
+    const rear = -d / 2 + 0.0075;
+    box(root, [w, h, d - 0.0075], [0, 0, 0.00375], "#7f8a93", 0.8);
     for (let i = 0; i < 7; i++)
       box(
         root,
         [w * 0.8, 0.002, 0.002],
-        [0, ((i - 3) * h) / 9, -d / 2 - 0.001],
+        [0, ((i - 3) * h) / 9, rear - 0.001],
         "#21282e",
         0.1,
       );
-    box(
-      root,
-      [w * 0.6, h * 0.6, 0.005],
-      [0, 0, -d / 2 - 0.005],
-      "#14191e",
-      0.2,
-    );
-    box(root, [0.005, h * 0.65, 0.012], [w * 0.48, 0, -d / 2], "#919d76", 0.5);
+    box(root, [w * 0.6, h * 0.6, 0.005], [0, 0, rear - 0.005], "#14191e", 0.2);
+    box(root, [0.005, h * 0.65, 0.012], [w * 0.46, 0, rear], "#919d76", 0.5);
   } else if (node === "controller") {
     storageController(root, size, box);
   } else if (node === "adapter") {
@@ -468,7 +463,7 @@ export function createEquipmentAssembly(modelId: string): Assembly {
       if (p.id === "lid-01") {
         pos.splice(0, 3, 0, h / 2, 0);
         size.splice(0, 3, 0.44, 0.002, depth);
-      } else if (!(p.node === "psu" && model.id === "server-1u")) {
+      } else if (p.node !== "psu") {
         pos[2] *= depth / 0.9;
         pos[1] *= model.units / 2;
         size[1] *= model.units / 2;
@@ -482,16 +477,6 @@ export function createEquipmentAssembly(modelId: string): Assembly {
         pos.splice(0, 3, 0, 0.002, -0.09);
         size.splice(0, 3, 0.39, 0.03125, 0.13335);
       }
-      if (p.node === "psu" && model.id === "server-2u") {
-        pos.splice(
-          0,
-          3,
-          p.id.endsWith("01") ? -0.185 : 0.185,
-          0,
-          -depth / 2 + 0.075,
-        );
-        size.splice(0, 3, 0.065, h * 0.8, 0.14);
-      }
       if (p.id === "nic-01" || p.id === "riser-01") {
         pos.splice(0, 3, 0.04, 0.003, -depth / 2 + 0.065);
         size[0] = 0.065;
@@ -501,7 +486,10 @@ export function createEquipmentAssembly(modelId: string): Assembly {
         const panel = model.rearPanels.find(
           (panel) => panel.kind === "interface",
         );
-        if (panel) pos[0] = panel.center[0];
+        if (panel) {
+          pos[0] = panel.center[0];
+          size[0] = panel.size[0];
+        }
       }
       if (p.id === "fans-01") {
         pos.splice(0, 3, 0, 0, 0.1);
@@ -592,9 +580,9 @@ export function createEquipmentAssembly(modelId: string): Assembly {
         const tail = new THREE.Group();
         tail.position.z = -0.18;
         group.add(tail);
-        // M1 后段板沿并排电源槽内侧延伸。
-        if (model.id === "server-1u") tail.position.x = 0.075;
-        board(tail, [model.id === "server-1u" ? 0.27 : 0.28, 0.004, 0.14], box);
+        // 后段主板沿并排电源槽的内侧延伸。
+        tail.position.x = 0.075;
+        board(tail, [0.27, 0.004, 0.14], box);
       }
     }
   }

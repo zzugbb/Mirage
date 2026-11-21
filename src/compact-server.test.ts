@@ -174,7 +174,7 @@ test("精细 1U 模型保留内嵌贴图和材质，维护部件仍与八内存�
     () => {
       const deviceId = "srv-44";
       const check = assemblyChecks(deviceId).find(
-        (check) => check.tool === "compact-power",
+        (check) => check.tool === "server-power",
       );
       assert.ok(check);
       const { primary, companion } = check.pairs[0];
@@ -182,7 +182,7 @@ test("精细 1U 模型保留内嵌贴图和材质，维护部件仍与八内存�
       for (const device of devices)
         assert.equal(
           assemblyChecks(device.id).some((item) => item.tool === check.tool),
-          device.modelId === "server-1u",
+          ["server-1u", "server-2u"].includes(device.modelId),
         );
       const fallback = createEquipmentAssembly("server-1u");
       const rack = rackForDevice(deviceId);

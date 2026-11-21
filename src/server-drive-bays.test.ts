@@ -9,11 +9,11 @@ import {
 import { createEquipmentAssembly } from "./scene/equipment-model.ts";
 import { devices } from "./installation.ts";
 
-test("M2 整机同时提供处理器和盘位核对，部件只提供所属工具", () => {
+test("M2 整机提供处理器、盘位与双电源核对，部件只提供所属工具", () => {
   const id = "srv-54";
   const tools = (selected: string) =>
     assemblyChecks(id, selected).map((check) => check.tool);
-  assert.deepEqual(tools(id), ["processor-pair", "drive-tray"]);
+  assert.deepEqual(tools(id), ["processor-pair", "drive-tray", "server-power"]);
   for (const device of devices)
     assert.equal(
       assemblyChecks(device.id).some((check) => check.tool === "drive-tray"),

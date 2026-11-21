@@ -163,7 +163,7 @@ export function powerScene(
     const psu = partsForDevice(device.id).find((part) => part.id === partId)!;
     const endpoint: PowerPoint = [
       rack.position[0] + psu.position[0],
-      deviceHeight(device.id),
+      deviceHeight(device.id) + psu.position[1],
       rack.position[2] +
         0.555 -
         model.depth +
@@ -178,7 +178,7 @@ export function powerScene(
       points: [
         outlet,
         [outlet[0], outlet[1], rearZ],
-        [endpoint[0], deviceHeight(device.id), rearZ],
+        [endpoint[0], endpoint[1], rearZ],
         endpoint,
       ],
     });

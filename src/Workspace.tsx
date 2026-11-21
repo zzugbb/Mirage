@@ -5705,7 +5705,7 @@ export function Workspace() {
                             key={part.id}
                             disabled={!ready}
                             aria-label={
-                              assembly.tool === "compact-power"
+                              assembly.tool === "server-power"
                                 ? assembly.labels[index] + " · " + part.name
                                 : part.name
                             }
