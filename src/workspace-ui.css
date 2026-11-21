@@ -1065,6 +1065,30 @@
   font-size: 11px;
   pointer-events: auto;
 }
+.study-room-summary > .study-patch-examples {
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+  font-size: 12px;
+  color: #c0d5dc;
+}
+.study-patch-examples span {
+  margin-right: 4px;
+}
+.study-room-summary .study-patch-examples button {
+  margin: 0;
+  padding: 4px 10px;
+  min-height: 28px;
+  border: 1px solid #4a6977;
+  border-radius: 4px;
+  background: #10222c;
+  color: #c5e6eb;
+  font: inherit;
+}
+.study-patch-examples button:is(:hover, :focus-visible) {
+  border-color: #a4ced7;
+  background: #203b48;
+}
 .study-alert-caption {
   position: absolute;
   z-index: 3;

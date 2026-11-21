@@ -249,13 +249,15 @@ import {
   type PduInspection,
 } from "./pdu-outlets";
 import { PowerConnections } from "./components/PowerConnections";
-import { canShowNetworkPatch } from "./network-patch";
+import { canShowNetworkPatch, patchSettings } from "./network-patch";
 import { NetworkTrace } from "./components/NetworkTrace";
 import { NetworkConnections } from "./components/NetworkConnections";
 import {
   networkContextIncludes,
   networkDeviceId,
   networkLinkById,
+  networkLinksFor,
+  type NetworkLink,
   networkMarkers,
   switchRole,
 } from "./network";
@@ -349,6 +351,12 @@ function reducer(
     ? workspacePreset(state, action.shot)
     : reviewTransition(state, action);
 }
+
+const patchExamples = patchSettings.sourceIds.flatMap((source) =>
+  networkLinksFor(source, source).filter(
+    (link) => switchRole(link.target) === "B",
+  ),
+);
 
 export function Workspace() {
   const [review, control] = useReducer(reducer, undefined, createWorkspace);
@@ -908,10 +916,12 @@ export function Workspace() {
   const [networkMapRestore, setNetworkMapRestore] = useState(0);
   const [networkMapRack, setNetworkMapRack] = useState("rack-a01");
   const [networkMapQuery, setNetworkMapQuery] = useState("");
+  const patchFramePending = useRef<string | null>(null);
   const [networkMapVisit, setNetworkMapVisit] = useState<{
     camera: TaskViewMemory | null;
     linkId: string | null;
     selection: string;
+    shortcut?: { source: string; rackView: ResourceView; nav: boolean };
     scope: NetworkOverviewScope;
     role: NetworkOverviewRole;
     rack: string;
@@ -1334,6 +1344,17 @@ export function Workspace() {
     !review.pendingEndpoint &&
     !!feedback?.settled &&
     feedback.key === presentationKey(state);
+  useEffect(() => {
+    if (!patchFramePending.current) return;
+    if (patchActive && networkTrace?.id === patchFramePending.current) {
+      if (!ready) return;
+      setNetworkViewCommand((current) => ({
+        action: "observe",
+        revision: (current?.revision ?? 0) + 1,
+      }));
+    }
+    patchFramePending.current = null;
+  }, [ready, patchActive, networkTrace]);
   useEffect(() => {
     if (!fanVisit) return;
     if (!activeFanVisit) {
@@ -1813,8 +1834,9 @@ export function Workspace() {
       control({ type: "layer", layer: "overview" });
       return;
     }
-    setRackView("network");
-    if (networkMapVisit) {
+    const shortcut = networkMapVisit?.shortcut;
+    setRackView(shortcut?.rackView ?? "network");
+    if (networkMapVisit && !shortcut) {
       setNetworkMapScope(networkMapVisit.scope);
       setNetworkMapRole(networkMapVisit.role);
       setNetworkMapRack(networkMapVisit.rack);
@@ -1826,11 +1848,20 @@ export function Workspace() {
     setNetworkLinkId(networkMapVisit?.linkId ?? null);
     setInspector(
       !!networkMapVisit?.inspector &&
-        !matchMedia("(max-width: 1099px)").matches,
+        (!matchMedia("(max-width: 1099px)").matches || shortcut?.nav === false),
     );
-    skipNavigationSearch.current = !nav;
-    setNav(true);
-    setNetworkMapRestore((n) => n + 1);
+    const returnNav = shortcut?.nav ?? true;
+    skipNavigationSearch.current = returnNav && !nav;
+    setNav(returnNav);
+    if (shortcut) {
+      requestAnimationFrame(() =>
+        stageRef.current
+          ?.querySelector<HTMLButtonElement>(
+            `[data-patch-source="${shortcut.source}"]`,
+          )
+          ?.focus({ preventScroll: true }),
+      );
+    } else setNetworkMapRestore((n) => n + 1);
     setNetworkMapReturning(false);
     setNetworkMapVisit(null);
   }, [
@@ -2536,11 +2567,16 @@ export function Workspace() {
     setInspectionDevice(null);
     control({ type: "finish-part-inspection" });
   };
-  const rememberNetworkMap = (selection: string, linkId: string | null) => {
+  const rememberNetworkMap = (
+    selection: string,
+    linkId: string | null,
+    shortcut?: NonNullable<typeof networkMapVisit>["shortcut"],
+  ) => {
     setNetworkMapVisit({
       camera: captureTaskView.current?.("room") ?? null,
       selection,
       linkId,
+      shortcut,
       scope: networkMapScope,
       role: networkMapRole,
       rack: networkMapRack,
@@ -2548,6 +2584,16 @@ export function Workspace() {
       scroll: networkMapScroll.current,
       inspector,
     });
+  };
+  const openPatchExample = (link: NetworkLink) => {
+    rememberNetworkMap(selected, null, { source: link.source, rackView, nav });
+    takeover();
+    control({ type: "analysis", value: false });
+    focus(link.target, { installation: true });
+    setNetworkLinkId(link.id);
+    setPatchEntry({ doorOpen: false });
+    dispatch({ type: "door", open: true });
+    patchFramePending.current = link.id;
   };
   const rememberMarkedConnection = () => {
     if (
@@ -3903,9 +3949,11 @@ export function Workspace() {
               onClick={returnNetworkMap}
             >
               ← 返回
-              {originalNetworkLink
-                ? ` ${deviceById(originalNetworkLink.source)!.name} · 接入 ${switchRole(originalNetworkLink.target)}`
-                : "机房接入图"}
+              {networkMapVisit?.shortcut
+                ? "机房总览"
+                : originalNetworkLink
+                  ? ` ${deviceById(originalNetworkLink.source)!.name} · 接入 ${switchRole(originalNetworkLink.target)}`
+                  : "机房接入图"}
             </button>
           </div>
         )}
@@ -5284,6 +5332,26 @@ export function Workspace() {
                     </strong>
                     <span>已知输入功耗</span>
                   </p>
+                </div>
+                <div
+                  className="study-patch-examples"
+                  role="group"
+                  aria-label="看柜内跳线"
+                >
+                  <span>看柜内跳线</span>
+                  {patchExamples.map((link) => {
+                    const rack = rackForDevice(link.source).name.split(" ")[0];
+                    return (
+                      <button
+                        key={link.id}
+                        data-patch-source={link.source}
+                        aria-label={`看 ${rack} 柜内跳线`}
+                        onClick={() => openPatchExample(link)}
+                      >
+                        {rack}
+                      </button>
+                    );
+                  })}
                 </div>
                 {selected !== "room-01" && (
                   <button onClick={() => pick("room-01")}>查看机房详情</button>
