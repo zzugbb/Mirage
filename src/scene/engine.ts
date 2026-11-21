@@ -2216,7 +2216,11 @@ export class SceneEngine {
       inspectionTarget && this.companionPartId
         ? this.models.parts.get(this.companionPartId)
         : null;
-    if (companion && bounds) bounds.expandByObject(companion);
+    if (companion && bounds) {
+      // 两个子件可随不同模组展开，取并集前同步另一侧的父级变换。
+      companion.updateWorldMatrix(true, false);
+      bounds.expandByObject(companion);
+    }
     if (contactPair && bounds) bounds.expandByObject(contactPair.board);
     const aisle =
       level === "room" && focus && view === "top"

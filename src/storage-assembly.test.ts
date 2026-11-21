@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as THREE from "three";
 import { createEquipmentAssembly } from "./scene/equipment-model.ts";
-import { assemblyCheck } from "./assembly-pairs.ts";
+import { assemblyChecks } from "./assembly-pairs.ts";
 import { devices } from "./installation.ts";
 import { sourcePorts } from "./network.ts";
 import { modelById } from "./catalog.ts";
@@ -91,12 +91,11 @@ test("存储后部电源及其接口保留在当前机箱深度内，四盘列�
 test("S4 核查选择与配置槽位、逻辑端口归属及后面板拾取一致", () => {
   const assembly = createEquipmentAssembly("storage-4u");
   for (const device of devices) {
-    const check = assemblyCheck(device.id);
-    assert.equal(
-      check?.tool === "storage-controllers",
-      device.modelId === "storage-4u",
+    const check = assemblyChecks(device.id).find(
+      (check) => check.tool === "storage-controllers",
     );
-    if (check?.tool !== "storage-controllers") continue;
+    assert.equal(Boolean(check), device.modelId === "storage-4u");
+    if (!check) continue;
     const [{ primary, companion }] = check.pairs;
     assert.deepEqual([primary.slot, companion.slot], ["CTRL-A", "CTRL-B"]);
     for (const part of [primary, companion]) {

@@ -1,4 +1,8 @@
-import { assemblyCheck } from "./assembly-pairs";
+import {
+  assemblyChecks,
+  assemblyMember,
+  type AssemblyCheck,
+} from "./assembly-pairs";
 import { modelForDevice } from "./catalog";
 import { CompactDriveBays } from "./components/CompactDriveBays";
 import { compactBayForPart, compactDriveBays } from "./compact-drive-bays";
@@ -413,22 +417,25 @@ export function Workspace() {
   const [fanViewRevision, setFanViewRevision] = useState(0);
   const [fanFocusRevision, setFanFocusRevision] = useState(0);
   const activeFanVisit = activeFanInspection(fanVisit, state, selected);
-  const [pairDevice, setPairDevice] = useState<string | null>(null);
+  const [pairVisit, setPairVisit] = useState<{
+    deviceId: string;
+    tool: AssemblyCheck["tool"];
+  } | null>(null);
+  const pairTools =
+    state.level === "device" ? assemblyChecks(state.deviceId, selected) : [];
   const assembly =
-    state.level === "device" ? assemblyCheck(state.deviceId) : null;
-  const selectedPair = assembly?.pairs.find(
-    ({ primary, companion }) =>
-      selected === primary.id || selected === companion.id,
-  );
-  const pairToolAvailable =
-    assembly && (selected === state.deviceId || selectedPair) ? assembly : null;
-  const activePair =
-    pairDevice === state.deviceId && canInspectPart(state)
-      ? selectedPair
+    pairVisit?.deviceId === state.deviceId
+      ? pairTools.find((check) => check.tool === pairVisit.tool)
       : undefined;
+  const activePair = canInspectPart(state)
+    ? assembly?.pairs.find(
+        ({ primary, companion }) =>
+          selected === primary.id || selected === companion.id,
+      )
+    : undefined;
   useEffect(() => {
-    if (pairDevice && !activePair) setPairDevice(null);
-  }, [pairDevice, activePair]);
+    if (pairVisit && !activePair) setPairVisit(null);
+  }, [pairVisit, activePair]);
   const [structureReturn, setStructureReturn] = useState<{
     deviceId: string;
     tool: StructureTool;
@@ -2752,14 +2759,15 @@ export function Workspace() {
     if (!ready || state.level !== "device") return;
     setStructureReturn(null);
     if (tool !== "fans" && tool !== "storage") {
-      if (!pairToolAvailable || tool !== pairToolAvailable.tool) return;
+      const check = pairTools.find((item) => item.tool === tool);
+      if (!check) return;
       setInspectionDevice(null);
-      setPairDevice(state.deviceId);
+      setPairVisit({ deviceId: state.deviceId, tool });
       control({ type: "analysis", value: false });
       // 从装配态开始时给两件留出观察间距，已有展开比例由用户掌控。
       if (!canInspectPart(state))
-        dispatch({ type: "explode", amount: pairToolAvailable.startExplosion });
-      focus(selectedPair ? selected : pairToolAvailable.pairs[0].primary.id);
+        dispatch({ type: "explode", amount: check.startExplosion });
+      focus(assemblyMember(check, selected)?.id ?? check.pairs[0].primary.id);
       return;
     }
     if (tool === "fans") {
@@ -2839,7 +2847,7 @@ export function Workspace() {
       });
     else partSequenceFocus.current = "heading";
     control({ type: "analysis", value: false });
-    setPairDevice(null);
+    setPairVisit(null);
     setStorageVisit(null);
     setFanVisit(null);
     setInspectionDevice(null);
@@ -3610,7 +3618,7 @@ export function Workspace() {
     setSliceCheck(null);
     setPduInspection(null);
     setPduReturning(false);
-    setPairDevice(null);
+    setPairVisit(null);
     setInspectionDevice(null);
     setEnvironmentComparisonOpen(false);
     setEnvironmentPairVisit(null);
@@ -5662,9 +5670,9 @@ export function Workspace() {
                   onBack={finishStructureCheck}
                 >
                   <div className="structure-check-scope">
-                    {assembly.pairs.length > 1 && (
+                    {"slotLabel" in assembly && (
                       <select
-                        aria-label="处理器槽位"
+                        aria-label={assembly.slotLabel}
                         value={activePair.primary.id}
                         disabled={!ready}
                         onChange={(event) => {
@@ -6921,12 +6929,12 @@ export function Workspace() {
                       !activePair &&
                       !activeFanVisit &&
                       !activeStorageVisit &&
-                      (pairToolAvailable ||
+                      (pairTools.length > 0 ||
                         compactBayContext ||
                         fanInspectionContext(state.deviceId, selected) ||
                         storageSlotContext(state.deviceId, selected)) && (
                         <StructureTools
-                          assembly={pairToolAvailable}
+                          assemblies={pairTools}
                           key={`${revision}:${state.deviceId}:${compactBayContext ? "bays" : selected}`}
                           showSelection={
                             compactBayContext && selected !== state.deviceId

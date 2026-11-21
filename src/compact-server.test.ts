@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { mapCompactServer } from "./scene/compact-server.ts";
-import { assemblyCheck } from "./assembly-pairs.ts";
+import { assemblyChecks } from "./assembly-pairs.ts";
 import { assemblyPartPosition } from "./assembly-motion.ts";
 import { createEquipmentAssembly } from "./scene/equipment-model.ts";
 import { devices, rackForDevice } from "./installation.ts";
@@ -123,13 +123,15 @@ test("精细 1U 模型保留内嵌贴图和材质，维护部件仍与八内存�
     "M1 两个电源槽与精模、安装简图及供电端点同位，展开全程保持顺序",
     () => {
       const deviceId = "srv-44";
-      const check = assemblyCheck(deviceId)!;
-      assert.equal(check.tool, "compact-power");
+      const check = assemblyChecks(deviceId).find(
+        (check) => check.tool === "compact-power",
+      );
+      assert.ok(check);
       const { primary, companion } = check.pairs[0];
       assert.deepEqual([primary.slot, companion.slot], ["PSU-01", "PSU-02"]);
       for (const device of devices)
         assert.equal(
-          assemblyCheck(device.id)?.tool === check.tool,
+          assemblyChecks(device.id).some((item) => item.tool === check.tool),
           device.modelId === "server-1u",
         );
       const fallback = createEquipmentAssembly("server-1u");

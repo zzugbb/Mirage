@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Box3, Vector3 } from "three";
-import { assemblyCheck, processorPairs } from "./assembly-pairs.ts";
+import { assemblyChecks, processorPairs } from "./assembly-pairs.ts";
 import { devices } from "./installation.ts";
 import { createEquipmentAssembly } from "./scene/equipment-model.ts";
 
@@ -18,11 +18,13 @@ test("M2 按配置槽号配对双路 CPU 和 HS，其他服务器不显示此核
   );
   for (const device of devices) {
     assert.equal(
-      assemblyCheck(device.id)?.tool === "processor-pair",
+      assemblyChecks(device.id).some(
+        (check) => check.tool === "processor-pair",
+      ),
       device.modelId === "server-2u",
     );
   }
-  assert.equal(assemblyCheck("unknown"), null);
+  assert.deepEqual(assemblyChecks("unknown"), []);
 });
 
 test("M2 简模封装顶面贴合同号散热器底面，复原坐标保留校准结果", () => {

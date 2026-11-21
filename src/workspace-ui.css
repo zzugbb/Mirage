@@ -7068,7 +7068,7 @@
   font-size: 11px;
 }
 
-.workspace-ui .structure-task-bar:has(select[aria-label="处理器槽位"]) {
+.workspace-ui .structure-task-bar:has(.structure-check-scope select) {
   grid-template-columns: auto auto auto;
 }
 .structure-check-scope select {

@@ -1,4 +1,4 @@
-import { processorPairs } from "../assembly-pairs.ts";
+import { processorPairs, drivePairs } from "../assembly-pairs.ts";
 import { compactBayForPart } from "../compact-drive-bays.ts";
 import { createFanModule } from "./fan-module.ts";
 import { switchBoard, switchAsic } from "./switch-model.ts";
@@ -195,6 +195,32 @@ function detail(root: THREE.Group, node: string, size: number[], box: Box) {
   } else
     box(root, size, [0, 0, 0], node === "lid" ? "#9aa5ae" : "#4e5a64", 0.75);
 }
+// M2 竖装 SSD 的金属盘体、侧盖与后端接触区均属同一个配置部件。
+function serverSsd(root: THREE.Group, box: Box) {
+  const w = 0.007,
+    h = 0.06985,
+    d = 0.10045;
+  box(root, [w, h, d], [0, 0, 0], "#77838d", 0.65);
+  box(root, [0.0006, h - 0.006, d - 0.006], [w / 2, 0, 0], "#adb5b9", 0.7);
+  for (const y of [-1, 1]) {
+    for (const z of [-1, 1])
+      box(
+        root,
+        [0.0008, 0.0026, 0.0026],
+        [w / 2, y * (h / 2 - 0.006), z * (d / 2 - 0.006)],
+        "#525c63",
+      );
+  }
+  box(root, [w * 0.7, h * 0.56, 0.003], [0, -0.007, -d / 2], "#353f43", 0.22);
+  box(
+    root,
+    [0.001, h * 0.46, 0.002],
+    [0.0008, -0.007, -d / 2 - 0.001],
+    "#ad9662",
+    0.45,
+  );
+}
+
 function children(
   root: THREE.Group,
   id: string,
@@ -205,9 +231,13 @@ function children(
   size: number[],
   modelId: string,
 ) {
-  const ids = definition.subparts
-    .filter((p) => p.parent === id)
-    .slice(0, count);
+  const verticalBays =
+    modelId === "server-2u" && (node === "storage" || node === "drives");
+  const ids = verticalBays
+    ? drivePairs.map((pair) =>
+        node === "storage" ? pair.primary : pair.companion,
+      )
+    : definition.subparts.filter((p) => p.parent === id).slice(0, count);
   for (let i = 0; i < ids.length; i++) {
     const child = new THREE.Group();
     child.userData.entityId = ids[i].id;
@@ -216,6 +246,14 @@ function children(
     const bay =
       modelId === "server-1u" ? compactBayForPart(ids[i].id) : undefined;
     if (bay) child.position.set(bay.x, bay.y, 0);
+    if (verticalBays) {
+      // 槽距按归一化后的贡献模型取整，正面从左到右编号。
+      child.position.set(-0.05994 + i * 0.017084, -0.00058, 0);
+      if (node === "drives") {
+        serverSsd(child, box);
+        continue;
+      }
+    }
     if (node === "memory") {
       const perBank = count / 2,
         bank = i < perBank ? -1 : 1,
@@ -262,8 +300,7 @@ function children(
       fan.position.z = size[2] / 2 + 0.002;
       child.add(fan);
     } else if (node === "storage") {
-      const w = bay ? 0.073 : (size[0] / count) * 0.95;
-      if (!bay) child.position.x = ((i - (count - 1) / 2) * size[0]) / count;
+      const w = bay ? 0.073 : 0.0148;
       for (const x of [-w / 2, w / 2])
         box(child, [0.002, size[1], size[2]], [x, 0, 0], "#8e9aa3", 0.75);
       for (const y of [-size[1] / 2, size[1] / 2])
@@ -400,12 +437,18 @@ export function createEquipmentAssembly(modelId: string): Assembly {
         size.splice(0, 3, 0.39, h * 0.8, 0.055);
       }
       if (p.id === "drives-01") {
-        pos.splice(0, 3, 0, 0, depth / 2 - 0.065);
+        pos.splice(0, 3, 0, 0, depth / 2 - (model.units === 2 ? 0.06 : 0.065));
         size.splice(0, 3, model.units === 2 ? 0.137 : 0.41, h * 0.85, 0.1);
       }
       if (p.id === "storage-01") {
-        pos.splice(0, 3, 0, 0, depth / 2 - 0.02);
-        size.splice(0, 3, model.units === 2 ? 0.137 : 0.42, h * 0.85, 0.03);
+        pos.splice(0, 3, 0, 0, depth / 2 - (model.units === 2 ? 0.06 : 0.02));
+        size.splice(
+          0,
+          3,
+          model.units === 2 ? 0.137 : 0.42,
+          h * 0.85,
+          model.units === 2 ? 0.119 : 0.03,
+        );
       }
       if (p.id === "backplane-01") {
         pos.splice(0, 3, 0, 0, depth / 2 - 0.135);
@@ -502,33 +545,14 @@ export function completeServerAssembly(
     group.position.fromArray(part.position);
     if (part.id === "drives-01") {
       group.position.set(0, 0, 0);
-      for (let i = 1; i <= 8; i++) {
-        const tray = groups.get(`bay-${String(i).padStart(2, "0")}`)!;
-        const b = new THREE.Box3().setFromObject(tray),
-          size = b.getSize(new THREE.Vector3()),
-          child = new THREE.Group();
-        b.getCenter(child.position);
-        child.userData.entityId = `disk-${String(i).padStart(2, "0")}`;
+      for (const { primary, companion } of drivePairs) {
+        const tray = groups.get(primary.id)!;
+        const child = new THREE.Group();
+        new THREE.Box3().setFromObject(tray).getCenter(child.position);
+        child.userData.entityId = companion.id;
         group.add(child);
-        groups.set(child.userData.entityId, child);
-        box(
-          child,
-          [
-            Math.min(0.007, size.x * 0.55),
-            Math.min(0.06985, size.y * 0.95),
-            Math.min(0.10045, size.z * 0.9),
-          ],
-          [0, 0, 0],
-          "#a2aab0",
-          0.75,
-        );
-        box(
-          child,
-          [size.x * 0.6, size.y * 0.3, 0.002],
-          [0, 0, size.z * 0.25],
-          "#35493f",
-          0.2,
-        );
+        groups.set(companion.id, child);
+        serverSsd(child, box);
       }
     } else detail(group, part.node, part.size, box);
     root.add(group);

@@ -29,8 +29,7 @@ const partsByModel = new Map(
 export const partsForModel = (modelId: string) => partsByModel.get(modelId)!;
 export const partsForDevice = (id: string) =>
   partsForModel(modelForDevice(id).id);
-export const subpartsForDevice = (id: string) => {
-  const model = modelForDevice(id);
+export const subpartsForModel = (model: (typeof equipmentModels)[number]) => {
   return definition.subparts.filter(
     (part) =>
       model.parts.includes(part.parent) &&
@@ -40,6 +39,8 @@ export const subpartsForDevice = (id: string) => {
         Number(part.id.slice(-2)) <= model.drives),
   );
 };
+export const subpartsForDevice = (id: string) =>
+  subpartsForModel(modelForDevice(id));
 export const categoryNames = {
   server: "服务器",
   switch: "交换机",

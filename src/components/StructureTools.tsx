@@ -8,7 +8,7 @@ export type StructureTool = "fans" | "storage" | AssemblyCheck["tool"];
 export function StructureTools({
   children,
   showSelection = false,
-  assembly,
+  assemblies,
   fans,
   slots,
   ready,
@@ -18,7 +18,7 @@ export function StructureTools({
 }: {
   children?: React.ReactNode;
   showSelection?: boolean;
-  assembly: AssemblyCheck | null;
+  assemblies: readonly AssemblyCheck[];
   fans: number;
   slots: number;
   ready: boolean;
@@ -78,7 +78,7 @@ export function StructureTools({
         <strong>结构核对</strong>
         <small>
           {[
-            assembly?.name,
+            ...assemblies.map((check) => check.name),
             fans ? "风扇组" : "",
             slots || children ? "盘位" : "",
           ]
@@ -88,8 +88,9 @@ export function StructureTools({
       </summary>
       <div role="group" aria-label="结构核对工具">
         {children}
-        {assembly && (
+        {assemblies.map((assembly) => (
           <button
+            key={assembly.tool}
             data-structure-tool={assembly.tool}
             disabled={!ready}
             onClick={() => onStart(assembly.tool)}
@@ -99,7 +100,7 @@ export function StructureTools({
             </strong>
             <small>{assembly.detail}</small>
           </button>
-        )}
+        ))}
         {fans > 0 && (
           <button
             data-structure-tool="fans"
