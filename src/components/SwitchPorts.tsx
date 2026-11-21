@@ -14,6 +14,8 @@ export function SwitchPorts({
   showEndMark,
   onBranch,
   onEndMark,
+  onViewPatch,
+  patchActive,
   check,
   ready,
   traced,
@@ -27,6 +29,8 @@ export function SwitchPorts({
   showEndMark: boolean;
   onBranch: (linkId: string) => void;
   onEndMark: () => void;
+  onViewPatch?: (linkId: string) => void;
+  patchActive: boolean;
   check: SwitchPortCheck;
   ready: boolean;
   traced: boolean;
@@ -38,6 +42,7 @@ export function SwitchPorts({
 }) {
   const root = useRef<HTMLElement>(null);
   const rows = switchPortRows(check.switchId, check.query);
+  const hasPatches = !!onViewPatch && rows.some((row) => row.patchSupported);
   const chosen = rows.find((row) => row.port === check.port);
   return (
     <section
@@ -55,7 +60,9 @@ export function SwitchPorts({
         </span>
         <input
           aria-label="端口总览查找"
-          placeholder="01、SRV-01、100G、未配置"
+          placeholder={
+            hasPatches ? "端口号、对端编号、走线" : "01、SRV-01、100G、未配置"
+          }
           value={check.query}
           onChange={(event) =>
             onChange({ ...check, query: event.target.value })
@@ -104,9 +111,10 @@ export function SwitchPorts({
                   key={row.port}
                   data-port={row.port}
                   data-match={row.matches}
+                  data-patch={(hasPatches && row.patchSupported) || undefined}
                   data-configured={!!row.link}
                   aria-pressed={check.port === row.port}
-                  aria-label={`端口 ${String(row.port).padStart(2, "0")}，${row.peer ? "已配置至 " + row.peer.name : "未配置连接"}`}
+                  aria-label={`端口 ${String(row.port).padStart(2, "0")}，${row.peer ? "已配置至 " + row.peer.name : "未配置连接"}${hasPatches && row.patchSupported ? "，可看走线" : ""}`}
                   title={row.peer?.name ?? "未配置连接"}
                   onClick={() => onSelect(row.port)}
                 >
@@ -116,7 +124,7 @@ export function SwitchPorts({
           </div>
         </div>
       ))}
-      <small>实框已配置 · 虚框未配置</small>
+      <small>实框已配置 · 虚框未配置{hasPatches && " · 下划线可看走线"}</small>
       {chosen && showCard ? (
         <div className="switch-port-selected" aria-label="所选逻辑端口">
           <strong>
@@ -146,6 +154,14 @@ export function SwitchPorts({
                 </button>
               )}
               <div className="switch-port-actions">
+                {onViewPatch && chosen.patchSupported && (
+                  <button
+                    disabled={!ready}
+                    onClick={() => onViewPatch(chosen.link!.id)}
+                  >
+                    {patchActive ? "回到走线" : "看柜内走线"}
+                  </button>
+                )}
                 <button
                   disabled={!ready}
                   onClick={() => onLocate(chosen.peer!.id)}

@@ -712,6 +712,12 @@ export function Workspace() {
   const [portVisit, setPortVisit] = useState<{
     check: SwitchPortCheck;
     portOffset: number;
+    patch?: {
+      source: string;
+      doorOpen: boolean;
+      rearDoorOpen: boolean;
+      entry: { doorOpen: boolean } | null;
+    };
     camera: TaskViewMemory | null;
     localActionsOpen: boolean;
     level: "room" | "rack";
@@ -910,7 +916,7 @@ export function Workspace() {
   const [networkMapRestore, setNetworkMapRestore] = useState(0);
   const [networkMapRack, setNetworkMapRack] = useState("rack-a01");
   const [networkMapQuery, setNetworkMapQuery] = useState("");
-  const patchFramePending = useRef<string | null>(null);
+  const [pendingPatch, setPendingPatch] = useState<string | null>(null);
   const [networkMapVisit, setNetworkMapVisit] = useState<{
     camera: TaskViewMemory | null;
     linkId: string | null;
@@ -938,7 +944,9 @@ export function Workspace() {
     portCheck.port === networkTrace.targetPort &&
     networkDeviceId(selected, state.deviceId) === portCheck.switchId;
 
-  const networkControlFocus = useRef<"endpoint" | "branch" | null>(null);
+  const networkControlFocus = useRef<"endpoint" | "branch" | "port" | null>(
+    null,
+  );
   const [networkMapSelection, setNetworkMapSelection] = useState("room-01");
   const networkMapScroll = useRef(0);
   const [networkMapReturning, setNetworkMapReturning] = useState(false);
@@ -1338,16 +1346,33 @@ export function Workspace() {
     !!feedback?.settled &&
     feedback.key === presentationKey(state);
   useEffect(() => {
-    if (!patchFramePending.current) return;
-    if (patchActive && networkTrace?.id === patchFramePending.current) {
-      if (!ready) return;
-      setNetworkViewCommand((current) => ({
-        action: "observe",
-        revision: (current?.revision ?? 0) + 1,
-      }));
+    if (!pendingPatch) return;
+    if (networkTrace?.id === pendingPatch) {
+      // 展开设备时先让原有归位流程完成，再在已就位的机柜打开走线。
+      if (review.pendingId === networkTrace.target) return;
+      if (patchAvailable) {
+        if (!patchActive) {
+          setPatchEntry({ doorOpen: state.doorOpen });
+          control({ type: "scene", action: { type: "door", open: true } });
+          return;
+        }
+        if (!ready) return;
+        setNetworkViewCommand((current) => ({
+          action: "observe",
+          revision: (current?.revision ?? 0) + 1,
+        }));
+      }
     }
-    patchFramePending.current = null;
-  }, [ready, patchActive, networkTrace]);
+    setPendingPatch(null);
+  }, [
+    pendingPatch,
+    ready,
+    patchAvailable,
+    patchActive,
+    networkTrace,
+    state.doorOpen,
+    review.pendingId,
+  ]);
   useEffect(() => {
     if (!fanVisit) return;
     if (!activeFanVisit) {
@@ -1400,10 +1425,11 @@ export function Workspace() {
       portVisit &&
       !portReturning &&
       ready &&
+      !(portVisit.patch && networkTrace?.source === portVisit.patch.source) &&
       !switchPortIncludes(portVisit.check, selected, state.deviceId)
     )
       setPortVisit(null);
-  }, [portVisit, portReturning, ready, selected, state.deviceId]);
+  }, [portVisit, portReturning, ready, selected, state.deviceId, networkTrace]);
   useEffect(() => {
     if (
       !portReturning ||
@@ -1412,6 +1438,22 @@ export function Workspace() {
       state.level !== portVisit.level
     )
       return;
+    if (
+      state.level === "rack" &&
+      portVisit.patch &&
+      (state.doorOpen !== portVisit.patch.doorOpen ||
+        state.rearDoorOpen !== portVisit.patch.rearDoorOpen)
+    ) {
+      control({
+        type: "scene",
+        action: { type: "door", open: portVisit.patch.doorOpen },
+      });
+      control({
+        type: "scene",
+        action: { type: "rear-door", open: portVisit.patch.rearDoorOpen },
+      });
+      return;
+    }
     control({ type: "pick", id: portVisit.check.switchId });
     control({ type: "layer", layer: "overview" });
     control({ type: "analysis", value: false });
@@ -1421,6 +1463,7 @@ export function Workspace() {
       )?.link?.id ?? null,
     );
     setPortCheck(portVisit.check);
+    if (portVisit.patch) setPatchEntry(portVisit.patch.entry);
     setQuery(portVisit.query);
     setFilter(portVisit.filter);
     setOnlyAlarms(portVisit.onlyAlarms);
@@ -1436,7 +1479,14 @@ export function Workspace() {
     };
     setPortReturning(false);
     setPortVisit(null);
-  }, [portReturning, portVisit, ready, state.level]);
+  }, [
+    portReturning,
+    portVisit,
+    ready,
+    state.level,
+    state.doorOpen,
+    state.rearDoorOpen,
+  ]);
   useEffect(() => {
     const target = portReturnFocus.current;
     if (
@@ -1470,7 +1520,7 @@ export function Workspace() {
       portReturnFocus.current = null;
     });
     return () => cancelAnimationFrame(frame);
-  }, [portVisit, ready, selected, review.analysis]);
+  }, [portVisit, portCheck, ready, selected, review.analysis]);
 
   useEffect(() => {
     if (
@@ -1871,16 +1921,18 @@ export function Workspace() {
   useEffect(() => {
     const target = networkControlFocus.current;
     if (!target) return;
-    if (target === "branch" && !ready) return;
+    if (target !== "endpoint" && !ready) return;
     networkControlFocus.current = null;
     inspectorRef.current
       ?.querySelector<HTMLElement>(
         target === "branch"
           ? ".network-trace select"
-          : '.network-endpoint-picker button[aria-pressed="true"]',
+          : target === "port"
+            ? ".network-check-port"
+            : '.network-endpoint-picker button[aria-pressed="true"]',
       )
-      ?.focus({ preventScroll: true });
-  }, [selected, activeNetworkLink, ready]);
+      ?.focus({ preventScroll: target !== "port" });
+  }, [selected, activeNetworkLink, ready, portCheck]);
   useEffect(() => {
     if (!crossingInspectPending.current || !crossing || !ready) return;
     const details = document.querySelector<HTMLElement>(".crossing-details");
@@ -2568,9 +2620,8 @@ export function Workspace() {
     control({ type: "analysis", value: false });
     focus(link.target, { installation: true });
     setNetworkLinkId(link.id);
-    setPatchEntry({ doorOpen: false });
-    dispatch({ type: "door", open: true });
-    patchFramePending.current = link.id;
+    setPortCheck(null);
+    setPendingPatch(link.id);
   };
   const rememberMarkedConnection = () => {
     if (
@@ -3752,6 +3803,7 @@ export function Workspace() {
             <button
               disabled={!ready || portReturning}
               onClick={() => {
+                setPatchEntry(null);
                 setPortReturning(true);
                 control(
                   portVisit.level === "room"
@@ -5445,9 +5497,30 @@ export function Workspace() {
                       }
                     : undefined
                 }
+                onCheckPort={() => {
+                  const check = {
+                    switchId: networkTrace.target,
+                    port: networkTrace.targetPort,
+                    query:
+                      portVisit?.check.switchId === networkTrace.target
+                        ? portVisit.check.query
+                        : "",
+                  };
+                  portReturnFocus.current = {
+                    check,
+                    offset:
+                      (inspectorRef.current?.querySelector<HTMLElement>(
+                        ".study-panel-heading",
+                      )?.offsetHeight ?? 0) + 12,
+                    localActionsOpen: false,
+                  };
+                  pick(check.switchId);
+                  setPortCheck(check);
+                }}
                 patchAvailable={patchAvailable}
                 patchActive={patchActive}
                 onTogglePatch={() => {
+                  setPendingPatch(null);
                   if (patchEntry) {
                     if (!patchEntry.doorOpen)
                       dispatch({ type: "door", open: false });
@@ -6477,6 +6550,7 @@ export function Workspace() {
                       <NetworkConnections
                         portCheck={portCheck}
                         portOwnsTrace={portOwnsTrace}
+                        patchActive={patchActive}
                         isolated={!!isolatedPartId}
                         onPortChange={(check) => {
                           setPortCheck(check);
@@ -6484,6 +6558,13 @@ export function Workspace() {
                         }}
                         onPortLeave={(check, id, action, linkId) => {
                           if (!ready) return;
+                          const link = networkLinkById(linkId);
+                          if (!link) return;
+                          if (action === "patch" && patchActive) {
+                            setPortCheck(null);
+                            networkControlFocus.current = "port";
+                            return;
+                          }
                           setPortCheck(check);
                           portReturnFocus.current = null;
                           const panel = inspectorRef.current!;
@@ -6492,25 +6573,45 @@ export function Workspace() {
                           )!;
                           const level =
                             state.level === "room" ? "room" : "rack";
-                          setPortVisit({
-                            check,
-                            level,
-                            camera: captureTaskView.current?.(level) ?? null,
-                            localActionsOpen: !!panel.querySelector(
-                              ".switch-local-actions[open]",
-                            ),
-                            portOffset:
-                              button.getBoundingClientRect().top -
-                              panel.getBoundingClientRect().top,
-                            query,
-                            filter,
-                            rackView,
-                            nav,
-                            onlyAlarms,
-                            metric,
-                          });
+                          if (
+                            !portVisit?.patch ||
+                            portVisit.patch.source !== link.source
+                          )
+                            setPortVisit({
+                              check,
+                              patch:
+                                action === "patch" || patchActive
+                                  ? {
+                                      source: link.source,
+                                      doorOpen:
+                                        state.level === "rack" &&
+                                        state.doorOpen,
+                                      rearDoorOpen:
+                                        state.level === "rack" &&
+                                        state.rearDoorOpen,
+                                      entry: patchActive ? patchEntry : null,
+                                    }
+                                  : undefined,
+                              level,
+                              camera: captureTaskView.current?.(level) ?? null,
+                              localActionsOpen: !!panel.querySelector(
+                                ".switch-local-actions[open]",
+                              ),
+                              portOffset:
+                                button.getBoundingClientRect().top -
+                                panel.getBoundingClientRect().top,
+                              query,
+                              filter,
+                              rackView,
+                              nav,
+                              onlyAlarms,
+                              metric,
+                            });
                           setNetworkLinkId(linkId);
-                          if (action === "preview") pick(id);
+                          if (action === "patch") {
+                            networkControlFocus.current = "port";
+                            openNetworkPatch(link);
+                          } else if (action === "preview") pick(id);
                           else if (action === "locate")
                             focus(id, { installation: true });
                           else {

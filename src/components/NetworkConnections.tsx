@@ -21,6 +21,7 @@ export function NetworkConnections({
   onPortChange,
   onPortLeave,
   portOwnsTrace,
+  patchActive,
   isolated,
   state,
   selectedId,
@@ -33,12 +34,13 @@ export function NetworkConnections({
 }: {
   portCheck: SwitchPortCheck | null;
   portOwnsTrace: boolean;
+  patchActive: boolean;
   isolated: boolean;
   onPortChange: (check: SwitchPortCheck) => void;
   onPortLeave: (
     check: SwitchPortCheck,
     id: string,
-    action: "preview" | "locate" | "inspect",
+    action: "preview" | "locate" | "inspect" | "patch",
     linkId: string,
   ) => void;
   state: AppState;
@@ -119,6 +121,13 @@ export function NetworkConnections({
               ready={ready}
               traced={activeLink?.target === device.id}
               showCard={!activeLink || portOwnsTrace}
+              patchActive={patchActive}
+              onViewPatch={
+                state.level !== "rack" || !state.trayExtended
+                  ? (linkId) =>
+                      onPortLeave(check, check.switchId, "patch", linkId)
+                  : undefined
+              }
               showEndMark={
                 isolated ||
                 networkMarkers(state, selectedId, activeLinkId).length === 0

@@ -43,6 +43,7 @@ export function NetworkTrace({
   patchActive,
   onTogglePatch,
   onOpenPatch,
+  onCheckPort,
   showEndMark,
   ready,
   onPreview,
@@ -57,6 +58,7 @@ export function NetworkTrace({
   patchActive: boolean;
   onTogglePatch: () => void;
   onOpenPatch?: () => void;
+  onCheckPort: () => void;
   showEndMark: boolean;
   ready: boolean;
   onPreview: (id: string) => void;
@@ -123,6 +125,16 @@ export function NetworkTrace({
         <p>当前展示台为 {deviceById(inside)?.name}</p>
       )}
       <div className="network-endpoint-actions">
+        {patchActive && (
+          <button
+            className="network-check-port"
+            disabled={!ready}
+            aria-label={`核对 ${ends[1].name} 端口 ${String(link.targetPort).padStart(2, "0")}`}
+            onClick={onCheckPort}
+          >
+            核对端口 {String(link.targetPort).padStart(2, "0")}
+          </button>
+        )}
         <button
           disabled={!ready}
           onClick={() => onLocate(current.deviceId)}

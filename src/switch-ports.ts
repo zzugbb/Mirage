@@ -5,7 +5,7 @@ import {
   partsForDevice,
   subpartsForDevice,
 } from "./catalog.ts";
-import { switchPorts } from "./network.ts";
+import { supportsNetworkPatch, switchPorts } from "./network.ts";
 
 export type SwitchPortCheck = {
   switchId: string;
@@ -22,12 +22,14 @@ export function switchPortRows(switchId: string, query = "") {
       (link) => link.target === switchId && link.targetPort === port.port,
     );
     const peer = link ? deviceById(link.source)! : null;
+    const patchSupported = !!link && supportsNetworkPatch(link);
     const text =
-      `${port.label} ${port.speedGbps}g ${peer?.name ?? ""} ${peer?.id ?? ""} ${link ? "已配置" : "未配置"}`.toLowerCase();
+      `${port.label} ${port.speedGbps}g ${peer?.name ?? ""} ${peer?.id ?? ""} ${link ? "已配置" : "未配置"} ${patchSupported ? "可看走线" : ""}`.toLowerCase();
     return {
       ...port,
       link: link ?? null,
       peer,
+      patchSupported,
       matches: terms.every((term) =>
         /^\d+$/.test(term) ? port.port === Number(term) : text.includes(term),
       ),

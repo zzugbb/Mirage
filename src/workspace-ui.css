@@ -6016,6 +6016,10 @@
   border-color: #91b6c2;
   background: #29424d;
 }
+.switch-port-grid button[data-patch="true"] {
+  text-decoration: underline 2px;
+  text-underline-offset: 3px;
+}
 .switch-port-grid button[data-match="false"] {
   opacity: 0.35;
 }

@@ -97,3 +97,21 @@ test("往返只延续本交换机、已配置对端及其部件，未配置口�
     false,
   );
 });
+
+test("走线查找使用连接的示意能力，保留原逻辑编号与全部端口", () => {
+  const expected = ["sw-13", "sw-14", "sw-15", "sw-16"];
+  for (const { id } of devices.filter(
+    (d) => modelForDevice(d.id).category === "switch",
+  )) {
+    const rows = switchPortRows(id, "走线 25G");
+    assert.equal(rows.length, 54);
+    assert.deepEqual(
+      rows.filter((row) => row.matches).map((row) => row.port),
+      expected.includes(id) ? [9] : [],
+    );
+    assert.ok(rows.every((row) => row.matches === row.patchSupported));
+  }
+  assert.ok(
+    switchPortRows("sw-16", "走线 STO-01").every((row) => !row.matches),
+  );
+});
