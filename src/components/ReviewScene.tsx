@@ -2073,7 +2073,11 @@ export function ReviewScene({
                     ? model.category === "server"
                       ? "center"
                       : "bounds"
-                    : undefined
+                    : state.level === "rack" &&
+                        alarm &&
+                        item.id === state.selected
+                      ? "bounds"
+                      : undefined
                 }
                 data-anchor-kind={
                   alarmDevice || item.id === roomDevice?.id

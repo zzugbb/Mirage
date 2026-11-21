@@ -168,6 +168,22 @@ test("装机角标复用安装外廓，忽略隐藏的展开部件并跟随导�
         marker.box.max.distanceTo(expected.max) < 1e-8,
     );
   }
+  const full = marker.box.clone();
+  for (const z of [full.min.z - 1, full.max.z + 1]) {
+    marker.setInstalledBox(active, proxy, z);
+    assert.equal(marker.box.min.z, marker.box.max.z);
+    assert.equal(marker.box.max.z, z < full.min.z ? full.min.z : full.max.z);
+    assert.equal(marker.box.max.y, full.max.y);
+    assert.equal(marker.box.min.y, full.min.y);
+    marker.update("alarm", 0, true, 0.006, "#f4c46c");
+    assert.equal(marker.material.depthTest, false);
+    assert.equal(marker.material.color.getHexString(), "f4c46c");
+  }
+  marker.setInstalledBox(active, proxy);
+  marker.update("device", 0, true);
+  assert.ok(marker.box.equals(full));
+  assert.equal(marker.material.depthTest, true);
+  assert.equal(marker.material.color.getHexString(), "b7e8e8");
   marker.geometry.dispose();
   marker.material.dispose();
   hidden.geometry.dispose();

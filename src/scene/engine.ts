@@ -87,7 +87,8 @@ import { createEquipmentAssembly } from "./equipment-model";
 import { advanceAssembly, assemblyPartPosition } from "../assembly-motion";
 import { createExteriorAssembly, poseExterior } from "./equipment-exterior";
 import { mapCompactServer } from "./compact-server";
-import { SpatialSignals } from "./signals";
+import { signalStyles } from "../status.ts";
+import { SpatialSignals, visibleSignal } from "./signals";
 import { SurfaceObservation } from "./surface";
 import {
   dialBearingRadius,
@@ -2977,6 +2978,17 @@ export class SceneEngine {
       this.presentation.pose.inspection,
       this.explosion,
     );
+    const surfaceMode =
+      this.retainMaterials &&
+      (this.telemetry.mode === "status" ||
+        this.telemetry.mode === "alarms" ||
+        (this.state.level !== "device" &&
+          (this.telemetry.mode === "temperature" ||
+            this.telemetry.mode === "power")))
+        ? "object"
+        : this.telemetry.mode;
+    this.host.dataset.surfaceMode = surfaceMode;
+    this.surface.update(this.state, surfaceMode);
     const object = this.objectFor(this.state.selected);
     const showSelection =
       !this.inletObservation &&
@@ -2997,8 +3009,20 @@ export class SceneEngine {
       this.state.level !== "device"
         ? this.installation.devices.get(this.state.selected)
         : undefined;
+    const rackAlarm =
+      installed && this.state.level === "rack"
+        ? visibleSignal(
+            this.surface.snapshot.readings.get(this.state.selected),
+            this.telemetry.mode,
+          )
+        : null;
     if (object && showSelection) {
-      if (installed) this.models.selection.setInstalledBox(object, installed);
+      if (installed)
+        this.models.selection.setInstalledBox(
+          object,
+          installed,
+          rackAlarm ? this.camera.position.z : undefined,
+        );
       else this.models.selection.box.setFromObject(object);
     }
     this.models.selection.update(
@@ -3010,6 +3034,7 @@ export class SceneEngine {
       this.state.level === "device" || selectedFixture || installed
         ? 0.006
         : 0.025,
+      rackAlarm ? signalStyles[rackAlarm].color : undefined,
     );
     this.host.dataset.selectionTarget = showSelection
       ? this.state.selected
@@ -3102,6 +3127,11 @@ export class SceneEngine {
         continue;
       }
       if (target && show) {
+        const alarmFace =
+          deviceAnchor &&
+          rackAlarm &&
+          showSelection &&
+          id === this.state.selected;
         if (rackAnchor || deviceAnchor)
           target.getWorldPosition(this.anchorPosition);
         else
@@ -3130,8 +3160,14 @@ export class SceneEngine {
           this.anchorPosition.y += 2.38;
         }
         if (deviceAnchor) {
-          target.getWorldPosition(this.anchorPosition);
-          this.anchorPosition.z += modelForDevice(id).depth / 2;
+          if (alarmFace) {
+            this.anchorBounds
+              .copy(this.models.selection.box)
+              .getCenter(this.anchorPosition);
+          } else {
+            target.getWorldPosition(this.anchorPosition);
+            this.anchorPosition.z += modelForDevice(id).depth / 2;
+          }
         }
         this.anchorPosition.project(this.camera);
         const selectedLabel = element.classList.contains("selected");
@@ -3147,7 +3183,11 @@ export class SceneEngine {
           x > this.host.clientWidth ||
           y < 0 ||
           y > this.host.clientHeight;
-        if (!hidden && element.dataset.hotspot === "bounds")
+        if (
+          !hidden &&
+          element.dataset.hotspot === "bounds" &&
+          (!deviceAnchor || alarmFace)
+        )
           this.projectHotspotBounds(
             element,
             this.host.clientWidth,
@@ -3177,17 +3217,6 @@ export class SceneEngine {
       element.style.setProperty("--axis-length", `${Math.hypot(x, y)}px`);
       element.style.opacity = this.axesVector.z > 0 ? "1" : "0.55";
     }
-    const surfaceMode =
-      this.retainMaterials &&
-      (this.telemetry.mode === "status" ||
-        this.telemetry.mode === "alarms" ||
-        (this.state.level !== "device" &&
-          (this.telemetry.mode === "temperature" ||
-            this.telemetry.mode === "power")))
-        ? "object"
-        : this.telemetry.mode;
-    this.host.dataset.surfaceMode = surfaceMode;
-    this.surface.update(this.state, surfaceMode);
     this.signals.update(
       this.state,
       this.telemetry.mode,
