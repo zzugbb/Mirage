@@ -365,13 +365,6 @@ export function Workspace() {
   const [inletView, setInletView] = useState<InletInspection | null>(null);
   const [inletViewCommand, setInletViewCommand] =
     useState<InletViewCommand | null>(null);
-  const requestInletView = (action: InletViewCommand["action"]) => {
-    control({ type: "takeover" });
-    setInletViewCommand((current) => ({
-      action,
-      revision: (current?.revision ?? 0) + 1,
-    }));
-  };
   const [environmentView, setEnvironmentView] =
     useState<EnvironmentInspection | null>(null);
   const [environmentViewCommand, setEnvironmentViewCommand] =
@@ -1284,6 +1277,32 @@ export function Workspace() {
     [inletPair.firstId, inletPair.secondId].includes(inletId)
       ? inletPair
       : null;
+  const canStartInletPair =
+    state.level === "room" &&
+    navigationView === "inlet" &&
+    layer === "environment" &&
+    !!inletReference &&
+    !!inletId &&
+    inletId !== inletReference;
+  const startInletPair = () => {
+    if (pairedInlet || !canStartInletPair) return;
+    beginInletInspection(inletId);
+    setInletPair({
+      firstId: inletId,
+      secondId: inletReference,
+      slice: sliceControls,
+    });
+    setInletSelection(inletId);
+    inletSlice.current = sliceControls;
+  };
+  const requestInletView = (action: InletViewCommand["action"]) => {
+    if (action === "observe") startInletPair();
+    control({ type: "takeover" });
+    setInletViewCommand((current) => ({
+      action,
+      revision: (current?.revision ?? 0) + 1,
+    }));
+  };
   useEffect(() => {
     if (inletPair && !pairedInlet) setInletPair(null);
   }, [inletPair, pairedInlet]);
@@ -4274,16 +4293,9 @@ export function Workspace() {
                 setInletReference(id);
                 setInletPair(null);
               }}
-              onCompare={(id) => {
-                if (!inletReference || inletReference === id) return;
-                beginInletInspection(id);
-                setInletPair({
-                  firstId: id,
-                  secondId: inletReference,
-                  slice: sliceControls,
-                });
-                setInletSelection(id);
-                inletSlice.current = sliceControls;
+              canCompare={!!pairedInlet || canStartInletPair}
+              onCompare={() => {
+                startInletPair();
                 analyze();
               }}
               readings={spatial.readings}
@@ -4979,6 +4991,7 @@ export function Workspace() {
             powerViewCommand={powerViewCommand}
             powerViewActive={powerViewActive}
             powerViewPaired={powerViewPaired}
+            canStartInletPair={canStartInletPair}
             inletPair={pairedInlet}
             inletView={inletView}
             inletViewCommand={inletViewCommand}

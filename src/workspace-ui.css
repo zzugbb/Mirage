@@ -5150,6 +5150,14 @@
   border-left: 3px dashed #b7b9dc;
 }
 
+.review-flow-lines .pair-primary {
+  stroke: #a2e1df;
+}
+.review-flow-lines .pair-reference {
+  stroke: #b7b9dc;
+  stroke-dasharray: 4 3;
+}
+
 .inlet-difference-process {
   border-block: 1px solid var(--line);
   padding-block: 12px;

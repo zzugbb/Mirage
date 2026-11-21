@@ -178,6 +178,7 @@ export function ReviewScene({
   onReturnAirflowEndpoint,
   aisle,
   networkLinkId = null,
+  canStartInletPair,
   inletPair,
   inletView,
   inletViewCommand,
@@ -230,6 +231,7 @@ export function ReviewScene({
 }: {
   captureTaskView: RefObject<SceneEngine["captureTaskView"] | null>;
   taskReturn: { camera: TaskViewMemory | null; selected?: string } | null;
+  canStartInletPair: boolean;
   inletPair: InletViewPair | null;
   inletView: InletInspection | null;
   inletViewCommand: InletViewCommand | null;
@@ -1106,9 +1108,11 @@ export function ReviewScene({
   }, [tourShot?.revision, retry]);
   useEffect(() => {
     dataGeometry.current?.update(
-      ambientSelected ? [] : reviewSpatialMarks(state, layer, readings),
+      ambientSelected || inletView
+        ? []
+        : reviewSpatialMarks(state, layer, readings),
     );
-  }, [state, layer, readings, retry, ambientSelected]);
+  }, [state, layer, readings, retry, ambientSelected, inletView]);
   const maintenanceControls = useRef<HTMLDivElement>(null);
   const maintenanceFocus = useRef<
     "entry" | "view" | "previous" | "next" | "origin" | null
@@ -1852,6 +1856,8 @@ export function ReviewScene({
                 key={device.id}
                 hidden
                 data-anchor={`inlet-pair-${device.id}`}
+                data-hotspot="bounds"
+                data-inlet-device={device.id}
                 data-anchor-kind="position"
                 data-anchor-position={device.point.toArray().join(",")}
                 className={`review-flow-anchor review-inlet-pair-anchor ${index ? "pair-reference" : "pair-primary"}`}
@@ -1862,7 +1868,14 @@ export function ReviewScene({
                 <b>
                   {index ? "② 基准" : "① 所查"} · {device.name}
                 </b>
-                <small>
+                <small
+                  style={{
+                    color: metricAttentionColor(
+                      readings.get(device.id),
+                      "temperature",
+                    ),
+                  }}
+                >
                   {reading.value === null
                     ? reading.reason
                     : `${reading.value.toFixed(1)} °C`}
@@ -2214,8 +2227,9 @@ export function ReviewScene({
           network.length > 0 ||
           labels.some((item) => partMeasures || item.id === selectedId)) && (
           <svg className="review-flow-lines" aria-hidden="true" ref={flowLines}>
-            {inletView?.devices.map((device) => (
+            {inletView?.devices.map((device, index) => (
               <line
+                className={index ? "pair-reference" : "pair-primary"}
                 key={device.id}
                 data-flow-line={`inlet-pair-${device.id}`}
               />
@@ -2899,28 +2913,30 @@ export function ReviewScene({
               )}
             </>
           )}
-          {inletPair && state.level === "room" && layer === "environment" && (
-            <div className="inlet-scene-key">
-              <strong>
-                {inletView ? "进风对照 · 安装跨度" : "双设备进风"}
-              </strong>
-              <button
-                aria-disabled={!sceneSettled}
-                onClick={() => {
-                  if (sceneSettled)
-                    onInletView(inletView ? "return" : "observe");
-                }}
-                onKeyDown={(event) => {
-                  if (event.key !== "Escape" || !inletView) return;
-                  event.preventDefault();
-                  event.stopPropagation();
-                  if (sceneSettled) onInletView("return");
-                }}
-              >
-                {inletView ? "返回原视角" : "同框观察两台设备"}
-              </button>
-            </div>
-          )}
+          {(inletPair || canStartInletPair) &&
+            state.level === "room" &&
+            layer === "environment" && (
+              <div className="inlet-scene-key">
+                <strong>
+                  {inletView ? "进风对照 · 安装跨度" : "双设备进风"}
+                </strong>
+                <button
+                  aria-disabled={!sceneSettled}
+                  onClick={() => {
+                    if (sceneSettled)
+                      onInletView(inletView ? "return" : "observe");
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key !== "Escape" || !inletView) return;
+                    event.preventDefault();
+                    event.stopPropagation();
+                    if (sceneSettled) onInletView("return");
+                  }}
+                >
+                  {inletView ? "返回原视角" : "同框观察两台设备"}
+                </button>
+              </div>
+            )}
         </div>
         {error && (
           <div className="review-error" role="alert">

@@ -3084,6 +3084,19 @@ export class SceneEngine {
           x > this.host.clientWidth ||
           y < 0 ||
           y > this.host.clientHeight;
+        if (!hidden && element.dataset.inletDevice) {
+          const device = this.inletObservation?.inspection.devices.find(
+            (item) => item.id === element.dataset.inletDevice,
+          );
+          if (device) {
+            this.anchorBounds.setFromPoints(device.corners);
+            this.projectHotspotBounds(
+              element,
+              this.host.clientWidth,
+              this.host.clientHeight,
+            );
+          }
+        }
         this.projectAnchor(element, x, y, hidden);
         continue;
       }

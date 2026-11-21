@@ -37,6 +37,7 @@ export function InletOverview({
   onAirflow,
   referenceId,
   onReference,
+  canCompare,
   onCompare,
 }: {
   readings: Map<string, SpatialReading>;
@@ -62,7 +63,8 @@ export function InletOverview({
   onAirflow: (id: string) => void;
   referenceId: string | null;
   onReference: (id: string | null) => void;
-  onCompare: (id: string) => void;
+  canCompare: boolean;
+  onCompare: () => void;
 }) {
   const all = useMemo(
     () => inletOverview(readings, query, filter),
@@ -309,7 +311,7 @@ export function InletOverview({
       </div>
       {(device || selected === current.rack.id || reference) && (
         <div className="inlet-overview-selection" aria-label="进风对照当前对象">
-          {reference && reference.id !== selected && (
+          {reference && (reference.id !== selected || canCompare) && (
             <div className="inlet-reference">
               <span>基准 {reference.name}</span>
               <button
@@ -351,8 +353,8 @@ export function InletOverview({
               >
                 安装位
               </button>
-              {device && reference && device.id !== reference.id ? (
-                <button disabled={!ready} onClick={() => onCompare(device.id)}>
+              {device && canCompare ? (
+                <button disabled={!ready} onClick={onCompare}>
                   对照分析
                 </button>
               ) : (
