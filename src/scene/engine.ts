@@ -2196,6 +2196,8 @@ export class SceneEngine {
       (!focus || this.state.selected === this.state.deviceId);
     const wholeRack =
       level === "rack" && (!focus || object === this.models.rack);
+    // 一帧内展开并定位子件时，所属模组的新姿态还未经过渲染器更新。
+    if (level === "device" && focus) object?.updateWorldMatrix(true, false);
     const bounds = wholeDevice
       ? this.deviceBounds(framingPoints)
       : object && focus && !wholeRack

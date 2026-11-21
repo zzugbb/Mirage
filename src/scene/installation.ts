@@ -1,3 +1,4 @@
+import { compactDriveBays } from "../compact-drive-bays";
 import { updateRackBlanking } from "./rack-blanking";
 import { createEquipmentRearProxy } from "./equipment-rear-proxy";
 import { patchSettings } from "../network-patch";
@@ -175,6 +176,19 @@ export class InstallationScene {
             depth / 2 + 0.017,
           ]),
           0.8,
+        );
+      } else if (model.id === "server-1u") {
+        const faces = compactDriveBays.map(({ x, y }) => [
+          x,
+          y,
+          depth / 2 + 0.017,
+        ]);
+        add([0.073, 0.016, 0.009], "#46515b", faces);
+        add(
+          [0.048, 0.003, 0.005],
+          "#a8b4bb",
+          faces.map(([x, y, z]) => [x, y - 0.003, z + 0.006]),
+          0.7,
         );
       } else {
         if (model.id === "server-2u") {

@@ -1,3 +1,6 @@
+import { modelForDevice } from "./catalog";
+import { CompactDriveBays } from "./components/CompactDriveBays";
+import { compactBayForPart, compactDriveBays } from "./compact-drive-bays";
 import { useDismissibleMenu } from "./use-dismissible-menu";
 import {
   StructureTools,
@@ -2193,8 +2196,10 @@ export function Workspace() {
     id: string;
     query: string;
     filter: ResourceFilter;
+    inspector: boolean;
+    scroll: number;
   } | null>(null);
-  const roomSearchFocus = useRef<string | null>(null);
+  const roomSearchFocus = useRef<typeof roomSearchOrigin.current>(null);
   useEffect(() => {
     const origin = roomSearchOrigin.current;
     if (!origin) return;
@@ -2214,7 +2219,14 @@ export function Workspace() {
     setQuery(origin.query);
     setFilter(origin.filter);
     control({ type: "pick", id: origin.id });
-    roomSearchFocus.current = origin.id;
+    control({ type: "analysis", value: false });
+    setRackView("list");
+    skipNavigationSearch.current = !nav;
+    setNav(true);
+    setInspector(
+      origin.inspector && !matchMedia("(max-width: 1099px)").matches,
+    );
+    roomSearchFocus.current = origin;
   }, [
     state.level,
     state.deviceId,
@@ -2226,17 +2238,28 @@ export function Workspace() {
     selected,
   ]);
   useEffect(() => {
-    if (!roomSearchFocus.current || selected !== roomSearchFocus.current)
-      return;
-    roomSearchFocus.current = null;
+    const origin = roomSearchFocus.current;
+    if (!origin || !nav || !ready || selected !== origin.id) return;
     const row = navigationRef.current?.querySelector<HTMLButtonElement>(
       ".study-resource.selected .study-resource-text",
     );
-    if (nav && row?.getClientRects().length) {
+    if (row?.getClientRects().length) {
+      const list = row.closest<HTMLElement>(".study-resource-list");
+      if (list) list.scrollTop = origin.scroll;
+      roomSearchFocus.current = null;
       row.focus({ preventScroll: true });
       row.scrollIntoView({ block: "nearest" });
     }
-  }, [selected, nav]);
+  }, [selected, nav, ready, query, filter]);
+  const compactServer =
+    state.level === "device" &&
+    modelForDevice(state.deviceId).id === "server-1u";
+  const compactBayContext =
+    compactServer &&
+    (selected === state.deviceId ||
+      selected === "storage-01" ||
+      selected === "drives-01" ||
+      !!compactBayForPart(selected));
   const browsingParts =
     state.level === "device" && !query.trim() && filter === "all";
   const visibleRows = browsingParts
@@ -2327,11 +2350,19 @@ export function Workspace() {
         deviceById(id) &&
         rows.some((row) => row.id === id)
       ) {
-        roomSearchOrigin.current = { id, query, filter };
+        roomSearchOrigin.current = {
+          id,
+          query,
+          filter,
+          inspector,
+          scroll:
+            navigationRef.current?.querySelector(".study-resource-list")
+              ?.scrollTop ?? 0,
+        };
         setRackView("installation");
       }
     },
-    [roomResourceList, query, filter, rows],
+    [roomResourceList, query, filter, rows, inspector],
   );
   const selectObject = useCallback(
     (id: string, enter = false) => {
@@ -4226,7 +4257,12 @@ export function Workspace() {
               <span key={item}>
                 {i > 0 && <i>/</i>}
                 <button onClick={() => selectObject(item, true)}>
-                  {entityById(item)?.name ?? item}
+                  {item === "room-01" &&
+                  state.level !== "room" &&
+                  roomSearchOrigin.current
+                    ? "← 返回机房名单 · " +
+                      deviceById(roomSearchOrigin.current.id)!.name
+                    : (entityById(item)?.name ?? item)}
                 </button>
               </span>
             ))}
@@ -5747,7 +5783,9 @@ export function Workspace() {
                   ? `inlet:${pairedInlet.firstId}:${pairedInlet.secondId}`
                   : review.analysis && pairedEnvironment
                     ? `environment:${pairedEnvironment.firstId}:${pairedEnvironment.secondId}`
-                    : `${selected}:${review.analysis}`
+                    : compactBayContext && !review.analysis
+                      ? `bays:${state.deviceId}`
+                      : `${selected}:${review.analysis}`
             }
             aria-label={review.analysis ? "时间分析面板" : "对象详情"}
           >
@@ -6783,10 +6821,14 @@ export function Workspace() {
                     {state.level === "device" &&
                       !activeFanVisit &&
                       !activeStorageVisit &&
-                      (fanInspectionContext(state.deviceId, selected) ||
+                      (compactBayContext ||
+                        fanInspectionContext(state.deviceId, selected) ||
                         storageSlotContext(state.deviceId, selected)) && (
                         <StructureTools
-                          key={`${revision}:${state.deviceId}:${selected}`}
+                          key={`${revision}:${state.deviceId}:${compactBayContext ? "bays" : selected}`}
+                          showSelection={
+                            compactBayContext && selected !== state.deviceId
+                          }
                           fans={
                             fanInspectionContext(state.deviceId, selected)
                               ? fanAssembly(state.deviceId)!.fans.length
@@ -6805,7 +6847,15 @@ export function Workspace() {
                           }
                           onRestored={() => setStructureReturn(null)}
                           onStart={startStructureTool}
-                        />
+                        >
+                          {compactBayContext && (
+                            <CompactDriveBays
+                              selected={selected}
+                              ready={ready}
+                              onFocus={(id) => focus(id)}
+                            />
+                          )}
+                        </StructureTools>
                       )}
                     {sourceInspector}
                     {(layer === "power" || powerFacility) && (
@@ -7051,7 +7101,13 @@ export function Workspace() {
                           {sourceValue(reading.power, "power")}
                         </p>
                       )}
-                    <p>{entity.description}</p>
+                    <p>
+                      {compactServer && selected === "storage-01"
+                        ? `前置 ${compactDriveBays.length} 个托架，硬盘与背板分别建模。`
+                        : compactServer && selected === "memory-01"
+                          ? `本机型配置 ${modelForDevice(state.deviceId).dimms} 条内存，可逐条检视。`
+                          : entity.description}
+                    </p>
                     {entity.kind === "rack" && (
                       <>
                         <p className="study-blanking-config">

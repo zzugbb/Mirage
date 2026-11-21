@@ -4,6 +4,8 @@ export type StructureTool = "fans" | "storage";
 
 /** 未开始的核对工具按需展开；明确结束后才恢复入口，不跟随回看抢焦点。 */
 export function StructureTools({
+  children,
+  showSelection = false,
   fans,
   slots,
   ready,
@@ -11,6 +13,8 @@ export function StructureTools({
   onRestored,
   onStart,
 }: {
+  children?: React.ReactNode;
+  showSelection?: boolean;
   fans: number;
   slots: number;
   ready: boolean;
@@ -18,7 +22,7 @@ export function StructureTools({
   onRestored: () => void;
   onStart: (tool: StructureTool) => void;
 }) {
-  const [open, setOpen] = useState(!!restore);
+  const [open, setOpen] = useState(!!restore || showSelection);
   const host = useRef<HTMLDetailsElement>(null);
   const pendingFocus = useRef<StructureTool | null>(restore);
   useEffect(() => {
@@ -69,12 +73,13 @@ export function StructureTools({
       <summary>
         <strong>结构核对</strong>
         <small>
-          {[fans ? "风扇组" : "", slots ? "盘位" : ""]
+          {[fans ? "风扇组" : "", slots || children ? "盘位" : ""]
             .filter(Boolean)
             .join(" · ")}
         </small>
       </summary>
       <div role="group" aria-label="结构核对工具">
+        {children}
         {fans > 0 && (
           <button
             data-structure-tool="fans"

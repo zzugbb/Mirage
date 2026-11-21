@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { createEquipmentAssembly } from "./equipment-model.ts";
-import { partsForDevice } from "../catalog.ts";
+import { compactDriveBays } from "../compact-drive-bays.ts";
+import { modelById } from "../catalog.ts";
 
 /** 保留已审核贴图与材质的贡献模型；零件重定父节点时保留装配矩阵。 */
 export function mapCompactServer(root: THREE.Group) {
@@ -46,8 +47,9 @@ export function mapCompactServer(root: THREE.Group) {
       `compact_rotor_${i * 2 - 1}`,
       `compact_rotor_${i * 2}`,
     ]);
-    attach(`bay-${String(i).padStart(2, "0")}`, [`compact_bay_${i}`]);
   }
+  for (const bay of compactDriveBays)
+    attach(bay.tray.id, [`compact_bay_${Number(bay.number)}`]);
   // 子件归入各自模组，矩阵不变；每个热插拔风扇模组包含两个转子。
   for (const [id, group] of groups) {
     const parent = id.startsWith("dimm-")
@@ -63,27 +65,25 @@ export function mapCompactServer(root: THREE.Group) {
     }
   }
   const supplement = createEquipmentAssembly("server-1u");
-  for (const part of partsForDevice("srv-08")) {
-    if (groups.has(part.id)) continue;
-    const group = supplement.groups.get(part.id)!;
+  for (const id of modelById("server-1u").parts) {
+    if (groups.has(id)) continue;
+    const group = supplement.groups.get(id)!;
     root.attach(group);
-    groups.set(part.id, group);
-    positions.set(part.id, group.position.clone());
-    if (part.id.startsWith("processor-")) {
-      const sink = groups.get(part.id.endsWith("01") ? "cpu-01" : "cpu-02")!;
+    groups.set(id, group);
+    positions.set(id, group.position.clone());
+    if (id.startsWith("processor-")) {
+      const sink = groups.get(id.endsWith("01") ? "cpu-01" : "cpu-02")!;
       const bounds = new THREE.Box3().setFromObject(sink);
       bounds.getCenter(group.position);
       group.position.y = bounds.min.y + 0.001;
-      positions.set(part.id, group.position.clone());
+      positions.set(id, group.position.clone());
     }
   }
   // 磁盘与托架分别可选，磁盘安装姿态跟随对应实际盘位。
-  for (let i = 1; i <= 4; i++) {
-    const id = `disk-${String(i).padStart(2, "0")}`;
+  for (const { disk, tray } of compactDriveBays) {
+    const id = disk.id;
     const group = supplement.groups.get(id)!;
-    const bounds = new THREE.Box3().setFromObject(
-      groups.get(`bay-${String(i).padStart(2, "0")}`)!,
-    );
+    const bounds = new THREE.Box3().setFromObject(groups.get(tray.id)!);
     groups.get("drives-01")!.attach(group);
     const center = bounds.getCenter(new THREE.Vector3());
     group.parent!.worldToLocal(center);

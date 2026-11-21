@@ -1,3 +1,4 @@
+import { compactBayForPart } from "../compact-drive-bays.ts";
 import { createFanModule } from "./fan-module.ts";
 import { switchBoard } from "./switch-model.ts";
 import { storageDrive, storageMidplane } from "./storage-model.ts";
@@ -195,6 +196,7 @@ function children(
   box: Box,
   groups: Map<string, THREE.Group>,
   size: number[],
+  modelId: string,
 ) {
   const ids = definition.subparts
     .filter((p) => p.parent === id)
@@ -204,6 +206,9 @@ function children(
     child.userData.entityId = ids[i].id;
     root.add(child);
     groups.set(ids[i].id, child);
+    const bay =
+      modelId === "server-1u" ? compactBayForPart(ids[i].id) : undefined;
+    if (bay) child.position.set(bay.x, bay.y, 0);
     if (node === "memory") {
       const perBank = count / 2,
         bank = i < perBank ? -1 : 1,
@@ -250,8 +255,8 @@ function children(
       fan.position.z = size[2] / 2 + 0.002;
       child.add(fan);
     } else if (node === "storage") {
-      const w = (size[0] / count) * 0.95;
-      child.position.x = ((i - (count - 1) / 2) * size[0]) / count;
+      const w = bay ? 0.073 : (size[0] / count) * 0.95;
+      if (!bay) child.position.x = ((i - (count - 1) / 2) * size[0]) / count;
       for (const x of [-w / 2, w / 2])
         box(child, [0.002, size[1], size[2]], [x, 0, 0], "#8e9aa3", 0.75);
       for (const y of [-size[1] / 2, size[1] / 2])
@@ -265,6 +270,11 @@ function children(
       );
     } else if (id === "sto-drives") {
       storageDrive(child, i, size, box);
+    } else if (bay) {
+      // 盘体与可抽出的托架分别建模，把手属于托架。
+      box(child, [0.06985, 0.007, 0.10045], [0, 0, 0], "#78858e", 0.55);
+      box(child, [0.065, 0.001, 0.093], [0, 0.0035, 0], "#a4afb7", 0.65);
+      box(child, [0.044, 0.004, 0.003], [-0.009, 0, -0.05], "#28333d", 0.35);
     } else {
       const vertical = count >= 8,
         w = vertical ? Math.min(0.015, (size[0] / count) * 0.85) : 0.06985;
@@ -404,6 +414,11 @@ export function createEquipmentAssembly(modelId: string): Assembly {
         pos[1] = h * 0.25;
       }
     }
+    if (
+      model.id === "server-1u" &&
+      (p.node === "storage" || p.node === "drives")
+    )
+      size[1] = 0.015;
     group.position.fromArray(pos);
     root.add(group);
     groups.set(p.id, group);
@@ -415,7 +430,16 @@ export function createEquipmentAssembly(modelId: string): Assembly {
       p.node === "storage"
     ) {
       if (p.node === "storage") {
-        children(group, p.id, model.drives, "storage", box, groups, size);
+        children(
+          group,
+          p.id,
+          model.drives,
+          "storage",
+          box,
+          groups,
+          size,
+          modelId,
+        );
       } else
         children(
           group,
@@ -429,6 +453,7 @@ export function createEquipmentAssembly(modelId: string): Assembly {
           box,
           groups,
           size,
+          modelId,
         );
     } else {
       if (p.id === "net-board") switchBoard(group, size, box);
