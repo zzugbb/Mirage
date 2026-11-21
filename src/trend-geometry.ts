@@ -66,6 +66,7 @@ export function trendGeometry(
     connected = true;
   }
   const kilowatts = metric === "power" && hi >= 1000;
+  const tickSpacingKw = (max - min) / 2 / 1000;
   return {
     path,
     x,
@@ -85,7 +86,7 @@ export function trendGeometry(
           : "W",
     text: (value: number) =>
       kilowatts
-        ? (value / 1000).toFixed(1)
+        ? (value / 1000).toFixed(tickSpacingKw < 0.1 ? 2 : 1)
         : value.toFixed(celsius || hi < 10 ? 1 : 0),
   };
 }

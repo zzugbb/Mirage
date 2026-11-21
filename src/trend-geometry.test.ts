@@ -98,6 +98,21 @@ test("桌面与窄屏的曲线坐标都映射到同一秒，不受外侧坐标�
   }
 });
 
+test("千瓦趋势按量程显示可区分的刻度，覆盖 PDU 小幅波动和整间机房", () => {
+  for (const id of ["pdu-a01-a", "room-01"]) {
+    const series = reviewHistories(id, "srv-01").power;
+    const chart = trendGeometry(series, "power", 60, 260, 82);
+    const labels = chart.ticks.map(chart.text);
+    assert.equal(chart.unit, "kW");
+    assert.equal(new Set(labels).size, labels.length);
+    assert.ok(
+      labels.every(
+        (label) => label.split(".")[1].length === (id === "room-01" ? 1 : 2),
+      ),
+    );
+  }
+});
+
 test("公共输入只显示一次，设备告警独立；过期保留已知事件，不提前显示未来或离线事件", () => {
   const ids = devices.map((d) => d.id),
     all = reviewEvents(ids, 120);
