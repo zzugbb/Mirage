@@ -1,11 +1,12 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
-export type StructureTool = "fans" | "storage";
+export type StructureTool = "fans" | "storage" | "switch-board";
 
 /** 未开始的核对工具按需展开；明确结束后才恢复入口，不跟随回看抢焦点。 */
 export function StructureTools({
   children,
   showSelection = false,
+  switchBoard,
   fans,
   slots,
   ready,
@@ -15,6 +16,7 @@ export function StructureTools({
 }: {
   children?: React.ReactNode;
   showSelection?: boolean;
+  switchBoard: boolean;
   fans: number;
   slots: number;
   ready: boolean;
@@ -73,13 +75,29 @@ export function StructureTools({
       <summary>
         <strong>结构核对</strong>
         <small>
-          {[fans ? "风扇组" : "", slots || children ? "盘位" : ""]
+          {[
+            switchBoard ? "主板装配" : "",
+            fans ? "风扇组" : "",
+            slots || children ? "盘位" : "",
+          ]
             .filter(Boolean)
             .join(" · ")}
         </small>
       </summary>
       <div role="group" aria-label="结构核对工具">
         {children}
+        {switchBoard && (
+          <button
+            data-structure-tool="switch-board"
+            disabled={!ready}
+            onClick={() => onStart("switch-board")}
+          >
+            <strong>
+              核对主板与交换芯片 <span>↗</span>
+            </strong>
+            <small>对照板上安装区与芯片散热组件</small>
+          </button>
+        )}
         {fans > 0 && (
           <button
             data-structure-tool="fans"

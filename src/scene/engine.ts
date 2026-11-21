@@ -195,6 +195,7 @@ export class SceneEngine {
   private keyLight = new THREE.DirectionalLight("#fff9f0", 1.6);
   unitRange: RackUnitRange | null = null;
   isolatedPartId: string | null = null;
+  companionPartId: string | null = null;
   storageContact = false;
   storageContactGuide = new StorageContactGuide();
   partIsolation = new PartIsolation();
@@ -2211,6 +2212,11 @@ export class SceneEngine {
             this.models.parts,
           )
         : null;
+    const companion =
+      inspectionTarget && this.companionPartId
+        ? this.models.parts.get(this.companionPartId)
+        : null;
+    if (companion && bounds) bounds.expandByObject(companion);
     if (contactPair && bounds) bounds.expandByObject(contactPair.board);
     const aisle =
       level === "room" && focus && view === "top"
@@ -2319,7 +2325,7 @@ export class SceneEngine {
             ),
           );
     }
-    if (wholeDevice || wholeRack) {
+    if (wholeDevice || wholeRack || companion) {
       const frame = this.host.getBoundingClientRect();
       const actions = this.host
         .closest(".study-stage")
@@ -2331,6 +2337,7 @@ export class SceneEngine {
     if (
       wholeRack ||
       wholeDevice ||
+      companion ||
       (level === "room" &&
         focus &&
         (roomDevice ||
@@ -2378,6 +2385,7 @@ export class SceneEngine {
             this.camera.aspect,
             minimum,
             topInsetFraction,
+            bottomInsetFraction,
           )
         : level === "room" && view === "top"
           ? boundsFrameDistance(
@@ -2653,6 +2661,8 @@ export class SceneEngine {
       id && this.storageContact
         ? storageContactObjects(this.state.deviceId, id, this.models.parts)
         : null;
+    const companion =
+      this.companionPartId && this.models.parts.get(this.companionPartId);
     const applied =
       !!id &&
       (pair
@@ -2660,9 +2670,18 @@ export class SceneEngine {
             pair.disk,
             pair.board,
           ])
-        : this.partIsolation.apply(this.models.server, target));
+        : companion && target
+          ? this.partIsolation.applyMany(this.models.server, [
+              target,
+              companion,
+            ])
+          : this.partIsolation.apply(this.models.server, target));
     this.storageContactGuide.update(applied ? pair : null);
-    const inspectionKey = pair ? `${id}:contact` : id;
+    const inspectionKey = pair
+      ? `${id}:contact`
+      : companion
+        ? `${id}:${this.companionPartId}`
+        : id;
     if (id && applied) {
       if (!this.partInspection) {
         this.partInspection = {

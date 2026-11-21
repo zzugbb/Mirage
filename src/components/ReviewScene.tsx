@@ -148,6 +148,7 @@ export function ReviewScene({
   rangeViewCommand,
   onRangeViewChange,
   isolatedPartId = null,
+  companionPartId = null,
   fanViewRevision = 0,
   fanViewSide = "front",
   storageViewRevision = 0,
@@ -292,6 +293,7 @@ export function ReviewScene({
   rangeViewCommand: RangeViewCommand | null;
   onRangeViewChange: (side: RangeView | null, segmentId: string | null) => void;
   isolatedPartId?: string | null;
+  companionPartId?: string | null;
   fanViewRevision?: number;
   fanViewSide?: "front" | "rear";
   storageViewRevision?: number;
@@ -1024,6 +1026,8 @@ export function ReviewScene({
     const active = engine.current;
     if (!active) return;
     active.isolatedPartId = isolatedPartId;
+    active.companionPartId = companionPartId;
+    if (companionPartId) setOrbit(false);
     active.storageContact = storageContact;
     active.invalidate();
     if (
@@ -1032,7 +1036,14 @@ export function ReviewScene({
       active.partInspection?.deviceId === state.deviceId
     )
       setView(active.partInspection.previous.view);
-  }, [isolatedPartId, storageContact, state.level, state.deviceId, retry]);
+  }, [
+    isolatedPartId,
+    companionPartId,
+    storageContact,
+    state.level,
+    state.deviceId,
+    retry,
+  ]);
   useEffect(() => {
     if (!fanViewRevision || currentState.current.level !== "device") return;
     setOrbit(false);
@@ -1606,7 +1617,10 @@ export function ReviewScene({
                 );
               }
               if (isolatedPartId)
-                return storageContact && p.id === "sto-midplane";
+                return (
+                  p.id === companionPartId ||
+                  (storageContact && p.id === "sto-midplane")
+                );
               return (
                 p.id === selectedId ||
                 !["lid", "duct", "cable"].includes(p.node)

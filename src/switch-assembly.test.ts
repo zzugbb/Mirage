@@ -2,6 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as THREE from "three";
 import { createEquipmentAssembly } from "./scene/equipment-model.ts";
+import { switchBoardAssembly } from "./part-inspection.ts";
+import { devices } from "./installation.ts";
 import { modelById } from "./catalog.ts";
 
 const bounds = (object: THREE.Object3D) =>
@@ -39,12 +41,27 @@ test("交换机控制板及板上细节避让四个风扇与两路电源，后�
       );
 });
 
-test("交换芯片散热器底面落在控制板上方，板上元件不穿入散热器", () => {
+test("芯片封装与散热底座逐层贴合控制板，板面标识对准组件中心", () => {
   const assembly = createEquipmentAssembly("switch-1u");
   const board = assembly.groups.get("net-board")!;
   const substrate = bounds(board.children[0]);
   const sink = bounds(assembly.groups.get("net-asic")!);
-  assert.ok(Math.abs(substrate.max.y - sink.min.y) < 1e-7);
+  const asic = assembly.groups.get("net-asic")!;
+  const layers = ["asic-substrate", "asic-package", "asic-sink-base"].map(
+    (name) => bounds(asic.getObjectByName(name)!),
+  );
+  let top = substrate.max.y;
+  for (const layer of layers) {
+    assert.ok(Math.abs(layer.min.y - top) < 1e-7);
+    top = layer.max.y;
+  }
+  const footprint = bounds(board.getObjectByName("switch-asic-footprint")!);
+  assert.ok(footprint.min.x < sink.min.x && footprint.max.x > sink.max.x);
+  assert.ok(footprint.min.z < sink.min.z && footprint.max.z > sink.max.z);
+  const offset = footprint
+    .getCenter(new THREE.Vector3())
+    .sub(sink.getCenter(new THREE.Vector3()));
+  assert.ok(Math.hypot(offset.x, offset.z) < 1e-7);
   assert.ok(substrate.min.x < sink.min.x && substrate.max.x > sink.max.x);
   assert.ok(substrate.min.z < sink.min.z && substrate.max.z > sink.max.z);
   board.traverse((object) => {
@@ -85,5 +102,14 @@ test("交换机后部模块处于 1U 机箱范围，四个风扇仍可从后侧�
     let object: THREE.Object3D | null = hit.object;
     while (object && !object.userData.entityId) object = object.parent;
     assert.equal(object?.userData.entityId, id);
+  }
+});
+
+test("只有 N1 安装实例提供主板装配核查，两个选择沿用其部件槽位", () => {
+  for (const device of devices) {
+    const pair = switchBoardAssembly(device.id);
+    if (device.modelId === "switch-1u") {
+      assert.deepEqual([pair?.board.slot, pair?.asic.slot], ["CTRL", "ASIC"]);
+    } else assert.equal(pair, null);
   }
 });
