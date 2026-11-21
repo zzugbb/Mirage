@@ -184,7 +184,7 @@ export function AlarmQueue({
             )}
           </article>
         ))}
-        {!queue.rows.length && (
+        {!queue.rows.length && (!returned || queue.all.length > 0) && (
           <p className="study-empty">
             {queue.all.length
               ? "没有匹配的告警设备"

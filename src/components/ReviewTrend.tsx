@@ -105,7 +105,11 @@ export function ReviewTrend({
   return (
     <div ref={host} className={`review-trend ${metric}`}>
       {chart.empty && !onSeek ? (
-        <div className="review-no-series" role="status" style={{ height }}>
+        <div
+          className="review-no-series"
+          role="status"
+          style={compact ? undefined : { height }}
+        >
           暂无有效观测数据
         </div>
       ) : (

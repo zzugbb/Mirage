@@ -13,6 +13,14 @@ import { lifecycleNames } from "./status.ts";
 import type { SpatialReading } from "./spatial.ts";
 
 export type SourceMetric = "temperature" | "power";
+export function currentMetricValue(
+  reading: SpatialReading | null | undefined,
+  metric: SourceMetric,
+) {
+  if (reading?.quality !== "valid") return null;
+  const value = reading[metric];
+  return Number.isFinite(value) ? value : null;
+}
 export type SourceCheck = {
   sourceId: string;
   metric: SourceMetric;
@@ -49,8 +57,8 @@ export function readingSources(
     const device = deviceById(deviceId)!,
       reading = readings.get(deviceId),
       value = reading?.[metric] ?? null;
-    const included =
-      reading?.quality === "valid" && value !== null && Number.isFinite(value);
+    const current = currentMetricValue(reading, metric);
+    const included = current !== null;
     const reason = included
       ? metric === "power" && value === 0
         ? "有效零值"
@@ -80,7 +88,7 @@ export function readingSources(
       rack: rackForDevice(deviceId).name,
       location: `${rackForDevice(deviceId).name} / ${unitLabel(deviceId)}`,
       included,
-      value: included ? value : null,
+      value: current,
       reason,
       detail: last,
     };

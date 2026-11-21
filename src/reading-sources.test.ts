@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  currentMetricValue,
   readingSources,
   sourceMetrics,
   matchingSourceRows,
@@ -9,6 +10,25 @@ import { spatialSnapshot } from "./spatial.ts";
 import { associatedInputReading, pdus, powerLinks } from "./power-config.ts";
 import { coolingSummary, coolingDeviceIds } from "./cooling.ts";
 import { racks, devices } from "./installation.ts";
+
+test("整机和部件过期后仅保留旧样本，当前值与有效零值分开", () => {
+  const fresh = spatialSnapshot(44, 0, "srv-59").readings;
+  const stale = spatialSnapshot(45, 0, "srv-59").readings;
+  for (const id of ["srv-59", "processor-01"]) {
+    for (const metric of ["temperature", "power"] as const) {
+      const last = currentMetricValue(fresh.get(id), metric);
+      assert.ok(last !== null);
+      assert.equal(stale.get(id)?.[metric], last);
+      assert.equal(currentMetricValue(stale.get(id), metric), null);
+    }
+  }
+  for (const id of ["srv-25", "srv-56"]) {
+    assert.equal(currentMetricValue(stale.get(id), "power"), null);
+    assert.equal(currentMetricValue(stale.get(id), "temperature"), null);
+  }
+  assert.equal(currentMetricValue(stale.get("srv-63"), "power"), 0);
+  assert.equal(currentMetricValue(stale.get("srv-63"), "temperature"), null);
+});
 
 test("全部回看秒数下，机房、机柜和设施核对与既有汇总及覆盖一致", () => {
   for (let time = 0; time <= 120; time++) {

@@ -1,6 +1,6 @@
 import { budgetReference } from "./budget-reference.ts";
 import { canInspectPart, partInspectionSequence } from "./part-inspection.ts";
-import { sourceMetrics } from "./reading-sources.ts";
+import { currentMetricValue, sourceMetrics } from "./reading-sources.ts";
 import { peakScopeIds, maximumSources } from "./peak-provenance.ts";
 import {
   createState,
@@ -700,7 +700,7 @@ export function reviewHistories(id: string, deviceId: string) {
             }
           : {}),
         time,
-        value: reading?.quality === "valid" ? reading[metric] : null,
+        value: currentMetricValue(reading, metric),
         coverage: reading
           ? metric === "temperature"
             ? reading.coverageTemperature

@@ -180,6 +180,7 @@ import {
 } from "react";
 import { ReadingSources } from "./components/ReadingSources";
 import {
+  currentMetricValue,
   readingSources,
   sourceValue,
   sourceMetrics,
@@ -1186,6 +1187,8 @@ export function Workspace() {
     [airflowDevice, airflowStageView, revision],
   );
   const reading = selectedReading({ ...state, selected }, spatial.readings);
+  const currentTemperature = currentMetricValue(reading, "temperature");
+  const currentPower = currentMetricValue(reading, "power");
   const room = spatial.readings.get("room-01")!;
   const resource = resourceCatalog(state.deviceId).find(
     (r) => r.id === selected,
@@ -6141,11 +6144,11 @@ export function Workspace() {
                               ),
                             }}
                           >
-                            {temperature(reading.temperature)}
-                            <small>°C</small>
+                            {temperature(currentTemperature)}
+                            {currentTemperature !== null && <small>°C</small>}
                           </strong>
                           {(reading.count > 1 ||
-                            reading.coverageTemperature !== 1) &&
+                            (sources && reading.coverageTemperature !== 1)) &&
                             (sources ? (
                               <button
                                 className="reading-coverage-link"
@@ -6170,10 +6173,10 @@ export function Workspace() {
                             color: metricAttentionColor(reading, "power"),
                           }}
                         >
-                          {power(reading.power)}
-                          <small>
-                            {(reading.power ?? 0) >= 1000 ? "kW" : "W"}
-                          </small>
+                          {power(currentPower)}
+                          {currentPower !== null && (
+                            <small>{currentPower >= 1000 ? "kW" : "W"}</small>
+                          )}
                         </strong>
                         {sources && availableSourceMetrics.includes("power") ? (
                           <button
@@ -6187,8 +6190,7 @@ export function Workspace() {
                             ↗
                           </button>
                         ) : (
-                          (reading.count > 1 ||
-                            reading.coveragePower !== 1) && (
+                          reading.count > 1 && (
                             <small>
                               有效覆盖 {reading.coveragePower}/{reading.count}
                             </small>
@@ -6457,6 +6459,15 @@ export function Workspace() {
                 {!fixture && (
                   <details className="study-configuration">
                     <summary>配置与数据说明</summary>
+                    {reading?.quality === "stale" &&
+                      reading.observedAt !== null && (
+                        <p>
+                          最后有效{component ? "推导" : "观测"} ·{" "}
+                          {reading.observedAt} 秒 ·{" "}
+                          {sourceValue(reading.temperature, "temperature")} ·{" "}
+                          {sourceValue(reading.power, "power")}
+                        </p>
+                      )}
                     <p>{entity.description}</p>
                     {entity.kind === "rack" && (
                       <>
