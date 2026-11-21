@@ -87,7 +87,7 @@ import { createEquipmentAssembly } from "./equipment-model";
 import { advanceAssembly, assemblyPartPosition } from "../assembly-motion";
 import { createExteriorAssembly, poseExterior } from "./equipment-exterior";
 import { mapCompactServer } from "./compact-server";
-import { budgetAttentionStyle, signalStyles } from "../status.ts";
+import { metricAttentionColor, signalStyles } from "../status.ts";
 import { SpatialSignals, visibleSignal } from "./signals";
 import { SurfaceObservation } from "./surface";
 import {
@@ -3014,8 +3014,11 @@ export class SceneEngine {
       const reading = this.surface.snapshot.readings.get(this.state.selected);
       const alarm = visibleSignal(reading, this.telemetry.mode);
       if (alarm) faceColor = signalStyles[alarm].color;
-      else if (this.telemetry.mode === "power")
-        faceColor = budgetAttentionStyle(reading)?.color;
+      else if (
+        this.telemetry.mode === "power" ||
+        this.telemetry.mode === "temperature"
+      )
+        faceColor = metricAttentionColor(reading, this.telemetry.mode);
     }
     if (object && showSelection) {
       if (installed)
@@ -3098,6 +3101,7 @@ export class SceneEngine {
           ? this.presentation.pose.inspection === 0 &&
             ((this.state.level === "room" &&
               (this.telemetry.mode === "alarms" ||
+                this.telemetry.mode === "temperature" ||
                 this.telemetry.mode === "power" ||
                 this.telemetry.mode === "status") &&
               id === this.state.selected) ||

@@ -135,7 +135,7 @@ import { pduById, powerSettings } from "../power-config";
 import { temperatureColor, powerColor } from "../scene/metric-color";
 import { budgetPercent, budgetRatio, budgetStateText } from "../power-budget";
 import { alarmCurrentStatus } from "../alarm-queue";
-import { qualityNames, signalStyles } from "../status";
+import { metricAttentionColor, qualityNames, signalStyles } from "../status";
 import { networkMarkers, networkLinkById, switchRole } from "../network";
 import { NetworkGeometry } from "../scene/network";
 
@@ -1515,22 +1515,21 @@ export function ReviewScene({
   const scope = readings.get(
     state.level === "room" ? "room-01" : rackForDevice(state.deviceId).id,
   )!;
-  // 点选整机时用它的输入占比替换所属柜卡，供电追踪仍由原有端点说明。
   const roomLabelDevice =
     roomDevice ??
-    (state.level === "room" && layer === "power" && !(supply && showSupply)
+    (state.level === "room" &&
+    ((layer === "power" && !(supply && showSupply)) ||
+      (layer === "environment" && !sliceInspection && !slicePlaneActive))
       ? deviceById(selectedId)
       : undefined);
+  const roomRacks = sliceRow
+    ? racks.filter((rack) => sliceRow.rackIds.includes(rack.id))
+    : racks;
   const candidates: { id: string; name: string }[] =
     state.level === "room"
-      ? sliceRow
-        ? racks.filter((rack) => sliceRow.rackIds.includes(rack.id))
-        : roomLabelDevice
-          ? [
-              roomLabelDevice,
-              ...racks.filter((rack) => rack.id !== roomLabelDevice.rackId),
-            ]
-          : racks
+      ? roomRacks.map((rack) =>
+          roomLabelDevice?.rackId === rack.id ? roomLabelDevice : rack,
+        )
       : state.level === "rack"
         ? devices.filter((d) => d.rackId === rackForDevice(state.deviceId).id)
         : [
@@ -1565,7 +1564,9 @@ export function ReviewScene({
       ? [alarmDevice]
       : ambientSelected || !sliceVisible
         ? []
-        : candidates,
+        : layer === "environment" && roomLabelDevice && !moreLabels && !sliceRow
+          ? [roomLabelDevice]
+          : candidates,
     readings,
     {
       level: state.level,
@@ -2021,8 +2022,11 @@ export function ReviewScene({
               layer === "alarms" && reading.alarm
                 ? signalStyles[reading.alarm === 2 ? "critical" : "warning"]
                 : null;
-            const temperature = slice
-              ? slice.rackEstimates.get(item.id)
+            const deviceInlet =
+              layer === "environment" && roomLabelDevice?.id === item.id;
+            const rackSlice = !deviceInlet && slice;
+            const temperature = rackSlice
+              ? rackSlice.rackEstimates.get(item.id)
               : reading.temperature;
             const ratio = budgetRatio(reading.power, reading.budget);
             const ownBudget =
@@ -2080,7 +2084,10 @@ export function ReviewScene({
                       ? "center"
                       : "bounds"
                     : state.level === "rack" &&
-                        (alarm || ownBudget) &&
+                        (alarm ||
+                          ownBudget ||
+                          (layer === "environment" &&
+                            metricAttentionColor(reading, "temperature"))) &&
                         item.id === state.selected
                       ? "bounds"
                       : undefined
@@ -2143,15 +2150,15 @@ export function ReviewScene({
                       {reading.quality !== "valid"
                         ? `${signalStyles[reading.quality].icon} ${qualityNames[reading.quality]}`
                         : layer === "environment"
-                          ? slice
-                            ? slice.rackEstimates.get(item.id) == null
-                              ? slice.orientation === "horizontal"
+                          ? rackSlice
+                            ? temperature == null
+                              ? rackSlice.orientation === "horizontal"
                                 ? "本层无估计"
                                 : "切面无估计"
-                              : `${slicePlaneActive ? "约" : slice.orientation === "horizontal" ? "本层约" : "切面最高约"} ${slice.rackEstimates.get(item.id)!.toFixed(1)} °C`
+                              : `${slicePlaneActive ? "约" : rackSlice.orientation === "horizontal" ? "本层约" : "切面最高约"} ${temperature.toFixed(1)} °C`
                             : reading.temperature === null
                               ? "—"
-                              : `${reading.count > 1 ? "最高 " : ""}${reading.temperature.toFixed(1)} °C`
+                              : `${deviceInlet ? "进风 " : reading.count > 1 ? "最高 " : ""}${reading.temperature.toFixed(1)} °C`
                           : reading.power === null
                             ? "—"
                             : reading.power >= 1000

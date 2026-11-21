@@ -1231,6 +1231,14 @@ export function Workspace() {
   const opposite =
     aisle && (aisle.front.rackId === selected ? aisle.rear : aisle.front);
   const component = entity.kind === "part";
+  const inletComparison =
+    component &&
+    state.level === "device" &&
+    layer === "environment" &&
+    inletInspection?.id === state.deviceId
+      ? spatial.readings.get(state.deviceId)
+      : undefined;
+  const parentInlet = currentMetricValue(inletComparison, "temperature");
   const inletId = component
     ? state.deviceId
     : entity.kind === "device"
@@ -6172,57 +6180,75 @@ export function Workspace() {
                             ))}
                         </div>
                       )}
-                      <div>
-                        <span
-                          title={
-                            powerAttention
-                              ? budgetStateText(
-                                  reading.budgetState,
-                                  attentionRatio,
-                                )
-                              : undefined
-                          }
-                        >
-                          {reading.powerLabel}
-                          {powerAttention && attentionRatio !== null && (
-                            <>
-                              <br />
-                              {`${powerAttention.icon} ${budgetPercent(attentionRatio)}`}
-                            </>
-                          )}
-                        </span>
-                        <strong
-                          style={{
-                            color: metricAttentionColor(reading, "power"),
-                          }}
-                        >
-                          {power(currentPower)}
-                          {currentPower !== null && (
-                            <small>{currentPower >= 1000 ? "kW" : "W"}</small>
-                          )}
-                        </strong>
-                        {sources && availableSourceMetrics.includes("power") ? (
-                          <button
-                            className="reading-coverage-link"
-                            aria-label="核对功耗输入与预算"
-                            onClick={() => openSourceCheck("power")}
+                      {inletComparison ? (
+                        <div>
+                          <span>{inletComparison.temperatureLabel}</span>
+                          <strong
+                            style={{
+                              color: metricAttentionColor(
+                                inletComparison,
+                                "temperature",
+                              ),
+                            }}
                           >
-                            {reading.count > 1 || reading.coveragePower !== 1
-                              ? `有效覆盖 ${reading.coveragePower}/${reading.count}`
-                              : "核对输入与预算"}{" "}
-                            ↗
-                          </button>
-                        ) : (
-                          reading.count > 1 && (
-                            <small>
-                              有效覆盖 {reading.coveragePower}/{reading.count}
-                            </small>
-                          )
-                        )}
-                        {powerFacility && (
-                          <small>关联设备汇总 · 非设施或支路计量</small>
-                        )}
-                      </div>
+                            {temperature(parentInlet)}
+                            {parentInlet !== null && <small>°C</small>}
+                          </strong>
+                        </div>
+                      ) : (
+                        <div>
+                          <span
+                            title={
+                              powerAttention
+                                ? budgetStateText(
+                                    reading.budgetState,
+                                    attentionRatio,
+                                  )
+                                : undefined
+                            }
+                          >
+                            {reading.powerLabel}
+                            {powerAttention && attentionRatio !== null && (
+                              <>
+                                <br />
+                                {`${powerAttention.icon} ${budgetPercent(attentionRatio)}`}
+                              </>
+                            )}
+                          </span>
+                          <strong
+                            style={{
+                              color: metricAttentionColor(reading, "power"),
+                            }}
+                          >
+                            {power(currentPower)}
+                            {currentPower !== null && (
+                              <small>{currentPower >= 1000 ? "kW" : "W"}</small>
+                            )}
+                          </strong>
+                          {sources &&
+                          availableSourceMetrics.includes("power") ? (
+                            <button
+                              className="reading-coverage-link"
+                              aria-label="核对功耗输入与预算"
+                              onClick={() => openSourceCheck("power")}
+                            >
+                              {reading.count > 1 || reading.coveragePower !== 1
+                                ? `有效覆盖 ${reading.coveragePower}/${reading.count}`
+                                : "核对输入与预算"}{" "}
+                              ↗
+                            </button>
+                          ) : (
+                            reading.count > 1 && (
+                              <small>
+                                有效覆盖 {reading.coveragePower}/{reading.count}
+                              </small>
+                            )
+                          )}
+                          {powerFacility && (
+                            <small>关联设备汇总 · 非设施或支路计量</small>
+                          )}
+                        </div>
+                      )}
                     </div>
                     <section className="study-trend">
                       <div>
