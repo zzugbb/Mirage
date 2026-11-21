@@ -5,8 +5,10 @@ import {
   type NetworkOverviewScope,
   type NetworkOverviewRole,
 } from "../network-overview";
-import { switchRole } from "../network";
-import { unitLabel } from "../catalog";
+import { supportsNetworkPatch, switchRole, type NetworkLink } from "../network";
+import { networkLinks, unitLabel } from "../catalog";
+
+const patchCount = networkLinks.filter(supportsNetworkPatch).length;
 
 export function NetworkOverview({
   scope,
@@ -27,6 +29,7 @@ export function NetworkOverview({
   onTrace,
   onPreview,
   onLocate,
+  onOpenPatch,
 }: {
   scope: NetworkOverviewScope;
   role: NetworkOverviewRole;
@@ -46,9 +49,14 @@ export function NetworkOverview({
   onTrace: (id: string) => void;
   onPreview: (id: string) => void;
   onLocate: (id: string) => void;
+  onOpenPatch: (link: NetworkLink) => void;
 }) {
   const all = useMemo(() => networkOverview(query), [query]);
-  const rows = useMemo(() => networkConnectionRows(query, role), [query, role]);
+  const patchOnly = scope === "patch";
+  const rows = useMemo(
+    () => networkConnectionRows(query, role, patchOnly),
+    [query, role, patchOnly],
+  );
   const current = all.find((item) => item.rack.id === rackId) ?? all[0];
   const host = useRef<HTMLElement>(null);
   const restorePending = useRef(true);
@@ -91,18 +99,28 @@ export function NetworkOverview({
         </p>
       </header>
       <div className="network-map-controls">
-        <label>
-          查找范围
-          <select
-            aria-label="接入图查找范围"
-            value={scope}
-            onChange={(e) => onScope(e.target.value as NetworkOverviewScope)}
-          >
-            <option value="rack">逐柜接入图</option>
-            <option value="room">全机房连接</option>
-          </select>
-        </label>
-        {scope === "room" && (
+        <div
+          className="network-map-scopes"
+          role="group"
+          aria-label="接入图查找范围"
+        >
+          {(
+            [
+              ["rack", "逐柜接入图"],
+              ["room", "全机房连接"],
+              ["patch", `可看走线（${patchCount}）`],
+            ] as const
+          ).map(([value, label]) => (
+            <button
+              key={value}
+              aria-pressed={scope === value}
+              onClick={() => onScope(value)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        {scope !== "rack" && (
           <label>
             接入分支
             <select
@@ -127,11 +145,16 @@ export function NetworkOverview({
           placeholder="如 B03 STO 或 SRV-01 SW-02"
         />
       </label>
-      {scope === "room" ? (
+      {scope !== "rack" ? (
         <>
           <p role="status">
-            {rows.length} / {all.reduce((n, r) => n + r.links.length, 0)}{" "}
-            条配置接入 · 按机柜 / U 位排列
+            {rows.length} /{" "}
+            {patchOnly
+              ? patchCount
+              : all.reduce((n, r) => n + r.links.length, 0)}{" "}
+            {patchOnly
+              ? "条可看走线 · 选择连接进入机柜"
+              : "条配置接入 · 按机柜 / U 位排列"}
           </p>
           <div className="network-connection-list" aria-label="全机房连接结果">
             {rows.map(({ rack, link, role: branch, endpoints }) => (
@@ -140,7 +163,9 @@ export function NetworkOverview({
                 data-network-focus={link.id}
                 aria-pressed={activeLink === link.id}
                 aria-disabled={!ready}
-                onClick={() => ready && onTrace(link.id)}
+                onClick={() =>
+                  ready && (patchOnly ? onOpenPatch(link) : onTrace(link.id))
+                }
               >
                 <strong>
                   ① {endpoints[0].name} <span>·</span> ② {endpoints[1].name}

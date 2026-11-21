@@ -2,13 +2,14 @@ import { racks, devices } from "./installation.ts";
 import { modelForDevice, networkLinks } from "./catalog.ts";
 import {
   networkEndpoints,
+  supportsNetworkPatch,
   switchRole,
   switchesForRack,
   switchPorts,
   type NetworkLink,
 } from "./network.ts";
 
-export type NetworkOverviewScope = "rack" | "room";
+export type NetworkOverviewScope = "rack" | "room" | "patch";
 export type NetworkOverviewRole = "all" | "A" | "B";
 
 /** 多个查找词必须落在同一条配置上，不能拼接两条 A/B 接入凑出结果。 */
@@ -31,12 +32,14 @@ function connectionMatches(link: NetworkLink, query: string) {
 export function networkConnectionRows(
   query = "",
   role: NetworkOverviewRole = "all",
+  patchOnly = false,
 ) {
   return networkOverview().flatMap(({ rack, sources }) =>
     sources.flatMap(({ connections }) =>
       connections
         .filter(
           (link) =>
+            (!patchOnly || supportsNetworkPatch(link)) &&
             (role === "all" || switchRole(link.target) === role) &&
             connectionMatches(link, query),
         )

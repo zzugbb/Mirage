@@ -8,6 +8,7 @@ import {
 import {
   networkEndpoints,
   networkSettings,
+  supportsNetworkPatch,
   type NetworkLink,
 } from "./network.ts";
 import type { AppState } from "./domain.ts";
@@ -21,9 +22,8 @@ export function canShowNetworkPatch(state: AppState, link?: NetworkLink) {
     !!link &&
     state.level === "rack" &&
     !state.trayExtended &&
-    patchSettings.sourceIds.includes(link.source) &&
-    rackForDevice(link.source).id === rackForDevice(state.deviceId).id &&
-    rackForDevice(link.target).id === rackForDevice(link.source).id
+    supportsNetworkPatch(link) &&
+    rackForDevice(link.source).id === rackForDevice(state.deviceId).id
   );
 }
 

@@ -15,6 +15,12 @@ import {
 import type { AppState } from "./domain.ts";
 export const networkSettings = definition.installation.networkAccess;
 export type NetworkLink = (typeof networkLinks)[number];
+export function supportsNetworkPatch(link: NetworkLink) {
+  return (
+    networkSettings.patchIllustration.sourceIds.includes(link.source) &&
+    rackForDevice(link.source).id === rackForDevice(link.target).id
+  );
+}
 export const networkLinkById = (id: string | null) =>
   networkLinks.find((link) => link.id === id);
 export const switchRole = (id: string) =>

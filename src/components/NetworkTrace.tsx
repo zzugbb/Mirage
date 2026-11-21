@@ -42,6 +42,7 @@ export function NetworkTrace({
   patchAvailable,
   patchActive,
   onTogglePatch,
+  onOpenPatch,
   showEndMark,
   ready,
   onPreview,
@@ -55,6 +56,7 @@ export function NetworkTrace({
   patchAvailable: boolean;
   patchActive: boolean;
   onTogglePatch: () => void;
+  onOpenPatch?: () => void;
   showEndMark: boolean;
   ready: boolean;
   onPreview: (id: string) => void;
@@ -68,6 +70,15 @@ export function NetworkTrace({
     <section className="network-trace" aria-label="当前网络连接">
       <header>
         <NetworkBranchPicker link={link} ready={ready} onTrace={onTrace} />
+        {onOpenPatch && (
+          <button
+            className="network-open-patch"
+            disabled={!ready}
+            onClick={onOpenPatch}
+          >
+            看柜内走线
+          </button>
+        )}
         {patchAvailable && (
           <button
             disabled={!ready}
