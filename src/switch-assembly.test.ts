@@ -2,8 +2,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as THREE from "three";
 import { createEquipmentAssembly } from "./scene/equipment-model.ts";
-import { assemblyChecks } from "./assembly-pairs.ts";
+import { assemblyChecks, assemblyMember } from "./assembly-pairs.ts";
 import { devices } from "./installation.ts";
+import { inletPart, powerLinks } from "./power-config.ts";
 import { modelById } from "./catalog.ts";
 
 const bounds = (object: THREE.Object3D) =>
@@ -117,5 +118,55 @@ test("只有 N1 安装实例提供主板装配核查，两个选择沿用其部�
         ["CTRL", "ASIC"],
       );
     } else assert.equal(pair, undefined);
+  }
+});
+
+test("N1 双电源核查沿用两路输入配置，机后左右槽位与安装面板、拾取身份一致", () => {
+  const model = modelById("switch-1u");
+  for (const device of devices) {
+    const check = assemblyChecks(device.id).find(
+      (tool) => tool.tool === "switch-power",
+    );
+    assert.equal(Boolean(check), device.modelId === model.id);
+    if (!check) continue;
+    const pair = check.pairs[0];
+    for (const [feed, part] of [
+      ["A", pair.primary],
+      ["B", pair.companion],
+    ] as const) {
+      assert.equal(inletPart(model.id, feed), part.id);
+      assert.equal(part.slot, "PSU-" + feed);
+      assert.ok(
+        powerLinks.some(
+          (link) => link.deviceId === device.id && link.inlet === feed,
+        ),
+      );
+      assert.deepEqual(assemblyChecks(device.id, part.id), [check]);
+      assert.equal(assemblyMember(check, part.id)?.id, part.id);
+    }
+  }
+  const { groups, root } = createEquipmentAssembly(model.id);
+  const psus = (["A", "B"] as const).map((feed) =>
+    groups.get(inletPart(model.id, feed))!,
+  );
+  assert.ok(bounds(psus[0]).max.x < bounds(psus[1]).min.x);
+  for (const psu of psus) {
+    const face = psu.getObjectByName("psu-rear-panel")!;
+    const panel = model.rearPanels.find(
+      (p) => p.kind === "power" && p.center[0] === psu.position.x,
+    )!;
+    const size = bounds(face).getSize(new THREE.Vector3());
+    assert.ok(
+      Math.abs(size.x - panel.size[0]) < 1e-6 &&
+        Math.abs(size.y - panel.size[1]) < 1e-6,
+    );
+    const origin = face.getWorldPosition(new THREE.Vector3());
+    origin.z = -model.depth;
+    let hit: THREE.Object3D | null = new THREE.Raycaster(
+      origin,
+      new THREE.Vector3(0, 0, 1),
+    ).intersectObject(root)[0].object;
+    while (hit && !hit.userData.entityId) hit = hit.parent;
+    assert.equal(hit, psu);
   }
 });

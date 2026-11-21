@@ -35,9 +35,12 @@ const storage = partsForModel("storage-4u").filter(
 );
 const controllerA = storage.find((part) => part.slot === "CTRL-A")!;
 const controllerB = storage.find((part) => part.slot === "CTRL-B")!;
-const compact = partsForModel("server-1u");
-const compactPsu = (feed: "A" | "B") =>
-  compact.find((part) => part.id === inletPart("server-1u", feed))!;
+function powerPair(modelId: string) {
+  const parts = partsForModel(modelId);
+  const psu = (feed: "A" | "B") =>
+    parts.find((part) => part.id === inletPart(modelId, feed))!;
+  return { primary: psu("A"), companion: psu("B") };
+}
 const checks = {
   "server-1u": [
     {
@@ -47,7 +50,7 @@ const checks = {
       detail: "从机后对照电源槽位与配置输入 A、B",
       labels: ["输入 A", "输入 B"],
       startExplosion: 0.35,
-      pairs: [{ primary: compactPsu("A"), companion: compactPsu("B") }],
+      pairs: [powerPair("server-1u")],
     },
   ],
   "storage-4u": [
@@ -97,6 +100,15 @@ const checks = {
           companion: network.find((part) => part.id === "net-asic")!,
         },
       ],
+    },
+    {
+      tool: "switch-power",
+      name: "双电源",
+      entry: "核对双电源",
+      detail: "从机后对照两个电源模块及其输入槽位",
+      labels: ["电源 A", "电源 B"],
+      startExplosion: 0.2,
+      pairs: [powerPair("switch-1u")],
     },
   ],
 } as const;

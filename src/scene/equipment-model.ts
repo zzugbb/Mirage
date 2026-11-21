@@ -1,7 +1,7 @@
 import { processorPairs, drivePairs } from "../assembly-pairs.ts";
 import { compactBayForPart } from "../compact-drive-bays.ts";
 import { createFanModule } from "./fan-module.ts";
-import { switchBoard, switchAsic } from "./switch-model.ts";
+import { switchBoard, switchAsic, switchPowerSupply } from "./switch-model.ts";
 import {
   storageController,
   storageDrive,
@@ -512,6 +512,8 @@ export function createEquipmentAssembly(modelId: string): Assembly {
         );
     } else {
       if (p.id === "net-board") switchBoard(group, size, box);
+      else if (modelId === "switch-1u" && p.node === "psu")
+        switchPowerSupply(group, size, box);
       else if (p.id === "net-asic") switchAsic(group, size, box);
       else if (p.id === "sto-midplane") storageMidplane(group, size, box);
       else detail(group, p.node, size, box);
