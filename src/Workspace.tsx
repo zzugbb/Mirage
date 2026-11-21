@@ -30,6 +30,8 @@ import {
   SmokeInspectionDetails,
 } from "./components/SmokeInspection";
 import { isSmokeFixture } from "./smoke-inspection";
+import { PowerFeeders } from "./components/PowerFeeders";
+import { initialFeeders, type FeederSelection } from "./power-feeders";
 import { PowerOverview } from "./components/PowerOverview";
 import {
   powerOverviewIncludes,
@@ -814,6 +816,9 @@ export function Workspace() {
   } | null>(null);
   const [smokeReturning, setSmokeReturning] = useState(false);
   const [smokeRestore, setSmokeRestore] = useState(false);
+  const [feeders, setFeeders] = useState(initialFeeders);
+  const feederScroll = useRef(0);
+  const [feederRestore, setFeederRestore] = useState<string | null>(null);
   const [powerRack, setPowerRack] = useState("rack-a01");
   const selectedRackId = rackById(selected)?.id ?? deviceById(selected)?.rackId;
   useEffect(() => {
@@ -829,6 +834,7 @@ export function Workspace() {
   const [powerOverviewVisit, setPowerOverviewVisit] = useState<{
     camera: TaskViewMemory | null;
     listQuery: string;
+    feeder?: { selection: FeederSelection; linkId: string; scroll: number };
     listFilter: PowerOverviewFilter;
     scope: PowerOverviewScope;
     order: PowerOverviewOrder;
@@ -1549,7 +1555,14 @@ export function Workspace() {
     control({ type: "layer", layer: "power" });
     control({ type: "analysis", value: false });
     setMetric("power");
-    setRackView("power");
+    const origin = powerOverviewVisit.feeder;
+    setRackView(origin ? "feeders" : "power");
+    if (origin) {
+      setFeeders(origin.selection);
+      feederScroll.current = origin.scroll;
+      setFeederRestore(origin.linkId);
+      setPowerLinkId(origin.linkId);
+    }
     setPowerQuery(powerOverviewVisit.listQuery);
     setPowerFilter(powerOverviewVisit.listFilter);
     setPowerScope(powerOverviewVisit.scope);
@@ -2479,16 +2492,35 @@ export function Workspace() {
       }
     }
   };
+  const openFeeders = (pduId = feeders.first) => {
+    control({ type: "layer", layer: "power" });
+    if (pduId !== feeders.first)
+      setFeeders({ ...initialFeeders(), first: pduId });
+    setRackView("feeders");
+    setFeederRestore(null);
+    selectObject(pduId);
+    setPowerLinkId(null);
+    setNav(true);
+    if (matchMedia("(max-width: 1099px)").matches) setInspector(false);
+  };
   const inspectPowerOverview = (
     id: string,
     action: "installation" | "internal" | "analysis" | "details",
+    feederLinkId?: string,
   ) => {
     if (!ready) return;
     setPowerOverviewVisit(
-      powerOverviewVisit?.id === id
+      !feederLinkId && powerOverviewVisit?.id === id
         ? powerOverviewVisit
         : {
             camera: captureTaskView.current?.("room") ?? null,
+            feeder: feederLinkId
+              ? {
+                  selection: feeders,
+                  linkId: feederLinkId,
+                  scroll: feederScroll.current,
+                }
+              : undefined,
             listQuery: powerQuery,
             listFilter: powerFilter,
             scope: powerScope,
@@ -3322,6 +3354,9 @@ export function Workspace() {
     setPowerScope("rack");
     setPowerOrder("budget");
     setPowerRack("rack-a01");
+    setFeeders(initialFeeders());
+    setFeederRestore(null);
+    feederScroll.current = 0;
     setPowerQuery("");
     setPowerFilter("all");
     powerScroll.current = 0;
@@ -3867,7 +3902,12 @@ export function Workspace() {
                   control({ type: "open-resource", id: "room-01" });
               }}
             >
-              ← 返回机房功耗对照
+              {powerOverviewVisit.feeder
+                ? "← 返回配电出线 " +
+                  pduById(
+                    powerLinkById(powerOverviewVisit.feeder.linkId)!.pduId,
+                  )!.sourcePort
+                : "← 返回机房功耗对照"}
             </button>
             <button
               aria-label="结束功耗对照往返"
@@ -4140,6 +4180,9 @@ export function Workspace() {
                   onClick={() => {
                     takeover();
                     setRackView(view);
+                    if (view === "feeders") {
+                      openFeeders();
+                    }
                     if (roomAlarms) {
                       setOnlyAlarms(view === "alarms");
                       setAlarmVisit(null);
@@ -4266,6 +4309,33 @@ export function Workspace() {
                   ),
               )}
             </section>
+          ) : state.level === "room" && navigationView === "feeders" ? (
+            <PowerFeeders
+              selection={feeders}
+              visible={nav}
+              ready={ready}
+              scroll={feederScroll}
+              restoreLink={feederRestore}
+              onChange={(next) => {
+                if (
+                  next.first !== feeders.first ||
+                  next.second !== feeders.second
+                ) {
+                  selectObject(
+                    next.second !== feeders.second && next.second
+                      ? next.second
+                      : next.first,
+                  );
+                  setPowerLinkId(null);
+                }
+                setFeederRestore(null);
+                setFeeders(next);
+              }}
+              onTrace={(link) => {
+                inspectPowerOverview(link.deviceId, "installation", link.id);
+                setPowerLinkId(link.id);
+              }}
+            />
           ) : state.level === "room" && navigationView === "power" ? (
             <PowerOverview
               readings={spatial.readings}
@@ -6480,6 +6550,12 @@ export function Workspace() {
                     {(layer === "power" || powerFacility) && (
                       <PowerConnections
                         paired={powerViewPaired}
+                        onOpenFeeders={
+                          state.level === "room" &&
+                          !(nav && navigationView === "feeders")
+                            ? openFeeders
+                            : undefined
+                        }
                         pduInspection={pduInspection}
                         onPduChange={(visit) => {
                           takeover();

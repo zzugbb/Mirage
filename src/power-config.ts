@@ -12,6 +12,7 @@ export const powerLinks = powerSettings.links.map((link) => ({
   ...link,
   inlet: link.inlet as PowerFeed,
 }));
+export type PowerLink = (typeof powerLinks)[number];
 export const pduById = (id: string) => pdus.find((pdu) => pdu.id === id);
 export const pduName = (id: string) => {
   const pdu = pduById(id)!;

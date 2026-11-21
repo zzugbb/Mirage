@@ -6794,3 +6794,60 @@
 .airflow-rack-list span {
   color: #b1c1ca;
 }
+.feeder-overview h3,
+.feeder-device > div,
+.feeder-device button {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+}
+.feeder-overview h3 {
+  font-size: 14px;
+  margin: 14px 0 10px;
+}
+.feeder-overview h3 small,
+.feeder-device small {
+  color: #aac0cb;
+  font-size: 10px;
+  font-weight: 400;
+}
+.feeder-groups {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  margin-bottom: 10px;
+}
+.feeder-groups button,
+.feeder-device button {
+  border: 1px solid #3e5260;
+  border-radius: 4px;
+  padding: 6px;
+  font: inherit;
+}
+.feeder-groups button[aria-pressed="true"] {
+  background: #2b434f;
+  border-color: #89b3ba;
+}
+.feeder-device {
+  padding: 10px 0;
+  border-top: 1px solid #33434d;
+}
+.feeder-device strong {
+  font-size: 13px;
+}
+.feeder-device button {
+  width: 100%;
+  margin-top: 6px;
+  background: var(--raised);
+}
+.feeder-device button b {
+  color: #c7dce6;
+  font-weight: 500;
+}
+
+.feeder-device button[aria-current="true"],
+.feeder-device button:focus-visible {
+  border-color: #89b3ba;
+  background: #2b434f;
+}

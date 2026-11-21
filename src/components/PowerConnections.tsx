@@ -31,6 +31,7 @@ export function PowerConnections({
   onSelect,
   onLocate,
   onViewPower,
+  onOpenFeeders,
   activeLinkId,
   onTrace,
   onInspect,
@@ -48,6 +49,7 @@ export function PowerConnections({
   onSelect: (id: string) => void;
   onLocate: (id: string) => void;
   onViewPower?: () => void;
+  onOpenFeeders?: (pduId?: string) => void;
   activeLinkId: string | null;
   onTrace: (id: string | null) => void;
   onInspect: (id: string) => void;
@@ -94,6 +96,11 @@ export function PowerConnections({
       }
     >
       {onViewPower && <button onClick={onViewPower}>场景查看 ↗</button>}
+      {onOpenFeeders && (selectedId === powerSettings.sourceId || pdu) && (
+        <button onClick={() => onOpenFeeders(pdu?.id)}>
+          {pdu ? "核对出线 " + pdu.sourcePort : "核对配电出线"} ↗
+        </button>
+      )}
       {!paired && !pdu && (
         <p className="power-boundary">
           配置示意 · A/B 未定义独立上游；回路与插座未计量，整机输入不分摊。

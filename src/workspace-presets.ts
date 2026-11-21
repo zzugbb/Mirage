@@ -22,6 +22,7 @@ export const resourceViews = {
   alarms: "告警清单",
   inlet: "进风对照",
   power: "功耗对照",
+  feeders: "配电出线",
 } as const;
 export type ResourceView = keyof typeof resourceViews;
 
@@ -39,7 +40,7 @@ export function navigationViews(
   }
   if (layer === "overview") return ["list", "layout", "space", "network"];
   if (layer === "environment") return ["inlet", "list"];
-  if (layer === "power") return ["power", "list"];
+  if (layer === "power") return ["power", "feeders", "list"];
   return layer === "airflow" ? ["airflow", "list"] : ["alarms", "list"];
 }
 
