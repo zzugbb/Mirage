@@ -104,3 +104,87 @@ export function storageDrive(
     0.7,
   );
 }
+
+// 后面板朝设备 -Z，板卡、托盘与拉手共用控制器的维护身份。
+export function storageController(root: THREE.Group, size: number[], box: Box) {
+  const [w, h, d] = size;
+  const rear = -d / 2;
+  root.userData.focusDirection = [0.14, 0.76, -1];
+  const trayY = -h * 0.22;
+  const boardSize = [w * 0.9, 0.003, d - 0.032];
+  const pcb = new THREE.Group();
+  pcb.name = "controller-board";
+  root.add(pcb);
+  box(pcb, boardSize, [0, 0, 0], "#305443", 0.2);
+  for (const side of [-1, 1]) {
+    for (const z of [-0.32, 0, 0.32]) {
+      box(
+        pcb,
+        [w * 0.1, 0.003, d * 0.08],
+        [side * w * 0.33, 0.003, z * boardSize[2]],
+        "#303a3d",
+        0.2,
+      );
+    }
+  }
+  const boardBottom = -boardSize[1] / 2,
+    trayTop = trayY + 0.0015;
+  for (const x of [-0.38, 0.38])
+    for (const z of [-0.38, 0.38]) {
+      box(
+        pcb,
+        [0.004, 0.001, 0.004],
+        [x * boardSize[0], 0.002, z * boardSize[2]],
+        "#9ca5a9",
+        0.65,
+      );
+      box(
+        root,
+        [0.006, boardBottom - trayTop, 0.006],
+        [x * boardSize[0], (boardBottom + trayTop) / 2, z * boardSize[2]],
+        "#79858c",
+        0.55,
+      );
+    }
+  box(root, [w, 0.003, d - 0.012], [0, trayY, 0.006], "#7d8c94", 0.65);
+  for (const side of [-1, 1]) {
+    box(
+      root,
+      [0.002, h * 0.45, d - 0.012],
+      [(side * (w - 0.002)) / 2, 0, 0.006],
+      "#8d9ba3",
+      0.6,
+    );
+  }
+  box(root, [w, h * 0.66, 0.003], [0, 0, rear + 0.012], "#485662", 0.58).name =
+    "controller-rear-panel";
+  // 仅标出接口区域，逻辑端口归属沿用网络配置。
+  box(
+    root,
+    [w * 0.43, h * 0.25, 0.003],
+    [-w * 0.2, h * 0.04, rear + 0.009],
+    "#202a31",
+    0.32,
+  );
+  for (const x of [0.09, 0.39]) {
+    box(root, [0.004, 0.006, 0.009], [w * x, 0, rear + 0.006], "#adb8c0", 0.7);
+  }
+  box(
+    root,
+    [w * 0.3 + 0.004, 0.006, 0.003],
+    [w * 0.24, 0, rear + 0.0015],
+    "#adb8c0",
+    0.7,
+  );
+  const sinkW = w * 0.45,
+    sinkD = d * 0.27;
+  box(root, [sinkW, 0.004, sinkD], [0, 0.0035, 0], "#89979e", 0.67);
+  for (let i = 0; i < 9; i++)
+    box(
+      root,
+      [0.0025, 0.009, sinkD],
+      [((i - 4) * sinkW) / 9, 0.01, 0],
+      "#a4afb6",
+      0.67,
+    );
+}

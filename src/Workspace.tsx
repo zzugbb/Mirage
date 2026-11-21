@@ -2757,8 +2757,8 @@ export function Workspace() {
       setPairDevice(state.deviceId);
       control({ type: "analysis", value: false });
       // 从装配态开始时给两件留出观察间距，已有展开比例由用户掌控。
-      if (tool === "processor-pair" && !canInspectPart(state))
-        dispatch({ type: "explode", amount: 0.55 });
+      if (!canInspectPart(state))
+        dispatch({ type: "explode", amount: pairToolAvailable.startExplosion });
       focus(selectedPair ? selected : pairToolAvailable.pairs[0].primary.id);
       return;
     }

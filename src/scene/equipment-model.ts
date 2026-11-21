@@ -2,7 +2,11 @@ import { processorPairs } from "../assembly-pairs.ts";
 import { compactBayForPart } from "../compact-drive-bays.ts";
 import { createFanModule } from "./fan-module.ts";
 import { switchBoard, switchAsic } from "./switch-model.ts";
-import { storageDrive, storageMidplane } from "./storage-model.ts";
+import {
+  storageController,
+  storageDrive,
+  storageMidplane,
+} from "./storage-model.ts";
 import * as THREE from "three";
 import definition from "../../assets/public/scenes/room-01.json" with { type: "json" };
 import { modelById, partsForDevice } from "../catalog.ts";
@@ -109,7 +113,9 @@ function detail(root: THREE.Group, node: string, size: number[], box: Box) {
       0.2,
     );
     box(root, [0.005, h * 0.65, 0.012], [w * 0.48, 0, -d / 2], "#919d76", 0.5);
-  } else if (node === "adapter" || node === "controller") {
+  } else if (node === "controller") {
+    storageController(root, size, box);
+  } else if (node === "adapter") {
     board(root, [w, 0.003, d], box);
     box(root, [w * 0.42, 0.008, d * 0.3], [0, 0.007, 0], "#939ea9", 0.8);
     for (let i = 0; i < 2; i++)

@@ -2,6 +2,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as THREE from "three";
 import { createEquipmentAssembly } from "./scene/equipment-model.ts";
+import { assemblyCheck } from "./assembly-pairs.ts";
+import { devices } from "./installation.ts";
+import { sourcePorts } from "./network.ts";
 import { modelById } from "./catalog.ts";
 
 const bounds = (object: THREE.Object3D) =>
@@ -83,4 +86,41 @@ test("存储后部电源及其接口保留在当前机箱深度内，四盘列�
   );
   assert.equal(new Set(disks.map(([, disk]) => disk.position.x)).size, 4);
   assert.equal(new Set(disks.map(([, disk]) => disk.position.y)).size, 6);
+});
+
+test("S4 核查选择与配置槽位、逻辑端口归属及后面板拾取一致", () => {
+  const assembly = createEquipmentAssembly("storage-4u");
+  for (const device of devices) {
+    const check = assemblyCheck(device.id);
+    assert.equal(
+      check?.tool === "storage-controllers",
+      device.modelId === "storage-4u",
+    );
+    if (check?.tool !== "storage-controllers") continue;
+    const [{ primary, companion }] = check.pairs;
+    assert.deepEqual([primary.slot, companion.slot], ["CTRL-A", "CTRL-B"]);
+    for (const part of [primary, companion]) {
+      const controller = assembly.groups.get(part.id)!;
+      const panel = controller.getObjectByName("controller-rear-panel")!;
+      const pcb = controller.getObjectByName("controller-board")!;
+      assert.ok(bounds(panel).max.z < bounds(pcb).min.z);
+      assert.ok(sourcePorts(device.id).some((port) => port.partId === part.id));
+      const origin = center(panel);
+      origin.z -= 0.02;
+      const hit = new THREE.Raycaster(
+        origin,
+        new THREE.Vector3(0, 0, 1),
+      ).intersectObject(assembly.root)[0];
+      let owner: THREE.Object3D | null = hit?.object ?? null;
+      while (owner && !owner.userData.entityId) owner = owner.parent;
+      assert.equal(owner?.userData.entityId, part.id);
+    }
+    const a = bounds(assembly.groups.get(primary.id)!);
+    const b = bounds(assembly.groups.get(companion.id)!);
+    assert.ok(a.max.x < b.min.x);
+    for (const id of ["sto-psu-a", "sto-psu-b", "sto-fans", "sto-midplane"]) {
+      const other = bounds(assembly.groups.get(id)!);
+      assert.ok(!a.intersectsBox(other) && !b.intersectsBox(other), id);
+    }
+  }
 });
