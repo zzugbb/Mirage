@@ -5143,6 +5143,14 @@
   text-align: left;
   background: #18242ded;
 }
+.workspace-ui .review-inlet-pair-anchor small {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.review-inlet-pair-anchor small > span {
+  color: #a8bcc6;
+}
 .workspace-ui .review-inlet-pair-anchor.pair-primary {
   border-left: 3px solid #a2e1df;
 }

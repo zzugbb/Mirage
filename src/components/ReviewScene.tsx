@@ -1863,12 +1863,14 @@ export function ReviewScene({
                 className={`review-flow-anchor review-inlet-pair-anchor ${index ? "pair-reference" : "pair-primary"}`}
                 onClick={() => onSelect(device.id)}
                 aria-label={`预览同框设备 ${device.name}`}
+                aria-describedby={`inlet-scene-reading-${device.id}`}
                 aria-pressed={selectedId === device.id}
               >
                 <b>
                   {index ? "② 基准" : "① 所查"} · {device.name}
                 </b>
                 <small
+                  id={`inlet-scene-reading-${device.id}`}
                   style={{
                     color: metricAttentionColor(
                       readings.get(device.id),
@@ -1876,6 +1878,7 @@ export function ReviewScene({
                     ),
                   }}
                 >
+                  {inletView.crossRack && <span>{device.location}</span>}
                   {reading.value === null
                     ? reading.reason
                     : `${reading.value.toFixed(1)} °C`}

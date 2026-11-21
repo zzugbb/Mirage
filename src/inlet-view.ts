@@ -43,13 +43,15 @@ export function inletInspection(pair: InletViewPair) {
     return {
       id,
       name: device.name,
-      location: `${rack.name} · ${unitLabel(id)}`,
+      rackId: rack.id,
+      location: `${rack.name.split(" ")[0]} / ${unitLabel(id)}`,
       point,
       corners,
     };
   });
   return {
     pair: { ...pair },
+    crossRack: devices[0].rackId !== devices[1].rackId,
     devices,
     points: devices.flatMap((device) => device.corners),
   };
