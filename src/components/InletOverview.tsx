@@ -1,3 +1,4 @@
+import { metricAttentionColor } from "../status";
 import { useId, useLayoutEffect, useMemo, useRef, type RefObject } from "react";
 import {
   inletOverview,
@@ -271,7 +272,15 @@ export function InletOverview({
                   {row.last > row.first ? `–${row.last}` : ""}
                 </small>
               </span>
-              <span className="inlet-device-reading">
+              <span
+                className="inlet-device-reading"
+                style={{
+                  color: metricAttentionColor(
+                    readings.get(row.id),
+                    "temperature",
+                  ),
+                }}
+              >
                 {row.value === null ? row.reason : valueText(row.value)}
               </span>
             </button>
@@ -336,11 +345,12 @@ export function InletOverview({
               className="inlet-selection-actions"
               key={`${selected}:${restoreRevision}`}
             >
-              {device && (
-                <button disabled={!ready} onClick={() => onAirflow(device.id)}>
-                  机房气流
-                </button>
-              )}
+              <button
+                disabled={!ready}
+                onClick={() => onInspect(selected, false)}
+              >
+                安装位
+              </button>
               {device && reference && device.id !== reference.id ? (
                 <button disabled={!ready} onClick={() => onCompare(device.id)}>
                   对照分析
@@ -358,12 +368,14 @@ export function InletOverview({
               <details>
                 <summary>检视与分析</summary>
                 <div>
-                  <button
-                    disabled={!ready}
-                    onClick={() => onInspect(selected, false)}
-                  >
-                    安装位
-                  </button>
+                  {device && (
+                    <button
+                      disabled={!ready}
+                      onClick={() => onAirflow(device.id)}
+                    >
+                      机房气流
+                    </button>
+                  )}
                   {device && (
                     <button
                       disabled={!ready}

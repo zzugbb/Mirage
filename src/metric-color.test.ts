@@ -9,7 +9,36 @@ import {
 } from "./scene/metric-color.ts";
 import { spatialSnapshot } from "./spatial.ts";
 import { budgetPercent, budgetStateAt } from "./power-budget.ts";
-import { signalStyles } from "./status.ts";
+import { metricAttentionColor, signalStyles } from "./status.ts";
+
+test("侧栏读数按本对象的进风告警和预算分别强调", () => {
+  const readings = spatialSnapshot(60, 0, "srv-01").readings;
+  const device = readings.get("srv-01")!;
+  const cpu = readings.get("processor-01")!;
+  assert.equal(
+    metricAttentionColor(device, "temperature"),
+    signalStyles.critical.color,
+  );
+  assert.equal(metricAttentionColor(device, "power"), undefined);
+  assert.equal(metricAttentionColor(cpu, "power"), signalStyles.critical.color);
+  assert.equal(metricAttentionColor(cpu, "temperature"), undefined);
+  assert.equal(
+    metricAttentionColor(readings.get("rack-a01"), "temperature"),
+    undefined,
+  );
+  const early = spatialSnapshot(4, 0, "srv-01").readings.get("processor-01");
+  assert.equal(
+    metricAttentionColor(early, "power"),
+    signalStyles.warning.color,
+  );
+  for (const quality of ["missing", "stale", "offline"] as const) {
+    assert.equal(
+      metricAttentionColor({ ...device, quality }, "temperature"),
+      undefined,
+    );
+    assert.equal(metricAttentionColor({ ...cpu, quality }, "power"), undefined);
+  }
+});
 
 test("温度和功耗采用独立连续色阶；未知、过期和离线保持质量标记", () => {
   const readings = spatialSnapshot(60).readings;

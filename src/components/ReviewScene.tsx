@@ -1583,7 +1583,8 @@ export function ReviewScene({
         ? roomFacilityById(selectedId)
         : fixtureById(selectedId)
       : undefined;
-  const partTemperatures = state.level === "device" && layer === "environment";
+  const partMeasures =
+    state.level === "device" && (layer === "environment" || layer === "power");
   const labelKey =
     layer +
     (inletView?.devices.map((device) => device.id).join(":") ?? "") +
@@ -2058,13 +2059,16 @@ export function ReviewScene({
                 title={
                   slicePlaneActive
                     ? "柜旁读数为该柜切面最高估计，不是整柜输入最高值"
-                    : partTemperatures
-                      ? item.name
-                      : [ownBudget, memberHint].filter(Boolean).join(" · ") ||
-                        undefined
+                    : [
+                        partMeasures ? item.name : undefined,
+                        ownBudget,
+                        memberHint,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ") || undefined
                 }
                 data-anchor={item.id}
-                data-hotspot={partTemperatures || undefined}
+                data-hotspot={partMeasures || undefined}
                 data-anchor-kind={
                   alarmDevice || item.id === roomDevice?.id
                     ? "device"
@@ -2085,7 +2089,7 @@ export function ReviewScene({
               >
                 <b>
                   {state.level === "device"
-                    ? partTemperatures
+                    ? partMeasures
                       ? (componentById(item.id)?.slot ?? item.name)
                       : item.name
                     : item.name.split(" ")[0]}
@@ -2185,9 +2189,7 @@ export function ReviewScene({
           maintenance.length > 0 ||
           supply ||
           network.length > 0 ||
-          labels.some(
-            (item) => partTemperatures || item.id === selectedId,
-          )) && (
+          labels.some((item) => partMeasures || item.id === selectedId)) && (
           <svg className="review-flow-lines" aria-hidden="true" ref={flowLines}>
             {inletView?.devices.map((device) => (
               <line
@@ -2215,7 +2217,7 @@ export function ReviewScene({
                 <line data-flow-line={selectedFixture.id} />
               )}
             {labels
-              .filter((item) => partTemperatures || item.id === selectedId)
+              .filter((item) => partMeasures || item.id === selectedId)
               .map((item) => (
                 <line key={item.id} data-flow-line={item.id} />
               ))}
@@ -2458,12 +2460,14 @@ export function ReviewScene({
           ) : layer === "alarms" ? (
             <div className="review-status-key">
               {state.level === "device" ? (
-                <div className="device-alarm-summary">
+                <div
+                  className="device-alarm-summary"
+                  title="部件列表显示模型评估"
+                >
                   <strong style={{ color: deviceSeverity?.color }}>
                     {deviceSeverity?.icon} {deviceAlarm?.name} ·{" "}
                     {alarmCurrentStatus(deviceAlarm)}
                   </strong>
-                  <small>部件列表显示模型评估</small>
                 </div>
               ) : (
                 <>

@@ -205,7 +205,13 @@ import {
 } from "./review-model";
 import type { ReviewAction, ResourceAction, ReviewState } from "./review-model";
 import { spatialSnapshot, selectedReading } from "./spatial";
-import { qualityNames, signalFor, signalStyles, signalText } from "./status";
+import {
+  metricAttentionColor,
+  qualityNames,
+  signalFor,
+  signalStyles,
+  signalText,
+} from "./status";
 import {
   findResources,
   rackUnitQuery,
@@ -835,7 +841,7 @@ export function Workspace() {
   const [inletQuery, setInletQuery] = useState("");
   const [inletScope, setInletScope] = useState<InletOverviewScope>("rack");
   const [inletOrder, setInletOrder] =
-    useState<InletOverviewOrder>("installation");
+    useState<InletOverviewOrder>("temperature");
   const [inletFilter, setInletFilter] = useState<InletOverviewFilter>("all");
   const [inletSelection, setInletSelection] = useState("rack-a01");
   const inletScroll = useRef(0);
@@ -3243,7 +3249,7 @@ export function Workspace() {
     setInletRack("rack-a01");
     setInletQuery("");
     setInletScope("rack");
-    setInletOrder("installation");
+    setInletOrder("temperature");
     setInletFilter("all");
     setInletSelection("rack-a01");
     inletScroll.current = 0;
@@ -4607,6 +4613,15 @@ export function Workspace() {
                           : layer === "power"
                             ? "power"
                             : null;
+                      const modelEvaluation =
+                        row.kind === "part" &&
+                        data?.quality === "valid" &&
+                        data.lifecycle === "running" &&
+                        data.evaluation > 0;
+                      const showStatus =
+                        !metricLayer ||
+                        (signal !== "normal" &&
+                          !(metricLayer === "power" && modelEvaluation));
                       const rowRatio = data
                         ? budgetRatio(data.power, data.budget)
                         : null;
@@ -4669,7 +4684,7 @@ export function Workspace() {
                           >
                             <span className="study-resource-title">
                               <strong>{text.title}</strong>
-                              {(!metricLayer || signal !== "normal") && (
+                              {showStatus && (
                                 <span
                                   className="study-row-status"
                                   style={{ color: style.color }}
@@ -5285,7 +5300,16 @@ export function Workspace() {
                 <h1>冷却输入与设备进风</h1>
               </div>
             ) : (
-              <div className="study-identity">
+              <div
+                className="study-identity"
+                data-alarmed={
+                  (!!reading?.alarm &&
+                    !fixture &&
+                    !powerFacility &&
+                    !coolingFacility) ||
+                  undefined
+                }
+              >
                 <small>{resource?.location}</small>
                 <h1 tabIndex={-1}>{resource?.name ?? entity.name}</h1>
                 <span
@@ -6109,7 +6133,14 @@ export function Workspace() {
                       {!powerFacility && (
                         <div>
                           <span>{reading.temperatureLabel}</span>
-                          <strong>
+                          <strong
+                            style={{
+                              color: metricAttentionColor(
+                                reading,
+                                "temperature",
+                              ),
+                            }}
+                          >
                             {temperature(reading.temperature)}
                             <small>°C</small>
                           </strong>
@@ -6134,7 +6165,11 @@ export function Workspace() {
                       )}
                       <div>
                         <span>{reading.powerLabel}</span>
-                        <strong>
+                        <strong
+                          style={{
+                            color: metricAttentionColor(reading, "power"),
+                          }}
+                        >
                           {power(reading.power)}
                           <small>
                             {(reading.power ?? 0) >= 1000 ? "kW" : "W"}

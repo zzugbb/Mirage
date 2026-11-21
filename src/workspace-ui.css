@@ -1130,6 +1130,19 @@
 .study-identity > span {
   font-size: 11px;
 }
+.study-inspector:not(.is-analysis) .study-identity[data-alarmed] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  column-gap: 8px;
+  padding-bottom: 12px;
+}
+.study-identity[data-alarmed] > small {
+  grid-column: 1 / -1;
+}
+.study-identity[data-alarmed] > h1 {
+  margin-bottom: 0;
+}
 .study-inspector.is-analysis .study-panel-heading {
   height: 48px;
 }
@@ -3848,7 +3861,8 @@
 }
 .inlet-device-reading {
   max-width: 95px;
-  font-size: 10px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
   text-align: right;
 }
 .inlet-overview-selection {

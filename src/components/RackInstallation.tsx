@@ -1,3 +1,4 @@
+import { metricAttentionColor } from "../status";
 import { useEffect, useMemo, useRef } from "react";
 import type { AppState } from "../domain";
 import { deviceById, rackForDevice } from "../installation";
@@ -219,12 +220,20 @@ export function RackInstallation({
                 </button>
               );
             const model = modelForDevice(segment.id);
-            const metric = installationMetric(readings.get(segment.id), layer);
+            const reading = readings.get(segment.id);
+            const metric = installationMetric(reading, layer);
+            const accent =
+              metric && reading
+                ? metricAttentionColor(
+                    reading,
+                    layer === "power" ? "power" : "temperature",
+                  )
+                : undefined;
             const description = `${segment.name} · ${span} · ${model.units}U ${categoryNames[model.category as keyof typeof categoryNames]}`;
             const content = (
               <>
                 <strong>{segment.name}</strong>
-                <small>
+                <small style={{ color: accent }}>
                   {metric?.text ??
                     `${model.units}U ${categoryNames[model.category as keyof typeof categoryNames]}`}
                 </small>

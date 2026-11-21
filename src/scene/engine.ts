@@ -3157,6 +3157,7 @@ export class SceneEngine {
       this.models,
       this.presentation.pose.inspection,
       this.camera,
+      !!this.isolatedPartId,
     );
     this.host.dataset.signalCount = String(
       this.signals.root.visible

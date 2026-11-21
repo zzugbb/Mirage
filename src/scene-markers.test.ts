@@ -118,9 +118,22 @@ test("告警图形按层级定位，当前设备随抽出位移；深度、相�
     1,
     camera,
   );
-  assert.ok(
-    [...marks.rackMarks, ...marks.deviceMarks].every((m) => !m.root.visible),
+  assert.deepEqual(
+    [...marks.rackMarks, ...marks.deviceMarks]
+      .filter((m) => m.root.visible)
+      .map((m) => m.id),
+    [rackState.deviceId],
   );
+  marks.update(
+    { ...rackState, level: "device" },
+    "alarms",
+    readings,
+    models,
+    1,
+    camera,
+    true,
+  );
+  assert.ok(marks.deviceMarks.every((m) => !m.root.visible));
   let disposed = 0;
   Object.values(marks.geometries).forEach((g) =>
     g.addEventListener("dispose", () => disposed++),

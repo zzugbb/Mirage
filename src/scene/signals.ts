@@ -78,6 +78,7 @@ export class SpatialSignals {
     models: SceneModel,
     inspection: number,
     camera: THREE.Camera,
+    isolatedPart = false,
   ) {
     this.root.visible = mode === "alarms";
     const activeRack = rackForDevice(state.deviceId).id;
@@ -90,12 +91,19 @@ export class SpatialSignals {
         const rack = rackLevel
           ? racks.find((r) => r.id === mark.id)!
           : rackForDevice(mark.id);
+        const chassis =
+          !rackLevel &&
+          state.level === "device" &&
+          inspection === 1 &&
+          mark.id === state.deviceId &&
+          !isolatedPart;
         mark.root.visible =
           !!signal &&
-          inspection === 0 &&
-          (rackLevel
-            ? state.level === "room"
-            : state.level === "rack" && rack.id === activeRack);
+          (chassis ||
+            (inspection === 0 &&
+              (rackLevel
+                ? state.level === "room"
+                : state.level === "rack" && rack.id === activeRack)));
         if (!mark.root.visible || !signal) continue;
         mark.root.geometry = this.geometries[signal];
         mark.material.color.set(signalStyles[signal].color);
@@ -107,6 +115,7 @@ export class SpatialSignals {
             rack.position[2] + 0.72,
           );
         else {
+          mark.root.scale.setScalar(chassis ? 0.017 : 0.025);
           if (mark.id === state.deviceId)
             models.server.getWorldPosition(mark.root.position);
           else
