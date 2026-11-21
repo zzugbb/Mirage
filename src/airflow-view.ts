@@ -4,7 +4,7 @@ export type { FrameRect } from "./observation-frame.ts";
 import type { AirflowRoute, FlowPoint } from "./airflow.ts";
 
 export const airflowViews = [
-  { id: "all", name: "全路径", direction: [-0.7, 1, 0.9] },
+  { id: "all", name: "全路径", direction: [1, 1.8, 0.6] },
   { id: "supply", name: "送风与格栅", direction: [-0.25, 1, 1] },
   { id: "intake", name: "设备进风", direction: [0.35, 0.75, 1] },
   { id: "return", name: "柜后回风", direction: [-0.35, 0.9, -1] },
@@ -49,15 +49,33 @@ export function airflowViewFrame(
   width: number,
   height: number,
   rect: FrameRect,
+  legend?: Pick<FrameRect, "top" | "right">,
 ) {
   const points = airflowViewPoints(route, view).map((p) => new Vector3(...p));
-  return observationFrame(
-    points,
-    new Vector3(...airflowViews.find((v) => v.id === view)!.direction),
-    width,
-    height,
-    rect,
-    view === "intake" ? 2.4 : 3,
-    0.16,
+  const direction = new Vector3(
+    ...airflowViews.find((v) => v.id === view)!.direction,
   );
+  const fit = (bounds: FrameRect) =>
+    observationFrame(
+      points,
+      direction,
+      width,
+      height,
+      bounds,
+      view === "intake" ? 2.4 : 3,
+      0.16,
+    );
+  if (!legend) return fit(rect);
+  const beside = { ...rect, left: legend.right + 20 };
+  const above = {
+    ...rect,
+    left: 20,
+    bottom: Math.min(rect.bottom, legend.top - 20),
+  };
+  if (above.bottom <= above.top)
+    return fit(beside.left < beside.right ? beside : rect);
+  const upperFrame = fit(above);
+  if (beside.left >= beside.right) return upperFrame;
+  const sideFrame = fit(beside);
+  return upperFrame.distance < sideFrame.distance ? upperFrame : sideFrame;
 }

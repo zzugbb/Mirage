@@ -484,6 +484,14 @@ export function ReviewScene({
     }
   }, [state.level, frameRoomAirflow, airflow, airflowWorkspace]);
   const flowView = airflowWorkspace.view;
+  useEffect(() => {
+    if (!flowView) return;
+    const legend = airflowWorkspace.panel.current?.closest(".review-legend");
+    if (!legend) return;
+    const observer = new ResizeObserver(() => engine.current?.frameAirflow());
+    observer.observe(legend);
+    return () => observer.disconnect();
+  }, [flowView, airflowWorkspace.panel]);
   const stage = airflowStage(flowView);
   const sliceControls =
     layer === "airflow"

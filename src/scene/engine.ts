@@ -688,16 +688,17 @@ export class SceneEngine {
     this.frameAirflow();
     this.onAirflowView(view);
   }
-  private frameAirflow() {
+  frameAirflow() {
     const observation = this.airflowObservation;
     if (!observation) return;
-    const { width, height, rect } = this.observationViewport();
+    const { width, height, rect, legendRect } = this.observationViewport();
     const fit = airflowViewFrame(
       observation.route,
       observation.view,
       width,
       height,
       rect,
+      legendRect,
     );
     this.targetPosition.copy(fit.position);
     this.targetLook.copy(fit.target);
@@ -759,11 +760,11 @@ export class SceneEngine {
       top = 20;
     const stage = this.host.closest(".study-stage");
     const legend = stage?.querySelector<HTMLElement>(".review-legend");
-    if (legend) {
-      const bounds = legend.getBoundingClientRect();
-      if (bounds.width)
-        left = Math.min(frame.width * 0.48, bounds.right - frame.left + 20);
-    }
+    const bounds = legend?.getBoundingClientRect();
+    const legendRect = bounds?.width
+      ? { right: bounds.right - frame.left, top: bounds.top - frame.top }
+      : undefined;
+    if (legendRect) left = Math.min(frame.width * 0.48, legendRect.right + 20);
     for (const control of stage?.querySelectorAll<HTMLElement>(
       ".study-layer-control, .review-camera, .review-scene-tools",
     ) ?? []) {
@@ -773,6 +774,7 @@ export class SceneEngine {
     return {
       width: frame.width,
       height: frame.height,
+      legendRect,
       rect: {
         left,
         top: Math.min(top, frame.height * 0.35),

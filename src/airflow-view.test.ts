@@ -76,6 +76,33 @@ test("八柜代表路径在两种桌面可用画幅内完整取景，绕开图�
   }
 });
 
+test("机房气流按图例实际高度取景，展开叠片后仍能看到整条路径", () => {
+  const route = airflowSnapshot(60, spatialSnapshot(60).readings).routes[0];
+  const width = 760,
+    height = 704;
+  const rect = { left: 314, top: 84, right: 720, bottom: 656 };
+  const side = airflowViewFrame(route, "all", width, height, rect);
+  for (const top of [520, 320, 80]) {
+    const fit = airflowViewFrame(route, "all", width, height, rect, {
+      top,
+      right: 294,
+    });
+    if (top === 520) assert.ok(fit.distance < side.distance);
+    if (top === 80) assert.deepEqual(fit, side);
+    const camera = new PerspectiveCamera(40, width / height, 0.01, 150);
+    camera.position.copy(fit.position);
+    camera.lookAt(fit.target);
+    camera.updateMatrixWorld();
+    for (const point of airflowViewPoints(route, "all")) {
+      const p = new Vector3(...point).project(camera);
+      const x = ((p.x + 1) * width) / 2,
+        y = ((1 - p.y) * height) / 2;
+      assert.ok(x > 20 && x < rect.right && y > rect.top && y < rect.bottom);
+      assert.ok(x > rect.left || y < top - 20);
+    }
+  }
+});
+
 test("回看与无效观测只改变读数和动效，不改变同一设备的观察构图", () => {
   for (const device of ["srv-01", "srv-59"]) {
     const routes = [0, 60, 120].map(

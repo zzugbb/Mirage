@@ -323,6 +323,7 @@ function reducer(
     | {
         type: "return-airflow-origin";
         pose: AirflowOriginPose;
+        layer: ReviewState["layer"];
         selected: string;
         analysis: boolean;
       },
@@ -331,6 +332,7 @@ function reducer(
     return {
       ...state,
       scene: { ...state.scene, ...action.pose },
+      layer: action.layer,
       selectedId: action.selected,
       analysis: action.analysis,
     };
@@ -514,6 +516,10 @@ export function Workspace() {
     pose: AirflowOriginPose;
     selected: string;
     target: string;
+    layer: ReviewState["layer"];
+    metric: "temperature" | "power";
+    entry: "scene" | "details";
+    detailScroll: number;
     camera: TaskViewMemory | null;
     nav: boolean;
     inspector: boolean;
@@ -2505,22 +2511,34 @@ export function Workspace() {
   };
   useEffect(() => {
     if (!airflowOrigin) return;
-    if (
-      returningFromAirflow &&
-      ready &&
-      state.level === airflowOrigin.pose.level
-    ) {
-      stageRef.current
-        ?.querySelector<HTMLButtonElement>(".airflow-room-entry")
-        ?.focus({ preventScroll: true });
+    if (returningFromAirflow) {
+      if (
+        state.level === airflowOrigin.pose.level &&
+        layer === airflowOrigin.layer &&
+        selected === airflowOrigin.selected
+      ) {
+        if (!ready) return;
+        const panel = inspectorRef.current;
+        const button =
+          airflowOrigin.entry === "details"
+            ? panel?.querySelector<HTMLButtonElement>(
+                "[data-cooling-airflow-entry]",
+              )
+            : stageRef.current?.querySelector<HTMLButtonElement>(
+                ".airflow-room-entry",
+              );
+        const section = button?.closest("details");
+        if (section) section.open = true;
+        if (panel) panel.scrollTop = airflowOrigin.detailScroll;
+        button?.focus({ preventScroll: true });
+      }
       setReturningFromAirflow(false);
       setAirflowOrigin(null);
     } else if (
-      !returningFromAirflow &&
-      (layer !== "airflow" ||
-        (ready &&
-          (state.level !== "room" ||
-            (selected !== airflowOrigin.target && !activeAirflowVisit))))
+      layer !== "airflow" ||
+      (ready &&
+        (state.level !== "room" ||
+          (selected !== airflowOrigin.target && !activeAirflowVisit)))
     ) {
       setAirflowOrigin(null);
     }
@@ -2539,6 +2557,7 @@ export function Workspace() {
     setAirflowVisit(null);
     setAirflowResponse(null);
     setQuery(airflowOrigin.query);
+    setMetric(airflowOrigin.metric);
     setFilter(airflowOrigin.filter);
     setRackView(airflowOrigin.rackView);
     setOnlyAlarms(airflowOrigin.onlyAlarms);
@@ -2547,14 +2566,16 @@ export function Workspace() {
     control({
       type: "return-airflow-origin",
       pose: airflowOrigin.pose,
+      layer: airflowOrigin.layer,
       selected: airflowOrigin.selected,
       analysis: airflowOrigin.analysis,
     });
   };
-  const showAirflow = (id: string, rememberCloseUp = false) => {
+  const showAirflow = (id: string, entry?: "scene" | "details") => {
+    const rememberCloseUp = entry && state.level !== "room";
     const target = roomAirflowTarget(id, state.deviceId);
     if (!target || !ready) return;
-    if (rememberCloseUp && state.level !== "room") {
+    if (rememberCloseUp) {
       const {
         level,
         deviceId,
@@ -2577,6 +2598,10 @@ export function Workspace() {
         },
         selected,
         target: target.id,
+        layer,
+        metric,
+        entry,
+        detailScroll: inspectorRef.current?.scrollTop ?? 0,
         camera: captureTaskView.current?.(level) ?? null,
         nav,
         inspector,
@@ -4988,7 +5013,7 @@ export function Workspace() {
               state.level === "room" &&
               selected === airflowOrigin.target
             }
-            onShowRoomAirflow={() => showAirflow(selected, true)}
+            onShowRoomAirflow={() => showAirflow(selected, "scene")}
             onInspectBudget={
               availableSourceMetrics.includes("power")
                 ? () => {
@@ -6067,7 +6092,7 @@ export function Workspace() {
                       }
                       onSelect={pick}
                       onLocateSource={() => pick(coolingSource.id, true)}
-                      onViewAirflow={() => showAirflow(selected)}
+                      onViewAirflow={() => showAirflow(selected, "details")}
                     />
                     <FixtureRelations
                       title="邻近检漏设施"
@@ -6387,7 +6412,7 @@ export function Workspace() {
                         }
                         onSelect={pick}
                         onLocateSource={() => pick(coolingSource.id, true)}
-                        onViewAirflow={() => showAirflow(selected)}
+                        onViewAirflow={() => showAirflow(selected, "details")}
                       />
                     )}
                   </>

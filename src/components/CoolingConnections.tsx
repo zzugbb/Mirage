@@ -57,7 +57,11 @@ export function CoolingConnections({
     >
       {!airflowVisible && !(source && state.level === "room") && (
         <div className="cooling-heading">
-          <button disabled={!ready} onClick={onViewAirflow}>
+          <button
+            data-cooling-airflow-entry
+            disabled={!ready}
+            onClick={onViewAirflow}
+          >
             {state.level === "room" ? "查看气流" : "机房气流"} ↗
           </button>
         </div>
