@@ -8,13 +8,14 @@ export const modelForDevice = (id: string) =>
 // 同一部件身份可装入不同机型；有槽位映射的后部模块按本机型面板装配。
 const partsByModel = new Map(
   equipmentModels.map((model) => {
+    const panels: (typeof equipmentModels)[number]["rearPanels"][number][] =
+      model.rearPanels;
     const parts = definition.parts
       .filter((part) => model.parts.includes(part.id))
       .map((part) => {
-        const panel = model.rearPanels.find(
-          (p) => "partId" in p && p.partId === part.id,
-        );
-        if (!panel?.depth || !panel.explode) return part;
+        const panel = panels.find((p) => "partId" in p && p.partId === part.id);
+        if (!panel || !("depth" in panel) || !panel.depth || !panel.explode)
+          return part;
         return {
           ...part,
           position: [...panel.center, (panel.depth - model.depth) / 2],

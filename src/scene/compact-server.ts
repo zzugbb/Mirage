@@ -71,13 +71,6 @@ export function mapCompactServer(root: THREE.Group) {
     root.attach(group);
     groups.set(id, group);
     positions.set(id, group.position.clone());
-    if (id.startsWith("processor-")) {
-      const sink = groups.get(id.endsWith("01") ? "cpu-01" : "cpu-02")!;
-      const bounds = new THREE.Box3().setFromObject(sink);
-      bounds.getCenter(group.position);
-      group.position.y = bounds.min.y + 0.001;
-      positions.set(id, group.position.clone());
-    }
   }
   // 磁盘与托架分别可选，磁盘安装姿态跟随对应实际盘位。
   for (const { disk, tray } of compactDriveBays) {

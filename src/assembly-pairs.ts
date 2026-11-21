@@ -2,18 +2,20 @@ import { modelById, partsForModel, subpartsForModel } from "./catalog.ts";
 import { inletPart } from "./power-config.ts";
 import { deviceById } from "./installation.ts";
 
-const server = partsForModel("server-2u");
-export const processorPairs = server
-  .filter((part) => part.node === "chip" && part.slot.startsWith("CPU-"))
-  .map((primary) => {
-    const companion = server.find(
-      (part) =>
-        part.node === "processor" &&
-        part.slot === primary.slot.replace("CPU-", "HS-"),
-    );
-    if (!companion) throw Error(primary.slot + " 缺少对应的散热器配置");
-    return { primary, companion };
-  });
+export function processorPairs(modelId: string) {
+  const server = partsForModel(modelId);
+  return server
+    .filter((part) => part.node === "chip" && part.slot.startsWith("CPU-"))
+    .map((primary) => {
+      const companion = server.find(
+        (part) =>
+          part.node === "processor" &&
+          part.slot === primary.slot.replace("CPU-", "HS-"),
+      );
+      if (!companion) throw Error(primary.slot + " 缺少对应的散热器配置");
+      return { primary, companion };
+    });
+}
 
 const serverChildren = subpartsForModel(modelById("server-2u"));
 export const drivePairs = serverChildren
@@ -41,8 +43,21 @@ function powerPair(modelId: string) {
     parts.find((part) => part.id === inletPart(modelId, feed))!;
   return { primary: psu("A"), companion: psu("B") };
 }
+function processorCheck(modelId: string) {
+  return {
+    tool: "processor-pair",
+    name: "处理器装配",
+    entry: "核对处理器与散热器",
+    detail: "逐路查看处理器封装与同号散热器",
+    labels: ["封装", "散热器"],
+    startExplosion: modelId === "server-1u" ? 0.75 : 0.55,
+    slotLabel: "处理器槽位",
+    pairs: processorPairs(modelId),
+  } as const;
+}
 const checks = {
   "server-1u": [
+    processorCheck("server-1u"),
     {
       tool: "compact-power",
       name: "双电源",
@@ -65,16 +80,7 @@ const checks = {
     },
   ],
   "server-2u": [
-    {
-      tool: "processor-pair",
-      name: "处理器装配",
-      entry: "核对处理器与散热器",
-      detail: "逐路查看处理器封装与同号散热器",
-      labels: ["封装", "散热器"],
-      startExplosion: 0.55,
-      slotLabel: "处理器槽位",
-      pairs: processorPairs,
-    },
+    processorCheck("server-2u"),
     {
       tool: "drive-tray",
       name: "前置盘位",

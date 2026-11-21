@@ -527,7 +527,7 @@ export function createEquipmentAssembly(modelId: string): Assembly {
       }
     }
   }
-  if (modelId === "server-2u") seatProcessors(groups, positions);
+  if (model.category === "server") seatProcessors(modelId, groups, positions);
   root.updateMatrixWorld(true);
   return { root, groups, positions };
 }
@@ -561,23 +561,35 @@ export function completeServerAssembly(
     groups.set(part.id, group);
     positions.set(part.id, group.position.clone());
   }
-  seatProcessors(groups, positions);
+  seatProcessors("server-2u", groups, positions);
   root.updateMatrixWorld(true);
 }
 
 // 组装阶段的节点位于同一设备坐标系，封装上表面贴合同号散热器底面。
 function seatProcessors(
+  modelId: string,
   groups: Assembly["groups"],
   positions: Assembly["positions"],
 ) {
-  for (const { primary, companion } of processorPairs) {
+  const contacts = modelById(modelId).processorContacts;
+  for (const { primary, companion } of processorPairs(modelId)) {
     const chip = groups.get(primary.id)!;
-    const sink = new THREE.Box3().setFromObject(groups.get(companion.id)!);
+    const sink = groups.get(companion.id)!;
+    const sinkBounds = new THREE.Box3().setFromObject(sink);
+    const contact = sinkBounds.getCenter(new THREE.Vector3());
+    contact.y = sinkBounds.min.y;
+    // M1 的散热器向前延伸。简模基座和补充封装共用详细模型底部接触面。
+    const seat = contacts?.find((item) => item.slot === companion.slot);
+    if (seat) {
+      const center = new THREE.Vector3().fromArray(seat.center);
+      sink.position.add(center.clone().sub(contact));
+      positions.set(companion.id, sink.position.clone());
+      contact.copy(center);
+    }
     const cap = new THREE.Box3().setFromObject(chip);
-    const offset = sink
-      .getCenter(new THREE.Vector3())
-      .sub(cap.getCenter(new THREE.Vector3()));
-    offset.y = sink.min.y - cap.max.y;
+    const top = cap.getCenter(new THREE.Vector3());
+    top.y = cap.max.y;
+    const offset = contact.sub(top);
     chip.position.add(offset);
     positions.set(primary.id, chip.position.clone());
   }

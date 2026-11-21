@@ -6807,6 +6807,10 @@
       "drives": 4,
       "fans": 4,
       "cpu": 2,
+      "processorContacts": [
+        {"slot": "HS-01", "center": [-0.1023393, -0.0098675, -0.0256423]},
+        {"slot": "HS-02", "center": [0.1022221, -0.0098675, -0.0256423]}
+      ],
       "description": "双路 · 8 DIMM · 4×2.5英寸 SAS SSD · 双电源",
       "uninstalled": [
         "GPU",

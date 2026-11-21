@@ -110,6 +110,56 @@ test("精细 1U 模型保留内嵌贴图和材质，维护部件仍与八内存�
     assembly.groups.get("disk-04")!.parent,
     assembly.groups.get("drives-01"),
   );
+  await t.test(
+    "M1 两路封装贴合各自精模的底部接触面，简模与复原坐标一致",
+    () => {
+      const check = assemblyChecks("srv-44").find(
+        (item) => item.tool === "processor-pair",
+      )!;
+      const fallback = createEquipmentAssembly("server-1u");
+      for (const { primary, companion } of check.pairs) {
+        const sink = assembly.groups.get(companion.id)!;
+        const chip = assembly.groups.get(primary.id)!;
+        const bounds = new THREE.Box3().setFromObject(chip);
+        const top = bounds.getCenter(new THREE.Vector3());
+        top.y = bounds.max.y;
+        const above = new THREE.Vector3(0, 1, 0);
+        // 中心及接触区四角均应向上命中实物网格的同一底面。
+        for (const [dx, dz] of [
+          [0, 0],
+          [-0.01, -0.014],
+          [-0.01, 0.014],
+          [0.01, -0.014],
+          [0.01, 0.014],
+        ]) {
+          const ray = new THREE.Raycaster(
+            top.clone().add(new THREE.Vector3(dx, -0.001, dz)),
+            above,
+          );
+          const hit = ray.intersectObject(sink)[0];
+          assert.ok(
+            hit && Math.abs(hit.distance - 0.001) < 1e-6,
+            companion.slot,
+          );
+        }
+        const simpleCap = new THREE.Box3().setFromObject(
+          fallback.groups.get(primary.id)!,
+        );
+        const simpleSink = new THREE.Box3().setFromObject(
+          fallback.groups.get(companion.id)!,
+        );
+        assert.ok(
+          simpleCap.min.distanceTo(bounds.min) < 1e-7 &&
+            simpleCap.max.distanceTo(bounds.max) < 1e-7,
+        );
+        assert.ok(Math.abs(simpleSink.min.y - top.y) < 1e-7);
+        assert.deepEqual(
+          assembly.positions.get(primary.id)?.toArray(),
+          chip.position.toArray(),
+        );
+      }
+    },
+  );
   const before = new THREE.Box3()
     .setFromObject(assembly.groups.get("dimm-01")!)
     .getCenter(new THREE.Vector3());

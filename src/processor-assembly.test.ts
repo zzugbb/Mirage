@@ -5,23 +5,24 @@ import { assemblyChecks, processorPairs } from "./assembly-pairs.ts";
 import { devices } from "./installation.ts";
 import { createEquipmentAssembly } from "./scene/equipment-model.ts";
 
-test("M2 按配置槽号配对双路 CPU 和 HS，其他服务器不显示此核查", () => {
-  assert.deepEqual(
-    processorPairs.map(({ primary, companion }) => [
-      primary.slot,
-      companion.slot,
-    ]),
-    [
-      ["CPU-01", "HS-01"],
-      ["CPU-02", "HS-02"],
-    ],
-  );
+test("M1 和 M2 按各自配置提供双路 CPU 与同号散热器", () => {
+  for (const model of ["server-1u", "server-2u"])
+    assert.deepEqual(
+      processorPairs(model).map(({ primary, companion }) => [
+        primary.slot,
+        companion.slot,
+      ]),
+      [
+        ["CPU-01", "HS-01"],
+        ["CPU-02", "HS-02"],
+      ],
+    );
   for (const device of devices) {
     assert.equal(
       assemblyChecks(device.id).some(
         (check) => check.tool === "processor-pair",
       ),
-      device.modelId === "server-2u",
+      ["server-1u", "server-2u"].includes(device.modelId),
     );
   }
   assert.deepEqual(assemblyChecks("unknown"), []);
@@ -29,7 +30,7 @@ test("M2 按配置槽号配对双路 CPU 和 HS，其他服务器不显示此核
 
 test("M2 简模封装顶面贴合同号散热器底面，复原坐标保留校准结果", () => {
   const { groups, positions } = createEquipmentAssembly("server-2u");
-  for (const { primary, companion } of processorPairs) {
+  for (const { primary, companion } of processorPairs("server-2u")) {
     const chip = groups.get(primary.id)!;
     const cap = new Box3().setFromObject(chip),
       sink = new Box3().setFromObject(groups.get(companion.id)!);
