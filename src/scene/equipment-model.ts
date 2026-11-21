@@ -360,7 +360,7 @@ export function createEquipmentAssembly(modelId: string): Assembly {
       if (p.id === "lid-01") {
         pos.splice(0, 3, 0, h / 2, 0);
         size.splice(0, 3, 0.44, 0.002, depth);
-      } else {
+      } else if (!(p.node === "psu" && model.id === "server-1u")) {
         pos[2] *= depth / 0.9;
         pos[1] *= model.units / 2;
         size[1] *= model.units / 2;
@@ -374,7 +374,7 @@ export function createEquipmentAssembly(modelId: string): Assembly {
         pos.splice(0, 3, 0, 0.002, -0.09);
         size.splice(0, 3, 0.39, 0.03125, 0.13335);
       }
-      if (p.id.startsWith("psu-")) {
+      if (p.node === "psu" && model.id === "server-2u") {
         pos.splice(
           0,
           3,
@@ -389,7 +389,12 @@ export function createEquipmentAssembly(modelId: string): Assembly {
         size[0] = 0.065;
         size[2] = 0.1;
       }
-      if (p.id === "io-01") pos[0] = -0.06;
+      if (p.id === "io-01") {
+        const panel = model.rearPanels.find(
+          (panel) => panel.kind === "interface",
+        );
+        if (panel) pos[0] = panel.center[0];
+      }
       if (p.id === "fans-01") {
         pos.splice(0, 3, 0, 0, 0.1);
         size.splice(0, 3, 0.39, h * 0.8, 0.055);
@@ -471,7 +476,9 @@ export function createEquipmentAssembly(modelId: string): Assembly {
         const tail = new THREE.Group();
         tail.position.z = -0.18;
         group.add(tail);
-        board(tail, [0.28, 0.004, 0.14], box);
+        // M1 后段板沿并排电源槽内侧延伸。
+        if (model.id === "server-1u") tail.position.x = 0.075;
+        board(tail, [model.id === "server-1u" ? 0.27 : 0.28, 0.004, 0.14], box);
       }
     }
   }

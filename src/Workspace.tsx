@@ -5696,7 +5696,11 @@ export function Workspace() {
                           <button
                             key={part.id}
                             disabled={!ready}
-                            aria-label={part.name}
+                            aria-label={
+                              assembly.tool === "compact-power"
+                                ? assembly.labels[index] + " · " + part.name
+                                : part.name
+                            }
                             aria-pressed={selected === part.id}
                             onClick={() => pick(part.id)}
                           >

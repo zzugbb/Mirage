@@ -5,8 +5,30 @@ export const modelById = (id: string) =>
   equipmentModels.find((model) => model.id === id)!;
 export const modelForDevice = (id: string) =>
   modelById(deviceById(id)?.modelId ?? "server-2u");
+// 同一部件身份可装入不同机型；有槽位映射的后部模块按本机型面板装配。
+const partsByModel = new Map(
+  equipmentModels.map((model) => {
+    const parts = definition.parts
+      .filter((part) => model.parts.includes(part.id))
+      .map((part) => {
+        const panel = model.rearPanels.find(
+          (p) => "partId" in p && p.partId === part.id,
+        );
+        if (!panel?.depth || !panel.explode) return part;
+        return {
+          ...part,
+          position: [...panel.center, (panel.depth - model.depth) / 2],
+          size: [...panel.size, panel.depth],
+          explode: panel.explode,
+          focusDirection: [0.12, 0.55, -1],
+        };
+      });
+    return [model.id, parts] as const;
+  }),
+);
+export const partsForModel = (modelId: string) => partsByModel.get(modelId)!;
 export const partsForDevice = (id: string) =>
-  definition.parts.filter((part) => modelForDevice(id).parts.includes(part.id));
+  partsForModel(modelForDevice(id).id);
 export const subpartsForDevice = (id: string) => {
   const model = modelForDevice(id);
   return definition.subparts.filter(

@@ -6815,11 +6815,11 @@
       "network": "双口 25G",
       "storage": "4 × 1.92 TB SAS SSD",
       "rearPanels": [
-        {"kind": "power", "center": [-0.185, 0], "size": [0.065, 0.03316]},
-        {"kind": "power", "center": [0.185, 0], "size": [0.065, 0.03316]},
-        {"kind": "interface", "center": [-0.06, -0.007461], "size": [0.09, 0.014093]},
-        {"kind": "interface", "center": [0.04, -0.007461], "size": [0.065, 0.014093]},
-        {"kind": "vent", "center": [0, 0.009534], "size": [0.26, 0.012435]}
+        {"kind": "power", "partId": "psu-01", "center": [-0.1078, 0], "size": [0.07, 0.038], "depth": 0.15, "explode": [0.035, 0.055, -0.24]},
+        {"kind": "power", "partId": "psu-02", "center": [-0.1794, 0], "size": [0.07, 0.038], "depth": 0.15, "explode": [-0.035, 0.055, -0.24]},
+        {"kind": "interface", "center": [-0.015, -0.007461], "size": [0.09, 0.014093]},
+        {"kind": "interface", "center": [0.075, -0.007461], "size": [0.065, 0.014093]},
+        {"kind": "vent", "center": [0.073, 0.009534], "size": [0.26, 0.012435]}
       ]
     },
     {

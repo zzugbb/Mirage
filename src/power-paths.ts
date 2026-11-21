@@ -6,7 +6,7 @@ import {
   rackForDevice,
   deviceHeight,
 } from "./installation.ts";
-import { modelForDevice } from "./catalog.ts";
+import { modelForDevice, partsForDevice } from "./catalog.ts";
 import { entityById } from "./domain.ts";
 import type { AppState } from "./domain.ts";
 import {
@@ -160,7 +160,7 @@ export function powerScene(
         ],
       });
     const outlet = pduOutletPosition(targetPdu.id, link.outlet);
-    const psu = definition.parts.find((part) => part.id === partId)!;
+    const psu = partsForDevice(device.id).find((part) => part.id === partId)!;
     const endpoint: PowerPoint = [
       rack.position[0] + psu.position[0],
       deviceHeight(device.id),
