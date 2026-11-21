@@ -1,4 +1,4 @@
-import { racks, devices } from "./installation.ts";
+import { racks, devices, deviceById, rackForDevice } from "./installation.ts";
 import { modelForDevice, networkLinks } from "./catalog.ts";
 import {
   networkEndpoints,
@@ -12,20 +12,41 @@ import {
 export type NetworkOverviewScope = "rack" | "room" | "patch";
 export type NetworkOverviewRole = "all" | "A" | "B";
 
-/** 多个查找词必须落在同一条配置上，不能拼接两条 A/B 接入凑出结果。 */
-function connectionMatches(link: NetworkLink, query: string) {
-  const rack = racks.find(
-    (item) => item.id === devices.find((d) => d.id === link.source)?.rackId,
-  )!;
-  const text = `${rack.id} ${rack.name} ${networkEndpoints(link.id)
-    .map((e) => `${e.deviceId} ${e.name} ${e.portLabel} ${e.location}`)
-    .join(" ")}`.toLowerCase();
+// 将界面里的“端口 09”和“控制器 B”等完整字段保留为一个查找词。
+function searchTerms(query: string) {
   return query
-    .trim()
+    .normalize("NFKC")
     .toLowerCase()
-    .split(/\s+/)
-    .filter(Boolean)
-    .every((term) => text.includes(term));
+    .replace(/(交换机口|端口)\s+(?=\d)/g, "$1")
+    .replace(/(控制器|接入)\s+([ab])(?=$|[\s/])/g, "$1$2")
+    .trim()
+    .split(/[\s/]+/)
+    .filter(Boolean);
+}
+
+/** 多个查找词必须落在同一条配置上，不能拼接两条 A/B 接入凑出结果。 */
+function connectionMatches(link: NetworkLink, terms: string[]) {
+  if (!terms.length) return true;
+  const rack = rackForDevice(link.source);
+  const ends = networkEndpoints(link.id);
+  const text = searchTerms(
+    `${rack.id} ${rack.name} ${ends
+      .map((e) => `${e.deviceId} ${e.name} ${e.portLabel} ${e.location}`)
+      .join(" ")}`,
+  ).join(" ");
+  return terms.every((term) => {
+    const port = /^(?:端口|交换机口)(\d+)$/.exec(term);
+    if (port) return Number(port[1]) === link.targetPort;
+    const unit = /^u(\d+)$/.exec(term);
+    if (unit) {
+      const u = Number(unit[1]);
+      return ends.some(({ deviceId }) => {
+        const start = deviceById(deviceId)!.startUnit;
+        return u >= start && u < start + modelForDevice(deviceId).units;
+      });
+    }
+    return text.includes(term);
+  });
 }
 
 /** 全机房按安装顺序列出既有连接；未配置口不生成结果。 */
@@ -34,14 +55,13 @@ export function networkConnectionRows(
   role: NetworkOverviewRole = "all",
   patchOnly = false,
 ) {
-  return networkOverview().flatMap(({ rack, sources }) =>
-    sources.flatMap(({ connections }) =>
-      connections
+  return networkOverview(query).flatMap(({ rack, matching }) =>
+    matching.flatMap(({ matchingLinks }) =>
+      matchingLinks
         .filter(
           (link) =>
             (!patchOnly || supportsNetworkPatch(link)) &&
-            (role === "all" || switchRole(link.target) === role) &&
-            connectionMatches(link, query),
+            (role === "all" || switchRole(link.target) === role),
         )
         .map((link) => ({
           rack,
@@ -55,6 +75,7 @@ export function networkConnectionRows(
 
 /** 从已登记接入生成柜内关系，不把未配置端口当作可用容量。 */
 export function networkOverview(query = "") {
+  const terms = searchTerms(query);
   return racks.map((rack) => {
     const links = networkLinks.filter(
       (link) => devices.find((d) => d.id === link.source)?.rackId === rack.id,
@@ -70,14 +91,16 @@ export function networkOverview(query = "") {
         return {
           device,
           connections,
-          matches: connections.some((link) => connectionMatches(link, query)),
+          matchingLinks: connections.filter((link) =>
+            connectionMatches(link, terms),
+          ),
         };
       });
     return {
       rack,
       links,
       sources,
-      matching: sources.filter((source) => source.matches),
+      matching: sources.filter((source) => source.matchingLinks.length > 0),
       switches: switchesForRack(rack.id).map((device) => ({
         device,
         role: switchRole(device.id),

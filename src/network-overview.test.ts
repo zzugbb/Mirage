@@ -122,3 +122,27 @@ test("可看走线仅列出已支持的同柜连接，并与查找和分支共�
   );
   assert.equal(networkConnectionRows("STO-04", "all", true).length, 0);
 });
+
+test("交换机端口与控制器分支按字段匹配，U 位可落在任一端安装跨度内", () => {
+  const find = (q: string) =>
+    networkConnectionRows(q).map(({ link }) => link.id);
+  for (const query of [
+    "B04 SW-16 端口09",
+    "B04 SW-16 端口 9",
+    "Ｂ０４ Ｕ２６ 控制器 Ｂ 交换机口０９",
+    "B04 STO-03 U41 接入B",
+    "B04 U28 U41 控制器 B",
+  ])
+    assert.deepEqual(find(query), ["link-sto-03-1"]);
+  assert.deepEqual(find("B04 SW-16 端口1"), find("B04 SW-16 端口01"));
+  assert.equal(find("B04 SW-16 端口1").length, 1);
+  assert.equal(find("B04 SW-16 端口09 控制器A").length, 0);
+  assert.equal(find("B04 STO-03 U2").length, 0);
+  assert.equal(find("B04 端口 00").length, 0);
+  assert.deepEqual(
+    networkOverview("B04 U26 SW-16 端口 09").flatMap((r) =>
+      r.matching.flatMap((s) => s.matchingLinks.map((link) => link.id)),
+    ),
+    ["link-sto-03-1"],
+  );
+});

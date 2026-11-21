@@ -142,7 +142,7 @@ export function NetworkOverview({
           data-network-focus="query"
           value={query}
           onChange={(e) => onQuery(e.target.value)}
-          placeholder="如 B03 STO 或 SRV-01 SW-02"
+          placeholder="如 B04 SW-16 端口09"
         />
       </label>
       {scope !== "rack" ? (
@@ -168,7 +168,8 @@ export function NetworkOverview({
                 }
               >
                 <strong>
-                  ① {endpoints[0].name} <span>·</span> ② {endpoints[1].name}
+                  ① {endpoints[0].name} <span>{unitLabel(link.source)}</span> ·
+                  ② {endpoints[1].name} <span>{unitLabel(link.target)}</span>
                 </strong>
                 <small>
                   {rack.name.split(" ")[0]} · 接入 {branch} · 交换机口{" "}
@@ -241,7 +242,7 @@ export function NetworkOverview({
             <span>B 口</span>
           </div>
           <div className="network-map-nodes">
-            {current.matching.map(({ device, connections }) => (
+            {current.matching.map(({ device, connections, matchingLinks }) => (
               <div className="network-map-node" key={device.id}>
                 {(["A", "device", "B"] as const).map((role) => {
                   if (role === "device")
@@ -260,6 +261,10 @@ export function NetworkOverview({
                   const link = connections.find(
                     (item) => switchRole(item.target) === role,
                   );
+                  const match =
+                    link &&
+                    matchingLinks.length < connections.length &&
+                    matchingLinks.includes(link);
                   return link ? (
                     <button
                       className="network-map-port"
@@ -267,10 +272,11 @@ export function NetworkOverview({
                       key={role}
                       aria-disabled={!ready}
                       aria-pressed={activeLink === link.id}
-                      aria-label={`标记 ${device.name} 接入 ${role} 端口 ${link.targetPort}`}
+                      aria-label={`标记 ${device.name} 接入 ${role} 端口 ${link.targetPort}${match ? "，匹配查找" : ""}`}
                       onClick={() => ready && onTrace(link.id)}
                     >
                       {String(link.targetPort).padStart(2, "0")}
+                      {match && <small>匹配</small>}
                     </button>
                   ) : (
                     <span key={role} className="network-map-unconfigured">
@@ -299,7 +305,8 @@ export function NetworkOverview({
           ))}
         <p>
           两侧为交换机逻辑端口，点击查看连接两端；中间为设备，点击预览安装位置。
-          查找词以空格分隔，共同匹配一条连接。仅展示柜内已登记的 25G
+          查找可组合机柜、设备、控制器分支和交换机端口，如 B04 控制器 B
+          端口09。单个 U 位匹配任一端的实际安装跨度。仅展示柜内已登记的 25G
           接入。连线不表示流向或实际布线；未采集链路状态、协商速率与流量，A/B
           不证明上联独立或冗余保障。
         </p>
