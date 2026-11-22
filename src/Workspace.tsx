@@ -502,7 +502,9 @@ export function Workspace() {
         : activeStorageVisit && !activeStorageVisit.pending
           ? activeStorageVisit.mode === "group"
             ? storageDriveGroup
-            : activeStorageVisit.diskId
+            : activeStorageVisit.mode === "board"
+              ? "sto-midplane"
+              : activeStorageVisit.diskId
           : isolatedPart(state, selected, inspectionDevice);
   useEffect(() => {
     if (inspectionDevice && !isolatedPartId) setInspectionDevice(null);
@@ -1572,7 +1574,7 @@ export function Workspace() {
       setStorageViewRevision((n) => n + 1);
       setStorageFocusRevision((n) => n + 1);
     } else if (
-      storageVisit.mode === "contact" &&
+      (storageVisit.mode === "contact" || storageVisit.mode === "board") &&
       (selected === state.deviceId || selected === storageDriveGroup)
     ) {
       setStorageVisit({ ...storageVisit, mode: "group" });
@@ -2870,7 +2872,7 @@ export function Workspace() {
       setFanVisit(null);
       setStorageVisit({
         deviceId: state.deviceId,
-        mode: "group",
+        mode: selected === "sto-midplane" ? "board" : "group",
         diskId: storageSlots(state.deviceId).some(
           (slot) => slot.id === selected,
         )
@@ -2878,7 +2880,10 @@ export function Workspace() {
           : null,
         pending: true,
       });
-      control({ type: "pick", id: storageDriveGroup });
+      control({
+        type: "pick",
+        id: selected === "sto-midplane" ? selected : storageDriveGroup,
+      });
       control({ type: "analysis", value: false });
       if (!canInspectPart(state)) dispatch({ type: "explode", amount: 1 });
       setInspector(true);
@@ -2900,8 +2905,11 @@ export function Workspace() {
     setInspector(true);
     if (matchMedia("(max-width: 1099px)").matches) setNav(false);
     setStorageVisit({ ...activeStorageVisit, mode: "group" });
-    if (selected === "sto-midplane" && activeStorageVisit.diskId)
-      control({ type: "pick", id: activeStorageVisit.diskId });
+    if (selected === "sto-midplane")
+      control({
+        type: "pick",
+        id: activeStorageVisit.diskId ?? storageDriveGroup,
+      });
     control({ type: "analysis", value: false });
     setStorageViewRevision((n) => n + 1);
     setStorageFocusRevision((n) => n + 1);
@@ -5524,6 +5532,11 @@ export function Workspace() {
                 : (activeFanVisit?.side ?? "front")
             }
             storageViewRevision={storageViewRevision}
+            storageBoardDisk={
+              activeStorageVisit?.mode === "board"
+                ? activeStorageVisit.diskId
+                : undefined
+            }
             storageContact={activeStorageVisit?.mode === "contact"}
             companionPartIds={companionPartIds}
             isolatedPartId={isolatedPartId}
@@ -6220,6 +6233,13 @@ export function Workspace() {
                   });
                   pick(id);
                   setStorageViewRevision((n) => n + 1);
+                }}
+                onBoard={() => {
+                  takeover();
+                  setStorageVisit({ ...activeStorageVisit, mode: "board" });
+                  pick(activeStorageVisit.diskId ?? "sto-midplane");
+                  setStorageViewRevision((n) => n + 1);
+                  setStorageFocusRevision((n) => n + 1);
                 }}
                 onGroup={returnStorageGroup}
                 onFinish={finishStructureCheck}

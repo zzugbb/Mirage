@@ -11,6 +11,7 @@ import { partsForDevice } from "./catalog.ts";
 import { assemblyPartPosition } from "./assembly-motion.ts";
 import {
   activeStorageSlots,
+  storageSlots,
   type StorageSlotInspection,
 } from "./storage-slots.ts";
 import { createReview } from "./review-model.ts";
@@ -147,4 +148,35 @@ test("接点核对可预览中板、回看和换盘，离开实例或复原仍�
     activeStorageSlots({ ...visit, mode: "group" }, state, "sto-midplane"),
     null,
   );
+});
+
+test("中板正面 24 个接触片与插座外缘均命中盘位，板面保留中板身份", () => {
+  const assembly = createEquipmentAssembly("storage-4u");
+  const board = assembly.groups.get("sto-midplane")!;
+  board.updateWorldMatrix(true, true);
+  const ray = new THREE.Raycaster();
+  const guide = new StorageContactGuide();
+  for (const slot of storageSlots("sto-04")) {
+    const pair = storageContactObjects("sto-04", slot.id, assembly.groups)!;
+    const bounds = new THREE.Box3().setFromObject(pair.socket);
+    const center = bounds.getCenter(new THREE.Vector3());
+    for (const fraction of [0, 0.44, 0.7]) {
+      const origin = center.clone();
+      origin.x += fraction * (bounds.max.x - bounds.min.x);
+      origin.z = bounds.max.z + 1;
+      ray.set(origin, new THREE.Vector3(0, 0, -1));
+      const surface = ray.intersectObject(board)[0].object;
+      assert.equal(
+        surface.userData.storageSlotIndex,
+        fraction > 0.5 ? undefined : slot.index,
+      );
+    }
+    guide.update(pair, true);
+    assert.deepEqual(
+      guide.root.children.map((object) => object.visible),
+      [false, true, false],
+    );
+    guide.update(pair);
+    assert.ok(guide.root.children.every((object) => object.visible));
+  }
 });

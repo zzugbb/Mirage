@@ -153,6 +153,7 @@ export function ReviewScene({
   fanViewSide = "front",
   storageViewRevision = 0,
   storageContact = false,
+  storageBoardDisk,
   sliceViewCommand,
   onSlicePlaneChange,
   slicePlaneActive,
@@ -298,6 +299,7 @@ export function ReviewScene({
   fanViewSide?: "front" | "rear" | "iso";
   storageViewRevision?: number;
   storageContact?: boolean;
+  storageBoardDisk?: string | null;
   sliceControls: SliceControls;
   setSliceControls: Dispatch<SetStateAction<SliceControls>>;
   layer: ReviewLayer;
@@ -1029,6 +1031,7 @@ export function ReviewScene({
     active.companionPartIds = companionPartIds;
     if (companionPartIds.length) setOrbit(false);
     active.storageContact = storageContact;
+    active.storageBoardDisk = storageBoardDisk;
     active.invalidate();
     if (
       !isolatedPartId &&
@@ -1040,6 +1043,7 @@ export function ReviewScene({
     isolatedPartId,
     companionPartIds,
     storageContact,
+    storageBoardDisk,
     state.level,
     state.deviceId,
     retry,
@@ -1639,7 +1643,7 @@ export function ReviewScene({
   const labels = sceneLabels(
     alarmDevice
       ? [alarmDevice]
-      : ambientSelected || !sliceVisible
+      : ambientSelected || !sliceVisible || storageBoardDisk !== undefined
         ? []
         : layer === "environment" && roomLabelDevice && !moreLabels && !sliceRow
           ? [roomLabelDevice]

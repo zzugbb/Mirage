@@ -61,6 +61,7 @@ import type { SliceDeviceInspection } from "../slice-device";
 import type { RackUnitRange } from "../rack-space";
 import { RackUnitGuide } from "./rack-unit-guide";
 import { PartIsolation } from "./part-isolation";
+import { storageSlots } from "../storage-slots";
 import { StorageContactGuide, storageContactObjects } from "./storage-contact";
 import { canInspectPart, internalStructureThreshold } from "../part-inspection";
 import {
@@ -197,6 +198,7 @@ export class SceneEngine {
   isolatedPartId: string | null = null;
   companionPartIds: readonly string[] = [];
   storageContact = false;
+  storageBoardDisk?: string | null;
   storageContactGuide = new StorageContactGuide();
   partIsolation = new PartIsolation();
   partInspection: {
@@ -2479,6 +2481,17 @@ export class SceneEngine {
           return { id };
         continue;
       }
+      if (
+        this.storageBoardDisk !== undefined &&
+        this.isolatedPartId === "sto-midplane" &&
+        this.state.level === "device" &&
+        hit.object.userData.storageSlotIndex !== undefined
+      ) {
+        const slot = storageSlots(this.state.deviceId)[
+          hit.object.userData.storageSlotIndex
+        ];
+        if (slot) return { id: slot.id };
+      }
       let object: THREE.Object3D | null = hit.object;
       while (object) {
         if (object.userData.entityId) {
@@ -2683,7 +2696,17 @@ export class SceneEngine {
               ...companions,
             ])
           : this.partIsolation.apply(this.models.server, target));
-    this.storageContactGuide.update(applied ? pair : null);
+    const boardOnly =
+      id === "sto-midplane" && this.storageBoardDisk !== undefined;
+    const marked =
+      boardOnly && this.storageBoardDisk
+        ? storageContactObjects(
+            this.state.deviceId,
+            this.storageBoardDisk,
+            this.models.parts,
+          )
+        : pair;
+    this.storageContactGuide.update(applied ? marked : null, boardOnly);
     const inspectionKey = pair
       ? `${id}:contact`
       : companions

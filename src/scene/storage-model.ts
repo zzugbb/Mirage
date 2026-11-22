@@ -24,13 +24,15 @@ export function storageMidplane(root: THREE.Group, size: number[], box: Box) {
       0.15,
     );
     socket.name = `storage-socket-${String(i + 1).padStart(2, "0")}`;
-    box(
+    socket.userData.storageSlotIndex = i;
+    const contact = box(
       root,
       [cw * 0.7, ch * 0.35, 0.0006],
       [x, y, d / 2 + cd + 0.0003],
       "#a28e5b",
       0.5,
     );
+    contact.userData.storageSlotIndex = i;
     // 短焊盘留在竖直板面，不在板顶复制水平主板元件。
     for (const dx of [-1, 1])
       box(

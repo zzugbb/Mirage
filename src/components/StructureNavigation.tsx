@@ -37,6 +37,7 @@ export function StructureNavigation({
     single: "单件检视",
     disk: "单盘检视",
     contact: "中板接点",
+    board: "中板正面",
   }[visit.mode];
   const hasDuct = fan && !!modelForDevice(visit.deviceId).fanDuctLayout;
   const group = fan

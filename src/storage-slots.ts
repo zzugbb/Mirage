@@ -21,7 +21,7 @@ export function storageSlots(deviceId: string) {
 }
 export type StorageSlotInspection = {
   deviceId: string;
-  mode: "group" | "disk" | "contact";
+  mode: "group" | "disk" | "contact" | "board";
   diskId: string | null;
   pending: boolean;
 };
@@ -31,6 +31,7 @@ export function storageSlotContext(deviceId: string, selected: string) {
     !!slots.length &&
     (selected === deviceId ||
       selected === storageDriveGroup ||
+      selected === "sto-midplane" ||
       slots.some((slot) => slot.id === selected))
   );
 }
@@ -42,8 +43,10 @@ export function activeStorageSlots(
   return visit &&
     state.level === "device" &&
     visit.deviceId === state.deviceId &&
-    (storageSlotContext(state.deviceId, selected) ||
-      (visit.mode === "contact" && selected === "sto-midplane")) &&
+    storageSlotContext(state.deviceId, selected) &&
+    (selected !== "sto-midplane" ||
+      visit.mode === "contact" ||
+      visit.mode === "board") &&
     (visit.pending || canInspectPart(state))
     ? visit
     : null;

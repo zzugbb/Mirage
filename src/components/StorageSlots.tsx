@@ -15,6 +15,7 @@ export function StorageSlots({
   onSelect,
   onInspect,
   onContact,
+  onBoard,
   onGroup,
   onFinish,
 }: {
@@ -26,6 +27,7 @@ export function StorageSlots({
   onSelect: (id: string) => void;
   onInspect: (id: string) => void;
   onContact: (id: string) => void;
+  onBoard: () => void;
   onGroup: () => void;
   onFinish: () => void;
 }) {
@@ -132,13 +134,17 @@ export function StorageSlots({
         </>
       ) : (
         <label className="structure-check-heading">
-          切换盘位
+          {visit.mode === "board" ? "接点对应盘位" : "切换盘位"}
           <select
-            aria-label="切换盘位"
             value={current?.id ?? ""}
             disabled={!ready || visit.pending}
             onChange={(event) => onSelect(event.target.value)}
           >
+            {!current && (
+              <option value="" disabled>
+                点选中板接点
+              </option>
+            )}
             {slots.map((slot) => (
               <option key={slot.id} value={slot.id}>
                 {slot.slot} · {slot.row} 行 {slot.column} 列
@@ -147,26 +153,29 @@ export function StorageSlots({
           </select>
         </label>
       )}
-      {current && (
-        <div className="storage-slot-actions">
-          {visit.mode !== "disk" && (
-            <button
-              disabled={!ready || visit.pending}
-              onClick={() => onInspect(current.id)}
-            >
-              只看此硬盘
-            </button>
-          )}
-          {visit.mode !== "contact" && (
-            <button
-              disabled={!ready || visit.pending}
-              onClick={() => onContact(current.id)}
-            >
-              核对中板接点
-            </button>
-          )}
-        </div>
-      )}
+      <div className="storage-slot-actions">
+        {visit.mode !== "board" && (
+          <button disabled={!ready || visit.pending} onClick={onBoard}>
+            从中板选盘
+          </button>
+        )}
+        {current && visit.mode !== "disk" && (
+          <button
+            disabled={!ready || visit.pending}
+            onClick={() => onInspect(current.id)}
+          >
+            只看此硬盘
+          </button>
+        )}
+        {current && visit.mode !== "contact" && (
+          <button
+            disabled={!ready || visit.pending}
+            onClick={() => onContact(current.id)}
+          >
+            核对中板接点
+          </button>
+        )}
+      </div>
       <details className="structure-check-boundary">
         <summary>盘位编号与装配示意</summary>
         <p>

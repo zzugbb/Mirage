@@ -47,14 +47,16 @@ export class StorageContactGuide {
     this.line.frustumCulled = false;
     this.root.visible = false;
   }
-  update(pair: ReturnType<typeof storageContactObjects>) {
+  update(pair: ReturnType<typeof storageContactObjects>, boardOnly = false) {
     this.root.visible = !!pair;
     if (!pair) return;
     // 机构在本帧刚更新；不能依赖渲染器上一帧留下的父级世界矩阵。
-    pair.disk.updateWorldMatrix(true, true);
     pair.board.updateWorldMatrix(true, true);
-    this.contactBox.setFromObject(pair.contact).expandByScalar(0.0008);
     this.socketBox.setFromObject(pair.socket).expandByScalar(0.0008);
+    this.ends[0].visible = this.line.visible = !boardOnly;
+    if (boardOnly) return;
+    pair.disk.updateWorldMatrix(true, true);
+    this.contactBox.setFromObject(pair.contact).expandByScalar(0.0008);
     const a = this.contactBox.getCenter(new THREE.Vector3()),
       b = this.socketBox.getCenter(new THREE.Vector3());
     a.z = this.contactBox.min.z;
