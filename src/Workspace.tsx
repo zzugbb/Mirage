@@ -4,10 +4,12 @@ import {
   assemblyChecks,
   assemblyMember,
   rearMemberLayer,
+  controllerLayer,
   switchRear,
   type FanContactView,
   type AssemblyCheck,
 } from "./assembly-pairs";
+import { storageAssembly } from "./storage-layout";
 import { modelForDevice, subpartsForModel } from "./catalog";
 import { CompactDriveBays } from "./components/CompactDriveBays";
 import {
@@ -536,6 +538,9 @@ export function Workspace() {
         activePair[assembly.layer.members].id === selected)
       ? assembly.layer
       : undefined);
+  const controllerInspection = selectedLayer === controllerLayer;
+  const inspectingCooler =
+    controllerInspection && pairVisit?.layerScopeId === "controller-cooler";
   const powerBayPose =
     assembly && "powerBays" in assembly ? pairVisit?.powerBayPose : undefined;
   const layerPose = selectedLayer ? pairVisit?.layerPose : undefined;
@@ -5765,7 +5770,9 @@ export function Workspace() {
                 : pathContact
                   ? station.id
                   : layerPose &&
-                      (assembly?.tool === "switch-front" || powerContactScope)
+                      (assembly?.tool === "switch-front" ||
+                        powerContactScope ||
+                        controllerInspection)
                     ? pairVisit?.layerScopeId
                     : undefined
             }
@@ -6243,21 +6250,48 @@ export function Workspace() {
                         </button>
                       </>
                     )}
-                    {assembly.tool === "storage-controllers" && activePair && (
-                      <select
-                        aria-label="核查控制器"
-                        disabled={!ready}
-                        value={selected}
-                        onChange={(event) => pick(event.target.value)}
-                      >
-                        {[activePair.primary, activePair.companion].map(
-                          (part) => (
+                    {controllerInspection && activePair && (
+                      <>
+                        <select
+                          aria-label="核查控制器"
+                          disabled={!ready}
+                          value={selected}
+                          onChange={(event) => pick(event.target.value)}
+                        >
+                          {(
+                            rearLayout?.controllers ?? [
+                              activePair.primary,
+                              activePair.companion,
+                            ]
+                          ).map((part) => (
                             <option key={part.id} value={part.id}>
                               {part.slot}
                             </option>
-                          ),
-                        )}
-                      </select>
+                          ))}
+                        </select>
+                        <select
+                          aria-label="控制器核查位置"
+                          disabled={!ready}
+                          value={pairVisit?.layerScopeId ?? ""}
+                          onChange={(event) =>
+                            setLayerScope(event.target.value || undefined)
+                          }
+                        >
+                          <option value="">板卡与托盘</option>
+                          <optgroup label="机后所见 · 板角与支柱">
+                            {storageAssembly.controllerMount.corners.map(
+                              (corner) => (
+                                <option key={corner.id} value={corner.id}>
+                                  {corner.label}
+                                </option>
+                              ),
+                            )}
+                          </optgroup>
+                          <option value="controller-cooler">
+                            芯片与散热器
+                          </option>
+                        </select>
+                      </>
                     )}
                     {(["seated", "separated"] as const).map((pose) => (
                       <button
@@ -6267,15 +6301,19 @@ export function Workspace() {
                         autoFocus={pose === "separated"}
                         onClick={() => setLayerPose(pose)}
                       >
-                        {contactFan
+                        {inspectingCooler
                           ? pose === "seated"
-                            ? "接合触点"
-                            : "分开触点"
-                          : inspectingBoardContact
+                            ? "贴合芯片"
+                            : "抬起散热器"
+                          : contactFan
                             ? pose === "seated"
-                              ? "插入固定座"
-                              : "退出固定座"
-                            : selectedLayer[pose]}
+                              ? "接合触点"
+                              : "分开触点"
+                            : inspectingBoardContact
+                              ? pose === "seated"
+                                ? "插入固定座"
+                                : "退出固定座"
+                              : selectedLayer[pose]}
                       </button>
                     ))}
                   </div>
@@ -8068,7 +8106,7 @@ export function Workspace() {
                                             : "背板接触区按八块硬盘的位置对齐。插头和线束绕行是内部装配示意，读数沿用部件模型。"
                                           : assembly?.tool ===
                                               "storage-controllers"
-                                            ? "控制器身份与双口归属来自 S4 配置。板边端口笼、面板开口及分层间距为原创装配示意，读数沿用所选控制器。"
+                                            ? controllerLayer.description
                                             : entity.description}
                     </p>
                     {entity.kind === "rack" && (

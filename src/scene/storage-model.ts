@@ -1,15 +1,13 @@
+import {
+  controllerMounts,
+  controllerCooler,
+} from "./storage-controller-mounts.ts";
 import { registerLayer } from "./assembly-layer.ts";
 import * as THREE from "three";
 import { networkSettings } from "../network.ts";
 import { storageAssembly, storageSlot } from "../storage-layout.ts";
 
-type Box = (
-  root: THREE.Object3D,
-  size: number[],
-  position: number[],
-  color: string,
-  metalness?: number,
-) => THREE.Mesh;
+import type { Box } from "./equipment-model.ts";
 
 // 两个宽度不同的腔口共用一条偏置隔筋。插片与插座从同一截面取尺寸。
 const [socketW, socketH, socketD] = storageAssembly.socketSize;
@@ -315,7 +313,7 @@ export function storageController(root: THREE.Group, size: number[], box: Box) {
   const pcb = new THREE.Group();
   pcb.name = "controller-board";
   root.add(pcb);
-  box(pcb, boardSize, [0, 0, 0], "#305443", 0.2).name = "controller-pcb";
+  const boardArea = controllerMounts(root, pcb, boardSize, trayY + 0.0015, box);
   for (const side of [-1, 1]) {
     for (const z of [-0.32, 0, 0.32]) {
       box(
@@ -327,25 +325,6 @@ export function storageController(root: THREE.Group, size: number[], box: Box) {
       );
     }
   }
-  const boardBottom = -boardSize[1] / 2,
-    trayTop = trayY + 0.0015;
-  for (const x of [-0.38, 0.38])
-    for (const z of [-0.38, 0.38]) {
-      box(
-        pcb,
-        [0.004, 0.001, 0.004],
-        [x * boardSize[0], 0.002, z * boardSize[2]],
-        "#9ca5a9",
-        0.65,
-      );
-      box(
-        root,
-        [0.006, boardBottom - trayTop, 0.006],
-        [x * boardSize[0], (boardBottom + trayTop) / 2, z * boardSize[2]],
-        "#ab9463",
-        0.55,
-      ).name = "controller-standoff";
-    }
   box(root, [w, 0.003, d - 0.012], [0, trayY, 0.006], "#7d8c94", 0.65).name =
     "controller-tray";
   for (const side of [-1, 1]) {
@@ -368,17 +347,15 @@ export function storageController(root: THREE.Group, size: number[], box: Box) {
     "#adb8c0",
     0.7,
   );
-  const sinkW = w * 0.45,
-    sinkD = d * 0.27;
-  box(pcb, [sinkW, 0.004, sinkD], [0, 0.0035, 0], "#89979e", 0.67);
-  for (let i = 0; i < 9; i++)
-    box(
-      pcb,
-      [0.0025, 0.009, sinkD],
-      [((i - 4) * sinkW) / 9, 0.01, 0],
-      "#a4afb6",
-      0.67,
-    );
+  controllerCooler(
+    root,
+    pcb,
+    w * 0.45,
+    d * 0.27,
+    boardSize[1] / 2,
+    boardArea,
+    box,
+  );
   const [x, y, z] = storageAssembly.controllerPorts.focusDirection;
   registerLayer(root, {
     node: pcb.name,

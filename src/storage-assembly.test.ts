@@ -18,6 +18,7 @@ import {
 } from "./assembly-pairs.ts";
 import { devices } from "./installation.ts";
 import { inletPart, powerLinks } from "./power-config.ts";
+import { storageAssembly } from "./storage-layout.ts";
 import { sourcePorts } from "./network.ts";
 import { modelById } from "./catalog.ts";
 
@@ -527,6 +528,108 @@ test("S4 两侧板端的宽窄片分别避让中肋，推回时各自贴合固�
         else {
           assert.ok(finger.min.z < face.max.z && face.max.z < finger.max.z);
           assert.ok(bounds(plug).equals(installed));
+        }
+      }
+    }
+  }
+});
+
+test("S4 两侧板卡的四角孔贯通，对应柱头留有径向余隙，近看后端口与整板一起落回", () => {
+  const { groups } = createEquipmentAssembly("storage-4u");
+  const mount = storageAssembly.controllerMount;
+  for (const side of ["a", "b"]) {
+    const root = groups.get("sto-controller-" + side)!;
+    const board = root.getObjectByName("controller-board")!,
+      sheet = root.getObjectByName("controller-pcb")!;
+    const cages = root.getObjectsByProperty("name", "controller-port-cage");
+    const initial = cages.map(bounds);
+    const pins = root.getObjectsByProperty("name", "controller-guide-pin");
+    assert.equal(pins.length, 4);
+    for (const corner of mount.corners) {
+      const scope = layerScopeFor(root, corner.id)!;
+      const [patch, rim, shoulder, pin] = scope.members;
+      assert.equal(scope.layerRoot, board);
+      assert.equal(patch.name, "controller-corner-" + corner.id);
+      const axis = center(pin),
+        base = center(board);
+      assert.equal(Math.sign(axis.x - base.x), corner.x);
+      assert.equal(Math.sign(axis.z - base.z), corner.z);
+      for (const moved of [true, true, false, true, false]) {
+        poseAssemblyLayer(scope.layerRoot, moved);
+        root.updateWorldMatrix(true, true);
+        assert.ok(center(pin).equals(axis));
+        const rise = moved ? mount.cornerLift : 0;
+        close(bounds(patch).min.y - bounds(shoulder).max.y, rise);
+        close(bounds(rim).min.y - bounds(patch).max.y, 0.000025);
+        close(center(patch).x, axis.x);
+        close(center(patch).z, axis.z);
+        cages.forEach((c, i) =>
+          close(bounds(c).min.y - initial[i].min.y, rise),
+        );
+        for (const radius of [
+          0,
+          (mount.pinRadius + mount.boreRadius) / 2,
+          mount.boreRadius * 1.2,
+        ]) {
+          const origin = new THREE.Vector3(
+            axis.x + radius,
+            bounds(patch).max.y + 0.01,
+            axis.z,
+          );
+          const ray = new THREE.Raycaster(origin, new THREE.Vector3(0, -1, 0));
+          assert.equal(
+            ray.intersectObject(sheet).length > 0,
+            radius > mount.boreRadius,
+          );
+          assert.equal(ray.intersectObject(pin).length > 0, radius === 0);
+        }
+      }
+    }
+  }
+});
+
+test("S4 散热器沿两处对角孔抬落，芯片顶盖与柱肩齐平，定位柱避开九片鳍片", () => {
+  const { groups } = createEquipmentAssembly("storage-4u");
+  const mount = storageAssembly.controllerMount;
+  for (const side of ["a", "b"]) {
+    const root = groups.get("sto-controller-" + side)!;
+    const scope = layerScopeFor(root, "controller-cooler")!;
+    const sink = scope.moving,
+      base = sink.getObjectByName("controller-sink-base")!,
+      lid = root.getObjectByName("controller-chip-lid")!;
+    const pins = root.getObjectsByProperty("name", "controller-sink-pin"),
+      feet = root.getObjectsByProperty("name", "controller-sink-shoulder"),
+      fins = sink.getObjectsByProperty("name", "controller-sink-fin");
+    assert.equal(pins.length, 2);
+    assert.equal(feet.length, 2);
+    assert.equal(fins.length, 9);
+    assert.ok(
+      (center(pins[0]).x - center(pins[1]).x) *
+        (center(pins[0]).z - center(pins[1]).z) >
+        0,
+    );
+    const tray = bounds(root.getObjectByName("controller-tray")!),
+      chip = bounds(lid);
+    for (const moved of [false, true, true, false]) {
+      poseAssemblyLayer(scope.layerRoot, moved);
+      root.updateWorldMatrix(true, true);
+      close(bounds(base).min.y - chip.max.y, moved ? mount.sinkLift : 0);
+      assert.ok(
+        bounds(lid).equals(chip) &&
+          bounds(root.getObjectByName("controller-tray")!).equals(tray),
+      );
+      for (const [i, tip] of pins.entries()) {
+        close(bounds(feet[i]).max.y, chip.max.y);
+        const axis = center(tip);
+        for (const dx of [0, mount.boreRadius * 0.9, mount.boreRadius * 1.2]) {
+          const ray = new THREE.Raycaster(
+            new THREE.Vector3(axis.x + dx, bounds(sink).max.y + 0.01, axis.z),
+            new THREE.Vector3(0, -1, 0),
+          );
+          assert.equal(
+            ray.intersectObject(sink)[0]?.object,
+            dx > mount.boreRadius ? base : undefined,
+          );
         }
       }
     }

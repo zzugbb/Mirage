@@ -14,6 +14,7 @@ interface LayerScope {
   moving: Object3D;
   members: Object3D[];
   selectedBranch?: Object3D;
+  selectionPadding?: number;
 }
 const scopes = new WeakMap<Object3D, Map<string, LayerScope>>();
 export function registerLayerScope(

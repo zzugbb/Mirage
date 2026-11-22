@@ -1681,6 +1681,16 @@
     }
   },
   "storageAssembly": {
+    "controllerMount": {
+      "corners": [
+        {"id": "rear-left", "label": "面板左角", "x": 1, "z": -1},
+        {"id": "rear-right", "label": "面板右角", "x": -1, "z": -1},
+        {"id": "inner-left", "label": "内端左角", "x": 1, "z": 1},
+        {"id": "inner-right", "label": "内端右角", "x": -1, "z": 1}
+      ],
+      "boreRadius": 0.0023, "pinRadius": 0.0018, "cornerLift": 0.025,
+      "sinkLift": 0.030, "focusDirection": [0.63, 0.53, -1]
+    },
     "controllerPorts": {
       "cageSize": [0.024, 0.014, 0.021], "pitch": 0.029, "wall": 0.0013,
       "panelThickness": 0.0015, "panelGap": 0.0008, "focusDirection": [0.9, 0.8, -1]

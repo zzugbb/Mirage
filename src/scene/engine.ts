@@ -3294,6 +3294,9 @@ export class SceneEngine {
       )
         faceColor = metricAttentionColor(reading, this.telemetry.mode);
     }
+    const selectedScope = showSelection
+      ? layerScopeFor(object, this.layerScopeId)
+      : undefined;
     if (object && showSelection) {
       if (installed)
         this.models.selection.setInstalledBox(
@@ -3302,10 +3305,10 @@ export class SceneEngine {
           faceColor ? this.camera.position.z : undefined,
         );
       else {
-        const scope = layerScopeFor(object, this.layerScopeId);
-        if (scope?.selectedBranch)
-          this.models.selection.box.setFromObject(scope.selectedBranch);
-        else if (scope) scopeBounds(this.models.selection.box, scope);
+        if (selectedScope?.selectedBranch)
+          this.models.selection.box.setFromObject(selectedScope.selectedBranch);
+        else if (selectedScope)
+          scopeBounds(this.models.selection.box, selectedScope);
         else
           this.models.selection.box.setFromObject(
             this.storageContactGuide.memberFor(this.state.selected) ?? object,
@@ -3318,11 +3321,13 @@ export class SceneEngine {
         : null,
       time,
       this.reducedMotion,
-      this.storageConnectorPose || this.layerScopeId?.startsWith("fan-contact:")
-        ? 0.00045
-        : this.state.level === "device" || selectedFixture || installed
-          ? 0.006
-          : 0.025,
+      selectedScope?.selectionPadding ??
+        (this.storageConnectorPose ||
+        this.layerScopeId?.startsWith("fan-contact:")
+          ? 0.00045
+          : this.state.level === "device" || selectedFixture || installed
+            ? 0.006
+            : 0.025),
       faceColor,
     );
     this.host.dataset.selectionTarget = showSelection
