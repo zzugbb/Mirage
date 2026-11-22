@@ -4,7 +4,7 @@ import { test } from "node:test";
 import { Box3, Mesh, Texture, Vector3 } from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import definition from "../assets/public/scenes/room-01.json" with { type: "json" };
-import { assemblyChecks } from "./assembly-pairs.ts";
+import { assemblyChecks, assemblyMember } from "./assembly-pairs.ts";
 import { assemblyPartPosition } from "./assembly-motion.ts";
 import {
   modelForDevice,
@@ -12,8 +12,9 @@ import {
   subpartsForDevice,
 } from "./catalog.ts";
 import { createState, transition } from "./domain.ts";
-import { deviceHeight, rackForDevice } from "./installation.ts";
+import { deviceHeight, devices, rackForDevice } from "./installation.ts";
 import { inletPart } from "./power-config.ts";
+import { sourcePorts } from "./network.ts";
 import { powerScene } from "./power-paths.ts";
 import { createEquipmentAssembly } from "./scene/equipment-model.ts";
 
@@ -122,5 +123,66 @@ test("M2 两路输入在精模、简模和柜内供电路径上对应同一后�
       return new Box3().setFromObject(group);
     });
     assert.ok(b.max.x < a.min.x, "机后观察，输入 B 始终在 A 的右侧");
+  }
+});
+
+test("M2 扩展区的网卡对准机后接口与 01 架的承接面，02 架独立选择", () => {
+  const id = "srv-54";
+  const model = modelForDevice(id);
+  const { adapter, carrier, adjacent } = model.expansionBay!;
+  const panel = model.rearPanels.find(
+    (item) => "partId" in item && item.partId === adapter,
+  )!;
+  const { groups } = createEquipmentAssembly(model.id);
+  const box = (part: string, mesh?: string) => {
+    const group = groups.get(part)!;
+    return new Box3().setFromObject(
+      mesh ? group.getObjectByName(mesh)! : group,
+    );
+  };
+  const card = box(adapter, "adapter-pcb");
+  const contact = box(adapter, "adapter-contact");
+  const seat = box(carrier, "carrier-seat");
+  assert.equal(
+    groups.get(carrier)!.children.filter((m) => m.name === "adapter-support")
+      .length,
+    4,
+  );
+  const support = box(carrier, "adapter-support");
+  assert.ok(Math.abs(card.min.y - support.max.y) < 1e-7);
+  assert.ok(Math.abs(contact.min.y - seat.max.y) < 1e-7);
+  assert.ok(contact.min.x >= seat.min.x && contact.max.x <= seat.max.x);
+  assert.ok(contact.min.z >= seat.min.z && contact.max.z <= seat.max.z);
+  assert.ok(Math.abs(card.getCenter(new Vector3()).x - panel.center[0]) < 1e-7);
+  assert.ok(box(adapter).min.z >= -model.depth / 2);
+  assert.ok(!box(adapter).intersectsBox(box("io-01")));
+  assert.deepEqual(
+    sourcePorts(id).map((p) => p.partId),
+    [adapter, adapter],
+  );
+  const check = assemblyChecks(id).find((c) => c.tool === "expansion-bay")!;
+  for (const member of [adapter, carrier, adjacent]) {
+    assert.deepEqual(assemblyChecks(id, member), [check]);
+    assert.equal(assemblyMember(check, member)?.id, member);
+  }
+  for (const device of devices)
+    assert.equal(
+      assemblyChecks(device.id).some((c) => c.tool === check.tool),
+      device.modelId === model.id,
+    );
+  const parts = partsForDevice(id).filter((p) =>
+    [adapter, carrier, adjacent].includes(p.id),
+  );
+  for (const amount of [0, check.startExplosion, 1, 0]) {
+    for (const part of parts)
+      groups
+        .get(part.id)!
+        .position.fromArray(assemblyPartPosition(part, amount, 1));
+    assert.ok(box(adjacent).min.x > box(carrier).max.x);
+    assert.ok(
+      box(adapter).min.x > box(carrier).min.x &&
+        box(adapter).max.x < box(carrier).max.x,
+    );
+    if (amount) assert.ok(box(adapter).min.y > box(carrier).max.y);
   }
 });

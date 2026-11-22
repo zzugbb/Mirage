@@ -456,12 +456,25 @@ export function Workspace() {
     pairVisit?.deviceId === state.deviceId
       ? pairTools.find((check) => check.tool === pairVisit.tool)
       : undefined;
+  const additionalPart =
+    assembly && "additionalPart" in assembly
+      ? assembly.additionalPart
+      : undefined;
   const activePair = canInspectPart(state)
     ? assembly?.pairs.find(
         ({ primary, companion }) =>
-          selected === primary.id || selected === companion.id,
+          selected === primary.id ||
+          selected === companion.id ||
+          selected === additionalPart?.id,
       )
     : undefined;
+  const companionPartIds = useMemo(() => {
+    if (activePair)
+      return additionalPart
+        ? [activePair.companion.id, additionalPart.id]
+        : [activePair.companion.id];
+    return compareFanDuct && fanDuct ? [fanDuct.id] : [];
+  }, [activePair, additionalPart, compareFanDuct, fanDuct]);
   useEffect(() => {
     if (pairVisit && !activePair) setPairVisit(null);
   }, [pairVisit, activePair]);
@@ -5512,11 +5525,7 @@ export function Workspace() {
             }
             storageViewRevision={storageViewRevision}
             storageContact={activeStorageVisit?.mode === "contact"}
-            companionPartId={
-              activePair?.companion.id ??
-              (compareFanDuct ? fanDuct?.id : null) ??
-              null
-            }
+            companionPartIds={companionPartIds}
             isolatedPartId={isolatedPartId}
             state={state}
             unitRange={
@@ -5791,29 +5800,48 @@ export function Workspace() {
                         ))}
                       </select>
                     )}
-                    <div
-                      role="group"
-                      aria-label={assembly.name + "部件"}
-                      className="fan-view-sides"
-                    >
-                      {[activePair.primary, activePair.companion].map(
-                        (part, index) => (
-                          <button
-                            key={part.id}
-                            disabled={!ready}
-                            aria-label={
-                              assembly.tool === "server-power"
-                                ? assembly.labels[index] + " · " + part.name
-                                : part.name
-                            }
-                            aria-pressed={selected === part.id}
-                            onClick={() => pick(part.id)}
-                          >
-                            {assembly.labels[index]}
-                          </button>
-                        ),
-                      )}
-                    </div>
+                    {additionalPart ? (
+                      <select
+                        aria-label="PCIe 扩展部件"
+                        value={selected}
+                        disabled={!ready}
+                        onChange={(event) => pick(event.target.value)}
+                      >
+                        {[
+                          activePair.primary,
+                          activePair.companion,
+                          additionalPart,
+                        ].map((part) => (
+                          <option key={part.id} value={part.id}>
+                            {part.name}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <div
+                        role="group"
+                        aria-label={assembly.name + "部件"}
+                        className="fan-view-sides"
+                      >
+                        {[activePair.primary, activePair.companion].map(
+                          (part, index) => (
+                            <button
+                              key={part.id}
+                              disabled={!ready}
+                              aria-label={
+                                assembly.tool === "server-power"
+                                  ? assembly.labels[index] + " · " + part.name
+                                  : part.name
+                              }
+                              aria-pressed={selected === part.id}
+                              onClick={() => pick(part.id)}
+                            >
+                              {assembly.labels[index]}
+                            </button>
+                          ),
+                        )}
+                      </div>
+                    )}
                   </div>
                 </StructureToolbar>
               ) : structureVisit ? (

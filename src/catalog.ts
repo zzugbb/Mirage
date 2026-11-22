@@ -10,9 +10,36 @@ const partsByModel = new Map(
   equipmentModels.map((model) => {
     const panels: (typeof equipmentModels)[number]["rearPanels"][number][] =
       model.rearPanels;
+    const bay = model.expansionBay;
+    const adapterPanel =
+      bay &&
+      panels.find((panel) => "partId" in panel && panel.partId === bay.adapter);
     const parts = definition.parts
       .filter((part) => model.parts.includes(part.id))
       .map((part) => {
+        if (
+          bay &&
+          adapterPanel &&
+          [bay.adapter, bay.carrier, bay.adjacent].includes(part.id)
+        ) {
+          const [x, y] = adapterPanel.center;
+          return {
+            ...part,
+            position: [
+              x + (part.id === bay.adjacent ? bay.spacing : 0),
+              y,
+              (bay.depth - model.depth) / 2 + 0.002,
+            ],
+            size: [...adapterPanel.size, bay.depth],
+            explode:
+              part.id === bay.adapter
+                ? bay.adapterTravel
+                : part.id === bay.carrier
+                  ? bay.carrierTravel
+                  : bay.adjacentTravel,
+            focusDirection: [0.55, 0.88, -1],
+          };
+        }
         const panel = panels.find((p) => "partId" in p && p.partId === part.id);
         if (!panel || !("depth" in panel) || !panel.depth || !panel.explode)
           return part;

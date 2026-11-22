@@ -148,7 +148,7 @@ export function ReviewScene({
   rangeViewCommand,
   onRangeViewChange,
   isolatedPartId = null,
-  companionPartId = null,
+  companionPartIds,
   fanViewRevision = 0,
   fanViewSide = "front",
   storageViewRevision = 0,
@@ -293,7 +293,7 @@ export function ReviewScene({
   rangeViewCommand: RangeViewCommand | null;
   onRangeViewChange: (side: RangeView | null, segmentId: string | null) => void;
   isolatedPartId?: string | null;
-  companionPartId?: string | null;
+  companionPartIds: readonly string[];
   fanViewRevision?: number;
   fanViewSide?: "front" | "rear" | "iso";
   storageViewRevision?: number;
@@ -1026,8 +1026,8 @@ export function ReviewScene({
     const active = engine.current;
     if (!active) return;
     active.isolatedPartId = isolatedPartId;
-    active.companionPartId = companionPartId;
-    if (companionPartId) setOrbit(false);
+    active.companionPartIds = companionPartIds;
+    if (companionPartIds.length) setOrbit(false);
     active.storageContact = storageContact;
     active.invalidate();
     if (
@@ -1038,7 +1038,7 @@ export function ReviewScene({
       setView(active.partInspection.previous.view);
   }, [
     isolatedPartId,
-    companionPartId,
+    companionPartIds,
     storageContact,
     state.level,
     state.deviceId,
@@ -1618,7 +1618,7 @@ export function ReviewScene({
               }
               if (isolatedPartId)
                 return (
-                  p.id === companionPartId ||
+                  companionPartIds.includes(p.id) ||
                   (storageContact && p.id === "sto-midplane")
                 );
               return (

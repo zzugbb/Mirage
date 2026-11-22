@@ -9,7 +9,7 @@ import {
 } from "./storage-model.ts";
 import * as THREE from "three";
 import definition from "../../assets/public/scenes/room-01.json" with { type: "json" };
-import { modelById, partsForDevice } from "../catalog.ts";
+import { modelById, partsForModel, partsForDevice } from "../catalog.ts";
 import { devices } from "../installation.ts";
 export type Assembly = {
   root: THREE.Group;
@@ -148,6 +148,120 @@ function rearPowerSupply(
     );
 }
 
+// 两只转接架共用支承与定位尺寸。网卡的双口只表达后面板接口区。
+function expansionPart(
+  root: THREE.Group,
+  part: (typeof definition.parts)[number],
+  box: Box,
+) {
+  const [w, h, d] = part.size;
+  const rear = -d / 2;
+  const seatZ = d * 0.39;
+  root.userData.focusDirection = part.focusDirection;
+  if (part.node === "adapter") {
+    const pcb = box(
+      root,
+      [w - 0.009, 0.002, d - 0.02],
+      [0, 0, 0.001],
+      "#295241",
+      0.2,
+    );
+    pcb.name = "adapter-pcb";
+    // 金色接触区与架内承接面共用轴线，表示装配位置。
+    box(
+      root,
+      [w * 0.56, 0.001, 0.006],
+      [0, -0.0015, seatZ],
+      "#af975c",
+      0.55,
+    ).name = "adapter-contact";
+    box(
+      root,
+      [w * 0.86, h * 0.82, 0.002],
+      [0, 0.003, rear + 0.002],
+      "#89969e",
+      0.7,
+    );
+    for (const sign of [-1, 1]) {
+      const x = sign * w * 0.23;
+      box(
+        root,
+        [w * 0.29, h * 0.45, 0.016],
+        [x, 0.004, rear + 0.009],
+        "#a3aeb3",
+        0.7,
+      );
+      box(
+        root,
+        [w * 0.24, h * 0.32, 0.001],
+        [x, 0.004, rear + 0.0005],
+        "#212c32",
+        0.25,
+      );
+    }
+    for (let i = 0; i < 9; i++)
+      box(
+        root,
+        [0.002, 0.006, d * 0.25],
+        [(i - 4) * 0.003, 0.004, 0],
+        "#8d9b9e",
+        0.72,
+      );
+    for (const side of [-1, 1])
+      box(
+        root,
+        [0.01, 0.003, 0.015],
+        [side * w * 0.27, 0.0025, d * 0.24],
+        "#293135",
+        0.2,
+      );
+  } else {
+    const floor = -h * 0.42;
+    box(root, [w, 0.002, d], [0, floor - 0.001, 0], "#66767e", 0.65);
+    for (const side of [-1, 1]) {
+      box(
+        root,
+        [0.002, h * 0.8, d],
+        [side * (w / 2 - 0.001), floor + h * 0.4, 0],
+        "#99a4ac",
+        0.72,
+      );
+      for (const z of [-d * 0.32, d * 0.32]) {
+        const height = -0.001 - floor;
+        box(
+          root,
+          [0.004, height, 0.006],
+          [side * w * 0.35, floor + height / 2, z],
+          "#a5997a",
+          0.55,
+        ).name = "adapter-support";
+      }
+    }
+    box(
+      root,
+      [w * 0.62, 0.004, 0.008],
+      [0, -0.004, seatZ],
+      "#30383c",
+      0.25,
+    ).name = "carrier-seat";
+    // 转接小板竖装在托架内端，托住承接座，保持前后面可辨。
+    box(
+      root,
+      [w * 0.78, 0.014, 0.002],
+      [0, floor + 0.007, seatZ + 0.005],
+      "#305545",
+      0.2,
+    );
+    for (const x of [-w * 0.31, w * 0.31])
+      box(
+        root,
+        [0.003, 0.003, 0.001],
+        [x, floor + 0.009, seatZ + 0.0035],
+        "#abb3ad",
+        0.65,
+      );
+  }
+}
 function detail(root: THREE.Group, node: string, size: number[], box: Box) {
   const [w, h, d] = size;
   if (node === "board") board(root, size, box);
@@ -484,7 +598,7 @@ export function createEquipmentAssembly(modelId: string): Assembly {
         );
         size.splice(0, 3, 0.39, 0.03125, 0.13335);
       }
-      if (p.id === "nic-01" || p.id === "riser-01") {
+      if (!model.expansionBay && (p.id === "nic-01" || p.id === "riser-01")) {
         pos.splice(0, 3, 0.04, 0.003, -depth / 2 + 0.065);
         size[0] = 0.065;
         size[2] = 0.1;
@@ -588,7 +702,16 @@ export function createEquipmentAssembly(modelId: string): Assembly {
           modelId,
         );
     } else {
-      if (p.id === "net-board") switchBoard(group, size, box);
+      if (
+        model.expansionBay &&
+        [
+          model.expansionBay.adapter,
+          model.expansionBay.carrier,
+          model.expansionBay.adjacent,
+        ].includes(p.id)
+      )
+        expansionPart(group, p, box);
+      else if (p.id === "net-board") switchBoard(group, size, box);
       else if (model.category !== "server" && p.node === "psu")
         rearPowerSupply(group, size, box, (depth - size[2]) / 2 + pos[2]);
       else if (p.id === "net-ports") switchPortCages(group, size, box);
@@ -617,8 +740,9 @@ export function completeServerAssembly(
 ) {
   const box = maker();
   root.updateMatrixWorld(true);
-  for (const part of definition.parts.filter(
-    (p) => p.procedural && modelById("server-2u").parts.includes(p.id),
+  const bay = modelById("server-2u").expansionBay!;
+  for (const part of partsForModel("server-2u").filter(
+    (part) => part.procedural,
   )) {
     const group = new THREE.Group();
     group.userData.entityId = part.id;
@@ -634,7 +758,9 @@ export function completeServerAssembly(
         groups.set(companion.id, child);
         serverSsd(child, box);
       }
-    } else detail(group, part.node, part.size, box);
+    } else if ([bay.adapter, bay.carrier, bay.adjacent].includes(part.id))
+      expansionPart(group, part, box);
+    else detail(group, part.node, part.size, box);
     root.add(group);
     groups.set(part.id, group);
     positions.set(part.id, group.position.clone());

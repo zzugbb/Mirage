@@ -79,6 +79,9 @@ function processorCheck(modelId: string) {
     pairs: processorPairs(modelId),
   } as const;
 }
+const bay = modelById("server-2u").expansionBay!;
+const expansionMember = (id: string) =>
+  partsForModel("server-2u").find((part) => part.id === id)!;
 const checks = {
   "server-1u": [processorCheck("server-1u"), serverPowerCheck("server-1u")],
   "storage-4u": [
@@ -106,6 +109,21 @@ const checks = {
       pairs: drivePairs,
     },
     serverPowerCheck("server-2u"),
+    {
+      tool: "expansion-bay",
+      name: "PCIe 扩展区",
+      entry: "核对网卡与转接架",
+      detail: "从机后对照双口网卡、承载它的 01 架和相邻的 02 架",
+      startExplosion: 0.32,
+      labels: ["网卡", "01 架", "02 架"],
+      pairs: [
+        {
+          primary: expansionMember(bay.adapter),
+          companion: expansionMember(bay.carrier),
+        },
+      ],
+      additionalPart: expansionMember(bay.adjacent),
+    },
   ],
   "switch-1u": [
     {
@@ -144,6 +162,8 @@ export type AssemblyCheck = (typeof checks)[keyof typeof checks][number];
 
 // 从单件进入沿用该件，从模组进入选择本组第一件。
 export function assemblyMember(check: AssemblyCheck, selected: string) {
+  if ("additionalPart" in check && check.additionalPart.id === selected)
+    return check.additionalPart;
   for (const { primary, companion } of check.pairs) {
     const member = [primary, companion].find(
       (part) =>

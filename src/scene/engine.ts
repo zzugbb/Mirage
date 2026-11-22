@@ -195,7 +195,7 @@ export class SceneEngine {
   private keyLight = new THREE.DirectionalLight("#fff9f0", 1.6);
   unitRange: RackUnitRange | null = null;
   isolatedPartId: string | null = null;
-  companionPartId: string | null = null;
+  companionPartIds: readonly string[] = [];
   storageContact = false;
   storageContactGuide = new StorageContactGuide();
   partIsolation = new PartIsolation();
@@ -2212,14 +2212,14 @@ export class SceneEngine {
             this.models.parts,
           )
         : null;
-    const companion =
-      inspectionTarget && this.companionPartId
-        ? this.models.parts.get(this.companionPartId)
-        : null;
-    if (companion && bounds) {
-      // 两个子件可随不同模组展开，取并集前同步另一侧的父级变换。
-      companion.updateWorldMatrix(true, false);
-      bounds.expandByObject(companion);
+    const hasCompanions = inspectionTarget && this.companionPartIds.length > 0;
+    if (hasCompanions && bounds) {
+      for (const id of this.companionPartIds) {
+        const companion = this.models.parts.get(id);
+        if (!companion) continue;
+        companion.updateWorldMatrix(true, false);
+        bounds.expandByObject(companion);
+      }
     }
     if (contactPair && bounds) bounds.expandByObject(contactPair.board);
     const aisle =
@@ -2329,7 +2329,7 @@ export class SceneEngine {
             ),
           );
     }
-    if (wholeDevice || wholeRack || companion) {
+    if (wholeDevice || wholeRack || hasCompanions) {
       const frame = this.host.getBoundingClientRect();
       const actions = this.host
         .closest(".study-stage")
@@ -2341,7 +2341,7 @@ export class SceneEngine {
     if (
       wholeRack ||
       wholeDevice ||
-      companion ||
+      hasCompanions ||
       (level === "room" &&
         focus &&
         (roomDevice ||
@@ -2665,8 +2665,10 @@ export class SceneEngine {
       id && this.storageContact
         ? storageContactObjects(this.state.deviceId, id, this.models.parts)
         : null;
-    const companion =
-      this.companionPartId && this.models.parts.get(this.companionPartId);
+    const companions =
+      id && this.companionPartIds.length
+        ? this.companionPartIds.map((member) => this.models.parts.get(member))
+        : null;
     const applied =
       !!id &&
       (pair
@@ -2674,17 +2676,18 @@ export class SceneEngine {
             pair.disk,
             pair.board,
           ])
-        : companion && target
-          ? this.partIsolation.applyMany(this.models.server, [
+        : companions && target
+          ? companions.every((part) => !!part) &&
+            this.partIsolation.applyMany(this.models.server, [
               target,
-              companion,
+              ...companions,
             ])
           : this.partIsolation.apply(this.models.server, target));
     this.storageContactGuide.update(applied ? pair : null);
     const inspectionKey = pair
       ? `${id}:contact`
-      : companion
-        ? `${id}:${this.companionPartId}`
+      : companions
+        ? [id, ...this.companionPartIds].join(":")
         : id;
     if (id && applied) {
       if (!this.partInspection) {
