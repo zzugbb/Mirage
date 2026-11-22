@@ -2,6 +2,7 @@ import * as THREE from "three";
 import definition from "../../assets/public/scenes/room-01.json" with { type: "json" };
 import { switchRear, type FanContactView } from "../assembly-pairs.ts";
 import { registerLayer, registerLayerScope } from "./assembly-layer.ts";
+import { contactCenters, switchFanReceiver } from "./switch-fan-receiver.ts";
 import type { Box } from "./equipment-model.ts";
 
 // 触片贴在模块内端开口旁。固定座从板缘伸向模块，触头与触片端面相接。
@@ -27,11 +28,7 @@ export function buildSwitchFanContacts(
     metalness: 0.48,
     roughness: 0.48,
   });
-  const cylinder = (radius: number, length: number) =>
-    new THREE.CylinderGeometry(radius, radius, length, 20);
-  const tip = cylinder(0.001, 0.0016),
-    sleeve = cylinder(0.00145, 0.0013),
-    rivet = cylinder(0.0006, 0.0004);
+  const rivet = new THREE.CylinderGeometry(0.0006, 0.0006, 0.0004, 20);
   for (const fan of switchRear.fans) {
     const owner = groups.get(fan.id)!;
     const module = owner.getObjectByName("fan-module")!;
@@ -63,28 +60,10 @@ export function buildSwitchFanContacts(
       [0, -0.003 - height / 2, back - 0.0015],
       "#456554",
     ).name = "fan-receiver-foot";
-    box(
-      socket,
-      [0.01, 0.008, back - 0.005],
-      [0, 0.001, (back + 0.005) / 2],
-      "#526571",
-    ).name = "fan-receiver-body";
-    for (const [i, x] of [-0.002, 0.002].entries()) {
-      const y = 0.001 + i * 0.001;
+    switchFanReceiver(board, module, socket, fan.id, back, box, brass, metal);
+    for (const [x, y] of contactCenters)
       box(plug, [0.003, 0.0036, 0.0006], [x, y, 0.0018], "#d2aa70", 0.48).name =
         "fan-contact-pad";
-      // 沿槽位轴向露出的圆触头；长度仅用于表达接合面，不表示真实引脚规格。
-      for (const [name, geometry, material, z] of [
-        ["fan-contact-tip", tip, brass, 0.0029],
-        ["fan-contact-sleeve", sleeve, metal, 0.00435],
-      ] as const) {
-        const pin = new THREE.Mesh(geometry, material);
-        pin.name = name;
-        pin.position.set(x, y, z);
-        pin.rotation.x = Math.PI / 2;
-        socket.add(pin);
-      }
-    }
     // 触片基板铆在框板实面上，固定座的两侧焊脚落在板缘。
     for (const side of [-1, 1]) {
       const fastener = new THREE.Mesh(rivet, metal);

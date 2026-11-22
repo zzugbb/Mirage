@@ -677,3 +677,126 @@ test("笼位视图和承片近看指向同一活动件，上下排共用本列�
     }
   }
 });
+
+test("N1 四槽板侧的两只触头对回各自筒孔，细杆穿孔且肩面落在筒口", () => {
+  const { groups, root } = createEquipmentAssembly("switch-1u");
+  const board = groups.get("net-board")!;
+  const config = definition.switchAssembly.fanContact;
+  const near = (a: number, b: number) => assert.ok(Math.abs(a - b) < 1e-7);
+  for (const { id } of switchRear.fans) {
+    const scope = layerScopeFor(board, "fan-probes:" + id)!;
+    const socket = board.getObjectByName("receiver-" + id)!;
+    const module = groups.get(id)!.getObjectByName("fan-module")!;
+    assert.equal(scope.extractedLayers?.length, 1);
+    assert.ok(scope.extractedLayers[0] === module);
+    const sleeves = socket.getObjectsByProperty("name", "fan-contact-sleeve");
+    const tips = scope.moving.getObjectsByProperty("name", "fan-contact-tip");
+    const stems = scope.moving.getObjectsByProperty("name", "fan-probe-stem");
+    const pads = module.getObjectsByProperty("name", "fan-contact-pad");
+    assert.deepEqual(
+      [sleeves.length, tips.length, stems.length, pads.length],
+      [2, 2, 2, 2],
+    );
+    poseAssemblyLayer(module, true);
+    for (const separated of [true, false, true, false]) {
+      poseAssemblyLayer(scope.layerRoot, separated);
+      root.updateMatrixWorld(true);
+      for (const [i, tip] of tips.entries()) {
+        const head = bounds(tip),
+          stem = bounds(stems[i]),
+          sleeve = bounds(sleeves[i]),
+          pad = bounds(pads[i]);
+        const axis = sleeve.getCenter(new THREE.Vector3());
+        near(head.getCenter(new THREE.Vector3()).x, axis.x);
+        near(stem.getCenter(new THREE.Vector3()).y, axis.y);
+        near(
+          head.getCenter(new THREE.Vector3()).y,
+          pad.getCenter(new THREE.Vector3()).y,
+        );
+        near(head.max.z, stem.min.z);
+        near(
+          sleeve.min.z - head.max.z,
+          separated ? config.receiver.probeTravel : 0,
+        );
+        assert.ok(head.min.z > pad.max.z);
+        assert.equal(stem.max.z < sleeve.min.z, separated);
+        for (const r of [
+          0,
+          (config.receiver.stemRadius + config.receiver.sleeveBore) / 2,
+          0.00086,
+        ]) {
+          const ray = new THREE.Raycaster(
+            new THREE.Vector3(axis.x + r, axis.y, sleeve.min.z - 0.001),
+            new THREE.Vector3(0, 0, 1),
+          );
+          assert.equal(
+            ray.intersectObject(sleeves[i]).length > 0,
+            r > config.receiver.sleeveBore,
+          );
+        }
+      }
+    }
+    poseAssemblyLayer(module, false);
+  }
+});
+
+test("N1 双套筒连片贴住板侧座面，两孔由实体孔底封闭，抽出、换槽后原位归合", () => {
+  const { groups, root } = createEquipmentAssembly("switch-1u");
+  const board = groups.get("net-board")!;
+  const fit = definition.switchAssembly.fanContact.receiver;
+  const near = (a: number, b: number) => assert.ok(Math.abs(a - b) < 1e-7);
+  for (const { id } of switchRear.fans) {
+    const scope = layerScopeFor(board, "fan-sleeves:" + id)!;
+    const [carrier, body, backing] = scope.members;
+    const bridge = carrier.getObjectByName("fan-sleeve-bridge")!;
+    const installed = bounds(carrier),
+      fixed = bounds(body),
+      bottom = bounds(backing);
+    const sleeves = carrier.getObjectsByProperty("name", "fan-contact-sleeve");
+    const foot = body.parent!.getObjectByName("fan-receiver-foot")!;
+    near(bounds(foot).max.y, bottom.min.y);
+    near(fixed.max.z, bottom.min.z);
+    poseAssemblyLayer(scope.extractedLayers![0], true);
+    for (const separated of [true, true, false]) {
+      poseAssemblyLayer(scope.layerRoot, separated);
+      root.updateMatrixWorld(true);
+      assert.ok(bounds(body).equals(fixed) && bounds(backing).equals(bottom));
+      near(
+        fixed.min.z - bounds(bridge).max.z,
+        separated ? fit.carrierTravel : 0,
+      );
+      for (const sleeve of sleeves) {
+        const span = bounds(sleeve),
+          c = span.getCenter(new THREE.Vector3());
+        assert.equal(span.max.z < fixed.min.z, separated);
+        assert.ok(span.max.z < bottom.min.z);
+        for (const r of [
+          0,
+          (fit.barrelRadius + fit.seatBore) / 2,
+          fit.seatBore * 1.1,
+        ]) {
+          const ray = new THREE.Raycaster(
+            new THREE.Vector3(c.x + r, c.y, fixed.min.z - 0.001),
+            new THREE.Vector3(0, 0, 1),
+          );
+          const hit = ray.intersectObjects([body, backing])[0];
+          assert.equal(
+            hit.object.name,
+            r > fit.seatBore ? body.name : backing.name,
+          );
+          near(hit.point.z, r > fit.seatBore ? fixed.min.z : bottom.min.z);
+        }
+      }
+      for (const other of switchRear.fans.filter((f) => f.id !== id))
+        assert.equal(
+          layerScopeFor(
+            board,
+            "fan-sleeves:" + other.id,
+          )!.moving.position.length(),
+          0,
+        );
+    }
+    poseAssemblyLayer(scope.extractedLayers![0], false);
+    assert.ok(bounds(carrier).equals(installed));
+  }
+});

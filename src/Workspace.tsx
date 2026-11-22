@@ -9,6 +9,7 @@ import {
   controllerLayer,
   compactProcessorLayer,
   switchRear,
+  fanContactStages,
   type FanContactView,
   type AssemblyCheck,
 } from "./assembly-pairs";
@@ -495,6 +496,14 @@ export function Workspace() {
       (fan) =>
         fan.id === (selected === "net-board" ? contactVisit.fanId : selected),
     );
+  const requestedFanStage = fanContactStages.find(
+    (stage) => stage.id === contactVisit?.view,
+  );
+  // 从资源栏直接选风扇时回到本槽两侧的接合视图，板侧近看始终归控制主板。
+  const fanStage =
+    requestedFanStage?.boardOnly && selected !== "net-board"
+      ? fanContactStages.find((stage) => stage.id === "fan-contact")
+      : requestedFanStage;
   const processorBoardSlot =
     pairVisit?.layerPose && selected === "board-01"
       ? pairVisit.processorSlot
@@ -613,14 +622,19 @@ export function Workspace() {
         (current) =>
           current && { ...current, processorSlot: activePair.primary.id },
       );
-    else if (contactVisit && contactVisit.fanId !== contactFan?.id)
+    else if (
+      contactVisit &&
+      (contactVisit.fanId !== contactFan?.id ||
+        contactVisit.view !== fanStage?.id)
+    )
       setPairVisit(
         (current) =>
           current && {
             ...current,
-            fanContact: contactFan
-              ? { ...contactVisit, fanId: contactFan.id }
-              : undefined,
+            fanContact:
+              contactFan && fanStage
+                ? { view: fanStage.id, fanId: contactFan.id }
+                : undefined,
           },
       );
     else if (pathVisit && !station)
@@ -635,6 +649,7 @@ export function Workspace() {
     pathVisit,
     station,
     contactVisit,
+    fanStage,
     contactFan,
     layerPose,
     processorInspection,
@@ -5802,8 +5817,8 @@ export function Workspace() {
             layerScopeId={
               processorInspection && layerPose && activePair
                 ? processorStage + ":" + activePair.primary.id
-                : contactFan && contactVisit
-                  ? contactVisit.view + ":" + contactFan.id
+                : contactFan && fanStage
+                  ? fanStage.id + ":" + contactFan.id
                   : pathContact
                     ? station.id
                     : layerPose &&
@@ -6221,7 +6236,21 @@ export function Workspace() {
                           }
                           disabled={!ready}
                           value={contactFan?.id ?? selected}
-                          onChange={(event) => pick(event.target.value)}
+                          onChange={(event) => {
+                            const id = event.target.value;
+                            if (fanStage?.boardOnly)
+                              setPairVisit(
+                                (current) =>
+                                  current && {
+                                    ...current,
+                                    fanContact: {
+                                      view: fanStage.id,
+                                      fanId: id,
+                                    },
+                                  },
+                              );
+                            else pick(id);
+                          }}
                         >
                           {(inspectingSupply
                             ? rearLayout.supplies
@@ -6267,27 +6296,32 @@ export function Workspace() {
                       <select
                         aria-label="风扇核查位置"
                         disabled={!ready}
-                        value={contactVisit?.view ?? "rotor"}
+                        value={fanStage?.id ?? "rotor"}
                         onChange={(event) => {
-                          const view = event.target.value;
+                          const next = fanContactStages.find(
+                            (stage) => stage.id === event.target.value,
+                          );
                           const fanId = contactFan?.id ?? selected;
-                          if (selected !== fanId) pick(fanId);
+                          const owner = next?.boardOnly ? "net-board" : fanId;
+                          if (selected !== owner) pick(owner);
                           setPairVisit(
                             (current) =>
                               current && {
                                 ...current,
                                 layerPose: "seated",
-                                fanContact:
-                                  view === "fan-bank" || view === "fan-contact"
-                                    ? { view, fanId }
-                                    : undefined,
+                                fanContact: next
+                                  ? { view: next.id, fanId }
+                                  : undefined,
                               },
                           );
                         }}
                       >
                         <option value="rotor">叶轮与轴座</option>
-                        <option value="fan-bank">整排与板缘</option>
-                        <option value="fan-contact">本槽触点</option>
+                        {fanContactStages.map((stage) => (
+                          <option key={stage.id} value={stage.id}>
+                            {stage.name}
+                          </option>
+                        ))}
                       </select>
                     )}
                     {processorInspection && activePair && (
@@ -6396,10 +6430,8 @@ export function Workspace() {
                             ? pose === "seated"
                               ? "贴合芯片"
                               : "抬起散热器"
-                            : contactFan
-                              ? pose === "seated"
-                                ? "接合触点"
-                                : "分开触点"
+                            : fanStage
+                              ? fanStage[pose]
                               : cageSelection?.insert
                                 ? pose === "seated"
                                   ? "推回承片"

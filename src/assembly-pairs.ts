@@ -83,12 +83,42 @@ export const rearLayoutFor = (modelId: string) =>
     : modelId === "switch-1u"
       ? switchRear
       : undefined;
-export type FanContactView = "fan-bank" | "fan-contact";
+export const fanContactStages = [
+  {
+    id: "fan-bank",
+    name: "整排与板缘",
+    boardOnly: false,
+    seated: "接合触点",
+    separated: "分开触点",
+  },
+  {
+    id: "fan-contact",
+    name: "本槽触点",
+    boardOnly: false,
+    seated: "接合触点",
+    separated: "分开触点",
+  },
+  {
+    id: "fan-probes",
+    name: "触头与筒孔",
+    boardOnly: true,
+    seated: "装回触头",
+    separated: "抽出触头",
+  },
+  {
+    id: "fan-sleeves",
+    name: "双套筒与座孔",
+    boardOnly: true,
+    seated: "压回套筒",
+    separated: "取出套筒",
+  },
+] as const;
+export type FanContactView = (typeof fanContactStages)[number]["id"];
 const rotorLayer = {
   fanContacts: true,
   entry: "查看风扇装配",
   description:
-    "四个风扇的编号与机后顺序来自 N1 配置。模块内端触片、控制板固定触头、轴座和分离行程为原创装配示意。时间分析沿用所选部件的模拟读数。",
+    "四个风扇的编号与机后顺序来自 N1 配置。触片归风扇，含双触头和套筒的固定座归控制主板。板端座孔、风扇轴座及拆装行程为原创装配示意。时间分析沿用所选部件的模拟读数。",
   label: "风扇装配",
   scope: "风扇核查范围与姿态",
   seated: "放回轴座",

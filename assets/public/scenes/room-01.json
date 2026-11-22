@@ -1666,7 +1666,13 @@
       }
     },
     "fanContact": {
-      "travel": 0.018, "focusDirection": [1, 0.84, 0.47]
+      "travel": 0.018, "focusDirection": [1, 0.84, 0.47],
+      "receiver": {
+        "stemRadius": 0.00053, "sleeveBore": 0.00068,
+        "barrelRadius": 0.00115, "seatBore": 0.00134,
+        "probeTravel": 0.005, "carrierTravel": 0.008,
+        "probeDirection": [0.96, 0.48, -1], "carrierDirection": [1.16, 0.60, -0.88]
+      }
     },
     "fanRotor": {
       "travel": 0.054, "rearDepthRatio": 0.34, "focusDirection": [0.54, 0.23, -1],
