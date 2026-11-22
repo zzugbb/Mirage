@@ -517,6 +517,10 @@ export function Workspace() {
     rearLayer && "contactScope" in rearLayer
       ? rearLayer.contactScope
       : undefined;
+  const powerBoardScope =
+    rearLayer && "boardScope" in rearLayer ? rearLayer.boardScope : undefined;
+  const inspectingPowerBoard =
+    !!powerBoardScope && pairVisit?.layerScopeId === powerBoardScope;
   const inspectingBoardContact =
     !!powerContactScope && pairVisit?.layerScopeId === powerContactScope;
   const setLayerScope = (id?: string) =>
@@ -6266,19 +6270,34 @@ export function Workspace() {
                             </option>
                           ))}
                         </select>
-                        <button
-                          disabled={!ready}
-                          aria-pressed={inspectingBoardContact}
-                          onClick={() =>
-                            setLayerScope(
-                              inspectingBoardContact
-                                ? undefined
-                                : powerContactScope,
-                            )
-                          }
-                        >
-                          板端接合
-                        </button>
+                        {powerBoardScope ? (
+                          <select
+                            aria-label="电源核查位置"
+                            disabled={!ready}
+                            value={pairVisit?.layerScopeId ?? ""}
+                            onChange={(event) =>
+                              setLayerScope(event.target.value || undefined)
+                            }
+                          >
+                            <option value="">内托与导轨</option>
+                            <option value={powerBoardScope}>板卡与四柱</option>
+                            <option value={powerContactScope}>板端接合</option>
+                          </select>
+                        ) : (
+                          <button
+                            disabled={!ready}
+                            aria-pressed={inspectingBoardContact}
+                            onClick={() =>
+                              setLayerScope(
+                                inspectingBoardContact
+                                  ? undefined
+                                  : powerContactScope,
+                              )
+                            }
+                          >
+                            板端接合
+                          </button>
+                        )}
                       </>
                     )}
                     {processorInspection && activePair && (
@@ -6391,11 +6410,15 @@ export function Workspace() {
                               ? pose === "seated"
                                 ? "接合触点"
                                 : "分开触点"
-                              : inspectingBoardContact
+                              : inspectingPowerBoard
                                 ? pose === "seated"
-                                  ? "插入固定座"
-                                  : "退出固定座"
-                                : selectedLayer[pose]}
+                                  ? "放回四柱"
+                                  : "抬起板卡"
+                                : inspectingBoardContact
+                                  ? pose === "seated"
+                                    ? "插入固定座"
+                                    : "退出固定座"
+                                  : selectedLayer[pose]}
                       </button>
                     ))}
                   </div>

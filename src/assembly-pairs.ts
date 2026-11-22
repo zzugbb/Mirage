@@ -114,6 +114,13 @@ const powerTrayLayer = {
   seated: "推回壳体",
   separated: "拉出内托",
 } as const;
+const switchPowerTrayLayer = {
+  ...powerTrayLayer,
+  contactScope: "board-contact",
+  boardScope: "board-mount",
+  description:
+    "电源身份与输入 A、B 来自 N1 配置。内托四柱、板端宽窄插片与壳内固定座为原创装配示意。时间分析沿用部件模拟值，支路未计量。",
+} as const;
 const storagePowerTrayLayer = {
   ...powerTrayLayer,
   contactScope: "board-contact",
@@ -131,7 +138,9 @@ const fanGuardLayer = {
 } as const;
 export function rearMemberLayer(layout: typeof switchRear, selected: string) {
   if (layout.supplies.some((part) => part.id === selected))
-    return layout === storageRear ? storagePowerTrayLayer : powerTrayLayer;
+    return layout === storageRear
+      ? storagePowerTrayLayer
+      : switchPowerTrayLayer;
   if (layout.controllers.some((part) => part.id === selected))
     return controllerLayer;
   if (layout.fans.some((part) => part.id === selected))
@@ -426,7 +435,7 @@ const checks = {
       rear: switchRear,
       tool: "switch-power",
       entry: "核对双电源与风扇",
-      detail: "逐槽核对电源内托与导轨、风扇叶轮与轴座",
+      detail: "逐槽核对电源板卡、内托与板端接合，以及风扇叶轮与轴座",
     },
   ],
 } as const;

@@ -221,6 +221,7 @@ export class SceneEngine {
   private rearModuleSeats = new RearModuleSeats();
   private dimmSocket = new DimmSocket();
   private liftedPart?: THREE.Object3D;
+  private extractedCarrier?: THREE.Object3D;
   storageContact = false;
   storageConnectorPose?: LayerPose;
   storageBoardDisk?: string | null;
@@ -2803,9 +2804,14 @@ export class SceneEngine {
       this.layerPose === "separated" && assemblyLayer(layerRoot)
         ? layerRoot
         : undefined;
-    if (this.liftedPart !== lifted) {
+    const carrier = scope?.extractedCarrier;
+    if (this.liftedPart !== lifted || this.extractedCarrier !== carrier) {
       if (this.liftedPart) poseAssemblyLayer(this.liftedPart, false);
+      if (this.extractedCarrier)
+        poseAssemblyLayer(this.extractedCarrier, false);
+      if (carrier) poseAssemblyLayer(carrier, true);
       if (lifted) poseAssemblyLayer(lifted, true);
+      this.extractedCarrier = carrier;
       this.liftedPart = lifted;
     }
     this.rearModuleSeats.update(

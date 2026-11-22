@@ -1658,7 +1658,12 @@
     },
     "powerTray": {
       "wall": 0.001, "railWidth": 0.004, "stopDepth": 0.0035,
-      "travelRatio": 1.04, "focusDirection": [-1, 0.82, -0.76]
+      "travelRatio": 1.04, "focusDirection": [-1, 0.82, -0.76],
+      "boardContact": {"width": 0.022, "travel": 0.014, "focusDirection": [0.68, 1.05, -0.85]},
+      "boardMount": {
+        "holeRadius": 0.0019, "pinRadius": 0.0013, "shoulderRadius": 0.0027,
+        "lift": 0.048, "focusDirection": [1, 0.68, 0.52]
+      }
     },
     "fanContact": {
       "travel": 0.018, "focusDirection": [1, 0.84, 0.47]

@@ -11,6 +11,8 @@ interface MovingLayer {
 // 同一部件可按实际几何分支近看。姿态作用于完整活动件，取景只包含可见分支。
 interface LayerScope {
   layerRoot: Object3D;
+  // 核对内托上的板件时，内托在两种板件姿态下均保持抽出。
+  extractedCarrier?: Object3D;
   moving: Object3D;
   members: Object3D[];
   selectedBranch?: Object3D;

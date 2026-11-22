@@ -3,8 +3,12 @@ import type definition from "../../assets/public/scenes/room-01.json";
 import type { Box } from "./equipment-model.ts";
 import { registerLayer, registerLayerScope } from "./assembly-layer.ts";
 
+import { powerBoardMount } from "./power-board-mount.ts";
+
 type ContactConfig = typeof definition.storageAssembly.powerTray.boardContact;
-type TrayConfig = typeof definition.switchAssembly.powerTray & {
+type SwitchTray = typeof definition.switchAssembly.powerTray;
+type TrayConfig = Omit<SwitchTray, "boardContact" | "boardMount"> & {
+  boardMount?: SwitchTray["boardMount"];
   boardContact?: ContactConfig;
 };
 
@@ -192,41 +196,56 @@ function powerTray(
     pcbDepth = trayLength * 0.85;
   const boardBottom = railTop + wall * 3.6,
     boardTop = boardBottom + wall;
-  for (const sx of [-1, 1])
-    for (const sz of [-1, 1]) {
-      const px = sx * pcbWidth * 0.43,
-        pz = trayMid + sz * pcbDepth * 0.43;
-      box(
+  const board = config.boardMount
+    ? powerBoardMount(
+        root,
         tray,
-        [3 * wall, boardBottom - railTop - wall, 3 * wall],
-        [px, (boardBottom + railTop + wall) / 2, pz],
-        "#7d857d",
-      );
-      box(
-        tray,
-        [2 * wall, wall * 0.4, 2 * wall],
-        [px, boardTop + wall * 0.2, pz],
-        railMetal,
-      );
-    }
-  box(
-    tray,
-    [pcbWidth, wall, pcbDepth],
-    [0, boardBottom + wall / 2, trayMid],
-    "#365a4c",
-    0.15,
-  ).name = "psu-tray-board";
+        config.boardMount,
+        pcbWidth,
+        pcbDepth,
+        trayMid,
+        railTop + wall,
+        boardBottom,
+        wall,
+      )
+    : tray;
+  if (!config.boardMount) {
+    for (const sx of [-1, 1])
+      for (const sz of [-1, 1]) {
+        const px = sx * pcbWidth * 0.43,
+          pz = trayMid + sz * pcbDepth * 0.43;
+        box(
+          tray,
+          [3 * wall, boardBottom - railTop - wall, 3 * wall],
+          [px, (boardBottom + railTop + wall) / 2, pz],
+          "#7d857d",
+        );
+        box(
+          tray,
+          [2 * wall, wall * 0.4, 2 * wall],
+          [px, boardTop + wall * 0.2, pz],
+          railMetal,
+        );
+      }
+    box(
+      tray,
+      [pcbWidth, wall, pcbDepth],
+      [0, boardBottom + wall / 2, trayMid],
+      "#365a4c",
+      0.15,
+    ).name = "psu-tray-board";
+  }
   // 板上散热片与线圈仅帮助辨认内托朝向，不表示真实电路。
   const sinkX = -pcbWidth * 0.19;
   box(
-    tray,
+    board,
     [pcbWidth * 0.39, wall, pcbDepth * 0.52],
     [sinkX, boardTop + wall / 2, trayMid],
     "#a3aeb5",
   );
   for (let i = 0; i < 6; i++)
     box(
-      tray,
+      board,
       [wall * 0.75, h * 0.19, pcbDepth * 0.52],
       [
         sinkX + pcbWidth * 0.065 * (i - 2.5),
@@ -238,7 +257,7 @@ function powerTray(
   for (const sign of [-1, 1]) {
     const pz = trayMid + sign * pcbDepth * 0.19;
     box(
-      tray,
+      board,
       [pcbWidth * 0.23, h * 0.17, pcbDepth * 0.22],
       [pcbWidth * 0.22, boardTop + h * 0.085, pz],
       "#44484a",
@@ -246,7 +265,7 @@ function powerTray(
     );
     for (const turn of [-1, 0, 1])
       box(
-        tray,
+        board,
         [pcbWidth * 0.245, h * 0.18, wall * 1.15],
         [pcbWidth * 0.22, boardTop + h * 0.09, pz + turn * wall * 2.3],
         "#a77652",
@@ -257,6 +276,7 @@ function powerTray(
     boardContact(
       root,
       tray,
+      board,
       box,
       config.boardContact,
       wall,
@@ -276,6 +296,7 @@ function powerTray(
 function boardContact(
   root: THREE.Group,
   tray: THREE.Group,
+  board: THREE.Group,
   box: Box,
   config: ContactConfig,
   wall: number,
@@ -292,7 +313,7 @@ function boardContact(
     socket = new THREE.Group();
   plug.name = "psu-board-plug";
   socket.name = "psu-end-socket";
-  tray.add(plug);
+  board.add(plug);
   root.add(socket);
   const shoulderEnd = boardEdge + wall;
   const mouth = shoulderEnd + wall;
@@ -366,5 +387,6 @@ function boardContact(
     layerRoot: tray,
     moving: plug,
     members: [plug, socket],
+    selectionPadding: 0.0008,
   });
 }
