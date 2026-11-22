@@ -1669,6 +1669,9 @@
     }
   },
   "storageAssembly": {
+    "fanGuard": {
+      "travel": 0.050, "focusDirection": [0.85, 0.38, -1], "pinColor": "#ccab79"
+    },
     "powerTray": {
       "wall": 0.0015, "railWidth": 0.005, "stopDepth": 0.005,
       "travelRatio": 1.06, "focusDirection": [-1, 0.82, -0.76]

@@ -617,19 +617,20 @@ function children(
       if (id === "net-fans" || id === "sto-fans") {
         child.userData.focusDirection = definition.fanModule.focusDirection;
         root.userData.focusDirection = definition.fanModule.focusDirection;
-        const separable = id === "net-fans";
-        child.add(createFanModule([w, size[1], size[2]], separable));
-        if (separable) {
-          const {
-            travel,
-            focusDirection: [x, y, z],
-          } = definition.switchAssembly.fanRotor;
-          registerLayer(child, {
-            node: "fan-rotor",
-            offset: [0, 0, -travel],
-            direction: [x, y, z],
-          });
-        }
+        const mode = id === "net-fans" ? "rotor" : "guard";
+        child.add(createFanModule([w, size[1], size[2]], mode));
+        const {
+          travel,
+          focusDirection: [x, y, z],
+        } =
+          mode === "rotor"
+            ? definition.switchAssembly.fanRotor
+            : definition.storageAssembly.fanGuard;
+        registerLayer(child, {
+          node: mode === "rotor" ? "fan-rotor" : "fan-guard",
+          offset: [0, 0, -travel],
+          direction: [x, y, z],
+        });
         continue;
       }
       box(child, [w, size[1], size[2]], [0, 0, 0], "#252d34", 0.3);

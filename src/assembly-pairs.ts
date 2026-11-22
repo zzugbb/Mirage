@@ -109,6 +109,15 @@ const powerTrayLayer = {
   seated: "推回壳体",
   separated: "拉出内托",
 } as const;
+const fanGuardLayer = {
+  entry: "查看护网与定位柱",
+  description:
+    "FAN-01、FAN-02 的槽位和归属来自 S4 配置。护网、四角定位柱和拆装行程为原创装配示意。时间分析沿用所选风扇的模拟读数。",
+  label: "风扇护网与定位柱",
+  scope: "护网姿态",
+  seated: "装回护网",
+  separated: "取下护网",
+} as const;
 export function rearMemberLayer(layout: typeof switchRear, selected: string) {
   if (
     layout === storageRear &&
@@ -117,8 +126,8 @@ export function rearMemberLayer(layout: typeof switchRear, selected: string) {
     return powerTrayLayer;
   if (layout.controllers.some((part) => part.id === selected))
     return controllerLayer;
-  if (layout === switchRear && layout.fans.some((part) => part.id === selected))
-    return rotorLayer;
+  if (layout.fans.some((part) => part.id === selected))
+    return layout === storageRear ? fanGuardLayer : rotorLayer;
 }
 
 function rearPowerCheck(modelId: "switch-1u" | "storage-4u") {
@@ -267,7 +276,7 @@ const checks = {
       tool: "storage-power",
       entry: "核对机后模块",
       summary: "机后模块",
-      detail: "按机后槽位核对模块，可查看控制器板卡或电源内托",
+      detail: "逐槽核对控制器板卡、电源内托和风扇护网",
     },
   ],
   "server-2u": [

@@ -40,7 +40,10 @@ for (const [model, groupId, count] of [
       config.size[1],
       config.size[2],
     ];
-    const root = createFanModule([w, h, d], model === "switch-1u");
+    const root = createFanModule(
+      [w, h, d],
+      model === "switch-1u" ? "rotor" : "guard",
+    );
     try {
       root.updateMatrixWorld(true);
       const b = new THREE.Box3().setFromObject(root);
@@ -241,8 +244,62 @@ test("N1 四个风扇槽位各自分离叶轮，轴头、框体与三臂固定�
         ),
       );
     }
-    const storage = rearLayoutFor("storage-4u")!;
-    assert.ok(storage.fans.every((fan) => !rearMemberLayer(storage, fan.id)));
+  } finally {
+    dispose(assembly.root);
+  }
+});
+
+test("S4 两只风扇的护网各自沿机后方向取下，四个通孔归位对柱，叶轮保持固定", () => {
+  const assembly = createEquipmentAssembly("storage-4u");
+  const layout = rearLayoutFor("storage-4u")!;
+  const bounds = (o: THREE.Object3D) => new THREE.Box3().setFromObject(o, true);
+  try {
+    for (const part of layout.fans) {
+      const child = assembly.groups.get(part.id)!;
+      const layer = assemblyLayer(child)!;
+      assert.equal(rearMemberLayer(layout, part.id)?.entry, "查看护网与定位柱");
+      const guard = child.getObjectByName(layer.node)!;
+      const rings = guard.getObjectsByProperty("name", "fan-guard-ring");
+      const eyes = guard.getObjectsByProperty("name", "fan-guard-eye");
+      const pins = child.getObjectsByProperty("name", "fan-guard-pin");
+      const frame = child.getObjectByName("fan-rear-frame")!;
+      const hub = child.getObjectByName("fan-hub")!;
+      child.updateWorldMatrix(true, true);
+      const fixedHub = bounds(hub);
+      assert.equal(rings.length, 3);
+      assert.equal(eyes.length, 4);
+      assert.equal(pins.length, eyes.length);
+      const seats = pins.map(bounds);
+      const rest = bounds(guard);
+      assert.ok(rest.max.z < fixedHub.min.z);
+      for (const separated of [true, false, true, false]) {
+        poseAssemblyLayer(child, separated);
+        child.updateWorldMatrix(true, true);
+        const front = bounds(frame).min.z;
+        for (const [i, eye] of eyes.entries()) {
+          const hole = bounds(eye);
+          const pin = seats[i];
+          const axis = pin.getCenter(new THREE.Vector3());
+          const center = hole.getCenter(new THREE.Vector3());
+          assert.ok(Math.hypot(axis.x - center.x, axis.y - center.y) < 1e-8);
+          const ray = new THREE.Raycaster(
+            axis.clone().setZ(hole.min.z - 0.01),
+            new THREE.Vector3(0, 0, 1),
+          );
+          assert.equal(ray.intersectObject(eye).length, 0);
+          assert.ok(ray.intersectObject(pins[i]).length);
+          assert.ok(bounds(pins[i]).equals(pin));
+          assert.ok(Math.abs(pin.max.z - front) < 1e-8);
+          if (separated) assert.ok(hole.max.z < pin.min.z);
+          else {
+            assert.ok(Math.abs(hole.max.z - front) < 1e-8);
+            assert.ok(pin.min.z < hole.min.z);
+          }
+        }
+        assert.ok(bounds(hub).equals(fixedHub));
+        if (!separated) assert.ok(bounds(guard).equals(rest));
+      }
+    }
   } finally {
     dispose(assembly.root);
   }

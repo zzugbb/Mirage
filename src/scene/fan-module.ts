@@ -2,7 +2,11 @@ import * as THREE from "three";
 import definition from "../../assets/public/scenes/room-01.json" with { type: "json" };
 
 /** 原创静态风扇配置示意；开口与叶轮用于表达装配，不推断真实叶型或性能。 */
-export function createFanModule(size: number[], separableRotor = false) {
+export function createFanModule(
+  size: number[],
+  mode: "fixed" | "rotor" | "guard" = "fixed",
+) {
+  const separableRotor = mode === "rotor";
   const [w, h, d] = size;
   const s = definition.fanModule;
   const inspection = definition.switchAssembly.fanRotor;
@@ -66,8 +70,76 @@ export function createFanModule(size: number[], separableRotor = false) {
     steps: 1,
   });
   mesh("fan-front-frame", plate, [0, 0, d / 2 - wall]);
-  const rearFaceZ = -d / 2 + (separableRotor ? wall * 2.1 : 0);
+  const rearFaceZ = -d / 2 + (mode === "fixed" ? 0 : wall * 2.1);
   mesh("fan-rear-frame", plate, [0, 0, rearFaceZ]);
+  if (mode === "guard") {
+    const guard = new THREE.Group();
+    guard.name = "fan-guard";
+    root.add(guard);
+    const wire = wall * 0.24;
+    const depth = wire * 2;
+    const plane = rearFaceZ - wire;
+    for (const ratio of [0.46, 0.68, 0.9]) {
+      mesh(
+        "fan-guard-ring",
+        new THREE.TorusGeometry(radius * ratio, wire, 8, 64),
+        [0, 0, plane],
+        2,
+        guard,
+      );
+    }
+    // 四只安装耳与框板上的定位柱共用孔心。支条接到耳边，留出贯通的圆孔。
+    const earRadius = wall * 0.88;
+    const bore = wall * 0.45;
+    const ear = new THREE.Shape();
+    ear.absarc(0, 0, earRadius, 0, Math.PI * 2, false);
+    const opening = new THREE.Path();
+    opening.absarc(0, 0, bore, 0, Math.PI * 2, true);
+    ear.holes.push(opening);
+    const eye = new THREE.ExtrudeGeometry(ear, {
+      depth,
+      bevelEnabled: false,
+      curveSegments: 16,
+    });
+    const dowel = new THREE.CylinderGeometry(
+      bore * 0.84,
+      bore * 0.84,
+      depth * 1.4,
+      20,
+    );
+    const pinFinish = materials[2].clone();
+    pinFinish.color.set(definition.storageAssembly.fanGuard.pinColor);
+    const mount = radius * 1.18;
+    const start = radius * 0.46;
+    const length = mount - earRadius * 0.8 - start;
+    const spoke = new THREE.CylinderGeometry(wire, wire, length, 10);
+    for (let i = 0; i < 4; i++) {
+      const angle = Math.PI * (i * 0.5 + 0.25);
+      const x = Math.cos(angle),
+        y = Math.sin(angle);
+      const pin = mesh("fan-guard-pin", dowel, [
+        x * mount,
+        y * mount,
+        rearFaceZ - depth * 0.7,
+      ]);
+      pin.rotation.x = Math.PI / 2;
+      pin.material = pinFinish;
+      mesh(
+        "fan-guard-eye",
+        eye,
+        [x * mount, y * mount, rearFaceZ - depth],
+        2,
+        guard,
+      );
+      mesh(
+        "fan-guard-spoke",
+        spoke,
+        [x * (start + length / 2), y * (start + length / 2), plane],
+        2,
+        guard,
+      ).rotation.z = angle - Math.PI / 2;
+    }
+  }
   if (separableRotor) {
     const screw = new THREE.CylinderGeometry(
       wall * 0.64,
@@ -196,12 +268,13 @@ export function createFanModule(size: number[], separableRotor = false) {
   }
   for (let i = 0; i < 3; i++) {
     const angle = (i * Math.PI * 2) / 3;
-    const reach = separableRotor
-      ? Math.min(
-          (w / 2 - wall / 2) / Math.abs(Math.sin(angle)),
-          (h / 2 - wall / 2) / Math.abs(Math.cos(angle)),
-        )
-      : radius;
+    const reach =
+      mode !== "fixed"
+        ? Math.min(
+            (w / 2 - wall / 2) / Math.abs(Math.sin(angle)),
+            (h / 2 - wall / 2) / Math.abs(Math.cos(angle)),
+          )
+        : radius;
     const support = box(
       "fan-support",
       [h * s.supportWidthRatio, reach, thickness],
