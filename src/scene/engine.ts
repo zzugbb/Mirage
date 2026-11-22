@@ -60,6 +60,7 @@ import { sliceViewPoints, sliceViewFrame } from "../slice-view";
 import type { SliceDeviceInspection } from "../slice-device";
 import type { RackUnitRange } from "../rack-space";
 import { RackUnitGuide } from "./rack-unit-guide";
+import { SwitchRearRow, type RearRowPose } from "./switch-rear-row";
 import { DimmSocket } from "./dimm-socket";
 import { PartIsolation } from "./part-isolation";
 import { storageSlots } from "../storage-slots";
@@ -206,6 +207,8 @@ export class SceneEngine {
   companionPartIds: readonly string[] = [];
   layerPose?: LayerPose;
   dimmPose?: LayerPose;
+  rearRowPose?: RearRowPose;
+  private switchRearRow = new SwitchRearRow();
   private dimmSocket = new DimmSocket();
   private liftedPart?: THREE.Object3D;
   storageContact = false;
@@ -1787,6 +1790,7 @@ export class SceneEngine {
     this.partIsolation.restore();
     const model = modelForDevice(state.deviceId);
     if (model.id === this.assemblyModel) return;
+    this.switchRearRow.clear();
     this.dimmSocket.update();
     const assembly =
       this.assemblies.get(model.id) ??
@@ -2248,6 +2252,7 @@ export class SceneEngine {
       }
     }
     if (contactPair && bounds) bounds.expandByObject(contactPair.board);
+    if (this.rearRowPose && bounds) this.switchRearRow.includeFrame(bounds);
     const aisle =
       level === "room" && focus && view === "top"
         ? this.comparedAisle
@@ -2310,6 +2315,10 @@ export class SceneEngine {
       if (focusDirection)
         direction
           .fromArray(focusDirection)
+          .transformDirection(object.matrixWorld);
+      if (this.rearRowPose)
+        direction
+          .fromArray(definition.switchAssembly.rearSeats.focusDirection)
           .transformDirection(object.matrixWorld);
       if (this.dimmPose)
         direction.set(1, 0.51, 0.46).transformDirection(object.matrixWorld);
@@ -2677,6 +2686,7 @@ export class SceneEngine {
     ];
   }
   poseParts() {
+    this.switchRearRow.restoreModule();
     const assembly = this.assemblies.get(this.assemblyModel);
     if (assembly) poseExterior(assembly, this.explosion);
     this.guidePositions.fill(0);
@@ -2705,6 +2715,12 @@ export class SceneEngine {
         : null;
     const target = id ? this.models.parts.get(id) : undefined;
     this.dimmSocket.update(target, this.dimmPose);
+    this.switchRearRow.update(
+      this.models.parts,
+      this.partBases,
+      this.state.selected,
+      id ? this.rearRowPose : undefined,
+    );
     const lifted =
       this.layerPose === "separated" && assemblyLayer(target)
         ? target
@@ -3477,6 +3493,7 @@ export class SceneEngine {
     );
   };
   dispose() {
+    this.switchRearRow.dispose();
     this.dimmSocket.dispose();
     this.partIsolation.restore();
     this.onRenderFrame = null;

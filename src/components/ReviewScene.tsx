@@ -1,3 +1,4 @@
+import type { RearRowPose } from "../scene/switch-rear-row";
 import type { LayerPose } from "../scene/assembly-layer";
 import { roomAirflowTarget } from "../cooling";
 import { useDismissibleMenu } from "../use-dismissible-menu";
@@ -155,6 +156,7 @@ export function ReviewScene({
   storageViewRevision = 0,
   layerPose,
   dimmPose,
+  rearRowPose,
   storageContact = false,
   storageBoardDisk,
   sliceViewCommand,
@@ -303,6 +305,7 @@ export function ReviewScene({
   storageViewRevision?: number;
   layerPose?: LayerPose;
   dimmPose?: LayerPose;
+  rearRowPose?: RearRowPose;
   storageContact?: boolean;
   storageBoardDisk?: string | null;
   sliceControls: SliceControls;
@@ -1037,6 +1040,7 @@ export function ReviewScene({
     if (companionPartIds.length) setOrbit(false);
     active.layerPose = layerPose;
     active.dimmPose = dimmPose;
+    active.rearRowPose = rearRowPose;
     active.storageContact = storageContact;
     active.storageBoardDisk = storageBoardDisk;
     active.invalidate();
@@ -1051,6 +1055,7 @@ export function ReviewScene({
     companionPartIds,
     layerPose,
     dimmPose,
+    rearRowPose,
     storageContact,
     storageBoardDisk,
     state.level,

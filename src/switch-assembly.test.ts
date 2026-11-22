@@ -4,7 +4,12 @@ import assert from "node:assert/strict";
 import * as THREE from "three";
 import { poseAssemblyLayer } from "./scene/assembly-layer.ts";
 import { createEquipmentAssembly } from "./scene/equipment-model.ts";
-import { assemblyChecks, assemblyMember } from "./assembly-pairs.ts";
+import { SwitchRearRow } from "./scene/switch-rear-row.ts";
+import {
+  assemblyChecks,
+  assemblyMember,
+  switchRear,
+} from "./assembly-pairs.ts";
 import { devices } from "./installation.ts";
 import { inletPart, powerLinks } from "./power-config.ts";
 import { modelById } from "./catalog.ts";
@@ -245,4 +250,60 @@ test("N1 端口笼底座贴合主板前沿，两排笼口均可从机前拾取�
     assert.ok(assemblyChecks(device.id, "net-board").includes(check));
     assert.ok(!assemblyChecks(device.id, "net-asic").includes(check));
   }
+});
+
+test("N1 机后六槽按观察次序排列，逐件抽出时导轨固定，相邻模块与退出姿态正确", () => {
+  const { root, groups, positions } = createEquipmentAssembly("switch-1u");
+  const row = new SwitchRearRow();
+  const { members } = switchRear;
+  assert.deepEqual(
+    members.map((m) => m.slot),
+    ["PSU-B", "FAN-04", "FAN-03", "FAN-02", "FAN-01", "PSU-A"],
+  );
+  const installed = members.map((m) => bounds(groups.get(m.id)!));
+  const check = assemblyChecks("sw-12").find(
+    (item) => item.tool === "switch-power",
+  )!;
+  for (const [i, m] of members.entries()) {
+    assert.equal(assemblyMember(check, m.id)?.id, m.id);
+    assert.ok(assemblyChecks("sw-12", m.id).includes(check));
+    if (i) assert.ok(installed[i].max.x < installed[i - 1].min.x);
+  }
+  row.update(groups, positions, members[0].id, "seated");
+  const guides = row.guides.children.map(bounds);
+  const close = (x: number, y: number) => assert.ok(Math.abs(x - y) < 1e-7);
+  for (const [i, m] of members.entries()) {
+    for (const pose of ["withdrawn", "seated", "withdrawn"] as const) {
+      row.restoreModule();
+      row.update(groups, positions, m.id, pose);
+      root.updateMatrixWorld(true);
+      const frame = new THREE.Box3();
+      row.includeFrame(frame);
+      for (const [j, n] of members.entries()) {
+        const module = bounds(groups.get(n.id)!);
+        const support = row.guides.getObjectByName(n.slot)!;
+        const original = installed[j];
+        const depth = original.max.z - original.min.z;
+        const offset =
+          pose === "withdrawn" && i === j
+            ? depth * definition.switchAssembly.rearSeats.travelRatio
+            : 0;
+        close(module.min.x, original.min.x);
+        close(module.min.y, original.min.y);
+        close(module.max.z, original.max.z - offset);
+        assert.ok(frame.clone().expandByScalar(1e-7).containsBox(module));
+        assert.ok(bounds(support).equals(guides[j]));
+        assert.ok(
+          support.children.every((rail) => !overlaps(bounds(rail), module)),
+        );
+      }
+    }
+  }
+  row.dispose();
+  root.updateMatrixWorld(true);
+  assert.equal(root.getObjectByName("switch-rear-seats"), undefined);
+  assert.deepEqual(
+    members.map((m) => bounds(groups.get(m.id)!)),
+    installed,
+  );
 });

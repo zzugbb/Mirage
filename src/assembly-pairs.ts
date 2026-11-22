@@ -43,6 +43,23 @@ function powerPair(modelId: string) {
     parts.find((part) => part.id === inletPart(modelId, feed))!;
   return { primary: psu("A"), companion: psu("B") };
 }
+const switchPower = powerPair("switch-1u");
+const switchFanGroup = network.find((part) => part.node === "fans")!;
+const switchFans = subpartsForModel(modelById("switch-1u")).filter(
+  (part) => part.parent === switchFanGroup.id,
+);
+const [rearLeftSupply, rearRightSupply] = [
+  switchPower.primary,
+  switchPower.companion,
+].sort((a, b) => b.position[0] - a.position[0]);
+// 风扇子件在模组内沿 +X 排列；从机后（-Z）观察时次序反转。
+export const switchRear = {
+  fanGroup: switchFanGroup,
+  fans: switchFans,
+  supplies: [switchPower.primary, switchPower.companion],
+  members: [rearLeftSupply, ...[...switchFans].reverse(), rearRightSupply],
+  companions: [switchPower.companion.id, switchFanGroup.id],
+};
 function rearPowerCheck(modelId: "switch-1u" | "storage-4u") {
   return {
     tool: modelId === "switch-1u" ? "switch-power" : "storage-power",
@@ -223,7 +240,12 @@ const checks = {
         },
       ],
     },
-    rearPowerCheck("switch-1u"),
+    {
+      ...rearPowerCheck("switch-1u"),
+      tool: "switch-power",
+      entry: "核对双电源与风扇",
+      detail: "在同一排核对两件电源与四件风扇，可逐件查看槽位",
+    },
   ],
 } as const;
 
@@ -231,6 +253,12 @@ export type AssemblyCheck = (typeof checks)[keyof typeof checks][number];
 
 // 从单件进入沿用该件，从模组进入选择本组第一件。
 export function assemblyMember(check: AssemblyCheck, selected: string) {
+  if (check.tool === "switch-power") {
+    const fan = switchRear.fans.find(
+      (part) => part.id === selected || part.parent === selected,
+    );
+    if (fan) return fan;
+  }
   if ("additionalPart" in check && check.additionalPart.id === selected)
     return check.additionalPart;
   for (const { primary, companion } of check.pairs) {

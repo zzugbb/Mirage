@@ -1,25 +1,9 @@
 import * as THREE from "three";
+import { localMeshBounds } from "./local-mesh-bounds.ts";
 import type { LayerPose } from "./assembly-layer.ts";
 
 // 只在单槽核查时挂入当前内存条；槽体在内存组中的位置固定。
 // 使用模型本地坐标量取外廓，避免工位旋转或放大后将世界包围盒当作槽宽。
-function moduleBounds(target: THREE.Object3D) {
-  target.updateWorldMatrix(true, true);
-  const local = target.matrixWorld.clone().invert();
-  const matrix = new THREE.Matrix4();
-  const bounds = new THREE.Box3();
-  target.traverse((mesh) => {
-    if (!(mesh instanceof THREE.Mesh)) return;
-    if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox();
-    bounds.union(
-      mesh.geometry.boundingBox
-        .clone()
-        .applyMatrix4(matrix.multiplyMatrices(local, mesh.matrixWorld)),
-    );
-  });
-  return bounds;
-}
-
 export class DimmSocket {
   readonly root = new THREE.Group();
   private readonly shape = new THREE.BoxGeometry(1, 1, 1);
@@ -61,7 +45,7 @@ export class DimmSocket {
   }
 
   private mount(target: THREE.Object3D) {
-    const bounds = moduleBounds(target);
+    const bounds = localMeshBounds(target);
     const center = bounds.getCenter(new THREE.Vector3());
     const size = bounds.getSize(new THREE.Vector3());
     const gap = size.x + 0.0006;

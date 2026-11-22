@@ -1,7 +1,9 @@
+import type { RearRowPose } from "./scene/switch-rear-row";
 import type { LayerPose } from "./scene/assembly-layer";
 import {
   assemblyChecks,
   assemblyMember,
+  switchRear,
   type AssemblyCheck,
 } from "./assembly-pairs";
 import { modelForDevice, subpartsForModel } from "./catalog";
@@ -454,6 +456,7 @@ export function Workspace() {
     deviceId: string;
     tool: AssemblyCheck["tool"];
     layerPose?: LayerPose;
+    rearRow?: { supplyId: string; pose: RearRowPose; fromPair: boolean };
   } | null>(null);
   const pairTools =
     state.level === "device" ? assemblyChecks(state.deviceId, selected) : [];
@@ -465,12 +468,15 @@ export function Workspace() {
     assembly && "additionalPart" in assembly
       ? assembly.additionalPart
       : undefined;
+  const rearRow =
+    assembly?.tool === "switch-power" ? pairVisit?.rearRow : undefined;
   const activePair = canInspectPart(state)
     ? assembly?.pairs.find(
         ({ primary, companion }) =>
           selected === primary.id ||
           selected === companion.id ||
-          selected === additionalPart?.id,
+          selected === additionalPart?.id ||
+          (!!rearRow && switchRear.fans.some((fan) => fan.id === selected)),
       )
     : undefined;
   const selectedLayer =
@@ -487,13 +493,14 @@ export function Workspace() {
     setPairVisit((current) => current && { ...current, layerPose: pose });
   };
   const companionPartIds = useMemo(() => {
+    if (rearRow) return switchRear.companions;
     if (layerPose) return [];
     if (activePair)
       return additionalPart
         ? [activePair.companion.id, additionalPart.id]
         : [activePair.companion.id];
     return compareFanDuct && fanDuct ? [fanDuct.id] : [];
-  }, [activePair, additionalPart, compareFanDuct, fanDuct, layerPose]);
+  }, [activePair, additionalPart, compareFanDuct, fanDuct, layerPose, rearRow]);
   useEffect(() => {
     if (pairVisit && !activePair) setPairVisit(null);
     else if (pairVisit?.layerPose && !selectedLayer) setLayerPose();
@@ -1526,7 +1533,12 @@ export function Workspace() {
     feedback.key === presentationKey(state);
   useLayoutEffect(() => {
     if (
-      !(selectedLayer || (activeMemory && selectedDimm)) ||
+      !(
+        selectedLayer ||
+        (activeMemory && selectedDimm) ||
+        assembly?.tool === "switch-power"
+      ) ||
+      rearRow ||
       layerPose ||
       dimmPose
     )
@@ -1543,7 +1555,16 @@ export function Workspace() {
       document.removeEventListener("pointerdown", release, true);
       document.removeEventListener("keydown", release, true);
     };
-  }, [selectedLayer, layerPose, activeMemory, selectedDimm, dimmPose, ready]);
+  }, [
+    selectedLayer,
+    layerPose,
+    activeMemory,
+    selectedDimm,
+    dimmPose,
+    rearRow,
+    assembly,
+    ready,
+  ]);
   useEffect(() => {
     if (!pendingPatch) return;
     if (networkTrace?.id === pendingPatch) {
@@ -2878,12 +2899,26 @@ export function Workspace() {
       const check = pairTools.find((item) => item.tool === tool);
       if (!check) return;
       setInspectionDevice(null);
-      setPairVisit({ deviceId: state.deviceId, tool });
+      const member = assemblyMember(check, selected);
+      const startRow =
+        tool === "switch-power" &&
+        !switchRear.supplies.some((part) => part.id === selected);
+      setPairVisit({
+        deviceId: state.deviceId,
+        tool,
+        rearRow: startRow
+          ? {
+              supplyId: check.pairs[0].primary.id,
+              pose: "seated",
+              fromPair: false,
+            }
+          : undefined,
+      });
       control({ type: "analysis", value: false });
       // 从装配态开始时给两件留出观察间距，已有展开比例由用户掌控。
       if (!canInspectPart(state))
         dispatch({ type: "explode", amount: check.startExplosion });
-      focus(assemblyMember(check, selected)?.id ?? check.pairs[0].primary.id);
+      focus(member?.id ?? check.pairs[0].primary.id);
       return;
     }
     if (tool === "fans") {
@@ -2980,6 +3015,16 @@ export function Workspace() {
     setFanVisit(null);
     setInspectionDevice(null);
     control({ type: "finish-part-inspection" });
+  };
+  const showRearSupplies = () => {
+    if (!rearRow) return;
+    returningToLayer.current = true;
+    pick(
+      switchRear.supplies.some((part) => part.id === selected)
+        ? selected
+        : rearRow.supplyId,
+    );
+    setPairVisit((current) => current && { ...current, rearRow: undefined });
   };
   const rememberNetworkMap = (selection: string, linkId: string | null) => {
     setNetworkMapVisit({
@@ -5583,6 +5628,7 @@ export function Workspace() {
             }
             layerPose={layerPose}
             dimmPose={dimmPose}
+            rearRowPose={activePair ? rearRow?.pose : undefined}
             storageContact={activeStorageVisit?.mode === "contact"}
             companionPartIds={companionPartIds}
             isolatedPartId={isolatedPartId}
@@ -5885,6 +5931,61 @@ export function Workspace() {
                     ))}
                   </div>
                 </StructureToolbar>
+              ) : rearRow && activePair ? (
+                <StructureToolbar
+                  label="机后排布核查"
+                  state={state}
+                  dispatch={dispatch}
+                  disabled={!ready}
+                  destination={rearRow.fromPair ? "双电源" : "完整结构"}
+                  onBack={
+                    rearRow.fromPair ? showRearSupplies : finishStructureCheck
+                  }
+                  menuActions={
+                    !rearRow.fromPair && (
+                      <button disabled={!ready} onClick={showRearSupplies}>
+                        只看双电源
+                      </button>
+                    )
+                  }
+                >
+                  <div className="structure-check-scope assembly-layer-scope">
+                    <select
+                      aria-label="机后模块"
+                      value={selected}
+                      disabled={!ready}
+                      autoFocus
+                      onChange={(event) => pick(event.target.value)}
+                    >
+                      {switchRear.members.map((part) => (
+                        <option key={part.id} value={part.id}>
+                          {part.slot}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      disabled={!ready}
+                      onClick={() =>
+                        setPairVisit((current) =>
+                          current?.rearRow
+                            ? {
+                                ...current,
+                                rearRow: {
+                                  ...current.rearRow,
+                                  pose:
+                                    current.rearRow.pose === "seated"
+                                      ? "withdrawn"
+                                      : "seated",
+                                },
+                              }
+                            : current,
+                        )
+                      }
+                    >
+                      {rearRow.pose === "seated" ? "抽出模块" : "放回槽位"}
+                    </button>
+                  </div>
+                </StructureToolbar>
               ) : activePair && assembly ? (
                 <StructureToolbar
                   label={assembly.name + "核查"}
@@ -5896,7 +5997,7 @@ export function Workspace() {
                 >
                   <div
                     className={
-                      selectedLayer
+                      selectedLayer || assembly.tool === "switch-power"
                         ? "structure-check-scope assembly-layer-scope"
                         : "structure-check-scope"
                     }
@@ -5966,6 +6067,27 @@ export function Workspace() {
                           ),
                         )}
                       </div>
+                    )}
+                    {assembly.tool === "switch-power" && (
+                      <button
+                        ref={layerEntry}
+                        disabled={!ready}
+                        onClick={() =>
+                          setPairVisit(
+                            (current) =>
+                              current && {
+                                ...current,
+                                rearRow: {
+                                  supplyId: selected,
+                                  pose: "seated",
+                                  fromPair: true,
+                                },
+                              },
+                          )
+                        }
+                      >
+                        查看机后排布
+                      </button>
                     )}
                     {selectedLayer && (
                       <button
@@ -7488,17 +7610,19 @@ export function Workspace() {
                     <p>
                       {compactServer && selected === "storage-01"
                         ? `前置 ${compactDriveBays.length} 个托架，硬盘与背板分别建模。`
-                        : dimmPose
-                          ? "槽位按本机型的内存条编号与模型位置对应。槽体、卡扣和抬起间距为装配示意，读数沿用内存条模型。"
-                          : memoryContext && selected === "memory-01"
-                            ? `本机型配置 ${dimms.length} 条内存，可逐条检视。`
-                            : assembly?.tool === "rear-interfaces"
-                              ? "网卡和转接架沿用贡献模型外观，管理接口区域按机型配置示意。网卡样板配置 A/B 两路逻辑端口，对应关系可在网络接入中查询。"
-                              : assembly?.tool === "storage-harness"
-                                ? "背板接触区按八块硬盘的位置对齐。插头和线束绕行是内部装配示意，读数沿用部件模型。"
-                                : assembly?.tool === "storage-controllers"
-                                  ? "A/B 槽位来自机型配置。板卡、四个托盘支柱与抬起间距为装配示意，读数沿用所选控制器。"
-                                  : entity.description}
+                        : rearRow
+                          ? "电源 A/B 来自机型输入配置，风扇编号沿用风扇组子件。托边、限位与抽出行程为装配示意，时间分析使用部件模型读数。"
+                          : dimmPose
+                            ? "槽位按本机型的内存条编号与模型位置对应。槽体、卡扣和抬起间距为装配示意，读数沿用内存条模型。"
+                            : memoryContext && selected === "memory-01"
+                              ? `本机型配置 ${dimms.length} 条内存，可逐条检视。`
+                              : assembly?.tool === "rear-interfaces"
+                                ? "网卡和转接架沿用贡献模型外观，管理接口区域按机型配置示意。网卡样板配置 A/B 两路逻辑端口，对应关系可在网络接入中查询。"
+                                : assembly?.tool === "storage-harness"
+                                  ? "背板接触区按八块硬盘的位置对齐。插头和线束绕行是内部装配示意，读数沿用部件模型。"
+                                  : assembly?.tool === "storage-controllers"
+                                    ? "A/B 槽位来自机型配置。板卡、四个托盘支柱与抬起间距为装配示意，读数沿用所选控制器。"
+                                    : entity.description}
                     </p>
                     {entity.kind === "rack" && (
                       <>
