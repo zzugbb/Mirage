@@ -2370,7 +2370,8 @@ export class SceneEngine {
             ),
           );
     }
-    if (wholeDevice || wholeRack || hasCompanions) {
+    const reserveActions = wholeDevice || wholeRack || hasCompanions || !!layer;
+    if (reserveActions) {
       const frame = this.host.getBoundingClientRect();
       const actions = this.host
         .closest(".study-stage")
@@ -2380,9 +2381,7 @@ export class SceneEngine {
         bottomInsetFraction = (frame.bottom - actions.top) / frame.height;
     }
     if (
-      wholeRack ||
-      wholeDevice ||
-      hasCompanions ||
+      reserveActions ||
       (level === "room" &&
         focus &&
         (roomDevice ||

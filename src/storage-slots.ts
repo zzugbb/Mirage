@@ -21,7 +21,7 @@ export function storageSlots(deviceId: string) {
 }
 export type StorageSlotInspection = {
   deviceId: string;
-  mode: "group" | "disk" | "contact" | "board";
+  mode: "group" | "disk" | "tray" | "contact" | "board";
   diskId: string | null;
   pending: boolean;
 };

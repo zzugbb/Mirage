@@ -1673,7 +1673,8 @@
       0.008,
       0.006
     ],
-    "railThickness": 0.001
+    "railThickness": 0.001,
+    "trayInspection": {"lift": 0.068, "focusDirection": [0.95, 0.74, -1]}
   },
   "rendering": {
     "roomBackdrop": {

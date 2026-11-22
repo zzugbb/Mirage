@@ -159,12 +159,12 @@ export function StorageSlots({
             从中板选盘
           </button>
         )}
-        {current && visit.mode !== "disk" && (
+        {current && visit.mode !== "disk" && visit.mode !== "tray" && (
           <button
             disabled={!ready || visit.pending}
             onClick={() => onInspect(current.id)}
           >
-            只看此硬盘
+            查看盘体与托架
           </button>
         )}
         {current && visit.mode !== "contact" && (
@@ -182,6 +182,11 @@ export function StorageSlots({
           正面由上至下、由左至右排列。{slots.length}{" "}
           个盘位沿用演示配置，外观机型的真实槽号未经核对。单盘读数为模型推导，磁盘健康、空槽和可用容量均未接入。
         </p>
+        {(visit.mode === "disk" || visit.mode === "tray") && (
+          <p>
+            盘体和尾部接触片一起抬起，托架侧轨、两道横托与前拉手留在原位。构造和分层距离为装配示意。
+          </p>
+        )}
         {visit.mode === "contact" && (
           <p>
             虚线连接盘尾接触面与中板接点，表示装配对应。展开间距仅用于观察，真实电路、接通状态和拔插步骤均未建模。

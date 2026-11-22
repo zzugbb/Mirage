@@ -1071,7 +1071,7 @@ export function ReviewScene({
   useEffect(() => {
     if (!storageViewRevision || currentState.current.level !== "device") return;
     setOrbit(false);
-    const next = storageContact ? "iso" : "front";
+    const next = storageContact || layerPose ? "iso" : "front";
     engine.current?.view(next, true);
     setView(next);
   }, [storageViewRevision]);

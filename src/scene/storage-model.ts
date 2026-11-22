@@ -65,47 +65,90 @@ export function storageDrive(
   const [w, h, d] = driveSize;
   const [x, y] = storageSlot(index);
   root.position.set(x, y, 0);
-  // 两侧托架包住盘体，盘位间留缝；每块盘沿用原有可选子件身份。
+  const drive = new THREE.Group();
+  drive.name = "storage-drive";
+  root.add(drive);
+  const bodyW = w - rail * 2;
+  const bodyH = h - rail;
+  const lid = 0.0008;
   box(
-    root,
-    [w - rail * 2, h - rail, d - 0.003],
-    [0, 0, 0.0015],
-    "#89949b",
-    0.65,
+    drive,
+    [bodyW, bodyH - lid, d - 0.003],
+    [0, -lid / 2, 0.0015],
+    "#647078",
+    0.6,
   ).name = "storage-drive-body";
-  for (const side of [-1, 1])
-    box(
-      root,
-      [rail, h, size[2] - 0.004],
-      [(side * (w - rail)) / 2, 0, 0.01],
-      "#505e68",
-      0.65,
-    ).name = "storage-drive-rail";
   box(
-    root,
+    drive,
+    [bodyW - 0.001, lid, d - 0.004],
+    [0, (bodyH - lid) / 2, 0.0015],
+    "#a4adb0",
+    0.63,
+  );
+  for (const side of [-1, 1]) {
+    for (const end of [-1, 1])
+      box(
+        drive,
+        [0.003, 0.0004, 0.003],
+        [side * (bodyW / 2 - 0.006), bodyH / 2 + 0.0002, end * (d / 2 - 0.01)],
+        "#56636a",
+        0.58,
+      );
+  }
+  box(
+    drive,
     [socketSize[0] * 0.8, socketSize[1] * 0.7, 0.003],
     [0, 0, -d / 2 + 0.0015],
     "#a28e5b",
     0.5,
   ).name = "storage-drive-contact";
-  const faceW = (size[0] / columns) * 0.94,
-    faceH = (size[1] / rows) * 0.88;
-  box(root, [faceW, faceH, 0.008], [0, 0, size[2] / 2], "#28333d", 0.4);
+  const tray = new THREE.Group();
+  tray.name = "storage-drive-tray";
+  root.add(tray);
+  // 侧轨延伸到前面板，横托的顶面与盘底接触。抬起时端子随盘体移动。
+  const front = size[2] / 2 - 0.004;
+  const back = -d / 2;
   for (const side of [-1, 1])
     box(
-      root,
+      tray,
+      [rail, h, front - back],
+      [(side * (w - rail)) / 2, 0, (front + back) / 2],
+      "#505e68",
+      0.65,
+    ).name = "storage-drive-rail";
+  for (const z of [-d * 0.32, d * 0.32])
+    box(
+      tray,
+      [bodyW, rail / 2, d * 0.12],
+      [0, -(bodyH / 2 + rail / 4), z],
+      "#74828b",
+      0.58,
+    ).name = "storage-drive-support";
+  box(tray, [w, h * 0.68, 0.002], [0, 0, front - 0.001], "#505e68", 0.6);
+  const faceW = (size[0] / columns) * 0.94,
+    faceH = (size[1] / rows) * 0.88;
+  box(tray, [faceW, faceH, 0.008], [0, 0, size[2] / 2], "#28333d", 0.4);
+  for (const side of [-1, 1])
+    box(
+      tray,
       [0.004, faceH * 0.65, 0.006],
       [side * faceW * 0.3, 0, size[2] / 2 + 0.006],
       "#7c8992",
       0.65,
     );
   box(
-    root,
+    tray,
     [faceW * 0.6, 0.003, 0.003],
     [0, -faceH * 0.2, size[2] / 2 + 0.009],
     "#a2adb4",
     0.7,
   );
+  const { lift, focusDirection } = storageAssembly.trayInspection;
+  registerLayer(root, {
+    node: drive.name,
+    lift,
+    direction: [focusDirection[0], focusDirection[1], focusDirection[2]],
+  });
 }
 
 // 后面板朝设备 -Z，板卡、托盘与拉手共用控制器的维护身份。

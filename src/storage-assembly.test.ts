@@ -39,6 +39,48 @@ test("存储 24 盘的后部接触面与竖直中板逐位对齐，接点不再�
   }
 });
 
+test("24 个盘体逐一落在两道横托上，盘尾端子随盘抬起并回到同号中板接点", () => {
+  const { root, groups } = createEquipmentAssembly("storage-4u");
+  const midplane = groups.get("sto-midplane")!;
+  for (const [id, disk] of groups) {
+    if (!id.startsWith("sto-disk-")) continue;
+    const suffix = id.slice("sto-disk-".length);
+    const body = disk.getObjectByName("storage-drive-body")!;
+    const contact = disk.getObjectByName("storage-drive-contact")!;
+    const tray = disk.getObjectByName("storage-drive-tray")!;
+    const supports = tray.children.filter(
+      (o) => o.name === "storage-drive-support",
+    );
+    const rails = tray.children.filter((o) => o.name === "storage-drive-rail");
+    const socket = midplane.getObjectByName("storage-socket-" + suffix)!;
+    const trayRest = bounds(tray),
+      bodyRest = bounds(body),
+      socketRest = bounds(socket);
+    assert.equal(supports.length, 2);
+    assert.equal(rails.length, 2);
+    assert.ok(bounds(supports[0]).max.z < bounds(supports[1]).min.z);
+    for (const support of supports) {
+      close(bounds(support).max.y, bodyRest.min.y);
+      close(bounds(support).min.x, bounds(rails[0]).max.x);
+      close(bounds(support).max.x, bounds(rails[1]).min.x);
+    }
+    for (const separated of [true, true, false]) {
+      poseAssemblyLayer(disk, separated);
+      root.updateMatrixWorld(true);
+      const current = bounds(body),
+        tip = bounds(contact);
+      const lift = current.min.y - bodyRest.min.y;
+      if (separated) assert.ok(current.min.y > trayRest.max.y);
+      else close(lift, 0);
+      assert.deepEqual(bounds(tray), trayRest);
+      close(tip.max.z, current.min.z);
+      close(center(contact).y - center(socket).y, lift);
+      close(tip.min.z, socketRest.max.z);
+      close(center(contact).x, center(socket).x);
+    }
+  }
+});
+
 test("24 个带托架盘位不互相穿插，正面射线仍分别选择原有硬盘子件", () => {
   const assembly = createEquipmentAssembly("storage-4u");
   const drives = assembly.groups.get("sto-drives")!;

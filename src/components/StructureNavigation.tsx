@@ -13,6 +13,7 @@ export function StructureNavigation({
   dispatch,
   onSide,
   onFront,
+  onToggleDrive,
   onGroup,
   onFinish,
 }: {
@@ -23,6 +24,7 @@ export function StructureNavigation({
   dispatch: (action: Action) => void;
   onSide: (side: FanInspection["side"]) => void;
   onFront: () => void;
+  onToggleDrive: () => void;
   onGroup: () => void;
   onFinish: () => void;
 }) {
@@ -35,10 +37,12 @@ export function StructureNavigation({
   const scope = {
     group: fan ? "风扇组" : "盘位总览",
     single: "单件检视",
-    disk: "单盘检视",
+    disk: "盘体与托架",
+    tray: "盘体与托架",
     contact: "中板接点",
     board: "中板正面",
   }[visit.mode];
+  const driveInspection = visit.mode === "disk" || visit.mode === "tray";
   const hasDuct = fan && !!modelForDevice(visit.deviceId).fanDuctLayout;
   const group = fan
     ? fan.side === "duct"
@@ -65,13 +69,20 @@ export function StructureNavigation({
         className={
           hasDuct
             ? "structure-check-scope fan-duct-scope"
-            : "structure-check-scope"
+            : driveInspection
+              ? "structure-check-scope assembly-layer-scope"
+              : "structure-check-scope"
         }
       >
         <b>
           {visit.pending ? "正在展开" : scope}
           {visit.mode !== "group" && part && ` · ${part.slot}`}
         </b>
+        {driveInspection && (
+          <button disabled={disabled} onClick={onToggleDrive}>
+            {visit.mode === "tray" ? "放回托架" : "抬起盘体"}
+          </button>
+        )}
         {visit.mode === "group" &&
           !analysis &&
           (fan ? (

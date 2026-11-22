@@ -1639,7 +1639,7 @@ export function Workspace() {
       setStorageViewRevision((n) => n + 1);
       setStorageFocusRevision((n) => n + 1);
     } else if (
-      (storageVisit.mode === "contact" || storageVisit.mode === "board") &&
+      storageVisit.mode !== "group" &&
       (selected === state.deviceId || selected === storageDriveGroup)
     ) {
       setStorageVisit({ ...storageVisit, mode: "group" });
@@ -5626,7 +5626,13 @@ export function Workspace() {
                 ? activeStorageVisit.diskId
                 : undefined
             }
-            layerPose={layerPose}
+            layerPose={
+              activeStorageVisit?.mode === "tray"
+                ? "separated"
+                : activeStorageVisit?.mode === "disk"
+                  ? "seated"
+                  : layerPose
+            }
             dimmPose={dimmPose}
             rearRowPose={activePair ? rearRow?.pose : undefined}
             storageContact={activeStorageVisit?.mode === "contact"}
@@ -6111,6 +6117,14 @@ export function Workspace() {
                     takeover();
                     setStorageViewRevision((n) => n + 1);
                   }}
+                  onToggleDrive={() => {
+                    if (!ready || !activeStorageVisit) return;
+                    setStorageVisit({
+                      ...activeStorageVisit,
+                      mode:
+                        activeStorageVisit.mode === "disk" ? "tray" : "disk",
+                    });
+                  }}
                   onGroup={activeFanVisit ? returnFanGroup : returnStorageGroup}
                   onFinish={finishStructureCheck}
                   onSide={(side) => {
@@ -6463,6 +6477,7 @@ export function Workspace() {
                     mode: "disk",
                     diskId: id,
                   });
+                  setStorageViewRevision((n) => n + 1);
                   pick(id);
                 }}
                 onContact={(id) => {
