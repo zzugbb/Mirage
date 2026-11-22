@@ -252,7 +252,14 @@ const checks = {
       tool: "switch-front",
       name: "前置端口笼",
       entry: "核对端口笼与主板",
-      detail: "从机前对照端口组件与主板前沿",
+      detail: "从机前对照端口笼与主板，可分层查看笼顶导光条和支座",
+      layer: {
+        members: "primary",
+        label: "端口笼与导光条",
+        scope: "导光组件姿态",
+        seated: "放回支座",
+        separated: "抬起导光条",
+      },
       labels: ["端口笼", "控制主板"],
       startExplosion: 0.35,
       pairs: [

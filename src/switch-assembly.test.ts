@@ -252,6 +252,65 @@ test("N1 端口笼底座贴合主板前沿，两排笼口均可从机前拾取�
   }
 });
 
+test("N1 两组导光条逐列对准笼口，抬起只移动导光条和横梁，放回时两端重新落座", () => {
+  const { groups } = createEquipmentAssembly("switch-1u");
+  const ports = groups.get("net-ports")!;
+  const moving = ports.getObjectByName("front-light-guides")!;
+  const { frontCages, lightGuides } = definition.switchAssembly;
+  const roofs = ports.getObjectsByProperty("name", "cage-roof");
+  const stands = ports.getObjectsByProperty("name", "guide-stand");
+  const close = (a: number, b: number) => assert.ok(Math.abs(a - b) < 1e-7);
+  assert.equal(moving.children.length, frontCages.length);
+  assert.equal(stands.length, 2 * frontCages.length);
+  const fixed = stands.map(bounds);
+  const frame = bounds(ports.getObjectByName("front-cage-base")!);
+  for (const lifted of [false, true, true, false]) {
+    poseAssemblyLayer(ports, lifted);
+    ports.updateWorldMatrix(true, true);
+    const lift = lifted ? lightGuides.lift : 0;
+    for (const [i, comb] of moving.children.entries()) {
+      const bank = frontCages[i];
+      const roof = bounds(roofs[i]);
+      const rail = bounds(comb.getObjectByName("guide-carrier")!);
+      const pipes = comb.getObjectsByProperty("name", "light-guide");
+      assert.equal(pipes.length, bank.columns);
+      close(rail.getCenter(new THREE.Vector3()).x, bank.centerX);
+      for (const j of [i * 2, i * 2 + 1]) {
+        const seat = bounds(stands[j]);
+        assert.ok(seat.equals(fixed[j]));
+        close(seat.min.y, roof.max.y);
+        close(rail.min.y - seat.max.y, lift);
+        assert.ok(
+          rail.min.x <= seat.min.x + 1e-7 && rail.max.x >= seat.max.x - 1e-7,
+        );
+      }
+      for (const [column, pipe] of pipes.entries()) {
+        const guide = bounds(pipe);
+        const center = guide.getCenter(new THREE.Vector3());
+        const left =
+          bank.centerX - bank.width / 2 + (column * bank.width) / bank.columns;
+        assert.ok(
+          guide.min.x > left && guide.max.x < left + bank.width / bank.columns,
+        );
+        close(guide.max.y, rail.min.y);
+        close(guide.max.z, frame.max.z);
+        assert.ok(guide.max.z > roof.max.z);
+        // 顶板和导光条在侧投影中重叠，折下的前端应当处于顶板前方。
+        const belowRoof = new THREE.Raycaster(
+          new THREE.Vector3(
+            center.x,
+            roof.max.y - 0.0004 + lift,
+            frame.max.z + 0.01,
+          ),
+          new THREE.Vector3(0, 0, -1),
+        );
+        const lip = belowRoof.intersectObject(pipe)[0];
+        assert.ok(lip && lip.point.z > roof.max.z);
+      }
+    }
+  }
+});
+
 test("N1 机后六槽按观察次序排列，逐件抽出时导轨固定，相邻模块与退出姿态正确", () => {
   const { root, groups, positions } = createEquipmentAssembly("switch-1u");
   const row = new SwitchRearRow();

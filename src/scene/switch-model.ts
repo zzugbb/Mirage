@@ -130,32 +130,103 @@ export function switchPortCages(root: THREE.Group, size: number[], box: Box) {
   root.userData.focusDirection = [0.14, 0.34, 1];
   box(root, [w, wall, d], [0, (-h + wall) / 2, 0], "#85939b", 0.72).name =
     "front-cage-base";
+  const guides = definition.switchAssembly.lightGuides;
+  const moving = new THREE.Group();
+  moving.name = "front-light-guides";
+  root.add(moving);
+  const guideTop = h / 2 - guides.railHeight;
+  const guideBottom = guideTop - guides.height;
+  const roofTop = guideBottom - guides.standHeight;
+  const front = d / 2,
+    lip = 0.0025;
+  const roofFront = front - lip - 0.0005;
+  const railZ = -d * 0.27,
+    railDepth = d * 0.25;
+
+  // 每列一根静态导光条。前端向笼口折下，横梁托住两组各自的导光条。
+  const profile = new THREE.Shape();
+  profile.moveTo(d / 2, guideBottom);
+  profile.lineTo(d / 2, guideTop);
+  profile.lineTo(-front + 0.0005, guideTop);
+  profile.lineTo(-front, guideTop - 0.0005);
+  profile.lineTo(-front, roofTop - wall);
+  profile.lineTo(-front + lip, roofTop - wall);
+  profile.lineTo(-front + lip, guideBottom);
+  profile.closePath();
+  const guideGeometry = new THREE.ExtrudeGeometry(profile, {
+    depth: guides.width,
+    bevelEnabled: false,
+  });
+  guideGeometry.rotateY(Math.PI / 2);
+  guideGeometry.translate(-guides.width / 2, 0, 0);
+  const guideMaterial = new THREE.MeshStandardMaterial({
+    color: "#9ebeb7",
+    metalness: 0.08,
+    roughness: 0.32,
+  });
   for (const bank of definition.switchAssembly.frontCages) {
     const { columns, width, centerX } = bank;
     const group = new THREE.Group();
     group.position.x = centerX;
     root.add(group);
+    const bottom = -h / 2 + wall;
+    const top = roofTop - wall;
     // 后衬低于笼口，主板前沿与底座背面在装配态相接。
     box(
       group,
-      [width, h - 2 * wall, wall],
-      [0, 0, (wall - d) / 2],
+      [width, top - bottom, wall],
+      [0, (top + bottom) / 2, (wall - d) / 2],
       "#19242b",
       0.18,
     ).name = "cage-backing";
-    for (const y of [0, h / 2 - 1.5 * wall])
-      box(group, [width, wall, d], [0, y, 0], "#9ba8ad", 0.72);
+    box(group, [width, wall, d], [0, (top + bottom) / 2, 0], "#9ba8ad", 0.72);
+    box(
+      group,
+      [width, wall, roofFront + front],
+      [0, roofTop - wall / 2, (roofFront - front) / 2],
+      "#9ba8ad",
+      0.72,
+    ).name = "cage-roof";
     for (let column = 0; column <= columns; column++) {
       const x = (width - wall) * (column / columns - 0.5);
-      box(group, [wall, h - 3 * wall, d], [x, -wall / 2, 0], "#8d9aa3", 0.7);
-      if (column < columns)
-        box(
-          group,
-          [0.0028, wall, 0.003],
-          [x + width / columns / 2, h / 2 - wall / 2, d / 2 - 0.002],
-          "#bac7bf",
-          0.25,
-        );
+      box(
+        group,
+        [wall, top - bottom, d],
+        [x, (top + bottom) / 2, 0],
+        "#8d9aa3",
+        0.7,
+      );
+    }
+    const comb = new THREE.Group();
+    comb.position.x = centerX;
+    moving.add(comb);
+    box(
+      comb,
+      [width, guides.railHeight, railDepth],
+      [0, guideTop + guides.railHeight / 2, railZ],
+      "#647a7f",
+    ).name = "guide-carrier";
+    for (const sign of [-1, 1]) {
+      const height = guideTop - roofTop;
+      box(
+        group,
+        [wall * 2, height, railDepth],
+        [sign * (width / 2 - wall), roofTop + height / 2, railZ],
+        "#58666b",
+      ).name = "guide-stand";
+    }
+    for (let column = 0; column < columns; column++) {
+      const pipe = new THREE.Mesh(guideGeometry, guideMaterial);
+      pipe.name = "light-guide";
+      pipe.position.x = (width - wall) * ((column + 0.5) / columns - 0.5);
+      pipe.castShadow = pipe.receiveShadow = true;
+      comb.add(pipe);
     }
   }
+  const [x, y, z] = guides.focusDirection;
+  registerLayer(root, {
+    node: moving.name,
+    lift: guides.lift,
+    direction: [x, y, z],
+  });
 }
