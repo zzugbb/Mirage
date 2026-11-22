@@ -105,32 +105,102 @@ export function buildStorageHarness(
     [0, 0.0055, (cd - 0.012) / 2],
     "#353e43",
   );
+  connectHarness(cable, boardSeat, cardSeat, "server-2u", layout, box);
+  positions.set(layout.backplane, board.position.clone());
+  positions.set(layout.harness, cable.position.clone());
+}
+
+// M1 精模保留两块原板件。简模上的插座连同线束以同一装配坐标转挂到精模。
+export function buildCompactHarness(
+  groups: Map<string, THREE.Group>,
+  positions: Map<string, THREE.Vector3>,
+  box: Box,
+) {
+  const model = modelById("server-1u");
+  const compact = model.compactHarness!;
+  const mount = model.controllerMount!;
+  const board = groups.get(compact.backplane)!;
+  const card = groups.get(mount.controllerId)!;
+  const cable = groups.get(compact.harness)!;
+  const boardSeat = box(
+    board,
+    [0.016, 0.008, 0.008],
+    new THREE.Vector3()
+      .fromArray(compact.boardSeat)
+      .sub(board.position)
+      .toArray(),
+    "#353e43",
+  );
+  const cardSeat = box(
+    card,
+    [0.016, 0.006, 0.012],
+    [0, 0.005, (mount.controllerSize[2] - 0.012) / 2],
+    "#353e43",
+  );
+  connectHarness(cable, boardSeat, cardSeat, "server-1u", compact, box);
+  positions.set(compact.harness, cable.position.clone());
+}
+
+function connectHarness(
+  cable: THREE.Group,
+  boardSeat: THREE.Mesh,
+  cardSeat: THREE.Mesh,
+  model: "server-1u" | "server-2u",
+  route: {
+    sideX: number;
+    sideY: number;
+    rearBendZ: number;
+    rearRise?: { startZ: number; endZ: number; height: number };
+  },
+  box: Box,
+) {
+  const compact = model === "server-1u";
+  const boardDirection = compact ? 1 : -1;
   const socketEnd = (seat: THREE.Mesh, direction: number, depth: number) => {
     seat.name = "harness-socket";
     const end = seat.getWorldPosition(new THREE.Vector3());
     end.z += (direction * depth) / 2;
     return end;
   };
-  const front = socketEnd(boardSeat, -1, 0.008);
+  const front = socketEnd(boardSeat, boardDirection, 0.008);
   const rear = socketEnd(cardSeat, 1, 0.012);
   cable.position.copy(front).lerp(rear, 0.5);
   function plug(end: THREE.Vector3, direction: number, name: string) {
     const p = end.clone().sub(cable.position);
     p.z += direction * 0.006;
-    box(cable, [0.019, 0.008, 0.012], p.toArray(), "#46545c").name = name;
-    box(cable, [0.009, 0.001, 0.007], [p.x, p.y + 0.0045, p.z], "#a0a9a8");
+    box(
+      cable,
+      [compact ? 0.015 : 0.019, compact ? 0.006 : 0.008, 0.012],
+      p.toArray(),
+      "#46545c",
+    ).name = name;
+    box(
+      cable,
+      [0.009, 0.001, 0.007],
+      [p.x, p.y + (compact ? 0.0035 : 0.0045), p.z],
+      "#a0a9a8",
+    );
     return end.clone().add(new THREE.Vector3(0, 0, direction * 0.012));
   }
-  const from = plug(front, -1, "backplane-plug");
+  const from = plug(front, boardDirection, "backplane-plug");
   const to = plug(rear, 1, "controller-plug");
-  const { sideX, sideY, rearBendZ } = layout;
-  const frontBendZ = from.z - 0.027;
+  const { sideX, sideY, rearBendZ } = route;
+  const frontBendZ = from.z + boardDirection * (compact ? 0.012 : 0.027);
+  // M1 先从导风罩侧下方通过，再抬高跨过主板上的元件。
+  const rise = route.rearRise;
+  const rearY = rise?.height ?? sideY;
   const points = [
     from,
     new THREE.Vector3(from.x, sideY, frontBendZ),
     new THREE.Vector3(sideX, sideY, frontBendZ),
-    new THREE.Vector3(sideX, sideY, rearBendZ),
-    new THREE.Vector3(to.x, sideY, rearBendZ),
+    ...(rise
+      ? [
+          new THREE.Vector3(sideX, sideY, rise.startZ),
+          new THREE.Vector3(sideX, rearY, rise.endZ),
+        ]
+      : []),
+    new THREE.Vector3(sideX, rearY, rearBendZ),
+    new THREE.Vector3(to.x, rearY, rearBendZ),
     to,
   ].map((p) => p.sub(cable.position));
   // 名称引线落在线束侧边直段，避开 U 形包围框的空心区域。
@@ -140,15 +210,13 @@ export function buildStorageHarness(
     color: "#567880",
     roughness: 0.62,
   });
-  for (const offset of [-0.0026, 0, 0.0026]) {
+  for (const offset of compact ? [0] : [-0.0026, 0, 0.0026]) {
     const wire = new THREE.Mesh(
-      new THREE.TubeGeometry(path, 128, 0.0016, 8, false),
+      new THREE.TubeGeometry(path, 128, compact ? 0.00145 : 0.0016, 8, false),
       jacket,
     );
     wire.position.y = offset;
     wire.castShadow = wire.receiveShadow = true;
     cable.add(wire);
   }
-  positions.set(layout.backplane, board.position.clone());
-  positions.set(layout.harness, cable.position.clone());
 }

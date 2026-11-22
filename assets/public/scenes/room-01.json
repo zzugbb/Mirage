@@ -6874,6 +6874,13 @@
         "io-01"
       ],
       "dimms": 8,
+      "compactHarness": {
+        "backplane": "backplane-01", "harness": "cables-01",
+        "boardCenter": [-0.00485, -0.0161, 0.23082], "boardSize": [0.40603, 0.0021, 0.02577],
+        "boardSeat": [0.189, -0.0118, 0.2397],
+        "sideX": 0.212, "sideY": -0.01145, "rearBendZ": -0.102, "rearRise": {"startZ": 0.013, "endZ": -0.005, "height": 0.011},
+        "focusDirection": [-0.52, 1.18, 1.25]
+      },
       "controllerMount": {
         "boardId": "board-01",
         "controllerId": "raid-01",

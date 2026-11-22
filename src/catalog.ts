@@ -69,6 +69,21 @@ const partsByModel = new Map(
             explode: duct.ductTravel ?? part.explode,
           };
         const mount = model.controllerMount;
+        const compactHarness = model.compactHarness;
+        if (
+          compactHarness &&
+          mount &&
+          [compactHarness.backplane, compactHarness.harness].includes(part.id)
+        ) {
+          const plate = part.id === compactHarness.backplane;
+          return {
+            ...part,
+            position: plate ? compactHarness.boardCenter : part.position,
+            size: plate ? compactHarness.boardSize : part.size,
+            explode: mount.controllerTravel,
+            focusDirection: compactHarness.focusDirection,
+          };
+        }
         if (
           mount &&
           (part.id === mount.boardId || part.id === mount.controllerId)

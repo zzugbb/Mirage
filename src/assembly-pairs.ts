@@ -130,9 +130,38 @@ const serverMember = (id: string) =>
   partsForModel("server-2u").find((part) => part.id === id)!;
 const compact = modelById("server-1u").controllerMount!;
 const compactParts = partsForModel("server-1u");
+const compactHarness = modelById("server-1u").compactHarness!;
+function storageHarnessCheck(
+  modelId: string,
+  backplane: string,
+  cable: string,
+  controller: string,
+  detail: string,
+) {
+  const parts = partsForModel(modelId);
+  const member = (id: string) => parts.find((p) => p.id === id)!;
+  return {
+    tool: "storage-harness",
+    name: "背板线束",
+    entry: "核对背板线束",
+    detail,
+    memberLabel: "背板线束部件",
+    labels: ["磁盘背板", "背板线束", "存储控制卡"],
+    startExplosion: 0.45,
+    pairs: [{ primary: member(backplane), companion: member(cable) }],
+    additionalPart: member(controller),
+  } as const;
+}
 const checks = {
   "server-1u": [
     processorCheck("server-1u"),
+    storageHarnessCheck(
+      "server-1u",
+      compactHarness.backplane,
+      compactHarness.harness,
+      compact.controllerId,
+      "从四盘背板沿机箱侧边查看 SAS 线束示意及控制卡接线端",
+    ),
     serverPowerCheck("server-1u"),
     {
       tool: "rear-interfaces",
@@ -220,22 +249,13 @@ const checks = {
       startExplosion: 1,
       pairs: drivePairs,
     },
-    {
-      tool: "storage-harness",
-      name: "背板线束",
-      entry: "核对背板线束",
-      detail: "沿 SAS 线束示意核对八盘背板与存储控制卡的接线端",
-      memberLabel: "背板线束部件",
-      labels: ["磁盘背板", "背板线束", "存储控制卡"],
-      startExplosion: 0.45,
-      pairs: [
-        {
-          primary: serverMember(harness.backplane),
-          companion: serverMember(harness.harness),
-        },
-      ],
-      additionalPart: serverMember(harness.controller),
-    },
+    storageHarnessCheck(
+      "server-2u",
+      harness.backplane,
+      harness.harness,
+      harness.controller,
+      "沿 SAS 线束示意核对八盘背板与存储控制卡的接线端",
+    ),
     serverPowerCheck("server-2u"),
     {
       tool: "expansion-bay",

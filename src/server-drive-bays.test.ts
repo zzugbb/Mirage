@@ -68,7 +68,7 @@ test("M2 的八个背板接点逐盘对齐，线束绕过风扇、内存和导�
   const parts = [board, cable, card];
   for (const part of parts)
     assert.deepEqual(assemblyChecks("srv-54", part.id), [check]);
-  assert.deepEqual(assemblyChecks("srv-53", cable.id), []);
+  assert.ok(!assemblyChecks("srv-53", cable.id).includes(check));
   const { root, groups, positions } = createEquipmentAssembly("server-2u");
   const bounds = (id: string, child?: string) => {
     const group = groups.get(id)!;

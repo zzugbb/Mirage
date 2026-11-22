@@ -2,6 +2,7 @@ import { processorPairs, drivePairs } from "../assembly-pairs.ts";
 import { buildRtcMount, replaceRtcProxy } from "./rtc-mount.ts";
 import { compactBayForPart } from "../compact-drive-bays.ts";
 import {
+  buildCompactHarness,
   buildStorageHarness,
   isStorageHarnessPart,
 } from "./server-storage-harness.ts";
@@ -733,6 +734,7 @@ export function createEquipmentAssembly(modelId: string): Assembly {
       (p.id === "nic-01" || p.id === "riser-01" || p.id === "io-01");
     if (
       model.category === "server" &&
+      p.id !== model.compactHarness?.backplane &&
       !onControllerMount &&
       !compactInterface
     ) {
@@ -826,7 +828,11 @@ export function createEquipmentAssembly(modelId: string): Assembly {
     root.add(group);
     groups.set(p.id, group);
     positions.set(p.id, group.position.clone());
-    if (model.rtcMount?.batteryId === p.id) continue;
+    if (
+      model.rtcMount?.batteryId === p.id ||
+      model.compactHarness?.harness === p.id
+    )
+      continue;
     if (model.storageHarness && isStorageHarnessPart(p.id)) continue;
     if (
       p.node === "memory" ||
@@ -916,6 +922,7 @@ export function createEquipmentAssembly(modelId: string): Assembly {
       box,
     );
   }
+  if (model.compactHarness) buildCompactHarness(groups, positions, box);
   if (model.storageHarness) buildStorageHarness(groups, positions, box);
   if (model.category === "server") seatProcessors(modelId, groups, positions);
   root.updateMatrixWorld(true);

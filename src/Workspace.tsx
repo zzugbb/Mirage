@@ -7657,7 +7657,9 @@ export function Workspace() {
                                 : assembly?.tool === "rear-interfaces"
                                   ? "网卡和转接架沿用贡献模型外观，管理接口区域按机型配置示意。网卡样板配置 A/B 两路逻辑端口，对应关系可在网络接入中查询。"
                                   : assembly?.tool === "storage-harness"
-                                    ? "背板接触区按八块硬盘的位置对齐。插头和线束绕行是内部装配示意，读数沿用部件模型。"
+                                    ? compactServer
+                                      ? "背板与控制卡的位置按 M1 外观定位。两端插头与侧边 SAS 走向为装配示意，时间分析显示部件模拟值。"
+                                      : "背板接触区按八块硬盘的位置对齐。插头和线束绕行是内部装配示意，读数沿用部件模型。"
                                     : assembly?.tool === "storage-controllers"
                                       ? "A/B 槽位来自机型配置。板卡、四个托盘支柱与抬起间距为装配示意，读数沿用所选控制器。"
                                       : entity.description}

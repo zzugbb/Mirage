@@ -112,6 +112,91 @@ test("精细 1U 模型保留内嵌贴图和材质，维护部件仍与八内存�
     assembly.groups.get("drives-01"),
   );
   await t.test(
+    "M1 四盘背板与控制卡两端贴合，侧边线束绕开主板和散热组件",
+    () => {
+      const check = assemblyChecks("srv-44", "cables-01")[0];
+      assert.equal(check?.tool, "storage-harness");
+      assert.ok("additionalPart" in check);
+      const { primary: board, companion: cable } = check.pairs[0],
+        card = check.additionalPart;
+      for (const id of ["srv-44", board.id, cable.id, card.id])
+        assert.ok(assemblyChecks("srv-44", id).includes(check));
+      for (const model of [assembly, createEquipmentAssembly("server-1u")]) {
+        const harness = model.groups.get(cable.id)!;
+        const wire = harness.children.find(
+          (o) => o instanceof THREE.Mesh && o.geometry.type === "TubeGeometry",
+        ) as THREE.Mesh<THREE.TubeGeometry>;
+        const vertices = wire.geometry.attributes.position;
+        const obstacles = [
+          "fans-01",
+          "duct-01",
+          "memory-01",
+          "cpu-01",
+          "cpu-02",
+          "psu-01",
+          "psu-02",
+        ].map((id) => new THREE.Box3().setFromObject(model.groups.get(id)!));
+        const from = new THREE.Vector3(),
+          to = new THREE.Vector3(),
+          direction = new THREE.Vector3();
+        const ray = new THREE.Raycaster();
+        const steps = wire.geometry.parameters.radialSegments + 1;
+        const boardObjects = ["board-01", "riser-01"].map((id) =>
+          model.groups.get(id)!,
+        );
+        for (let i = 0; i < vertices.count; i++) {
+          from.fromBufferAttribute(vertices, i).applyMatrix4(wire.matrixWorld);
+          assert.ok(
+            obstacles.every((box) => !box.containsPoint(from)),
+            "绕开散热与供电组件",
+          );
+          if (i + steps >= vertices.count) continue;
+          // 主板和转接架的外廓含有留空区，逐段检查导线外缘与实体三角面。
+          to.fromBufferAttribute(vertices, i + steps).applyMatrix4(
+            wire.matrixWorld,
+          );
+          ray.far = direction.subVectors(to, from).length();
+          ray.set(from, direction.normalize());
+          assert.equal(
+            ray.intersectObjects(boardObjects).length,
+            0,
+            "线束避开板上凸起",
+          );
+        }
+        for (const amount of [0, check.startExplosion, 1, 0]) {
+          for (const part of [board, cable, card]) {
+            const base = model.positions.get(part.id)!.toArray();
+            model.groups
+              .get(part.id)!
+              .position.fromArray(
+                assemblyPartPosition({ ...part, position: base }, amount, 1),
+              );
+          }
+          model.root.updateMatrixWorld(true);
+          for (const [part, plugName] of [
+            [board, "backplane-plug"],
+            [card, "controller-plug"],
+          ] as const) {
+            const socket = new THREE.Box3().setFromObject(
+              model.groups.get(part.id)!.getObjectByName("harness-socket")!,
+            );
+            const plug = new THREE.Box3().setFromObject(
+              harness.getObjectByName(plugName)!,
+            );
+            const a = socket.getCenter(from),
+              b = plug.getCenter(to);
+            assert.ok(
+              Math.abs(a.x - b.x) < 1e-6 &&
+                Math.abs(a.y - b.y) < 1e-6 &&
+                Math.abs(socket.max.z - plug.min.z) < 1e-6,
+              part.slot,
+            );
+          }
+        }
+      }
+    },
+  );
+  await t.test(
     "机后网卡、转接架与管理接口在简模和精模对齐机后面，展开时保留三件身份",
     () => {
       const check = assemblyChecks("srv-53").find(
@@ -190,8 +275,13 @@ test("精细 1U 模型保留内嵌贴图和材质，维护部件仍与八内存�
       )!;
       const { primary: card, companion: board } = check.pairs[0];
       assert.deepEqual([card.slot, board.slot], ["RAID", "MB-01"]);
-      for (const member of [card, board])
-        assert.deepEqual(assemblyChecks("srv-53", member.id), [check]);
+      assert.deepEqual(assemblyChecks("srv-53", board.id), [check]);
+      assert.deepEqual(
+        assemblyChecks("srv-53", card.id)
+          .map((item) => item.tool)
+          .sort(),
+        ["controller-mount", "storage-harness"],
+      );
       for (const device of devices)
         assert.equal(
           assemblyChecks(device.id).some((tool) => tool.tool === check.tool),

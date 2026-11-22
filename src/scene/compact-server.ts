@@ -66,7 +66,17 @@ export function mapCompactServer(root: THREE.Group) {
     }
   }
   const supplement = createEquipmentAssembly("server-1u");
-  for (const id of modelById("server-1u").parts) {
+  const model = modelById("server-1u");
+  for (const id of [
+    model.compactHarness!.backplane,
+    model.controllerMount!.controllerId,
+  ]) {
+    const socket = supplement.groups
+      .get(id)!
+      .getObjectByName("harness-socket")!;
+    groups.get(id)!.attach(socket);
+  }
+  for (const id of model.parts) {
     if (groups.has(id)) continue;
     const group = supplement.groups.get(id)!;
     root.attach(group);
