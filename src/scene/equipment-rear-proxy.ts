@@ -95,6 +95,16 @@ export function createEquipmentRearProxy(modelId: string) {
           y + sign * h * 0.37,
           face - detailDepth / 2,
         );
+    } else if (panel.kind === "expansion") {
+      box(
+        "inset",
+        w * 0.78,
+        h * 0.36,
+        detailDepth,
+        x,
+        y,
+        face - detailDepth / 2,
+      );
     } else {
       // 接口区域只表示轮廓，不按这些矩形定位网络逻辑端口。
       for (const sign of [-1, 1])

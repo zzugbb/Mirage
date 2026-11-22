@@ -262,6 +262,109 @@ function expansionPart(
       );
   }
 }
+// M1 的网卡、转接架和管理接口以机后面板为基准，接口外形为分区示意。
+function compactRearInterface(
+  root: THREE.Group,
+  node: string,
+  size: number[],
+  box: Box,
+) {
+  const [w, h, d] = size;
+  const rear = -d / 2,
+    floor = -h / 2;
+  if (node === "adapter") {
+    box(root, [w, 0.0016, d], [0, floor + 0.0008, 0], "#305a49", 0.2);
+    box(
+      root,
+      [w * 0.33, h * 0.48, d * 0.26],
+      [0, floor + h * 0.24 + 0.0016, d * 0.08],
+      "#6f8186",
+    );
+    for (const side of [-1, 1]) {
+      const x = side * w * 0.25,
+        z = rear + 0.001;
+      box(
+        root,
+        [w * 0.32, h - 0.0016, 0.018],
+        [x, 0.0008, z + 0.009],
+        "#a3adb1",
+      );
+      box(
+        root,
+        [w * 0.25, h * 0.55, 0.001],
+        [x, 0.0008, z - 0.0005],
+        "#212b30",
+      );
+    }
+  } else if (node === "io") {
+    // 管理口只标出配置区域，露出侧边固定片和后方小板。
+    box(root, [w, h, 0.0015], [0, 0, rear + 0.002], "#9ba6a8");
+    box(
+      root,
+      [w * 0.8, 0.0016, d - 0.003],
+      [0, floor + 0.001, 0.0015],
+      "#35594b",
+      0.2,
+    );
+    box(
+      root,
+      [0.019, h * 0.82, d * 0.74],
+      [0, 0, rear + d * 0.37 + 0.001],
+      "#99a3a8",
+    );
+    box(root, [0.015, h * 0.55, 0.001], [0, 0, rear + 0.0005], "#20292e");
+    for (const side of [-1, 1])
+      box(
+        root,
+        [0.0028, 0.0028, 0.001],
+        [side * w * 0.44, 0, rear + 0.00075],
+        "#566167",
+      );
+  } else {
+    box(
+      root,
+      [w * 0.94, 0.002, d * 0.42],
+      [0, h * 0.12, rear + d * 0.21 + 0.003],
+      "#9ca6a9",
+    );
+    box(
+      root,
+      [0.002, h * 0.82, d * 0.56],
+      [-w * 0.22, 0, rear + d * 0.58],
+      "#305749",
+    );
+    box(
+      root,
+      [0.008, h * 0.58, d * 0.42],
+      [-w * 0.22, 0, rear + d * 0.58],
+      "#252d30",
+    );
+    box(root, [w, h, 0.002], [0, 0, rear + 0.002], "#9ca6a9");
+    for (const side of [-1, 1]) {
+      box(
+        root,
+        [w * 0.38, h * 0.6, 0.001],
+        [side * w * 0.25, 0, rear + 0.0005],
+        "#30393f",
+      );
+      // 上部支承向机内收窄，为下层网卡留出空间。
+      const length = side < 0 ? d : d * 0.44;
+      box(
+        root,
+        [0.002, h, length - 0.003],
+        [side * (w / 2 - 0.001), 0, rear + (length + 0.003) / 2],
+        "#899398",
+      );
+      box(
+        root,
+        [w * 0.08, 0.0015, length - 0.003],
+        [side * w * 0.46, h / 2 - 0.00075, rear + (length + 0.003) / 2],
+        "#9ba5aa",
+      );
+    }
+  }
+}
+
 /** 2U 配置示意的折弯罩体，前后敞开，折肩给机盖边缘留出净空。 */
 function foldedAirDuct(size: number[]) {
   const [width, height, depth] = size;
@@ -620,7 +723,14 @@ export function createEquipmentAssembly(modelId: string): Assembly {
     const mount = model.controllerMount;
     const onControllerMount =
       mount && (p.id === mount.boardId || p.id === mount.controllerId);
-    if (model.category === "server" && !onControllerMount) {
+    const compactInterface =
+      model.id === "server-1u" &&
+      (p.id === "nic-01" || p.id === "riser-01" || p.id === "io-01");
+    if (
+      model.category === "server" &&
+      !onControllerMount &&
+      !compactInterface
+    ) {
       if (p.id === "lid-01") {
         pos.splice(0, 3, 0, h / 2, 0);
         size.splice(0, 3, 0.44, 0.002, depth);
@@ -643,11 +753,6 @@ export function createEquipmentAssembly(modelId: string): Assembly {
           model.memoryLayout?.centerZ ?? -0.09,
         );
         size.splice(0, 3, 0.39, 0.03125, 0.13335);
-      }
-      if (!model.expansionBay && (p.id === "nic-01" || p.id === "riser-01")) {
-        pos.splice(0, 3, 0.04, 0.003, -depth / 2 + 0.065);
-        size[0] = 0.065;
-        size[2] = 0.1;
       }
       if (p.id === "io-01") {
         const panel = model.rearPanels.find(
@@ -757,6 +862,7 @@ export function createEquipmentAssembly(modelId: string): Assembly {
         ].includes(p.id)
       )
         expansionPart(group, p, box);
+      else if (compactInterface) compactRearInterface(group, p.node, size, box);
       else if (mount && p.id === mount.controllerId) {
         // 按控制卡节点外廓画底座、板体与上部组件，外部端口归属独立网卡。
         const [w, h, d] = size;

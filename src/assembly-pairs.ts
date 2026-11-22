@@ -89,6 +89,22 @@ const checks = {
     processorCheck("server-1u"),
     serverPowerCheck("server-1u"),
     {
+      tool: "rear-interfaces",
+      name: "机后扩展区",
+      entry: "核对机后扩展区",
+      detail: "对照网卡、转接架和按配置示意的管理接口",
+      memberLabel: "机后扩展部件",
+      labels: ["双口网卡", "转接架", "管理接口"],
+      additionalPart: compactParts.find((part) => part.id === "io-01")!,
+      startExplosion: 0.45,
+      pairs: [
+        {
+          primary: compactParts.find((part) => part.id === "nic-01")!,
+          companion: compactParts.find((part) => part.id === "riser-01")!,
+        },
+      ],
+    },
+    {
       tool: "controller-mount",
       name: "控制卡装配",
       entry: "核对存储控制卡与主板",
@@ -132,6 +148,7 @@ const checks = {
     serverPowerCheck("server-2u"),
     {
       tool: "expansion-bay",
+      memberLabel: "PCIe 扩展部件",
       name: "PCIe 扩展区",
       entry: "核对网卡与转接架",
       detail: "从机后对照双口网卡、承载它的 01 架和相邻的 02 架",

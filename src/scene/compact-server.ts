@@ -37,7 +37,8 @@ export function mapCompactServer(root: THREE.Group) {
     "nic-01": ["compact_nic"],
     "raid-01": ["compact_controller"],
     "duct-01": ["compact_airduct"],
-    "io-01": ["compact_io"],
+    // 此节点包含机后支架及竖直转接板，管理接口另按配置示意。
+    "riser-01": ["compact_io"],
   };
   for (const [id, names] of Object.entries(mapping)) attach(id, names);
   for (let i = 1; i <= 8; i++)
@@ -69,6 +70,11 @@ export function mapCompactServer(root: THREE.Group) {
     if (groups.has(id)) continue;
     const group = supplement.groups.get(id)!;
     root.attach(group);
+    if (id === "io-01") {
+      // 贡献外观和简模的机箱深度不同，以已映射网卡的机后面为共同基准。
+      const rear = new THREE.Box3().setFromObject(groups.get("nic-01")!).min.z;
+      group.position.z += rear - new THREE.Box3().setFromObject(group).min.z;
+    }
     groups.set(id, group);
     positions.set(id, group.position.clone());
   }

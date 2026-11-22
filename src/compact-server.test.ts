@@ -112,6 +112,77 @@ test("精细 1U 模型保留内嵌贴图和材质，维护部件仍与八内存�
     assembly.groups.get("drives-01"),
   );
   await t.test(
+    "机后网卡、转接架与管理接口在简模和精模对齐机后面，展开时保留三件身份",
+    () => {
+      const check = assemblyChecks("srv-53").find(
+        (item) => item.tool === "rear-interfaces",
+      )!;
+      const { primary: nic, companion: riser } = check.pairs[0];
+      assert.ok("additionalPart" in check);
+      const io = check.additionalPart;
+      assert.deepEqual(
+        [nic.slot, riser.slot, io.slot],
+        ["NIC", "PCIe-01", "MGMT"],
+      );
+      assert.ok(assembly.groups.get(riser.id)!.getObjectByName("compact_io"));
+      assert.ok(assembly.groups.get(nic.id)!.getObjectByName("compact_nic"));
+      for (const part of [nic, riser, io])
+        assert.deepEqual(assemblyChecks("srv-53", part.id), [check]);
+      for (const device of devices)
+        assert.equal(
+          assemblyChecks(device.id).includes(check),
+          device.modelId === "server-1u",
+        );
+      const fallback = createEquipmentAssembly("server-1u");
+      for (const model of [assembly, fallback]) {
+        const adapter = model.groups.get(nic.id)!,
+          upper = model.groups.get(riser.id)!,
+          mgmt = model.groups.get(io.id)!;
+        const bounds = (mesh: THREE.Group) =>
+          new THREE.Box3().setFromObject(mesh);
+        for (const [part, group] of [
+          [nic, adapter],
+          [riser, upper],
+          [io, mgmt],
+        ] as const) {
+          const box = bounds(group);
+          assert.ok(
+            Math.abs(box.getCenter(new THREE.Vector3()).x - part.position[0]) <
+              0.0001,
+          );
+          assert.ok(
+            Math.abs(box.getSize(new THREE.Vector3()).z - part.size[2]) <
+              0.0001,
+          );
+        }
+        assert.ok(
+          Math.abs(bounds(adapter).min.z - bounds(upper).min.z) < 0.001,
+        );
+        assert.ok(bounds(mgmt).max.x < bounds(adapter).min.x);
+        assert.ok(Math.abs(bounds(mgmt).min.z - bounds(adapter).min.z) < 0.001);
+        for (const amount of [check.startExplosion, 1, 0]) {
+          for (const [part, group] of [
+            [nic, adapter],
+            [riser, upper],
+            [io, mgmt],
+          ] as const) {
+            const position = model.positions.get(part.id)!.toArray();
+            group.position.fromArray(
+              assemblyPartPosition({ ...part, position }, amount, 1),
+            );
+          }
+          if (amount) {
+            assert.ok(bounds(adapter).max.y < bounds(upper).min.y);
+            assert.ok(bounds(adapter).min.z < bounds(upper).min.z);
+          }
+        }
+        assert.ok(
+          Math.abs(bounds(adapter).min.z - bounds(upper).min.z) < 0.001,
+        );
+      }
+    },
+  );
+  await t.test(
     "M1 存储控制卡在精模和简模均贴合主板，展开及复原保持对位",
     () => {
       const check = assemblyChecks("srv-53").find(
