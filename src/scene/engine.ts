@@ -2772,6 +2772,10 @@ export class SceneEngine {
       const position = assemblyPartPosition(
         { ...part, position: base },
         processorSeat ||
+          (this.layerScopeId === "rear-seat" &&
+            (part.node === "adapter" ||
+              part.node === "riser" ||
+              part.id === "riser-01")) ||
           (this.layerScopeId === "bay-contact" && part.node === "psu") ||
           (isAsicBoardStage(this.layerScopeId) &&
             (part.id === "net-board" || part.id === "net-asic")) ||

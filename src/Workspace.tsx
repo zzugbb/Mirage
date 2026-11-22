@@ -8,6 +8,7 @@ import {
   assemblyMember,
   rearMemberLayer,
   controllerLayer,
+  adapterMountLayer,
   processorLayer,
   switchRear,
   fanContactStages,
@@ -550,17 +551,22 @@ export function Workspace() {
             rearLayout.members.some((part) => part.id === selected)),
       )
     : undefined;
-  const selectedLayer =
-    rearLayer ??
-    (assembly &&
-    "layer" in assembly &&
-    activePair &&
-    ("partId" in assembly.layer
-      ? assembly.layer.partId === selected
-      : assembly.layer.members === "both" ||
-        activePair[assembly.layer.members].id === selected)
-      ? assembly.layer
-      : undefined);
+  const rearMount =
+    (assembly?.tool === "rear-interfaces" ||
+      assembly?.tool === "expansion-bay") &&
+    (selected === "nic-01" || selected === "riser-01");
+  const selectedLayer = rearMount
+    ? adapterMountLayer
+    : (rearLayer ??
+      (assembly &&
+      "layer" in assembly &&
+      activePair &&
+      ("partId" in assembly.layer
+        ? assembly.layer.partId === selected
+        : assembly.layer.members === "both" ||
+          activePair[assembly.layer.members].id === selected)
+        ? assembly.layer
+        : undefined));
   const cageSelection =
     assembly?.tool === "switch-front"
       ? switchCageSelection(pairVisit?.layerScopeId)
@@ -5848,24 +5854,26 @@ export function Workspace() {
                       : layerPose
             }
             layerScopeId={
-              fanShaft
-                ? fanShaft.stage + ":" + fanShaft.rotor
-                : (activeStorageVisit?.mode === "tray" ||
-                      activeStorageVisit?.mode === "disk") &&
-                    activeStorageVisit.trayStage !== "drive"
-                  ? activeStorageVisit.trayStage
-                  : processorInspection && layerPose && activePair
-                    ? processorStage + ":" + activePair.primary.id
-                    : contactFan && fanStage
-                      ? fanStage.id + ":" + contactFan.id
-                      : pathContact
-                        ? station.id
-                        : layerPose &&
-                            (assembly?.tool === "switch-front" ||
-                              stagedLayer ||
-                              controllerInspection)
-                          ? pairVisit?.layerScopeId
-                          : undefined
+              rearMount && layerPose
+                ? "rear-seat"
+                : fanShaft
+                  ? fanShaft.stage + ":" + fanShaft.rotor
+                  : (activeStorageVisit?.mode === "tray" ||
+                        activeStorageVisit?.mode === "disk") &&
+                      activeStorageVisit.trayStage !== "drive"
+                    ? activeStorageVisit.trayStage
+                    : processorInspection && layerPose && activePair
+                      ? processorStage + ":" + activePair.primary.id
+                      : contactFan && fanStage
+                        ? fanStage.id + ":" + contactFan.id
+                        : pathContact
+                          ? station.id
+                          : layerPose &&
+                              (assembly?.tool === "switch-front" ||
+                                stagedLayer ||
+                                controllerInspection)
+                            ? pairVisit?.layerScopeId
+                            : undefined
             }
             dimmPose={dimmPose}
             rearRowPose={
@@ -6761,11 +6769,13 @@ export function Workspace() {
                             );
                         }}
                       >
-                        {processorInspection
-                          ? "核对安装面"
-                          : powerBayPose
-                            ? "核对电源接合"
-                            : "分层查看"}
+                        {rearMount
+                          ? "核对安装位"
+                          : processorInspection
+                            ? "核对安装面"
+                            : powerBayPose
+                              ? "核对电源接合"
+                              : "分层查看"}
                       </button>
                     )}
                   </div>
@@ -8339,9 +8349,9 @@ export function Workspace() {
                                       : assembly?.tool === "rtc-mount"
                                         ? "RTC 位置取自主板外观。电池座、触片与抬起间距为装配示意，电池电压和电量未接入。"
                                         : assembly?.tool === "expansion-bay"
-                                          ? "机后面板分区按 M2 配置定位。管理接口板、支架和分层间距为装配示意。A/B 两路逻辑接入归属双口网卡。"
+                                          ? "机后面板分区按 M2 配置定位。网卡装在 01 架，02 架为空架。管理接口板、罩脚与贯通孔、支架及行程为装配示意。A/B 两路逻辑接入归属双口网卡。"
                                           : assembly?.tool === "rear-interfaces"
-                                            ? "网卡与转接架的精细外观来自贡献模型。管理面板按 M1 配置定位。接口板、导轨、屏蔽罩四脚、板孔及绝缘座为原创装配示意。A/B 两路逻辑接入归属网卡，部件读数来自模拟。"
+                                            ? "网卡与上方转接架的精细外观来自贡献模型。核对安装位时，两件分别对照按原外廓绘制的机后孔缘。管理面板按 M1 配置定位。接口板、导轨、屏蔽罩四脚、板孔及绝缘座为原创装配示意。A/B 两路逻辑接入归属网卡，部件读数来自模拟。"
                                             : assembly?.tool ===
                                                 "storage-harness"
                                               ? compactServer

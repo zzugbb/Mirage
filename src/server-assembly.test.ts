@@ -16,7 +16,7 @@ import { deviceHeight, devices, rackForDevice } from "./installation.ts";
 import { inletPart } from "./power-config.ts";
 import { sourcePorts } from "./network.ts";
 import { powerScene } from "./power-paths.ts";
-import { poseAssemblyLayer } from "./scene/assembly-layer.ts";
+import { layerScopeFor, poseAssemblyLayer } from "./scene/assembly-layer.ts";
 import { replaceRtcProxy } from "./scene/rtc-mount.ts";
 import { createEquipmentAssembly } from "./scene/equipment-model.ts";
 
@@ -388,5 +388,73 @@ test("M2 原主板电池外形只替换一次，简模与详细板面均承托 R
       bounds("rtc-holder-base").equals(holder) &&
         bounds("rtc-floor-contact").equals(pad),
     );
+  }
+});
+
+test("服务器机后安装位只有一套活动件，M1 两圈孔缘与 M2 原架分别留在安装面", () => {
+  for (const model of ["server-1u", "server-2u"]) {
+    const { root, groups } = createEquipmentAssembly(model);
+    for (const id of ["nic-01", "riser-01"]) {
+      const part = groups.get(id)!,
+        scope = layerScopeFor(part, "rear-seat")!;
+      const body = scope.moving,
+        fixed = scope.members[1];
+      assert.equal(
+        body.getObjectsByProperty("name", "rear-moving-body").length,
+        1,
+      );
+      if (model === "server-1u")
+        assert.deepEqual(
+          root.getObjectsByProperty("name", "rear-aperture-" + id),
+          [fixed],
+        );
+      const bb = (o: typeof body) => new Box3().setFromObject(o, true);
+      const home = bb(body),
+        seat = bb(fixed);
+      for (const open of [true, false]) {
+        poseAssemblyLayer(scope.layerRoot, open);
+        root.updateWorldMatrix(true, true);
+        assert.ok(bb(fixed).equals(seat));
+        if (open) assert.ok(bb(body).min.distanceTo(home.min) > 0.03);
+        else assert.ok(bb(body).equals(home));
+      }
+    }
+  }
+});
+test("M2 屏蔽罩的四只脚通过接口板长孔，抬罩后孔缘和绝缘座留在原板", () => {
+  const { root, groups } = createEquipmentAssembly("server-2u"),
+    part = groups.get("io-01")!;
+  const scope = layerScopeFor(part, "management-feet")!;
+  const feet = scope.moving.getObjectsByProperty(
+    "name",
+    "management-cage-foot",
+  );
+  const rims = part.getObjectsByProperty("name", "management-slot-rim");
+  assert.equal(feet.length, 4);
+  assert.equal(rims.length, 4);
+  poseAssemblyLayer(part, true);
+  root.updateWorldMatrix(true, true);
+  const pcb = part.getObjectByName("management-pcb")!,
+    fixed = new Box3().setFromObject(pcb);
+  for (const open of [true, false]) {
+    poseAssemblyLayer(scope.layerRoot, open);
+    root.updateWorldMatrix(true, true);
+    assert.ok(new Box3().setFromObject(pcb).equals(fixed));
+    for (const [i, foot] of feet.entries()) {
+      const a = new Box3().setFromObject(foot),
+        c = a.getCenter(new Vector3()),
+        d = rims[i].getWorldPosition(new Vector3());
+      assert.ok(Math.abs(c.x - d.x) + Math.abs(c.z - d.z) < 1e-7);
+      assert.equal(a.min.y > fixed.max.y, open);
+      for (const x of [a.min.x, a.max.x])
+        for (const z of [a.min.z, a.max.z])
+          assert.equal(
+            new Raycaster(
+              new Vector3(x, fixed.min.y - 0.01, z),
+              new Vector3(0, 1, 0),
+            ).intersectObject(pcb).length,
+            0,
+          );
+    }
   }
 });

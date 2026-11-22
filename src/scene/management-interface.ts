@@ -83,6 +83,128 @@ function portHousing(
   ).name = "management-port-backing";
 }
 
+function portAssembly(
+  module: Group,
+  portW: number,
+  portH: number,
+  portD: number,
+  rear: number,
+  sheet: number,
+  box: Box,
+) {
+  const connector = new Group(),
+    shield = new Group(),
+    insert = new Group();
+  connector.name = "management-connector";
+  shield.name = "management-shield";
+  insert.name = "management-insulator";
+  module.add(connector);
+  connector.add(shield, insert);
+  portHousing(insert, portW, portH, portD, rear, sheet, box, shield);
+  const tongueD = portD * 0.53;
+  box(
+    insert,
+    [portW * 0.68, sheet * 0.75, tongueD],
+    [0, -portH * 0.19, rear + portD - sheet - tongueD / 2],
+    "#596775",
+  ).name = "management-tongue";
+  return { connector, shield };
+}
+function portFeet(
+  module: Group,
+  shield: Group,
+  middle: Shape,
+  portW: number,
+  sheet: number,
+  boardTop: number,
+  boardMid: number,
+  firstZ: number,
+  lastZ: number,
+  box: Box,
+) {
+  const boardBottom = boardTop - sheet;
+  const lands = new Group();
+  lands.name = "management-slot-rims";
+  module.add(lands);
+  for (const side of [-1, 1]) {
+    const x = (side * (portW - sheet)) / 2;
+    for (const [z, tabD] of [
+      [firstZ, sheet * 1.2],
+      [lastZ, sheet * 1.8],
+    ]) {
+      const tabW = sheet * 0.76,
+        tabH = sheet * 1.55;
+      box(
+        shield,
+        [tabW, tabH, tabD],
+        [x, boardTop - tabH / 2, z],
+        "#97a5ac",
+      ).name = "management-cage-foot";
+      const slotW = tabW + 0.00036,
+        slotD = tabD + 0.00036;
+      const slot = new Path();
+      slot.moveTo(x - slotW / 2, boardMid - z - slotD / 2);
+      slot.lineTo(x - slotW / 2, boardMid - z + slotD / 2);
+      slot.lineTo(x + slotW / 2, boardMid - z + slotD / 2);
+      slot.lineTo(x + slotW / 2, boardMid - z - slotD / 2);
+      slot.closePath();
+      middle.holes.push(slot);
+      const ring = outline(
+        slotW + sheet * 0.9,
+        slotD + sheet * 0.9,
+        sheet * 0.18,
+      );
+      ring.holes.push(outline(slotW, slotD, 0));
+      // 焊盘仅在板底，板面与屏蔽罩侧壁保持直接贴合。
+      const rim = plate(
+        lands,
+        "management-slot-rim",
+        ring,
+        "#b89b67",
+        0.5,
+        0.00006,
+      );
+      rim.rotation.x = Math.PI / 2;
+      rim.position.set(x, boardBottom, z);
+    }
+  }
+  return lands;
+}
+function registerPortShield(
+  root: Group,
+  module: Group,
+  connector: Group,
+  shield: Group,
+  center: Mesh,
+  lands: Group,
+) {
+  const mount = modelById("server-1u").managementSlide!;
+  for (const [id, holder, direction, members] of [
+    ["management-shield", shield, mount.shield.focusDirection, [module]],
+    [
+      "management-feet",
+      connector,
+      mount.boardBottomDirection,
+      [center, lands, shield],
+    ],
+  ] as const) {
+    const [dx, dy, dz] = direction;
+    registerLayer(holder, {
+      node: shield.name,
+      offset: [0, mount.shield.lift, 0],
+      direction: [dx, dy, dz],
+    });
+    registerLayerScope(root, id, {
+      layerRoot: holder,
+      moving: shield,
+      members: [...members],
+      extractedLayers: [root],
+      selectedBranch: shield,
+      selectionPadding: 0.00055,
+    });
+  }
+}
+
 // M2 的 MGMT 面板、支承和板上接口共用一个维护身份，机后朝 -Z。
 export function managementInterface(root: Group, size: number[], box: Box) {
   const [w, h, d] = size;
@@ -98,8 +220,8 @@ export function managementInterface(root: Group, size: number[], box: Box) {
   const faceShape = outline(w, h, 0.002);
   faceShape.holes.push(outline(apertureW, apertureH, 0.0007));
   for (const side of [-1, 1]) bore(faceShape, side * w * 0.4, 0, 0.0018);
-  plate(root, "management-face", faceShape, metal, 0.58, sheet).position.z =
-    rear;
+  const face = plate(root, "management-face", faceShape, metal, 0.58, sheet);
+  face.position.z = rear;
   box(
     root,
     [w, sheet, d - sheet],
@@ -154,6 +276,29 @@ export function managementInterface(root: Group, size: number[], box: Box) {
       pad.position.set(x, boardBottom + sheet + 0.00001, z);
       module.add(pad);
     }
+  const front = rear + 0.004,
+    depth = d * 0.42;
+  const { connector, shield } = portAssembly(
+    module,
+    portW,
+    portH,
+    depth,
+    front,
+    sheet,
+    box,
+  );
+  const lands = portFeet(
+    module,
+    shield,
+    boardShape,
+    portW,
+    sheet,
+    boardBottom + sheet,
+    sheet,
+    front + sheet * 1.7,
+    front + depth - sheet * 1.35,
+    box,
+  );
   const substrate = plate(
     module,
     "management-pcb",
@@ -165,9 +310,14 @@ export function managementInterface(root: Group, size: number[], box: Box) {
   substrate.rotation.x = -Math.PI / 2;
   substrate.position.set(0, boardBottom, sheet);
 
-  const front = rear + 0.004,
-    depth = d * 0.42;
-  portHousing(module, portW, portH, depth, front, sheet, box);
+  registerLayerScope(root, "management-mouth", {
+    layerRoot: root,
+    moving: connector,
+    members: [face, connector],
+    selectedBranch: shield,
+    selectionPadding: 0.0005,
+  });
+  registerPortShield(root, module, connector, shield, substrate, lands);
   box(
     module,
     [w * 0.17, 0.002, boardDepth * 0.23],
@@ -254,23 +404,16 @@ export function compactManagementInterface(
   const module = new Group();
   module.name = "management-module";
   root.add(module);
-  const connector = new Group(),
-    shield = new Group(),
-    insert = new Group();
-  connector.name = "management-connector";
-  shield.name = "management-shield";
-  insert.name = "management-insulator";
-  module.add(connector);
-  connector.add(shield, insert);
   const portD = d * 0.62;
-  portHousing(insert, portW, portH, portD, rear, sheet, box, shield);
-  const tongueD = portD * 0.53;
-  box(
-    insert,
-    [portW * 0.68, sheet * 0.75, tongueD],
-    [0, -portH * 0.19, rear + portD - sheet - tongueD / 2],
-    "#596775",
-  ).name = "management-tongue";
+  const { connector, shield } = portAssembly(
+    module,
+    portW,
+    portH,
+    portD,
+    rear,
+    sheet,
+    box,
+  );
   // 板中段保留四个贯通长孔。两侧板边仍落在原有导轨上。
   const pcb = new Group();
   pcb.name = "management-pcb";
@@ -279,9 +422,6 @@ export function compactManagementInterface(
     boardD = boardEnd - boardStart,
     boardMid = (boardStart + boardEnd) / 2;
   const middle = outline(localW, boardD, 0);
-  const lands = new Group();
-  lands.name = "management-slot-rims";
-  module.add(lands);
   for (const side of [-1, 1]) {
     const wingW = (boardW - localW) / 2;
     box(
@@ -291,47 +431,19 @@ export function compactManagementInterface(
       "#305b4b",
       0.22,
     ).name = "management-board-edge";
-    const x = (side * (portW - sheet)) / 2;
-    for (const [z, tabD] of [
-      [boardStart + sheet * 1.7, sheet * 1.2],
-      [rear + portD - sheet * 1.35, sheet * 1.8],
-    ]) {
-      const tabW = sheet * 0.76,
-        tabH = sheet * 1.55;
-      box(
-        shield,
-        [tabW, tabH, tabD],
-        [x, boardTop - tabH / 2, z],
-        "#97a5ac",
-      ).name = "management-cage-foot";
-      const slotW = tabW + 0.00036,
-        slotD = tabD + 0.00036;
-      const slot = new Path();
-      slot.moveTo(x - slotW / 2, boardMid - z - slotD / 2);
-      slot.lineTo(x - slotW / 2, boardMid - z + slotD / 2);
-      slot.lineTo(x + slotW / 2, boardMid - z + slotD / 2);
-      slot.lineTo(x + slotW / 2, boardMid - z - slotD / 2);
-      slot.closePath();
-      middle.holes.push(slot);
-      const ring = outline(
-        slotW + sheet * 0.9,
-        slotD + sheet * 0.9,
-        sheet * 0.18,
-      );
-      ring.holes.push(outline(slotW, slotD, 0));
-      // 焊盘仅在板底，板面与屏蔽罩侧壁保持直接贴合。
-      const rim = plate(
-        lands,
-        "management-slot-rim",
-        ring,
-        "#b89b67",
-        0.5,
-        0.00006,
-      );
-      rim.rotation.x = Math.PI / 2;
-      rim.position.set(x, boardBottom, z);
-    }
   }
+  const lands = portFeet(
+    module,
+    shield,
+    middle,
+    portW,
+    sheet,
+    boardTop,
+    boardMid,
+    boardStart + sheet * 1.7,
+    rear + portD - sheet * 1.35,
+    box,
+  );
   const center = plate(
     pcb,
     "management-board-center",
@@ -369,30 +481,7 @@ export function compactManagementInterface(
     selectedBranch: shield,
     selectionPadding: 0.0005,
   });
-  for (const [id, holder, direction, members] of [
-    ["management-shield", shield, mount.shield.focusDirection, [module]],
-    [
-      "management-feet",
-      connector,
-      mount.boardBottomDirection,
-      [center, lands, shield],
-    ],
-  ] as const) {
-    const [dx, dy, dz] = direction;
-    registerLayer(holder, {
-      node: shield.name,
-      offset: [0, mount.shield.lift, 0],
-      direction: [dx, dy, dz],
-    });
-    registerLayerScope(root, id, {
-      layerRoot: holder,
-      moving: shield,
-      members: [...members],
-      extractedLayers: [root],
-      selectedBranch: shield,
-      selectionPadding: 0.00055,
-    });
-  }
+  registerPortShield(root, module, connector, shield, center, lands);
   for (const side of [-1, 1]) {
     const chipX = side * boardW * 0.31;
     for (const pin of [-1.5, -0.5, 0.5, 1.5])

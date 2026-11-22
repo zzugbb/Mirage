@@ -378,6 +378,32 @@ const diskLayer = {
   seated: "合回上盖",
   separated: "抬起上盖",
 } as const;
+const managementPortStages = [
+  {
+    id: "management-mouth",
+    name: "孔缘与笼口",
+    seated: "对准面板",
+    separated: "退出孔缘",
+  },
+  {
+    id: "management-shield",
+    name: "屏蔽罩与绝缘座",
+    seated: "放回屏蔽罩",
+    separated: "抬起屏蔽罩",
+  },
+  {
+    id: "management-feet",
+    name: "板底四个插脚",
+    seated: "插脚归位",
+    separated: "退出板孔",
+  },
+] as const;
+export const adapterMountLayer = {
+  label: "机后安装位",
+  scope: "安装位姿态",
+  seated: "放回安装位",
+  separated: "移开部件",
+} as const;
 const checks = {
   "server-1u": [
     {
@@ -418,24 +444,7 @@ const checks = {
             seated: "推回接口板",
             separated: "滑出接口板",
           },
-          {
-            id: "management-mouth",
-            name: "孔缘与笼口",
-            seated: "对准面板",
-            separated: "退出孔缘",
-          },
-          {
-            id: "management-shield",
-            name: "屏蔽罩与绝缘座",
-            seated: "放回屏蔽罩",
-            separated: "抬起屏蔽罩",
-          },
-          {
-            id: "management-feet",
-            name: "板底四个插脚",
-            seated: "插脚归位",
-            separated: "退出板孔",
-          },
+          ...managementPortStages,
         ],
         label: "管理接口板与导轨",
         scope: "管理接口板姿态",
@@ -542,6 +551,16 @@ const checks = {
       detail: "从机后对照管理接口、双口网卡和两只转接架，可分层查看管理接口板",
       layer: {
         members: "companion",
+        stageLabel: "接口核查位置",
+        stages: [
+          {
+            id: "",
+            name: "接口板与四柱",
+            seated: "放回支架",
+            separated: "抬起接口板",
+          },
+          ...managementPortStages,
+        ],
         label: "管理接口板与支架",
         scope: "管理接口板姿态",
         seated: "放回支架",

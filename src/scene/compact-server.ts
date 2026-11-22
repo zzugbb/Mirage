@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { registerServerRearMounts } from "./server-rear-mount.ts";
 import { buildServerFanMounts } from "./server-fan-mount.ts";
 import { buildServerPowerContacts } from "./server-power-contact.ts";
 import { registerCompactProcessorSeats } from "./compact-processors.ts";
@@ -115,6 +116,7 @@ export function mapCompactServer(root: THREE.Group) {
     group.position.copy(center);
     groups.set(id, group);
   }
+  registerServerRearMounts(groups, model.id, makeEquipmentBox());
   buildServerFanMounts(groups, model.id);
   buildServerPowerContacts(groups, makeEquipmentBox(), "server-1u");
   registerCompactProcessorSeats(groups);
