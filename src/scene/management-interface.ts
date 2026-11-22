@@ -8,7 +8,7 @@ import {
   Shape,
 } from "three";
 import { modelById } from "../catalog.ts";
-import { registerLayer } from "./assembly-layer.ts";
+import { registerLayer, registerLayerScope } from "./assembly-layer.ts";
 import type { Box } from "./equipment-model.ts";
 
 function outline(width: number, height: number, corner: number) {
@@ -57,18 +57,19 @@ function portHousing(
   front: number,
   sheet: number,
   box: Box,
+  shield = module,
 ) {
   const metal = "#909ca3";
   // 壳体围出口腔，背衬在内端。打开时能从机后沿孔口看到内壁。
   for (const side of [-1, 1]) {
     box(
-      module,
+      shield,
       [sheet, portH, depth],
       [(side * (portW - sheet)) / 2, 0, front + depth / 2],
       metal,
     ).name = "management-port-side";
     box(
-      module,
+      side > 0 ? shield : module,
       [portW - 2 * sheet, sheet, depth],
       [0, (side * (portH - sheet)) / 2, front + depth / 2],
       metal,
@@ -253,14 +254,145 @@ export function compactManagementInterface(
   const module = new Group();
   module.name = "management-module";
   root.add(module);
+  const connector = new Group(),
+    shield = new Group(),
+    insert = new Group();
+  connector.name = "management-connector";
+  shield.name = "management-shield";
+  insert.name = "management-insulator";
+  module.add(connector);
+  connector.add(shield, insert);
+  const portD = d * 0.62;
+  portHousing(insert, portW, portH, portD, rear, sheet, box, shield);
+  const tongueD = portD * 0.53;
   box(
-    module,
-    [boardW, sheet, boardEnd - boardStart],
-    [0, boardTop - sheet / 2, (boardStart + boardEnd) / 2],
+    insert,
+    [portW * 0.68, sheet * 0.75, tongueD],
+    [0, -portH * 0.19, rear + portD - sheet - tongueD / 2],
+    "#596775",
+  ).name = "management-tongue";
+  // 板中段保留四个贯通长孔。两侧板边仍落在原有导轨上。
+  const pcb = new Group();
+  pcb.name = "management-pcb";
+  module.add(pcb);
+  const localW = portW + 6 * sheet,
+    boardD = boardEnd - boardStart,
+    boardMid = (boardStart + boardEnd) / 2;
+  const middle = outline(localW, boardD, 0);
+  const lands = new Group();
+  lands.name = "management-slot-rims";
+  module.add(lands);
+  for (const side of [-1, 1]) {
+    const wingW = (boardW - localW) / 2;
+    box(
+      pcb,
+      [wingW, sheet, boardD],
+      [(side * (localW + wingW)) / 2, boardTop - sheet / 2, boardMid],
+      "#305b4b",
+      0.22,
+    ).name = "management-board-edge";
+    const x = (side * (portW - sheet)) / 2;
+    for (const [z, tabD] of [
+      [boardStart + sheet * 1.7, sheet * 1.2],
+      [rear + portD - sheet * 1.35, sheet * 1.8],
+    ]) {
+      const tabW = sheet * 0.76,
+        tabH = sheet * 1.55;
+      box(
+        shield,
+        [tabW, tabH, tabD],
+        [x, boardTop - tabH / 2, z],
+        "#97a5ac",
+      ).name = "management-cage-foot";
+      const slotW = tabW + 0.00036,
+        slotD = tabD + 0.00036;
+      const slot = new Path();
+      slot.moveTo(x - slotW / 2, boardMid - z - slotD / 2);
+      slot.lineTo(x - slotW / 2, boardMid - z + slotD / 2);
+      slot.lineTo(x + slotW / 2, boardMid - z + slotD / 2);
+      slot.lineTo(x + slotW / 2, boardMid - z - slotD / 2);
+      slot.closePath();
+      middle.holes.push(slot);
+      const ring = outline(
+        slotW + sheet * 0.9,
+        slotD + sheet * 0.9,
+        sheet * 0.18,
+      );
+      ring.holes.push(outline(slotW, slotD, 0));
+      // 焊盘仅在板底，板面与屏蔽罩侧壁保持直接贴合。
+      const rim = plate(
+        lands,
+        "management-slot-rim",
+        ring,
+        "#b89b67",
+        0.5,
+        0.00006,
+      );
+      rim.rotation.x = Math.PI / 2;
+      rim.position.set(x, boardBottom, z);
+    }
+  }
+  const center = plate(
+    pcb,
+    "management-board-center",
+    middle,
     "#305b4b",
     0.22,
-  ).name = "management-pcb";
-  portHousing(module, portW, portH, d * 0.62, rear, sheet, box);
+    sheet,
+  );
+  center.rotation.x = -Math.PI / 2;
+  center.position.set(0, boardBottom, boardMid);
+  // 笼口从同一孔缘进出，窄边框贴在面板内侧，留出周向间隙。
+  const bezel = outline(portW + 4 * sheet, portH + 3.4 * sheet, sheet * 0.55);
+  bezel.holes.push(
+    outline(portW + 2 * clearance, portH + 2 * clearance, sheet * 0.2),
+  );
+  const rim = plate(
+    root,
+    "management-aperture-rim",
+    bezel,
+    "#72828c",
+    0.56,
+    sheet * 0.5,
+  );
+  rim.position.z = railStart;
+  const [mx, my, mz] = mount.mouth.focusDirection;
+  registerLayer(module, {
+    node: module.name,
+    offset: [0, 0, mount.mouth.travel],
+    direction: [mx, my, mz],
+  });
+  registerLayerScope(root, "management-mouth", {
+    layerRoot: module,
+    moving: connector,
+    members: [rim, connector],
+    selectedBranch: shield,
+    selectionPadding: 0.0005,
+  });
+  for (const [id, holder, direction, members] of [
+    ["management-shield", shield, mount.shield.focusDirection, [module]],
+    [
+      "management-feet",
+      connector,
+      mount.boardBottomDirection,
+      [center, lands, shield],
+    ],
+  ] as const) {
+    const [dx, dy, dz] = direction;
+    registerLayer(holder, {
+      node: shield.name,
+      offset: [0, mount.shield.lift, 0],
+      direction: [dx, dy, dz],
+    });
+    registerLayerScope(root, id, {
+      layerRoot: holder,
+      moving: shield,
+      members: [...members],
+      extractedLayers: [root],
+      selectedBranch: shield,
+      selectionPadding: 0.00055,
+    });
+  }
   for (const side of [-1, 1]) {
     const chipX = side * boardW * 0.31;
     for (const pin of [-1.5, -0.5, 0.5, 1.5])

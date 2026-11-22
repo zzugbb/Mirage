@@ -513,11 +513,6 @@ export function Workspace() {
   const rearLayer = rearRow
     ? rearMemberLayer(rearLayout, contactFan?.id ?? selected)
     : undefined;
-  const storageFanStages =
-    rearLayer && "stages" in rearLayer ? rearLayer.stages : undefined;
-  const storageFanStage = storageFanStages?.find(
-    (item) => item.id === (pairVisit?.layerScopeId ?? ""),
-  );
   const powerContactScope =
     rearLayer && "contactScope" in rearLayer
       ? rearLayer.contactScope
@@ -554,6 +549,11 @@ export function Workspace() {
         activePair[assembly.layer.members].id === selected)
       ? assembly.layer
       : undefined);
+  const stagedLayer =
+    selectedLayer && "stages" in selectedLayer ? selectedLayer : undefined;
+  const stage = stagedLayer?.stages.find(
+    (item) => item.id === (pairVisit?.layerScopeId ?? ""),
+  );
   const processorInspection = selectedLayer === compactProcessorLayer;
   const processorStage =
     pairVisit?.layerScopeId === "processor-sink" ||
@@ -5809,7 +5809,7 @@ export function Workspace() {
                     ? station.id
                     : layerPose &&
                         (assembly?.tool === "switch-front" ||
-                          storageFanStage ||
+                          stagedLayer ||
                           powerContactScope ||
                           controllerInspection)
                       ? pairVisit?.layerScopeId
@@ -6221,7 +6221,7 @@ export function Workspace() {
                       </select>
                     )}
                     {rearLayout &&
-                      (storageFanStages ||
+                      (stagedLayer ||
                         (rearLayer && "fanContacts" in rearLayer)) && (
                         <select
                           aria-label="核查风扇"
@@ -6236,16 +6236,16 @@ export function Workspace() {
                           ))}
                         </select>
                       )}
-                    {storageFanStages && (
+                    {stagedLayer && (
                       <select
-                        aria-label="风扇核查位置"
+                        aria-label={stagedLayer.stageLabel}
                         disabled={!ready}
-                        value={storageFanStage?.id ?? ""}
+                        value={stage?.id ?? ""}
                         onChange={(event) =>
                           setLayerScope(event.target.value || undefined)
                         }
                       >
-                        {storageFanStages.map((stage) => (
+                        {stagedLayer.stages.map((stage) => (
                           <option key={stage.id} value={stage.id}>
                             {stage.name}
                           </option>
@@ -6441,7 +6441,7 @@ export function Workspace() {
                                   ? pose === "seated"
                                     ? "插入固定座"
                                     : "退出固定座"
-                                  : (storageFanStage ?? selectedLayer)[pose]}
+                                  : (stage ?? selectedLayer)[pose]}
                       </button>
                     ))}
                   </div>
@@ -8237,7 +8237,7 @@ export function Workspace() {
                                       : assembly?.tool === "expansion-bay"
                                         ? "机后面板分区按 M2 配置定位。管理接口板、支架和分层间距为装配示意。A/B 两路逻辑接入归属双口网卡。"
                                         : assembly?.tool === "rear-interfaces"
-                                          ? "网卡与转接架的精细外观来自贡献模型。管理面板按 M1 配置定位，接口板、导轨、止挡和行程为原创装配示意。A/B 两路逻辑接入归属网卡，部件读数来自模拟。"
+                                          ? "网卡与转接架的精细外观来自贡献模型。管理面板按 M1 配置定位。接口板、导轨、屏蔽罩四脚、板孔及绝缘座为原创装配示意。A/B 两路逻辑接入归属网卡，部件读数来自模拟。"
                                           : assembly?.tool === "storage-harness"
                                             ? compactServer
                                               ? "盘位、背板和控制卡按 M1 配置与模型定位。盘尾承接架、接触片、SAS 插头及侧边走向为原创装配示意。时间分析沿用所选部件的模型读数。"

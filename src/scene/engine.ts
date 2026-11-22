@@ -2360,10 +2360,14 @@ export class SceneEngine {
           .transformDirection(object.matrixWorld);
       if (this.dimmPose)
         direction.set(1, 0.51, 0.46).transformDirection(object.matrixWorld);
-      if (layer)
+      if (layer) {
         direction
           .fromArray(layer.direction)
           .transformDirection(object.matrixWorld);
+        // 从板底核查贯通孔时，轨道须允许镜头到达该层配置的下视点。
+        if (scope && direction.y < 0)
+          this.controls.maxPolarAngle = Math.PI - 0.03;
+      }
       // 从侧前方看清分离的接触面和中板；仍保留实体遮挡。
       if (contactPair) {
         if (this.storageConnectorPose)

@@ -128,6 +128,7 @@ const storagePowerTrayLayer = {
     "可切换两侧电源，近看板端宽窄插片与壳内固定座的接合。接合件、导轨和行程为原创装配示意。输入 A、B 归属来自配置，时间分析沿用电源部件模拟值。",
 } as const;
 const fanGuardLayer = {
+  stageLabel: "风扇核查位置",
   stages: [
     { id: "", name: "护网与定位柱", seated: "装回护网", separated: "取下护网" },
     {
@@ -284,9 +285,36 @@ const checks = {
       tool: "rear-interfaces",
       name: "机后扩展区",
       entry: "核对机后扩展区",
-      detail: "对照网卡、转接架和管理接口，可分层查看接口板与导轨",
+      detail: "对照网卡、转接架和管理接口，可核对笼口、屏蔽罩与板孔",
       layer: {
         partId: compactManagement.partId,
+        stageLabel: "管理接口核查位置",
+        stages: [
+          {
+            id: "",
+            name: "接口板与双轨",
+            seated: "推回接口板",
+            separated: "滑出接口板",
+          },
+          {
+            id: "management-mouth",
+            name: "孔缘与笼口",
+            seated: "对准面板",
+            separated: "退出孔缘",
+          },
+          {
+            id: "management-shield",
+            name: "屏蔽罩与绝缘座",
+            seated: "放回屏蔽罩",
+            separated: "抬起屏蔽罩",
+          },
+          {
+            id: "management-feet",
+            name: "板底四个插脚",
+            seated: "插脚归位",
+            separated: "退出板孔",
+          },
+        ],
         label: "管理接口板与导轨",
         scope: "管理接口板姿态",
         seated: "推回接口板",

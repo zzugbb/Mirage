@@ -350,6 +350,94 @@ test("精细 1U 模型保留内嵌贴图和材质，维护部件仍与八内存�
     },
   );
   await t.test(
+    "M1 管理笼口退出孔缘，两侧长短插脚穿过板孔，提升外罩时绝缘座留在滑出的接口板",
+    () => {
+      const bounds = (o: THREE.Object3D) =>
+        new THREE.Box3().setFromObject(o, true);
+      for (const model of [assembly, createEquipmentAssembly("server-1u")]) {
+        const io = model.groups.get("io-01")!;
+        const byName = (name: string) => io.getObjectByName(name)!;
+        const board = byName("management-board-center"),
+          face = byName("management-aperture-rim");
+        const insert = byName("management-insulator"),
+          shield = byName("management-shield");
+        const feet = shield.getObjectsByProperty(
+          "name",
+          "management-cage-foot",
+        );
+        const rims = io.getObjectsByProperty("name", "management-slot-rim");
+        assert.equal(feet.length, 4);
+        assert.equal(rims.length, 4);
+        const original = bounds(io);
+        const aperture = layerScopeFor(io, "management-mouth")!;
+        const mouth = bounds(byName("management-port-roof"));
+        for (const x of [mouth.min.x, mouth.max.x])
+          for (const y of [
+            bounds(byName("management-port-floor")).min.y,
+            mouth.max.y,
+          ]) {
+            const ray = new THREE.Raycaster(
+              new THREE.Vector3(x, y, mouth.min.z - 0.01),
+              new THREE.Vector3(0, 0, 1),
+            );
+            assert.equal(ray.intersectObject(face).length, 0);
+          }
+        poseAssemblyLayer(aperture.layerRoot, true);
+        io.updateWorldMatrix(true, true);
+        assert.ok(bounds(shield).min.z > bounds(face).max.z);
+        poseAssemblyLayer(aperture.layerRoot, false);
+        for (const id of ["management-shield", "management-feet"]) {
+          const scope = layerScopeFor(io, id)!;
+          const [outer] = scope.extractedLayers!;
+          poseAssemblyLayer(outer, true);
+          io.updateWorldMatrix(true, true);
+          const fixed = bounds(insert),
+            sheet = bounds(board);
+          assert.ok(sheet.min.z > bounds(byName("management-tray")).max.z);
+          for (const separated of [true, false, true, false]) {
+            poseAssemblyLayer(scope.layerRoot, separated);
+            io.updateWorldMatrix(true, true);
+            assert.ok(bounds(insert).equals(fixed));
+            assert.ok(bounds(board).equals(sheet));
+            for (const [i, foot] of feet.entries()) {
+              const f = bounds(foot),
+                rim = bounds(rims[i]),
+                c = f.getCenter(new THREE.Vector3());
+              assert.ok(
+                Math.abs(rim.getCenter(new THREE.Vector3()).x - c.x) < 1e-7,
+              );
+              for (const x of [f.min.x, f.max.x])
+                for (const z of [f.min.z, f.max.z]) {
+                  const ray = new THREE.Raycaster(
+                    new THREE.Vector3(x, sheet.min.y - 0.01, z),
+                    new THREE.Vector3(0, 1, 0),
+                  );
+                  assert.equal(ray.intersectObject(board).length, 0);
+                  assert.equal(ray.intersectObject(rims[i]).length, 0);
+                }
+              const edge = new THREE.Raycaster(
+                new THREE.Vector3(rim.min.x + 0.00012, sheet.min.y - 0.01, c.z),
+                new THREE.Vector3(0, 1, 0),
+              );
+              assert.ok(
+                edge.intersectObject(board).length &&
+                  edge.intersectObject(rims[i]).length,
+              );
+              if (separated) assert.ok(f.min.y > fixed.max.y);
+              else
+                assert.ok(
+                  f.min.y < rim.min.y && Math.abs(f.max.y - sheet.max.y) < 1e-7,
+                );
+            }
+          }
+          poseAssemblyLayer(outer, false);
+          io.updateWorldMatrix(true, true);
+          assert.ok(bounds(io).equals(original));
+        }
+      }
+    },
+  );
+  await t.test(
     "M1 存储控制卡在精模和简模均贴合主板，展开及复原保持对位",
     () => {
       const check = assemblyChecks("srv-53").find(

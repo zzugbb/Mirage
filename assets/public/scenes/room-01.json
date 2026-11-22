@@ -6998,7 +6998,10 @@
       "network": "双口 25G",
       "storage": "4 × 1.92 TB SAS SSD",
       "managementSlide": {
-        "partId": "io-01", "travel": 0.038, "focusDirection": [0.74, 1.18, -0.58]
+        "partId": "io-01", "travel": 0.038, "focusDirection": [0.74, 1.18, -0.58],
+        "mouth": {"travel": 0.012, "focusDirection": [0.42, 0.35, -1]},
+        "shield": {"lift": 0.014, "focusDirection": [0.75, 0.84, -0.72]},
+        "boardBottomDirection": [0.55, -1, -0.64]
       },
       "rearPanels": [
         {"kind": "power", "partId": "psu-01", "center": [-0.1078, 0], "size": [0.07, 0.038], "depth": 0.15, "explode": [0.035, 0.055, -0.24]},
