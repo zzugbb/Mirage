@@ -62,9 +62,9 @@ test("M2 的八个背板接点逐盘对齐，线束绕过风扇、内存和导�
   const check = assemblyChecks("srv-54").find(
     (item) => item.tool === "storage-harness",
   )!;
-  assert.ok("additionalPart" in check);
+  assert.ok("additionalParts" in check);
   const { primary: board, companion: cable } = check.pairs[0],
-    card = check.additionalPart;
+    card = check.additionalParts[0];
   const parts = [board, cable, card];
   for (const part of parts)
     assert.deepEqual(assemblyChecks("srv-54", part.id), [check]);

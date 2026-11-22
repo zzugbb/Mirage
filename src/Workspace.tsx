@@ -464,9 +464,9 @@ export function Workspace() {
     pairVisit?.deviceId === state.deviceId
       ? pairTools.find((check) => check.tool === pairVisit.tool)
       : undefined;
-  const additionalPart =
-    assembly && "additionalPart" in assembly
-      ? assembly.additionalPart
+  const additionalParts =
+    assembly && "additionalParts" in assembly
+      ? assembly.additionalParts
       : undefined;
   const rearLayout = assembly && "rear" in assembly ? assembly.rear : undefined;
   const rearRow = rearLayout && pairVisit?.rearRow;
@@ -477,7 +477,7 @@ export function Workspace() {
         ({ primary, companion }) =>
           selected === primary.id ||
           selected === companion.id ||
-          selected === additionalPart?.id ||
+          additionalParts?.some((part) => selected === part.id) ||
           (!!rearRow &&
             rearLayout.members.some((part) => part.id === selected)),
       )
@@ -501,13 +501,13 @@ export function Workspace() {
     if (layerPose) return [];
     if (rearRow) return rearLayout.companions;
     if (activePair)
-      return additionalPart
-        ? [activePair.companion.id, additionalPart.id]
+      return additionalParts
+        ? [activePair.companion.id, ...additionalParts.map((part) => part.id)]
         : [activePair.companion.id];
     return compareFanDuct && fanDuct ? [fanDuct.id] : [];
   }, [
     activePair,
-    additionalPart,
+    additionalParts,
     compareFanDuct,
     fanDuct,
     layerPose,
@@ -6053,7 +6053,7 @@ export function Workspace() {
                         ))}
                       </select>
                     )}
-                    {"additionalPart" in assembly ? (
+                    {"additionalParts" in assembly ? (
                       <select
                         aria-label={assembly.memberLabel}
                         value={selected}
@@ -6063,7 +6063,7 @@ export function Workspace() {
                         {[
                           activePair.primary,
                           activePair.companion,
-                          assembly.additionalPart,
+                          ...assembly.additionalParts,
                         ].map((part) => (
                           <option key={part.id} value={part.id}>
                             {part.name}
@@ -7654,15 +7654,17 @@ export function Workspace() {
                               ? `本机型配置 ${dimms.length} 条内存，可逐条检视。`
                               : assembly?.tool === "rtc-mount"
                                 ? "RTC 位置取自主板外观。电池座、触片与抬起间距为装配示意，电池电压和电量未接入。"
-                                : assembly?.tool === "rear-interfaces"
-                                  ? "网卡和转接架沿用贡献模型外观，管理接口区域按机型配置示意。网卡样板配置 A/B 两路逻辑端口，对应关系可在网络接入中查询。"
-                                  : assembly?.tool === "storage-harness"
-                                    ? compactServer
-                                      ? "背板与控制卡的位置按 M1 外观定位。两端插头与侧边 SAS 走向为装配示意，时间分析显示部件模拟值。"
-                                      : "背板接触区按八块硬盘的位置对齐。插头和线束绕行是内部装配示意，读数沿用部件模型。"
-                                    : assembly?.tool === "storage-controllers"
-                                      ? "A/B 槽位来自机型配置。板卡、四个托盘支柱与抬起间距为装配示意，读数沿用所选控制器。"
-                                      : entity.description}
+                                : assembly?.tool === "expansion-bay"
+                                  ? "机后面板分区按 M2 配置定位。管理接口板、支架和分层间距为装配示意。A/B 两路逻辑接入归属双口网卡。"
+                                  : assembly?.tool === "rear-interfaces"
+                                    ? "网卡和转接架沿用贡献模型外观，管理接口区域按机型配置示意。网卡样板配置 A/B 两路逻辑端口，对应关系可在网络接入中查询。"
+                                    : assembly?.tool === "storage-harness"
+                                      ? compactServer
+                                        ? "背板与控制卡的位置按 M1 外观定位。两端插头与侧边 SAS 走向为装配示意，时间分析显示部件模拟值。"
+                                        : "背板接触区按八块硬盘的位置对齐。插头和线束绕行是内部装配示意，读数沿用部件模型。"
+                                      : assembly?.tool === "storage-controllers"
+                                        ? "A/B 槽位来自机型配置。板卡、四个托盘支柱与抬起间距为装配示意，读数沿用所选控制器。"
+                                        : entity.description}
                     </p>
                     {entity.kind === "rack" && (
                       <>

@@ -92,7 +92,7 @@ export function NetworkConnections({
       summary={
         rack
           ? `${switchesForRack(rack.id).length} 台交换机 · 配置`
-          : `${links.length} / ${ports.length} 口已配置`
+          : `${selectedId === device?.id ? "" : "整机 · "}${links.length} / ${ports.length} 口已配置`
       }
       active={portCheck?.switchId === id}
       onInteract={onInteract}

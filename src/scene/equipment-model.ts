@@ -1,4 +1,5 @@
 import { processorPairs, drivePairs } from "../assembly-pairs.ts";
+import { managementInterface } from "./management-interface.ts";
 import { buildRtcMount, replaceRtcProxy } from "./rtc-mount.ts";
 import { compactBayForPart } from "../compact-drive-bays.ts";
 import {
@@ -500,6 +501,8 @@ function detail(
       );
     for (const z of [-d / 2, d / 2])
       box(root, [w * 1.3, h * 1.4, 0.012], [0, 0, z], "#161b20", 0.1);
+  } else if (node === "io" && modelId === "server-2u") {
+    managementInterface(root, size, box);
   } else if (node === "io") {
     box(root, size, [0, 0, 0], "#919da5", 0.8);
     for (let i = 0; i < 3; i++)
@@ -761,15 +764,6 @@ export function createEquipmentAssembly(modelId: string): Assembly {
           model.memoryLayout?.centerZ ?? -0.09,
         );
         size.splice(0, 3, 0.39, 0.03125, 0.13335);
-      }
-      if (p.id === "io-01") {
-        const panel = model.rearPanels.find(
-          (panel) => panel.kind === "interface",
-        );
-        if (panel) {
-          pos[0] = panel.center[0];
-          size[0] = panel.size[0];
-        }
       }
       if (p.id === "fans-01") {
         pos.splice(

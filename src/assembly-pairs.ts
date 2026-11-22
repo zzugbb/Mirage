@@ -149,7 +149,7 @@ function storageHarnessCheck(
     labels: ["磁盘背板", "背板线束", "存储控制卡"],
     startExplosion: 0.45,
     pairs: [{ primary: member(backplane), companion: member(cable) }],
-    additionalPart: member(controller),
+    additionalParts: [member(controller)],
   } as const;
 }
 const checks = {
@@ -170,7 +170,7 @@ const checks = {
       detail: "对照网卡、转接架和按配置示意的管理接口",
       memberLabel: "机后扩展部件",
       labels: ["双口网卡", "转接架", "管理接口"],
-      additionalPart: compactParts.find((part) => part.id === "io-01")!,
+      additionalParts: [compactParts.find((part) => part.id === "io-01")!],
       startExplosion: 0.45,
       pairs: [
         {
@@ -259,19 +259,26 @@ const checks = {
     serverPowerCheck("server-2u"),
     {
       tool: "expansion-bay",
-      memberLabel: "PCIe 扩展部件",
-      name: "PCIe 扩展区",
-      entry: "核对网卡与转接架",
-      detail: "从机后对照双口网卡、承载它的 01 架和相邻的 02 架",
+      memberLabel: "机后接口与扩展部件",
+      name: "机后接口与扩展区",
+      entry: "核对管理接口、网卡与转接架",
+      detail: "从机后对照管理接口、双口网卡和两只转接架，可分层查看管理接口板",
+      layer: {
+        members: "companion",
+        label: "管理接口板与支架",
+        scope: "管理接口板姿态",
+        seated: "放回支架",
+        separated: "抬起接口板",
+      },
       startExplosion: 0.32,
-      labels: ["网卡", "01 架", "02 架"],
+      labels: ["网卡", "管理接口", "01 架", "02 架"],
       pairs: [
         {
           primary: serverMember(bay.adapter),
-          companion: serverMember(bay.carrier),
+          companion: serverMember(bay.management),
         },
       ],
-      additionalPart: serverMember(bay.adjacent),
+      additionalParts: [serverMember(bay.carrier), serverMember(bay.adjacent)],
     },
   ],
   "switch-1u": [
@@ -341,8 +348,10 @@ export function assemblyMember(check: AssemblyCheck, selected: string) {
     );
     if (fan) return fan;
   }
-  if ("additionalPart" in check && check.additionalPart.id === selected)
-    return check.additionalPart;
+  if ("additionalParts" in check) {
+    const member = check.additionalParts.find((part) => part.id === selected);
+    if (member) return member;
+  }
   for (const { primary, companion } of check.pairs) {
     const member = [primary, companion].find(
       (part) =>

@@ -6784,6 +6784,7 @@
       },
       "expansionBay": {
         "adapter": "nic-01", "carrier": "riser-01", "adjacent": "riser-02",
+        "management": "io-01", "managementLift": 0.028,
         "spacing": 0.077, "depth": 0.112,
         "adapterTravel": [0, 0.16, -0.12],
         "carrierTravel": [0, 0.035, -0.12],
@@ -6840,7 +6841,7 @@
       "rearPanels": [
         {"kind": "power", "partId": "psu-01", "center": [-0.10702, -0.0216], "size": [0.07015, 0.04026], "depth": 0.22683, "explode": [0.04, 0.06, -0.25]},
         {"kind": "power", "partId": "psu-02", "center": [-0.17841, -0.0216], "size": [0.07015, 0.04026], "depth": 0.22683, "explode": [-0.04, 0.06, -0.25]},
-        {"kind": "interface", "partId": "io-01", "center": [-0.0315, -0.015462], "size": [0.065, 0.029206], "depth": 0.012, "explode": [0, 0.08, -0.2]},
+        {"kind": "interface", "partId": "io-01", "center": [-0.0315, -0.015462], "size": [0.065, 0.029206], "depth": 0.039, "explode": [0, 0.08, -0.2]},
         {"kind": "interface", "partId": "nic-01", "center": [0.04, -0.015462], "size": [0.065, 0.029206]},
         {"kind": "vent", "center": [0, 0.019757], "size": [0.26, 0.02577]}
       ]

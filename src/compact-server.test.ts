@@ -116,9 +116,9 @@ test("精细 1U 模型保留内嵌贴图和材质，维护部件仍与八内存�
     () => {
       const check = assemblyChecks("srv-44", "cables-01")[0];
       assert.equal(check?.tool, "storage-harness");
-      assert.ok("additionalPart" in check);
+      assert.ok("additionalParts" in check);
       const { primary: board, companion: cable } = check.pairs[0],
-        card = check.additionalPart;
+        card = check.additionalParts[0];
       for (const id of ["srv-44", board.id, cable.id, card.id])
         assert.ok(assemblyChecks("srv-44", id).includes(check));
       for (const model of [assembly, createEquipmentAssembly("server-1u")]) {
@@ -203,8 +203,8 @@ test("精细 1U 模型保留内嵌贴图和材质，维护部件仍与八内存�
         (item) => item.tool === "rear-interfaces",
       )!;
       const { primary: nic, companion: riser } = check.pairs[0];
-      assert.ok("additionalPart" in check);
-      const io = check.additionalPart;
+      assert.ok("additionalParts" in check);
+      const io = check.additionalParts[0];
       assert.deepEqual(
         [nic.slot, riser.slot, io.slot],
         ["NIC", "PCIe-01", "MGMT"],

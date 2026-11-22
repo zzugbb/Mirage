@@ -237,7 +237,12 @@ test("M2 扩展区的网卡对准机后接口与 01 架的承接面，02 架独�
     [adapter, adapter],
   );
   const check = assemblyChecks(id).find((c) => c.tool === "expansion-bay")!;
-  for (const member of [adapter, carrier, adjacent]) {
+  for (const member of [
+    adapter,
+    carrier,
+    adjacent,
+    model.expansionBay!.management,
+  ]) {
     assert.deepEqual(assemblyChecks(id, member), [check]);
     assert.equal(assemblyMember(check, member)?.id, member);
   }
@@ -260,6 +265,68 @@ test("M2 扩展区的网卡对准机后接口与 01 架的承接面，02 架独�
         box(adapter).max.x < box(carrier).max.x,
     );
     if (amount) assert.ok(box(adapter).min.y > box(carrier).max.y);
+  }
+});
+
+test("M2 管理接口的面板按机后分区定位，板孔与支柱逐个对齐，抬起接口板后露出通孔", () => {
+  const model = modelForDevice("srv-54");
+  const bay = model.expansionBay!;
+  const { groups } = createEquipmentAssembly(model.id);
+  const root = groups.get(bay.management)!;
+  const group = root.getObjectByName("management-module")!;
+  const board = root.getObjectByName("management-pcb")!,
+    face = root.getObjectByName("management-face")!;
+  const bounds = (object: typeof face) => new Box3().setFromObject(object);
+  const panel = model.rearPanels.find(
+    (p) => "partId" in p && p.partId === bay.management,
+  )!;
+  const frame = bounds(face),
+    center = frame.getCenter(new Vector3());
+  const near = (value: number, expected: number) =>
+    assert.ok(Math.abs(value - expected) < 1e-7);
+  near(center.x, panel.center[0]);
+  near(center.y, panel.center[1]);
+  near(frame.min.z, -model.depth / 2);
+  for (const id of [
+    bay.adapter,
+    bay.carrier,
+    bay.adjacent,
+    "psu-01",
+    "psu-02",
+  ]) {
+    assert.ok(!bounds(root).intersectsBox(bounds(groups.get(id)!)), id);
+  }
+  const posts = root.getObjectsByProperty("name", "management-post");
+  const rings = group.getObjectsByProperty("name", "management-fastener-ring");
+  assert.equal(posts.length, 4);
+  assert.equal(rings.length, posts.length);
+  const fixed = posts.map((post) => bounds(post));
+  const sight = new Raycaster(
+    new Vector3(center.x, center.y, frame.min.z - 0.01),
+    new Vector3(0, 0, 1),
+  );
+  for (const separated of [false, true, true, false]) {
+    poseAssemblyLayer(root, separated);
+    root.updateWorldMatrix(true, true);
+    const offset = separated ? bay.managementLift : 0;
+    assert.equal(group.position.y, offset);
+    assert.ok(bounds(face).equals(frame));
+    const hits = sight.intersectObject(root);
+    if (separated) assert.equal(hits.length, 0);
+    else assert.equal(hits[0].object.name, "management-port-backing");
+    for (const [index, ring] of rings.entries()) {
+      const seat = fixed[index],
+        hole = ring.getWorldPosition(new Vector3());
+      assert.ok(seat.equals(bounds(posts[index])));
+      near(hole.x, seat.getCenter(new Vector3()).x);
+      near(hole.z, seat.getCenter(new Vector3()).z);
+      near(bounds(board).min.y - seat.max.y, offset);
+      const ray = new Raycaster(
+        hole.clone().add(new Vector3(0, 0.01, 0)),
+        new Vector3(0, -1, 0),
+      );
+      assert.equal(ray.intersectObject(root)[0].object.name, "management-tray");
+    }
   }
 });
 
