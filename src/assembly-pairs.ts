@@ -294,7 +294,7 @@ function serverPowerCheck(modelId: "server-1u" | "server-2u") {
   } as const;
 }
 
-export const compactProcessorLayer = {
+export const processorLayer = {
   members: "both",
   label: "处理器安装面",
   scope: "处理器安装面姿态",
@@ -304,9 +304,10 @@ export const compactProcessorLayer = {
 function processorCheck(modelId: string) {
   return {
     tool: "processor-pair",
+    layer: processorLayer,
     name: "处理器装配",
     entry: "核对处理器与散热器",
-    detail: "逐路查看处理器封装与同号散热器",
+    detail: "逐路核对封装座框与散热器接触面",
     labels: ["封装", "散热器"],
     startExplosion: modelId === "server-1u" ? 0.75 : 0.55,
     slotLabel: "处理器槽位",
@@ -343,6 +344,40 @@ function storageHarnessCheck(
     additionalParts: [member(controller)],
   } as const;
 }
+const diskLayer = {
+  members: "companion",
+  stageLabel: "盘体核查位置",
+  stages: [
+    {
+      id: "",
+      name: "上盖与底壳",
+      seated: "合回上盖",
+      separated: "抬起上盖",
+    },
+    {
+      id: "ssd-pads",
+      name: "导热垫与封装",
+      seated: "贴合封装",
+      separated: "分开导热垫",
+    },
+    {
+      id: "ssd-board",
+      name: "盘内板与四柱",
+      seated: "放回四柱",
+      separated: "抬起盘内板",
+    },
+    {
+      id: "ssd-tail",
+      name: "盘尾与壳口",
+      seated: "落回壳口",
+      separated: "抬出盘尾",
+    },
+  ],
+  label: "硬盘上盖与盘内板",
+  scope: "硬盘上盖姿态",
+  seated: "合回上盖",
+  separated: "抬起上盖",
+} as const;
 const checks = {
   "server-1u": [
     {
@@ -352,51 +387,14 @@ const checks = {
       detail: "按同号盘位对照，分层核对盖底导热垫、盘内板四柱与尾端接口",
       slotLabel: "前置盘位",
       labels: ["托架", "固态硬盘"],
-      layer: {
-        members: "companion",
-        stageLabel: "盘体核查位置",
-        stages: [
-          {
-            id: "",
-            name: "上盖与底壳",
-            seated: "合回上盖",
-            separated: "抬起上盖",
-          },
-          {
-            id: "ssd-pads",
-            name: "导热垫与封装",
-            seated: "贴合封装",
-            separated: "分开导热垫",
-          },
-          {
-            id: "ssd-board",
-            name: "盘内板与四柱",
-            seated: "放回四柱",
-            separated: "抬起盘内板",
-          },
-          {
-            id: "ssd-tail",
-            name: "盘尾与壳口",
-            seated: "落回壳口",
-            separated: "抬出盘尾",
-          },
-        ],
-        label: "硬盘上盖与盘内板",
-        scope: "硬盘上盖姿态",
-        seated: "合回上盖",
-        separated: "抬起上盖",
-      },
+      layer: diskLayer,
       startExplosion: 0.65,
       pairs: compactDriveBays.map(({ tray, disk }) => ({
         primary: tray,
         companion: disk,
       })),
     },
-    {
-      ...processorCheck("server-1u"),
-      detail: "逐路核对封装座框与散热器接触面",
-      layer: compactProcessorLayer,
-    },
+    processorCheck("server-1u"),
     storageHarnessCheck(
       "server-1u",
       compactHarness.backplane,
@@ -519,9 +517,10 @@ const checks = {
     },
     {
       tool: "drive-tray",
+      layer: diskLayer,
       name: "前置盘位",
       entry: "核对托架与硬盘",
-      detail: "按柜前从左至右的槽号，对照托架和同号 SSD",
+      detail: "按柜前槽号对照托架和竖装 SSD，可继续核对侧盖、板卡与盘尾",
       labels: ["托架", "固态硬盘"],
       slotLabel: "前置盘位",
       startExplosion: 1,

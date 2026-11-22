@@ -191,25 +191,89 @@ export function registerCompactProcessorSeats(
       underside.name = "package-underside";
       chip.add(underside);
     }
-    const cap = movingBody(chip, mount.packageLift);
-    const cooler = movingBody(sink, mount.sinkLift);
-    for (const [id, moving, members] of [
-      ["processor-seat", cap, [cap, seat]],
-      ["processor-sink", cooler, [cap, seat, cooler]],
+    registerSocketLayers(primary.id, board, seat, chip, sink);
+  }
+}
+
+// M2 封装的位置已经按同路散热器底面校准。座框留在主板上，框内承载面接至板面。
+export function registerServerProcessorSeats(groups: Map<string, THREE.Group>) {
+  const board = groups.get(mount.board)!;
+  for (const { primary, companion } of processorPairs("server-2u")) {
+    const chip = groups.get(primary.id)!;
+    const sink = groups.get(companion.id)!;
+    const bounds = new THREE.Box3().setFromObject(chip, true);
+    const center = bounds.getCenter(new THREE.Vector3());
+    center.y = bounds.min.y;
+    const { x: w, z: d } = bounds.getSize(new THREE.Vector3());
+    const gap = 0.0006,
+      rim = 0.003,
+      hw = w / 2 + gap,
+      hd = d / 2 + gap;
+    const opening = new THREE.Path();
+    opening
+      .moveTo(-hw, -hd)
+      .lineTo(-hw, hd)
+      .lineTo(hw, hd)
+      .lineTo(hw, -hd)
+      .closePath();
+    const seat = new THREE.Group();
+    seat.name = "processor-socket-" + primary.slot;
+    seat.position.copy(board.worldToLocal(center.clone()));
+    board.add(seat);
+    const surface = new THREE.Raycaster(
+      center,
+      new THREE.Vector3(0, -1, 0),
+    ).intersectObject(board)[0];
+    const base = Math.max(0.0008, surface?.distance ?? 0.002);
+    plate(
+      seat,
+      "socket-bed",
+      2 * (hw + rim),
+      2 * (hd + rim),
+      base,
+      -base,
+      "#46544f",
+      [],
+    );
+    plate(
+      seat,
+      "socket-rim",
+      2 * (hw + rim),
+      2 * (hd + rim),
+      0.002,
+      0,
+      "#7b8488",
+      [opening],
+    );
+    registerSocketLayers(primary.id, board, seat, chip, sink);
+  }
+}
+
+function registerSocketLayers(
+  chipId: string,
+  board: THREE.Group,
+  seat: THREE.Object3D,
+  chip: THREE.Group,
+  sink: THREE.Group,
+) {
+  const cap = movingBody(chip, mount.packageLift);
+  const cooler = movingBody(sink, mount.sinkLift);
+  for (const [id, moving, members] of [
+    ["processor-seat", cap, [cap, seat]],
+    ["processor-sink", cooler, [cap, seat, cooler]],
+  ] as const) {
+    for (const [owner, branch] of [
+      [chip, cap],
+      [board, seat],
+      [sink, cooler],
     ] as const) {
-      for (const [owner, branch] of [
-        [chip, cap],
-        [board, seat],
-        [sink, cooler],
-      ] as const) {
-        registerLayerScope(owner, id + ":" + primary.id, {
-          layerRoot: moving,
-          moving,
-          members: [...members],
-          selectedBranch: branch,
-          selectionPadding: 0.001,
-        });
-      }
+      registerLayerScope(owner, id + ":" + chipId, {
+        layerRoot: moving,
+        moving,
+        members: [...members],
+        selectedBranch: branch,
+        selectionPadding: 0.001,
+      });
     }
   }
 }

@@ -42,7 +42,7 @@ export function compactTray(root: THREE.Group, depth: number, box: Box) {
 }
 
 // 上盖、底壳、板上器件和尾部接触片沿用同一块 SSD 的维护身份。
-export function compactSsd(root: THREE.Group, box: Box) {
+export function compactSsd(root: THREE.Group, box: Box, vertical = false) {
   const [w, h, d] = layout.caseSize;
   const sheet = 0.0008,
     top = h / 2 - sheet,
@@ -87,7 +87,7 @@ export function compactSsd(root: THREE.Group, box: Box) {
   );
   // 尾部开口与盘内板的接口共用基准，左右边段接到底壳侧壁。
   const portWidth = w * 0.49,
-    portX = -w * 0.1;
+    portX = w * (vertical ? 0.1 : -0.1);
   const tailEdges = new THREE.Group();
   housing.add(tailEdges);
   for (const [left, right] of [
@@ -247,9 +247,12 @@ export function compactSsd(root: THREE.Group, box: Box) {
     [portX, boardY, (-boardDepth / 2 + nose) / 2],
     "#27333b",
   ).name = "ssd-tail-port";
+  const contacts = new THREE.Group();
+  contacts.name = "ssd-edge-contact";
+  connector.add(contacts);
   for (let i = 0; i < 10; i++)
     box(
-      connector,
+      contacts,
       [0.0016, 0.00025, 0.0024],
       [portX + (i - 4.5) * 0.0027, boardY + 0.001375, nose + 0.0012],
       "#ae935b",

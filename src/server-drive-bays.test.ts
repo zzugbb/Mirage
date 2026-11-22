@@ -9,6 +9,7 @@ import {
 import { createEquipmentAssembly } from "./scene/equipment-model.ts";
 import { partsForModel } from "./catalog.ts";
 import { assemblyPartPosition } from "./assembly-motion.ts";
+import { layerScopeFor, poseAssemblyLayer } from "./scene/assembly-layer.ts";
 import { devices } from "./installation.ts";
 
 test("M2 整机提供处理器、电池座、盘位、背板线束、双电源与扩展区核对，部件只提供所属工具", () => {
@@ -131,6 +132,41 @@ test("M2 的八个背板接点逐盘对齐，线束绕过风扇、内存和导�
       close(a.y, b.y);
       if (id === board.id) close(socket.min.z, end.max.z);
       else close(socket.max.z, end.min.z);
+    }
+  }
+});
+
+test("M2 八盘以盘面法向移开侧盖和板件，贴回时四片导热垫和柱肩逐一接触", () => {
+  const { root, groups } = createEquipmentAssembly("server-2u");
+  for (const { companion } of drivePairs) {
+    const disk = groups.get(companion.id)!;
+    const pcb = disk.getObjectByName("ssd-pcb")!;
+    for (const [key, fixed, top] of [
+      ["ssd-pads", "ssd-package", "ssd-thermal-pad"],
+      ["ssd-board", "ssd-board-post", "ssd-pcb"],
+    ] as const) {
+      const scope = layerScopeFor(disk, key)!;
+      for (const pre of scope.extractedLayers ?? [])
+        poseAssemblyLayer(pre, true);
+      for (const open of [true, false]) {
+        poseAssemblyLayer(scope.layerRoot, open);
+        root.updateWorldMatrix(true, true);
+        const bases = disk.getObjectsByProperty("name", fixed),
+          surfaces = disk.getObjectsByProperty("name", top);
+        assert.equal(bases.length, 4);
+        for (const [i, base] of bases.entries()) {
+          const b = new Box3().setFromObject(base),
+            t = new Box3().setFromObject(top === "ssd-pcb" ? pcb : surfaces[i]);
+          if (open)
+            assert.ok(
+              t.min.x - b.max.x > 0.02,
+              JSON.stringify([companion.id, key, i, t.min.x - b.max.x]),
+            );
+          else assert.ok(Math.abs(t.min.x - b.max.x) < 1e-7);
+        }
+      }
+      for (const pre of scope.extractedLayers ?? [])
+        poseAssemblyLayer(pre, false);
     }
   }
 });

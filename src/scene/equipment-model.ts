@@ -19,6 +19,7 @@ import {
   compactHeatsink,
   compactPackage,
   registerCompactProcessorSeats,
+  registerServerProcessorSeats,
 } from "./compact-processors.ts";
 import { buildSwitchFanContacts } from "./switch-fan-contacts.ts";
 import { registerStorageFanMount } from "./storage-fan-mount.ts";
@@ -450,28 +451,8 @@ function detail(
 }
 // M2 竖装 SSD 的金属盘体、侧盖与后端接触区均属同一个配置部件。
 function serverSsd(root: THREE.Group, box: Box) {
-  const w = 0.007,
-    h = 0.06985,
-    d = 0.10045;
-  box(root, [w, h, d], [0, 0, 0], "#77838d", 0.65);
-  box(root, [0.0006, h - 0.006, d - 0.006], [w / 2, 0, 0], "#adb5b9", 0.7);
-  for (const y of [-1, 1]) {
-    for (const z of [-1, 1])
-      box(
-        root,
-        [0.0008, 0.0026, 0.0026],
-        [w / 2, y * (h / 2 - 0.006), z * (d / 2 - 0.006)],
-        "#525c63",
-      );
-  }
-  box(root, [w * 0.7, h * 0.56, 0.003], [0, -0.007, -d / 2], "#353f43", 0.22);
-  box(
-    root,
-    [0.001, h * 0.46, 0.002],
-    [0.0008, -0.007, -d / 2 - 0.001],
-    "#ad9662",
-    0.45,
-  ).name = "ssd-edge-contact";
+  root.rotation.z = -Math.PI / 2;
+  compactSsd(root, box, true);
 }
 
 function children(
@@ -884,6 +865,7 @@ export function createEquipmentAssembly(modelId: string): Assembly {
   if (model.storageHarness) buildStorageHarness(groups, positions, box);
   if (model.category === "server") seatProcessors(modelId, groups, positions);
   if (model.processorSeat) registerCompactProcessorSeats(groups);
+  if (modelId === "server-2u") registerServerProcessorSeats(groups);
   if (model.powerBays) buildServerPowerContacts(groups, box, modelId);
   root.updateMatrixWorld(true);
   return { root, groups, positions };
@@ -931,6 +913,7 @@ export function completeServerAssembly(
   buildStorageHarness(groups, positions, box);
   buildServerPowerContacts(groups, box, model.id);
   seatProcessors("server-2u", groups, positions);
+  registerServerProcessorSeats(groups);
   root.updateMatrixWorld(true);
 }
 

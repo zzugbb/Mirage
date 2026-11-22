@@ -8,7 +8,7 @@ import {
   assemblyMember,
   rearMemberLayer,
   controllerLayer,
-  compactProcessorLayer,
+  processorLayer,
   switchRear,
   fanContactStages,
   type FanContactView,
@@ -567,7 +567,7 @@ export function Workspace() {
   const stage = stagedLayer?.stages.find(
     (item) => item.id === (pairVisit?.layerScopeId ?? ""),
   );
-  const processorInspection = selectedLayer === compactProcessorLayer;
+  const processorInspection = selectedLayer === processorLayer;
   const processorStage =
     pairVisit?.layerScopeId === "processor-sink" ||
     selected === activePair?.companion.id
@@ -6304,20 +6304,22 @@ export function Workspace() {
                           ))}
                         </select>
                       )}
-                    {assembly.tool === "compact-drive" && activePair && (
-                      <select
-                        aria-label="核查硬盘"
-                        disabled={!ready}
-                        value={selected}
-                        onChange={(event) => pick(event.target.value)}
-                      >
-                        {assembly.pairs.map(({ companion }) => (
-                          <option key={companion.id} value={companion.id}>
-                            {companion.slot}
-                          </option>
-                        ))}
-                      </select>
-                    )}
+                    {(assembly.tool === "compact-drive" ||
+                      assembly.tool === "drive-tray") &&
+                      activePair && (
+                        <select
+                          aria-label="核查硬盘"
+                          disabled={!ready}
+                          value={selected}
+                          onChange={(event) => pick(event.target.value)}
+                        >
+                          {assembly.pairs.map(({ companion }) => (
+                            <option key={companion.id} value={companion.id}>
+                              {companion.slot}
+                            </option>
+                          ))}
+                        </select>
+                      )}
                     {stagedLayer && (
                       <select
                         aria-label={stagedLayer.stageLabel}
@@ -8297,7 +8299,9 @@ export function Workspace() {
                       {compactServer && selected === "storage-01"
                         ? `前置 ${compactDriveBays.length} 个托架，硬盘与背板分别建模。`
                         : processorInspection
-                          ? "双路编号与归属来自 M1 配置。精模的封装上表面、座框、固定柱和散热器取自贡献模型，封装背面、简模与拆装行程为原创装配示意。时间分析沿用当前部件模拟值。"
+                          ? compactServer
+                            ? "双路编号与归属来自 M1 配置。精模的封装上表面、座框、固定柱和散热器取自贡献模型，封装背面、简模与拆装行程为原创装配示意。时间分析沿用当前部件模拟值。"
+                            : "双路编号与归属来自 M2 配置。精模沿用贡献散热器，封装和座框按当前模型的散热器底面定位，内部接合与抬起行程为装配示意。读数来自部件模型。"
                           : layerPose && rearLayer
                             ? rearLayer.description
                             : powerBayPose
@@ -8308,20 +8312,23 @@ export function Workspace() {
                                   ? "槽位按本机型的内存条编号与模型位置对应。槽体、卡扣和抬起间距为装配示意，读数沿用内存条模型。"
                                   : memoryContext && selected === "memory-01"
                                     ? `本机型配置 ${dimms.length} 条内存，可逐条检视。`
-                                    : assembly?.tool === "rtc-mount"
-                                      ? "RTC 位置取自主板外观。电池座、触片与抬起间距为装配示意，电池电压和电量未接入。"
-                                      : assembly?.tool === "expansion-bay"
-                                        ? "机后面板分区按 M2 配置定位。管理接口板、支架和分层间距为装配示意。A/B 两路逻辑接入归属双口网卡。"
-                                        : assembly?.tool === "rear-interfaces"
-                                          ? "网卡与转接架的精细外观来自贡献模型。管理面板按 M1 配置定位。接口板、导轨、屏蔽罩四脚、板孔及绝缘座为原创装配示意。A/B 两路逻辑接入归属网卡，部件读数来自模拟。"
-                                          : assembly?.tool === "storage-harness"
-                                            ? compactServer
-                                              ? "盘位、背板和控制卡按 M1 配置与模型定位。盘尾承接架、接触片、SAS 插头及侧边走向为原创装配示意。时间分析沿用所选部件的模型读数。"
-                                              : "背板接触区按八块硬盘的位置对齐。插头和线束绕行是内部装配示意，读数沿用部件模型。"
+                                    : assembly?.tool === "drive-tray"
+                                      ? "八个竖装盘位按托架编号与模型位置对应。盘内板、四柱、导热件和盘尾触面为原创装配示意，读数沿用硬盘模型。"
+                                      : assembly?.tool === "rtc-mount"
+                                        ? "RTC 位置取自主板外观。电池座、触片与抬起间距为装配示意，电池电压和电量未接入。"
+                                        : assembly?.tool === "expansion-bay"
+                                          ? "机后面板分区按 M2 配置定位。管理接口板、支架和分层间距为装配示意。A/B 两路逻辑接入归属双口网卡。"
+                                          : assembly?.tool === "rear-interfaces"
+                                            ? "网卡与转接架的精细外观来自贡献模型。管理面板按 M1 配置定位。接口板、导轨、屏蔽罩四脚、板孔及绝缘座为原创装配示意。A/B 两路逻辑接入归属网卡，部件读数来自模拟。"
                                             : assembly?.tool ===
-                                                "storage-controllers"
-                                              ? controllerLayer.description
-                                              : entity.description}
+                                                "storage-harness"
+                                              ? compactServer
+                                                ? "盘位、背板和控制卡按 M1 配置与模型定位。盘尾承接架、接触片、SAS 插头及侧边走向为原创装配示意。时间分析沿用所选部件的模型读数。"
+                                                : "背板接触区按八块硬盘的位置对齐。插头和线束绕行是内部装配示意，读数沿用部件模型。"
+                                              : assembly?.tool ===
+                                                  "storage-controllers"
+                                                ? controllerLayer.description
+                                                : entity.description}
                     </p>
                     {entity.kind === "rack" && (
                       <>
