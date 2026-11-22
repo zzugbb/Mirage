@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import * as THREE from "three";
 import { poseAssemblyLayer } from "./scene/assembly-layer.ts";
 import { createEquipmentAssembly } from "./scene/equipment-model.ts";
+import { cageBankFor, cageBankBounds } from "./scene/switch-model.ts";
 import { RearModuleSeats } from "./scene/rear-module-seats.ts";
 import {
   assemblyChecks,
@@ -365,6 +366,57 @@ test("N1 两组导光条逐列对准笼口，抬起只移动导光条和横梁�
         assert.ok(lip && lip.point.z > roof.max.z);
       }
     }
+  }
+});
+
+test("N1 分组抬起时只移动本组导光条，逐列落回固定入光窗", () => {
+  const ports = createEquipmentAssembly("switch-1u").groups.get("net-ports")!;
+  const { frontCages, lightGuides } = definition.switchAssembly;
+  const banks = frontCages.map(({ id }) => cageBankFor(ports, id)!);
+  const installed = banks.map((bank) => cageBankBounds(new THREE.Box3(), bank));
+  const near = (a: number, b: number) => assert.ok(Math.abs(a - b) < 1e-7);
+  assert.equal(installed[0].intersectsBox(installed[1]), false);
+  for (const [i, bank] of banks.entries()) {
+    const roof = bounds(bank.fixed.getObjectByName("cage-roof")!);
+    const pads = bank.fixed
+      .getObjectsByProperty("name", "guide-inlet-base")
+      .map(bounds);
+    const windows = bank.fixed.getObjectsByProperty(
+      "name",
+      "guide-inlet-window",
+    );
+    const pipes = bank.comb.getObjectsByProperty("name", "light-guide");
+    const initial = windows.map(bounds);
+    assert.equal(pads.length, frontCages[i].columns);
+    assert.equal(pipes.length, pads.length);
+    assert.equal(windows.length, pads.length);
+    for (const lifted of [true, false, true, false]) {
+      poseAssemblyLayer(bank.comb, lifted);
+      ports.updateWorldMatrix(true, true);
+      const neighbor = 1 - i;
+      assert.ok(
+        cageBankBounds(new THREE.Box3(), banks[neighbor]).equals(
+          installed[neighbor],
+        ),
+      );
+      for (const [j, window] of windows.entries()) {
+        const face = bounds(window);
+        assert.ok(face.equals(initial[j]));
+        near(pads[j].min.y, roof.max.y);
+        near(face.min.y, pads[j].max.y);
+        const center = face.getCenter(new THREE.Vector3());
+        near(center.x, bounds(pipes[j]).getCenter(new THREE.Vector3()).x);
+        // 从窗口中心向上，直接量到对应导光条下表面。
+        center.y = face.max.y - 0.001;
+        const hit = new THREE.Raycaster(
+          center,
+          new THREE.Vector3(0, 1, 0),
+        ).intersectObject(pipes[j])[0];
+        assert.ok(hit);
+        near(hit.point.y - face.max.y, lifted ? lightGuides.lift : 0);
+      }
+    }
+    assert.ok(cageBankBounds(new THREE.Box3(), bank).equals(installed[i]));
   }
 });
 

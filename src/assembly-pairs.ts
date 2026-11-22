@@ -1,3 +1,4 @@
+import definition from "../assets/public/scenes/room-01.json" with { type: "json" };
 import { modelById, partsForModel, subpartsForModel } from "./catalog.ts";
 import { compactDriveBays } from "./compact-drive-bays.ts";
 import { inletPart } from "./power-config.ts";
@@ -382,8 +383,9 @@ const checks = {
     {
       tool: "switch-front",
       name: "前置端口笼",
+      cageBanks: definition.switchAssembly.frontCages,
       entry: "核对端口笼与主板",
-      detail: "从机前对照端口笼与主板，可分层查看笼顶导光条和支座",
+      detail: "从机前对照端口笼与主板，可分组近看导光条、横梁和逐列入光座",
       layer: {
         members: "primary",
         label: "端口笼与导光条",

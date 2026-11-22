@@ -192,13 +192,38 @@ export function switchAsic(root: THREE.Group, size: number[], box: Box) {
   });
 }
 
+type CageBank = { fixed: THREE.Group; comb: THREE.Group; floor: THREE.Mesh };
+const cageBanks = new WeakMap<THREE.Object3D, Map<string, CageBank>>();
+export function cageBankFor(root: THREE.Object3D | undefined, id?: string) {
+  return root && id ? cageBanks.get(root)?.get(id) : undefined;
+}
+export function cageBankBounds(bounds: THREE.Box3, bank: CageBank) {
+  return bounds
+    .setFromObject(bank.fixed)
+    .expandByObject(bank.floor)
+    .expandByObject(bank.comb);
+}
+
 // 端口笼与导光组件共用一个维护身份；孔位只描述前部装配外形。
 export function switchPortCages(root: THREE.Group, size: number[], box: Box) {
   const [w, h, d] = size;
   const wall = 0.0012;
   root.userData.focusDirection = [0.14, 0.34, 1];
-  box(root, [w, wall, d], [0, (-h + wall) / 2, 0], "#85939b", 0.72).name =
-    "front-cage-base";
+  const base = new THREE.Group();
+  base.name = "front-cage-base";
+  root.add(base);
+  const banks = new Map<string, CageBank>();
+  cageBanks.set(root, banks);
+  // 底座连续铺过两组和中间间隔；近看时只保留所选笼组下方的底板。
+  const floorSegment = (left: number, right: number) =>
+    box(
+      base,
+      [right - left, wall, d],
+      [(left + right) / 2, (-h + wall) / 2, 0],
+      "#85939b",
+      0.72,
+    );
+  let leftEdge = -w / 2;
   const guides = definition.switchAssembly.lightGuides;
   const moving = new THREE.Group();
   moving.name = "front-light-guides";
@@ -238,6 +263,11 @@ export function switchPortCages(root: THREE.Group, size: number[], box: Box) {
     const group = new THREE.Group();
     group.position.x = centerX;
     root.add(group);
+    const left = centerX - width / 2,
+      right = centerX + width / 2;
+    if (left > leftEdge) floorSegment(leftEdge, left);
+    const floor = floorSegment(left, right);
+    leftEdge = right;
     const bottom = -h / 2 + wall;
     const top = roofTop - wall;
     // 后衬低于笼口，主板前沿与底座背面在装配态相接。
@@ -266,9 +296,19 @@ export function switchPortCages(root: THREE.Group, size: number[], box: Box) {
         0.7,
       );
     }
+    const carrier = new THREE.Group();
+    carrier.position.x = centerX;
+    moving.add(carrier);
     const comb = new THREE.Group();
-    comb.position.x = centerX;
-    moving.add(comb);
+    comb.name = "bank-light-guides";
+    carrier.add(comb);
+    banks.set(bank.id, { fixed: group, comb: carrier, floor });
+    const [dx, dy, dz] = guides.focusDirection;
+    registerLayer(carrier, {
+      node: comb.name,
+      offset: [0, guides.lift, 0],
+      direction: [dx, dy, dz],
+    });
     box(
       comb,
       [width, guides.railHeight, railDepth],
@@ -288,10 +328,28 @@ export function switchPortCages(root: THREE.Group, size: number[], box: Box) {
       const pipe = new THREE.Mesh(guideGeometry, guideMaterial);
       pipe.name = "light-guide";
       pipe.position.x = (width - wall) * ((column + 0.5) / columns - 0.5);
+      // 入光座固定在笼顶；落座时窗口上沿贴合对应导光条的平直段。
+      const padDepth = d * 0.25,
+        padZ = d * 0.15;
+      const footH = guides.standHeight * 0.55;
+      box(
+        group,
+        [guides.width * 1.7, footH, padDepth],
+        [pipe.position.x, roofTop + footH / 2, padZ],
+        "#616c70",
+      ).name = "guide-inlet-base";
+      box(
+        group,
+        [guides.width, guides.standHeight - footH, padDepth * 0.72],
+        [pipe.position.x, roofTop + (guides.standHeight + footH) / 2, padZ],
+        "#d4b780",
+        0.26,
+      ).name = "guide-inlet-window";
       pipe.castShadow = pipe.receiveShadow = true;
       comb.add(pipe);
     }
   }
+  if (leftEdge < w / 2) floorSegment(leftEdge, w / 2);
   const [x, y, z] = guides.focusDirection;
   registerLayer(root, {
     node: moving.name,

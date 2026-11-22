@@ -1,3 +1,4 @@
+import { cageBankFor, cageBankBounds } from "./switch-model";
 import { roomLayoutCameraDirection } from "../room-layout.ts";
 import { rangeObservationTarget } from "../range-segments.ts";
 import {
@@ -211,6 +212,7 @@ export class SceneEngine {
   isolatedPartId: string | null = null;
   companionPartIds: readonly string[] = [];
   layerPose?: LayerPose;
+  cageBankId?: string;
   dimmPose?: LayerPose;
   rearRowPose?: RearRowPose;
   private rearModuleSeats = new RearModuleSeats();
@@ -2233,10 +2235,13 @@ export class SceneEngine {
         ? new THREE.Box3().setFromObject(object)
         : null;
     // 两种姿态共用取景范围，窗口在部件落座时缩小也能容纳分层几何。
+    const bank = cageBankFor(object, this.cageBankId);
+    if (bank && bounds) cageBankBounds(bounds, bank);
+    const layerRoot = bank?.comb ?? object;
     const layer =
-      inspectionTarget && this.layerPose ? assemblyLayer(object) : undefined;
-    if (layer && this.layerPose === "seated" && bounds && object)
-      includeSeparatedLayer(bounds, object, layer);
+      inspectionTarget && this.layerPose ? assemblyLayer(layerRoot) : undefined;
+    if (layer && this.layerPose === "seated" && bounds && layerRoot)
+      includeSeparatedLayer(bounds, layerRoot, layer);
     if (this.dimmPose === "seated" && inspectionTarget && object && bounds)
       bounds.max.y +=
         this.dimmSocket.lift * object.getWorldScale(new THREE.Vector3()).y;
@@ -2747,9 +2752,11 @@ export class SceneEngine {
         : null;
     const target = id ? this.models.parts.get(id) : undefined;
     this.dimmSocket.update(target, this.dimmPose);
+    const bank = cageBankFor(target, this.cageBankId);
+    const layerRoot = bank?.comb ?? target;
     const lifted =
-      this.layerPose === "separated" && assemblyLayer(target)
-        ? target
+      this.layerPose === "separated" && assemblyLayer(layerRoot)
+        ? layerRoot
         : undefined;
     if (this.liftedPart !== lifted) {
       if (this.liftedPart) poseAssemblyLayer(this.liftedPart, false);
@@ -2774,21 +2781,27 @@ export class SceneEngine {
         : null;
     const applied =
       !!id &&
-      (pair
+      (bank
         ? this.partIsolation.applyMany(this.models.server, [
-            this.storageConnectorPose ? pair.plug : pair.disk,
-            this.storageConnectorPose ? pair.socket : pair.board,
+            bank.fixed,
+            bank.comb,
+            bank.floor,
           ])
-        : companions && target
-          ? companions.every((part) => !!part) &&
-            this.partIsolation.applyMany(this.models.server, [
-              target,
-              ...companions,
-              ...(this.rearRowPose && this.assemblyModel === "server-1u"
-                ? [this.rearModuleSeats.guides]
-                : []),
+        : pair
+          ? this.partIsolation.applyMany(this.models.server, [
+              this.storageConnectorPose ? pair.plug : pair.disk,
+              this.storageConnectorPose ? pair.socket : pair.board,
             ])
-          : this.partIsolation.apply(this.models.server, target));
+          : companions && target
+            ? companions.every((part) => !!part) &&
+              this.partIsolation.applyMany(this.models.server, [
+                target,
+                ...companions,
+                ...(this.rearRowPose && this.assemblyModel === "server-1u"
+                  ? [this.rearModuleSeats.guides]
+                  : []),
+              ])
+            : this.partIsolation.apply(this.models.server, target));
     const mount =
       applied &&
       companions &&
@@ -2824,11 +2837,13 @@ export class SceneEngine {
       applied && !this.storageConnectorPose ? marked : null,
       boardOnly,
     );
-    const inspectionKey = pair
-      ? `${id}:${this.storageConnectorPose ? "connector" : "contact"}`
-      : companions
-        ? [id, ...this.companionPartIds].join(":")
-        : id;
+    const inspectionKey = bank
+      ? `${id}:bank:${this.cageBankId}`
+      : pair
+        ? `${id}:${this.storageConnectorPose ? "connector" : "contact"}`
+        : companions
+          ? [id, ...this.companionPartIds].join(":")
+          : id;
     if (id && applied) {
       if (!this.partInspection) {
         this.partInspection = {
@@ -3251,10 +3266,14 @@ export class SceneEngine {
           installed,
           faceColor ? this.camera.position.z : undefined,
         );
-      else
-        this.models.selection.box.setFromObject(
-          this.storageContactGuide.memberFor(this.state.selected) ?? object,
-        );
+      else {
+        const bank = cageBankFor(object, this.cageBankId);
+        if (bank) cageBankBounds(this.models.selection.box, bank);
+        else
+          this.models.selection.box.setFromObject(
+            this.storageContactGuide.memberFor(this.state.selected) ?? object,
+          );
+      }
     }
     this.models.selection.update(
       showSelection

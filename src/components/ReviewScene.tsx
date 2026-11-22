@@ -155,6 +155,7 @@ export function ReviewScene({
   fanViewSide = "front",
   storageViewRevision = 0,
   layerPose,
+  cageBankId,
   dimmPose,
   rearRowPose,
   storageContact = false,
@@ -305,6 +306,7 @@ export function ReviewScene({
   fanViewSide?: "front" | "rear" | "iso";
   storageViewRevision?: number;
   layerPose?: LayerPose;
+  cageBankId?: string;
   dimmPose?: LayerPose;
   rearRowPose?: RearRowPose;
   storageContact?: boolean;
@@ -1041,6 +1043,7 @@ export function ReviewScene({
     active.companionPartIds = companionPartIds;
     if (companionPartIds.length) setOrbit(false);
     active.layerPose = layerPose;
+    active.cageBankId = cageBankId;
     active.dimmPose = dimmPose;
     active.rearRowPose = rearRowPose;
     active.storageContact = storageContact;
@@ -1057,6 +1060,7 @@ export function ReviewScene({
     isolatedPartId,
     companionPartIds,
     layerPose,
+    cageBankId,
     dimmPose,
     rearRowPose,
     storageContact,

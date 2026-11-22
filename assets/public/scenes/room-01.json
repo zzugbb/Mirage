@@ -1319,7 +1319,7 @@
         0.18
       ],
       "color": "#7e8991",
-      "description": "两组端口笼及静态导光组件。导光条、支座与抬起间距为装配示意，逻辑端口及对端可在“网络接入”查询。",
+      "description": "两组端口笼及静态导光组件。导光条、横梁支座、逐列入光座与抬起间距为原创装配示意，逻辑端口及对端可在“网络接入”查询。",
       "modelNodes": [],
       "procedural": true,
       "rise": 8,
@@ -1669,8 +1669,8 @@
       "railHeight": 0.0014, "lift": 0.029, "focusDirection": [0.47, 0.62, 1]
     },
     "frontCages": [
-      {"columns": 24, "width": 0.30, "centerX": -0.044},
-      {"columns": 3, "width": 0.070, "centerX": 0.159}
+      {"id": "access", "columns": 24, "width": 0.30, "centerX": -0.044},
+      {"id": "uplink", "columns": 3, "width": 0.070, "centerX": 0.159}
     ],
     "boardRearExtension": {
       "width": 0.21,

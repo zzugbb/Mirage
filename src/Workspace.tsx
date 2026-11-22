@@ -455,6 +455,7 @@ export function Workspace() {
   const [pairVisit, setPairVisit] = useState<{
     deviceId: string;
     tool: AssemblyCheck["tool"];
+    cageBankId?: string;
     powerBayPose?: RearRowPose;
     layerPose?: LayerPose;
     rearRow?: { supplyId: string; pose: RearRowPose; fromPair: boolean };
@@ -499,7 +500,14 @@ export function Workspace() {
   const layerEntry = useRef<HTMLButtonElement>(null);
   const returningToLayer = useRef(false);
   const setLayerPose = (pose?: LayerPose) => {
-    setPairVisit((current) => current && { ...current, layerPose: pose });
+    setPairVisit(
+      (current) =>
+        current && {
+          ...current,
+          layerPose: pose,
+          cageBankId: pose ? current.cageBankId : undefined,
+        },
+    );
   };
   const companionPartIds = useMemo(() => {
     if (layerPose) return [];
@@ -5660,6 +5668,11 @@ export function Workspace() {
                   ? "seated"
                   : layerPose
             }
+            cageBankId={
+              layerPose && assembly?.tool === "switch-front"
+                ? pairVisit?.cageBankId
+                : undefined
+            }
             dimmPose={dimmPose}
             rearRowPose={
               activePair && !layerPose
@@ -5960,6 +5973,30 @@ export function Workspace() {
                     role="group"
                     aria-label={selectedLayer.scope}
                   >
+                    {"cageBanks" in assembly && (
+                      <select
+                        aria-label="导光组件范围"
+                        disabled={!ready}
+                        value={pairVisit?.cageBankId ?? ""}
+                        onChange={(event) => {
+                          const id = event.target.value;
+                          setPairVisit(
+                            (current) =>
+                              current && {
+                                ...current,
+                                cageBankId: id || undefined,
+                              },
+                          );
+                        }}
+                      >
+                        <option value="">整排</option>
+                        {assembly.cageBanks.map((bank) => (
+                          <option key={bank.id} value={bank.id}>
+                            {bank.columns} 列笼组
+                          </option>
+                        ))}
+                      </select>
+                    )}
                     {assembly.tool === "storage-controllers" && activePair && (
                       <select
                         aria-label="核查控制器"
