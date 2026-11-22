@@ -92,7 +92,9 @@ export function mapCompactServer(root: THREE.Group) {
   for (const { disk, tray } of compactDriveBays) {
     const id = disk.id;
     const group = supplement.groups.get(id)!;
-    const bounds = new THREE.Box3().setFromObject(groups.get(tray.id)!);
+    const carrier = groups.get(tray.id)!;
+    carrier.userData.focusDirection = model.compactDrive!.trayDirection;
+    const bounds = new THREE.Box3().setFromObject(carrier);
     groups.get("drives-01")!.attach(group);
     const center = bounds.getCenter(new THREE.Vector3());
     group.parent!.worldToLocal(center);

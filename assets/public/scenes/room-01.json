@@ -6883,6 +6883,11 @@
         "io-01"
       ],
       "dimms": 8,
+      "compactDrive": {
+        "caseSize": [0.06985, 0.007, 0.10045],
+        "trayDepth": 0.112, "frontInset": 0.003, "trayDirection": [1.1, 0.7, 0.44],
+        "coverLift": 0.039, "coverDirection": [-0.84, 0.62, -1.05]
+      },
       "compactHarness": {
         "backplane": "backplane-01", "harness": "cables-01",
         "boardCenter": [-0.00485, -0.0161, 0.23082], "boardSize": [0.40603, 0.0021, 0.02577],

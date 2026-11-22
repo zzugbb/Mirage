@@ -1,4 +1,5 @@
 import { modelById, partsForModel, subpartsForModel } from "./catalog.ts";
+import { compactDriveBays } from "./compact-drive-bays.ts";
 import { inletPart } from "./power-config.ts";
 import { deviceById } from "./installation.ts";
 
@@ -187,6 +188,26 @@ function storageHarnessCheck(
 }
 const checks = {
   "server-1u": [
+    {
+      tool: "compact-drive",
+      name: "前置盘位",
+      entry: "对照托架与硬盘",
+      detail: "按同号盘位对照，可分层查看 SSD 上盖、盘内板与尾端接口",
+      slotLabel: "前置盘位",
+      labels: ["托架", "固态硬盘"],
+      layer: {
+        members: "companion",
+        label: "硬盘上盖与盘内板",
+        scope: "硬盘上盖姿态",
+        seated: "合回上盖",
+        separated: "抬起上盖",
+      },
+      startExplosion: 0.65,
+      pairs: compactDriveBays.map(({ tray, disk }) => ({
+        primary: tray,
+        companion: disk,
+      })),
+    },
     processorCheck("server-1u"),
     storageHarnessCheck(
       "server-1u",

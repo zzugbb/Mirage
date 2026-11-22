@@ -88,7 +88,7 @@ export function StructureTools({
             ),
             memory ? "内存组" : "",
             fans ? "风扇组" : "",
-            slots || children ? "盘位" : "",
+            slots ? "盘位" : "",
           ]
             .filter(Boolean)
             .join(" · ")}

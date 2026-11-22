@@ -58,7 +58,7 @@ export function CompactDriveBays({
             current.disk.slot
           : "选一个盘位查看对应部件"}
       </p>
-      <small>托架按外观模型定位，SSD 按机型配置示意。</small>
+      <small>托架按外观模型定位，SSD、盘内板与尾端接口为原创装配示意。</small>
     </section>
   );
 }
