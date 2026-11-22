@@ -2772,6 +2772,7 @@ export class SceneEngine {
       const position = assemblyPartPosition(
         { ...part, position: base },
         processorSeat ||
+          (this.layerScopeId === "bay-contact" && part.node === "psu") ||
           (isAsicBoardStage(this.layerScopeId) &&
             (part.id === "net-board" || part.id === "net-asic")) ||
           fanContact ||
@@ -2842,7 +2843,11 @@ export class SceneEngine {
     const applied =
       !!id &&
       (scope
-        ? this.partIsolation.applyMany(this.models.server, scope.members)
+        ? this.partIsolation.applyMany(
+            this.models.server,
+            scope.members,
+            scope.cutaway,
+          )
         : pair
           ? this.partIsolation.applyMany(this.models.server, [
               this.storageConnectorPose ? pair.plug : pair.disk,
@@ -2853,8 +2858,12 @@ export class SceneEngine {
               this.partIsolation.applyMany(this.models.server, [
                 target,
                 ...companions,
-                ...(this.rearRowPose && this.assemblyModel === "server-1u"
-                  ? [this.rearModuleSeats.guides]
+                ...(this.rearRowPose &&
+                modelForDevice(this.state.deviceId).powerBays
+                  ? [
+                      this.rearModuleSeats.guides,
+                      ...this.rearModuleSeats.receivers,
+                    ]
                   : []),
               ])
             : this.partIsolation.apply(this.models.server, target));

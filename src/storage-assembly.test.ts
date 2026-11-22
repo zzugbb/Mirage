@@ -712,7 +712,7 @@ test("S4 输入座穿过面板削角孔，法兰贴合时凹腔与片件仍从�
     const cassette = scope.moving,
       flange = cassette.getObjectByName("psu-input-flange")!;
     const wall = cassette.getObjectByName("psu-input-sleeve")!,
-      back = cassette.getObjectByName("psu-input-backing")!;
+      back = cassette.getObjectByName("psu-core-key")!;
     const panel = psu.getObjectByName("psu-rear-panel")!,
       support = bounds(panel);
     const pins = cassette.getObjectsByProperty("name", "psu-input-blade");
@@ -752,7 +752,10 @@ test("S4 输入座穿过面板削角孔，法兰贴合时凹腔与片件仍从�
           ray(tip.x, tip.y).intersectObject(cassette)[0]?.object,
           pin,
         );
-        close(bounds(pin).max.z, bounds(back).min.z);
+        close(
+          bounds(pin).max.z,
+          bounds(cassette.getObjectByName("psu-blade-keeper")!).min.z,
+        );
         assert.ok(bounds(pin).min.z > bounds(flange).max.z);
       }
     }

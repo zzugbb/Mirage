@@ -77,8 +77,13 @@ function rearModules(modelId: string, controllers: typeof storage) {
     ],
   };
 }
-const compactPower = powerPair("server-1u");
-export const compactSupplies = [compactPower.primary, compactPower.companion];
+const serverSupplies = new Map(
+  ["server-1u", "server-2u"].map((id) => {
+    const { primary, companion } = powerPair(id);
+    return [id, [primary, companion]] as const;
+  }),
+);
+export const serverSuppliesFor = (id: string) => serverSupplies.get(id)!;
 export const switchRear = rearModules("switch-1u", []);
 const storageRear = rearModules("storage-4u", storage);
 export const rearLayoutFor = (modelId: string) =>
@@ -167,39 +172,37 @@ const powerStages = [
     separated: "退出固定座",
   },
 ] as const;
-const inputPanelStage = {
-  id: "input-panel",
-  name: "输入座与面板",
-  seated: "装回输入座",
-  separated: "取出输入座",
-} as const;
+const inputStages = [
+  {
+    id: "input-panel",
+    name: "输入座与面板",
+    seated: "装回输入座",
+    separated: "取出输入座",
+  },
+  {
+    id: "input-core",
+    name: "芯座与座套",
+    seated: "压回芯座",
+    separated: "取出芯座",
+  },
+  {
+    id: "input-blades",
+    name: "端子与芯孔",
+    seated: "插回端子",
+    separated: "退出端子",
+  },
+] as const;
 const switchPowerTrayLayer = {
   ...powerTrayLayer,
   stageLabel: "电源核查位置",
-  stages: [
-    ...powerStages,
-    inputPanelStage,
-    {
-      id: "input-core",
-      name: "芯座与座套",
-      seated: "压回芯座",
-      separated: "取出芯座",
-    },
-    {
-      id: "input-blades",
-      name: "端子与芯孔",
-      seated: "插回端子",
-      separated: "退出端子",
-    },
-  ],
+  stages: [...powerStages, ...inputStages],
   description:
     "电源身份与输入 A、B 来自 N1 配置。内托四柱、板端接合、输入座削角与三片端子的装配均为原创示意。时间分析沿用部件模拟值，支路未计量。",
 } as const;
 const storagePowerTrayLayer = {
   ...switchPowerTrayLayer,
-  stages: [...powerStages, inputPanelStage],
   description:
-    "可在两侧电源间切换，对照输入座与面板削角孔、板卡四柱和板端宽窄插片。输入 A、B 归属来自配置。内部装配与行程为原创示意，时间分析沿用部件模拟值，支路未计量。",
+    "可在两侧电源间切换，对照输入座、芯座与端子、板卡四柱和板端宽窄插片。输入 A、B 归属来自配置。内部装配与行程为原创示意，时间分析沿用部件模拟值，支路未计量。",
 } as const;
 const fanGuardLayer = {
   stageLabel: "风扇核查位置",
@@ -255,12 +258,36 @@ function rearPowerCheck(modelId: "switch-1u" | "storage-4u") {
   } as const;
 }
 
+const bayContactStage = {
+  id: "bay-contact",
+  name: "槽内插片与固定座",
+  seated: "接合槽内插片",
+  separated: "退出槽内插片",
+} as const;
+export const serverPowerStages = [
+  bayContactStage,
+  { ...powerStages[0], id: "tray" },
+  powerStages[1],
+  powerStages[2],
+  ...inputStages,
+] as const;
 function serverPowerCheck(modelId: "server-1u" | "server-2u") {
   return {
     tool: "server-power",
+    powerBays: modelById(modelId).powerBays!,
+    layer: {
+      members: "both",
+      label: "电源接合与内部装配",
+      scope: "电源装配姿态",
+      stageLabel: "电源核查位置",
+      stages: serverPowerStages,
+      seated: bayContactStage.seated,
+      separated: bayContactStage.separated,
+    },
     name: "双电源",
     entry: "核对双电源",
-    detail: "从机后对照电源槽位与配置输入 A、B",
+    detail:
+      "对照输入 A、B 和原槽，可抽出电源，连续核对槽内接点、内托板件和机后输入座",
     labels: ["输入 A", "输入 B"],
     startExplosion: 0.35,
     pairs: [powerPair(modelId)],
@@ -377,11 +404,7 @@ const checks = {
       compact.controllerId,
       "从四盘背板沿机箱侧边查看 SAS 线束示意及控制卡接线端",
     ),
-    {
-      ...serverPowerCheck("server-1u"),
-      powerBays: modelById("server-1u").powerBays!,
-      detail: "从机后对照输入 A、B，可抽出电源核对两侧托边和槽内限位",
-    },
+    serverPowerCheck("server-1u"),
     {
       tool: "rear-interfaces",
       name: "机后扩展区",

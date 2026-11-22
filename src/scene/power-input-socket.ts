@@ -111,32 +111,7 @@ export function powerInputSocket(
     face,
     black,
   );
-  if ("core" in config) {
-    buildInputCore(root, slot, cartridge, config, face, box);
-  } else {
-    plate(
-      cartridge,
-      "psu-input-backing",
-      outer,
-      [],
-      wall,
-      face + depth - wall,
-      black,
-    );
-    // 三个静态片件只用于辨认凹腔和朝向。
-    for (const [x, y] of [
-      [-0.22, -0.12],
-      [0.22, -0.12],
-      [0, 0.22],
-    ])
-      box(
-        cartridge,
-        [width * 0.07, height * 0.17, depth * 0.55],
-        [width * x, height * y, face + depth - wall - depth * 0.275],
-        "#c4b590",
-        0.55,
-      ).name = "psu-input-blade";
-  }
+  buildInputCore(root, slot, cartridge, config, face, box);
   const [x, y, z] = config.focusDirection;
   registerLayer(slot, {
     node: cartridge.name,

@@ -13,6 +13,7 @@ import {
   isStorageHarnessPart,
 } from "./server-storage-harness.ts";
 import { registerLayer } from "./assembly-layer.ts";
+import { buildServerPowerContacts } from "./server-power-contact.ts";
 import { rearPowerSupply } from "./rear-power-supply.ts";
 import {
   compactHeatsink,
@@ -357,7 +358,14 @@ function detail(
       );
   } else if (node === "psu") {
     const rear = -d / 2 + 0.0075;
-    box(root, [w, h, d - 0.0075], [0, 0, 0.00375], "#7f8a93", 0.8);
+    const tail = definition.serverPowerContact.bladeSize[2];
+    box(
+      root,
+      [w, h, d - 0.0075 - tail],
+      [0, 0, 0.00375 - tail / 2],
+      "#7f8a93",
+      0.8,
+    );
     for (let i = 0; i < 7; i++)
       box(
         root,
@@ -876,6 +884,7 @@ export function createEquipmentAssembly(modelId: string): Assembly {
   if (model.storageHarness) buildStorageHarness(groups, positions, box);
   if (model.category === "server") seatProcessors(modelId, groups, positions);
   if (model.processorSeat) registerCompactProcessorSeats(groups);
+  if (model.powerBays) buildServerPowerContacts(groups, box, modelId);
   root.updateMatrixWorld(true);
   return { root, groups, positions };
 }
@@ -920,6 +929,7 @@ export function completeServerAssembly(
   replaceRtcProxy(groups.get(model.rtcMount!.boardId)!);
   buildRtcMount(groups, positions, model.rtcMount!.boardPoint[1], box);
   buildStorageHarness(groups, positions, box);
+  buildServerPowerContacts(groups, box, model.id);
   seatProcessors("server-2u", groups, positions);
   root.updateMatrixWorld(true);
 }

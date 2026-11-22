@@ -1644,6 +1644,24 @@
     "cooling": "mirage-cooling-unit-v1",
     "power": "mirage-power-cabinet-v1"
   },
+  "serverPowerContact": {
+    "bladeTriangles": {"first": 57, "count": 18},
+    "bladeSize": [0.052, 0.0016, 0.0115], "corner": 0.0015, "travel": 0.024,
+    "shellCutaway": {
+      "wall": 0.001, "railWidth": 0.004, "stopDepth": 0.0035,
+      "travelRatio": 1.04, "focusDirection": [-1, 0.82, -0.76],
+      "inputSocket": {
+        "width": 0.026, "height": 0.018, "bevel": 0.0048, "clearance": 0.00045,
+        "wall": 0.0011, "depth": 0.0068, "travel": 0.056, "focusDirection": [0.75, 0.42, -1],
+        "core": {"travel": 0.021, "direction": [1, 0.48, -0.72], "bladeTravel": 0.029, "bladeDirection": [0.90, 0.55, -0.85]}
+      },
+      "boardContact": {"width": 0.022, "travel": 0.014, "focusDirection": [0.68, 1.05, -0.85]},
+      "boardMount": {
+        "holeRadius": 0.0019, "pinRadius": 0.0013, "shoulderRadius": 0.0027,
+        "lift": 0.048, "focusDirection": [1, 0.68, 0.52]
+      }
+    }
+  },
   "rearModuleSeats": {
     "travelRatio": 0.85, "focusDirection": [0.12, 0.64, -1],
     "ledgeWidth": 0.003, "ledgeThickness": 0.0012,
@@ -1726,7 +1744,9 @@
     "powerTray": {
       "wall": 0.0015, "railWidth": 0.005, "stopDepth": 0.005,
       "travelRatio": 1.06, "focusDirection": [-1, 0.82, -0.76],
-      "inputSocket": {"width": 0.029, "height": 0.026, "bevel": 0.006, "clearance": 0.00055, "wall": 0.0016, "depth": 0.0095, "travel": 0.038, "focusDirection": [0.74, 0.46, -1]},
+      "inputSocket": {"width": 0.029, "height": 0.026, "bevel": 0.006, "clearance": 0.00055, "wall": 0.0016, "depth": 0.0095, "travel": 0.038, "focusDirection": [0.74, 0.46, -1],
+        "core": {"travel": 0.028, "direction": [1, 0.48, -0.72], "bladeTravel": 0.032, "bladeDirection": [0.90, 0.55, -0.85]}
+      },
       "boardMount": {"holeRadius": 0.00235, "pinRadius": 0.0016, "shoulderRadius": 0.0033, "lift": 0.056, "focusDirection": [1, 0.74, 0.52]},
       "boardContact": {"width": 0.029, "travel": 0.018, "focusDirection": [0.68, 1.05, -0.85]}
     },
@@ -6839,6 +6859,7 @@
         "cables-01",
         "io-01"
       ],
+      "powerBays": {"travelRatio": 0.75, "focusDirection": [0.025, 1.32, -0.94], "ledgeWidth": 0.007, "wallThickness": 0.0004, "sideClearance": 0.00015, "wallHeight": 0.006, "stopClearance": 0.0006, "stopDepth": 0.002, "crossbarDepth": 0.01},
       "rtcMount": {
         "boardId": "board-01", "batteryId": "battery-01",
         "boardNode": "part_board_01", "proxyTriangles": {"first": 8808, "count": 82},

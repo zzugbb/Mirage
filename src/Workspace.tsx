@@ -6253,6 +6253,22 @@ export function Workspace() {
                         disabled={!ready}
                       />
                     )}
+                    {powerBayPose && activePair && (
+                      <select
+                        aria-label="核查电源"
+                        disabled={!ready}
+                        value={selected}
+                        onChange={(e) => pick(e.target.value)}
+                      >
+                        {[activePair.primary, activePair.companion].map(
+                          (p, i) => (
+                            <option key={p.id} value={p.id}>
+                              {assembly.labels[i]} · {p.slot}
+                            </option>
+                          ),
+                        )}
+                      </select>
+                    )}
                     {rearLayout &&
                       (stagedLayer ||
                         (rearLayer && "fanContacts" in rearLayer)) && (
@@ -6712,7 +6728,10 @@ export function Workspace() {
                         ref={layerEntry}
                         disabled={!ready}
                         onClick={() => {
-                          setLayerPose("separated");
+                          setLayerPose(
+                            powerBayPose === "seated" ? "seated" : "separated",
+                          );
+                          if (powerBayPose) setLayerScope("bay-contact");
                           if (
                             assembly.tool === "switch-board" &&
                             selected === activePair.primary.id
@@ -6726,7 +6745,11 @@ export function Workspace() {
                             );
                         }}
                       >
-                        {processorInspection ? "核对安装面" : "分层查看"}
+                        {processorInspection
+                          ? "核对安装面"
+                          : powerBayPose
+                            ? "核对电源接合"
+                            : "分层查看"}
                       </button>
                     )}
                   </div>
@@ -8278,7 +8301,7 @@ export function Workspace() {
                           : layerPose && rearLayer
                             ? rearLayer.description
                             : powerBayPose
-                              ? "输入 A、B 与槽位按 M1 配置对应。电源外形沿用当前模型，托边、限位和抽出距离为原创装配示意。读数来自模拟，支路未计量。"
+                              ? "输入 A、B 与电源槽位取自机型配置。精模插片沿用贡献外观；简模插片、固定座、内部剖视和行程为原创装配示意。读数来自模拟，支路未计量。"
                               : rearRow
                                 ? "模块编号及 A/B 归属来自本机型配置。托边、限位与抽出行程为装配示意，时间分析沿用所选部件的模型读数。"
                                 : dimmPose

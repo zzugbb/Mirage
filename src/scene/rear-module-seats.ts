@@ -1,12 +1,12 @@
 import * as THREE from "three";
-import { compactSupplies, rearLayoutFor } from "../assembly-pairs.ts";
+import { serverSuppliesFor, rearLayoutFor } from "../assembly-pairs.ts";
 import { modelById } from "../catalog.ts";
 import { localMeshBounds } from "./local-mesh-bounds.ts";
 
 import definition from "../../assets/public/scenes/room-01.json" with { type: "json" };
 
 const seat = definition.rearModuleSeats;
-const powerBays = modelById("server-1u").powerBays!;
+type PowerBays = ReturnType<typeof modelById>["powerBays"];
 export type RearRowPose = "seated" | "withdrawn";
 
 // 以实际壳底顶点求承托段，排除伸到机后的拉手和内端较高的接触片。
@@ -37,6 +37,7 @@ function powerSupport(
 
 // 每个槽的支承边沿取自同一装配坐标下的模块外廓。抽出距离仅用于观察。
 export class RearModuleSeats {
+  readonly receivers: THREE.Object3D[] = [];
   readonly guides = new THREE.Group();
   private readonly metal = new THREE.MeshStandardMaterial({
     color: seat.metalColor,
@@ -73,23 +74,28 @@ export class RearModuleSeats {
     host: THREE.Object3D,
     parts: Map<string, THREE.Group>,
     members: readonly { id: string; slot: string }[],
-    compact: boolean,
+    powerBays: PowerBays,
   ) {
     this.envelope.makeEmpty();
-    const dimensions = compact ? powerBays : seat;
+    const dimensions = powerBays ?? seat;
     for (const part of members) {
       const module = parts.get(part.id)!;
       const bounds = localMeshBounds(module, host);
+      const receiver = host.getObjectByName("bay-receiver-" + part.id);
+      if (powerBays && receiver) {
+        this.receivers.push(receiver);
+        this.envelope.union(localMeshBounds(receiver, host));
+      }
       // 后面板下沿可能低于承载面。柜内托边只托住壳底或控制器托盘，并避开面板。
       const base =
         module.getObjectByName("controller-tray") ??
         module.getObjectByName("psu-shell-base");
-      const support = compact
+      const support = powerBays
         ? powerSupport(module, host, bounds)
         : base
           ? localMeshBounds(base, host)
           : bounds;
-      if (base) {
+      if (!powerBays && base) {
         const panel =
           module.getObjectByName("controller-rear-panel") ??
           module.getObjectByName("psu-rear-panel");
@@ -126,13 +132,13 @@ export class RearModuleSeats {
           0,
         );
       }
-      // M1 内端中央留出接触片空间，两只限位分别接在托边末端。
-      const stopDepth = compact
+      // 服务器内端中央留出接触片空间，两只限位分别接在托边末端。
+      const stopDepth = powerBays
         ? powerBays.stopDepth
         : dimensions.wallThickness;
       const stopZ = size.z / 2 + dimensions.stopClearance + stopDepth / 2;
-      const stopWidth = compact ? dimensions.ledgeWidth : edge * 2;
-      for (const x of compact
+      const stopWidth = powerBays ? dimensions.ledgeWidth : edge * 2;
+      for (const x of powerBays
         ? [-edge + stopWidth / 2, edge - stopWidth / 2]
         : [0])
         this.rail(
@@ -144,7 +150,7 @@ export class RearModuleSeats {
           dimensions.wallHeight / 2 - seat.ledgeThickness,
           stopZ,
         );
-      if (compact) {
+      if (powerBays) {
         // 两道横撑从下方连接托边，内横撑同时承托两只限位。
         const depth = powerBays.crossbarDepth;
         for (const z of [-size.z * 0.32, stopZ + stopDepth / 2 - depth / 2])
@@ -179,6 +185,7 @@ export class RearModuleSeats {
     this.guides.removeFromParent();
     this.guides.clear();
     this.travel.clear();
+    this.receivers.length = 0;
   }
 
   update(
@@ -188,23 +195,27 @@ export class RearModuleSeats {
     modelId: string,
     pose?: RearRowPose,
   ) {
+    if (!pose) {
+      this.clear();
+      return;
+    }
     const layout = rearLayoutFor(modelId);
-    const compact = modelId === "server-1u";
-    const host = compact
-      ? parts.get(compactSupplies[0].id)?.parent
-      : layout && parts.get(layout.fanGroup.id);
-    if (!pose || !host) {
+    const powerBays = modelById(modelId).powerBays;
+    const members = layout?.members ?? serverSuppliesFor(modelId);
+    const host = layout
+      ? parts.get(layout.fanGroup.id)
+      : powerBays && parts.get(members[0].id)?.parent;
+    if (!host) {
       this.clear();
       return;
     }
     if (this.guides.parent && this.guides.parent !== host) this.clear();
-    const members = layout?.members ?? compactSupplies;
     // 保留整排的安装基准。独立电源用装配根节点承托，两件都可移动。
     for (const part of layout
       ? [layout.fanGroup, ...layout.supplies, ...layout.controllers]
       : members)
       parts.get(part.id)!.position.copy(bases.get(part.id)!);
-    if (!this.guides.parent) this.build(host, parts, members, compact);
+    if (!this.guides.parent) this.build(host, parts, members, powerBays);
     const module = parts.get(selected);
     const travel = this.travel.get(selected);
     if (pose === "withdrawn" && module && travel !== undefined) {

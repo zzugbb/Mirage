@@ -4,7 +4,11 @@ import type { Object3D } from "three";
 export class PartIsolation {
   private hidden: Object3D[] = [];
 
+  private revealed?: Object3D;
+
   restore() {
+    if (this.revealed) this.revealed.visible = false;
+    this.revealed = undefined;
     for (const object of this.hidden) object.visible = true;
     this.hidden = [];
   }
@@ -14,18 +18,22 @@ export class PartIsolation {
   }
 
   /** 保留多个明确分支的并集；先校验全部路径，避免半途隐藏。 */
-  applyMany(root: Object3D, targets: Object3D[]) {
+  applyMany(root: Object3D, targets: Object3D[], cutaway?: Object3D) {
     this.restore();
     if (!targets.length || targets.includes(root)) return false;
     const paths = new Set<Object3D>();
     for (const target of targets) {
       let current: Object3D | null = target;
       while (current && current !== root) {
-        if (!current.visible) return false;
+        if (!current.visible && current !== cutaway) return false;
         paths.add(current);
         current = current.parent;
       }
       if (current !== root) return false;
+    }
+    if (cutaway && paths.has(cutaway) && !cutaway.visible) {
+      cutaway.visible = true;
+      this.revealed = cutaway;
     }
     const visit = (parent: Object3D) => {
       if (targets.includes(parent)) return;
