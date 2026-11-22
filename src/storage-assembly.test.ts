@@ -536,60 +536,70 @@ for (const modelId of ["switch-1u", "storage-4u"] as const) {
   });
 }
 
-test("N1 两侧电源板卡抽出内托后才离柱，板上器件及插片随板，四孔对回柱肩", () => {
-  const { root, groups } = createEquipmentAssembly("switch-1u");
-  root.updateMatrixWorld(true);
-  for (const { id } of rearLayoutFor("switch-1u")!.supplies) {
-    const psu = groups.get(id)!;
-    const scope = layerScopeFor(psu, "board-mount")!;
-    const [carrier] = scope.extractedLayers!;
-    assert.equal(carrier, psu);
-    const board = scope.moving,
-      tray = board.parent!;
-    const sheet = board.getObjectByName("psu-tray-board")!;
-    const plug = board.getObjectByName("psu-board-plug")!;
-    const socket = psu.getObjectByName("psu-end-socket")!;
-    const pins = tray.getObjectsByProperty("name", "psu-board-pin");
-    const shoulders = tray.getObjectsByProperty("name", "psu-board-shoulder");
-    const rims = board.getObjectsByProperty("name", "psu-hole-rim");
-    assert.deepEqual([pins.length, shoulders.length, rims.length], [4, 4, 4]);
-    const original = bounds(psu);
-    const fixed = bounds(socket);
-    poseAssemblyLayer(carrier, true);
-    root.updateMatrixWorld(true);
-    assert.ok(bounds(plug).max.z < fixed.min.z);
-    const posts = pins.map(bounds);
-    for (const raised of [true, false, true, false]) {
-      poseAssemblyLayer(scope.layerRoot, raised);
+for (const modelId of ["switch-1u", "storage-4u"] as const)
+  test(
+    modelId + " 两侧电源板卡抽出内托后才离柱，板上器件及插片随板，四孔对回柱肩",
+    () => {
+      const { root, groups } = createEquipmentAssembly(modelId);
       root.updateMatrixWorld(true);
-      assert.ok(bounds(socket).equals(fixed));
-      assert.deepEqual(pins.map(bounds), posts);
-      for (const [i, pin] of pins.entries()) {
-        const c = center(pin),
-          rim = center(rims[i]);
-        close(c.x, rim.x);
-        close(c.z, rim.z);
-        const bottom = bounds(sheet).min.y;
-        if (raised) assert.ok(bottom > posts[i].max.y);
-        else close(bottom, bounds(shoulders[i]).max.y);
-        const radius = (posts[i].max.x - posts[i].min.x) / 2;
-        for (const dx of [0, radius * 1.2, radius * 1.8]) {
-          const ray = new THREE.Raycaster(
-            new THREE.Vector3(c.x + dx, rim.y + 0.01, c.z),
-            new THREE.Vector3(0, -1, 0),
-          );
-          assert.equal(
-            ray.intersectObject(sheet).length > 0,
-            dx > radius * 1.5,
-          );
+      for (const { id } of rearLayoutFor(modelId)!.supplies) {
+        const psu = groups.get(id)!;
+        const scope = layerScopeFor(psu, "board-mount")!;
+        const [carrier] = scope.extractedLayers!;
+        assert.equal(carrier, psu);
+        const board = scope.moving,
+          tray = board.parent!;
+        const sheet = board.getObjectByName("psu-tray-board")!;
+        const plug = board.getObjectByName("psu-board-plug")!;
+        const socket = psu.getObjectByName("psu-end-socket")!;
+        const pins = tray.getObjectsByProperty("name", "psu-board-pin");
+        const shoulders = tray.getObjectsByProperty(
+          "name",
+          "psu-board-shoulder",
+        );
+        const rims = board.getObjectsByProperty("name", "psu-hole-rim");
+        assert.deepEqual(
+          [pins.length, shoulders.length, rims.length],
+          [4, 4, 4],
+        );
+        const original = bounds(psu);
+        const fixed = bounds(socket);
+        poseAssemblyLayer(carrier, true);
+        root.updateMatrixWorld(true);
+        assert.ok(bounds(plug).max.z < fixed.min.z);
+        const posts = pins.map(bounds);
+        for (const raised of [true, false, true, false]) {
+          poseAssemblyLayer(scope.layerRoot, raised);
+          root.updateMatrixWorld(true);
+          assert.ok(bounds(socket).equals(fixed));
+          assert.deepEqual(pins.map(bounds), posts);
+          for (const [i, pin] of pins.entries()) {
+            const c = center(pin),
+              rim = center(rims[i]);
+            close(c.x, rim.x);
+            close(c.z, rim.z);
+            const bottom = bounds(sheet).min.y;
+            if (raised) assert.ok(bottom > posts[i].max.y);
+            else close(bottom, bounds(shoulders[i]).max.y);
+            const radius = (posts[i].max.x - posts[i].min.x) / 2;
+            for (const dx of [0, radius * 1.2, radius * 1.8]) {
+              const ray = new THREE.Raycaster(
+                new THREE.Vector3(c.x + dx, rim.y + 0.01, c.z),
+                new THREE.Vector3(0, -1, 0),
+              );
+              assert.equal(
+                ray.intersectObject(sheet).length > 0,
+                dx > radius * 1.5,
+              );
+            }
+          }
         }
+        poseAssemblyLayer(carrier, false);
+        root.updateMatrixWorld(true);
+        assert.ok(bounds(psu).equals(original));
       }
-    }
-    poseAssemblyLayer(carrier, false);
-    root.updateMatrixWorld(true);
-    assert.ok(bounds(psu).equals(original));
-  }
-});
+    },
+  );
 
 test("S4 两侧板卡的四角孔贯通，对应柱头留有径向余隙，近看后端口与整板一起落回", () => {
   const { groups } = createEquipmentAssembly("storage-4u");
@@ -690,5 +700,81 @@ test("S4 散热器沿两处对角孔抬落，芯片顶盖与柱肩齐平，定�
         }
       }
     }
+  }
+});
+
+test("S4 输入座穿过面板削角孔，法兰贴合时凹腔与片件仍从机后可见", () => {
+  const { root, groups } = createEquipmentAssembly("storage-4u");
+  const config = storageAssembly.powerTray.inputSocket;
+  for (const { id } of rearLayoutFor("storage-4u")!.supplies) {
+    const psu = groups.get(id)!,
+      scope = layerScopeFor(psu, "input-panel")!;
+    const cassette = scope.moving,
+      flange = cassette.getObjectByName("psu-input-flange")!;
+    const wall = cassette.getObjectByName("psu-input-sleeve")!,
+      back = cassette.getObjectByName("psu-input-backing")!;
+    const panel = psu.getObjectByName("psu-rear-panel")!,
+      support = bounds(panel);
+    const pins = cassette.getObjectsByProperty("name", "psu-input-blade");
+    assert.equal(pins.length, 3);
+    const ray = (x: number, y: number) =>
+      new THREE.Raycaster(
+        new THREE.Vector3(x, y, support.min.z - 0.15),
+        new THREE.Vector3(0, 0, 1),
+      );
+    const { x, y } = center(wall);
+    const hw = config.width / 2,
+      hh = config.height / 2;
+    // 削角端的金属仍在，另外三个角均是净空。两侧都由机后取样。
+    for (const sx of [-1, 1])
+      for (const sy of [-1, 1]) {
+        const hit = ray(
+          x + sx * (hw - 0.0006),
+          y + sy * (hh - 0.0006),
+        ).intersectObject(panel);
+        assert.equal(hit.length > 0, sx === 1 && sy === 1);
+      }
+    assert.equal(ray(x, y).intersectObject(panel).length, 0);
+    for (const separated of [true, false, true, false]) {
+      poseAssemblyLayer(scope.layerRoot, separated);
+      root.updateWorldMatrix(true, true);
+      assert.ok(bounds(panel).equals(support));
+      close(
+        support.min.z - bounds(flange).max.z,
+        separated ? config.travel : 0,
+      );
+      if (separated) assert.ok(bounds(cassette).max.z < support.min.z);
+      else assert.ok(bounds(back).max.z > support.max.z);
+      assert.equal(ray(x, y).intersectObject(cassette)[0]?.object, back);
+      for (const pin of pins) {
+        const tip = center(pin);
+        assert.equal(
+          ray(tip.x, tip.y).intersectObject(cassette)[0]?.object,
+          pin,
+        );
+        close(bounds(pin).max.z, bounds(back).min.z);
+        assert.ok(bounds(pin).min.z > bounds(flange).max.z);
+      }
+    }
+  }
+});
+
+test("S4 内托抽出后，整板从柱肩抬到终点的全行程避开输入座背壁和输入面板", () => {
+  const { root, groups } = createEquipmentAssembly("storage-4u");
+  for (const { id } of rearLayoutFor("storage-4u")!.supplies) {
+    const psu = groups.get(id)!;
+    const scope = layerScopeFor(psu, "board-mount")!;
+    poseAssemblyLayer(psu, true);
+    root.updateWorldMatrix(true, true);
+    const rear = bounds(psu.getObjectByName("psu-input-panel")!);
+    const lift = assemblyLayer(scope.layerRoot)!.offset;
+    scope.moving.traverse((part) => {
+      if (!(part instanceof THREE.Mesh)) return;
+      const home = bounds(part);
+      const sweep = home
+        .clone()
+        .union(home.clone().translate(new THREE.Vector3(...lift)));
+      assert.ok(sweep.min.z > rear.max.z, part.name || "板上器件");
+    });
   }
 });

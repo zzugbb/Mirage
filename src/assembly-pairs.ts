@@ -113,18 +113,46 @@ const powerTrayLayer = {
   seated: "推回壳体",
   separated: "拉出内托",
 } as const;
+const powerStages = [
+  {
+    id: "",
+    name: "内托与导轨",
+    seated: powerTrayLayer.seated,
+    separated: powerTrayLayer.separated,
+  },
+  {
+    id: "board-mount",
+    name: "板卡与四柱",
+    seated: "放回四柱",
+    separated: "抬起板卡",
+  },
+  {
+    id: "board-contact",
+    name: "板端接合",
+    seated: "插入固定座",
+    separated: "退出固定座",
+  },
+] as const;
 const switchPowerTrayLayer = {
   ...powerTrayLayer,
-  contactScope: "board-contact",
-  boardScope: "board-mount",
+  stageLabel: "电源核查位置",
+  stages: powerStages,
   description:
     "电源身份与输入 A、B 来自 N1 配置。内托四柱、板端宽窄插片与壳内固定座为原创装配示意。时间分析沿用部件模拟值，支路未计量。",
 } as const;
 const storagePowerTrayLayer = {
-  ...powerTrayLayer,
-  contactScope: "board-contact",
+  ...switchPowerTrayLayer,
+  stages: [
+    ...powerStages,
+    {
+      id: "input-panel",
+      name: "输入座与面板",
+      seated: "装回输入座",
+      separated: "取出输入座",
+    },
+  ],
   description:
-    "可切换两侧电源，近看板端宽窄插片与壳内固定座的接合。接合件、导轨和行程为原创装配示意。输入 A、B 归属来自配置，时间分析沿用电源部件模拟值。",
+    "可在两侧电源间切换，对照输入座与面板削角孔、板卡四柱和板端宽窄插片。输入 A、B 归属来自配置。内部装配与行程为原创示意，时间分析沿用部件模拟值，支路未计量。",
 } as const;
 const fanGuardLayer = {
   stageLabel: "风扇核查位置",

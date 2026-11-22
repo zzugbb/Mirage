@@ -515,16 +515,6 @@ export function Workspace() {
   const rearLayer = rearRow
     ? rearMemberLayer(rearLayout, contactFan?.id ?? selected)
     : undefined;
-  const powerContactScope =
-    rearLayer && "contactScope" in rearLayer
-      ? rearLayer.contactScope
-      : undefined;
-  const powerBoardScope =
-    rearLayer && "boardScope" in rearLayer ? rearLayer.boardScope : undefined;
-  const inspectingPowerBoard =
-    !!powerBoardScope && pairVisit?.layerScopeId === powerBoardScope;
-  const inspectingBoardContact =
-    !!powerContactScope && pairVisit?.layerScopeId === powerContactScope;
   const setLayerScope = (id?: string) =>
     setPairVisit((current) => current && { ...current, layerScopeId: id });
   const activePair = canInspectPart(state)
@@ -557,6 +547,9 @@ export function Workspace() {
       : undefined;
   const stagedLayer =
     selectedLayer && "stages" in selectedLayer ? selectedLayer : undefined;
+  const inspectingSupply = rearLayout?.supplies.some(
+    (supply) => supply.id === selected,
+  );
   const stage = stagedLayer?.stages.find(
     (item) => item.id === (pairVisit?.layerScopeId ?? ""),
   );
@@ -5816,7 +5809,6 @@ export function Workspace() {
                     : layerPose &&
                         (assembly?.tool === "switch-front" ||
                           stagedLayer ||
-                          powerContactScope ||
                           controllerInspection)
                       ? pairVisit?.layerScopeId
                       : undefined
@@ -6224,14 +6216,19 @@ export function Workspace() {
                       (stagedLayer ||
                         (rearLayer && "fanContacts" in rearLayer)) && (
                         <select
-                          aria-label="核查风扇"
+                          aria-label={
+                            inspectingSupply ? "核查电源" : "核查风扇"
+                          }
                           disabled={!ready}
                           value={contactFan?.id ?? selected}
                           onChange={(event) => pick(event.target.value)}
                         >
-                          {rearLayout.fans.map((fan) => (
-                            <option key={fan.id} value={fan.id}>
-                              {fan.slot}
+                          {(inspectingSupply
+                            ? rearLayout.supplies
+                            : rearLayout.fans
+                          ).map((part) => (
+                            <option key={part.id} value={part.id}>
+                              {part.slot}
                             </option>
                           ))}
                         </select>
@@ -6278,50 +6275,6 @@ export function Workspace() {
                         <option value="fan-bank">整排与板缘</option>
                         <option value="fan-contact">本槽触点</option>
                       </select>
-                    )}
-                    {powerContactScope && rearLayout && (
-                      <>
-                        <select
-                          aria-label="核查电源"
-                          disabled={!ready}
-                          value={selected}
-                          onChange={(event) => pick(event.target.value)}
-                        >
-                          {rearLayout.supplies.map((part) => (
-                            <option key={part.id} value={part.id}>
-                              {part.slot}
-                            </option>
-                          ))}
-                        </select>
-                        {powerBoardScope ? (
-                          <select
-                            aria-label="电源核查位置"
-                            disabled={!ready}
-                            value={pairVisit?.layerScopeId ?? ""}
-                            onChange={(event) =>
-                              setLayerScope(event.target.value || undefined)
-                            }
-                          >
-                            <option value="">内托与导轨</option>
-                            <option value={powerBoardScope}>板卡与四柱</option>
-                            <option value={powerContactScope}>板端接合</option>
-                          </select>
-                        ) : (
-                          <button
-                            disabled={!ready}
-                            aria-pressed={inspectingBoardContact}
-                            onClick={() =>
-                              setLayerScope(
-                                inspectingBoardContact
-                                  ? undefined
-                                  : powerContactScope,
-                              )
-                            }
-                          >
-                            板端接合
-                          </button>
-                        )}
-                      </>
                     )}
                     {processorInspection && activePair && (
                       <>
@@ -6433,19 +6386,11 @@ export function Workspace() {
                               ? pose === "seated"
                                 ? "接合触点"
                                 : "分开触点"
-                              : inspectingPowerBoard
+                              : cageSelection?.insert
                                 ? pose === "seated"
-                                  ? "放回四柱"
-                                  : "抬起板卡"
-                                : inspectingBoardContact
-                                  ? pose === "seated"
-                                    ? "插入固定座"
-                                    : "退出固定座"
-                                  : cageSelection?.insert
-                                    ? pose === "seated"
-                                      ? "推回承片"
-                                      : "抽出承片"
-                                    : (stage ?? selectedLayer)[pose]}
+                                  ? "推回承片"
+                                  : "抽出承片"
+                                : (stage ?? selectedLayer)[pose]}
                       </button>
                     ))}
                   </div>

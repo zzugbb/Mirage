@@ -3,14 +3,12 @@ import type definition from "../../assets/public/scenes/room-01.json";
 import type { Box } from "./equipment-model.ts";
 import { registerLayer, registerLayerScope } from "./assembly-layer.ts";
 
+import { powerInputSocket } from "./power-input-socket.ts";
 import { powerBoardMount } from "./power-board-mount.ts";
 
-type ContactConfig = typeof definition.storageAssembly.powerTray.boardContact;
-type SwitchTray = typeof definition.switchAssembly.powerTray;
-type TrayConfig = Omit<SwitchTray, "boardContact" | "boardMount"> & {
-  boardMount?: SwitchTray["boardMount"];
-  boardContact?: ContactConfig;
-};
+type StorageTray = typeof definition.storageAssembly.powerTray;
+type TrayConfig = typeof definition.switchAssembly.powerTray | StorageTray;
+type ContactConfig = StorageTray["boardContact"];
 
 // 两件电源共用机后观察方向；壳体、输入面板和拉手归属同一个维护部件。
 export function rearPowerSupply(
@@ -25,24 +23,31 @@ export function rearPowerSupply(
   // 横杆外缘与机箱后沿保留间隙。
   const gripDepth = Math.min(0.012, rearClearance - 0.002);
   root.userData.focusDirection = [0.14, 0.55, -1];
-  const panel = powerTray(root, size, box, config);
-  box(panel, [w, h, 0.003], [0, 0, rear], "#53616a", 0.62).name =
-    "psu-rear-panel";
+  const tray = powerTray(root, size, box, config);
+  const panel = new THREE.Group();
+  panel.name = "psu-input-panel";
+  tray.add(panel);
   const inletX = -w * 0.13;
-  box(
-    panel,
-    [w * 0.44, h * 0.5, 0.003],
-    [inletX, 0, rear - 0.003],
-    "#242d33",
-    0.2,
-  );
-  box(
-    panel,
-    [w * 0.34, h * 0.35, 0.001],
-    [inletX, 0, rear - 0.0046],
-    "#121b20",
-    0.12,
-  );
+  if ("inputSocket" in config)
+    powerInputSocket(root, panel, box, config.inputSocket, w, h, rear, inletX);
+  else {
+    box(panel, [w, h, 0.003], [0, 0, rear], "#53616a", 0.62).name =
+      "psu-rear-panel";
+    box(
+      panel,
+      [w * 0.44, h * 0.5, 0.003],
+      [inletX, 0, rear - 0.003],
+      "#242d33",
+      0.2,
+    );
+    box(
+      panel,
+      [w * 0.34, h * 0.35, 0.001],
+      [inletX, 0, rear - 0.0046],
+      "#121b20",
+      0.12,
+    );
+  }
   for (const sign of [-1, 1]) {
     box(
       panel,
@@ -196,45 +201,17 @@ function powerTray(
     pcbDepth = trayLength * 0.85;
   const boardBottom = railTop + wall * 3.6,
     boardTop = boardBottom + wall;
-  const board = config.boardMount
-    ? powerBoardMount(
-        root,
-        tray,
-        config.boardMount,
-        pcbWidth,
-        pcbDepth,
-        trayMid,
-        railTop + wall,
-        boardBottom,
-        wall,
-      )
-    : tray;
-  if (!config.boardMount) {
-    for (const sx of [-1, 1])
-      for (const sz of [-1, 1]) {
-        const px = sx * pcbWidth * 0.43,
-          pz = trayMid + sz * pcbDepth * 0.43;
-        box(
-          tray,
-          [3 * wall, boardBottom - railTop - wall, 3 * wall],
-          [px, (boardBottom + railTop + wall) / 2, pz],
-          "#7d857d",
-        );
-        box(
-          tray,
-          [2 * wall, wall * 0.4, 2 * wall],
-          [px, boardTop + wall * 0.2, pz],
-          railMetal,
-        );
-      }
-    box(
-      tray,
-      [pcbWidth, wall, pcbDepth],
-      [0, boardBottom + wall / 2, trayMid],
-      "#365a4c",
-      0.15,
-    ).name = "psu-tray-board";
-  }
+  const board = powerBoardMount(
+    root,
+    tray,
+    config.boardMount,
+    pcbWidth,
+    pcbDepth,
+    trayMid,
+    railTop + wall,
+    boardBottom,
+    wall,
+  );
   // 板上散热片与线圈仅帮助辨认内托朝向，不表示真实电路。
   const sinkX = -pcbWidth * 0.19;
   box(
@@ -272,18 +249,17 @@ function powerTray(
         0.52,
       );
   }
-  if (config.boardContact)
-    boardContact(
-      root,
-      tray,
-      board,
-      box,
-      config.boardContact,
-      wall,
-      boardTop,
-      trayMid + pcbDepth / 2,
-      end - wall,
-    );
+  boardContact(
+    root,
+    tray,
+    board,
+    box,
+    config.boardContact,
+    wall,
+    boardTop,
+    trayMid + pcbDepth / 2,
+    end - wall,
+  );
   registerLayer(root, {
     node: tray.name,
     offset: [0, 0, -d * travelRatio],
