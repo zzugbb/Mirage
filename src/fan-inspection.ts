@@ -1,5 +1,9 @@
 import { deviceById } from "./installation.ts";
-import { partsForDevice, subpartsForDevice } from "./catalog.ts";
+import {
+  modelForDevice,
+  partsForDevice,
+  subpartsForDevice,
+} from "./catalog.ts";
 import { canInspectPart } from "./part-inspection.ts";
 import type { AppState } from "./domain.ts";
 
@@ -11,13 +15,17 @@ export function fanAssembly(deviceId: string) {
   const fans = subpartsForDevice(deviceId).filter(
     (part) => part.parent === group.id,
   );
-  return fans.length ? { group, fans } : null;
+  const ductId = modelForDevice(deviceId).fanDuctLayout?.ductId;
+  const duct = ductId
+    ? partsForDevice(deviceId).find((part) => part.id === ductId)
+    : undefined;
+  return fans.length ? { group, fans, duct } : null;
 }
 export type FanInspection = {
   deviceId: string;
   mode: "group" | "single";
   fanId: string;
-  side: "front" | "rear";
+  side: "front" | "rear" | "duct";
   pending: boolean;
 };
 export function fanInspectionContext(deviceId: string, selected: string) {
@@ -26,6 +34,7 @@ export function fanInspectionContext(deviceId: string, selected: string) {
     !!assembly &&
     (selected === deviceId ||
       selected === assembly.group.id ||
+      selected === assembly.duct?.id ||
       assembly.fans.some((fan) => fan.id === selected))
   );
 }

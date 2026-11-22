@@ -8,6 +8,7 @@ import {
 export function FanInspection({
   deviceId,
   visit,
+  selected,
   ready,
   focusRevision,
   onSelect,
@@ -17,6 +18,7 @@ export function FanInspection({
 }: {
   deviceId: string;
   visit: Visit;
+  selected: string;
   ready: boolean;
   focusRevision: number;
   onSelect: (id: string) => void;
@@ -68,7 +70,10 @@ export function FanInspection({
           <div className="structure-check-heading">
             <strong>风扇清单</strong>
             <button disabled={!ready || visit.pending} onClick={onInspect}>
-              只看所选子件 ↗
+              {selected === assembly.duct?.id
+                ? `只看 ${assembly.fans.find((fan) => fan.id === visit.fanId)?.slot}`
+                : "只看所选子件"}{" "}
+              ↗
             </button>
           </div>
           <div
@@ -82,7 +87,7 @@ export function FanInspection({
                 data-fan-id={fan.id}
                 aria-label={`${fan.name} · ${fan.slot}`}
                 disabled={!ready || visit.pending}
-                aria-pressed={visit.fanId === fan.id}
+                aria-pressed={selected === fan.id}
                 onClick={() => onSelect(fan.id)}
                 onKeyDown={(event) => {
                   if (

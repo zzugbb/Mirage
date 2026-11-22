@@ -6591,6 +6591,17 @@
   grid-template-columns: 148px 132px auto;
   align-items: center;
 }
+.workspace-ui .structure-task-bar:has(.fan-duct-scope) {
+  grid-template-columns: minmax(204px, max-content) 146px auto;
+}
+@media (max-width: 520px) {
+  .workspace-ui .structure-task-bar:has(.fan-duct-scope) {
+    grid-template-columns: auto auto;
+  }
+  .fan-duct-scope {
+    grid-column: 1 / -1;
+  }
+}
 .structure-check-scope,
 .fan-view-sides {
   display: flex;

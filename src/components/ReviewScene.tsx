@@ -295,7 +295,7 @@ export function ReviewScene({
   isolatedPartId?: string | null;
   companionPartId?: string | null;
   fanViewRevision?: number;
-  fanViewSide?: "front" | "rear";
+  fanViewSide?: "front" | "rear" | "iso";
   storageViewRevision?: number;
   storageContact?: boolean;
   sliceControls: SliceControls;

@@ -38,8 +38,11 @@ export function StructureNavigation({
     disk: "单盘检视",
     contact: "中板接点",
   }[visit.mode];
+  const hasDuct = fan && !!modelForDevice(visit.deviceId).fanDuctLayout;
   const group = fan
-    ? `风扇组${fan.side === "rear" ? "后侧" : "前侧"}`
+    ? fan.side === "duct"
+      ? "风扇与导风罩"
+      : `风扇组${fan.side === "rear" ? "后侧" : "前侧"}`
     : "盘位总览";
   return (
     <StructureToolbar
@@ -57,7 +60,13 @@ export function StructureNavigation({
         )
       }
     >
-      <div className="structure-check-scope">
+      <div
+        className={
+          hasDuct
+            ? "structure-check-scope fan-duct-scope"
+            : "structure-check-scope"
+        }
+      >
         <b>
           {visit.pending ? "正在展开" : scope}
           {visit.mode !== "group" && part && ` · ${part.slot}`}
@@ -81,6 +90,15 @@ export function StructureNavigation({
                   {side === "front" ? "前侧" : "后侧"}
                 </button>
               ))}
+              {hasDuct && (
+                <button
+                  disabled={disabled}
+                  aria-pressed={fan.side === "duct"}
+                  onClick={() => onSide("duct")}
+                >
+                  对照导风罩
+                </button>
+              )}
             </div>
           ) : (
             <button

@@ -160,6 +160,39 @@ test("精细 1U 模型保留内嵌贴图和材质，维护部件仍与八内存�
       }
     },
   );
+  await t.test("M1 四组风扇的八个转子与导风罩在精模、简模中逐一对位", () => {
+    const simple = createEquipmentAssembly("server-1u");
+    const box = (object: THREE.Object3D) =>
+      new THREE.Box3().setFromObject(object, true);
+    const middle = (object: THREE.Object3D) =>
+      box(object).getCenter(new THREE.Vector3());
+    const duct = assembly.groups.get("duct-01")!;
+    const proxy = simple.groups.get("duct-01")!;
+    assert.ok(middle(duct).distanceTo(middle(proxy)) < 0.001);
+    assert.ok(
+      box(duct)
+        .getSize(new THREE.Vector3())
+        .distanceTo(box(proxy).getSize(new THREE.Vector3())) < 0.002,
+    );
+    const fans = subpartsForDevice("srv-53").filter(
+      (part) => part.parent === "fans-01",
+    );
+    assert.equal(fans.length, 4);
+    for (const fan of fans) {
+      const detailed = assembly.groups.get(fan.id)!;
+      const fallback = simple.groups.get(fan.id)!;
+      assert.equal(detailed.children.length, 2);
+      assert.equal(fallback.children.length, 2);
+      for (const [i, rotor] of detailed.children.entries()) {
+        assert.ok(
+          middle(rotor).distanceTo(middle(fallback.children[i])) < 0.001,
+          fan.slot,
+        );
+        assert.ok(box(rotor).min.z > box(duct).max.z, fan.slot);
+        assert.ok(box(fallback.children[i]).min.z > box(proxy).max.z, fan.slot);
+      }
+    }
+  });
   await t.test("M1 八条内存沿用配置身份，简模与精细模型的板位逐条对应", () => {
     const fallback = createEquipmentAssembly("server-1u");
     const dimms = subpartsForDevice("srv-53").filter(

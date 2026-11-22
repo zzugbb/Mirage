@@ -12,6 +12,7 @@ export function StructureTools({
   assemblies,
   memory,
   fans,
+  hasFanDuct,
   slots,
   ready,
   restore,
@@ -23,6 +24,7 @@ export function StructureTools({
   assemblies: readonly AssemblyCheck[];
   memory: number;
   fans: number;
+  hasFanDuct: boolean;
   slots: number;
   ready: boolean;
   restore: StructureTool | null;
@@ -127,7 +129,11 @@ export function StructureTools({
             <strong>
               核对风扇组 · {fans} 子件 <span>↗</span>
             </strong>
-            <small>整组前后侧观察、逐件检视与返回</small>
+            <small>
+              {hasFanDuct
+                ? "观察前后侧、对照导风罩或单看风扇"
+                : "整组前后侧观察、逐件检视与返回"}
+            </small>
           </button>
         )}
         {slots > 0 && (

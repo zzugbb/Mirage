@@ -325,6 +325,18 @@ function children(
         );
       box(child, [0.004, 0.003, 0.125], [0, -0.014, 0], "#ae9154", 0.6);
     } else if (node === "fans") {
+      const layout = modelById(modelId).fanDuctLayout;
+      const slot = layout?.modules.find((module) => module.id === ids[i].id);
+      if (layout && slot) {
+        const [left, right] = slot.rotorX;
+        child.position.x = (left + right) / 2;
+        for (const x of slot.rotorX) {
+          const rotor = createFanModule(layout.rotorSize);
+          rotor.position.x = x - child.position.x;
+          child.add(rotor);
+        }
+        continue;
+      }
       const w = (size[0] / count) * 0.9;
       child.position.x = ((i - (count - 1) / 2) * size[0]) / count;
       if (id === "net-fans" || id === "sto-fans") {
@@ -487,7 +499,13 @@ export function createEquipmentAssembly(modelId: string): Assembly {
         }
       }
       if (p.id === "fans-01") {
-        pos.splice(0, 3, 0, 0, 0.1);
+        pos.splice(
+          0,
+          3,
+          0,
+          model.fanDuctLayout?.rotorY ?? 0,
+          model.fanDuctLayout?.rotorZ ?? 0.1,
+        );
         size.splice(0, 3, 0.39, h * 0.8, 0.055);
       }
       if (p.id === "drives-01") {
@@ -519,8 +537,13 @@ export function createEquipmentAssembly(modelId: string): Assembly {
         pos[2] = -0.09;
       }
       if (p.id === "duct-01") {
-        size[1] = h * 0.25;
-        pos[1] = h * 0.25;
+        if (model.fanDuctLayout) {
+          size.splice(0, 3, ...model.fanDuctLayout.ductSize);
+          pos.splice(0, 3, ...model.fanDuctLayout.ductCenter);
+        } else {
+          size[1] = h * 0.25;
+          pos[1] = h * 0.25;
+        }
       }
     }
     if (

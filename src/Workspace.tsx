@@ -417,6 +417,11 @@ export function Workspace() {
   const [fanViewRevision, setFanViewRevision] = useState(0);
   const [fanFocusRevision, setFanFocusRevision] = useState(0);
   const activeFanVisit = activeFanInspection(fanVisit, state, selected);
+  const fanDuct = activeFanVisit
+    ? fanAssembly(state.deviceId)?.duct
+    : undefined;
+  const compareFanDuct =
+    activeFanVisit?.mode === "group" && activeFanVisit.side === "duct";
   const [memoryDevice, setMemoryDevice] = useState<string | null>(null);
   const deviceModel = modelForDevice(state.deviceId);
   const dimms = useMemo(
@@ -1518,6 +1523,9 @@ export function Workspace() {
       setFanVisit({ ...fanVisit, pending: false });
       setFanViewRevision((n) => n + 1);
       setFanFocusRevision((n) => n + 1);
+    } else if (selected === fanDuct?.id && !compareFanDuct) {
+      setFanVisit({ ...fanVisit, mode: "group", side: "duct" });
+      setFanViewRevision((n) => n + 1);
     } else if (
       fanAssembly(state.deviceId)!.fans.some((fan) => fan.id === selected) &&
       fanVisit.fanId !== selected
@@ -1531,7 +1539,15 @@ export function Workspace() {
       setFanVisit({ ...fanVisit, mode: "group" });
       setFanViewRevision((n) => n + 1);
     }
-  }, [fanVisit, activeFanVisit, ready, state, selected]);
+  }, [
+    fanVisit,
+    activeFanVisit,
+    fanDuct,
+    compareFanDuct,
+    ready,
+    state,
+    selected,
+  ]);
   useEffect(() => {
     if (!storageVisit) return;
     if (!activeStorageVisit) {
@@ -2823,12 +2839,16 @@ export function Workspace() {
         deviceId: state.deviceId,
         mode: "group",
         fanId,
-        side: "front",
+        side: selected === assembly.duct?.id ? "duct" : "front",
         pending: true,
       });
-      control({ type: "pick", id: fanId });
+      control({
+        type: "pick",
+        id: selected === assembly.duct?.id ? selected : fanId,
+      });
       control({ type: "analysis", value: false });
-      if (!canInspectPart(state)) dispatch({ type: "explode", amount: 1 });
+      if (!canInspectPart(state))
+        dispatch({ type: "explode", amount: assembly.duct ? 0.3 : 1 });
       setInspector(true);
       if (matchMedia("(max-width: 1099px)").matches) setNav(false);
     } else {
@@ -5485,10 +5505,18 @@ export function Workspace() {
               setRangeSegmentId(segmentId);
             }}
             fanViewRevision={fanViewRevision}
-            fanViewSide={activeFanVisit?.side ?? "front"}
+            fanViewSide={
+              activeFanVisit?.side === "duct"
+                ? "iso"
+                : (activeFanVisit?.side ?? "front")
+            }
             storageViewRevision={storageViewRevision}
             storageContact={activeStorageVisit?.mode === "contact"}
-            companionPartId={activePair ? activePair.companion.id : null}
+            companionPartId={
+              activePair?.companion.id ??
+              (compareFanDuct ? fanDuct?.id : null) ??
+              null
+            }
             isolatedPartId={isolatedPartId}
             state={state}
             unitRange={
@@ -5804,6 +5832,9 @@ export function Workspace() {
                   onSide={(side) => {
                     if (!activeFanVisit || !ready) return;
                     takeover();
+                    if (side === "duct" && fanDuct) pick(fanDuct.id);
+                    else if (selected === fanDuct?.id)
+                      pick(activeFanVisit.fanId);
                     setFanVisit({ ...activeFanVisit, side });
                     setFanViewRevision((n) => n + 1);
                   }}
@@ -6112,6 +6143,7 @@ export function Workspace() {
               <FanInspection
                 deviceId={state.deviceId}
                 visit={activeFanVisit}
+                selected={selected}
                 ready={ready}
                 focusRevision={fanFocusRevision}
                 onSelect={(id) => {
@@ -7011,6 +7043,7 @@ export function Workspace() {
                           showSelection={
                             compactBayContext && selected !== state.deviceId
                           }
+                          hasFanDuct={!!deviceModel.fanDuctLayout}
                           fans={
                             fanInspectionContext(state.deviceId, selected)
                               ? fanAssembly(state.deviceId)!.fans.length

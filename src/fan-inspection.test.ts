@@ -46,6 +46,7 @@ test("八柜四机型风扇核对仅使用已定义的模块和子件，不扩�
     ].filter(
       (part) =>
         part.id !== assembly.group.id &&
+        part.id !== assembly.duct?.id &&
         !("parent" in part && part.parent === assembly.group.id),
     ))
       assert.equal(fanInspectionContext(device.id, part.id), false);
@@ -53,6 +54,31 @@ test("八柜四机型风扇核对仅使用已定义的模块和子件，不扩�
   for (const id of ["unknown", "rack-a01", "room-01"]) {
     assert.equal(fanAssembly(id), null);
     assert.equal(fanInspectionContext(id, "fan-01"), false);
+  }
+});
+
+test("导风罩对照仅在已校准的 M1 风扇组开放，回看可保留导风罩或所查子件", () => {
+  for (const device of devices) {
+    const { duct, fans } = fanAssembly(device.id)!;
+    assert.equal(!!duct, device.modelId === "server-1u");
+    assert.equal(fanInspectionContext(device.id, "duct-01"), !!duct);
+    if (!duct) continue;
+    const visit: FanInspection = {
+      deviceId: device.id,
+      mode: "group",
+      side: "duct",
+      fanId: fans[3].id,
+      pending: false,
+    };
+    const state = {
+      ...createState(),
+      level: "device" as const,
+      deviceId: device.id,
+      time: 40,
+      explosion: 0.35,
+    };
+    for (const selected of [duct.id, ...fans.map((fan) => fan.id)])
+      assert.equal(activeFanInspection(visit, state, selected), visit);
   }
 });
 
