@@ -1692,6 +1692,7 @@
       0.008,
       0.006
     ],
+    "contactInspection": {"travel": 0.018, "focusDirection": [0.90, 1.10, 0.66]},
     "railThickness": 0.001,
     "trayInspection": {"lift": 0.068, "focusDirection": [0.95, 0.74, -1]}
   },

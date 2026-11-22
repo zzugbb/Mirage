@@ -10,36 +10,85 @@ type Box = (
   metalness?: number,
 ) => THREE.Mesh;
 
+// 两个宽度不同的腔口共用一条偏置隔筋。插片与插座从同一截面取尺寸。
+const [socketW, socketH, socketD] = storageAssembly.socketSize;
+const wall = socketH * 0.13;
+const innerW = socketW - wall * 3;
+const wide = innerW * 0.65;
+const divider = -socketW / 2 + wall + wide + wall / 2;
+const padTop = socketH * 0.2 + wall * 0.13;
+const cavities = [
+  { x: -socketW / 2 + wall + wide / 2, w: wide },
+  { x: (divider + wall / 2 + socketW / 2 - wall) / 2, w: innerW - wide },
+];
+function storageSocket(box: Box) {
+  const socket = new THREE.Group();
+  const frame = "#394950",
+    depth = socketD - wall;
+  box(
+    socket,
+    [socketW, socketH, wall],
+    [0, 0, -socketD + wall / 2],
+    frame,
+  ).name = "socket-back";
+  box(
+    socket,
+    [socketW, wall, depth],
+    [0, -(socketH - wall) / 2, -depth / 2],
+    frame,
+  ).name = "socket-floor";
+  // 顶部保留前横梁、隔筋和后壁，透过两个观察窗核对插片落位。
+  box(
+    socket,
+    [socketW - 2 * wall, wall, wall],
+    [0, (socketH - wall) / 2, -wall / 2],
+    frame,
+  ).name = "socket-rim";
+  for (const side of [-1, 1])
+    box(
+      socket,
+      [wall, socketH - wall, depth],
+      [(side * (socketW - wall)) / 2, wall / 2, -depth / 2],
+      frame,
+    ).name = "socket-side";
+  box(
+    socket,
+    [wall, socketH - wall, depth - wall],
+    [divider, wall / 2, -(wall + depth) / 2],
+    frame,
+  ).name = "socket-divider";
+  box(socket, [wall, socketH - 2 * wall, wall], [divider, 0, -wall / 2], frame);
+  for (const c of cavities) {
+    const width = c.w - wall * 0.65;
+    for (const offset of [-1, 0, 1])
+      box(
+        socket,
+        [width * 0.11, wall * 0.36, depth * 0.54],
+        [c.x + offset * width * 0.29, padTop + wall * 0.18, -depth * 0.73],
+        "#b78b60",
+      ).name = "socket-contact";
+  }
+  return socket;
+}
+
 /** 接点用于说明盘组与中板的对应，不表示精确连接器或电气走线。 */
 export function storageMidplane(root: THREE.Group, size: number[], box: Box) {
   const [w, h, d] = size;
   box(root, size, [0, 0, 0], "#294d3f", 0.15).name = "storage-midplane-board";
-  const [cw, ch, cd] = storageAssembly.socketSize;
+  const template = storageSocket(box);
   for (let i = 0; i < storageAssembly.columns * storageAssembly.rows; i++) {
     const [x, y] = storageSlot(i);
-    const socket = box(
-      root,
-      [cw, ch, cd],
-      [x, y, d / 2 + cd / 2],
-      "#222a2d",
-      0.15,
-    );
+    const socket = template.clone();
     socket.name = `storage-socket-${String(i + 1).padStart(2, "0")}`;
-    socket.userData.storageSlotIndex = i;
-    const contact = box(
-      root,
-      [cw * 0.7, ch * 0.35, 0.0006],
-      [x, y, d / 2 + cd + 0.0003],
-      "#a28e5b",
-      0.5,
-    );
-    contact.userData.storageSlotIndex = i;
+    socket.position.set(x, y, d / 2 + socketD);
+    root.add(socket);
+    for (const mesh of socket.children) mesh.userData.storageSlotIndex = i;
     // 短焊盘留在竖直板面，不在板顶复制水平主板元件。
     for (const dx of [-1, 1])
       box(
         root,
         [0.006, 0.001, 0.0003],
-        [x + dx * (cw / 2 + 0.004), y, d / 2 + 0.00015],
+        [x + dx * (socketW / 2 + 0.004), y, d / 2 + 0.00015],
         "#82794f",
         0.4,
       );
@@ -55,13 +104,7 @@ export function storageDrive(
   size: number[],
   box: Box,
 ) {
-  const {
-    driveSize,
-    columns,
-    rows,
-    railThickness: rail,
-    socketSize,
-  } = storageAssembly;
+  const { driveSize, columns, rows, railThickness: rail } = storageAssembly;
   const [w, h, d] = driveSize;
   const [x, y] = storageSlot(index);
   root.position.set(x, y, 0);
@@ -95,13 +138,39 @@ export function storageDrive(
         0.58,
       );
   }
+  const plug = new THREE.Group();
+  plug.name = "storage-drive-plug";
+  plug.position.z = -d / 2;
+  drive.add(plug);
+  const shoulder = 0.003,
+    tongueD = socketD - wall * 1.48;
   box(
-    drive,
-    [socketSize[0] * 0.8, socketSize[1] * 0.7, 0.003],
-    [0, 0, -d / 2 + 0.0015],
-    "#a28e5b",
-    0.5,
+    plug,
+    [socketW, socketH * 0.74, shoulder],
+    [0, 0, shoulder / 2],
+    "#54656e",
   ).name = "storage-drive-contact";
+  for (const c of cavities) {
+    const width = c.w - wall * 0.65;
+    box(
+      plug,
+      [width, socketH * 0.4, tongueD],
+      [c.x, 0, -tongueD / 2],
+      "#426653",
+      0.22,
+    ).name = "plug-tongue";
+    for (const offset of [-1, 0, 1])
+      box(
+        plug,
+        [width * 0.18, wall * 0.13, tongueD * 0.72],
+        [
+          c.x + offset * width * 0.29,
+          socketH * 0.2 + wall * 0.065,
+          -tongueD * 0.56,
+        ],
+        "#c0a16c",
+      ).name = "plug-pad";
+  }
   const tray = new THREE.Group();
   tray.name = "storage-drive-tray";
   root.add(tray);

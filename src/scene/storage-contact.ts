@@ -1,5 +1,7 @@
 import * as THREE from "three";
 import { storageSlots } from "../storage-slots.ts";
+import { storageAssembly } from "../storage-layout.ts";
+import type { LayerPose } from "./assembly-layer.ts";
 import { createAnnotationGroup } from "./annotations.ts";
 
 /** 复用建模节点，取实际接触表面；不从编号猜测电气连接。 */
@@ -12,13 +14,28 @@ export function storageContactObjects(
   if (!slot) return null;
   const disk = parts.get(slot.id),
     board = parts.get("sto-midplane"),
-    contact = disk?.getObjectByName("storage-drive-contact"),
+    plug = disk?.getObjectByName("storage-drive-plug"),
+    contact = plug?.getObjectByName("storage-drive-contact"),
     socket = board?.getObjectByName(
       `storage-socket-${String(slot.index + 1).padStart(2, "0")}`,
     );
-  return disk && board && contact && socket
-    ? { disk, board, contact, socket }
+  return disk && board && plug && contact && socket
+    ? { disk, board, plug, contact, socket }
     : null;
+}
+
+// 取景使用插合和分离两端的包围盒，切换姿态时保留镜头。
+export function connectorBounds(
+  bounds: THREE.Box3,
+  pair: NonNullable<ReturnType<typeof storageContactObjects>>,
+) {
+  const plug = new THREE.Box3().setFromObject(pair.plug);
+  const origin = pair.plug.getWorldPosition(new THREE.Vector3());
+  bounds.setFromObject(pair.socket);
+  for (const z of [0, storageAssembly.contactInspection.travel]) {
+    const end = pair.socket.localToWorld(new THREE.Vector3(0, 0, z));
+    bounds.union(plug.clone().translate(end.sub(origin)));
+  }
 }
 
 export class StorageContactGuide {
@@ -42,6 +59,35 @@ export class StorageContactGuide {
       depthWrite: false,
     }),
   );
+  private closeUp: ReturnType<typeof storageContactObjects> = null;
+  memberFor(id: string) {
+    if (id === this.closeUp?.disk.userData.entityId) return this.closeUp?.plug;
+    if (id === this.closeUp?.board.userData.entityId)
+      return this.closeUp?.socket;
+  }
+  private rest = new THREE.Vector3();
+  private point = new THREE.Vector3();
+  // 只在接点近看中移动盘尾分支。换槽、返回总览或加载新模型时恢复各自零位。
+  poseConnector(
+    pair: ReturnType<typeof storageContactObjects>,
+    pose?: LayerPose,
+  ) {
+    const plug = pose ? pair?.plug : undefined;
+    if (this.closeUp?.plug !== plug) {
+      if (this.closeUp) this.closeUp.plug.position.copy(this.rest);
+      this.closeUp = pose ? pair : null;
+      if (plug) this.rest.copy(plug.position);
+    }
+    if (!pair || !plug?.parent) return;
+    this.point.set(
+      0,
+      0,
+      pose === "separated" ? storageAssembly.contactInspection.travel : 0,
+    );
+    pair.socket.localToWorld(this.point);
+    plug.position.copy(plug.parent.worldToLocal(this.point));
+    plug.updateWorldMatrix(true, true);
+  }
   constructor() {
     this.root.add(...this.ends, this.line);
     this.line.frustumCulled = false;

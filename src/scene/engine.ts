@@ -71,7 +71,11 @@ import {
   poseAssemblyLayer,
   type LayerPose,
 } from "./assembly-layer";
-import { StorageContactGuide, storageContactObjects } from "./storage-contact";
+import {
+  StorageContactGuide,
+  storageContactObjects,
+  connectorBounds,
+} from "./storage-contact";
 import { canInspectPart, internalStructureThreshold } from "../part-inspection";
 import {
   airflowViewFrame,
@@ -213,6 +217,7 @@ export class SceneEngine {
   private dimmSocket = new DimmSocket();
   private liftedPart?: THREE.Object3D;
   storageContact = false;
+  storageConnectorPose?: LayerPose;
   storageBoardDisk?: string | null;
   controllerMountGuide = new ControllerMountGuide();
   storageContactGuide = new StorageContactGuide();
@@ -2252,7 +2257,10 @@ export class SceneEngine {
         bounds.expandByObject(companion);
       }
     }
-    if (contactPair && bounds) bounds.expandByObject(contactPair.board);
+    if (contactPair && bounds) {
+      if (this.storageConnectorPose) connectorBounds(bounds, contactPair);
+      else bounds.expandByObject(contactPair.board);
+    }
     if (this.rearRowPose && bounds) this.rearModuleSeats.includeFrame(bounds);
     const aisle =
       level === "room" && focus && view === "top"
@@ -2328,13 +2336,21 @@ export class SceneEngine {
           .fromArray(layer.direction)
           .transformDirection(object.matrixWorld);
       // 从侧前方看清分离的接触面和中板；仍保留实体遮挡。
-      if (contactPair) direction.set(0.8, 0.7, 0.12).normalize();
+      if (contactPair) {
+        if (this.storageConnectorPose)
+          direction
+            .fromArray(
+              definition.storageAssembly.contactInspection.focusDirection,
+            )
+            .transformDirection(contactPair.socket.matrixWorld);
+        else direction.set(0.8, 0.7, 0.12).normalize();
+      }
     }
     if (fixture && view === "iso")
       direction.fromArray(fixture.focus.direction).normalize();
     const minimum = fixture
       ? fixture.focus.distance
-      : layer && bounds
+      : (layer || this.storageConnectorPose) && bounds
         ? Math.min(
             cameraMinimumDistance.device,
             Math.max(
@@ -2379,7 +2395,12 @@ export class SceneEngine {
             ),
           );
     }
-    const reserveActions = wholeDevice || wholeRack || hasCompanions || !!layer;
+    const reserveActions =
+      wholeDevice ||
+      wholeRack ||
+      hasCompanions ||
+      !!layer ||
+      !!this.storageConnectorPose;
     if (reserveActions) {
       const frame = this.host.getBoundingClientRect();
       const actions = this.host
@@ -2743,6 +2764,7 @@ export class SceneEngine {
       id && this.storageContact
         ? storageContactObjects(this.state.deviceId, id, this.models.parts)
         : null;
+    this.storageContactGuide.poseConnector(pair, this.storageConnectorPose);
     const companions =
       id && this.companionPartIds.length
         ? this.companionPartIds.map((member) => this.models.parts.get(member))
@@ -2751,8 +2773,8 @@ export class SceneEngine {
       !!id &&
       (pair
         ? this.partIsolation.applyMany(this.models.server, [
-            pair.disk,
-            pair.board,
+            this.storageConnectorPose ? pair.plug : pair.disk,
+            this.storageConnectorPose ? pair.socket : pair.board,
           ])
         : companions && target
           ? companions.every((part) => !!part) &&
@@ -2792,9 +2814,12 @@ export class SceneEngine {
             this.models.parts,
           )
         : pair;
-    this.storageContactGuide.update(applied ? marked : null, boardOnly);
+    this.storageContactGuide.update(
+      applied && !this.storageConnectorPose ? marked : null,
+      boardOnly,
+    );
     const inspectionKey = pair
-      ? `${id}:contact`
+      ? `${id}:${this.storageConnectorPose ? "connector" : "contact"}`
       : companions
         ? [id, ...this.companionPartIds].join(":")
         : id;
@@ -3220,7 +3245,10 @@ export class SceneEngine {
           installed,
           faceColor ? this.camera.position.z : undefined,
         );
-      else this.models.selection.box.setFromObject(object);
+      else
+        this.models.selection.box.setFromObject(
+          this.storageContactGuide.memberFor(this.state.selected) ?? object,
+        );
     }
     this.models.selection.update(
       showSelection
@@ -3228,9 +3256,11 @@ export class SceneEngine {
         : null,
       time,
       this.reducedMotion,
-      this.state.level === "device" || selectedFixture || installed
-        ? 0.006
-        : 0.025,
+      this.storageConnectorPose
+        ? 0.00045
+        : this.state.level === "device" || selectedFixture || installed
+          ? 0.006
+          : 0.025,
       faceColor,
     );
     this.host.dataset.selectionTarget = showSelection

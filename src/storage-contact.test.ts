@@ -4,6 +4,7 @@ import * as THREE from "three";
 import { createEquipmentAssembly } from "./scene/equipment-model.ts";
 import {
   storageContactObjects,
+  connectorBounds,
   StorageContactGuide,
 } from "./scene/storage-contact.ts";
 import { PartIsolation } from "./scene/part-isolation.ts";
@@ -178,5 +179,96 @@ test("中板正面 24 个接触片与插座外缘均命中盘位，板面保留�
     );
     guide.update(pair);
     assert.ok(guide.root.children.every((object) => object.visible));
+  }
+});
+
+test("24 盘的宽窄插片分别进入同号双腔，端面贴座，换盘和退出恢复原盘尾", () => {
+  const assembly = createEquipmentAssembly("storage-4u");
+  const guide = new StorageContactGuide();
+  const slots = storageSlots("sto-04");
+  const pairs = slots.map((s) =>
+    storageContactObjects("sto-04", s.id, assembly.groups)!,
+  );
+  const rest = pairs.map((p) => p.plug.position.clone());
+  const box = (o: THREE.Object3D) => new THREE.Box3().setFromObject(o, true);
+  const close = (a: number, b: number) => assert.ok(Math.abs(a - b) < 1e-7);
+  for (const amount of [0.4, 1]) {
+    for (const part of partsForDevice("sto-04"))
+      assembly.groups
+        .get(part.id)!
+        .position.fromArray(assemblyPartPosition(part, amount, 1));
+    assembly.root.updateMatrixWorld(true);
+    for (const [i, p] of pairs.entries()) {
+      const socket = box(p.socket),
+        body = box(p.disk.getObjectByName("storage-drive-body")!);
+      const tongues = p.plug.getObjectsByProperty("name", "plug-tongue");
+      const contacts = p.socket.getObjectsByProperty("name", "socket-contact");
+      const key = box(p.socket.getObjectByName("socket-divider")!);
+      assert.equal(tongues.length, 2);
+      let frame: THREE.Box3 | undefined;
+      for (const pose of [
+        "separated",
+        "seated",
+        "seated",
+        "separated",
+      ] as const) {
+        guide.poseConnector(p, pose);
+        const framing = new THREE.Box3();
+        connectorBounds(framing, p);
+        if (frame) {
+          close(framing.min.z, frame.min.z);
+          close(framing.max.z, frame.max.z);
+        }
+        frame = framing;
+        assert.ok(box(p.socket).equals(socket));
+        assert.ok(
+          box(p.disk.getObjectByName("storage-drive-body")!).equals(body),
+        );
+        if (i) assert.ok(pairs[i - 1].plug.position.equals(rest[i - 1]));
+        const shoulder = box(p.contact);
+        close(shoulder.min.x, socket.min.x);
+        close(
+          shoulder.getCenter(new THREE.Vector3()).y,
+          socket.getCenter(new THREE.Vector3()).y,
+        );
+        if (pose === "separated") assert.ok(box(p.plug).min.z > socket.max.z);
+        else {
+          close(shoulder.min.z, socket.max.z);
+          assert.ok(
+            box(tongues[0]).max.x < key.min.x &&
+              box(tongues[1]).min.x > key.max.x,
+          );
+          assert.ok(
+            box(tongues[0]).getSize(new THREE.Vector3()).x >
+              box(tongues[1]).getSize(new THREE.Vector3()).x,
+          );
+          const pads = p.plug.getObjectsByProperty("name", "plug-pad");
+          assert.equal(contacts.length, pads.length);
+          pads.forEach((pad, j) => {
+            const land = box(pad),
+              finger = box(contacts[j]);
+            close(land.max.y, finger.min.y);
+            assert.ok(land.min.x < finger.min.x && land.max.x > finger.max.x);
+            assert.ok(land.min.z < finger.max.z && finger.max.z < land.max.z);
+          });
+          for (const mesh of [
+            ...tongues,
+            ...p.plug.getObjectsByProperty("name", "plug-pad"),
+          ]) {
+            const swept = box(mesh);
+            swept.max.z = shoulder.max.z;
+            for (const fixed of p.socket.children) {
+              const overlap = swept
+                .clone()
+                .intersect(box(fixed))
+                .getSize(new THREE.Vector3());
+              assert.ok(Math.min(overlap.x, overlap.y, overlap.z) < 1e-7);
+            }
+          }
+        }
+      }
+    }
+    guide.poseConnector(null);
+    assert.ok(pairs.every((p, i) => p.plug.position.equals(rest[i])));
   }
 });

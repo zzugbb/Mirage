@@ -2996,7 +2996,17 @@ export function Workspace() {
     if (!activeStorageVisit || !ready) return;
     setInspector(true);
     if (matchMedia("(max-width: 1099px)").matches) setNav(false);
-    setStorageVisit({ ...activeStorageVisit, mode: "group" });
+    if (
+      activeStorageVisit.mode === "contact" &&
+      activeStorageVisit.connectorPose
+    ) {
+      setStorageVisit({ ...activeStorageVisit, connectorPose: undefined });
+    } else
+      setStorageVisit({
+        ...activeStorageVisit,
+        mode: "group",
+        connectorPose: undefined,
+      });
     if (selected === "sto-midplane")
       control({
         type: "pick",
@@ -5649,6 +5659,11 @@ export function Workspace() {
             dimmPose={dimmPose}
             rearRowPose={activePair && !layerPose ? rearRow?.pose : undefined}
             storageContact={activeStorageVisit?.mode === "contact"}
+            storageConnectorPose={
+              activeStorageVisit?.mode === "contact"
+                ? activeStorageVisit.connectorPose
+                : undefined
+            }
             companionPartIds={companionPartIds}
             isolatedPartId={isolatedPartId}
             state={state}
@@ -6141,6 +6156,18 @@ export function Workspace() {
                   }}
                   onToggleDrive={() => {
                     if (!ready || !activeStorageVisit) return;
+                    if (activeStorageVisit.mode === "contact") {
+                      if (!activeStorageVisit.connectorPose)
+                        setStorageViewRevision((n) => n + 1);
+                      setStorageVisit({
+                        ...activeStorageVisit,
+                        connectorPose:
+                          activeStorageVisit.connectorPose === "separated"
+                            ? "seated"
+                            : "separated",
+                      });
+                      return;
+                    }
                     setStorageVisit({
                       ...activeStorageVisit,
                       mode:
@@ -6509,6 +6536,7 @@ export function Workspace() {
                   setStorageVisit({
                     ...activeStorageVisit,
                     mode: "contact",
+                    connectorPose: undefined,
                     diskId: id,
                   });
                   pick(id);

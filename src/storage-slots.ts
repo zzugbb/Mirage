@@ -24,6 +24,7 @@ export type StorageSlotInspection = {
   mode: "group" | "disk" | "tray" | "contact" | "board";
   diskId: string | null;
   pending: boolean;
+  connectorPose?: "seated" | "separated";
 };
 export function storageSlotContext(deviceId: string, selected: string) {
   const slots = storageSlots(deviceId);

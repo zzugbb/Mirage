@@ -158,6 +158,7 @@ export function ReviewScene({
   dimmPose,
   rearRowPose,
   storageContact = false,
+  storageConnectorPose,
   storageBoardDisk,
   sliceViewCommand,
   onSlicePlaneChange,
@@ -307,6 +308,7 @@ export function ReviewScene({
   dimmPose?: LayerPose;
   rearRowPose?: RearRowPose;
   storageContact?: boolean;
+  storageConnectorPose?: LayerPose;
   storageBoardDisk?: string | null;
   sliceControls: SliceControls;
   setSliceControls: Dispatch<SetStateAction<SliceControls>>;
@@ -1042,6 +1044,7 @@ export function ReviewScene({
     active.dimmPose = dimmPose;
     active.rearRowPose = rearRowPose;
     active.storageContact = storageContact;
+    active.storageConnectorPose = storageConnectorPose;
     active.storageBoardDisk = storageBoardDisk;
     active.invalidate();
     if (
@@ -1057,6 +1060,7 @@ export function ReviewScene({
     dimmPose,
     rearRowPose,
     storageContact,
+    storageConnectorPose,
     storageBoardDisk,
     state.level,
     state.deviceId,

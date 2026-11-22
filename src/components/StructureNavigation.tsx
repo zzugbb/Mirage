@@ -43,6 +43,7 @@ export function StructureNavigation({
     board: "中板正面",
   }[visit.mode];
   const driveInspection = visit.mode === "disk" || visit.mode === "tray";
+  const contact = visit.mode === "contact" ? visit : undefined;
   const hasDuct = fan && !!modelForDevice(visit.deviceId).fanDuctLayout;
   const group = fan
     ? fan.side === "duct"
@@ -55,7 +56,9 @@ export function StructureNavigation({
       state={state}
       disabled={disabled}
       dispatch={dispatch}
-      destination={deeper ? group : "完整结构"}
+      destination={
+        contact?.connectorPose ? "中板接点" : deeper ? group : "完整结构"
+      }
       onBack={back}
       menuActions={
         deeper && (
@@ -69,15 +72,28 @@ export function StructureNavigation({
         className={
           hasDuct
             ? "structure-check-scope fan-duct-scope"
-            : driveInspection
+            : driveInspection || contact
               ? "structure-check-scope assembly-layer-scope"
               : "structure-check-scope"
         }
       >
         <b>
-          {visit.pending ? "正在展开" : scope}
+          {visit.pending
+            ? "正在展开"
+            : contact?.connectorPose
+              ? "插头与插座"
+              : scope}
           {visit.mode !== "group" && part && ` · ${part.slot}`}
         </b>
+        {contact && (
+          <button disabled={disabled} onClick={onToggleDrive}>
+            {contact.connectorPose === "separated"
+              ? "推合插头"
+              : contact.connectorPose === "seated"
+                ? "分离插头"
+                : "近看插合"}
+          </button>
+        )}
         {driveInspection && (
           <button disabled={disabled} onClick={onToggleDrive}>
             {visit.mode === "tray" ? "放回托架" : "抬起盘体"}
