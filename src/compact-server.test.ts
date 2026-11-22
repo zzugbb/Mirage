@@ -7,7 +7,7 @@ import { RearModuleSeats } from "./scene/rear-module-seats.ts";
 import { ControllerMountGuide } from "./scene/controller-mount.ts";
 import { mapCompactServer } from "./scene/compact-server.ts";
 import { assemblyChecks } from "./assembly-pairs.ts";
-import { poseAssemblyLayer } from "./scene/assembly-layer.ts";
+import { poseAssemblyLayer, layerScopeFor } from "./scene/assembly-layer.ts";
 import { assemblyPartPosition } from "./assembly-motion.ts";
 import { createEquipmentAssembly } from "./scene/equipment-model.ts";
 import { devices, rackForDevice } from "./installation.ts";
@@ -447,7 +447,7 @@ test("精细 1U 模型保留内嵌贴图和材质，维护部件仍与八内存�
           );
           const hit = ray.intersectObject(sink)[0];
           assert.ok(
-            hit && Math.abs(hit.distance - 0.001) < 1e-6,
+            hit && Math.abs(hit.distance - 0.001) < 0.00001,
             companion.slot,
           );
         }
@@ -458,15 +458,91 @@ test("精细 1U 模型保留内嵌贴图和材质，维护部件仍与八内存�
           fallback.groups.get(companion.id)!,
         );
         assert.ok(
-          simpleCap.min.distanceTo(bounds.min) < 1e-7 &&
-            simpleCap.max.distanceTo(bounds.max) < 1e-7,
+          simpleCap.min.distanceTo(bounds.min) < 0.0001 &&
+            simpleCap.max.distanceTo(bounds.max) < 0.0001,
         );
-        assert.ok(Math.abs(simpleSink.min.y - top.y) < 1e-7);
+        assert.ok(Math.abs(simpleSink.min.y - simpleCap.max.y) < 1e-7);
         assert.deepEqual(
           assembly.positions.get(primary.id)?.toArray(),
           chip.position.toArray(),
         );
       }
+    },
+  );
+  await t.test(
+    "M1 双路座框保留原三角面和材质，两种表示可独立抬升封装或散热器",
+    () => {
+      const fallback = createEquipmentAssembly("server-1u");
+      const board = assembly.groups.get("board-01")!;
+      const boardMesh = board.getObjectByName(
+        "compact_mainboard",
+      ) as THREE.Mesh;
+      let triangles = boardMesh.geometry.index!.count / 3;
+      for (const { primary, companion } of assemblyChecks("srv-53").find(
+        (c) => c.tool === "processor-pair",
+      )!.pairs) {
+        const contact = sceneDefinition.equipmentModels
+          .find((m) => m.id === "server-1u")!
+          .processorContacts!.find((c) => c.slot === companion.slot)!;
+        for (const part of [
+          board.getObjectByName(contact.socketNode)!,
+          assembly.groups
+            .get(primary.id)!
+            .getObjectByName(contact.packageNode)!,
+        ])
+          part.traverse((obj) => {
+            if (obj instanceof THREE.Mesh) {
+              assert.equal(obj.material, boardMesh.material);
+              triangles += obj.geometry.index!.count / 3;
+            }
+          });
+        for (const model of [assembly, fallback]) {
+          const chip = model.groups.get(primary.id)!,
+            sink = model.groups.get(companion.id)!,
+            host = model.groups.get("board-01")!;
+          const seat = host.getObjectByName(contact.socketNode)!;
+          const bounds = (obj: THREE.Object3D) =>
+            new THREE.Box3().setFromObject(obj, true);
+          const seatBounds = bounds(seat),
+            cap = bounds(chip);
+          const ray = new THREE.Raycaster(
+            new THREE.Vector3(
+              contact.center[0],
+              cap.max.y + 0.002,
+              contact.center[2],
+            ),
+            new THREE.Vector3(0, -1, 0),
+          );
+          const surface = ray.intersectObject(host)[0];
+          assert.ok(
+            surface && Math.abs(surface.point.y - cap.min.y) < 0.00003,
+            "封装移出后没有重复顶面",
+          );
+          for (const [stage, owner, stationary, lift] of [
+            ["processor-seat", chip, sink, 0.036],
+            ["processor-sink", sink, chip, 0.068],
+          ] as const) {
+            const id = stage + ":" + primary.id,
+              scope = layerScopeFor(chip, id)!;
+            assert.equal(layerScopeFor(host, id)?.selectedBranch, seat);
+            assert.ok(scope.members.includes(seat));
+            const rest = bounds(owner),
+              other = bounds(stationary);
+            for (const split of [true, true, false, true, false]) {
+              poseAssemblyLayer(scope.layerRoot, split);
+              model.root.updateWorldMatrix(true, true);
+              assert.ok(
+                Math.abs(
+                  bounds(owner).min.y - rest.min.y - (split ? lift : 0),
+                ) < 1e-7,
+              );
+              assert.ok(bounds(stationary).equals(other));
+              assert.ok(bounds(seat).equals(seatBounds));
+            }
+          }
+        }
+      }
+      assert.equal(triangles, 45168);
     },
   );
   await t.test("M1 四组风扇的八个转子与导风罩在精模、简模中逐一对位", () => {

@@ -6973,9 +6973,14 @@
           {"id": "dimm-08", "x": 0.17752}
         ]
       },
+      "processorSeat": {
+        "board": "board-01", "packageSize": [0.05776, 0.00329, 0.07879],
+        "frameSize": [0.07806, 0.00220, 0.11810], "frameClearance": 0.0004,
+        "packageLift": 0.036, "sinkLift": 0.068, "focusDirection": [0.86, 0.62, -1]
+      },
       "processorContacts": [
-        {"slot": "HS-01", "center": [-0.1023393, -0.0098675, -0.0256423]},
-        {"slot": "HS-02", "center": [0.1022221, -0.0098675, -0.0256423]}
+        {"slot": "HS-01", "packageNode": "compact_package_a", "socketNode": "compact_socket_a", "center": [-0.1023393, -0.0098675, -0.0256423]},
+        {"slot": "HS-02", "packageNode": "compact_package_b", "socketNode": "compact_socket_b", "center": [0.1022221, -0.0098675, -0.0256423]}
       ],
       "description": "双路 · 8 DIMM · 4×2.5英寸 SAS SSD · 双电源",
       "uninstalled": [

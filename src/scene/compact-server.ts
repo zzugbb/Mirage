@@ -1,4 +1,6 @@
 import * as THREE from "three";
+import { registerCompactProcessorSeats } from "./compact-processors.ts";
+import { processorPairs } from "../assembly-pairs.ts";
 import { buildCompactStoragePath } from "./compact-storage-path.ts";
 import {
   createEquipmentAssembly,
@@ -44,6 +46,13 @@ export function mapCompactServer(root: THREE.Group) {
     // 此节点包含机后支架及竖直转接板，管理接口另按配置示意。
     "riser-01": ["compact_io"],
   };
+  const model = modelById("server-1u");
+  for (const { primary, companion } of processorPairs(model.id)) {
+    const contact = model.processorContacts!.find(
+      (item) => item.slot === companion.slot,
+    )!;
+    mapping[primary.id] = [contact.packageNode];
+  }
   for (const [id, names] of Object.entries(mapping)) attach(id, names);
   for (let i = 1; i <= 8; i++)
     attach(`dimm-${String(i).padStart(2, "0")}`, [`compact_dimm_${i}`]);
@@ -70,7 +79,6 @@ export function mapCompactServer(root: THREE.Group) {
     }
   }
   const supplement = createEquipmentAssembly("server-1u");
-  const model = modelById("server-1u");
   for (const id of [
     model.compactHarness!.backplane,
     model.controllerMount!.controllerId,
@@ -105,6 +113,7 @@ export function mapCompactServer(root: THREE.Group) {
     group.position.copy(center);
     groups.set(id, group);
   }
+  registerCompactProcessorSeats(groups);
   buildCompactStoragePath(groups, makeEquipmentBox());
   root.traverse((object) => {
     if (!(object instanceof THREE.Mesh)) return;

@@ -162,6 +162,13 @@ function serverPowerCheck(modelId: "server-1u" | "server-2u") {
   } as const;
 }
 
+export const compactProcessorLayer = {
+  members: "both",
+  label: "处理器安装面",
+  scope: "处理器安装面姿态",
+  seated: "放回座框",
+  separated: "抬起封装",
+} as const;
 function processorCheck(modelId: string) {
   return {
     tool: "processor-pair",
@@ -226,7 +233,11 @@ const checks = {
         companion: disk,
       })),
     },
-    processorCheck("server-1u"),
+    {
+      ...processorCheck("server-1u"),
+      detail: "逐路核对封装座框与散热器接触面",
+      layer: compactProcessorLayer,
+    },
     storageHarnessCheck(
       "server-1u",
       compactHarness.backplane,

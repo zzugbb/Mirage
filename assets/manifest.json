@@ -10,7 +10,7 @@
       "source": "本项目独立设计并自主参数化制作的机房、混合设备配置与补充部件；通用结构示意，不对应真实现场。",
       "license": "CC-BY-NC-4.0",
       "licenseFile": "LICENSES/CC-BY-NC-4.0.txt",
-      "sha256": "eaa0da0573448f66bb164b89593ff8d3628d134f93d97a92deb24ace5c0b688c",
+      "sha256": "78d6f93b719cf26478163218efe704d6b3c3f5b09dd3e2be5f2774e52b8ab112",
       "publicationApproved": true
     },
     {
@@ -54,7 +54,7 @@
       "source": "维护者授权纳入的原创贡献模型；保留经维护者确认的原始贴图、材质与部件标识，清理导出元数据并适配维护部件。",
       "license": "CC-BY-NC-4.0",
       "licenseFile": "LICENSES/CC-BY-NC-4.0.txt",
-      "sha256": "11ef9e97055b1c63957c44f3a676a9901b233b688b0b9d1b42f622430e595318",
+      "sha256": "f341e2d2f56a976fd9abae43bde4a58dd589495e0d2397415b30a22a51aed95f",
       "publicationApproved": true
     },
     {

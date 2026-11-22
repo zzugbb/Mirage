@@ -34,7 +34,10 @@ export function layerScopeFor(root?: Object3D, id?: string) {
 }
 export function scopeBounds(bounds: Box3, scope: LayerScope) {
   bounds.makeEmpty();
-  for (const item of scope.members) bounds.expandByObject(item);
+  for (const item of scope.members) {
+    item.updateWorldMatrix(true, false);
+    bounds.expandByObject(item);
+  }
   return bounds;
 }
 

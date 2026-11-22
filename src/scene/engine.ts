@@ -2755,12 +2755,18 @@ export class SceneEngine {
     for (const [index, part] of partsForDevice(this.state.deviceId).entries()) {
       const base = this.partBases.get(part.id)?.toArray() ?? part.position;
       // 接合面横跨控制板和风扇组，两侧都沿用机内安装坐标。
+      const processorSeat =
+        this.layerScopeId?.startsWith("processor-") &&
+        (part.id === "board-01" ||
+          part.node === "chip" ||
+          part.node === "processor");
       const fanContact =
         this.layerScopeId?.startsWith("fan-") &&
         (part.id === "net-board" || part.id === "net-fans");
       const position = assemblyPartPosition(
         { ...part, position: base },
-        fanContact ||
+        processorSeat ||
+          fanContact ||
           (this.compactStoragePose &&
             compactPathModules.has(part.id) &&
             !(

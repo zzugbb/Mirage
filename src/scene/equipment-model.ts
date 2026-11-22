@@ -14,6 +14,11 @@ import {
 } from "./server-storage-harness.ts";
 import { registerLayer } from "./assembly-layer.ts";
 import { rearPowerSupply } from "./rear-power-supply.ts";
+import {
+  compactHeatsink,
+  compactPackage,
+  registerCompactProcessorSeats,
+} from "./compact-processors.ts";
 import { buildSwitchFanContacts } from "./switch-fan-contacts.ts";
 import { createFanModule } from "./fan-module.ts";
 import { switchBoard, switchAsic, switchPortCages } from "./switch-model.ts";
@@ -329,6 +334,10 @@ function detail(
 ) {
   const [w, h, d] = size;
   if (node === "board") board(root, size, box);
+  else if (modelId === "server-1u" && node === "chip")
+    compactPackage(root, box);
+  else if (modelId === "server-1u" && node === "processor")
+    compactHeatsink(root, box);
   else if (node === "chip") {
     box(root, [w, 0.002, d], [0, -0.002, 0], "#1a4c3a", 0.2);
     box(root, [w * 0.85, 0.004, d * 0.85], [0, 0.001, 0], "#aeb5b9", 0.8);
@@ -860,6 +869,7 @@ export function createEquipmentAssembly(modelId: string): Assembly {
   }
   if (model.storageHarness) buildStorageHarness(groups, positions, box);
   if (model.category === "server") seatProcessors(modelId, groups, positions);
+  if (model.processorSeat) registerCompactProcessorSeats(groups);
   root.updateMatrixWorld(true);
   return { root, groups, positions };
 }
@@ -925,7 +935,7 @@ function seatProcessors(
     const seat = contacts?.find((item) => item.slot === companion.slot);
     if (seat) {
       const center = new THREE.Vector3().fromArray(seat.center);
-      sink.position.add(center.clone().sub(contact));
+      sink.position.copy(center);
       positions.set(companion.id, sink.position.clone());
       contact.copy(center);
     }

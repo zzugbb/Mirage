@@ -5,6 +5,7 @@ import {
   assemblyMember,
   rearMemberLayer,
   controllerLayer,
+  compactProcessorLayer,
   switchRear,
   type FanContactView,
   type AssemblyCheck,
@@ -464,6 +465,7 @@ export function Workspace() {
     deviceId: string;
     tool: AssemblyCheck["tool"];
     layerScopeId?: string;
+    processorSlot?: string;
     fanContact?: { view: FanContactView; fanId: string };
     storagePath?: { stationId: string; origin: string; pose: LayerPose };
     powerBayPose?: RearRowPose;
@@ -491,9 +493,13 @@ export function Workspace() {
       (fan) =>
         fan.id === (selected === "net-board" ? contactVisit.fanId : selected),
     );
+  const processorBoardSlot =
+    pairVisit?.layerPose && selected === "board-01"
+      ? pairVisit.processorSlot
+      : undefined;
   const assembly =
     pairVisit?.deviceId === state.deviceId
-      ? (station || contactFan
+      ? (station || contactFan || processorBoardSlot
           ? assemblyChecks(state.deviceId)
           : pairTools
         ).find((check) => check.tool === pairVisit.tool)
@@ -520,6 +526,7 @@ export function Workspace() {
         ({ primary, companion }) =>
           !!station ||
           !!contactFan ||
+          primary.id === processorBoardSlot ||
           selected === primary.id ||
           selected === companion.id ||
           additionalParts?.some((part) => selected === part.id) ||
@@ -538,6 +545,12 @@ export function Workspace() {
         activePair[assembly.layer.members].id === selected)
       ? assembly.layer
       : undefined);
+  const processorInspection = selectedLayer === compactProcessorLayer;
+  const processorStage =
+    pairVisit?.layerScopeId === "processor-sink" ||
+    selected === activePair?.companion.id
+      ? "processor-sink"
+      : "processor-seat";
   const controllerInspection = selectedLayer === controllerLayer;
   const inspectingCooler =
     controllerInspection && pairVisit?.layerScopeId === "controller-cooler";
@@ -553,6 +566,8 @@ export function Workspace() {
         current && {
           ...current,
           layerPose: pose,
+          processorSlot:
+            pose && processorInspection ? activePair?.primary.id : undefined,
           fanContact: pose ? current.fanContact : undefined,
           layerScopeId: pose ? current.layerScopeId : undefined,
         },
@@ -580,6 +595,16 @@ export function Workspace() {
   ]);
   useEffect(() => {
     if (pairVisit && !activePair) setPairVisit(null);
+    else if (
+      processorInspection &&
+      layerPose &&
+      activePair &&
+      pairVisit?.processorSlot !== activePair.primary.id
+    )
+      setPairVisit(
+        (current) =>
+          current && { ...current, processorSlot: activePair.primary.id },
+      );
     else if (contactVisit && contactVisit.fanId !== contactFan?.id)
       setPairVisit(
         (current) =>
@@ -603,6 +628,8 @@ export function Workspace() {
     station,
     contactVisit,
     contactFan,
+    layerPose,
+    processorInspection,
   ]);
   const [structureReturn, setStructureReturn] = useState<{
     deviceId: string;
@@ -5765,16 +5792,18 @@ export function Workspace() {
                     : layerPose
             }
             layerScopeId={
-              contactFan && contactVisit
-                ? contactVisit.view + ":" + contactFan.id
-                : pathContact
-                  ? station.id
-                  : layerPose &&
-                      (assembly?.tool === "switch-front" ||
-                        powerContactScope ||
-                        controllerInspection)
-                    ? pairVisit?.layerScopeId
-                    : undefined
+              processorInspection && layerPose && activePair
+                ? processorStage + ":" + activePair.primary.id
+                : contactFan && contactVisit
+                  ? contactVisit.view + ":" + contactFan.id
+                  : pathContact
+                    ? station.id
+                    : layerPose &&
+                        (assembly?.tool === "switch-front" ||
+                          powerContactScope ||
+                          controllerInspection)
+                      ? pairVisit?.layerScopeId
+                      : undefined
             }
             dimmPose={dimmPose}
             rearRowPose={
@@ -6152,6 +6181,8 @@ export function Workspace() {
                   destination={rearRow ? "机后排布" : assembly.name}
                   onBack={() => {
                     returningToLayer.current = "layer";
+                    if (processorBoardSlot && activePair)
+                      pick(activePair.primary.id);
                     if (contactFan && selected !== contactFan.id)
                       pick(contactFan.id);
                     setLayerPose();
@@ -6250,6 +6281,52 @@ export function Workspace() {
                         </button>
                       </>
                     )}
+                    {processorInspection && activePair && (
+                      <>
+                        <select
+                          aria-label="核查处理器槽位"
+                          disabled={!ready}
+                          value={activePair.primary.id}
+                          onChange={(event) => {
+                            const next = assembly.pairs.find(
+                              (pair) => pair.primary.id === event.target.value,
+                            );
+                            if (next)
+                              pick(
+                                selected === activePair.companion.id
+                                  ? next.companion.id
+                                  : next.primary.id,
+                              );
+                          }}
+                        >
+                          {assembly.pairs.map((pair) => (
+                            <option
+                              key={pair.primary.id}
+                              value={pair.primary.id}
+                            >
+                              {pair.primary.slot}
+                            </option>
+                          ))}
+                        </select>
+                        <select
+                          aria-label="处理器核查位置"
+                          disabled={!ready}
+                          value={processorStage}
+                          onChange={(event) => {
+                            const stage = event.target.value;
+                            pick(
+                              stage === "processor-sink"
+                                ? activePair.companion.id
+                                : activePair.primary.id,
+                            );
+                            setLayerScope(stage);
+                          }}
+                        >
+                          <option value="processor-seat">封装与座框</option>
+                          <option value="processor-sink">散热器接触面</option>
+                        </select>
+                      </>
+                    )}
                     {controllerInspection && activePair && (
                       <>
                         <select
@@ -6301,19 +6378,24 @@ export function Workspace() {
                         autoFocus={pose === "separated"}
                         onClick={() => setLayerPose(pose)}
                       >
-                        {inspectingCooler
+                        {processorInspection &&
+                        processorStage === "processor-sink"
                           ? pose === "seated"
-                            ? "贴合芯片"
+                            ? "贴合封装"
                             : "抬起散热器"
-                          : contactFan
+                          : inspectingCooler
                             ? pose === "seated"
-                              ? "接合触点"
-                              : "分开触点"
-                            : inspectingBoardContact
+                              ? "贴合芯片"
+                              : "抬起散热器"
+                            : contactFan
                               ? pose === "seated"
-                                ? "插入固定座"
-                                : "退出固定座"
-                              : selectedLayer[pose]}
+                                ? "接合触点"
+                                : "分开触点"
+                              : inspectingBoardContact
+                                ? pose === "seated"
+                                  ? "插入固定座"
+                                  : "退出固定座"
+                                : selectedLayer[pose]}
                       </button>
                     ))}
                   </div>
@@ -6545,9 +6627,17 @@ export function Workspace() {
                       <button
                         ref={layerEntry}
                         disabled={!ready}
-                        onClick={() => setLayerPose("separated")}
+                        onClick={() => {
+                          setLayerPose("separated");
+                          if (processorInspection)
+                            setLayerScope(
+                              selected === activePair.companion.id
+                                ? "processor-sink"
+                                : "processor-seat",
+                            );
+                        }}
                       >
-                        分层查看
+                        {processorInspection ? "核对安装面" : "分层查看"}
                       </button>
                     )}
                   </div>
@@ -8084,30 +8174,32 @@ export function Workspace() {
                     <p>
                       {compactServer && selected === "storage-01"
                         ? `前置 ${compactDriveBays.length} 个托架，硬盘与背板分别建模。`
-                        : layerPose && rearLayer
-                          ? rearLayer.description
-                          : powerBayPose
-                            ? "输入 A、B 与槽位按 M1 配置对应。电源外形沿用当前模型，托边、限位和抽出距离为原创装配示意。读数来自模拟，支路未计量。"
-                            : rearRow
-                              ? "模块编号及 A/B 归属来自本机型配置。托边、限位与抽出行程为装配示意，时间分析沿用所选部件的模型读数。"
-                              : dimmPose
-                                ? "槽位按本机型的内存条编号与模型位置对应。槽体、卡扣和抬起间距为装配示意，读数沿用内存条模型。"
-                                : memoryContext && selected === "memory-01"
-                                  ? `本机型配置 ${dimms.length} 条内存，可逐条检视。`
-                                  : assembly?.tool === "rtc-mount"
-                                    ? "RTC 位置取自主板外观。电池座、触片与抬起间距为装配示意，电池电压和电量未接入。"
-                                    : assembly?.tool === "expansion-bay"
-                                      ? "机后面板分区按 M2 配置定位。管理接口板、支架和分层间距为装配示意。A/B 两路逻辑接入归属双口网卡。"
-                                      : assembly?.tool === "rear-interfaces"
-                                        ? "网卡与转接架的精细外观来自贡献模型。管理面板按 M1 配置定位，接口板、导轨、止挡和行程为原创装配示意。A/B 两路逻辑接入归属网卡，部件读数来自模拟。"
-                                        : assembly?.tool === "storage-harness"
-                                          ? compactServer
-                                            ? "盘位、背板和控制卡按 M1 配置与模型定位。盘尾承接架、接触片、SAS 插头及侧边走向为原创装配示意。时间分析沿用所选部件的模型读数。"
-                                            : "背板接触区按八块硬盘的位置对齐。插头和线束绕行是内部装配示意，读数沿用部件模型。"
-                                          : assembly?.tool ===
-                                              "storage-controllers"
-                                            ? controllerLayer.description
-                                            : entity.description}
+                        : processorInspection
+                          ? "双路编号与归属来自 M1 配置。精模的封装上表面、座框、固定柱和散热器取自贡献模型，封装背面、简模与拆装行程为原创装配示意。时间分析沿用当前部件模拟值。"
+                          : layerPose && rearLayer
+                            ? rearLayer.description
+                            : powerBayPose
+                              ? "输入 A、B 与槽位按 M1 配置对应。电源外形沿用当前模型，托边、限位和抽出距离为原创装配示意。读数来自模拟，支路未计量。"
+                              : rearRow
+                                ? "模块编号及 A/B 归属来自本机型配置。托边、限位与抽出行程为装配示意，时间分析沿用所选部件的模型读数。"
+                                : dimmPose
+                                  ? "槽位按本机型的内存条编号与模型位置对应。槽体、卡扣和抬起间距为装配示意，读数沿用内存条模型。"
+                                  : memoryContext && selected === "memory-01"
+                                    ? `本机型配置 ${dimms.length} 条内存，可逐条检视。`
+                                    : assembly?.tool === "rtc-mount"
+                                      ? "RTC 位置取自主板外观。电池座、触片与抬起间距为装配示意，电池电压和电量未接入。"
+                                      : assembly?.tool === "expansion-bay"
+                                        ? "机后面板分区按 M2 配置定位。管理接口板、支架和分层间距为装配示意。A/B 两路逻辑接入归属双口网卡。"
+                                        : assembly?.tool === "rear-interfaces"
+                                          ? "网卡与转接架的精细外观来自贡献模型。管理面板按 M1 配置定位，接口板、导轨、止挡和行程为原创装配示意。A/B 两路逻辑接入归属网卡，部件读数来自模拟。"
+                                          : assembly?.tool === "storage-harness"
+                                            ? compactServer
+                                              ? "盘位、背板和控制卡按 M1 配置与模型定位。盘尾承接架、接触片、SAS 插头及侧边走向为原创装配示意。时间分析沿用所选部件的模型读数。"
+                                              : "背板接触区按八块硬盘的位置对齐。插头和线束绕行是内部装配示意，读数沿用部件模型。"
+                                            : assembly?.tool ===
+                                                "storage-controllers"
+                                              ? controllerLayer.description
+                                              : entity.description}
                     </p>
                     {entity.kind === "rack" && (
                       <>
