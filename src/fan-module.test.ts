@@ -2,6 +2,16 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as THREE from "three";
 import definition from "../assets/public/scenes/room-01.json" with { type: "json" };
+import {
+  assemblyLayer,
+  includeSeparatedLayer,
+  poseAssemblyLayer,
+} from "./scene/assembly-layer.ts";
+import {
+  switchRear,
+  rearMemberLayer,
+  rearLayoutFor,
+} from "./assembly-pairs.ts";
 import { createFanModule } from "./scene/fan-module.ts";
 import { createEquipmentAssembly } from "./scene/equipment-model.ts";
 
@@ -30,7 +40,7 @@ for (const [model, groupId, count] of [
       config.size[1],
       config.size[2],
     ];
-    const root = createFanModule([w, h, d]);
+    const root = createFanModule([w, h, d], model === "switch-1u");
     try {
       root.updateMatrixWorld(true);
       const b = new THREE.Box3().setFromObject(root);
@@ -74,8 +84,9 @@ for (const [model, groupId, count] of [
         new THREE.Vector3(0, 0, 1),
       );
       assert.equal(hubRay.intersectObject(root)[0].object.name, "fan-hub");
-      const blades = root.children.filter(
-        (o) => o.name === "fan-blade",
+      const blades = root.getObjectsByProperty(
+        "name",
+        "fan-blade",
       ) as THREE.Mesh[];
       assert.equal(
         new Set(blades.map((o) => o.geometry)).size,
@@ -147,3 +158,92 @@ for (const [model, groupId, count] of [
     }
   });
 }
+
+test("N1 四个风扇槽位各自分离叶轮，轴头、框体与三臂固定，重复落座对孔", () => {
+  const assembly = createEquipmentAssembly("switch-1u");
+  try {
+    for (const part of switchRear.members) {
+      const child = assembly.groups.get(part.id)!;
+      const layer = assemblyLayer(child);
+      const tool = rearMemberLayer(switchRear, part.id);
+      if (!switchRear.fans.some((fan) => fan.id === part.id)) {
+        assert.equal(layer, undefined);
+        assert.equal(tool, undefined);
+        continue;
+      }
+      assert.equal(tool?.entry, "查看叶轮与轴座");
+      assert.ok(layer);
+      const bounds = (node: THREE.Object3D) =>
+        new THREE.Box3().setFromObject(node, true);
+      child.updateWorldMatrix(true, true);
+      const rotor = child.getObjectByName(layer.node)!;
+      const blades = rotor.getObjectsByProperty("name", "fan-blade");
+      assert.equal(blades.length, definition.fanModule.bladeCount);
+      const hub = rotor.getObjectByName("fan-hub")!,
+        shaft = child.getObjectByName("fan-shaft")!;
+      const housing = child.getObjectByName("fan-rear-frame")!;
+      const shaftSeat = bounds(shaft),
+        hubSeat = bounds(hub),
+        frameSeat = bounds(housing);
+      const midpoint = (box: THREE.Box3) => box.getCenter(new THREE.Vector3());
+      const center = midpoint(shaftSeat);
+      const hubCenter = midpoint(hubSeat);
+      assert.ok(
+        Math.hypot(center.x - hubCenter.x, center.y - hubCenter.y) < 1e-8,
+      );
+      // 叶尖在整个轴向行程内均能穿过机后圆孔。
+      const opening =
+        bounds(child).getSize(new THREE.Vector3()).y *
+        definition.fanModule.openingRadiusRatio;
+      for (const blade of blades as THREE.Mesh[]) {
+        const vertices = blade.geometry.getAttribute("position");
+        for (let i = 0; i < vertices.count; i++) {
+          const tip = blade.localToWorld(
+            new THREE.Vector3().fromBufferAttribute(vertices, i),
+          );
+          assert.ok(Math.hypot(tip.x - center.x, tip.y - center.y) < opening);
+        }
+      }
+      // 从轮毂背面向盲孔底部射线：轴头伸入背孔且与孔底留隙。
+      const ray = new THREE.Raycaster(
+        center.clone().setZ(hubSeat.max.z + 0.01),
+        new THREE.Vector3(0, 0, -1),
+      );
+      const bottom = ray.intersectObject(hub)[0].point.z;
+      assert.ok(
+        hubSeat.min.z < bottom &&
+          bottom < shaftSeat.min.z &&
+          shaftSeat.min.z < hubSeat.max.z,
+      );
+      const framed = new THREE.Box3().setFromObject(child);
+      includeSeparatedLayer(framed, child, layer);
+      for (const separated of [true, true, false, true, false]) {
+        poseAssemblyLayer(child, separated);
+        child.updateWorldMatrix(true, true);
+        const current = bounds(hub);
+        assert.ok(
+          Math.abs(
+            current.min.z - hubSeat.min.z - (separated ? layer.offset[2] : 0),
+          ) < 1e-8,
+        );
+        assert.ok(framed.containsBox(bounds(rotor)));
+        if (separated) assert.ok(bounds(rotor).max.z < frameSeat.min.z);
+        assert.ok(bounds(shaft).equals(shaftSeat));
+        assert.ok(bounds(housing).equals(frameSeat));
+        if (!separated) assert.ok(current.equals(hubSeat));
+      }
+      const walls = child.getObjectsByProperty("name", "fan-side");
+      const supports = child.getObjectsByProperty("name", "fan-support");
+      assert.equal(supports.length, 3);
+      assert.ok(
+        supports.every((strut) =>
+          walls.some((wall) => bounds(wall).intersectsBox(bounds(strut))),
+        ),
+      );
+    }
+    const storage = rearLayoutFor("storage-4u")!;
+    assert.ok(storage.fans.every((fan) => !rearMemberLayer(storage, fan.id)));
+  } finally {
+    dispose(assembly.root);
+  }
+});

@@ -7,6 +7,7 @@ import {
   buildStorageHarness,
   isStorageHarnessPart,
 } from "./server-storage-harness.ts";
+import { registerLayer } from "./assembly-layer.ts";
 import { createFanModule } from "./fan-module.ts";
 import { switchBoard, switchAsic, switchPortCages } from "./switch-model.ts";
 import {
@@ -611,7 +612,19 @@ function children(
       if (id === "net-fans" || id === "sto-fans") {
         child.userData.focusDirection = definition.fanModule.focusDirection;
         root.userData.focusDirection = definition.fanModule.focusDirection;
-        child.add(createFanModule([w, size[1], size[2]]));
+        const separable = id === "net-fans";
+        child.add(createFanModule([w, size[1], size[2]], separable));
+        if (separable) {
+          const {
+            travel,
+            focusDirection: [x, y, z],
+          } = definition.switchAssembly.fanRotor;
+          registerLayer(child, {
+            node: "fan-rotor",
+            offset: [0, 0, -travel],
+            direction: [x, y, z],
+          });
+        }
         continue;
       }
       box(child, [w, size[1], size[2]], [0, 0, 0], "#252d34", 0.3);

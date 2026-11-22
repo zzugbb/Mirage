@@ -131,7 +131,7 @@ export function buildRtcMount(
     );
   registerLayer(root, {
     node: cell.name,
-    lift: mount.lift,
+    offset: [0, mount.lift, 0],
     direction: [
       mount.focusDirection[0],
       mount.focusDirection[1],

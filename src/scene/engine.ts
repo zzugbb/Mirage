@@ -67,6 +67,7 @@ import { storageSlots } from "../storage-slots";
 import { ControllerMountGuide } from "./controller-mount";
 import {
   assemblyLayer,
+  includeSeparatedLayer,
   poseAssemblyLayer,
   type LayerPose,
 } from "./assembly-layer";
@@ -2230,7 +2231,7 @@ export class SceneEngine {
     const layer =
       inspectionTarget && this.layerPose ? assemblyLayer(object) : undefined;
     if (layer && this.layerPose === "seated" && bounds && object)
-      bounds.max.y += layer.lift * object.getWorldScale(new THREE.Vector3()).y;
+      includeSeparatedLayer(bounds, object, layer);
     if (this.dimmPose === "seated" && inspectionTarget && object && bounds)
       bounds.max.y +=
         this.dimmSocket.lift * object.getWorldScale(new THREE.Vector3()).y;

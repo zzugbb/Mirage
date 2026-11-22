@@ -146,7 +146,7 @@ export function storageDrive(
   const { lift, focusDirection } = storageAssembly.trayInspection;
   registerLayer(root, {
     node: drive.name,
-    lift,
+    offset: [0, lift, 0],
     direction: [focusDirection[0], focusDirection[1], focusDirection[2]],
   });
 }
@@ -236,7 +236,7 @@ export function storageController(root: THREE.Group, size: number[], box: Box) {
     );
   registerLayer(root, {
     node: pcb.name,
-    lift: h * 1.85,
+    offset: [0, h * 1.85, 0],
     direction: [1, 1.12, -0.72],
   });
 }

@@ -3,7 +3,7 @@ import type { LayerPose } from "./scene/assembly-layer";
 import {
   assemblyChecks,
   assemblyMember,
-  controllerLayer,
+  rearMemberLayer,
   type AssemblyCheck,
 } from "./assembly-pairs";
 import { modelForDevice, subpartsForModel } from "./catalog";
@@ -470,8 +470,7 @@ export function Workspace() {
       : undefined;
   const rearLayout = assembly && "rear" in assembly ? assembly.rear : undefined;
   const rearRow = rearLayout && pairVisit?.rearRow;
-  const rearController =
-    !!rearRow && rearLayout.controllers.some((part) => part.id === selected);
+  const rearLayer = rearRow ? rearMemberLayer(rearLayout, selected) : undefined;
   const activePair = canInspectPart(state)
     ? assembly?.pairs.find(
         ({ primary, companion }) =>
@@ -482,15 +481,15 @@ export function Workspace() {
             rearLayout.members.some((part) => part.id === selected)),
       )
     : undefined;
-  const selectedLayer = rearController
-    ? controllerLayer
-    : assembly &&
-        "layer" in assembly &&
-        activePair &&
-        (assembly.layer.members === "both" ||
-          activePair[assembly.layer.members].id === selected)
+  const selectedLayer =
+    rearLayer ??
+    (assembly &&
+    "layer" in assembly &&
+    activePair &&
+    (assembly.layer.members === "both" ||
+      activePair[assembly.layer.members].id === selected)
       ? assembly.layer
-      : undefined;
+      : undefined);
   const layerPose = selectedLayer ? pairVisit?.layerPose : undefined;
   const layerEntry = useRef<HTMLButtonElement>(null);
   const returningToLayer = useRef(false);
@@ -1547,7 +1546,7 @@ export function Workspace() {
   useLayoutEffect(() => {
     if (
       !(selectedLayer || (activeMemory && selectedDimm) || rearLayout) ||
-      (rearRow && !rearController) ||
+      (rearRow && !rearLayer) ||
       layerPose ||
       dimmPose
     )
@@ -1571,7 +1570,7 @@ export function Workspace() {
     selectedDimm,
     dimmPose,
     rearRow,
-    rearController,
+    rearLayer,
     rearLayout,
     assembly,
     ready,
@@ -6002,13 +6001,13 @@ export function Workspace() {
                     >
                       {rearRow.pose === "seated" ? "抽出模块" : "放回槽位"}
                     </button>
-                    {rearController && (
+                    {rearLayer && (
                       <button
                         ref={layerEntry}
                         disabled={!ready}
                         onClick={() => setLayerPose("separated")}
                       >
-                        查看控制器板卡
+                        {rearLayer.entry}
                       </button>
                     )}
                   </div>
@@ -7646,25 +7645,28 @@ export function Workspace() {
                     <p>
                       {compactServer && selected === "storage-01"
                         ? `前置 ${compactDriveBays.length} 个托架，硬盘与背板分别建模。`
-                        : rearRow
-                          ? "模块编号及 A/B 归属来自本机型配置。托边、限位与抽出行程为装配示意，时间分析沿用所选部件的模型读数。"
-                          : dimmPose
-                            ? "槽位按本机型的内存条编号与模型位置对应。槽体、卡扣和抬起间距为装配示意，读数沿用内存条模型。"
-                            : memoryContext && selected === "memory-01"
-                              ? `本机型配置 ${dimms.length} 条内存，可逐条检视。`
-                              : assembly?.tool === "rtc-mount"
-                                ? "RTC 位置取自主板外观。电池座、触片与抬起间距为装配示意，电池电压和电量未接入。"
-                                : assembly?.tool === "expansion-bay"
-                                  ? "机后面板分区按 M2 配置定位。管理接口板、支架和分层间距为装配示意。A/B 两路逻辑接入归属双口网卡。"
-                                  : assembly?.tool === "rear-interfaces"
-                                    ? "网卡和转接架沿用贡献模型外观，管理接口区域按机型配置示意。网卡样板配置 A/B 两路逻辑端口，对应关系可在网络接入中查询。"
-                                    : assembly?.tool === "storage-harness"
-                                      ? compactServer
-                                        ? "背板与控制卡的位置按 M1 外观定位。两端插头与侧边 SAS 走向为装配示意，时间分析显示部件模拟值。"
-                                        : "背板接触区按八块硬盘的位置对齐。插头和线束绕行是内部装配示意，读数沿用部件模型。"
-                                      : assembly?.tool === "storage-controllers"
-                                        ? "A/B 槽位来自机型配置。板卡、四个托盘支柱与抬起间距为装配示意，读数沿用所选控制器。"
-                                        : entity.description}
+                        : layerPose && rearLayer
+                          ? rearLayer.description
+                          : rearRow
+                            ? "模块编号及 A/B 归属来自本机型配置。托边、限位与抽出行程为装配示意，时间分析沿用所选部件的模型读数。"
+                            : dimmPose
+                              ? "槽位按本机型的内存条编号与模型位置对应。槽体、卡扣和抬起间距为装配示意，读数沿用内存条模型。"
+                              : memoryContext && selected === "memory-01"
+                                ? `本机型配置 ${dimms.length} 条内存，可逐条检视。`
+                                : assembly?.tool === "rtc-mount"
+                                  ? "RTC 位置取自主板外观。电池座、触片与抬起间距为装配示意，电池电压和电量未接入。"
+                                  : assembly?.tool === "expansion-bay"
+                                    ? "机后面板分区按 M2 配置定位。管理接口板、支架和分层间距为装配示意。A/B 两路逻辑接入归属双口网卡。"
+                                    : assembly?.tool === "rear-interfaces"
+                                      ? "网卡和转接架沿用贡献模型外观，管理接口区域按机型配置示意。网卡样板配置 A/B 两路逻辑端口，对应关系可在网络接入中查询。"
+                                      : assembly?.tool === "storage-harness"
+                                        ? compactServer
+                                          ? "背板与控制卡的位置按 M1 外观定位。两端插头与侧边 SAS 走向为装配示意，时间分析显示部件模拟值。"
+                                          : "背板接触区按八块硬盘的位置对齐。插头和线束绕行是内部装配示意，读数沿用部件模型。"
+                                        : assembly?.tool ===
+                                            "storage-controllers"
+                                          ? "A/B 槽位来自机型配置。板卡、四个托盘支柱与抬起间距为装配示意，读数沿用所选控制器。"
+                                          : entity.description}
                     </p>
                     {entity.kind === "rack" && (
                       <>

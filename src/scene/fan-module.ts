@@ -2,9 +2,10 @@ import * as THREE from "three";
 import definition from "../../assets/public/scenes/room-01.json" with { type: "json" };
 
 /** 原创静态风扇配置示意；开口与叶轮用于表达装配，不推断真实叶型或性能。 */
-export function createFanModule(size: number[]) {
+export function createFanModule(size: number[], separableRotor = false) {
   const [w, h, d] = size;
   const s = definition.fanModule;
+  const inspection = definition.switchAssembly.fanRotor;
   const wall = Math.min(w, h) * s.wallRatio;
   const radius = Math.min(w, h) * s.openingRadiusRatio;
   const hubRadius = Math.min(w, h) * s.hubRadiusRatio;
@@ -24,12 +25,13 @@ export function createFanModule(size: number[]) {
     geometry: THREE.BufferGeometry,
     position: number[],
     material = 0,
+    parent = root,
   ) => {
     const object = new THREE.Mesh(geometry, materials[material]);
     object.name = name;
     object.position.fromArray(position);
     object.castShadow = object.receiveShadow = true;
-    root.add(object);
+    parent.add(object);
     return object;
   };
   const cube = new THREE.BoxGeometry(1, 1, 1);
@@ -64,16 +66,54 @@ export function createFanModule(size: number[]) {
     steps: 1,
   });
   mesh("fan-front-frame", plate, [0, 0, d / 2 - wall]);
-  mesh("fan-rear-frame", plate, [0, 0, -d / 2]);
+  const rearFaceZ = -d / 2 + (separableRotor ? wall * 2.1 : 0);
+  mesh("fan-rear-frame", plate, [0, 0, rearFaceZ]);
+  if (separableRotor) {
+    const screw = new THREE.CylinderGeometry(
+      wall * 0.64,
+      wall * 0.76,
+      wall * 0.3,
+      12,
+    );
+    for (const side of [-1, 1])
+      for (const end of [-1, 1])
+        mesh(
+          "fan-frame-fastener",
+          screw,
+          [
+            side * (w / 2 - wall * 3),
+            end * (h / 2 - wall * 2),
+            rearFaceZ - wall * 0.15,
+          ],
+          2,
+        ).rotation.x = Math.PI / 2;
+  }
 
   // 叶轮靠近后侧开口，静止呈现；所有细节保持在原模块包围范围内。
-  const rotorZ = -d * s.rotorRearRatio;
-  const hub = mesh(
-    "fan-hub",
-    new THREE.CylinderGeometry(hubRadius, hubRadius, thickness * 2, 24),
-    [0, 0, rotorZ],
-    1,
-  );
+  const rotorZ =
+    -d * (separableRotor ? inspection.rearDepthRatio : s.rotorRearRatio);
+  const rotor = separableRotor ? new THREE.Group() : root;
+  if (separableRotor) {
+    rotor.name = "fan-rotor";
+    root.add(rotor);
+  }
+  const shaftRadius = hubRadius * 0.38;
+  // 轮毂背面留盲孔，沿机后方向抽离固定轴头。外端封闭，叶片与轮毂同轴。
+  const hubGeometry = separableRotor
+    ? new THREE.LatheGeometry(
+        [
+          new THREE.Vector2(0, -thickness),
+          new THREE.Vector2(hubRadius * 0.92, -thickness),
+          new THREE.Vector2(hubRadius, -thickness * 0.85),
+          new THREE.Vector2(hubRadius, thickness),
+          new THREE.Vector2(shaftRadius * 1.12, thickness),
+          new THREE.Vector2(shaftRadius * 1.12, -thickness * 0.4),
+          new THREE.Vector2(0, -thickness * 0.4),
+        ],
+        32,
+      )
+    : new THREE.CylinderGeometry(hubRadius, hubRadius, thickness * 2, 24);
+  const hub = mesh("fan-hub", hubGeometry, [0, 0, rotorZ], 1, rotor);
   hub.rotation.x = Math.PI / 2;
   const blade = new THREE.Shape();
   blade.moveTo(hubRadius * 0.75, -radius * 0.12);
@@ -119,37 +159,54 @@ export function createFanModule(size: number[]) {
       .normalize();
     normals.setXYZ(i, normal.x, normal.y, normal.z);
   }
-  for (let i = 0; i < s.bladeCount; i++)
-    mesh(
+  for (let i = 0; i < s.bladeCount; i++) {
+    const vane = mesh(
       "fan-blade",
       bladeGeometry,
       [0, 0, rotorZ - thickness / 2],
       1,
-    ).rotation.z = (i * Math.PI * 2) / s.bladeCount;
+      rotor,
+    );
+    vane.rotation.z = (i * Math.PI * 2) / s.bladeCount;
+  }
   const supportZ = rotorZ + thickness * 2;
+  const motorRadius = hubRadius * (separableRotor ? 1 : 0.8);
   const motor = mesh(
     "fan-motor",
-    new THREE.CylinderGeometry(
-      hubRadius * 0.8,
-      hubRadius * 0.8,
-      thickness * 2,
-      24,
-    ),
-    [0, 0, rotorZ + thickness * 2],
-    0,
+    new THREE.CylinderGeometry(motorRadius, motorRadius, thickness * 2, 24),
+    [0, 0, supportZ],
+    separableRotor ? 1 : 0,
   );
   motor.rotation.x = Math.PI / 2;
+  if (separableRotor) {
+    const pin = mesh(
+      "fan-shaft",
+      new THREE.CylinderGeometry(
+        shaftRadius,
+        shaftRadius,
+        thickness * 1.25,
+        24,
+      ),
+      [0, 0, rotorZ + thickness * 0.375],
+      2,
+    );
+    pin.material = materials[2].clone();
+    pin.material.color.set(inspection.shaftColor);
+    pin.rotation.x = Math.PI / 2;
+  }
   for (let i = 0; i < 3; i++) {
     const angle = (i * Math.PI * 2) / 3;
+    const reach = separableRotor
+      ? Math.min(
+          (w / 2 - wall / 2) / Math.abs(Math.sin(angle)),
+          (h / 2 - wall / 2) / Math.abs(Math.cos(angle)),
+        )
+      : radius;
     const support = box(
       "fan-support",
-      [h * s.supportWidthRatio, radius, thickness],
-      [
-        (-Math.sin(angle) * radius) / 2,
-        (Math.cos(angle) * radius) / 2,
-        supportZ,
-      ],
-      0,
+      [h * s.supportWidthRatio, reach, thickness],
+      [(-Math.sin(angle) * reach) / 2, (Math.cos(angle) * reach) / 2, supportZ],
+      separableRotor ? 2 : 0,
     );
     support.rotation.z = angle;
   }

@@ -118,7 +118,7 @@ export function switchAsic(root: THREE.Group, size: number[], box: Box) {
     );
   registerLayer(root, {
     node: heatsink.name,
-    lift: h * 2.4,
+    offset: [0, h * 2.4, 0],
     direction: [0.55, 0.43, 1],
   });
 }
@@ -226,7 +226,7 @@ export function switchPortCages(root: THREE.Group, size: number[], box: Box) {
   const [x, y, z] = guides.focusDirection;
   registerLayer(root, {
     node: moving.name,
-    lift: guides.lift,
+    offset: [0, guides.lift, 0],
     direction: [x, y, z],
   });
 }

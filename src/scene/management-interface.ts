@@ -152,7 +152,7 @@ export function managementInterface(root: Group, size: number[], box: Box) {
   );
   registerLayer(root, {
     node: module.name,
-    lift: modelById("server-2u").expansionBay!.managementLift,
+    offset: [0, modelById("server-2u").expansionBay!.managementLift, 0],
     direction: [-0.62, 0.75, -1],
   });
 }

@@ -80,13 +80,32 @@ export const rearLayoutFor = (modelId: string) =>
     : modelId === "switch-1u"
       ? switchRear
       : undefined;
+const rotorLayer = {
+  entry: "查看叶轮与轴座",
+  description:
+    "风扇编号来自 N1 配置。叶轮、固定轴座、三臂支撑及分离间距为原创装配示意。时间分析沿用风扇的模拟读数，转速与风量未接入。",
+  label: "叶轮与固定轴座",
+  scope: "叶轮姿态",
+  seated: "放回轴座",
+  separated: "移出叶轮",
+} as const;
 export const controllerLayer = {
+  entry: "查看控制器板卡",
+  description:
+    "控制器身份和槽位来自 S4 配置。板卡、托盘支柱与抬起间距为装配示意，时间分析沿用所选控制器的模型读数。",
   members: "both",
   label: "控制器板卡与托盘",
   scope: "板卡姿态",
   seated: "放回支柱",
   separated: "抬起板卡",
 } as const;
+export function rearMemberLayer(layout: typeof switchRear, selected: string) {
+  if (layout.controllers.some((part) => part.id === selected))
+    return controllerLayer;
+  if (layout === switchRear && layout.fans.some((part) => part.id === selected))
+    return rotorLayer;
+}
+
 function rearPowerCheck(modelId: "switch-1u" | "storage-4u") {
   return {
     tool: modelId === "switch-1u" ? "switch-power" : "storage-power",
@@ -329,7 +348,7 @@ const checks = {
       rear: switchRear,
       tool: "switch-power",
       entry: "核对双电源与风扇",
-      detail: "在同一排核对两件电源与四件风扇，可逐件查看槽位",
+      detail: "核对机后六槽，可逐件抽出风扇并查看叶轮与轴座",
     },
   ],
 } as const;
