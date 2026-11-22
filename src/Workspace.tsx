@@ -1,3 +1,4 @@
+import type { ChipPose } from "./scene/switch-model";
 import {
   assemblyChecks,
   assemblyMember,
@@ -449,6 +450,7 @@ export function Workspace() {
   const [pairVisit, setPairVisit] = useState<{
     deviceId: string;
     tool: AssemblyCheck["tool"];
+    chipPose?: ChipPose;
   } | null>(null);
   const pairTools =
     state.level === "device" ? assemblyChecks(state.deviceId, selected) : [];
@@ -468,16 +470,26 @@ export function Workspace() {
           selected === additionalPart?.id,
       )
     : undefined;
+  const chipSelected =
+    assembly?.tool === "switch-board" && activePair?.companion.id === selected;
+  const chipPose = chipSelected ? pairVisit?.chipPose : undefined;
+  const chipEntry = useRef<HTMLButtonElement>(null);
+  const returningToChip = useRef(false);
+  const setChipPose = (pose?: ChipPose) => {
+    setPairVisit((current) => current && { ...current, chipPose: pose });
+  };
   const companionPartIds = useMemo(() => {
+    if (chipPose) return [];
     if (activePair)
       return additionalPart
         ? [activePair.companion.id, additionalPart.id]
         : [activePair.companion.id];
     return compareFanDuct && fanDuct ? [fanDuct.id] : [];
-  }, [activePair, additionalPart, compareFanDuct, fanDuct]);
+  }, [activePair, additionalPart, compareFanDuct, fanDuct, chipPose]);
   useEffect(() => {
     if (pairVisit && !activePair) setPairVisit(null);
-  }, [pairVisit, activePair]);
+    else if (pairVisit?.chipPose && !chipSelected) setChipPose();
+  }, [pairVisit, activePair, chipSelected]);
   const [structureReturn, setStructureReturn] = useState<{
     deviceId: string;
     tool: StructureTool;
@@ -494,7 +506,9 @@ export function Workspace() {
   const isolatedPartId = activeMemory
     ? "memory-01"
     : activePair
-      ? activePair.primary.id
+      ? chipPose
+        ? activePair.companion.id
+        : activePair.primary.id
       : activeFanVisit && !activeFanVisit.pending
         ? activeFanVisit.mode === "group"
           ? fanAssembly(state.deviceId)!.group.id
@@ -1500,6 +1514,21 @@ export function Workspace() {
     !review.pendingEndpoint &&
     !!feedback?.settled &&
     feedback.key === presentationKey(state);
+  useLayoutEffect(() => {
+    if (!chipSelected || chipPose) returningToChip.current = false;
+    if (!returningToChip.current) return;
+    // 镜头归位时操作条会短暂禁用；就位后恢复焦点，用户接管后停止恢复。
+    if (ready) chipEntry.current?.focus({ preventScroll: true });
+    const release = () => {
+      returningToChip.current = false;
+    };
+    document.addEventListener("pointerdown", release, true);
+    document.addEventListener("keydown", release, true);
+    return () => {
+      document.removeEventListener("pointerdown", release, true);
+      document.removeEventListener("keydown", release, true);
+    };
+  }, [chipSelected, chipPose, ready]);
   useEffect(() => {
     if (!pendingPatch) return;
     if (networkTrace?.id === pendingPatch) {
@@ -5537,6 +5566,7 @@ export function Workspace() {
                 ? activeStorageVisit.diskId
                 : undefined
             }
+            chipPose={chipPose}
             storageContact={activeStorageVisit?.mode === "contact"}
             companionPartIds={companionPartIds}
             isolatedPartId={isolatedPartId}
@@ -5779,6 +5809,36 @@ export function Workspace() {
                     </select>
                   </div>
                 </StructureToolbar>
+              ) : chipPose ? (
+                <StructureToolbar
+                  label="芯片装配核查"
+                  state={state}
+                  dispatch={dispatch}
+                  disabled={!ready}
+                  destination="主板装配"
+                  onBack={() => {
+                    returningToChip.current = true;
+                    setChipPose();
+                  }}
+                >
+                  <div
+                    className="structure-check-scope chip-assembly-scope"
+                    role="group"
+                    aria-label="散热器姿态"
+                  >
+                    {(["seated", "separated"] as const).map((pose) => (
+                      <button
+                        key={pose}
+                        disabled={!ready}
+                        aria-pressed={pose === chipPose}
+                        autoFocus={pose === "separated"}
+                        onClick={() => setChipPose(pose)}
+                      >
+                        {pose === "seated" ? "贴合封装" : "抬起散热器"}
+                      </button>
+                    ))}
+                  </div>
+                </StructureToolbar>
               ) : activePair && assembly ? (
                 <StructureToolbar
                   label={assembly.name + "核查"}
@@ -5788,7 +5848,13 @@ export function Workspace() {
                   destination="完整结构"
                   onBack={finishStructureCheck}
                 >
-                  <div className="structure-check-scope">
+                  <div
+                    className={
+                      chipSelected
+                        ? "structure-check-scope chip-assembly-scope"
+                        : "structure-check-scope"
+                    }
+                  >
                     {"slotLabel" in assembly && (
                       <select
                         aria-label={assembly.slotLabel}
@@ -5854,6 +5920,15 @@ export function Workspace() {
                           ),
                         )}
                       </div>
+                    )}
+                    {chipSelected && (
+                      <button
+                        ref={chipEntry}
+                        disabled={!ready}
+                        onClick={() => setChipPose("separated")}
+                      >
+                        分层查看
+                      </button>
                     )}
                   </div>
                 </StructureToolbar>

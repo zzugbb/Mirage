@@ -151,7 +151,7 @@ const checks = {
       tool: "switch-board",
       name: "主板装配",
       entry: "核对主板与交换芯片",
-      detail: "对照板上安装区与芯片散热组件",
+      detail: "对照主板安装区，可分层查看芯片封装与散热器",
       labels: ["控制主板", "芯片与散热器"],
       startExplosion: 1,
       pairs: [

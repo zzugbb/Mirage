@@ -6591,6 +6591,9 @@
   grid-template-columns: 148px 132px auto;
   align-items: center;
 }
+.workspace-ui .structure-task-bar:has(.chip-assembly-scope) {
+  grid-template-columns: max-content max-content auto;
+}
 .workspace-ui .structure-task-bar:has(.fan-duct-scope) {
   grid-template-columns: minmax(204px, max-content) 146px auto;
 }

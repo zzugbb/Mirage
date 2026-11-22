@@ -63,6 +63,11 @@ import { RackUnitGuide } from "./rack-unit-guide";
 import { PartIsolation } from "./part-isolation";
 import { storageSlots } from "../storage-slots";
 import { ControllerMountGuide } from "./controller-mount";
+import {
+  heatsinkLift,
+  poseSwitchHeatsink,
+  type ChipPose,
+} from "./switch-model";
 import { StorageContactGuide, storageContactObjects } from "./storage-contact";
 import { canInspectPart, internalStructureThreshold } from "../part-inspection";
 import {
@@ -198,6 +203,7 @@ export class SceneEngine {
   unitRange: RackUnitRange | null = null;
   isolatedPartId: string | null = null;
   companionPartIds: readonly string[] = [];
+  chipPose?: ChipPose;
   storageContact = false;
   storageBoardDisk?: string | null;
   controllerMountGuide = new ControllerMountGuide();
@@ -2211,6 +2217,15 @@ export class SceneEngine {
       : object && focus && !wholeRack
         ? new THREE.Box3().setFromObject(object)
         : null;
+    // 两种姿态共用同一取景范围，贴合后调整视口也能容纳分层的散热器。
+    if (
+      inspectionTarget === "net-asic" &&
+      this.chipPose === "seated" &&
+      bounds &&
+      object
+    )
+      bounds.max.y +=
+        heatsinkLift * object.getWorldScale(new THREE.Vector3()).y;
     const contactPair =
       inspectionTarget && this.storageContact
         ? storageContactObjects(
@@ -2292,6 +2307,8 @@ export class SceneEngine {
         direction
           .fromArray(focusDirection)
           .transformDirection(object.matrixWorld);
+      if (this.chipPose && inspectionTarget === "net-asic")
+        direction.set(0.55, 0.43, 1).normalize();
       // 从侧前方看清分离的接触面和中板；仍保留实体遮挡。
       if (contactPair) direction.set(0.8, 0.7, 0.12).normalize();
     }
@@ -2679,6 +2696,12 @@ export class SceneEngine {
         ? this.isolatedPartId
         : null;
     const target = id ? this.models.parts.get(id) : undefined;
+    const chip = this.models.parts.get("net-asic");
+    if (chip)
+      poseSwitchHeatsink(
+        chip,
+        id === "net-asic" && this.chipPose === "separated",
+      );
     const pair =
       id && this.storageContact
         ? storageContactObjects(this.state.deviceId, id, this.models.parts)

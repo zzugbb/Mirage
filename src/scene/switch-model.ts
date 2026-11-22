@@ -101,17 +101,29 @@ export function switchAsic(root: THREE.Group, size: number[], box: Box) {
     0.5,
   ).name = "asic-package";
   const bottom = boardTop + substrate + cap;
-  box(root, [w, base, d], [0, bottom + base / 2, 0], "#9aa5ac", 0.72).name =
+  const heatsink = new THREE.Group();
+  heatsink.name = "asic-heatsink";
+  root.add(heatsink);
+  box(heatsink, [w, base, d], [0, bottom + base / 2, 0], "#9aa5ac", 0.72).name =
     "asic-sink-base";
   const finHeight = h / 2 - bottom - base;
   for (let i = 0; i < 15; i++)
     box(
-      root,
+      heatsink,
       [w / 40, finHeight, d],
       [w * ((i + 0.5) / 15 - 0.5), bottom + base + finHeight / 2, 0],
       "#939fa9",
       0.8,
     );
+}
+
+export type ChipPose = "seated" | "separated";
+
+// 观察间距按模型高度取值，仅用于显露封装接触面。
+export const heatsinkLift = asic.size[1] * 2.4;
+export function poseSwitchHeatsink(root: THREE.Object3D, separated: boolean) {
+  const sink = root.getObjectByName("asic-heatsink");
+  if (sink) sink.position.y = separated ? heatsinkLift : 0;
 }
 
 // 端口笼与导光组件共用一个维护身份；孔位只描述前部装配外形。

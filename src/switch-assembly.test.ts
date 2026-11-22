@@ -2,6 +2,7 @@ import definition from "../assets/public/scenes/room-01.json" with { type: "json
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as THREE from "three";
+import { poseSwitchHeatsink } from "./scene/switch-model.ts";
 import { createEquipmentAssembly } from "./scene/equipment-model.ts";
 import { assemblyChecks, assemblyMember } from "./assembly-pairs.ts";
 import { devices } from "./installation.ts";
@@ -74,6 +75,36 @@ test("芯片封装与散热底座逐层贴合控制板，板面标识对准组�
         "控制板元件穿入散热器",
       );
   });
+});
+
+test("分层观察只抬起散热底座和鳍片，多次切换后仍能原位贴合封装", () => {
+  const chip = createEquipmentAssembly("switch-1u").groups.get("net-asic")!;
+  const sink = chip.getObjectByName("asic-heatsink")!;
+  const cap = chip.getObjectByName("asic-package")!;
+  const substrate = chip.getObjectByName("asic-substrate")!;
+  const seated = bounds(sink),
+    capBounds = bounds(cap),
+    substrateBounds = bounds(substrate);
+  const original = sink.children.map((mesh) => bounds(mesh));
+  assert.ok(sink.children.length > 1);
+  for (const separated of [true, true, false, true, false]) {
+    poseSwitchHeatsink(chip, separated);
+    chip.updateMatrixWorld(true);
+    const delta = new THREE.Vector3(0, sink.position.y, 0);
+    assert.equal(sink.position.y > 0, separated);
+    assert.ok(bounds(cap).equals(capBounds));
+    assert.ok(bounds(substrate).equals(substrateBounds));
+    assert.ok(Math.abs(bounds(sink).min.y - capBounds.max.y - delta.y) < 1e-7);
+    sink.children.forEach((mesh, index) => {
+      const placed = bounds(mesh),
+        expected = original[index].clone().translate(delta);
+      assert.ok(
+        placed.min.distanceTo(expected.min) < 1e-7 &&
+          placed.max.distanceTo(expected.max) < 1e-7,
+      );
+    });
+    if (!separated) assert.ok(bounds(sink).equals(seated));
+  }
 });
 
 test("交换机后部模块处于 1U 机箱范围，四个风扇仍可从后侧独立拾取", () => {
