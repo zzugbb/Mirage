@@ -40,6 +40,13 @@ const partsByModel = new Map(
             focusDirection: [0.55, 0.88, -1],
           };
         }
+        const rtc = model.rtcMount;
+        if (rtc && part.id === rtc.batteryId) {
+          const board = definition.parts.find(
+            (item) => item.id === rtc.boardId,
+          )!;
+          return { ...part, position: rtc.boardPoint, explode: board.explode };
+        }
         const storage = model.storageHarness;
         if (
           storage &&

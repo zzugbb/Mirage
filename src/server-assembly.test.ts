@@ -16,6 +16,8 @@ import { deviceHeight, devices, rackForDevice } from "./installation.ts";
 import { inletPart } from "./power-config.ts";
 import { sourcePorts } from "./network.ts";
 import { powerScene } from "./power-paths.ts";
+import { poseAssemblyLayer } from "./scene/assembly-layer.ts";
+import { replaceRtcProxy } from "./scene/rtc-mount.ts";
 import { createEquipmentAssembly } from "./scene/equipment-model.ts";
 
 async function loadServerModel() {
@@ -258,5 +260,66 @@ test("M2 扩展区的网卡对准机后接口与 01 架的承接面，02 架独�
         box(adapter).max.x < box(carrier).max.x,
     );
     if (amount) assert.ok(box(adapter).min.y > box(carrier).max.y);
+  }
+});
+
+test("M2 原主板电池外形只替换一次，简模与详细板面均承托 RTC，抬起后座底触片原位", async () => {
+  const device = "srv-54";
+  const mount = modelForDevice(device).rtcMount!;
+  const check = assemblyChecks(device, mount.batteryId)[0];
+  assert.equal(check.tool, "rtc-mount");
+  assert.deepEqual(assemblyChecks(device, mount.boardId), [check]);
+  const { primary: battery, companion: board } = check.pairs[0];
+  assert.deepEqual([battery.id, board.id], [mount.batteryId, mount.boardId]);
+  assert.deepEqual(battery.explode, board.explode);
+  assert.ok(!assemblyChecks("srv-53", battery.id).includes(check));
+
+  const scene = await loadServerModel();
+  const detailed = scene.getObjectByName(mount.boardNode) as Mesh;
+  const before = detailed.geometry.index!.count;
+  const [x, y, z] = mount.boardPoint;
+  const down = new Vector3(0, -1, 0);
+  const surface = (mesh: typeof scene | Mesh, dx = 0, dz = 0) =>
+    new Raycaster(new Vector3(x + dx, 0.1, z + dz), down).intersectObject(
+      mesh,
+      true,
+    )[0].point.y;
+  assert.ok(surface(detailed) > y + 0.005);
+  replaceRtcProxy(scene);
+  replaceRtcProxy(scene); // 同一几何可由多台安装实例复用。
+  assert.equal(
+    before - detailed.geometry.index!.count,
+    mount.proxyTriangles.count * 3,
+  );
+  for (const dx of [-0.01, 0, 0.01])
+    for (const dz of [-0.01, 0, 0.01])
+      assert.ok(Math.abs(surface(detailed, dx, dz) - y) < 1e-6);
+  const { groups, positions } = createEquipmentAssembly("server-2u");
+  const root = groups.get(battery.id)!;
+  const bounds = (name: string) =>
+    new Box3().setFromObject(root.getObjectByName(name)!);
+  const holder = bounds("rtc-holder-base");
+  assert.ok(Math.abs(holder.min.y - surface(groups.get(board.id)!)) < 1e-6);
+  assert.deepEqual(root.position, positions.get(battery.id));
+  const pad = bounds("rtc-floor-contact"),
+    cell = bounds("rtc-cell-can");
+  assert.ok(Math.abs(cell.min.y - pad.max.y) < 1e-7);
+  for (const part of ["memory-01", "cpu-01", "cpu-02", "fans-01"])
+    assert.equal(
+      holder.intersectsBox(new Box3().setFromObject(groups.get(part)!)),
+      false,
+    );
+  for (const lifted of [true, true, false, true, false]) {
+    poseAssemblyLayer(root, lifted);
+    root.updateMatrixWorld(true);
+    assert.ok(
+      Math.abs(
+        bounds("rtc-cell-can").min.y - cell.min.y - (lifted ? mount.lift : 0),
+      ) < 1e-7,
+    );
+    assert.ok(
+      bounds("rtc-holder-base").equals(holder) &&
+        bounds("rtc-floor-contact").equals(pad),
+    );
   }
 });

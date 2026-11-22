@@ -483,7 +483,8 @@ export function Workspace() {
     assembly &&
     "layer" in assembly &&
     activePair &&
-    (assembly.layer.members === "both" || activePair.companion.id === selected)
+    (assembly.layer.members === "both" ||
+      activePair[assembly.layer.members].id === selected)
       ? assembly.layer
       : undefined;
   const layerPose = selectedLayer ? pairVisit?.layerPose : undefined;
@@ -7631,13 +7632,15 @@ export function Workspace() {
                             ? "槽位按本机型的内存条编号与模型位置对应。槽体、卡扣和抬起间距为装配示意，读数沿用内存条模型。"
                             : memoryContext && selected === "memory-01"
                               ? `本机型配置 ${dimms.length} 条内存，可逐条检视。`
-                              : assembly?.tool === "rear-interfaces"
-                                ? "网卡和转接架沿用贡献模型外观，管理接口区域按机型配置示意。网卡样板配置 A/B 两路逻辑端口，对应关系可在网络接入中查询。"
-                                : assembly?.tool === "storage-harness"
-                                  ? "背板接触区按八块硬盘的位置对齐。插头和线束绕行是内部装配示意，读数沿用部件模型。"
-                                  : assembly?.tool === "storage-controllers"
-                                    ? "A/B 槽位来自机型配置。板卡、四个托盘支柱与抬起间距为装配示意，读数沿用所选控制器。"
-                                    : entity.description}
+                              : assembly?.tool === "rtc-mount"
+                                ? "RTC 位置取自主板外观。电池座、触片与抬起间距为装配示意，电池电压和电量未接入。"
+                                : assembly?.tool === "rear-interfaces"
+                                  ? "网卡和转接架沿用贡献模型外观，管理接口区域按机型配置示意。网卡样板配置 A/B 两路逻辑端口，对应关系可在网络接入中查询。"
+                                  : assembly?.tool === "storage-harness"
+                                    ? "背板接触区按八块硬盘的位置对齐。插头和线束绕行是内部装配示意，读数沿用部件模型。"
+                                    : assembly?.tool === "storage-controllers"
+                                      ? "A/B 槽位来自机型配置。板卡、四个托盘支柱与抬起间距为装配示意，读数沿用所选控制器。"
+                                      : entity.description}
                     </p>
                     {entity.kind === "rack" && (
                       <>

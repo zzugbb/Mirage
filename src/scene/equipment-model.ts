@@ -1,4 +1,5 @@
 import { processorPairs, drivePairs } from "../assembly-pairs.ts";
+import { buildRtcMount, replaceRtcProxy } from "./rtc-mount.ts";
 import { compactBayForPart } from "../compact-drive-bays.ts";
 import {
   buildStorageHarness,
@@ -53,7 +54,7 @@ function maker() {
 }
 export type Box = ReturnType<typeof maker>;
 function board(root: THREE.Group, size: number[], box: Box) {
-  box(root, size, [0, 0, 0], "#234e3d", 0.2);
+  box(root, size, [0, 0, 0], "#234e3d", 0.2).name = "board-substrate";
   for (let i = 0; i < 10; i++) {
     const x = ((i - 4.5) * size[0]) / 11;
     box(
@@ -745,8 +746,9 @@ export function createEquipmentAssembly(modelId: string): Assembly {
         size[2] *= depth / 0.9;
       }
       if (p.id === "board-01") {
-        pos.splice(0, 3, 0, -h / 2 + 0.005, -0.09);
-        size.splice(0, 3, 0.4, 0.004, 0.22);
+        // M2 主板保留前沿 RTC 安装面，后缘仍接机后板段。
+        pos.splice(0, 3, 0, -h / 2 + 0.005, -0.06);
+        size.splice(0, 3, 0.428, 0.004, 0.28);
       }
       if (p.id === "memory-01") {
         pos.splice(
@@ -824,6 +826,7 @@ export function createEquipmentAssembly(modelId: string): Assembly {
     root.add(group);
     groups.set(p.id, group);
     positions.set(p.id, group.position.clone());
+    if (model.rtcMount?.batteryId === p.id) continue;
     if (model.storageHarness && isStorageHarnessPart(p.id)) continue;
     if (
       p.node === "memory" ||
@@ -894,13 +897,24 @@ export function createEquipmentAssembly(modelId: string): Assembly {
       else detail(group, p.node, size, box, modelId);
       if (p.id === "board-01" && !onControllerMount) {
         const tail = new THREE.Group();
-        tail.position.z = -0.18;
+        tail.position.z = -(size[2] + 0.14) / 2;
         group.add(tail);
         // 后段主板沿并排电源槽的内侧延伸。
         tail.position.x = 0.075;
         board(tail, [0.27, 0.004, 0.14], box);
       }
     }
+  }
+  if (model.rtcMount) {
+    const board = groups.get(model.rtcMount.boardId)!;
+    board.updateWorldMatrix(true, false);
+    const plate = board.getObjectByName("board-substrate")!;
+    buildRtcMount(
+      groups,
+      positions,
+      new THREE.Box3().setFromObject(plate).max.y,
+      box,
+    );
   }
   if (model.storageHarness) buildStorageHarness(groups, positions, box);
   if (model.category === "server") seatProcessors(modelId, groups, positions);
@@ -915,7 +929,8 @@ export function completeServerAssembly(
 ) {
   const box = maker();
   root.updateMatrixWorld(true);
-  const bay = modelById("server-2u").expansionBay!;
+  const model = modelById("server-2u");
+  const bay = model.expansionBay!;
   for (const part of partsForModel("server-2u").filter(
     (part) => part.procedural,
   )) {
@@ -935,12 +950,17 @@ export function completeServerAssembly(
       }
     } else if ([bay.adapter, bay.carrier, bay.adjacent].includes(part.id))
       expansionPart(group, part, box);
-    else if (!isStorageHarnessPart(part.id))
+    else if (
+      part.id !== model.rtcMount!.batteryId &&
+      !isStorageHarnessPart(part.id)
+    )
       detail(group, part.node, part.size, box, "server-2u");
     root.add(group);
     groups.set(part.id, group);
     positions.set(part.id, group.position.clone());
   }
+  replaceRtcProxy(groups.get(model.rtcMount!.boardId)!);
+  buildRtcMount(groups, positions, model.rtcMount!.boardPoint[1], box);
   buildStorageHarness(groups, positions, box);
   seatProcessors("server-2u", groups, positions);
   root.updateMatrixWorld(true);

@@ -6767,6 +6767,12 @@
         "cables-01",
         "io-01"
       ],
+      "rtcMount": {
+        "boardId": "board-01", "batteryId": "battery-01",
+        "boardNode": "part_board_01", "proxyTriangles": {"first": 8808, "count": 82},
+        "boardPoint": [0.19675, -0.034545, 0.06035], "lift": 0.014,
+        "focusDirection": [-0.45, 0.82, 1]
+      },
       "storageHarness": {
         "backplane": "backplane-01", "harness": "cables-01", "controller": "raid-01",
         "boardSize": [0.15, 0.064, 0.002], "socketDepth": 0.009,

@@ -2333,7 +2333,15 @@ export class SceneEngine {
       direction.fromArray(fixture.focus.direction).normalize();
     const minimum = fixture
       ? fixture.focus.distance
-      : cameraMinimumDistance[level];
+      : layer && bounds
+        ? Math.min(
+            cameraMinimumDistance.device,
+            Math.max(
+              this.camera.near * 4,
+              bounds.getSize(new THREE.Vector3()).length(),
+            ),
+          )
+        : cameraMinimumDistance[level];
     let topInsetFraction = 0;
     let bottomInsetFraction = 0;
     if (wholeRack) {

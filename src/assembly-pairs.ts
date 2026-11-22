@@ -97,6 +97,7 @@ function processorCheck(modelId: string) {
   } as const;
 }
 const bay = modelById("server-2u").expansionBay!;
+const rtc = modelById("server-2u").rtcMount!;
 const harness = modelById("server-2u").storageHarness!;
 const serverMember = (id: string) =>
   partsForModel("server-2u").find((part) => part.id === id)!;
@@ -160,6 +161,27 @@ const checks = {
   ],
   "server-2u": [
     processorCheck("server-2u"),
+    {
+      tool: "rtc-mount",
+      name: "时钟电池装配",
+      entry: "核对主板与时钟电池",
+      detail: "在主板上找电池位置，抬起电池查看座底触片",
+      labels: ["时钟电池", "主板"],
+      layer: {
+        members: "primary",
+        label: "电池与固定座",
+        scope: "电池姿态",
+        seated: "放回电池座",
+        separated: "抬起电池",
+      },
+      startExplosion: 0.35,
+      pairs: [
+        {
+          primary: serverMember(rtc.batteryId),
+          companion: serverMember(rtc.boardId),
+        },
+      ],
+    },
     {
       tool: "drive-tray",
       name: "前置盘位",
