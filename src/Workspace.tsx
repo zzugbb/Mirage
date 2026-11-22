@@ -455,6 +455,7 @@ export function Workspace() {
   const [pairVisit, setPairVisit] = useState<{
     deviceId: string;
     tool: AssemblyCheck["tool"];
+    powerBayPose?: RearRowPose;
     layerPose?: LayerPose;
     rearRow?: { supplyId: string; pose: RearRowPose; fromPair: boolean };
   } | null>(null);
@@ -492,6 +493,8 @@ export function Workspace() {
         activePair[assembly.layer.members].id === selected)
       ? assembly.layer
       : undefined);
+  const powerBayPose =
+    assembly && "powerBays" in assembly ? pairVisit?.powerBayPose : undefined;
   const layerPose = selectedLayer ? pairVisit?.layerPose : undefined;
   const layerEntry = useRef<HTMLButtonElement>(null);
   const returningToLayer = useRef(false);
@@ -2919,6 +2922,7 @@ export function Workspace() {
       setPairVisit({
         deviceId: state.deviceId,
         tool,
+        powerBayPose: "powerBays" in check ? "seated" : undefined,
         rearRow: startRow
           ? {
               supplyId: check.pairs[0].primary.id,
@@ -5657,7 +5661,11 @@ export function Workspace() {
                   : layerPose
             }
             dimmPose={dimmPose}
-            rearRowPose={activePair && !layerPose ? rearRow?.pose : undefined}
+            rearRowPose={
+              activePair && !layerPose
+                ? (powerBayPose ?? rearRow?.pose)
+                : undefined
+            }
             storageContact={activeStorageVisit?.mode === "contact"}
             storageConnectorPose={
               activeStorageVisit?.mode === "contact"
@@ -6040,7 +6048,7 @@ export function Workspace() {
                 >
                   <div
                     className={
-                      selectedLayer || rearLayout
+                      selectedLayer || rearLayout || powerBayPose
                         ? "structure-check-scope assembly-layer-scope"
                         : "structure-check-scope"
                     }
@@ -6110,6 +6118,25 @@ export function Workspace() {
                           ),
                         )}
                       </div>
+                    )}
+                    {powerBayPose && (
+                      <button
+                        disabled={!ready}
+                        onClick={() =>
+                          setPairVisit(
+                            (current) =>
+                              current && {
+                                ...current,
+                                powerBayPose:
+                                  current.powerBayPose === "seated"
+                                    ? "withdrawn"
+                                    : "seated",
+                              },
+                          )
+                        }
+                      >
+                        {powerBayPose === "seated" ? "抽出电源" : "推回槽位"}
+                      </button>
                     )}
                     {rearLayout && (
                       <button
@@ -7677,26 +7704,28 @@ export function Workspace() {
                         ? `前置 ${compactDriveBays.length} 个托架，硬盘与背板分别建模。`
                         : layerPose && rearLayer
                           ? rearLayer.description
-                          : rearRow
-                            ? "模块编号及 A/B 归属来自本机型配置。托边、限位与抽出行程为装配示意，时间分析沿用所选部件的模型读数。"
-                            : dimmPose
-                              ? "槽位按本机型的内存条编号与模型位置对应。槽体、卡扣和抬起间距为装配示意，读数沿用内存条模型。"
-                              : memoryContext && selected === "memory-01"
-                                ? `本机型配置 ${dimms.length} 条内存，可逐条检视。`
-                                : assembly?.tool === "rtc-mount"
-                                  ? "RTC 位置取自主板外观。电池座、触片与抬起间距为装配示意，电池电压和电量未接入。"
-                                  : assembly?.tool === "expansion-bay"
-                                    ? "机后面板分区按 M2 配置定位。管理接口板、支架和分层间距为装配示意。A/B 两路逻辑接入归属双口网卡。"
-                                    : assembly?.tool === "rear-interfaces"
-                                      ? "网卡与转接架的精细外观来自贡献模型。管理面板按 M1 配置定位，接口板、导轨、止挡和行程为原创装配示意。A/B 两路逻辑接入归属网卡，部件读数来自模拟。"
-                                      : assembly?.tool === "storage-harness"
-                                        ? compactServer
-                                          ? "背板与控制卡的位置按 M1 外观定位。两端插头与侧边 SAS 走向为装配示意，时间分析显示部件模拟值。"
-                                          : "背板接触区按八块硬盘的位置对齐。插头和线束绕行是内部装配示意，读数沿用部件模型。"
-                                        : assembly?.tool ===
-                                            "storage-controllers"
-                                          ? "A/B 槽位来自机型配置。板卡、四个托盘支柱与抬起间距为装配示意，读数沿用所选控制器。"
-                                          : entity.description}
+                          : powerBayPose
+                            ? "输入 A、B 与槽位按 M1 配置对应。电源外形沿用当前模型，托边、限位和抽出距离为原创装配示意。读数来自模拟，支路未计量。"
+                            : rearRow
+                              ? "模块编号及 A/B 归属来自本机型配置。托边、限位与抽出行程为装配示意，时间分析沿用所选部件的模型读数。"
+                              : dimmPose
+                                ? "槽位按本机型的内存条编号与模型位置对应。槽体、卡扣和抬起间距为装配示意，读数沿用内存条模型。"
+                                : memoryContext && selected === "memory-01"
+                                  ? `本机型配置 ${dimms.length} 条内存，可逐条检视。`
+                                  : assembly?.tool === "rtc-mount"
+                                    ? "RTC 位置取自主板外观。电池座、触片与抬起间距为装配示意，电池电压和电量未接入。"
+                                    : assembly?.tool === "expansion-bay"
+                                      ? "机后面板分区按 M2 配置定位。管理接口板、支架和分层间距为装配示意。A/B 两路逻辑接入归属双口网卡。"
+                                      : assembly?.tool === "rear-interfaces"
+                                        ? "网卡与转接架的精细外观来自贡献模型。管理面板按 M1 配置定位，接口板、导轨、止挡和行程为原创装配示意。A/B 两路逻辑接入归属网卡，部件读数来自模拟。"
+                                        : assembly?.tool === "storage-harness"
+                                          ? compactServer
+                                            ? "背板与控制卡的位置按 M1 外观定位。两端插头与侧边 SAS 走向为装配示意，时间分析显示部件模拟值。"
+                                            : "背板接触区按八块硬盘的位置对齐。插头和线束绕行是内部装配示意，读数沿用部件模型。"
+                                          : assembly?.tool ===
+                                              "storage-controllers"
+                                            ? "A/B 槽位来自机型配置。板卡、四个托盘支柱与抬起间距为装配示意，读数沿用所选控制器。"
+                                            : entity.description}
                     </p>
                     {entity.kind === "rack" && (
                       <>

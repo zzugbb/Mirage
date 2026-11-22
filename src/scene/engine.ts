@@ -2327,7 +2327,10 @@ export class SceneEngine {
           .transformDirection(object.matrixWorld);
       if (this.rearRowPose)
         direction
-          .fromArray(definition.rearModuleSeats.focusDirection)
+          .fromArray(
+            modelForDevice(this.state.deviceId).powerBays?.focusDirection ??
+              definition.rearModuleSeats.focusDirection,
+          )
           .transformDirection(object.matrixWorld);
       if (this.dimmPose)
         direction.set(1, 0.51, 0.46).transformDirection(object.matrixWorld);
@@ -2781,6 +2784,9 @@ export class SceneEngine {
             this.partIsolation.applyMany(this.models.server, [
               target,
               ...companions,
+              ...(this.rearRowPose && this.assemblyModel === "server-1u"
+                ? [this.rearModuleSeats.guides]
+                : []),
             ])
           : this.partIsolation.apply(this.models.server, target));
     const mount =

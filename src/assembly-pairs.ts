@@ -73,6 +73,8 @@ function rearModules(modelId: string, controllers: typeof storage) {
     ],
   };
 }
+const compactPower = powerPair("server-1u");
+export const compactSupplies = [compactPower.primary, compactPower.companion];
 export const switchRear = rearModules("switch-1u", []);
 const storageRear = rearModules("storage-4u", storage);
 export const rearLayoutFor = (modelId: string) =>
@@ -223,7 +225,11 @@ const checks = {
       compact.controllerId,
       "从四盘背板沿机箱侧边查看 SAS 线束示意及控制卡接线端",
     ),
-    serverPowerCheck("server-1u"),
+    {
+      ...serverPowerCheck("server-1u"),
+      powerBays: modelById("server-1u").powerBays!,
+      detail: "从机后对照输入 A、B，可抽出电源核对两侧托边和槽内限位",
+    },
     {
       tool: "rear-interfaces",
       name: "机后扩展区",

@@ -6901,6 +6901,12 @@
         "trayDepth": 0.112, "frontInset": 0.003, "trayDirection": [1.1, 0.7, 0.44],
         "coverLift": 0.039, "coverDirection": [-0.84, 0.62, -1.05]
       },
+      "powerBays": {
+        "travelRatio": 0.75, "focusDirection": [0.025, 1.32, -0.94],
+        "ledgeWidth": 0.007, "wallThickness": 0.0004, "sideClearance": 0.00015,
+        "wallHeight": 0.006, "stopClearance": 0.0006, "stopDepth": 0.002,
+        "crossbarDepth": 0.010
+      },
       "compactHarness": {
         "backplane": "backplane-01", "harness": "cables-01",
         "boardCenter": [-0.00485, -0.0161, 0.23082], "boardSize": [0.40603, 0.0021, 0.02577],

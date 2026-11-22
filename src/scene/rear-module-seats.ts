@@ -1,11 +1,39 @@
 import * as THREE from "three";
-import { rearLayoutFor } from "../assembly-pairs.ts";
+import { compactSupplies, rearLayoutFor } from "../assembly-pairs.ts";
+import { modelById } from "../catalog.ts";
 import { localMeshBounds } from "./local-mesh-bounds.ts";
 
 import definition from "../../assets/public/scenes/room-01.json" with { type: "json" };
 
 const seat = definition.rearModuleSeats;
+const powerBays = modelById("server-1u").powerBays!;
 export type RearRowPose = "seated" | "withdrawn";
+
+// 以实际壳底顶点求承托段，排除伸到机后的拉手和内端较高的接触片。
+function powerSupport(
+  module: THREE.Object3D,
+  host: THREE.Object3D,
+  bounds: THREE.Box3,
+) {
+  const support = bounds.clone();
+  const inverse = host.matrixWorld.clone().invert();
+  const point = new THREE.Vector3();
+  const matrix = new THREE.Matrix4();
+  support.min.z = Infinity;
+  support.max.z = -Infinity;
+  module.traverse((mesh) => {
+    if (!(mesh instanceof THREE.Mesh)) return;
+    const pos = mesh.geometry.getAttribute("position");
+    matrix.multiplyMatrices(inverse, mesh.matrixWorld);
+    for (let i = 0; i < pos.count; i++) {
+      point.fromBufferAttribute(pos, i).applyMatrix4(matrix);
+      if (point.y > bounds.min.y + 0.0002) continue;
+      support.min.z = Math.min(support.min.z, point.z);
+      support.max.z = Math.max(support.max.z, point.z);
+    }
+  });
+  return support.isEmpty() ? bounds : support;
+}
 
 // 每个槽的支承边沿取自同一装配坐标下的模块外廓。抽出距离仅用于观察。
 export class RearModuleSeats {
@@ -42,26 +70,32 @@ export class RearModuleSeats {
   }
 
   private build(
-    fans: THREE.Group,
+    host: THREE.Object3D,
     parts: Map<string, THREE.Group>,
-    layout: NonNullable<ReturnType<typeof rearLayoutFor>>,
+    members: readonly { id: string; slot: string }[],
+    compact: boolean,
   ) {
     this.envelope.makeEmpty();
-    for (const part of layout.members) {
+    const dimensions = compact ? powerBays : seat;
+    for (const part of members) {
       const module = parts.get(part.id)!;
-      const bounds = localMeshBounds(module, fans);
+      const bounds = localMeshBounds(module, host);
       // 后面板下沿可能低于承载面。柜内托边只托住壳底或控制器托盘，并避开面板。
       const base =
         module.getObjectByName("controller-tray") ??
         module.getObjectByName("psu-shell-base");
-      const support = base ? localMeshBounds(base, fans) : bounds;
+      const support = compact
+        ? powerSupport(module, host, bounds)
+        : base
+          ? localMeshBounds(base, host)
+          : bounds;
       if (base) {
         const panel =
           module.getObjectByName("controller-rear-panel") ??
           module.getObjectByName("psu-rear-panel");
         if (panel)
           support.min.z =
-            localMeshBounds(panel, fans).max.z + seat.stopClearance;
+            localMeshBounds(panel, host).max.z + seat.stopClearance;
       }
       const size = support.getSize(new THREE.Vector3());
       const center = support.getCenter(new THREE.Vector3());
@@ -70,43 +104,67 @@ export class RearModuleSeats {
       slot.position.set(center.x, support.min.y, center.z);
       this.guides.add(slot);
       // 两条托边在底面接触，内侧限位留出净空，向机后开口。
-      const edge = size.x / 2 + seat.sideClearance + seat.wallThickness;
+      const edge =
+        size.x / 2 + dimensions.sideClearance + dimensions.wallThickness;
       for (const sign of [-1, 1]) {
         this.rail(
           slot,
-          seat.ledgeWidth,
+          dimensions.ledgeWidth,
           seat.ledgeThickness,
           size.z,
-          sign * (edge - seat.ledgeWidth / 2),
+          sign * (edge - dimensions.ledgeWidth / 2),
           -seat.ledgeThickness / 2,
           0,
         );
         this.rail(
           slot,
-          seat.wallThickness,
-          seat.wallHeight,
+          dimensions.wallThickness,
+          dimensions.wallHeight,
           size.z,
-          sign * (edge - seat.wallThickness / 2),
-          seat.wallHeight / 2 - seat.ledgeThickness,
+          sign * (edge - dimensions.wallThickness / 2),
+          dimensions.wallHeight / 2 - seat.ledgeThickness,
           0,
         );
       }
-      this.rail(
-        slot,
-        edge * 2,
-        seat.wallHeight,
-        seat.wallThickness,
-        0,
-        seat.wallHeight / 2 - seat.ledgeThickness,
-        size.z / 2 + seat.stopClearance + seat.wallThickness / 2,
-      );
-      const travel = (bounds.max.z - bounds.min.z) * seat.travelRatio;
+      // M1 内端中央留出接触片空间，两只限位分别接在托边末端。
+      const stopDepth = compact
+        ? powerBays.stopDepth
+        : dimensions.wallThickness;
+      const stopZ = size.z / 2 + dimensions.stopClearance + stopDepth / 2;
+      const stopWidth = compact ? dimensions.ledgeWidth : edge * 2;
+      for (const x of compact
+        ? [-edge + stopWidth / 2, edge - stopWidth / 2]
+        : [0])
+        this.rail(
+          slot,
+          stopWidth,
+          dimensions.wallHeight,
+          stopDepth,
+          x,
+          dimensions.wallHeight / 2 - seat.ledgeThickness,
+          stopZ,
+        );
+      if (compact) {
+        // 两道横撑从下方连接托边，内横撑同时承托两只限位。
+        const depth = powerBays.crossbarDepth;
+        for (const z of [-size.z * 0.32, stopZ + stopDepth / 2 - depth / 2])
+          this.rail(
+            slot,
+            edge * 2,
+            seat.ledgeThickness,
+            depth,
+            0,
+            -seat.ledgeThickness * 1.5,
+            z,
+          );
+      }
+      const travel = (bounds.max.z - bounds.min.z) * dimensions.travelRatio;
       this.travel.set(part.id, travel);
       bounds.min.z -= travel;
       this.envelope.union(bounds);
     }
-    fans.add(this.guides);
-    this.envelope.union(localMeshBounds(this.guides, fans));
+    host.add(this.guides);
+    this.envelope.union(localMeshBounds(this.guides, host));
   }
 
   // 每帧先撤销上一帧的局部位移，再由整机的绝对姿态更新接管。
@@ -130,21 +188,23 @@ export class RearModuleSeats {
     modelId: string,
     pose?: RearRowPose,
   ) {
-    const layout = pose && rearLayoutFor(modelId);
-    const fans = layout && parts.get(layout.fanGroup.id);
-    if (!layout || !fans) {
+    const layout = rearLayoutFor(modelId);
+    const compact = modelId === "server-1u";
+    const host = compact
+      ? parts.get(compactSupplies[0].id)?.parent
+      : layout && parts.get(layout.fanGroup.id);
+    if (!pose || !host) {
       this.clear();
       return;
     }
-    if (this.guides.parent && this.guides.parent !== fans) this.clear();
-    // 同屏核对时，所有模块以装配位置为基准。
-    for (const part of [
-      layout.fanGroup,
-      ...layout.supplies,
-      ...layout.controllers,
-    ])
+    if (this.guides.parent && this.guides.parent !== host) this.clear();
+    const members = layout?.members ?? compactSupplies;
+    // 保留整排的安装基准。独立电源用装配根节点承托，两件都可移动。
+    for (const part of layout
+      ? [layout.fanGroup, ...layout.supplies, ...layout.controllers]
+      : members)
       parts.get(part.id)!.position.copy(bases.get(part.id)!);
-    if (!this.guides.parent) this.build(fans, parts, layout);
+    if (!this.guides.parent) this.build(host, parts, members, compact);
     const module = parts.get(selected);
     const travel = this.travel.get(selected);
     if (pose === "withdrawn" && module && travel !== undefined) {

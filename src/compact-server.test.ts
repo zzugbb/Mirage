@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { RearModuleSeats } from "./scene/rear-module-seats.ts";
 import { ControllerMountGuide } from "./scene/controller-mount.ts";
 import { mapCompactServer } from "./scene/compact-server.ts";
 import { assemblyChecks } from "./assembly-pairs.ts";
@@ -600,6 +601,79 @@ test("精细 1U 模型保留内嵌贴图和材质，维护部件仍与八内存�
           });
           assert.ok(b.max.x < a.min.x, "机后观察，输入 B 始终在输入 A 右侧");
         }
+      }
+    },
+  );
+  await t.test(
+    "M1 精模和简模双电源可连续换槽抽出，两侧托边与限位保持安装位置",
+    () => {
+      for (const model of [assembly, createEquipmentAssembly("server-1u")]) {
+        const row = new RearModuleSeats();
+        const ids = ["psu-01", "psu-02"];
+        const box = (o: THREE.Object3D) =>
+          new THREE.Box3().setFromObject(o, true);
+        row.update(
+          model.groups,
+          model.positions,
+          ids[0],
+          "server-1u",
+          "seated",
+        );
+        assert.equal(row.guides.children.length, 2);
+        const slots = row.guides.children.map((slot) => slot.children.map(box));
+        const modules = ids.map((id) => box(model.groups.get(id)!));
+        for (const [i, slot] of slots.entries()) {
+          assert.equal(slot.length, 8);
+          const body = modules[i],
+            [left, , right, , leftStop, rightStop] = slot;
+          for (const ledge of [left, right]) {
+            assert.ok(Math.abs(ledge.max.y - body.min.y) < 1e-6);
+            assert.ok(
+              ledge.min.z > body.min.z && ledge.max.z <= body.max.z + 1e-6,
+            );
+            assert.ok(ledge.max.x > body.min.x && ledge.min.x < body.max.x);
+          }
+          const half = body.getCenter(new THREE.Vector3()).x;
+          assert.ok(leftStop.max.x < half && rightStop.min.x > half);
+          const innerBar = slot[7];
+          assert.ok(Math.abs(innerBar.max.y - leftStop.min.y) < 1e-7);
+          assert.ok(
+            innerBar.min.z < left.max.z &&
+              innerBar.max.z >= leftStop.max.z - 1e-7,
+          );
+          assert.ok(
+            leftStop.min.z > left.max.z && rightStop.min.z > right.max.z,
+          );
+        }
+        assert.ok(
+          box(row.guides.children[1]).max.x < box(row.guides.children[0]).min.x,
+        );
+        for (const index of [0, 1, 1, 0]) {
+          row.restoreModule();
+          row.update(
+            model.groups,
+            model.positions,
+            ids[index],
+            "server-1u",
+            "withdrawn",
+          );
+          const body = box(model.groups.get(ids[index])!);
+          assert.ok(body.min.z < modules[index].min.z);
+          assert.ok(body.max.z > slots[index][0].min.z);
+          assert.ok(
+            box(model.groups.get(ids[1 - index])!).equals(modules[1 - index]),
+          );
+          assert.deepEqual(
+            row.guides.children.map((slot) => slot.children.map(box)),
+            slots,
+          );
+        }
+        row.clear();
+        assert.equal(row.guides.parent, null);
+        ids.forEach((id, i) =>
+          assert.ok(box(model.groups.get(id)!).equals(modules[i])),
+        );
+        row.dispose();
       }
     },
   );
