@@ -15,7 +15,10 @@ import {
 import { registerLayer } from "./assembly-layer.ts";
 import { registerServerRearMounts } from "./server-rear-mount.ts";
 import { buildServerFanMounts } from "./server-fan-mount.ts";
-import { buildServerPowerContacts } from "./server-power-contact.ts";
+import {
+  buildServerPowerContacts,
+  buildRearPowerContacts,
+} from "./server-power-contact.ts";
 import { rearPowerSupply } from "./rear-power-supply.ts";
 import {
   compactHeatsink,
@@ -872,6 +875,8 @@ export function createEquipmentAssembly(modelId: string): Assembly {
     registerServerRearMounts(groups, modelId, box);
   if (model.fanDuctLayout) buildServerFanMounts(groups, modelId);
   if (model.powerBays) buildServerPowerContacts(groups, box, modelId);
+  else if (model.category === "switch" || model.category === "storage")
+    buildRearPowerContacts(groups, box, modelId);
   root.updateMatrixWorld(true);
   return { root, groups, positions };
 }

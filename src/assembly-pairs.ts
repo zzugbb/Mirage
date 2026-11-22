@@ -192,17 +192,28 @@ const inputStages = [
     separated: "退出端子",
   },
 ] as const;
+const bayContactStage = {
+  id: "bay-contact",
+  name: "槽内插片与固定座",
+  seated: "接合槽内插片",
+  separated: "退出槽内插片",
+} as const;
 const switchPowerTrayLayer = {
   ...powerTrayLayer,
   stageLabel: "电源核查位置",
-  stages: [...powerStages, ...inputStages],
+  stages: [
+    powerStages[0],
+    bayContactStage,
+    ...powerStages.slice(1),
+    ...inputStages,
+  ],
   description:
-    "电源身份与输入 A、B 来自 N1 配置。内托四柱、板端接合、输入座削角与三片端子的装配均为原创示意。时间分析沿用部件模拟值，支路未计量。",
+    "电源身份与输入 A、B 来自 N1 配置。槽内插片与固定座、内托四柱、板端接合、输入座削角与三片端子的装配均为原创示意。时间分析沿用部件模拟值，支路未计量。",
 } as const;
 const storagePowerTrayLayer = {
   ...switchPowerTrayLayer,
   description:
-    "可在两侧电源间切换，对照输入座、芯座与端子、板卡四柱和板端宽窄插片。输入 A、B 归属来自配置。内部装配与行程为原创示意，时间分析沿用部件模拟值，支路未计量。",
+    "可在两侧电源间切换，对照槽内接点、输入座、芯座与端子、板卡四柱和板端宽窄插片。输入 A、B 归属来自配置。内部装配与行程为原创示意，时间分析沿用部件模拟值，支路未计量。",
 } as const;
 const fanGuardLayer = {
   stageLabel: "风扇核查位置",
@@ -258,12 +269,6 @@ function rearPowerCheck(modelId: "switch-1u" | "storage-4u") {
   } as const;
 }
 
-const bayContactStage = {
-  id: "bay-contact",
-  name: "槽内插片与固定座",
-  seated: "接合槽内插片",
-  separated: "退出槽内插片",
-} as const;
 export const serverPowerStages = [
   bayContactStage,
   { ...powerStages[0], id: "tray" },

@@ -1,6 +1,10 @@
 import * as THREE from "three";
 import definition from "../../assets/public/scenes/room-01.json" with { type: "json" };
-import { serverSuppliesFor, serverPowerStages } from "../assembly-pairs.ts";
+import {
+  rearLayoutFor,
+  serverSuppliesFor,
+  serverPowerStages,
+} from "../assembly-pairs.ts";
 import {
   assemblyLayer,
   layerScopeFor,
@@ -79,14 +83,98 @@ function fallbackBlade(module: THREE.Group, bounds: THREE.Box3) {
   return leaf;
 }
 
+function registerBayContact(
+  module: THREE.Group,
+  carrier: THREE.Group,
+  leaf: THREE.Mesh,
+  id: string,
+  box: Box,
+) {
+  const inModule = module.matrixWorld.clone().invert();
+  leaf.updateWorldMatrix(true, true);
+  const blade = new THREE.Box3()
+    .setFromObject(leaf, true)
+    .applyMatrix4(inModule);
+  const center = blade.getCenter(new THREE.Vector3()),
+    size = blade.getSize(new THREE.Vector3());
+  const plug = new THREE.Group();
+  plug.name = "psu-bay-plug";
+  carrier.add(plug);
+  plug.attach(leaf);
+  const receiver = new THREE.Group();
+  receiver.name = "bay-receiver-" + id;
+  receiver.userData.entityId = id;
+  module.add(receiver);
+  receiver.position.set(center.x, blade.max.y, blade.max.z);
+  module.parent!.attach(receiver);
+  const depth = size.z * 0.7,
+    wall = 0.0011,
+    gap = 0.00038,
+    width = size.x + 2 * gap;
+  const fingerEnd = -depth * 0.26;
+  box(
+    receiver,
+    [width + 2 * wall, size.y + 3 * wall, wall],
+    [0, -size.y / 2, wall / 2],
+    "#495b61",
+  ).name = "bay-receiver-back";
+  box(
+    receiver,
+    [width, wall, depth],
+    [0, -size.y - gap - wall / 2, -depth / 2],
+    "#547067",
+  ).name = "bay-receiver-floor";
+  for (const sign of [-1, 1])
+    box(
+      receiver,
+      [wall, size.y + 3 * wall, depth],
+      [(sign * (width + wall)) / 2, -size.y / 2, -depth / 2],
+      "#495b61",
+    ).name = "bay-receiver-side";
+  for (const column of [-1, 0, 1]) {
+    const x = size.x * 0.26 * column,
+      padWidth = size.x * 0.11,
+      padHeight = 0.00022;
+    box(
+      plug,
+      [padWidth, padHeight, depth * 0.8],
+      [center.x + x, blade.max.y + padHeight / 2, blade.max.z - depth * 0.48],
+      "#bf995e",
+    ).name = "bay-blade-pad";
+    box(
+      receiver,
+      [padWidth * 0.64, wall, fingerEnd + depth * 0.85],
+      [x, padHeight + wall / 2, (fingerEnd - depth * 0.85) / 2],
+      "#cdb585",
+    ).name = "bay-contact-finger";
+    box(
+      receiver,
+      [padWidth * 0.64, wall, -fingerEnd],
+      [x, padHeight + wall / 2, fingerEnd / 2],
+      "#899497",
+    );
+  }
+  registerLayer(carrier, {
+    node: carrier.name,
+    offset: [0, 0, -cfg.travel],
+    direction: [0.63, 0.88, -0.82],
+  });
+  registerLayerScope(module, "bay-contact", {
+    layerRoot: carrier,
+    members: [plug, receiver],
+    moving: plug,
+    selectedBranch: plug,
+    selectionPadding: 0.0006,
+  });
+}
+
 export function buildServerPowerContacts(
   groups: Map<string, THREE.Group>,
   box: Box,
   modelId: string,
 ) {
   for (const { id } of serverSuppliesFor(modelId)) {
-    const module = groups.get(id)!,
-      host = module.parent!;
+    const module = groups.get(id)!;
     module.updateWorldMatrix(true, true);
     const carrier = new THREE.Group();
     carrier.name = "psu-moving-module";
@@ -103,81 +191,7 @@ export function buildServerPowerContacts(
       original instanceof THREE.Mesh
         ? splitBlade(original)
         : fallbackBlade(carrier, shell);
-    leaf.updateWorldMatrix(true, true);
-    const blade = new THREE.Box3()
-      .setFromObject(leaf, true)
-      .applyMatrix4(inModule);
-    const center = blade.getCenter(new THREE.Vector3()),
-      size = blade.getSize(new THREE.Vector3());
-    const plug = new THREE.Group();
-    plug.name = "psu-bay-plug";
-    carrier.add(plug);
-    plug.attach(leaf);
-    const receiver = new THREE.Group();
-    receiver.name = "bay-receiver-" + id;
-    receiver.userData.entityId = id;
-    module.add(receiver);
-    receiver.position.set(center.x, blade.max.y, blade.max.z);
-    host.attach(receiver);
-    const depth = size.z * 0.7,
-      wall = 0.0011,
-      gap = 0.00038,
-      width = size.x + 2 * gap;
-    const fingerEnd = -depth * 0.26;
-    box(
-      receiver,
-      [width + 2 * wall, size.y + 3 * wall, wall],
-      [0, -size.y / 2, wall / 2],
-      "#495b61",
-    ).name = "bay-receiver-back";
-    box(
-      receiver,
-      [width, wall, depth],
-      [0, -size.y - gap - wall / 2, -depth / 2],
-      "#547067",
-    ).name = "bay-receiver-floor";
-    for (const sign of [-1, 1])
-      box(
-        receiver,
-        [wall, size.y + 3 * wall, depth],
-        [(sign * (width + wall)) / 2, -size.y / 2, -depth / 2],
-        "#495b61",
-      ).name = "bay-receiver-side";
-    for (const column of [-1, 0, 1]) {
-      const x = size.x * 0.26 * column,
-        padWidth = size.x * 0.11,
-        padHeight = 0.00022;
-      box(
-        plug,
-        [padWidth, padHeight, depth * 0.8],
-        [center.x + x, blade.max.y + padHeight / 2, blade.max.z - depth * 0.48],
-        "#bf995e",
-      ).name = "bay-blade-pad";
-      box(
-        receiver,
-        [padWidth * 0.64, wall, fingerEnd + depth * 0.85],
-        [x, padHeight + wall / 2, (fingerEnd - depth * 0.85) / 2],
-        "#cdb585",
-      ).name = "bay-contact-finger";
-      box(
-        receiver,
-        [padWidth * 0.64, wall, -fingerEnd],
-        [x, padHeight + wall / 2, fingerEnd / 2],
-        "#899497",
-      );
-    }
-    registerLayer(carrier, {
-      node: carrier.name,
-      offset: [0, 0, -cfg.travel],
-      direction: [0.63, 0.88, -0.82],
-    });
-    registerLayerScope(module, "bay-contact", {
-      layerRoot: carrier,
-      members: [plug, receiver],
-      moving: plug,
-      selectedBranch: plug,
-      selectionPadding: 0.0006,
-    });
+    registerBayContact(module, carrier, leaf, id, box);
 
     // 外壳照常使用贡献外观。分层时才显示按本件外廓适配的原创剖视件。
     const study = new THREE.Group();
@@ -205,5 +219,29 @@ export function buildServerPowerContacts(
           : layerScopeFor(study, stage.id)!;
       registerLayerScope(module, stage.id, { ...scope, cutaway: study });
     }
+  }
+}
+
+// N1 与 S4 的机后内构均为原创。插片装在壳体内端上半部，为下方托边和限位留出空间。
+export function buildRearPowerContacts(
+  groups: Map<string, THREE.Group>,
+  box: Box,
+  modelId: string,
+) {
+  for (const { id } of rearLayoutFor(modelId)!.supplies) {
+    const psu = groups.get(id)!;
+    const end = psu.getObjectByName("psu-end-wall")!;
+    psu.updateWorldMatrix(true, true);
+    const shell = new THREE.Box3()
+      .setFromObject(end, true)
+      .applyMatrix4(psu.matrixWorld.clone().invert());
+    const carrier = new THREE.Group();
+    carrier.name = "psu-bay-terminal";
+    psu.add(carrier);
+    const leaf = fallbackBlade(carrier, shell);
+    leaf.position.y =
+      shell.getCenter(new THREE.Vector3()).y +
+      shell.getSize(new THREE.Vector3()).y * 0.23;
+    registerBayContact(psu, carrier, leaf, id, box);
   }
 }

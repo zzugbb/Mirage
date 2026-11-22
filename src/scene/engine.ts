@@ -2862,8 +2862,7 @@ export class SceneEngine {
               this.partIsolation.applyMany(this.models.server, [
                 target,
                 ...companions,
-                ...(this.rearRowPose &&
-                modelForDevice(this.state.deviceId).powerBays
+                ...(this.rearRowPose
                   ? [
                       this.rearModuleSeats.guides,
                       ...this.rearModuleSeats.receivers,

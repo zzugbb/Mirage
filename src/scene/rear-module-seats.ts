@@ -39,6 +39,7 @@ function powerSupport(
 export class RearModuleSeats {
   readonly receivers: THREE.Object3D[] = [];
   readonly guides = new THREE.Group();
+  private readonly receiverMounts: THREE.Group[] = [];
   private readonly metal = new THREE.MeshStandardMaterial({
     color: seat.metalColor,
     metalness: 0.5,
@@ -81,8 +82,10 @@ export class RearModuleSeats {
     for (const part of members) {
       const module = parts.get(part.id)!;
       const bounds = localMeshBounds(module, host);
-      const receiver = host.getObjectByName("bay-receiver-" + part.id);
-      if (powerBays && receiver) {
+      const receiver = module.parent!.getObjectByName(
+        "bay-receiver-" + part.id,
+      );
+      if (receiver) {
         this.receivers.push(receiver);
         this.envelope.union(localMeshBounds(receiver, host));
       }
@@ -164,6 +167,52 @@ export class RearModuleSeats {
             z,
           );
       }
+      if (receiver) {
+        // 机内接合座的两只托脚搭在同槽内横撑（服务器）或止挡（交换机、存储）上。
+        const floor = localMeshBounds(
+          receiver.getObjectByName("bay-receiver-floor")!,
+          host,
+        );
+        const top =
+          support.min.y -
+          seat.ledgeThickness +
+          (powerBays ? 0 : dimensions.wallHeight);
+        const railZ = center.z + stopZ,
+          footZ = (floor.min.z + floor.max.z) / 2;
+        const height = floor.min.y - top;
+        if (height > 0) {
+          const mount = new THREE.Group();
+          mount.name = "bay-receiver-mount";
+          host.add(mount);
+          const width = floor.max.x - floor.min.x;
+          for (const x of [
+            floor.min.x + width * 0.12,
+            floor.max.x - width * 0.12,
+          ]) {
+            const sheet = Math.min(height / 2, seat.ledgeThickness);
+            this.rail(
+              mount,
+              0.002,
+              sheet,
+              Math.abs(footZ - railZ) + 0.001,
+              x,
+              top + sheet / 2,
+              (railZ + footZ) / 2,
+            );
+            this.rail(
+              mount,
+              0.002,
+              height - sheet,
+              0.001,
+              x,
+              (floor.min.y + top + sheet) / 2,
+              footZ,
+            );
+          }
+          receiver.attach(mount);
+          this.receiverMounts.push(mount);
+        }
+      }
       const travel = (bounds.max.z - bounds.min.z) * dimensions.travelRatio;
       this.travel.set(part.id, travel);
       bounds.min.z -= travel;
@@ -186,6 +235,8 @@ export class RearModuleSeats {
     this.guides.clear();
     this.travel.clear();
     this.receivers.length = 0;
+    for (const mount of this.receiverMounts) mount.removeFromParent();
+    this.receiverMounts.length = 0;
   }
 
   update(
