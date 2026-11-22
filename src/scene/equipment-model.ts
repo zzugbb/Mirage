@@ -1,5 +1,8 @@
 import { processorPairs, drivePairs } from "../assembly-pairs.ts";
-import { managementInterface } from "./management-interface.ts";
+import {
+  compactManagementInterface,
+  managementInterface,
+} from "./management-interface.ts";
 import { buildRtcMount, replaceRtcProxy } from "./rtc-mount.ts";
 import { compactSsd, compactTray } from "./compact-drive-model.ts";
 import { compactBayForPart } from "../compact-drive-bays.ts";
@@ -235,30 +238,6 @@ function compactRearInterface(
         "#212b30",
       );
     }
-  } else if (node === "io") {
-    // 管理口只标出配置区域，露出侧边固定片和后方小板。
-    box(root, [w, h, 0.0015], [0, 0, rear + 0.002], "#9ba6a8");
-    box(
-      root,
-      [w * 0.8, 0.0016, d - 0.003],
-      [0, floor + 0.001, 0.0015],
-      "#35594b",
-      0.2,
-    );
-    box(
-      root,
-      [0.019, h * 0.82, d * 0.74],
-      [0, 0, rear + d * 0.37 + 0.001],
-      "#99a3a8",
-    );
-    box(root, [0.015, h * 0.55, 0.001], [0, 0, rear + 0.0005], "#20292e");
-    for (const side of [-1, 1])
-      box(
-        root,
-        [0.0028, 0.0028, 0.001],
-        [side * w * 0.44, 0, rear + 0.00075],
-        "#566167",
-      );
   } else {
     box(
       root,
@@ -816,6 +795,8 @@ export function createEquipmentAssembly(modelId: string): Assembly {
         ].includes(p.id)
       )
         expansionPart(group, p, box);
+      else if (model.managementSlide?.partId === p.id)
+        compactManagementInterface(group, size, box, model.managementSlide);
       else if (compactInterface) compactRearInterface(group, p.node, size, box);
       else if (mount && p.id === mount.controllerId) {
         // 按控制卡节点外廓画底座、板体与上部组件，外部端口归属独立网卡。

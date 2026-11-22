@@ -170,6 +170,7 @@ const serverMember = (id: string) =>
   partsForModel("server-2u").find((part) => part.id === id)!;
 const compact = modelById("server-1u").controllerMount!;
 const compactParts = partsForModel("server-1u");
+const compactManagement = modelById("server-1u").managementSlide!;
 const compactHarness = modelById("server-1u").compactHarness!;
 function storageHarnessCheck(
   modelId: string,
@@ -227,10 +228,19 @@ const checks = {
       tool: "rear-interfaces",
       name: "机后扩展区",
       entry: "核对机后扩展区",
-      detail: "对照网卡、转接架和按配置示意的管理接口",
+      detail: "对照网卡、转接架和管理接口，可分层查看接口板与导轨",
+      layer: {
+        partId: compactManagement.partId,
+        label: "管理接口板与导轨",
+        scope: "管理接口板姿态",
+        seated: "推回接口板",
+        separated: "滑出接口板",
+      },
       memberLabel: "机后扩展部件",
       labels: ["双口网卡", "转接架", "管理接口"],
-      additionalParts: [compactParts.find((part) => part.id === "io-01")!],
+      additionalParts: [
+        compactParts.find((part) => part.id === compactManagement.partId)!,
+      ],
       startExplosion: 0.45,
       pairs: [
         {

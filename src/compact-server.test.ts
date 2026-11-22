@@ -6,6 +6,7 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { ControllerMountGuide } from "./scene/controller-mount.ts";
 import { mapCompactServer } from "./scene/compact-server.ts";
 import { assemblyChecks } from "./assembly-pairs.ts";
+import { poseAssemblyLayer } from "./scene/assembly-layer.ts";
 import { assemblyPartPosition } from "./assembly-motion.ts";
 import { createEquipmentAssembly } from "./scene/equipment-model.ts";
 import { devices, rackForDevice } from "./installation.ts";
@@ -264,6 +265,86 @@ test("精细 1U 模型保留内嵌贴图和材质，维护部件仍与八内存�
         assert.ok(
           Math.abs(bounds(adapter).min.z - bounds(upper).min.z) < 0.001,
         );
+      }
+    },
+  );
+  await t.test(
+    "M1 管理接口板在精模和简模均穿过面板开口，双轨承托板边，推回时板端贴合止挡",
+    () => {
+      const config = sceneDefinition.equipmentModels.find(
+        (m) => m.id === "server-1u",
+      )!.managementSlide!;
+      const check = assemblyChecks("srv-53", config.partId).find(
+        (item) => item.tool === "rear-interfaces",
+      )!;
+      assert.ok(
+        "layer" in check &&
+          "partId" in check.layer &&
+          check.layer.partId === config.partId,
+      );
+      const bounds = (node: THREE.Object3D) =>
+        new THREE.Box3().setFromObject(node, true);
+      const close = (a: number, b: number) => assert.ok(Math.abs(a - b) < 1e-7);
+      for (const model of [assembly, createEquipmentAssembly("server-1u")]) {
+        const part = model.groups.get(config.partId)!;
+        const tray = part.getObjectByName("management-tray")!;
+        const face = part.getObjectByName("management-face")!;
+        const pcb = part.getObjectByName("management-pcb")!;
+        const port = part.getObjectByName("management-port-roof")!;
+        const rails = part.getObjectsByProperty("name", "management-rail");
+        const lips = part.getObjectsByProperty("name", "management-guide-lip");
+        const stops = part.getObjectsByProperty("name", "management-stop");
+        assert.equal(rails.length, 2);
+        assert.equal(lips.length, 2);
+        assert.equal(stops.length, 2);
+        const fixed = [tray, face, ...rails, ...lips, ...stops],
+          original = fixed.map(bounds);
+        const resting = bounds(pcb);
+        const housing = new THREE.Box3();
+        for (const side of part.getObjectsByProperty(
+          "name",
+          "management-port-side",
+        ))
+          housing.union(bounds(side));
+        assert.ok(!housing.isEmpty());
+        // 整个接口外廓须能穿过框孔，不能只让中心视线通过。
+        for (const x of [housing.min.x, housing.max.x])
+          for (const y of [housing.min.y, housing.max.y]) {
+            const corner = new THREE.Raycaster(
+              new THREE.Vector3(x, y, bounds(face).min.z - 0.01),
+              new THREE.Vector3(0, 0, 1),
+            );
+            assert.equal(corner.intersectObject(face).length, 0);
+          }
+        for (const out of [false, true, true, false]) {
+          poseAssemblyLayer(part, out);
+          part.updateWorldMatrix(true, true);
+          assert.deepEqual(fixed.map(bounds), original);
+          const board = bounds(pcb),
+            distance = out ? config.travel : 0;
+          close(board.min.z - resting.min.z, distance);
+          close(bounds(port).min.z - bounds(face).min.z, distance);
+          for (const [i, rail] of rails.entries()) {
+            const ledge = bounds(rail);
+            close(ledge.max.y, board.min.y);
+            assert.ok(bounds(lips[i]).min.y > board.max.y);
+            assert.ok(board.min.x < ledge.max.x && ledge.min.x < board.max.x);
+            close(board.min.z - bounds(stops[i]).max.z, distance);
+          }
+          const ray = new THREE.Raycaster(
+            bounds(face)
+              .getCenter(new THREE.Vector3())
+              .add(new THREE.Vector3(0, 0, -0.01)),
+            new THREE.Vector3(0, 0, 1),
+          );
+          assert.equal(ray.intersectObject(face).length, 0);
+          assert.equal(
+            ray.intersectObject(part)[0].object.name,
+            "management-port-backing",
+          );
+          if (out) assert.ok(board.min.z > bounds(tray).max.z);
+          else assert.ok(board.equals(resting));
+        }
       }
     },
   );
