@@ -1,3 +1,4 @@
+import { buildCompactStoragePath } from "./compact-storage-path.ts";
 import { processorPairs, drivePairs } from "../assembly-pairs.ts";
 import {
   compactManagementInterface,
@@ -30,7 +31,7 @@ export type Assembly = {
   positions: Map<string, THREE.Vector3>;
   representations?: { exterior: THREE.Group; schematic: THREE.Group };
 };
-function maker() {
+export function makeEquipmentBox() {
   const materials = new Map<string, THREE.MeshStandardMaterial>();
   return (
     root: THREE.Object3D,
@@ -60,7 +61,7 @@ function maker() {
     return mesh;
   };
 }
-export type Box = ReturnType<typeof maker>;
+export type Box = ReturnType<typeof makeEquipmentBox>;
 function board(root: THREE.Group, size: number[], box: Box) {
   box(root, size, [0, 0, 0], "#234e3d", 0.2).name = "board-substrate";
   for (let i = 0; i < 10; i++) {
@@ -627,7 +628,7 @@ export function createEquipmentAssembly(modelId: string): Assembly {
   const root = new THREE.Group(),
     groups = new Map<string, THREE.Group>(),
     positions = new Map<string, THREE.Vector3>(),
-    box = maker();
+    box = makeEquipmentBox();
   const h = model.units * 0.04445 - 0.003,
     depth = model.depth;
   box(root, [0.44, 0.002, depth], [0, -h / 2, 0], "#78838b", 0.75);
@@ -851,7 +852,10 @@ export function createEquipmentAssembly(modelId: string): Assembly {
       box,
     );
   }
-  if (model.compactHarness) buildCompactHarness(groups, positions, box);
+  if (model.compactHarness) {
+    buildCompactHarness(groups, positions, box);
+    buildCompactStoragePath(groups, box);
+  }
   if (model.storageHarness) buildStorageHarness(groups, positions, box);
   if (model.category === "server") seatProcessors(modelId, groups, positions);
   root.updateMatrixWorld(true);
@@ -863,7 +867,7 @@ export function completeServerAssembly(
   groups: Map<string, THREE.Group>,
   positions: Map<string, THREE.Vector3>,
 ) {
-  const box = maker();
+  const box = makeEquipmentBox();
   root.updateMatrixWorld(true);
   const model = modelById("server-2u");
   const bay = model.expansionBay!;

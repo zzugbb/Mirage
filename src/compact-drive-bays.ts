@@ -28,3 +28,49 @@ export function compactBayForPart(id: string) {
     (bay) => bay.tray.id === id || bay.disk.id === id,
   );
 }
+
+const model = modelById("server-1u");
+const { backplane, harness } = model.compactHarness!;
+const { controllerId, boardId } = model.controllerMount!;
+// 顺序从四个机前盘位经线束两端到主板，端点沿用维护部件身份。
+export const compactStorageStations = [
+  {
+    id: "route",
+    label: "整条通路",
+    members: [
+      backplane,
+      harness,
+      controllerId,
+      ...compactDriveBays.flatMap((b) => [b.disk.id, b.tray.id]),
+    ],
+  },
+  ...compactDriveBays.map(({ disk, position }) => ({
+    id: disk.id,
+    label: disk.slot + " · " + position,
+    members: [disk.id, backplane],
+  })),
+  {
+    id: "backplane-plug",
+    label: "SAS · 背板端",
+    members: [harness, backplane],
+  },
+  {
+    id: "controller-plug",
+    label: "SAS · 控制卡端",
+    members: [harness, controllerId],
+  },
+  {
+    id: "mount",
+    label: "控制卡 · 主板安装位",
+    members: [controllerId, boardId],
+  },
+];
+
+export const compactPathModules = new Set([
+  backplane,
+  harness,
+  controllerId,
+  boardId,
+  compactDriveBays[0].tray.parent,
+  compactDriveBays[0].disk.parent,
+]);

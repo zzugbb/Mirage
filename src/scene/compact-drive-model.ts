@@ -114,20 +114,23 @@ export function compactSsd(root: THREE.Group, box: Box) {
       [portX + 0.009 + i * 0.003, boardTop + 0.00035, -d * 0.34],
       "#9b927e",
     );
+  const connector = new THREE.Group();
+  connector.name = "ssd-tail-connector";
+  root.add(connector);
   const nose = -d / 2 - 0.0012;
   box(
-    root,
+    connector,
     [portWidth - 0.0006, 0.0025, -boardDepth / 2 - nose],
     [portX, boardY, (-boardDepth / 2 + nose) / 2],
     "#27333b",
   ).name = "ssd-tail-port";
   for (let i = 0; i < 10; i++)
     box(
-      root,
+      connector,
       [0.0016, 0.00025, 0.0024],
       [portX + (i - 4.5) * 0.0027, boardY + 0.001375, nose + 0.0012],
       "#ae935b",
-    );
+    ).name = "ssd-tail-pad";
   const lid = new THREE.Group();
   lid.name = "ssd-cover";
   root.add(lid);

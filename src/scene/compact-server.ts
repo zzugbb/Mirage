@@ -1,5 +1,9 @@
 import * as THREE from "three";
-import { createEquipmentAssembly } from "./equipment-model.ts";
+import { buildCompactStoragePath } from "./compact-storage-path.ts";
+import {
+  createEquipmentAssembly,
+  makeEquipmentBox,
+} from "./equipment-model.ts";
 import { compactDriveBays } from "../compact-drive-bays.ts";
 import { modelById } from "../catalog.ts";
 
@@ -101,6 +105,7 @@ export function mapCompactServer(root: THREE.Group) {
     group.position.copy(center);
     groups.set(id, group);
   }
+  buildCompactStoragePath(groups, makeEquipmentBox());
   root.traverse((object) => {
     if (!(object instanceof THREE.Mesh)) return;
     for (const material of Array.isArray(object.material)

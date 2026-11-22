@@ -1,3 +1,4 @@
+import { compactPathModules } from "../compact-drive-bays";
 import { roomLayoutCameraDirection } from "../room-layout.ts";
 import { rangeObservationTarget } from "../range-segments.ts";
 import {
@@ -214,6 +215,7 @@ export class SceneEngine {
   companionPartIds: readonly string[] = [];
   layerPose?: LayerPose;
   layerScopeId?: string;
+  compactStoragePose?: "installed" | "mount-seated" | "mount-raised";
   dimmPose?: LayerPose;
   rearRowPose?: RearRowPose;
   private rearModuleSeats = new RearModuleSeats();
@@ -2263,6 +2265,23 @@ export class SceneEngine {
         bounds.expandByObject(companion);
       }
     }
+    if (
+      (this.compactStoragePose === "mount-seated" ||
+        this.compactStoragePose === "mount-raised") &&
+      bounds &&
+      object
+    ) {
+      const mount = modelForDevice(this.state.deviceId).controllerMount!;
+      const travel = new THREE.Vector3()
+        .fromArray(mount.controllerTravel)
+        .multiplyScalar(this.explosion);
+      if (this.compactStoragePose === "mount-raised") travel.negate();
+      const local = object.parent!;
+      travel.applyMatrix3(
+        new THREE.Matrix3().setFromMatrix4(local.matrixWorld),
+      );
+      bounds.union(new THREE.Box3().setFromObject(object).translate(travel));
+    }
     if (contactPair && bounds) {
       if (this.storageConnectorPose) connectorBounds(bounds, contactPair);
       else bounds.expandByObject(contactPair.board);
@@ -2732,7 +2751,15 @@ export class SceneEngine {
       const base = this.partBases.get(part.id)?.toArray() ?? part.position;
       const position = assemblyPartPosition(
         { ...part, position: base },
-        this.explosion,
+        this.compactStoragePose &&
+          compactPathModules.has(part.id) &&
+          !(
+            this.compactStoragePose === "mount-raised" &&
+            part.id ===
+              modelForDevice(this.state.deviceId).controllerMount?.controllerId
+          )
+          ? 0
+          : this.explosion,
         this.cover,
       );
       this.models.parts.get(part.id)?.position.fromArray(position);
@@ -3265,7 +3292,9 @@ export class SceneEngine {
         );
       else {
         const scope = layerScopeFor(object, this.layerScopeId);
-        if (scope) scopeBounds(this.models.selection.box, scope);
+        if (scope?.selectedBranch)
+          this.models.selection.box.setFromObject(scope.selectedBranch);
+        else if (scope) scopeBounds(this.models.selection.box, scope);
         else
           this.models.selection.box.setFromObject(
             this.storageContactGuide.memberFor(this.state.selected) ?? object,
@@ -3407,14 +3436,17 @@ export class SceneEngine {
           faceColor &&
           showSelection &&
           id === this.state.selected;
-        const labelPoint = partAnchor && target.userData.labelPoint;
+        const branch = partAnchor
+          ? layerScopeFor(target, this.layerScopeId)?.selectedBranch
+          : undefined;
+        const labelPoint = partAnchor && !branch && target.userData.labelPoint;
         if (labelPoint)
           target.localToWorld(this.anchorPosition.copy(labelPoint));
         else if (rackAnchor || deviceAnchor)
           target.getWorldPosition(this.anchorPosition);
         else
           this.anchorBounds
-            .setFromObject(target)
+            .setFromObject(branch ?? target)
             .getCenter(this.anchorPosition);
         if (
           id === "srv-01" &&
@@ -3425,7 +3457,7 @@ export class SceneEngine {
           this.anchorPosition.z += 0.46;
         }
         this.anchorPosition.y +=
-          element.dataset.hotspot || labelPoint
+          element.dataset.hotspot || labelPoint || branch
             ? 0
             : id === "srv-01"
               ? 0.16

@@ -3,9 +3,18 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { Box3, Group, type Object3D, Raycaster, Texture, Vector3 } from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-import { poseAssemblyLayer } from "./scene/assembly-layer.ts";
+import {
+  poseAssemblyLayer,
+  layerScopeFor,
+  scopeBounds,
+  includeSeparatedLayer,
+  assemblyLayer,
+} from "./scene/assembly-layer.ts";
 import { assemblyChecks, assemblyMember } from "./assembly-pairs.ts";
-import { compactDriveBays } from "./compact-drive-bays.ts";
+import {
+  compactDriveBays,
+  compactStorageStations,
+} from "./compact-drive-bays.ts";
 import { mapCompactServer } from "./scene/compact-server.ts";
 import { createEquipmentAssembly } from "./scene/equipment-model.ts";
 import definition from "../assets/public/scenes/room-01.json" with { type: "json" };
@@ -62,6 +71,69 @@ test("M1 的四个盘位与贡献模型同列同层，托架与同号 SSD 在简
       );
     }
   }
+  await t.test(
+    "精模与简模的六个接合点分别归属可拾取部件，分离和复位时接触面对齐",
+    () => {
+      for (const { groups, root } of [detailed, fallback]) {
+        const board = groups.get("backplane-01")!;
+        const sockets = board.getObjectsByProperty("name", "disk-socket-shelf");
+        assert.equal(sockets.length, 4);
+        assert.equal(
+          board.getObjectsByProperty("name", "disk-socket-support").length,
+          2,
+        );
+        for (const station of compactStorageStations.filter(
+          (s) => s.id !== "route" && s.id !== "mount",
+        )) {
+          const [moving, fixed] = station.members.map((id) => groups.get(id)!);
+          const scope = layerScopeFor(moving, station.id)!;
+          const socket = layerScopeFor(fixed, station.id)!.selectedBranch!;
+          assert.equal(scope.selectedBranch, scope.moving);
+          assert.ok(scope.members.includes(socket));
+          const disk = station.id.startsWith("disk");
+          const pads = scope.moving.getObjectsByProperty(
+            "name",
+            disk ? "ssd-tail-pad" : "sas-pad",
+          );
+          const fingers = socket.getObjectsByProperty(
+            "name",
+            disk ? "disk-socket-finger" : "sas-finger",
+          );
+          assert.equal(pads.length, disk ? 10 : 2);
+          assert.equal(fingers.length, pads.length);
+          const box = (o: Object3D) => new Box3().setFromObject(o);
+          const rest = box(scope.moving),
+            fixedRest = box(socket);
+          const frame = scopeBounds(new Box3(), scope);
+          includeSeparatedLayer(
+            frame,
+            scope.layerRoot,
+            assemblyLayer(scope.layerRoot)!,
+            scope.moving,
+          );
+          for (const separated of [true, false, true, false]) {
+            poseAssemblyLayer(scope.layerRoot, separated);
+            root.updateMatrixWorld(true);
+            assert.ok(box(socket).equals(fixedRest));
+            assert.ok(
+              frame.clone().expandByScalar(1e-7).containsBox(box(scope.moving)),
+            );
+            if (!separated) assert.ok(box(scope.moving).equals(rest));
+            for (const [i, pad] of pads.entries()) {
+              const face = box(pad),
+                finger = box(fingers[i]);
+              assert.ok(Math.abs(face.max.y - finger.min.y) < 1e-7);
+              assert.ok(face.min.x < finger.min.x && finger.max.x < face.max.x);
+              assert.equal(
+                face.min.z < finger.max.z && finger.min.z < face.max.z,
+                !separated,
+              );
+            }
+          }
+        }
+      }
+    },
+  );
   await t.test(
     "四个盘位沿用同号配对，精模与简模的盖边和四个固定点反复开合后归位",
     () => {

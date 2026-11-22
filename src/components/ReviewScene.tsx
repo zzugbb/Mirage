@@ -156,6 +156,7 @@ export function ReviewScene({
   storageViewRevision = 0,
   layerPose,
   layerScopeId,
+  compactStoragePose,
   dimmPose,
   rearRowPose,
   storageContact = false,
@@ -307,6 +308,7 @@ export function ReviewScene({
   storageViewRevision?: number;
   layerPose?: LayerPose;
   layerScopeId?: string;
+  compactStoragePose?: "installed" | "mount-seated" | "mount-raised";
   dimmPose?: LayerPose;
   rearRowPose?: RearRowPose;
   storageContact?: boolean;
@@ -1044,6 +1046,7 @@ export function ReviewScene({
     if (companionPartIds.length) setOrbit(false);
     active.layerPose = layerPose;
     active.layerScopeId = layerScopeId;
+    active.compactStoragePose = compactStoragePose;
     active.dimmPose = dimmPose;
     active.rearRowPose = rearRowPose;
     active.storageContact = storageContact;
@@ -1061,6 +1064,7 @@ export function ReviewScene({
     companionPartIds,
     layerPose,
     layerScopeId,
+    compactStoragePose,
     dimmPose,
     rearRowPose,
     storageContact,

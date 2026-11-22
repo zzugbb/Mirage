@@ -8,7 +8,11 @@ import {
 } from "./assembly-pairs";
 import { modelForDevice, subpartsForModel } from "./catalog";
 import { CompactDriveBays } from "./components/CompactDriveBays";
-import { compactBayForPart, compactDriveBays } from "./compact-drive-bays";
+import {
+  compactBayForPart,
+  compactDriveBays,
+  compactStorageStations,
+} from "./compact-drive-bays";
 import { useDismissibleMenu } from "./use-dismissible-menu";
 import {
   StructureTools,
@@ -456,15 +460,30 @@ export function Workspace() {
     deviceId: string;
     tool: AssemblyCheck["tool"];
     layerScopeId?: string;
+    storagePath?: { stationId: string; origin: string; pose: LayerPose };
     powerBayPose?: RearRowPose;
     layerPose?: LayerPose;
     rearRow?: { supplyId: string; pose: RearRowPose; fromPair: boolean };
   } | null>(null);
   const pairTools =
     state.level === "device" ? assemblyChecks(state.deviceId, selected) : [];
+  const pathVisit =
+    pairVisit?.deviceId === state.deviceId && state.level === "device"
+      ? pairVisit.storagePath
+      : undefined;
+  const station =
+    pathVisit &&
+    compactStorageStations.find(
+      (item) =>
+        item.id === pathVisit.stationId && item.members.includes(selected),
+    );
+  const pathContact =
+    station && station.id !== "route" && station.id !== "mount";
   const assembly =
     pairVisit?.deviceId === state.deviceId
-      ? pairTools.find((check) => check.tool === pairVisit.tool)
+      ? (station ? assemblyChecks(state.deviceId) : pairTools).find(
+          (check) => check.tool === pairVisit.tool,
+        )
       : undefined;
   const additionalParts =
     assembly && "additionalParts" in assembly
@@ -484,6 +503,7 @@ export function Workspace() {
   const activePair = canInspectPart(state)
     ? assembly?.pairs.find(
         ({ primary, companion }) =>
+          !!station ||
           selected === primary.id ||
           selected === companion.id ||
           additionalParts?.some((part) => selected === part.id) ||
@@ -506,7 +526,8 @@ export function Workspace() {
     assembly && "powerBays" in assembly ? pairVisit?.powerBayPose : undefined;
   const layerPose = selectedLayer ? pairVisit?.layerPose : undefined;
   const layerEntry = useRef<HTMLButtonElement>(null);
-  const returningToLayer = useRef(false);
+  const pathEntry = useRef<HTMLButtonElement>(null);
+  const returningToLayer = useRef<false | "layer" | "path">(false);
   const setLayerPose = (pose?: LayerPose) => {
     setPairVisit(
       (current) =>
@@ -518,6 +539,7 @@ export function Workspace() {
     );
   };
   const companionPartIds = useMemo(() => {
+    if (station) return pathContact ? [] : station.members.slice(1);
     if (layerPose) return [];
     if (rearRow) return rearLayout.companions;
     if (activePair)
@@ -526,6 +548,8 @@ export function Workspace() {
         : [activePair.companion.id];
     return compareFanDuct && fanDuct ? [fanDuct.id] : [];
   }, [
+    station,
+    pathContact,
     activePair,
     additionalParts,
     compareFanDuct,
@@ -536,8 +560,12 @@ export function Workspace() {
   ]);
   useEffect(() => {
     if (pairVisit && !activePair) setPairVisit(null);
+    else if (pathVisit && !station)
+      setPairVisit(
+        (current) => current && { ...current, storagePath: undefined },
+      );
     else if (pairVisit?.layerPose && !selectedLayer) setLayerPose();
-  }, [pairVisit, activePair, selectedLayer]);
+  }, [pairVisit, activePair, selectedLayer, pathVisit, station]);
   const [structureReturn, setStructureReturn] = useState<{
     deviceId: string;
     tool: StructureTool;
@@ -555,21 +583,23 @@ export function Workspace() {
     ? dimmPose
       ? selected
       : "memory-01"
-    : activePair
-      ? layerPose
-        ? selected
-        : activePair.primary.id
-      : activeFanVisit && !activeFanVisit.pending
-        ? activeFanVisit.mode === "group"
-          ? fanAssembly(state.deviceId)!.group.id
-          : activeFanVisit.fanId
-        : activeStorageVisit && !activeStorageVisit.pending
-          ? activeStorageVisit.mode === "group"
-            ? storageDriveGroup
-            : activeStorageVisit.mode === "board"
-              ? "sto-midplane"
-              : activeStorageVisit.diskId
-          : isolatedPart(state, selected, inspectionDevice);
+    : station
+      ? station.members[0]
+      : activePair
+        ? layerPose
+          ? selected
+          : activePair.primary.id
+        : activeFanVisit && !activeFanVisit.pending
+          ? activeFanVisit.mode === "group"
+            ? fanAssembly(state.deviceId)!.group.id
+            : activeFanVisit.fanId
+          : activeStorageVisit && !activeStorageVisit.pending
+            ? activeStorageVisit.mode === "group"
+              ? storageDriveGroup
+              : activeStorageVisit.mode === "board"
+                ? "sto-midplane"
+                : activeStorageVisit.diskId
+            : isolatedPart(state, selected, inspectionDevice);
   useEffect(() => {
     if (inspectionDevice && !isolatedPartId) setInspectionDevice(null);
   }, [inspectionDevice, isolatedPartId]);
@@ -1566,7 +1596,12 @@ export function Workspace() {
     feedback.key === presentationKey(state);
   useLayoutEffect(() => {
     if (
-      !(selectedLayer || (activeMemory && selectedDimm) || rearLayout) ||
+      !(
+        selectedLayer ||
+        (activeMemory && selectedDimm) ||
+        rearLayout ||
+        returningToLayer.current === "path"
+      ) ||
       (rearRow && !rearLayer) ||
       layerPose ||
       dimmPose
@@ -1574,7 +1609,11 @@ export function Workspace() {
       returningToLayer.current = false;
     if (!returningToLayer.current) return;
     // 镜头归位时操作条会短暂禁用；就位后恢复焦点，用户接管后停止恢复。
-    if (ready) layerEntry.current?.focus({ preventScroll: true });
+    if (ready)
+      (returningToLayer.current === "path"
+        ? pathEntry
+        : layerEntry
+      ).current?.focus({ preventScroll: true });
     const release = () => {
       returningToLayer.current = false;
     };
@@ -3061,7 +3100,7 @@ export function Workspace() {
   };
   const showRearSupplies = () => {
     if (!rearRow || !rearLayout) return;
-    returningToLayer.current = true;
+    returningToLayer.current = "layer";
     pick(
       rearLayout.supplies.some((part) => part.id === selected)
         ? selected
@@ -5669,18 +5708,31 @@ export function Workspace() {
                 ? activeStorageVisit.diskId
                 : undefined
             }
+            compactStoragePose={
+              station
+                ? station.id !== "mount"
+                  ? "installed"
+                  : pathVisit?.pose === "separated"
+                    ? "mount-raised"
+                    : "mount-seated"
+                : undefined
+            }
             layerPose={
-              activeStorageVisit?.mode === "tray"
-                ? "separated"
-                : activeStorageVisit?.mode === "disk"
-                  ? "seated"
-                  : layerPose
+              pathContact
+                ? pathVisit?.pose
+                : activeStorageVisit?.mode === "tray"
+                  ? "separated"
+                  : activeStorageVisit?.mode === "disk"
+                    ? "seated"
+                    : layerPose
             }
             layerScopeId={
-              layerPose &&
-              (assembly?.tool === "switch-front" || powerContactScope)
-                ? pairVisit?.layerScopeId
-                : undefined
+              pathContact
+                ? station.id
+                : layerPose &&
+                    (assembly?.tool === "switch-front" || powerContactScope)
+                  ? pairVisit?.layerScopeId
+                  : undefined
             }
             dimmPose={dimmPose}
             rearRowPose={
@@ -5920,7 +5972,7 @@ export function Workspace() {
                   onBack={
                     dimmPose
                       ? () => {
-                          returningToLayer.current = true;
+                          returningToLayer.current = "layer";
                           setSocketPose(undefined);
                         }
                       : finishStructureCheck
@@ -5965,6 +6017,90 @@ export function Workspace() {
                     )}
                   </div>
                 </StructureToolbar>
+              ) : station && pathVisit ? (
+                <StructureToolbar
+                  label="存储通路核查"
+                  state={state}
+                  dispatch={dispatch}
+                  disabled={!ready}
+                  destination={assembly!.name}
+                  onBack={() => {
+                    returningToLayer.current = "path";
+                    setPairVisit(
+                      (current) =>
+                        current && { ...current, storagePath: undefined },
+                    );
+                    pick(pathVisit.origin);
+                  }}
+                >
+                  <div className="structure-check-scope assembly-layer-scope">
+                    <select
+                      aria-label="通路位置"
+                      value={station.id}
+                      disabled={!ready}
+                      autoFocus
+                      onChange={(event) => {
+                        const next = compactStorageStations.find(
+                          (item) => item.id === event.target.value,
+                        )!;
+                        setPairVisit(
+                          (current) =>
+                            current && {
+                              ...current,
+                              storagePath: { ...pathVisit, stationId: next.id },
+                            },
+                        );
+                        pick(next.members[0]);
+                      }}
+                    >
+                      {compactStorageStations.map((item) => (
+                        <option value={item.id} key={item.id}>
+                          {item.label}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      aria-label="通路部件"
+                      value={selected}
+                      disabled={!ready}
+                      onChange={(event) => pick(event.target.value)}
+                    >
+                      {station.members.map((id) => (
+                        <option key={id} value={id}>
+                          {entityById(id)?.name}
+                        </option>
+                      ))}
+                    </select>
+                    {station.id !== "route" && (
+                      <button
+                        disabled={!ready}
+                        onClick={() =>
+                          setPairVisit(
+                            (current) =>
+                              current && {
+                                ...current,
+                                storagePath: {
+                                  ...pathVisit,
+                                  pose:
+                                    pathVisit.pose === "seated"
+                                      ? "separated"
+                                      : "seated",
+                                },
+                              },
+                          )
+                        }
+                      >
+                        {station.id === "mount"
+                          ? pathVisit.pose === "seated"
+                            ? "抬起控制卡"
+                            : "落回主板"
+                          : pathVisit.pose === "seated"
+                            ? "分开接头"
+                            : "接合复位"}
+                      </button>
+                    )}
+                  </div>
+                </StructureToolbar>
               ) : layerPose && selectedLayer && assembly ? (
                 <StructureToolbar
                   label={selectedLayer.label + "核查"}
@@ -5973,7 +6109,7 @@ export function Workspace() {
                   disabled={!ready}
                   destination={rearRow ? "机后排布" : assembly.name}
                   onBack={() => {
-                    returningToLayer.current = true;
+                    returningToLayer.current = "layer";
                     setLayerPose();
                   }}
                 >
@@ -6207,6 +6343,43 @@ export function Workspace() {
                         )}
                       </div>
                     )}
+                    {compactServer &&
+                      [
+                        "storage-harness",
+                        "compact-drive",
+                        "controller-mount",
+                      ].includes(assembly.tool) && (
+                        <button
+                          ref={pathEntry}
+                          disabled={!ready}
+                          onClick={() => {
+                            const start =
+                              assembly.tool === "compact-drive"
+                                ? activePair.companion.id
+                                : assembly.tool === "controller-mount"
+                                  ? "controller-plug"
+                                  : "route";
+                            const next = compactStorageStations.find(
+                              (item) => item.id === start,
+                            )!;
+                            if (!next.members.includes(selected))
+                              pick(next.members[0]);
+                            setPairVisit(
+                              (current) =>
+                                current && {
+                                  ...current,
+                                  storagePath: {
+                                    origin: selected,
+                                    stationId: start,
+                                    pose: "separated",
+                                  },
+                                },
+                            );
+                          }}
+                        >
+                          核对存储通路
+                        </button>
+                      )}
                     {powerBayPose && (
                       <button
                         disabled={!ready}
@@ -7808,7 +7981,7 @@ export function Workspace() {
                                         ? "网卡与转接架的精细外观来自贡献模型。管理面板按 M1 配置定位，接口板、导轨、止挡和行程为原创装配示意。A/B 两路逻辑接入归属网卡，部件读数来自模拟。"
                                         : assembly?.tool === "storage-harness"
                                           ? compactServer
-                                            ? "背板与控制卡的位置按 M1 外观定位。两端插头与侧边 SAS 走向为装配示意，时间分析显示部件模拟值。"
+                                            ? "盘位、背板和控制卡按 M1 配置与模型定位。盘尾承接架、接触片、SAS 插头及侧边走向为原创装配示意。时间分析沿用所选部件的模型读数。"
                                             : "背板接触区按八块硬盘的位置对齐。插头和线束绕行是内部装配示意，读数沿用部件模型。"
                                           : assembly?.tool ===
                                               "storage-controllers"

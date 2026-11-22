@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { compactCableSocket } from "./compact-storage-path.ts";
 import { drivePairs } from "../assembly-pairs.ts";
 import { modelById, partsForModel } from "../catalog.ts";
 import type { Box } from "./equipment-model.ts";
@@ -122,20 +123,20 @@ export function buildCompactHarness(
   const board = groups.get(compact.backplane)!;
   const card = groups.get(mount.controllerId)!;
   const cable = groups.get(compact.harness)!;
-  const boardSeat = box(
+  const boardSeat = compactCableSocket(
     board,
     [0.016, 0.008, 0.008],
     new THREE.Vector3()
       .fromArray(compact.boardSeat)
       .sub(board.position)
       .toArray(),
-    "#353e43",
+    box,
   );
-  const cardSeat = box(
+  const cardSeat = compactCableSocket(
     card,
     [0.016, 0.006, 0.012],
     [0, 0.005, (mount.controllerSize[2] - 0.012) / 2],
-    "#353e43",
+    box,
   );
   connectHarness(cable, boardSeat, cardSeat, "server-1u", compact, box);
   positions.set(compact.harness, cable.position.clone());
@@ -143,8 +144,8 @@ export function buildCompactHarness(
 
 function connectHarness(
   cable: THREE.Group,
-  boardSeat: THREE.Mesh,
-  cardSeat: THREE.Mesh,
+  boardSeat: THREE.Object3D,
+  cardSeat: THREE.Object3D,
   model: "server-1u" | "server-2u",
   route: {
     sideX: number;
@@ -156,7 +157,11 @@ function connectHarness(
 ) {
   const compact = model === "server-1u";
   const boardDirection = compact ? 1 : -1;
-  const socketEnd = (seat: THREE.Mesh, direction: number, depth: number) => {
+  const socketEnd = (
+    seat: THREE.Object3D,
+    direction: number,
+    depth: number,
+  ) => {
     seat.name = "harness-socket";
     const end = seat.getWorldPosition(new THREE.Vector3());
     end.z += (direction * depth) / 2;
@@ -168,14 +173,32 @@ function connectHarness(
   function plug(end: THREE.Vector3, direction: number, name: string) {
     const p = end.clone().sub(cable.position);
     p.z += direction * 0.006;
+    const body = compact ? new THREE.Group() : cable;
+    if (compact) {
+      body.name = name + "-assembly";
+      cable.add(body);
+      box(
+        body,
+        [0.012, 0.0018, 0.0034],
+        [p.x, p.y, p.z - 0.0077],
+        "#476d57",
+      ).name = "sas-tongue";
+      for (const side of [-1, 1])
+        box(
+          body,
+          [0.004, 0.0003, 0.0026],
+          [p.x + side * 0.003, p.y + 0.00105, p.z - 0.0077],
+          "#c9a865",
+        ).name = "sas-pad";
+    }
     box(
-      cable,
+      body,
       [compact ? 0.015 : 0.019, compact ? 0.006 : 0.008, 0.012],
       p.toArray(),
       "#46545c",
     ).name = name;
     box(
-      cable,
+      body,
       [0.009, 0.001, 0.007],
       [p.x, p.y + (compact ? 0.0035 : 0.0045), p.z],
       "#a0a9a8",
