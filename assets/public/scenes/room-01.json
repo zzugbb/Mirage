@@ -1263,7 +1263,7 @@
         0
       ],
       "color": "#7e8991",
-      "description": "交换控制主板，按当前机型配置制作的可维护部件。",
+      "description": "控制板及 ASIC 安装区按 N1 的部件位置绘制。焊盘、方向角标记和分层行程为原创装配示意。",
       "modelNodes": [],
       "procedural": true,
       "rise": 8,
@@ -1291,7 +1291,7 @@
         0
       ],
       "color": "#7e8991",
-      "description": "交换芯片与散热器共用 ASIC 部件身份。底座四孔、基板定位柱和抬升行程为原创装配示意，温度和功耗沿用部件模拟值。",
+      "description": "交换芯片与散热器共用 ASIC 部件身份。底座四孔、封装盖与裸片、方向角焊球与板面焊盘均为原创装配示意。阵列只用于说明对位，温度和功耗沿用部件模拟值。",
       "modelNodes": [],
       "procedural": true,
       "rise": 8,
@@ -1651,6 +1651,10 @@
     "stopClearance": 0.0011, "metalColor": "#657681"
   },
   "switchAssembly": {
+    "packageInterface": {
+      "mask": 0.0004, "land": 0.00035, "joint": 0.0028, "pitch": 0.015,
+      "lidLift": 0.034, "carrierLift": 0.062, "cornerLift": 0.022
+    },
     "asicMount": {
       "cornerInset": 0.011, "boreRadius": 0.0042, "pinRadius": 0.0031,
       "shoulderRadius": 0.0056, "tipExposure": 0.0018,

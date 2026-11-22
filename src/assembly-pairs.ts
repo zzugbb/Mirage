@@ -32,6 +32,10 @@ export const drivePairs = serverChildren
   })
   .sort((a, b) => a.primary.slot.localeCompare(b.primary.slot));
 
+export function isAsicBoardStage(id?: string) {
+  return id === "asic-lands" || id === "asic-corner";
+}
+
 const network = partsForModel("switch-1u");
 const storage = partsForModel("storage-4u").filter(
   (part) => part.node === "controller",
@@ -537,14 +541,42 @@ const checks = {
       tool: "switch-board",
       name: "主板装配",
       layer: {
-        members: "companion",
+        members: "both",
         label: "芯片装配",
-        scope: "散热器姿态",
+        scope: "芯片装配姿态",
+        stageLabel: "芯片核查位置",
+        stages: [
+          {
+            id: "",
+            name: "散热底座与四柱",
+            seated: "贴合封装",
+            separated: "抬起散热器",
+          },
+          {
+            id: "asic-lid",
+            name: "封装盖与裸片",
+            seated: "合回封装盖",
+            separated: "抬起封装盖",
+          },
+          {
+            id: "asic-lands",
+            name: "基板与主板",
+            seated: "对回安装区",
+            separated: "分开基板",
+          },
+          {
+            id: "asic-corner",
+            name: "方向角焊点",
+            seated: "对合焊点",
+            separated: "分开焊点",
+          },
+        ],
         seated: "贴合封装",
         separated: "抬起散热器",
       },
       entry: "核对主板与交换芯片",
-      detail: "对照主板安装区，可分层核对底座四孔、基板定位柱与芯片封装",
+      detail:
+        "对照主板安装区、方向角焊点、封装盖与裸片，以及散热底座四孔与定位柱",
       labels: ["控制主板", "芯片与散热器"],
       startExplosion: 1,
       pairs: [

@@ -1,15 +1,10 @@
 import { registerLayer, registerLayerScope } from "./assembly-layer.ts";
+import { asicContactHeight, switchPackageLid } from "./switch-asic-package.ts";
 import { switchCageBanks } from "../switch-cages.ts";
 import * as THREE from "three";
 import definition from "../../assets/public/scenes/room-01.json" with { type: "json" };
 
-type Box = (
-  root: THREE.Object3D,
-  size: number[],
-  position: number[],
-  color: string,
-  metalness?: number,
-) => THREE.Mesh;
+import type { Box } from "./equipment-model.ts";
 
 const board = definition.parts.find((part) => part.id === "net-board")!;
 const asic = definition.parts.find((part) => part.id === "net-asic")!;
@@ -84,24 +79,36 @@ export function switchBoard(root: THREE.Group, size: number[], box: Box) {
 // 沿用 ASIC 一个维护身份，封装、底座与鳍片的接触面可从侧面核对。
 export function switchAsic(root: THREE.Group, size: number[], box: Box) {
   const [w, h, d] = size;
-  const boardTop = board.position[1] + board.size[1] / 2 - asic.position[1];
+  const boardTop =
+    board.position[1] +
+    board.size[1] / 2 -
+    asic.position[1] +
+    asicContactHeight;
   const substrate = 0.002,
     cap = 0.003,
     base = 0.003;
-  box(
-    root,
+  const frame = new THREE.Group(),
+    carrier = new THREE.Group();
+  frame.name = "asic-carrier-frame";
+  carrier.name = "asic-carrier";
+  root.add(frame);
+  frame.add(carrier);
+  const pcb = box(
+    carrier,
     [w, substrate, d],
     [0, boardTop + substrate / 2, 0],
     "#285742",
     0.22,
-  ).name = "asic-substrate";
-  box(
-    root,
-    [w * 0.49, cap, d * 0.49],
-    [0, boardTop + substrate + cap / 2, 0],
-    "#414c54",
-    0.5,
-  ).name = "asic-package";
+  );
+  pcb.name = "asic-substrate";
+  const { lid, die } = switchPackageLid(
+    carrier,
+    w * 0.49,
+    d * 0.49,
+    boardTop + substrate,
+    cap,
+    box,
+  );
   const bottom = boardTop + substrate + cap;
   const heatsink = new THREE.Group();
   heatsink.name = "asic-heatsink";
@@ -148,7 +155,7 @@ export function switchAsic(root: THREE.Group, size: number[], box: Box) {
       tip.position.set(x, bottom + tipHeight / 2, z);
       foot.castShadow = foot.receiveShadow = true;
       tip.castShadow = tip.receiveShadow = true;
-      root.add(foot, tip);
+      carrier.add(foot, tip);
     }
   }
   const plateGeometry = new THREE.ExtrudeGeometry(plate, {
@@ -190,6 +197,14 @@ export function switchAsic(root: THREE.Group, size: number[], box: Box) {
     node: heatsink.name,
     offset: [0, mount.lift, 0],
     direction: [x, y, z],
+  });
+  registerLayerScope(root, "asic-lid", {
+    layerRoot: lid,
+    extractedLayers: [root],
+    moving: lid,
+    members: [lid, die, pcb],
+    selectedBranch: lid,
+    selectionPadding: 0.0007,
   });
 }
 

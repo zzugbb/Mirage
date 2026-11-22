@@ -4,6 +4,7 @@ import type { RearRowPose } from "./scene/rear-module-seats";
 import type { LayerPose } from "./scene/assembly-layer";
 import {
   assemblyChecks,
+  isAsicBoardStage,
   assemblyMember,
   rearMemberLayer,
   controllerLayer,
@@ -654,11 +655,20 @@ export function Workspace() {
       setPairVisit(
         (current) => current && { ...current, storagePath: undefined },
       );
+    else if (
+      pairVisit?.layerPose &&
+      assembly?.tool === "switch-board" &&
+      selected === "net-board" &&
+      !isAsicBoardStage(pairVisit.layerScopeId)
+    )
+      setLayerScope("asic-lands");
     else if (pairVisit?.layerPose && !selectedLayer) setLayerPose();
   }, [
     pairVisit,
     activePair,
     selectedLayer,
+    assembly,
+    selected,
     pathVisit,
     station,
     contactVisit,
@@ -6297,9 +6307,17 @@ export function Workspace() {
                         aria-label={stagedLayer.stageLabel}
                         disabled={!ready}
                         value={stage?.id ?? ""}
-                        onChange={(event) =>
-                          setLayerScope(event.target.value || undefined)
-                        }
+                        onChange={(event) => {
+                          const next = event.target.value || undefined;
+                          if (
+                            assembly.tool === "switch-board" &&
+                            activePair &&
+                            !isAsicBoardStage(next) &&
+                            selected !== activePair.companion.id
+                          )
+                            pick(activePair.companion.id);
+                          setLayerScope(next);
+                        }}
                       >
                         {stagedLayer.stages.map((stage) => (
                           <option key={stage.id} value={stage.id}>
@@ -6695,6 +6713,11 @@ export function Workspace() {
                         disabled={!ready}
                         onClick={() => {
                           setLayerPose("separated");
+                          if (
+                            assembly.tool === "switch-board" &&
+                            selected === activePair.primary.id
+                          )
+                            setLayerScope("asic-lands");
                           if (processorInspection)
                             setLayerScope(
                               selected === activePair.companion.id

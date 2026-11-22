@@ -22,6 +22,7 @@ import {
 import { buildSwitchFanContacts } from "./switch-fan-contacts.ts";
 import { registerStorageFanMount } from "./storage-fan-mount.ts";
 import { createFanModule } from "./fan-module.ts";
+import { buildAsicContacts } from "./switch-asic-package.ts";
 import { switchBoard, switchAsic, switchPortCages } from "./switch-model.ts";
 import {
   storageController,
@@ -853,7 +854,10 @@ export function createEquipmentAssembly(modelId: string): Assembly {
       }
     }
   }
-  if (modelId === "switch-1u") buildSwitchFanContacts(groups, box);
+  if (modelId === "switch-1u") {
+    buildSwitchFanContacts(groups, box);
+    buildAsicContacts(groups, box);
+  }
   if (model.rtcMount) {
     const board = groups.get(model.rtcMount.boardId)!;
     board.updateWorldMatrix(true, false);

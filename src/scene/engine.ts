@@ -1,3 +1,4 @@
+import { isAsicBoardStage } from "../assembly-pairs.ts";
 import { compactPathModules } from "../compact-drive-bays";
 import { roomLayoutCameraDirection } from "../room-layout.ts";
 import { rangeObservationTarget } from "../range-segments.ts";
@@ -2771,6 +2772,8 @@ export class SceneEngine {
       const position = assemblyPartPosition(
         { ...part, position: base },
         processorSeat ||
+          (isAsicBoardStage(this.layerScopeId) &&
+            (part.id === "net-board" || part.id === "net-asic")) ||
           fanContact ||
           (this.compactStoragePose &&
             compactPathModules.has(part.id) &&

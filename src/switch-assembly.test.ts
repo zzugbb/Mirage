@@ -60,9 +60,19 @@ test("芯片封装与散热底座逐层贴合控制板，板面标识对准组�
   const substrate = bounds(board.children[0]);
   const sink = bounds(assembly.groups.get("net-asic")!);
   const asic = assembly.groups.get("net-asic")!;
-  const layers = ["asic-substrate", "asic-package", "asic-sink-base"].map(
-    (name) => bounds(asic.getObjectByName(name)!),
-  );
+  const layers = [
+    board.getObjectByName("asic-board-mask"),
+    board.getObjectByName("asic-board-land"),
+    ...[
+      "asic-solder-ball",
+      "asic-package-land",
+      "asic-bottom-mask",
+      "asic-substrate",
+      "asic-die",
+      "asic-package",
+      "asic-sink-base",
+    ].map((name) => asic.getObjectByName(name)),
+  ].map((mesh) => bounds(mesh!));
   let top = substrate.max.y;
   for (const layer of layers) {
     assert.ok(Math.abs(layer.min.y - top) < 1e-7);
@@ -922,5 +932,110 @@ test("N1 三片端子随绝缘压板进出同向芯孔，横竖片退出后贯�
       poseAssemblyLayer(layer, false);
     root.updateWorldMatrix(true, true);
     assert.ok(bounds(scope.moving).equals(home));
+  }
+});
+
+test("N1 封装盖的内顶面贴住裸片，四边围在裸片外并落回基板", () => {
+  const chip = createEquipmentAssembly("switch-1u").groups.get("net-asic")!;
+  const scope = layerScopeFor(chip, "asic-lid")!;
+  const lid = scope.moving,
+    roof = lid.getObjectByName("asic-package")!;
+  const die = bounds(chip.getObjectByName("asic-die")!);
+  const pcb = bounds(chip.getObjectByName("asic-substrate")!);
+  const near = (a: number, b: number) => assert.ok(Math.abs(a - b) < 1e-7);
+  near(pcb.max.y, die.min.y);
+  assert.deepEqual(scope.extractedLayers, [chip]);
+  const walls = lid.children.filter((piece) => piece !== roof);
+  assert.equal(walls.length, 4);
+  poseAssemblyLayer(chip, true);
+  for (const open of [true, false, true, false]) {
+    poseAssemblyLayer(scope.layerRoot, open);
+    chip.updateWorldMatrix(true, true);
+    const lift = open ? definition.switchAssembly.packageInterface.lidLift : 0;
+    near(bounds(roof).min.y - die.max.y, lift);
+    for (const wall of walls) {
+      const edge = bounds(wall);
+      near(edge.min.y - pcb.max.y, lift);
+      near(edge.max.y, bounds(roof).min.y);
+      assert.ok(
+        edge.max.x < die.min.x ||
+          edge.min.x > die.max.x ||
+          edge.max.z < die.min.z ||
+          edge.min.z > die.max.z,
+      );
+    }
+    // 从盖底射向中央和裸片旁的空腔，都先碰到内顶面。
+    for (const x of [0, die.max.x + 0.002]) {
+      const origin = new THREE.Vector3(
+        x,
+        bounds(lid).min.y - 0.001,
+        die.getCenter(new THREE.Vector3()).z,
+      );
+      const hit = new THREE.Raycaster(
+        origin,
+        new THREE.Vector3(0, 1, 0),
+      ).intersectObject(lid)[0];
+      assert.equal(hit.object, roof);
+      near(hit.point.y, die.max.y + lift);
+    }
+    assert.ok(
+      bounds(lid).max.y < bounds(chip.getObjectByName("asic-sink-base")!).min.y,
+    );
+  }
+});
+
+test("N1 焊球随基板分层，24 处两端分别对回原焊盘，方向角的缺位与三组近看均沿用实物分支", () => {
+  const { groups, root } = createEquipmentAssembly("switch-1u");
+  const board = groups.get("net-board")!,
+    chip = groups.get("net-asic")!;
+  const lower = board.getObjectsByProperty("name", "asic-board-land");
+  const balls = chip.getObjectsByProperty("name", "asic-solder-ball");
+  const upper = chip.getObjectsByProperty("name", "asic-package-land");
+  const mid = (o: THREE.Object3D) => bounds(o).getCenter(new THREE.Vector3());
+  const xz = (o: THREE.Object3D) =>
+    [mid(o).x.toFixed(6), mid(o).z.toFixed(6)].join(",");
+  const fixed = new Map(lower.map((o) => [xz(o), bounds(o)])),
+    pads = new Map(upper.map((o) => [xz(o), o]));
+  assert.deepEqual([balls.length, fixed.size, pads.size], [24, 24, 24]);
+  const mark = board.getObjectByName("asic-index-mark")!;
+  assert.equal(xz(mark), xz(chip.getObjectByName("asic-index-mark")!));
+  assert.ok(!fixed.has(xz(mark)));
+  for (const key of ["asic-lands", "asic-corner"]) {
+    const close = key === "asic-corner",
+      scope = layerScopeFor(chip, key)!,
+      other = layerScopeFor(board, key)!;
+    assert.equal(scope.layerRoot, other.layerRoot);
+    assert.deepEqual(scope.members, other.members);
+    assert.ok(
+      scope.selectedBranch && chip.getObjectById(scope.selectedBranch.id),
+    );
+    assert.ok(
+      other.selectedBranch && board.getObjectById(other.selectedBranch.id),
+    );
+    assert.equal(
+      scope.moving.getObjectsByProperty("name", "asic-solder-ball").length,
+      close ? 3 : 24,
+    );
+    for (const open of [true, false, true, false]) {
+      poseAssemblyLayer(scope.layerRoot, open);
+      root.updateWorldMatrix(true, true);
+      const layout = definition.switchAssembly.packageInterface;
+      const travel = open
+        ? close
+          ? layout.cornerLift
+          : layout.carrierLift
+        : 0;
+      for (const ball of balls) {
+        const k = xz(ball),
+          boardLand = fixed.get(k)!,
+          top = pads.get(k)!;
+        assert.ok(
+          Math.abs(bounds(ball).min.y - boardLand.max.y - travel) < 1e-7,
+        );
+        assert.ok(Math.abs(bounds(ball).max.y - bounds(top).min.y) < 1e-7);
+      }
+      for (const land of lower)
+        assert.ok(bounds(land).equals(fixed.get(xz(land))!));
+    }
   }
 });
