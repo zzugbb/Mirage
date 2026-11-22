@@ -1,5 +1,6 @@
 import { registerLayer } from "./assembly-layer.ts";
 import * as THREE from "three";
+import { networkSettings } from "../network.ts";
 import { storageAssembly, storageSlot } from "../storage-layout.ts";
 
 type Box = (
@@ -220,6 +221,90 @@ export function storageDrive(
   });
 }
 
+// 后面板独立于板卡，孔和笼口用同一组中心。左右位置仅用于演示装配。
+function controllerPorts(
+  root: THREE.Group,
+  pcb: THREE.Group,
+  width: number,
+  panelHeight: number,
+  panelZ: number,
+  boardTop: number,
+  box: Box,
+) {
+  const { cageSize, pitch, wall, panelGap, panelThickness } =
+    storageAssembly.controllerPorts;
+  const [w, h, d] = cageSize;
+  const shape = new THREE.Shape();
+  shape.moveTo(-width / 2, -panelHeight / 2);
+  shape.lineTo(width / 2, -panelHeight / 2);
+  shape.lineTo(width / 2, panelHeight / 2);
+  shape.lineTo(-width / 2, panelHeight / 2);
+  shape.closePath();
+  const ports = networkSettings.sourcePorts["storage-4u"].filter(
+    (port) => port.partId === root.userData.entityId,
+  );
+  const y = boardTop + h / 2;
+  const mouthZ = panelZ + panelThickness + panelGap;
+  for (const [i, port] of ports.entries()) {
+    const x = -width * 0.22 + ((ports.length - 1) / 2 - i) * pitch;
+    const hole = new THREE.Path();
+    const hx = (w - wall) / 2,
+      hy = (h - wall) / 2;
+    hole.moveTo(x - hx, y - hy);
+    hole.lineTo(x - hx, y + hy);
+    hole.lineTo(x + hx, y + hy);
+    hole.lineTo(x + hx, y - hy);
+    hole.closePath();
+    shape.holes.push(hole);
+    const cage = new THREE.Group();
+    cage.name = "controller-port-cage";
+    cage.position.set(x, y, mouthZ);
+    pcb.add(cage);
+    const metal = "#84949b";
+    for (const side of [-1, 1]) {
+      box(cage, [w, wall, d], [0, (side * (h - wall)) / 2, d / 2], metal);
+      box(
+        cage,
+        [wall, h - 2 * wall, d],
+        [(side * (w - wall)) / 2, 0, d / 2],
+        metal,
+      );
+    }
+    box(
+      cage,
+      [w - 2 * wall, h - 2 * wall, wall],
+      [0, 0, d - wall / 2],
+      "#25343b",
+    );
+    // 承片从内壁伸向开口，前缘留空，从机后可辨认笼口深度。
+    const tongueDepth = d - 2 * wall;
+    const tongue = box(
+      cage,
+      [w - 4 * wall, wall, tongueDepth],
+      [0, -h * 0.18, d - wall - tongueDepth / 2],
+      "#ac915f",
+      0.4,
+    );
+    tongue.name = "controller-port-tongue";
+    cage.userData.logicalPort = port.port;
+  }
+  const panel = new THREE.Mesh(
+    new THREE.ExtrudeGeometry(shape, {
+      depth: panelThickness,
+      bevelEnabled: false,
+    }),
+    new THREE.MeshStandardMaterial({
+      color: "#485662",
+      metalness: 0.58,
+      roughness: 0.4,
+    }),
+  );
+  panel.name = "controller-rear-panel";
+  panel.position.z = panelZ;
+  panel.castShadow = panel.receiveShadow = true;
+  root.add(panel);
+}
+
 // 后面板朝设备 -Z，板卡、托盘与拉手共用控制器的维护身份。
 export function storageController(root: THREE.Group, size: number[], box: Box) {
   const [w, h, d] = size;
@@ -272,16 +357,7 @@ export function storageController(root: THREE.Group, size: number[], box: Box) {
       0.6,
     );
   }
-  box(root, [w, h * 0.66, 0.003], [0, 0, rear + 0.012], "#485662", 0.58).name =
-    "controller-rear-panel";
-  // 仅标出接口区域，逻辑端口归属沿用网络配置。
-  box(
-    root,
-    [w * 0.43, h * 0.25, 0.003],
-    [-w * 0.2, h * 0.04, rear + 0.009],
-    "#202a31",
-    0.32,
-  );
+  controllerPorts(root, pcb, w, h * 0.66, rear + 0.0105, boardSize[1] / 2, box);
   for (const x of [0.09, 0.39]) {
     box(root, [0.004, 0.006, 0.009], [w * x, 0, rear + 0.006], "#adb8c0", 0.7);
   }
@@ -303,9 +379,10 @@ export function storageController(root: THREE.Group, size: number[], box: Box) {
       "#a4afb6",
       0.67,
     );
+  const [x, y, z] = storageAssembly.controllerPorts.focusDirection;
   registerLayer(root, {
     node: pcb.name,
     offset: [0, h * 1.85, 0],
-    direction: [1, 1.12, -0.72],
+    direction: [x, y, z],
   });
 }

@@ -5960,6 +5960,22 @@ export function Workspace() {
                     role="group"
                     aria-label={selectedLayer.scope}
                   >
+                    {assembly.tool === "storage-controllers" && activePair && (
+                      <select
+                        aria-label="核查控制器"
+                        disabled={!ready}
+                        value={selected}
+                        onChange={(event) => pick(event.target.value)}
+                      >
+                        {[activePair.primary, activePair.companion].map(
+                          (part) => (
+                            <option key={part.id} value={part.id}>
+                              {part.slot}
+                            </option>
+                          ),
+                        )}
+                      </select>
+                    )}
                     {(["seated", "separated"] as const).map((pose) => (
                       <button
                         key={pose}
@@ -7724,7 +7740,7 @@ export function Workspace() {
                                             : "背板接触区按八块硬盘的位置对齐。插头和线束绕行是内部装配示意，读数沿用部件模型。"
                                           : assembly?.tool ===
                                               "storage-controllers"
-                                            ? "A/B 槽位来自机型配置。板卡、四个托盘支柱与抬起间距为装配示意，读数沿用所选控制器。"
+                                            ? "控制器身份与双口归属来自 S4 配置。板边端口笼、面板开口及分层间距为原创装配示意，读数沿用所选控制器。"
                                             : entity.description}
                     </p>
                     {entity.kind === "rack" && (

@@ -224,6 +224,58 @@ test("S4 各控制器的板卡和散热片随板抬起，四个支柱及托盘�
   }
 });
 
+test("S4 两块控制器的双口随板移动，同号端口笼从面板后方对准贯穿开口", () => {
+  const { groups } = createEquipmentAssembly("storage-4u");
+  const ports = sourcePorts("sto-04");
+  const dir = new THREE.Vector3(0, 0, 1);
+  for (const id of new Set(ports.map((p) => p.partId))) {
+    const root = groups.get(id)!;
+    const pcb = root.getObjectByName("controller-pcb")!;
+    const panel = root.getObjectByName("controller-rear-panel")!;
+    const panelBox = bounds(panel);
+    close(
+      panelBox.max.z,
+      bounds(root.getObjectByName("controller-tray")!).min.z,
+    );
+    const cages = root.getObjectsByProperty("name", "controller-port-cage");
+    assert.deepEqual(
+      cages.map((c) => c.userData.logicalPort),
+      ports.filter((p) => p.partId === id).map((p) => p.port),
+    );
+    assert.equal(cages.length, 2);
+    const rest = cages.map(bounds);
+    for (const [i, c] of cages.entries()) {
+      close(rest[i].min.y, bounds(pcb).max.y);
+      assert.ok(rest[i].min.z > panelBox.max.z);
+      assert.ok(
+        rest[i].max.x < panelBox.max.x && rest[i].min.x > panelBox.min.x,
+      );
+      const tongue = c.getObjectByName("controller-port-tongue")!;
+      const origin = center(tongue);
+      origin.z = panelBox.min.z - 0.05;
+      const ray = new THREE.Raycaster(origin, dir);
+      for (const lifted of [false, true, false, true, false]) {
+        poseAssemblyLayer(root, lifted);
+        root.updateWorldMatrix(true, true);
+        const rise =
+          bounds(pcb).min.y -
+          bounds(root.getObjectByName("controller-standoff")!).max.y;
+        close(bounds(c).min.y - rest[i].min.y, rise);
+        assert.ok(bounds(panel).equals(panelBox));
+        assert.equal(ray.intersectObject(panel).length, 0, "面板必须开孔");
+        if (lifted) assert.equal(ray.intersectObject(c).length, 0);
+        else assert.equal(ray.intersectObject(root)[0]?.object, tongue);
+      }
+    }
+    const web = center(cages[0]).lerp(center(cages[1]), 0.5);
+    web.z = panelBox.min.z - 0.05;
+    assert.ok(
+      new THREE.Raycaster(web, dir).intersectObject(panel).length,
+      "两孔间保留实体隔边",
+    );
+  }
+});
+
 test("S4 两个电源槽与配置输入和安装面板一致，从机后点选能命中对应模块", () => {
   const model = modelById("storage-4u");
   const assembly = createEquipmentAssembly(model.id);

@@ -1678,6 +1678,10 @@
     }
   },
   "storageAssembly": {
+    "controllerPorts": {
+      "cageSize": [0.024, 0.014, 0.021], "pitch": 0.029, "wall": 0.0013,
+      "panelThickness": 0.0015, "panelGap": 0.0008, "focusDirection": [0.9, 0.8, -1]
+    },
     "fanGuard": {
       "travel": 0.050, "focusDirection": [0.85, 0.38, -1], "pinColor": "#ccab79"
     },
