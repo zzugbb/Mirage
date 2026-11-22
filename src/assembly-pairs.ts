@@ -84,12 +84,14 @@ export const rearLayoutFor = (modelId: string) =>
     : modelId === "switch-1u"
       ? switchRear
       : undefined;
+export type FanContactView = "fan-bank" | "fan-contact";
 const rotorLayer = {
-  entry: "查看叶轮与轴座",
+  fanContacts: true,
+  entry: "查看风扇装配",
   description:
-    "风扇编号来自 N1 配置。叶轮、固定轴座、三臂支撑及分离间距为原创装配示意。时间分析沿用风扇的模拟读数，转速与风量未接入。",
-  label: "叶轮与固定轴座",
-  scope: "叶轮姿态",
+    "四个风扇的编号与机后顺序来自 N1 配置。模块内端触片、控制板固定触头、轴座和分离行程为原创装配示意。时间分析沿用所选部件的模拟读数。",
+  label: "风扇装配",
+  scope: "风扇核查范围与姿态",
   seated: "放回轴座",
   separated: "移出叶轮",
 } as const;

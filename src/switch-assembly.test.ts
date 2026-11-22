@@ -490,3 +490,69 @@ test("N1 机后六槽按观察次序排列，逐件抽出时导轨固定，相�
     installed,
   );
 });
+
+test("N1 四个固定座落在板缘，各槽两片触片避开通风口并对合相应触头", () => {
+  const { groups } = createEquipmentAssembly("switch-1u");
+  const board = groups.get("net-board")!;
+  const edge = bounds(board.getObjectByName("switch-board-rear")!);
+  const group = groups.get(switchRear.fanGroup.id)!;
+  const receivers = board.getObjectByName("fan-receivers")!;
+  assert.equal(receivers.children.length, switchRear.fans.length);
+  const close = (a: number, b: number) => assert.ok(Math.abs(a - b) < 1e-7);
+  for (const { id } of switchRear.fans) {
+    const fan = groups.get(id)!;
+    const socket = receivers.getObjectByName("receiver-" + id)!;
+    const fixed = bounds(socket);
+    const foot = bounds(socket.getObjectByName("fan-receiver-foot")!);
+    close(foot.min.y, edge.max.y);
+    assert.ok(
+      foot.min.x >= edge.min.x &&
+        foot.max.x <= edge.max.x &&
+        foot.min.z >= edge.min.z &&
+        foot.max.z <= edge.max.z,
+    );
+    const frame = bounds(fan.getObjectByName("fan-front-frame")!);
+    const substrate = bounds(fan.getObjectByName("fan-contact-substrate")!);
+    close(substrate.min.z, frame.max.z);
+    const openingRadius =
+      switchRear.fanGroup.size[1] * definition.fanModule.openingRadiusRatio;
+    assert.ok(
+      substrate.min.x > frame.getCenter(new THREE.Vector3()).x + openingRadius,
+    );
+    const contact = layerScopeFor(fan, "fan-contact:" + id)!;
+    const bank = layerScopeFor(fan, "fan-bank:" + id)!;
+    assert.equal(bank.layerRoot, contact.layerRoot);
+    assert.ok(bank.members.includes(group) && bank.members.includes(receivers));
+    assert.equal(
+      layerScopeFor(board, "fan-contact:" + id)!.selectedBranch,
+      socket,
+    );
+    const pads = fan.getObjectsByProperty("name", "fan-contact-pad");
+    const tips = socket.getObjectsByProperty("name", "fan-contact-tip");
+    assert.equal(pads.length, 2);
+    assert.equal(tips.length, pads.length);
+    for (const split of [true, true, false, true, false]) {
+      poseAssemblyLayer(contact.layerRoot, split);
+      group.updateWorldMatrix(true, true);
+      assert.ok(bounds(socket).equals(fixed));
+      pads.forEach((pad, i) => {
+        const a = bounds(pad),
+          b = bounds(tips[i]);
+        const ca = a.getCenter(new THREE.Vector3()),
+          cb = b.getCenter(new THREE.Vector3());
+        close(ca.x, cb.x);
+        close(ca.y, cb.y);
+        close(
+          b.min.z - a.max.z,
+          split ? definition.switchAssembly.fanContact.travel : 0,
+        );
+      });
+      for (const other of switchRear.fans.filter((f) => f.id !== id))
+        assert.equal(
+          groups.get(other.id)!.getObjectByName("fan-module")!.position.z,
+          0,
+        );
+      assert.equal(fan.getObjectByName("fan-rotor")!.position.z, 0);
+    }
+  }
+});

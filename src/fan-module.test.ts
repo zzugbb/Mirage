@@ -174,7 +174,7 @@ test("N1 四个风扇槽位各自分离叶轮，轴头、框体与三臂固定�
         assert.equal(tool?.entry, "查看电源内托");
         continue;
       }
-      assert.equal(tool?.entry, "查看叶轮与轴座");
+      assert.equal(tool?.entry, "查看风扇装配");
       assert.ok(layer);
       const bounds = (node: THREE.Object3D) =>
         new THREE.Box3().setFromObject(node, true);

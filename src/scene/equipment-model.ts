@@ -14,6 +14,7 @@ import {
 } from "./server-storage-harness.ts";
 import { registerLayer } from "./assembly-layer.ts";
 import { rearPowerSupply } from "./rear-power-supply.ts";
+import { buildSwitchFanContacts } from "./switch-fan-contacts.ts";
 import { createFanModule } from "./fan-module.ts";
 import { switchBoard, switchAsic, switchPortCages } from "./switch-model.ts";
 import {
@@ -841,6 +842,7 @@ export function createEquipmentAssembly(modelId: string): Assembly {
       }
     }
   }
+  if (modelId === "switch-1u") buildSwitchFanContacts(groups, box);
   if (model.rtcMount) {
     const board = groups.get(model.rtcMount.boardId)!;
     board.updateWorldMatrix(true, false);

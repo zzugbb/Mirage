@@ -4,6 +4,8 @@ import {
   assemblyChecks,
   assemblyMember,
   rearMemberLayer,
+  switchRear,
+  type FanContactView,
   type AssemblyCheck,
 } from "./assembly-pairs";
 import { modelForDevice, subpartsForModel } from "./catalog";
@@ -460,6 +462,7 @@ export function Workspace() {
     deviceId: string;
     tool: AssemblyCheck["tool"];
     layerScopeId?: string;
+    fanContact?: { view: FanContactView; fanId: string };
     storagePath?: { stationId: string; origin: string; pose: LayerPose };
     powerBayPose?: RearRowPose;
     layerPose?: LayerPose;
@@ -479,11 +482,19 @@ export function Workspace() {
     );
   const pathContact =
     station && station.id !== "route" && station.id !== "mount";
+  const contactVisit = pairVisit?.fanContact;
+  const contactFan =
+    contactVisit &&
+    switchRear.fans.find(
+      (fan) =>
+        fan.id === (selected === "net-board" ? contactVisit.fanId : selected),
+    );
   const assembly =
     pairVisit?.deviceId === state.deviceId
-      ? (station ? assemblyChecks(state.deviceId) : pairTools).find(
-          (check) => check.tool === pairVisit.tool,
-        )
+      ? (station || contactFan
+          ? assemblyChecks(state.deviceId)
+          : pairTools
+        ).find((check) => check.tool === pairVisit.tool)
       : undefined;
   const additionalParts =
     assembly && "additionalParts" in assembly
@@ -491,7 +502,9 @@ export function Workspace() {
       : undefined;
   const rearLayout = assembly && "rear" in assembly ? assembly.rear : undefined;
   const rearRow = rearLayout && pairVisit?.rearRow;
-  const rearLayer = rearRow ? rearMemberLayer(rearLayout, selected) : undefined;
+  const rearLayer = rearRow
+    ? rearMemberLayer(rearLayout, contactFan?.id ?? selected)
+    : undefined;
   const powerContactScope =
     rearLayer && "contactScope" in rearLayer
       ? rearLayer.contactScope
@@ -504,6 +517,7 @@ export function Workspace() {
     ? assembly?.pairs.find(
         ({ primary, companion }) =>
           !!station ||
+          !!contactFan ||
           selected === primary.id ||
           selected === companion.id ||
           additionalParts?.some((part) => selected === part.id) ||
@@ -534,6 +548,7 @@ export function Workspace() {
         current && {
           ...current,
           layerPose: pose,
+          fanContact: pose ? current.fanContact : undefined,
           layerScopeId: pose ? current.layerScopeId : undefined,
         },
     );
@@ -560,12 +575,30 @@ export function Workspace() {
   ]);
   useEffect(() => {
     if (pairVisit && !activePair) setPairVisit(null);
+    else if (contactVisit && contactVisit.fanId !== contactFan?.id)
+      setPairVisit(
+        (current) =>
+          current && {
+            ...current,
+            fanContact: contactFan
+              ? { ...contactVisit, fanId: contactFan.id }
+              : undefined,
+          },
+      );
     else if (pathVisit && !station)
       setPairVisit(
         (current) => current && { ...current, storagePath: undefined },
       );
     else if (pairVisit?.layerPose && !selectedLayer) setLayerPose();
-  }, [pairVisit, activePair, selectedLayer, pathVisit, station]);
+  }, [
+    pairVisit,
+    activePair,
+    selectedLayer,
+    pathVisit,
+    station,
+    contactVisit,
+    contactFan,
+  ]);
   const [structureReturn, setStructureReturn] = useState<{
     deviceId: string;
     tool: StructureTool;
@@ -5727,12 +5760,14 @@ export function Workspace() {
                     : layerPose
             }
             layerScopeId={
-              pathContact
-                ? station.id
-                : layerPose &&
-                    (assembly?.tool === "switch-front" || powerContactScope)
-                  ? pairVisit?.layerScopeId
-                  : undefined
+              contactFan && contactVisit
+                ? contactVisit.view + ":" + contactFan.id
+                : pathContact
+                  ? station.id
+                  : layerPose &&
+                      (assembly?.tool === "switch-front" || powerContactScope)
+                    ? pairVisit?.layerScopeId
+                    : undefined
             }
             dimmPose={dimmPose}
             rearRowPose={
@@ -6110,6 +6145,8 @@ export function Workspace() {
                   destination={rearRow ? "机后排布" : assembly.name}
                   onBack={() => {
                     returningToLayer.current = "layer";
+                    if (contactFan && selected !== contactFan.id)
+                      pick(contactFan.id);
                     setLayerPose();
                   }}
                 >
@@ -6134,6 +6171,48 @@ export function Workspace() {
                           </option>
                         ))}
                       </select>
+                    )}
+                    {rearLayer && "fanContacts" in rearLayer && (
+                      <>
+                        <select
+                          aria-label="核查风扇"
+                          disabled={!ready}
+                          value={contactFan?.id ?? selected}
+                          onChange={(event) => pick(event.target.value)}
+                        >
+                          {switchRear.fans.map((fan) => (
+                            <option key={fan.id} value={fan.id}>
+                              {fan.slot}
+                            </option>
+                          ))}
+                        </select>
+                        <select
+                          aria-label="风扇核查位置"
+                          disabled={!ready}
+                          value={contactVisit?.view ?? "rotor"}
+                          onChange={(event) => {
+                            const view = event.target.value;
+                            const fanId = contactFan?.id ?? selected;
+                            if (selected !== fanId) pick(fanId);
+                            setPairVisit(
+                              (current) =>
+                                current && {
+                                  ...current,
+                                  layerPose: "seated",
+                                  fanContact:
+                                    view === "fan-bank" ||
+                                    view === "fan-contact"
+                                      ? { view, fanId }
+                                      : undefined,
+                                },
+                            );
+                          }}
+                        >
+                          <option value="rotor">叶轮与轴座</option>
+                          <option value="fan-bank">整排与板缘</option>
+                          <option value="fan-contact">本槽触点</option>
+                        </select>
+                      </>
                     )}
                     {powerContactScope && rearLayout && (
                       <>
@@ -6188,11 +6267,15 @@ export function Workspace() {
                         autoFocus={pose === "separated"}
                         onClick={() => setLayerPose(pose)}
                       >
-                        {inspectingBoardContact
+                        {contactFan
                           ? pose === "seated"
-                            ? "插入固定座"
-                            : "退出固定座"
-                          : selectedLayer[pose]}
+                            ? "接合触点"
+                            : "分开触点"
+                          : inspectingBoardContact
+                            ? pose === "seated"
+                              ? "插入固定座"
+                              : "退出固定座"
+                            : selectedLayer[pose]}
                       </button>
                     ))}
                   </div>

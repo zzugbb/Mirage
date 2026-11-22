@@ -2590,6 +2590,11 @@ export class SceneEngine {
       }
       let object: THREE.Object3D | null = hit.object;
       while (object) {
+        if (
+          object.userData.fanSlot &&
+          this.layerScopeId?.startsWith("fan-bank:")
+        )
+          return { id: object.userData.fanSlot };
         if (object.userData.entityId) {
           const id = object.userData.entityId as string;
           const index = hit.instanceId;
@@ -2749,15 +2754,21 @@ export class SceneEngine {
     this.guidePositions.fill(0);
     for (const [index, part] of partsForDevice(this.state.deviceId).entries()) {
       const base = this.partBases.get(part.id)?.toArray() ?? part.position;
+      // 接合面横跨控制板和风扇组，两侧都沿用机内安装坐标。
+      const fanContact =
+        this.layerScopeId?.startsWith("fan-") &&
+        (part.id === "net-board" || part.id === "net-fans");
       const position = assemblyPartPosition(
         { ...part, position: base },
-        this.compactStoragePose &&
-          compactPathModules.has(part.id) &&
-          !(
-            this.compactStoragePose === "mount-raised" &&
-            part.id ===
-              modelForDevice(this.state.deviceId).controllerMount?.controllerId
-          )
+        fanContact ||
+          (this.compactStoragePose &&
+            compactPathModules.has(part.id) &&
+            !(
+              this.compactStoragePose === "mount-raised" &&
+              part.id ===
+                modelForDevice(this.state.deviceId).controllerMount
+                  ?.controllerId
+            ))
           ? 0
           : this.explosion,
         this.cover,
@@ -3307,7 +3318,7 @@ export class SceneEngine {
         : null,
       time,
       this.reducedMotion,
-      this.storageConnectorPose
+      this.storageConnectorPose || this.layerScopeId?.startsWith("fan-contact:")
         ? 0.00045
         : this.state.level === "device" || selectedFixture || installed
           ? 0.006
