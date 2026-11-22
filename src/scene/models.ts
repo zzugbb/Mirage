@@ -426,6 +426,7 @@ export function buildModels() {
     fans,
     selection,
     parts: assembly.groups,
+    initialPartBases: assembly.positions,
     rotors: [] as THREE.Group[],
   };
 }

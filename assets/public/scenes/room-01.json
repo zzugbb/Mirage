@@ -6768,6 +6768,21 @@
         "adjacentTravel": [0.05, 0.035, -0.12]
       },
       "dimms": 16,
+      "fanDuctLayout": {
+        "ductId": "duct-01",
+        "ductCenter": [0, 0.0175, 0.014],
+        "ductSize": [0.416, 0.04, 0.28],
+        "ductTravel": [0, 0.28, 0.20],
+        "rotorY": 0.001956,
+        "rotorZ": 0.189151,
+        "rotorSize": [0.089, 0.08042, 0.06354],
+        "modules": [
+          {"id": "fan-01", "rotorX": [-0.151037]},
+          {"id": "fan-02", "rotorX": [-0.061123]},
+          {"id": "fan-03", "rotorX": [0.063857]},
+          {"id": "fan-04", "rotorX": [0.153771]}
+        ]
+      },
       "memoryLayout": {
         "centerY": -0.01759,
         "centerZ": -0.05267,

@@ -57,10 +57,10 @@ test("八柜四机型风扇核对仅使用已定义的模块和子件，不扩�
   }
 });
 
-test("导风罩对照仅在已校准的 M1 风扇组开放，回看可保留导风罩或所查子件", () => {
+test("导风罩对照沿用 M1 和 M2 各自的风扇布局，回看可保留导风罩或所查子件", () => {
   for (const device of devices) {
     const { duct, fans } = fanAssembly(device.id)!;
-    assert.equal(!!duct, device.modelId === "server-1u");
+    assert.equal(!!duct, ["server-1u", "server-2u"].includes(device.modelId));
     assert.equal(fanInspectionContext(device.id, "duct-01"), !!duct);
     if (!duct) continue;
     const visit: FanInspection = {

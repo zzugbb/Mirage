@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
+import { modelForDevice } from "../catalog";
 import {
   fanAssembly,
   fanInspectionNeighbor,
@@ -144,6 +145,13 @@ export function FanInspection({
         <p>
           编号按机型配置排列，每个维护子件可含多个叶轮。前、后侧沿设备坐标。
         </p>
+        {visit.side === "duct" &&
+          modelForDevice(deviceId).id === "server-2u" && (
+            <p>
+              四个风扇的位置取自 M2
+              模型。折弯导风罩按风扇排、两路散热器与上盖之间的空间绘制。
+            </p>
+          )}
         <p>
           部件读数来自模型推导。真实槽序、气流方向、转速和冗余状态均未接入。
         </p>

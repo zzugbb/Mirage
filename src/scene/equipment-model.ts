@@ -262,7 +262,48 @@ function expansionPart(
       );
   }
 }
-function detail(root: THREE.Group, node: string, size: number[], box: Box) {
+/** 2U 配置示意的折弯罩体，前后敞开，折肩给机盖边缘留出净空。 */
+function foldedAirDuct(size: number[]) {
+  const [width, height, depth] = size;
+  const x = width / 2,
+    y = height / 2,
+    shoulder = height * 0.22,
+    wall = 0.0012;
+  const profile = new THREE.Shape();
+  profile.moveTo(-x, -y);
+  profile.lineTo(-x, y - shoulder);
+  profile.lineTo(-x + shoulder, y);
+  profile.lineTo(x - shoulder, y);
+  profile.lineTo(x, y - shoulder);
+  profile.lineTo(x, -y);
+  profile.lineTo(x - wall, -y);
+  profile.lineTo(x - wall, y - shoulder - wall / 2);
+  profile.lineTo(x - shoulder - wall / 2, y - wall);
+  profile.lineTo(-x + shoulder + wall / 2, y - wall);
+  profile.lineTo(-x + wall, y - shoulder - wall / 2);
+  profile.lineTo(-x + wall, -y);
+  profile.closePath();
+  const shell = new THREE.Mesh(
+    new THREE.ExtrudeGeometry(profile, { depth, bevelEnabled: false }),
+    new THREE.MeshPhysicalMaterial({
+      color: "#85999c",
+      roughness: 0.38,
+      transparent: true,
+      opacity: 0.5,
+      depthWrite: false,
+    }),
+  );
+  shell.position.z = -depth / 2;
+  shell.name = "folded-air-duct";
+  return shell;
+}
+function detail(
+  root: THREE.Group,
+  node: string,
+  size: number[],
+  box: Box,
+  modelId: string,
+) {
   const [w, h, d] = size;
   if (node === "board") board(root, size, box);
   else if (node === "chip") {
@@ -312,6 +353,8 @@ function detail(root: THREE.Group, node: string, size: number[], box: Box) {
     for (const x of [-w / 2, w / 2])
       box(root, [0.003, h, d], [x, 0, 0], "#77828b", 0.7);
     box(root, [w * 0.8, 0.006, 0.012], [0, -h / 2 + 0.005, 0], "#242b30", 0.3);
+  } else if (node === "duct" && modelId === "server-2u") {
+    root.add(foldedAirDuct(size));
   } else if (node === "duct") {
     const mat = new THREE.MeshPhysicalMaterial({
       color: "#586069",
@@ -442,8 +485,8 @@ function children(
       const layout = modelById(modelId).fanDuctLayout;
       const slot = layout?.modules.find((module) => module.id === ids[i].id);
       if (layout && slot) {
-        const [left, right] = slot.rotorX;
-        child.position.x = (left + right) / 2;
+        child.position.x =
+          slot.rotorX.reduce((sum, x) => sum + x, 0) / slot.rotorX.length;
         for (const x of slot.rotorX) {
           const rotor = createFanModule(layout.rotorSize);
           rotor.position.x = x - child.position.x;
@@ -737,7 +780,7 @@ export function createEquipmentAssembly(modelId: string): Assembly {
       else if (p.id === "net-ports") switchPortCages(group, size, box);
       else if (p.id === "net-asic") switchAsic(group, size, box);
       else if (p.id === "sto-midplane") storageMidplane(group, size, box);
-      else detail(group, p.node, size, box);
+      else detail(group, p.node, size, box, modelId);
       if (p.id === "board-01" && !onControllerMount) {
         const tail = new THREE.Group();
         tail.position.z = -0.18;
@@ -780,7 +823,7 @@ export function completeServerAssembly(
       }
     } else if ([bay.adapter, bay.carrier, bay.adjacent].includes(part.id))
       expansionPart(group, part, box);
-    else detail(group, part.node, part.size, box);
+    else detail(group, part.node, part.size, box, "server-2u");
     root.add(group);
     groups.set(part.id, group);
     positions.set(part.id, group.position.clone());

@@ -40,6 +40,14 @@ const partsByModel = new Map(
             focusDirection: [0.55, 0.88, -1],
           };
         }
+        const duct = model.fanDuctLayout;
+        if (duct && part.id === duct.ductId)
+          return {
+            ...part,
+            position: duct.ductCenter,
+            size: duct.ductSize,
+            explode: duct.ductTravel ?? part.explode,
+          };
         const mount = model.controllerMount;
         if (
           mount &&

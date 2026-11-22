@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import { Box3, Mesh, Texture, Vector3 } from "three";
+import { Box3, Mesh, Raycaster, Texture, Vector3 } from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import definition from "../assets/public/scenes/room-01.json" with { type: "json" };
 import { assemblyChecks, assemblyMember } from "./assembly-pairs.ts";
@@ -38,6 +38,80 @@ async function loadServerModel() {
   scene.updateMatrixWorld(true);
   return scene;
 }
+
+test("M2 四个风扇模组按精模定位，导风罩在风扇后方避让散热器、内存与上盖", async () => {
+  const id = "srv-54",
+    model = modelForDevice(id);
+  const scene = await loadServerModel();
+  const { groups } = createEquipmentAssembly(model.id);
+  const duct = groups.get(model.fanDuctLayout!.ductId)!;
+  const bounds = new Box3().setFromObject(duct);
+  const fans = subpartsForDevice(id).filter(
+    (part) => part.parent === "fans-01",
+  );
+  assert.deepEqual(
+    model.fanDuctLayout!.modules.map((slot) => slot.id),
+    fans.map((part) => part.id),
+  );
+  let previousRight = -Infinity;
+  for (const fan of fans) {
+    const detailed = new Box3().setFromObject(
+      scene.getObjectByName(fan.modelNode)!,
+    );
+    const proxy = new Box3().setFromObject(groups.get(fan.id)!);
+    assert.ok(
+      detailed
+        .getCenter(new Vector3())
+        .distanceTo(proxy.getCenter(new Vector3())) < 0.0001,
+      fan.slot,
+    );
+    assert.ok(
+      detailed.getSize(new Vector3()).distanceTo(proxy.getSize(new Vector3())) <
+        0.003,
+      fan.slot,
+    );
+    assert.ok(proxy.min.x > previousRight);
+    assert.ok(Math.min(proxy.min.z, detailed.min.z) > bounds.max.z);
+    previousRight = proxy.max.x;
+  }
+  const ray = new Raycaster();
+  for (const name of ["part_cpu_01", "part_cpu_02", "part_memory_01"]) {
+    const hardware = new Box3().setFromObject(scene.getObjectByName(name)!);
+    assert.ok(hardware.min.x > bounds.min.x && hardware.max.x < bounds.max.x);
+    assert.ok(hardware.min.z > bounds.min.z && hardware.max.z < bounds.max.z);
+    for (const x of [hardware.min.x, hardware.max.x]) {
+      for (const z of [hardware.min.z, hardware.max.z]) {
+        ray.set(new Vector3(x, hardware.max.y, z), new Vector3(0, 1, 0));
+        const roof = ray.intersectObject(duct)[0];
+        assert.ok(roof && roof.distance > 0.001, name + " 上方留出净空");
+        ray.set(new Vector3(x, bounds.max.y, z), new Vector3(0, 1, 0));
+        const lid = ray.intersectObject(
+          scene.getObjectByName("part_lid_01")!,
+        )[0];
+        assert.ok(lid && lid.distance > 0.001, "罩顶低于机盖");
+      }
+    }
+  }
+  const fanGroup = groups.get("fans-01")!;
+  const startFan = fanGroup.position.toArray(),
+    startDuct = duct.position.toArray();
+  const configured = partsForDevice(id);
+  const fanPart = configured.find((p) => p.id === "fans-01")!,
+    ductPart = configured.find((p) => p.id === model.fanDuctLayout!.ductId)!;
+  for (const amount of [0, 0.3, 1, 0]) {
+    fanGroup.position.fromArray(
+      assemblyPartPosition({ ...fanPart, position: startFan }, amount, 1),
+    );
+    duct.position.fromArray(
+      assemblyPartPosition({ ...ductPart, position: startDuct }, amount, 1),
+    );
+    const fanBox = new Box3().setFromObject(fanGroup);
+    const coverBox = new Box3().setFromObject(duct);
+    const gap = fanBox.min.z - coverBox.max.z;
+    assert.ok(gap > 0 && gap < 0.005, "罩口展开后仍对准风扇排后侧");
+    assert.ok(coverBox.min.x < fanBox.min.x && coverBox.max.x > fanBox.max.x);
+  }
+});
 
 test("M2 内存组的十六个编号逐一对应精模节点和简模板位", async () => {
   const id = "srv-54";

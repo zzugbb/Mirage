@@ -278,7 +278,7 @@ export class SceneEngine {
   axesVector = new THREE.Vector3();
   guides: THREE.LineSegments;
   guidePositions = new Float32Array(parts.length * 6);
-  partBases = new Map<string, THREE.Vector3>();
+  partBases = this.models.initialPartBases;
   autoOrbit = !this.reducedMotion;
   lastManualInteraction = 0;
   interior = false;
