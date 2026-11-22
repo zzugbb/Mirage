@@ -6166,18 +6166,20 @@ export function Workspace() {
                         </option>
                       ))}
                     </select>
-                    <select
-                      aria-label="通路部件"
-                      value={selected}
-                      disabled={!ready}
-                      onChange={(event) => pick(event.target.value)}
-                    >
-                      {station.members.map((id) => (
-                        <option key={id} value={id}>
-                          {entityById(id)?.name}
-                        </option>
-                      ))}
-                    </select>
+                    {station.members.length > 1 && (
+                      <select
+                        aria-label="通路部件"
+                        value={selected}
+                        disabled={!ready}
+                        onChange={(event) => pick(event.target.value)}
+                      >
+                        {station.members.map((id) => (
+                          <option key={id} value={id}>
+                            {entityById(id)?.name}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                     {station.id !== "route" && (
                       <button
                         disabled={!ready}
@@ -6197,13 +6199,10 @@ export function Workspace() {
                           )
                         }
                       >
-                        {station.id === "mount"
-                          ? pathVisit.pose === "seated"
-                            ? "抬起控制卡"
-                            : "落回主板"
-                          : pathVisit.pose === "seated"
+                        {station.actions?.[pathVisit.pose] ??
+                          (pathVisit.pose === "seated"
                             ? "分开接头"
-                            : "接合复位"}
+                            : "接合复位")}
                       </button>
                     )}
                   </div>

@@ -33,7 +33,13 @@ const model = modelById("server-1u");
 const { backplane, harness } = model.compactHarness!;
 const { controllerId, boardId } = model.controllerMount!;
 // 顺序从四个机前盘位经线束两端到主板，端点沿用维护部件身份。
-export const compactStorageStations = [
+type StorageStation = {
+  id: string;
+  label: string;
+  members: string[];
+  actions?: { seated: string; separated: string };
+};
+export const compactStorageStations: StorageStation[] = [
   {
     id: "route",
     label: "整条通路",
@@ -49,19 +55,28 @@ export const compactStorageStations = [
     label: disk.slot + " · " + position,
     members: [disk.id, backplane],
   })),
-  {
-    id: "backplane-plug",
-    label: "SAS · 背板端",
-    members: [harness, backplane],
-  },
-  {
-    id: "controller-plug",
-    label: "SAS · 控制卡端",
-    members: [harness, controllerId],
-  },
+  ...[
+    { id: "backplane-plug", label: "背板端", owner: backplane },
+    { id: "controller-plug", label: "控制卡端", owner: controllerId },
+  ].flatMap(({ id, label, owner }) => [
+    { id, label: "SAS · " + label, members: [harness, owner] },
+    {
+      id: id + "-tongue",
+      label: label + " · 插舌与壳口",
+      members: [harness],
+      actions: { seated: "抽出插舌", separated: "推回壳口" },
+    },
+    {
+      id: id + "-bridge",
+      label: label + " · 承片与导柱",
+      members: [owner],
+      actions: { seated: "抬起承片", separated: "放回导柱" },
+    },
+  ]),
   {
     id: "mount",
     label: "控制卡 · 主板安装位",
+    actions: { seated: "抬起控制卡", separated: "落回主板" },
     members: [controllerId, boardId],
   },
 ];

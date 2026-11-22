@@ -2,6 +2,10 @@ import * as THREE from "three";
 import { modelById } from "../catalog.ts";
 import { compactDriveBays } from "../compact-drive-bays.ts";
 import { registerLayer, registerLayerScope } from "./assembly-layer.ts";
+import {
+  compactSocketBridge,
+  registerCompactSasEnd,
+} from "./compact-sas-ends.ts";
 import type { Box } from "./equipment-model.ts";
 
 const model = modelById("server-1u"),
@@ -28,13 +32,8 @@ export function compactCableSocket(
       [(side * (w - wall)) / 2, wall / 2, wall / 2],
       "#586770",
     );
-    box(
-      socket,
-      [0.003, 0.0006, d - 0.002],
-      [side * 0.003, 0.0015, -0.0002],
-      "#ad9369",
-    ).name = "sas-finger";
   }
+  compactSocketBridge(socket, h, d, wall, box);
   return socket;
 }
 
@@ -151,13 +150,10 @@ export function buildCompactStoragePath(
   for (const [id, owner] of [
     ["backplane-plug", board],
     ["controller-plug", card],
-  ] as const)
-    contact(
-      id,
-      cable,
-      owner,
-      cable.getObjectByName(id + "-assembly")!,
-      owner.getObjectByName("harness-socket")!,
-      cableTravel,
-    );
+  ] as const) {
+    const plug = cable.getObjectByName(id + "-assembly")!;
+    const socket = owner.getObjectByName("harness-socket")!;
+    contact(id, cable, owner, plug, socket, cableTravel);
+    registerCompactSasEnd(id, cable, owner, plug, socket);
+  }
 }

@@ -83,7 +83,7 @@ test("M1 的四个盘位与贡献模型同列同层，托架与同号 SSD 在简
           2,
         );
         for (const station of compactStorageStations.filter(
-          (s) => s.id !== "route" && s.id !== "mount",
+          (s) => s.members.length === 2 && s.id !== "mount",
         )) {
           const [moving, fixed] = station.members.map((id) => groups.get(id)!);
           const scope = layerScopeFor(moving, station.id)!;
@@ -130,6 +130,128 @@ test("M1 的四个盘位与贡献模型同列同层，托架与同号 SSD 在简
               );
             }
           }
+        }
+      }
+    },
+  );
+  const sasEnds = [
+    ["backplane-plug", "backplane-01"],
+    ["controller-plug", "raid-01"],
+  ] as const;
+  const fit = definition.equipmentModels.find((m) => m.id === "server-1u")!
+    .compactHarness!.contactInspection;
+  const boundsOf = (o: Object3D) => new Box3().setFromObject(o);
+  const near = (a: number, b: number) =>
+    assert.ok(Math.abs(a - b) < 1e-7, a + " / " + b);
+  await t.test(
+    "SAS 两端的窄尾穿入各自壳口，插舌宽肩止于口沿，分开后保留与板端插座的间隙",
+    () => {
+      for (const { root, groups } of [detailed, fallback]) {
+        const cable = groups.get("cables-01")!;
+        for (const [end, fixed] of sasEnds) {
+          const scope = layerScopeFor(cable, end + "-tongue")!;
+          const joint = layerScopeFor(cable, end)!;
+          assert.ok(scope.extractedLayers?.[0] === joint.layerRoot);
+          assert.equal(
+            layerScopeFor(groups.get(fixed), end + "-tongue"),
+            undefined,
+          );
+          const body = cable.getObjectByName(end)!;
+          const nose = scope.moving.getObjectByName("sas-tongue")!,
+            tail = scope.moving.getObjectByName("sas-tongue-tail")!;
+          poseAssemblyLayer(joint.layerRoot, true);
+          root.updateMatrixWorld(true);
+          const wall = boundsOf(body),
+            blind = boundsOf(joint.moving.getObjectByName("sas-pocket-back")!);
+          for (const open of [true, false, true, false]) {
+            poseAssemblyLayer(scope.layerRoot, open);
+            root.updateMatrixWorld(true);
+            const tab = boundsOf(nose),
+              key = boundsOf(tail);
+            near(wall.min.z - tab.max.z, open ? fit.tongueTravel : 0);
+            near(tab.max.z, key.min.z);
+            assert.ok(tab.min.z > boundsOf(joint.members[1]).max.z);
+            assert.equal(key.max.z < wall.min.z, open);
+            assert.ok(key.max.z < blind.min.z);
+            const ray = (x: number, y: number) =>
+              new Raycaster(
+                new Vector3(x, y, wall.min.z - 0.03),
+                new Vector3(0, 0, 1),
+              );
+            for (const x of [key.min.x, key.max.x])
+              for (const y of [key.min.y, key.max.y]) {
+                assert.equal(ray(x, y).intersectObject(body).length, 0);
+                near(
+                  ray(x, y).intersectObject(
+                    joint.moving.getObjectByName("sas-pocket-back")!,
+                  )[0].point.z,
+                  blind.min.z,
+                );
+              }
+            const c = tab.getCenter(new Vector3());
+            for (const x of [tab.min.x, tab.max.x])
+              near(ray(x, c.y).intersectObject(body)[0].point.z, wall.min.z);
+          }
+          poseAssemblyLayer(joint.layerRoot, false);
+        }
+      }
+    },
+  );
+  await t.test(
+    "两块板上的承片横梁连同双触片一起离座，两孔对准原柱，落回台阶后重新接合插头",
+    () => {
+      for (const { root, groups } of [detailed, fallback]) {
+        const cable = groups.get("cables-01")!;
+        for (const [end, fixed] of sasEnds) {
+          const owner = groups.get(fixed)!,
+            scope = layerScopeFor(owner, end + "-bridge")!;
+          assert.equal(layerScopeFor(cable, end + "-bridge"), undefined);
+          const socket = owner.getObjectByName("harness-socket")!,
+            bridge = socket.getObjectByName("sas-contact-bridge")!;
+          const bed = socket.getObjectByName("sas-bridge-bed")!,
+            pins = socket.getObjectsByProperty("name", "sas-bridge-pin");
+          const joint = layerScopeFor(cable, end)!;
+          assert.ok(scope.extractedLayers?.[0] === joint.layerRoot);
+          poseAssemblyLayer(joint.layerRoot, true);
+          for (const up of [true, false, true, false]) {
+            poseAssemblyLayer(scope.layerRoot, up);
+            root.updateMatrixWorld(true);
+            const bar = boundsOf(bridge);
+            near(bar.min.y - boundsOf(bed).max.y, up ? fit.bridgeLift : 0);
+            assert.equal(pins.length, 2);
+            for (const pin of pins) {
+              const bounds = boundsOf(pin),
+                c = bounds.getCenter(new Vector3());
+              assert.equal(bar.min.y > bounds.max.y, up);
+              const ray = (x: number) =>
+                new Raycaster(
+                  new Vector3(x, bar.max.y + 0.002, c.z),
+                  new Vector3(0, -1, 0),
+                );
+              assert.equal(ray(c.x).intersectObject(bridge).length, 0);
+              assert.equal(
+                ray(bounds.max.x + 0.00005).intersectObject(bridge).length,
+                0,
+              );
+              assert.ok(
+                ray(bounds.max.x + 0.0003).intersectObject(bridge).length,
+              );
+            }
+            for (const finger of scope.moving.getObjectsByProperty(
+              "name",
+              "sas-finger",
+            ))
+              near(boundsOf(finger).min.z, bar.max.z);
+          }
+          poseAssemblyLayer(joint.layerRoot, false);
+          root.updateMatrixWorld(true);
+          const pads = joint.moving.getObjectsByProperty("name", "sas-pad"),
+            fingers = scope.moving.getObjectsByProperty("name", "sas-finger");
+          assert.equal(fingers.length, 2);
+          fingers.forEach((f, i) => {
+            near(boundsOf(f).min.y, boundsOf(pads[i]).max.y);
+            assert.ok(boundsOf(f).max.z > boundsOf(pads[i]).min.z);
+          });
         }
       }
     },
@@ -222,9 +344,6 @@ test("M1 的四个盘位与贡献模型同列同层，托架与同号 SSD 在简
   const layout = definition.equipmentModels.find(
     (model) => model.id === "server-1u",
   )!.compactDrive!;
-  const boundsOf = (o: Object3D) => new Box3().setFromObject(o);
-  const near = (a: number, b: number) =>
-    assert.ok(Math.abs(a - b) < 1e-7, a + " / " + b);
   await t.test(
     "四盘盖底各有四个导热垫，上面贴导热板、下面对准封装；开盖只移动盖底组件",
     () => {

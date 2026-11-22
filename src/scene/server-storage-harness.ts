@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { compactCablePlug } from "./compact-sas-ends.ts";
 import { compactCableSocket } from "./compact-storage-path.ts";
 import { drivePairs } from "../assembly-pairs.ts";
 import { modelById, partsForModel } from "../catalog.ts";
@@ -177,32 +178,11 @@ function connectHarness(
     if (compact) {
       body.name = name + "-assembly";
       cable.add(body);
-      box(
-        body,
-        [0.012, 0.0018, 0.0034],
-        [p.x, p.y, p.z - 0.0077],
-        "#476d57",
-      ).name = "sas-tongue";
-      for (const side of [-1, 1])
-        box(
-          body,
-          [0.004, 0.0003, 0.0026],
-          [p.x + side * 0.003, p.y + 0.00105, p.z - 0.0077],
-          "#c9a865",
-        ).name = "sas-pad";
+      compactCablePlug(body, name, p, box);
+    } else {
+      box(body, [0.019, 0.008, 0.012], p.toArray(), "#46545c").name = name;
+      box(body, [0.009, 0.001, 0.007], [p.x, p.y + 0.0045, p.z], "#a0a9a8");
     }
-    box(
-      body,
-      [compact ? 0.015 : 0.019, compact ? 0.006 : 0.008, 0.012],
-      p.toArray(),
-      "#46545c",
-    ).name = name;
-    box(
-      body,
-      [0.009, 0.001, 0.007],
-      [p.x, p.y + (compact ? 0.0035 : 0.0045), p.z],
-      "#a0a9a8",
-    );
     return end.clone().add(new THREE.Vector3(0, 0, direction * 0.012));
   }
   const from = plug(front, boardDirection, "backplane-plug");
