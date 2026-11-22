@@ -219,4 +219,174 @@ test("M1 的四个盘位与贡献模型同列同层，托架与同号 SSD 在简
       }
     },
   );
+  const layout = definition.equipmentModels.find(
+    (model) => model.id === "server-1u",
+  )!.compactDrive!;
+  const boundsOf = (o: Object3D) => new Box3().setFromObject(o);
+  const near = (a: number, b: number) =>
+    assert.ok(Math.abs(a - b) < 1e-7, a + " / " + b);
+  await t.test(
+    "四盘盖底各有四个导热垫，上面贴导热板、下面对准封装；开盖只移动盖底组件",
+    () => {
+      for (const assembly of [detailed, fallback])
+        for (const { disk } of compactDriveBays) {
+          const drive = assembly.groups.get(disk.id)!;
+          const scope = layerScopeFor(drive, "ssd-pads")!;
+          const pads = scope.moving.getObjectsByProperty(
+            "name",
+            "ssd-thermal-pad",
+          );
+          const chips = drive.getObjectsByProperty("name", "ssd-package");
+          const home = chips.map(boundsOf);
+          assert.deepEqual([pads.length, chips.length], [4, 4]);
+          for (const raised of [true, false, true, false]) {
+            poseAssemblyLayer(scope.layerRoot, raised);
+            drive.updateWorldMatrix(true, true);
+            const spreader = boundsOf(drive.getObjectByName("ssd-spreader")!);
+            near(
+              spreader.max.y,
+              boundsOf(drive.getObjectByName("ssd-cover-sheet")!).min.y,
+            );
+            assert.deepEqual(chips.map(boundsOf), home);
+            for (const [n, pad] of pads.entries()) {
+              const b = boundsOf(pad),
+                chip = home[n];
+              const c = b.getCenter(new Vector3());
+              assert.ok(
+                b.min.x > chip.min.x &&
+                  b.max.x < chip.max.x &&
+                  b.min.z > chip.min.z &&
+                  b.max.z < chip.max.z,
+              );
+              near(b.max.y, spreader.min.y);
+              const hit = new Raycaster(
+                new Vector3(c.x, b.min.y + 0.0001, c.z),
+                new Vector3(0, -1, 0),
+              ).intersectObject(chips[n])[0];
+              assert.ok(hit);
+              near(b.min.y - hit.point.y, raised ? layout.coverLift : 0);
+            }
+          }
+        }
+    },
+  );
+  await t.test(
+    "开盖后盘内板和尾端接口一起离壳，板孔对柱，抬升避开壳沿、盖销与导热垫",
+    () => {
+      for (const assembly of [detailed, fallback])
+        for (const { disk } of compactDriveBays) {
+          const drive = assembly.groups.get(disk.id)!;
+          const scope = layerScopeFor(drive, "ssd-board")!;
+          const [cover] = scope.extractedLayers!;
+          assert.equal(cover, drive);
+          const pcb = drive.getObjectByName("ssd-pcb")!,
+            plug = drive.getObjectByName("ssd-tail-port")!;
+          const pins = drive.getObjectsByProperty("name", "ssd-board-pin"),
+            posts = drive.getObjectsByProperty("name", "ssd-board-post");
+          const rims = pcb.parent!.getObjectsByProperty(
+            "name",
+            "ssd-board-rim",
+          );
+          assert.deepEqual([pins.length, posts.length, rims.length], [4, 4, 4]);
+          const initial = boundsOf(plug),
+            floor = boundsOf(drive.getObjectByName("ssd-case-base")!);
+          const rest = boundsOf(drive);
+          const fixed = pins.map(boundsOf);
+          poseAssemblyLayer(cover, true);
+          for (const up of [true, true, false, true, false]) {
+            poseAssemblyLayer(scope.layerRoot, up);
+            drive.updateWorldMatrix(true, true);
+            const rise = up ? layout.boardMount.lift : 0;
+            assert.deepEqual(pins.map(boundsOf), fixed);
+            near(boundsOf(plug).min.y - initial.min.y, rise);
+            for (const [i, pin] of pins.entries()) {
+              const axis = boundsOf(pin).getCenter(new Vector3()),
+                rim = boundsOf(rims[i]).getCenter(new Vector3());
+              near(axis.x, rim.x);
+              near(axis.z, rim.z);
+              near(boundsOf(posts[i]).min.y, floor.max.y);
+              near(boundsOf(pcb).min.y - boundsOf(posts[i]).max.y, rise);
+              for (const r of [
+                0,
+                (layout.boardMount.pinRadius + layout.boardMount.boreRadius) /
+                  2,
+                layout.boardMount.boreRadius * 1.2,
+              ]) {
+                const ray = new Raycaster(
+                  new Vector3(axis.x + r, rim.y + 0.01, axis.z),
+                  new Vector3(0, -1, 0),
+                );
+                assert.equal(
+                  ray.intersectObject(pcb).length > 0,
+                  r > layout.boardMount.boreRadius,
+                );
+              }
+            }
+            const moving = boundsOf(scope.moving);
+            assert.ok(
+              moving.max.y <
+                boundsOf(drive.getObjectByName("ssd-cover")!).min.y,
+            );
+            for (const rail of drive.getObjectsByProperty(
+              "name",
+              "ssd-case-rim",
+            ))
+              assert.ok(!moving.intersectsBox(boundsOf(rail)));
+            for (const seat of drive.getObjectsByProperty(
+              "name",
+              "ssd-lid-seat",
+            ))
+              assert.ok(!moving.intersectsBox(boundsOf(seat)));
+          }
+          poseAssemblyLayer(cover, false);
+          drive.updateWorldMatrix(true, true);
+          assert.ok(boundsOf(drive).equals(rest));
+        }
+    },
+  );
+  await t.test(
+    "盘尾近看复用同一块板与壳口，十片触点随板，接头从开口中无碰撞抬出",
+    () => {
+      for (const assembly of [detailed, fallback])
+        for (const { disk } of compactDriveBays) {
+          const drive = assembly.groups.get(disk.id)!;
+          const scope = layerScopeFor(drive, "ssd-tail")!,
+            board = layerScopeFor(drive, "ssd-board")!;
+          assert.equal(scope.layerRoot, board.layerRoot);
+          assert.equal(scope.extractedLayers, board.extractedLayers);
+          const plug = scope.moving.getObjectByName("ssd-tail-port")!,
+            tab = scope.moving.getObjectByName("ssd-tail-board")!;
+          const pads = scope.moving.getObjectsByProperty(
+            "name",
+            "ssd-tail-pad",
+          );
+          const edges = drive.getObjectsByProperty("name", "ssd-tail-edge");
+          assert.equal(pads.length, 10);
+          assert.equal(edges.length, 2);
+          const lip = boundsOf(drive.getObjectByName("ssd-tail-lip")!),
+            fixed = edges.map(boundsOf);
+          poseAssemblyLayer(drive, true);
+          for (const raised of [true, false, true, false]) {
+            poseAssemblyLayer(scope.layerRoot, raised);
+            drive.updateWorldMatrix(true, true);
+            const p = boundsOf(plug);
+            near(p.max.z, boundsOf(tab).min.z);
+            for (const rim of drive.getObjectsByProperty(
+              "name",
+              "ssd-board-rim",
+            )) {
+              assert.ok(boundsOf(tab).max.z < boundsOf(rim).min.z);
+            }
+            near(p.min.x - fixed[0].max.x, 0.0003);
+            near(fixed[1].min.x - p.max.x, 0.0003);
+            assert.deepEqual(edges.map(boundsOf), fixed);
+            assert.ok(p.min.z < fixed[0].min.z && p.max.z > fixed[0].max.z);
+            assert.ok(p.min.y > lip.max.y);
+            assert.equal(p.min.y > fixed[0].max.y, raised);
+            for (const face of pads) near(boundsOf(face).min.y, p.max.y);
+          }
+          poseAssemblyLayer(drive, false);
+        }
+    },
+  );
 });

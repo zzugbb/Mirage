@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { modelById } from "../catalog.ts";
-import { registerLayer } from "./assembly-layer.ts";
+import { registerLayer, registerLayerScope } from "./assembly-layer.ts";
 import type { Box } from "./equipment-model.ts";
 
 const layout = modelById("server-1u").compactDrive!;
@@ -49,17 +49,38 @@ export function compactSsd(root: THREE.Group, box: Box) {
     bottom = -h / 2 + sheet;
   const metal = "#788891",
     edge = "#a1adb2";
-  const base = box(root, [w, sheet, d], [0, bottom - sheet / 2, 0], metal);
-  base.name = "ssd-case-base";
+  const housing = new THREE.Group();
+  const board = new THREE.Group();
+  board.name = "ssd-board-assembly";
+  const lid = new THREE.Group();
+  lid.name = "ssd-cover";
+  root.add(housing, board, lid);
+  const floor = new THREE.Group();
+  floor.name = "ssd-case-base";
+  housing.add(floor);
+  const lipDepth = d * 0.075;
+  const base = box(
+    floor,
+    [w, sheet, d - lipDepth],
+    [0, bottom - sheet / 2, lipDepth / 2],
+    metal,
+  );
+  const lip = box(
+    floor,
+    [w, sheet, lipDepth],
+    [0, bottom - sheet / 2, (-d + lipDepth) / 2],
+    metal,
+  );
+  lip.name = "ssd-tail-lip";
   for (const sign of [-1, 1])
     box(
-      root,
+      housing,
       [sheet, top - bottom, d],
       [(sign * (w - sheet)) / 2, (top + bottom) / 2, 0],
       metal,
     ).name = "ssd-case-rim";
   box(
-    root,
+    housing,
     [w - 2 * sheet, top - bottom, sheet],
     [0, (top + bottom) / 2, (d - sheet) / 2],
     metal,
@@ -67,41 +88,133 @@ export function compactSsd(root: THREE.Group, box: Box) {
   // 尾部开口与盘内板的接口共用基准，左右边段接到底壳侧壁。
   const portWidth = w * 0.49,
     portX = -w * 0.1;
+  const tailEdges = new THREE.Group();
+  housing.add(tailEdges);
   for (const [left, right] of [
     [-w / 2 + sheet, portX - portWidth / 2],
     [portX + portWidth / 2, w / 2 - sheet],
   ])
     box(
-      root,
+      tailEdges,
       [right - left, top - bottom, sheet],
       [(left + right) / 2, (top + bottom) / 2, (-d + sheet) / 2],
       metal,
-    );
+    ).name = "ssd-tail-edge";
   const boardY = bottom + 0.0016,
     pcb = 0.00085;
   const boardDepth = d * 0.92;
-  box(root, [w * 0.84, pcb, boardDepth], [0, boardY, 0], "#305d50", 0.16).name =
-    "ssd-pcb";
-  const boardTop = boardY + pcb / 2;
+  const boardWidth = w * 0.84;
+  const shape = new THREE.Shape();
+  shape.moveTo(-boardWidth / 2, -boardDepth / 2);
+  shape.lineTo(boardWidth / 2, -boardDepth / 2);
+  shape.lineTo(boardWidth / 2, boardDepth / 2);
+  // 从板尾分出接头后方的同材质板面，局部核查仍可看到接头归属和实际壳口。
+  const tabDepth = d * 0.045,
+    tabWidth = portWidth + 0.001;
+  const tabLeft = portX - tabWidth / 2,
+    tabRight = portX + tabWidth / 2;
+  shape.lineTo(tabRight, boardDepth / 2);
+  shape.lineTo(tabRight, boardDepth / 2 - tabDepth);
+  shape.lineTo(tabLeft, boardDepth / 2 - tabDepth);
+  shape.lineTo(tabLeft, boardDepth / 2);
+  shape.lineTo(-boardWidth / 2, boardDepth / 2);
+  shape.closePath();
+  const mount = layout.boardMount;
+  const boardBottom = boardY - pcb / 2,
+    boardTop = boardY + pcb / 2;
+  const postHeight = boardBottom - bottom,
+    pinHeight = pcb * 1.35;
+  const post = new THREE.CylinderGeometry(
+    mount.shoulderRadius,
+    mount.shoulderRadius,
+    postHeight,
+    12,
+  );
+  const pin = new THREE.CylinderGeometry(
+    mount.pinRadius * 0.85,
+    mount.pinRadius,
+    pinHeight,
+    24,
+  );
+  const ring = new THREE.RingGeometry(
+    mount.boreRadius,
+    mount.shoulderRadius,
+    32,
+  ).rotateX(-Math.PI / 2);
+  const brass = new THREE.MeshStandardMaterial({
+    color: "#b59c72",
+    metalness: 0.6,
+    roughness: 0.48,
+  });
+  const packages = new THREE.Group(),
+    pads = new THREE.Group();
+  board.add(packages);
+  lid.add(pads);
+  const spreader = layout.heatSpreader;
+  const chipHeight = 0.0012,
+    padTop = top - spreader.thickness,
+    padBottom = boardTop + chipHeight;
+  box(
+    pads,
+    [w * 0.72, spreader.thickness, d * 0.55],
+    [0, top - spreader.thickness / 2, 0],
+    "#a77e65",
+    0.48,
+  ).name = "ssd-spreader";
   for (const x of [-1, 1])
     for (const z of [-1, 1]) {
+      const px = x * w * 0.37,
+        pz = z * d * 0.39;
+      const hole = new THREE.Path();
+      hole.absarc(px, -pz, mount.boreRadius, 0, Math.PI * 2, true);
+      shape.holes.push(hole);
+      for (const [owner, geo, y, name] of [
+        [housing, post, bottom + postHeight / 2, "ssd-board-post"],
+        [housing, pin, boardBottom + pinHeight / 2, "ssd-board-pin"],
+        [board, ring, boardTop + 0.000012, "ssd-board-rim"],
+      ] as const) {
+        const mesh = new THREE.Mesh(geo, brass);
+        mesh.position.set(px, y, pz);
+        mesh.name = name;
+        mesh.castShadow = mesh.receiveShadow = true;
+        owner.add(mesh);
+      }
+      const cx = x * w * 0.21,
+        cz = z * d * 0.15;
       box(
-        root,
-        [0.004, boardY - pcb / 2 - bottom, 0.004],
-        [x * w * 0.37, (boardY - pcb / 2 + bottom) / 2, z * d * 0.39],
-        metal,
-      );
-      box(
-        root,
-        [w * 0.24, 0.0012, d * 0.19],
-        [x * w * 0.21, boardTop + 0.0006, z * d * 0.15],
+        packages,
+        [w * 0.24, chipHeight, d * 0.19],
+        [cx, boardTop + chipHeight / 2, cz],
         "#263138",
         0.17,
-      );
+      ).name = "ssd-package";
+      box(
+        pads,
+        [w * 0.22, padTop - padBottom, d * 0.17],
+        [cx, (padBottom + padTop) / 2, cz],
+        "#86a9a4",
+        0.1,
+      ).name = "ssd-thermal-pad";
     }
+  const pcbMesh = new THREE.Mesh(
+    new THREE.ExtrudeGeometry(shape, {
+      depth: pcb,
+      bevelEnabled: false,
+      curveSegments: 16,
+    }).rotateX(-Math.PI / 2),
+    new THREE.MeshStandardMaterial({
+      color: "#305d50",
+      roughness: 0.5,
+      metalness: 0.16,
+    }),
+  );
+  pcbMesh.position.y = boardBottom;
+  pcbMesh.name = "ssd-pcb";
+  pcbMesh.castShadow = pcbMesh.receiveShadow = true;
+  board.add(pcbMesh);
   // 尾端的小封装及无标识贴片只说明板面朝向，不定义接口规格。
   box(
-    root,
+    board,
     [w * 0.17, 0.0011, d * 0.1],
     [portX, boardTop + 0.00055, -d * 0.34],
     "#343d43",
@@ -109,14 +222,24 @@ export function compactSsd(root: THREE.Group, box: Box) {
   );
   for (let i = 0; i < 4; i++)
     box(
-      root,
+      board,
       [0.0015, 0.0007, 0.003],
       [portX + 0.009 + i * 0.003, boardTop + 0.00035, -d * 0.34],
       "#9b927e",
     );
+  const tail = new THREE.Group();
+  board.add(tail);
+  const tab = new THREE.Mesh(
+    new THREE.BoxGeometry(tabWidth, pcb, tabDepth),
+    pcbMesh.material,
+  );
+  tab.name = "ssd-tail-board";
+  tab.position.set(portX, boardY, (-boardDepth + tabDepth) / 2);
+  tab.castShadow = tab.receiveShadow = true;
+  tail.add(tab);
   const connector = new THREE.Group();
   connector.name = "ssd-tail-connector";
-  root.add(connector);
+  tail.add(connector);
   const nose = -d / 2 - 0.0012;
   box(
     connector,
@@ -131,9 +254,6 @@ export function compactSsd(root: THREE.Group, box: Box) {
       [portX + (i - 4.5) * 0.0027, boardY + 0.001375, nose + 0.0012],
       "#ae935b",
     ).name = "ssd-tail-pad";
-  const lid = new THREE.Group();
-  lid.name = "ssd-cover";
-  root.add(lid);
   box(lid, [w, sheet, d], [0, top + sheet / 2, 0], edge, 0.7).name =
     "ssd-cover-sheet";
   // 定位销随盖移动。环形座孔贯通至壳底，孔壁与销留出径向间隙。
@@ -167,7 +287,7 @@ export function compactSsd(root: THREE.Group, box: Box) {
       seat.name = "ssd-lid-seat";
       seat.position.set(x, 0, z);
       seat.castShadow = seat.receiveShadow = true;
-      root.add(seat);
+      housing.add(seat);
       const pin = new THREE.Mesh(pinGeometry, base.material);
       pin.name = "ssd-cover-pin";
       pin.position.set(x, top - pinLength / 2, z);
@@ -180,5 +300,38 @@ export function compactSsd(root: THREE.Group, box: Box) {
     node: lid.name,
     offset: [0, layout.coverLift, 0],
     direction: [x, y, z],
+  });
+  const [bx, by, bz] = mount.focusDirection;
+  registerLayer(board, {
+    node: board.name,
+    offset: [0, mount.lift, 0],
+    direction: [bx, by, bz],
+  });
+  const boardScope = {
+    extractedLayers: [root],
+    layerRoot: board,
+    selectionPadding: 0.0006,
+  };
+  registerLayerScope(root, "ssd-tail", {
+    ...boardScope,
+    moving: tail,
+    members: [tail, tailEdges, lip],
+    selectedBranch: tail,
+    direction: [0.3, 0.56, -1],
+  });
+  registerLayerScope(root, "ssd-board", {
+    ...boardScope,
+    moving: board,
+    members: [housing, board],
+    selectedBranch: board,
+  });
+  const [tx, ty, tz] = spreader.focusDirection;
+  registerLayerScope(root, "ssd-pads", {
+    layerRoot: root,
+    moving: pads,
+    members: [pads, packages],
+    selectedBranch: pads,
+    selectionPadding: 0.00045,
+    direction: [tx, ty, tz],
   });
 }

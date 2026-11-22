@@ -6928,7 +6928,9 @@
       "compactDrive": {
         "caseSize": [0.06985, 0.007, 0.10045],
         "trayDepth": 0.112, "frontInset": 0.003, "trayDirection": [1.1, 0.7, 0.44],
-        "coverLift": 0.039, "coverDirection": [-0.84, 0.62, -1.05]
+        "coverLift": 0.039, "coverDirection": [-0.84, 0.62, -1.05],
+        "boardMount": {"lift": 0.023, "boreRadius": 0.00145, "pinRadius": 0.001, "shoulderRadius": 0.0021, "focusDirection": [0.76, 0.7, -1]},
+        "heatSpreader": {"thickness": 0.00055, "focusDirection": [0.91, -0.38, -1]}
       },
       "powerBays": {
         "travelRatio": 0.75, "focusDirection": [0.025, 1.32, -0.94],

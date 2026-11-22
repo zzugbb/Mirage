@@ -6233,6 +6233,20 @@ export function Workspace() {
                           ))}
                         </select>
                       )}
+                    {assembly.tool === "compact-drive" && activePair && (
+                      <select
+                        aria-label="核查硬盘"
+                        disabled={!ready}
+                        value={selected}
+                        onChange={(event) => pick(event.target.value)}
+                      >
+                        {assembly.pairs.map(({ companion }) => (
+                          <option key={companion.id} value={companion.id}>
+                            {companion.slot}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                     {stagedLayer && (
                       <select
                         aria-label={stagedLayer.stageLabel}
