@@ -25,6 +25,7 @@ import {
   compactBayForPart,
   compactDriveBays,
   compactStorageStations,
+  verticalStorageStations,
 } from "./compact-drive-bays";
 import { useDismissibleMenu } from "./use-dismissible-menu";
 import {
@@ -486,9 +487,12 @@ export function Workspace() {
     pairVisit?.deviceId === state.deviceId && state.level === "device"
       ? pairVisit.storagePath
       : undefined;
+  const storageStations = deviceModel.storageHarness
+    ? verticalStorageStations
+    : compactStorageStations;
   const station =
     pathVisit &&
-    compactStorageStations.find(
+    storageStations.find(
       (item) =>
         item.id === pathVisit.stationId && item.members.includes(selected),
     );
@@ -6161,7 +6165,7 @@ export function Workspace() {
                       disabled={!ready}
                       autoFocus
                       onChange={(event) => {
-                        const next = compactStorageStations.find(
+                        const next = storageStations.find(
                           (item) => item.id === event.target.value,
                         )!;
                         setPairVisit(
@@ -6174,7 +6178,7 @@ export function Workspace() {
                         pick(next.members[0]);
                       }}
                     >
-                      {compactStorageStations.map((item) => (
+                      {storageStations.map((item) => (
                         <option value={item.id} key={item.id}>
                           {item.label}
                         </option>
@@ -6648,10 +6652,11 @@ export function Workspace() {
                         )}
                       </div>
                     )}
-                    {compactServer &&
+                    {(compactServer || deviceModel.storageHarness) &&
                       [
                         "storage-harness",
                         "compact-drive",
+                        "drive-tray",
                         "controller-mount",
                       ].includes(assembly.tool) && (
                         <button
@@ -6659,12 +6664,13 @@ export function Workspace() {
                           disabled={!ready}
                           onClick={() => {
                             const start =
-                              assembly.tool === "compact-drive"
+                              assembly.tool === "compact-drive" ||
+                              assembly.tool === "drive-tray"
                                 ? activePair.companion.id
                                 : assembly.tool === "controller-mount"
                                   ? "controller-plug"
                                   : "route";
-                            const next = compactStorageStations.find(
+                            const next = storageStations.find(
                               (item) => item.id === start,
                             )!;
                             if (!next.members.includes(selected))

@@ -37,6 +37,25 @@ export function compactCableSocket(
   return socket;
 }
 
+export function registerStorageContact(
+  id: string,
+  movableOwner: THREE.Group,
+  fixedOwner: THREE.Group,
+  plug: THREE.Object3D,
+  socket: THREE.Object3D,
+  travel: number,
+) {
+  const [x, y, z] = layout.contactInspection.focusDirection;
+  registerLayer(plug, {
+    node: plug.name,
+    offset: [0, 0, travel],
+    direction: [x, y, z * Math.sign(travel)],
+  });
+  const scope = { layerRoot: plug, moving: plug, members: [plug, socket] };
+  registerLayerScope(movableOwner, id, { ...scope, selectedBranch: plug });
+  registerLayerScope(fixedOwner, id, { ...scope, selectedBranch: socket });
+}
+
 // 插座按当前表示的盘尾定位。每列共用一块竖支板，上下两支水平承托分别落到同号盘尾。
 export function buildCompactStoragePath(
   groups: Map<string, THREE.Group>,
@@ -45,28 +64,7 @@ export function buildCompactStoragePath(
   const board = groups.get(layout.backplane)!;
   const cable = groups.get(layout.harness)!;
   const card = groups.get(model.controllerMount!.controllerId)!;
-  const {
-    diskTravel,
-    cableTravel,
-    focusDirection: [x, y, z],
-  } = layout.contactInspection;
-  const contact = (
-    id: string,
-    movableOwner: THREE.Group,
-    fixedOwner: THREE.Group,
-    plug: THREE.Object3D,
-    socket: THREE.Object3D,
-    travel: number,
-  ) => {
-    registerLayer(plug, {
-      node: plug.name,
-      offset: [0, 0, travel],
-      direction: [x, y, z],
-    });
-    const scope = { layerRoot: plug, moving: plug, members: [plug, socket] };
-    registerLayerScope(movableOwner, id, { ...scope, selectedBranch: plug });
-    registerLayerScope(fixedOwner, id, { ...scope, selectedBranch: socket });
-  };
+  const { diskTravel, cableTravel } = layout.contactInspection;
   const rearOfShelf = layout.boardCenter[2] + layout.boardSize[2] * 0.32;
   const boardTop = layout.boardCenter[1] + layout.boardSize[1] / 2;
   const supports = new Map<number, { x: number; top: number; width: number }>();
@@ -133,7 +131,7 @@ export function buildCompactStoragePath(
       "disk-socket-shelf";
     if ((supports.get(bay.x)?.top ?? -Infinity) < shelfY)
       supports.set(bay.x, { x: pos.x, top: shelfY, width: shelfWidth });
-    contact(bay.disk.id, disk, board, plug, socket, diskTravel);
+    registerStorageContact(bay.disk.id, disk, board, plug, socket, diskTravel);
   }
   for (const support of supports.values()) {
     const height = support.top - boardTop;
@@ -153,7 +151,7 @@ export function buildCompactStoragePath(
   ] as const) {
     const plug = cable.getObjectByName(id + "-assembly")!;
     const socket = owner.getObjectByName("harness-socket")!;
-    contact(id, cable, owner, plug, socket, cableTravel);
+    registerStorageContact(id, cable, owner, plug, socket, cableTravel);
     registerCompactSasEnd(id, cable, owner, plug, socket);
   }
 }

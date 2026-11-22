@@ -75,6 +75,7 @@ export function compactCablePlug(
       [side * 0.003, 0.00105, -0.0077],
       "#c9a865",
     ).name = "sas-pad";
+  return end;
 }
 
 // 两条承片伸向插座开口。后横梁落在固定台阶上，两处通孔对回导柱。
@@ -150,6 +151,7 @@ export function registerCompactSasEnd(
   board: THREE.Group,
   plug: THREE.Object3D,
   socket: THREE.Object3D,
+  direction = 1,
 ) {
   const tongue = plug.getObjectByName("sas-tongue-insert")!,
     bridge = socket.getObjectByName("sas-contact-carrier")!;
@@ -158,7 +160,7 @@ export function registerCompactSasEnd(
   registerLayer(tongue, {
     node: tongue.name,
     offset: [0, 0, -fit.tongueTravel],
-    direction: [tx, ty, tz],
+    direction: [tx * direction, ty, tz * direction],
   });
   registerLayerScope(cable, id + "-tongue", {
     layerRoot: tongue,
@@ -171,7 +173,7 @@ export function registerCompactSasEnd(
   registerLayer(bridge, {
     node: bridge.name,
     offset: [0, fit.bridgeLift, 0],
-    direction: [bx, by, bz],
+    direction: [bx * direction, by, bz * direction],
   });
   registerLayerScope(board, id + "-bridge", {
     layerRoot: bridge,

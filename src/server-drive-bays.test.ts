@@ -170,3 +170,47 @@ test("M2 八盘以盘面法向移开侧盖和板件，贴回时四片导热垫�
     }
   }
 });
+
+test("M2 八盘触片和两端反向的 SAS 接合件各自对回原座", () => {
+  const { root, groups } = createEquipmentAssembly("server-2u");
+  const board = groups.get("backplane-01")!,
+    cable = groups.get("cables-01")!,
+    card = groups.get("raid-01")!;
+  const bounds = (o: import("three").Object3D) =>
+    new Box3().setFromObject(o, true);
+  for (const [id, owner, fixed, sign] of [
+    ...drivePairs.map(
+      ({ companion }) =>
+        [companion.id, groups.get(companion.id)!, board, 1] as const,
+    ),
+    ["backplane-plug", cable, board, -1],
+    ["controller-plug", cable, card, 1],
+  ] as const) {
+    const scope = layerScopeFor(owner, id)!;
+    assert.equal(scope.layerRoot, layerScopeFor(fixed, id)!.layerRoot);
+    const disk = id.startsWith("disk");
+    for (const separated of [true, false]) {
+      poseAssemblyLayer(scope.layerRoot, separated);
+      root.updateWorldMatrix(true, true);
+      const pads = scope.moving.getObjectsByProperty(
+        "name",
+        disk ? "ssd-tail-pad" : "sas-pad",
+      );
+      const fingers = scope.members[1].getObjectsByProperty(
+        "name",
+        disk ? "disk-socket-finger" : "sas-finger",
+      );
+      assert.equal(pads.length, disk ? 10 : 2);
+      for (const [i, pad] of pads.entries()) {
+        const a = bounds(pad),
+          b = bounds(fingers[i]);
+        if (disk) assert.ok(Math.abs(a.max.x - b.min.x) < 1e-7);
+        else assert.ok(Math.abs(a.max.y - b.min.y) < 1e-7);
+        assert.equal(
+          sign > 0 ? a.min.z < b.max.z : a.max.z > b.min.z,
+          !separated,
+        );
+      }
+    }
+  }
+});

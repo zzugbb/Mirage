@@ -1,6 +1,10 @@
 import * as THREE from "three";
-import { compactCablePlug } from "./compact-sas-ends.ts";
-import { compactCableSocket } from "./compact-storage-path.ts";
+import { registerLayer, registerLayerScope } from "./assembly-layer.ts";
+import { compactCablePlug, registerCompactSasEnd } from "./compact-sas-ends.ts";
+import {
+  compactCableSocket,
+  registerStorageContact,
+} from "./compact-storage-path.ts";
 import { drivePairs } from "../assembly-pairs.ts";
 import { modelById, partsForModel } from "../catalog.ts";
 import type { Box } from "./equipment-model.ts";
@@ -53,22 +57,45 @@ export function buildStorageHarness(
   board.position.z -= layout.socketDepth + d / 2;
   box(board, [w, h, d], [0, 0, 0], "#285441", 0.22);
   for (const [i, face] of contacts.entries()) {
+    const disk = groups.get(drivePairs[i].companion.id)!;
+    const plug = disk.getObjectByName("ssd-tail-connector")!;
+    const socket = new THREE.Group();
+    socket.name = "disk-receiver-" + drivePairs[i].companion.slot;
+    board.add(socket);
     const { x, y, z } = face.clone().sub(board.position);
     const depth = z - d / 2;
     box(
-      board,
+      socket,
       [0.005, 0.038, depth - 0.0004],
       [x, y, z - depth / 2 - 0.0002],
       "#242c31",
       0.22,
     );
     box(
-      board,
+      socket,
       [0.002, 0.028, 0.0004],
       [x, y, z - 0.0002],
       "#aa9359",
       0.48,
     ).name = drivePairs[i].companion.slot;
+    for (const pad of plug.getObjectsByProperty("name", "ssd-tail-pad")) {
+      const b = new THREE.Box3().setFromObject(pad);
+      const c = b.getCenter(new THREE.Vector3()).sub(board.position);
+      box(
+        socket,
+        [0.0004, 0.001, 0.0024],
+        [b.max.x - board.position.x + 0.0002, c.y, z + 0.0012],
+        "#b39a71",
+      ).name = "disk-socket-finger";
+    }
+    registerStorageContact(
+      drivePairs[i].companion.id,
+      disk,
+      board,
+      plug,
+      socket,
+      0.021,
+    );
   }
   for (const sx of [-1, 1])
     for (const sy of [-1, 1])
@@ -95,21 +122,81 @@ export function buildStorageHarness(
   box(card, [cw * 0.64, 0.001, 0.004], [0, 0, -cd / 2 - 0.002], "#b1965f");
 
   // 两个座分别属于板件，压扣与插头归线束。两端都以座的外表面定位。
-  const boardSeat = box(
+  const boardSeat = compactCableSocket(
     board,
     [0.022, 0.009, 0.008],
     [-w * 0.34, 0.012, -(d + 0.008) / 2],
-    "#353e43",
+    box,
   );
-  const cardSeat = box(
+  boardSeat.rotation.y = Math.PI;
+  const cardSeat = compactCableSocket(
     card,
     [0.022, 0.009, 0.012],
     [0, 0.0055, (cd - 0.012) / 2],
-    "#353e43",
+    box,
   );
   connectHarness(cable, boardSeat, cardSeat, "server-2u", layout, box);
+  for (const [id, owner, socket, sign] of [
+    ["backplane-plug", board, boardSeat, -1],
+    ["controller-plug", card, cardSeat, 1],
+  ] as const) {
+    const plug = cable.getObjectByName(id + "-assembly")!;
+    registerStorageContact(id, cable, owner, plug, socket, sign * 0.022);
+    registerCompactSasEnd(id, cable, owner, plug, socket, sign);
+  }
+  registerControllerSeat(groups, card, box);
   positions.set(layout.backplane, board.position.clone());
   positions.set(layout.harness, cable.position.clone());
+}
+
+// 托座按控制卡基板的四角定位，活动件沿装配法向离开固定座。
+function registerControllerSeat(
+  groups: Map<string, THREE.Group>,
+  card: THREE.Group,
+  box: Box,
+) {
+  const board = groups.get(modelById("server-2u").rtcMount!.boardId)!;
+  const pcb = card.children[0];
+  const bounds = new THREE.Box3().setFromObject(pcb, true);
+  const center = bounds.getCenter(new THREE.Vector3());
+  center.y = bounds.min.y;
+  const seat = new THREE.Group();
+  seat.name = "controller-board-seat";
+  seat.position.copy(board.worldToLocal(center.clone()));
+  board.add(seat);
+  const size = bounds.getSize(new THREE.Vector3());
+  for (const sx of [-1, 1])
+    for (const sz of [-1, 1]) {
+      const x = sx * (size.x / 2 - 0.005),
+        z = sz * (size.z / 2 - 0.005);
+      const point = center.clone().add(new THREE.Vector3(x, 0, z));
+      const hit = new THREE.Raycaster(
+        point,
+        new THREE.Vector3(0, -1, 0),
+      ).intersectObject(board)[0];
+      const height = Math.max(0.001, hit?.distance ?? 0.004);
+      box(seat, [0.006, height, 0.006], [x, -height / 2, z], "#84908a").name =
+        "controller-seat-post";
+    }
+  const body = new THREE.Group();
+  body.name = "controller-card-body";
+  body.add(...card.children);
+  card.add(body);
+  registerLayer(body, {
+    node: body.name,
+    offset: [0, 0.038, 0],
+    direction: [0.8, 0.72, 0.9],
+  });
+  for (const [owner, target] of [
+    [card, body],
+    [board, seat],
+  ])
+    registerLayerScope(owner, "card-seat", {
+      layerRoot: body,
+      moving: body,
+      members: [body, seat],
+      selectedBranch: target,
+    });
 }
 
 // M1 精模保留两块原板件。简模上的插座连同线束以同一装配坐标转挂到精模。
@@ -174,15 +261,11 @@ function connectHarness(
   function plug(end: THREE.Vector3, direction: number, name: string) {
     const p = end.clone().sub(cable.position);
     p.z += direction * 0.006;
-    const body = compact ? new THREE.Group() : cable;
-    if (compact) {
-      body.name = name + "-assembly";
-      cable.add(body);
-      compactCablePlug(body, name, p, box);
-    } else {
-      box(body, [0.019, 0.008, 0.012], p.toArray(), "#46545c").name = name;
-      box(body, [0.009, 0.001, 0.007], [p.x, p.y + 0.0045, p.z], "#a0a9a8");
-    }
+    const body = new THREE.Group();
+    body.name = name + "-assembly";
+    cable.add(body);
+    const endPlug = compactCablePlug(body, name, p, box);
+    if (direction < 0) endPlug.rotation.y = Math.PI;
     return end.clone().add(new THREE.Vector3(0, 0, direction * 0.012));
   }
   const from = plug(front, boardDirection, "backplane-plug");
