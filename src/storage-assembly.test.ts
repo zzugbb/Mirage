@@ -542,7 +542,7 @@ test("N1 两侧电源板卡抽出内托后才离柱，板上器件及插片随�
   for (const { id } of rearLayoutFor("switch-1u")!.supplies) {
     const psu = groups.get(id)!;
     const scope = layerScopeFor(psu, "board-mount")!;
-    const carrier = scope.extractedCarrier!;
+    const [carrier] = scope.extractedLayers!;
     assert.equal(carrier, psu);
     const board = scope.moving,
       tray = board.parent!;

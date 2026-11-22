@@ -513,6 +513,11 @@ export function Workspace() {
   const rearLayer = rearRow
     ? rearMemberLayer(rearLayout, contactFan?.id ?? selected)
     : undefined;
+  const storageFanStages =
+    rearLayer && "stages" in rearLayer ? rearLayer.stages : undefined;
+  const storageFanStage = storageFanStages?.find(
+    (item) => item.id === (pairVisit?.layerScopeId ?? ""),
+  );
   const powerContactScope =
     rearLayer && "contactScope" in rearLayer
       ? rearLayer.contactScope
@@ -5804,6 +5809,7 @@ export function Workspace() {
                     ? station.id
                     : layerPose &&
                         (assembly?.tool === "switch-front" ||
+                          storageFanStage ||
                           powerContactScope ||
                           controllerInspection)
                       ? pairVisit?.layerScopeId
@@ -6214,47 +6220,64 @@ export function Workspace() {
                         ))}
                       </select>
                     )}
-                    {rearLayer && "fanContacts" in rearLayer && (
-                      <>
+                    {rearLayout &&
+                      (storageFanStages ||
+                        (rearLayer && "fanContacts" in rearLayer)) && (
                         <select
                           aria-label="核查风扇"
                           disabled={!ready}
                           value={contactFan?.id ?? selected}
                           onChange={(event) => pick(event.target.value)}
                         >
-                          {switchRear.fans.map((fan) => (
+                          {rearLayout.fans.map((fan) => (
                             <option key={fan.id} value={fan.id}>
                               {fan.slot}
                             </option>
                           ))}
                         </select>
-                        <select
-                          aria-label="风扇核查位置"
-                          disabled={!ready}
-                          value={contactVisit?.view ?? "rotor"}
-                          onChange={(event) => {
-                            const view = event.target.value;
-                            const fanId = contactFan?.id ?? selected;
-                            if (selected !== fanId) pick(fanId);
-                            setPairVisit(
-                              (current) =>
-                                current && {
-                                  ...current,
-                                  layerPose: "seated",
-                                  fanContact:
-                                    view === "fan-bank" ||
-                                    view === "fan-contact"
-                                      ? { view, fanId }
-                                      : undefined,
-                                },
-                            );
-                          }}
-                        >
-                          <option value="rotor">叶轮与轴座</option>
-                          <option value="fan-bank">整排与板缘</option>
-                          <option value="fan-contact">本槽触点</option>
-                        </select>
-                      </>
+                      )}
+                    {storageFanStages && (
+                      <select
+                        aria-label="风扇核查位置"
+                        disabled={!ready}
+                        value={storageFanStage?.id ?? ""}
+                        onChange={(event) =>
+                          setLayerScope(event.target.value || undefined)
+                        }
+                      >
+                        {storageFanStages.map((stage) => (
+                          <option key={stage.id} value={stage.id}>
+                            {stage.name}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                    {rearLayer && "fanContacts" in rearLayer && (
+                      <select
+                        aria-label="风扇核查位置"
+                        disabled={!ready}
+                        value={contactVisit?.view ?? "rotor"}
+                        onChange={(event) => {
+                          const view = event.target.value;
+                          const fanId = contactFan?.id ?? selected;
+                          if (selected !== fanId) pick(fanId);
+                          setPairVisit(
+                            (current) =>
+                              current && {
+                                ...current,
+                                layerPose: "seated",
+                                fanContact:
+                                  view === "fan-bank" || view === "fan-contact"
+                                    ? { view, fanId }
+                                    : undefined,
+                              },
+                          );
+                        }}
+                      >
+                        <option value="rotor">叶轮与轴座</option>
+                        <option value="fan-bank">整排与板缘</option>
+                        <option value="fan-contact">本槽触点</option>
+                      </select>
                     )}
                     {powerContactScope && rearLayout && (
                       <>
@@ -6418,7 +6441,7 @@ export function Workspace() {
                                   ? pose === "seated"
                                     ? "插入固定座"
                                     : "退出固定座"
-                                  : selectedLayer[pose]}
+                                  : (storageFanStage ?? selectedLayer)[pose]}
                       </button>
                     ))}
                   </div>

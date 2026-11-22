@@ -1,3 +1,4 @@
+import { storageFanMotor, steppedLathe } from "./storage-fan-mount.ts";
 import * as THREE from "three";
 import definition from "../../assets/public/scenes/room-01.json" with { type: "json" };
 
@@ -6,7 +7,7 @@ export function createFanModule(
   size: number[],
   mode: "fixed" | "rotor" | "guard" = "fixed",
 ) {
-  const separableRotor = mode === "rotor";
+  const separableRotor = mode !== "fixed";
   const [w, h, d] = size;
   const s = definition.fanModule;
   const inspection = definition.switchAssembly.fanRotor;
@@ -140,7 +141,7 @@ export function createFanModule(
       ).rotation.z = angle - Math.PI / 2;
     }
   }
-  if (separableRotor) {
+  if (mode === "rotor") {
     const screw = new THREE.CylinderGeometry(
       wall * 0.64,
       wall * 0.76,
@@ -163,7 +164,7 @@ export function createFanModule(
 
   // 叶轮靠近后侧开口，静止呈现；所有细节保持在原模块包围范围内。
   const rotorZ =
-    -d * (separableRotor ? inspection.rearDepthRatio : s.rotorRearRatio);
+    -d * (mode === "rotor" ? inspection.rearDepthRatio : s.rotorRearRatio);
   const rotor = separableRotor ? new THREE.Group() : root;
   if (separableRotor) {
     rotor.name = "fan-rotor";
@@ -171,20 +172,21 @@ export function createFanModule(
   }
   const shaftRadius = hubRadius * 0.38;
   // 轮毂背面留盲孔，沿机后方向抽离固定轴头。外端封闭，叶片与轮毂同轴。
-  const hubGeometry = separableRotor
-    ? new THREE.LatheGeometry(
-        [
-          new THREE.Vector2(0, -thickness),
-          new THREE.Vector2(hubRadius * 0.92, -thickness),
-          new THREE.Vector2(hubRadius, -thickness * 0.85),
-          new THREE.Vector2(hubRadius, thickness),
-          new THREE.Vector2(shaftRadius * 1.12, thickness),
-          new THREE.Vector2(shaftRadius * 1.12, -thickness * 0.4),
-          new THREE.Vector2(0, -thickness * 0.4),
-        ],
-        32,
-      )
-    : new THREE.CylinderGeometry(hubRadius, hubRadius, thickness * 2, 24);
+  const hubProfile = [
+    new THREE.Vector2(0, -thickness),
+    new THREE.Vector2(hubRadius * 0.92, -thickness),
+    new THREE.Vector2(hubRadius, -thickness * 0.85),
+    new THREE.Vector2(hubRadius, thickness),
+    new THREE.Vector2(shaftRadius * 1.12, thickness),
+    new THREE.Vector2(shaftRadius * 1.12, -thickness * 0.4),
+    new THREE.Vector2(0, -thickness * 0.4),
+  ];
+  const hubGeometry =
+    mode === "guard"
+      ? steppedLathe(hubProfile, 32)
+      : separableRotor
+        ? new THREE.LatheGeometry(hubProfile, 32)
+        : new THREE.CylinderGeometry(hubRadius, hubRadius, thickness * 2, 24);
   const hub = mesh("fan-hub", hubGeometry, [0, 0, rotorZ], 1, rotor);
   hub.rotation.x = Math.PI / 2;
   const blade = new THREE.Shape();
@@ -241,44 +243,65 @@ export function createFanModule(
     );
     vane.rotation.z = (i * Math.PI * 2) / s.bladeCount;
   }
-  const supportZ = rotorZ + thickness * 2;
+  let supportZ = rotorZ + thickness * 2;
   const motorRadius = hubRadius * (separableRotor ? 1 : 0.8);
-  const motor = mesh(
-    "fan-motor",
-    new THREE.CylinderGeometry(motorRadius, motorRadius, thickness * 2, 24),
-    [0, 0, supportZ],
-    separableRotor ? 1 : 0,
-  );
-  motor.rotation.x = Math.PI / 2;
-  if (separableRotor) {
-    const pin = mesh(
-      "fan-shaft",
-      new THREE.CylinderGeometry(
-        shaftRadius,
-        shaftRadius,
-        thickness * 1.25,
-        24,
-      ),
-      [0, 0, rotorZ + thickness * 0.375],
-      2,
+  if (mode === "guard") {
+    supportZ = storageFanMotor(
+      root,
+      motorRadius,
+      shaftRadius,
+      thickness,
+      rotorZ,
+      materials[0],
+      materials[2],
     );
-    pin.material = materials[2].clone();
-    pin.material.color.set(inspection.shaftColor);
-    pin.rotation.x = Math.PI / 2;
+    mesh("fan-motor-frame", plate, [0, 0, supportZ - wall / 2], 0);
+  } else {
+    const motor = mesh(
+      "fan-motor",
+      new THREE.CylinderGeometry(motorRadius, motorRadius, thickness * 2, 24),
+      [0, 0, supportZ],
+      separableRotor ? 1 : 0,
+    );
+    motor.rotation.x = Math.PI / 2;
+    if (separableRotor) {
+      const pin = mesh(
+        "fan-shaft",
+        new THREE.CylinderGeometry(
+          shaftRadius,
+          shaftRadius,
+          thickness * 1.25,
+          24,
+        ),
+        [0, 0, rotorZ + thickness * 0.375],
+        2,
+      );
+      pin.material = materials[2].clone();
+      pin.material.color.set(inspection.shaftColor);
+      pin.rotation.x = Math.PI / 2;
+    }
   }
   for (let i = 0; i < 3; i++) {
     const angle = (i * Math.PI * 2) / 3;
     const reach =
-      mode !== "fixed"
-        ? Math.min(
-            (w / 2 - wall / 2) / Math.abs(Math.sin(angle)),
-            (h / 2 - wall / 2) / Math.abs(Math.cos(angle)),
-          )
-        : radius;
+      mode === "guard"
+        ? radius + wall * 0.24
+        : mode === "rotor"
+          ? Math.min(
+              (w / 2 - wall / 2) / Math.abs(Math.sin(angle)),
+              (h / 2 - wall / 2) / Math.abs(Math.cos(angle)),
+            )
+          : radius;
+    // S4 的支臂接在座壳外圆，给轴套盲孔留出完整净空。
+    const start = mode === "guard" ? motorRadius * 0.96 : 0;
     const support = box(
       "fan-support",
-      [h * s.supportWidthRatio, reach, thickness],
-      [(-Math.sin(angle) * reach) / 2, (Math.cos(angle) * reach) / 2, supportZ],
+      [h * s.supportWidthRatio, reach - start, thickness],
+      [
+        (-Math.sin(angle) * (reach + start)) / 2,
+        (Math.cos(angle) * (reach + start)) / 2,
+        supportZ,
+      ],
       separableRotor ? 2 : 0,
     );
     support.rotation.z = angle;

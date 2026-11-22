@@ -4,6 +4,7 @@ import * as THREE from "three";
 import definition from "../assets/public/scenes/room-01.json" with { type: "json" };
 import {
   assemblyLayer,
+  layerScopeFor,
   includeSeparatedLayer,
   poseAssemblyLayer,
 } from "./scene/assembly-layer.ts";
@@ -298,6 +299,127 @@ test("S4 两只风扇的护网各自沿机后方向取下，四个通孔归位�
         }
         assert.ok(bounds(hub).equals(fixedHub));
         if (!separated) assert.ok(bounds(guard).equals(rest));
+      }
+    }
+  } finally {
+    dispose(assembly.root);
+  }
+});
+
+test("S4 两槽的叶轮背孔对轴，轴套止肩抵住电机座，分合后各件恢复原位", () => {
+  const assembly = createEquipmentAssembly("storage-4u");
+  const bounds = (obj: THREE.Object3D) =>
+    new THREE.Box3().setFromObject(obj, true);
+  const close = (a: number, b: number) => assert.ok(Math.abs(a - b) < 1e-7);
+  try {
+    for (const { id } of rearLayoutFor("storage-4u")!.fans) {
+      const fan = assembly.groups.get(id)!;
+      const rotor = layerScopeFor(fan, "storage-rotor")!;
+      const spindle = layerScopeFor(fan, "storage-spindle")!;
+      const hub = rotor.moving.getObjectByName("fan-hub")!;
+      const pin = spindle.moving.getObjectByName("fan-shaft")!;
+      const sleeve = spindle.moving.getObjectByName("fan-sleeve")!;
+      const motor = fan.getObjectByName("fan-motor")!;
+      const arms = fan.getObjectsByProperty("name", "fan-support");
+      const guard = fan.getObjectByName("fan-guard")!;
+      fan.updateWorldMatrix(true, true);
+      const initial = [hub, pin, sleeve, motor, guard, ...arms].map(bounds);
+      const [hubBox, pinBox, sleeveBox, seat] = initial;
+      const center = seat.getCenter(new THREE.Vector3());
+      const ray = (dx: number, z: number, dir: number) =>
+        new THREE.Raycaster(
+          new THREE.Vector3(center.x + dx, center.y, z),
+          new THREE.Vector3(0, 0, dir),
+        );
+      const pinRadius = (pinBox.max.x - pinBox.min.x) / 2;
+      const width = seat.max.x - center.x;
+      const back = ray(0, seat.min.z - 0.01, 1).intersectObject(motor)[0].point
+        .z;
+      assert.ok(back > sleeveBox.max.z && back < seat.max.z);
+      const blind = ray(0, hubBox.max.z + 0.01, -1).intersectObject(hub)[0]
+        .point.z;
+      assert.ok(
+        hubBox.min.z < blind &&
+          blind < pinBox.min.z &&
+          pinBox.min.z < hubBox.max.z,
+      );
+      close(
+        ray(width * 0.79, sleeveBox.max.z + 0.01, -1).intersectObject(sleeve)[0]
+          .point.z,
+        seat.min.z,
+      );
+      for (const obj of [hubBox, pinBox, sleeveBox]) {
+        const c = obj.getCenter(new THREE.Vector3());
+        close(c.x, center.x);
+        close(c.y, center.y);
+      }
+      assert.equal(
+        ray(pinRadius * 0.95, sleeveBox.min.z - 0.01, 1).intersectObject(sleeve)
+          .length,
+        0,
+      );
+      assert.equal(
+        ray(width * 0.6, seat.min.z - 0.01, 1).intersectObjects(arms).length,
+        0,
+      );
+      assert.equal(
+        rotor.moving.getObjectsByProperty("name", "fan-blade").length,
+        7,
+      );
+      const frame = fan.getObjectByName("fan-motor-frame")!;
+      const frameBox = bounds(frame);
+      const fanHeight = definition.parts.find((part) => part.id === "sto-fans")!
+        .size[1];
+      const radius = fanHeight * definition.fanModule.openingRadiusRatio;
+      // 三臂均从座壳外圆伸到同一框板的实面，孔内保持净空。
+      for (const arm of arms) {
+        const axis = bounds(arm).getCenter(new THREE.Vector3()).sub(center);
+        axis.z = 0;
+        axis.normalize();
+        for (const [r, target] of [
+          [width * 0.98, motor],
+          [radius + 0.0003, frame],
+        ] as const) {
+          const point = center.clone().addScaledVector(axis, r);
+          point.z = frameBox.min.z - 0.02;
+          const ray = new THREE.Raycaster(point, new THREE.Vector3(0, 0, 1));
+          assert.ok(
+            ray.intersectObject(arm).length &&
+              ray.intersectObject(target).length,
+          );
+        }
+      }
+      const rearView = layerScopeFor(fan, "storage-hub")!;
+      assert.equal(rearView.moving, hub);
+      assert.deepEqual(rearView.members, [hub, spindle.moving]);
+      poseAssemblyLayer(rearView.layerRoot, true);
+      fan.updateWorldMatrix(true, true);
+      assert.ok(bounds(hub).max.z < pinBox.min.z);
+      assert.ok(bounds(pin).equals(pinBox));
+      poseAssemblyLayer(rearView.layerRoot, false);
+      for (const scope of [rotor, spindle, rotor, spindle]) {
+        for (const outer of scope.extractedLayers!)
+          poseAssemblyLayer(outer, true);
+        poseAssemblyLayer(scope.layerRoot, true);
+        fan.updateWorldMatrix(true, true);
+        if (scope === rotor) {
+          assert.ok(bounds(guard).max.z < bounds(rotor.moving).min.z);
+          assert.ok(bounds(pin).equals(pinBox));
+        } else {
+          assert.ok(bounds(sleeve).max.z < seat.min.z);
+          assert.ok(bounds(rotor.moving).max.z < bounds(spindle.moving).min.z);
+          assert.ok(bounds(guard).max.z < bounds(rotor.moving).min.z);
+        }
+        assert.ok(bounds(motor).equals(seat));
+        assert.deepEqual(arms.map(bounds), initial.slice(5));
+        poseAssemblyLayer(scope.layerRoot, false);
+        for (const outer of [...scope.extractedLayers!].reverse())
+          poseAssemblyLayer(outer, false);
+        fan.updateWorldMatrix(true, true);
+        assert.deepEqual(
+          [hub, pin, sleeve, motor, guard, ...arms].map(bounds),
+          initial,
+        );
       }
     }
   } finally {

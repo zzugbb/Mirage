@@ -221,7 +221,7 @@ export class SceneEngine {
   private rearModuleSeats = new RearModuleSeats();
   private dimmSocket = new DimmSocket();
   private liftedPart?: THREE.Object3D;
-  private extractedCarrier?: THREE.Object3D;
+  private extractedLayers?: readonly THREE.Object3D[];
   storageContact = false;
   storageConnectorPose?: LayerPose;
   storageBoardDisk?: string | null;
@@ -2804,14 +2804,16 @@ export class SceneEngine {
       this.layerPose === "separated" && assemblyLayer(layerRoot)
         ? layerRoot
         : undefined;
-    const carrier = scope?.extractedCarrier;
-    if (this.liftedPart !== lifted || this.extractedCarrier !== carrier) {
+    const extracted = scope?.extractedLayers;
+    if (this.liftedPart !== lifted || this.extractedLayers !== extracted) {
       if (this.liftedPart) poseAssemblyLayer(this.liftedPart, false);
-      if (this.extractedCarrier)
-        poseAssemblyLayer(this.extractedCarrier, false);
-      if (carrier) poseAssemblyLayer(carrier, true);
+      if (this.extractedLayers)
+        for (let i = this.extractedLayers.length - 1; i >= 0; i--)
+          poseAssemblyLayer(this.extractedLayers[i], false);
+      if (extracted)
+        for (const outer of extracted) poseAssemblyLayer(outer, true);
       if (lifted) poseAssemblyLayer(lifted, true);
-      this.extractedCarrier = carrier;
+      this.extractedLayers = extracted;
       this.liftedPart = lifted;
     }
     this.rearModuleSeats.update(

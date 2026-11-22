@@ -96,7 +96,7 @@ export function powerBoardMount(
     direction: [dx, dy, dz],
   });
   registerLayerScope(root, "board-mount", {
-    extractedCarrier: root,
+    extractedLayers: [root],
     layerRoot: board,
     moving: board,
     members: [tray],

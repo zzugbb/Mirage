@@ -128,9 +128,30 @@ const storagePowerTrayLayer = {
     "可切换两侧电源，近看板端宽窄插片与壳内固定座的接合。接合件、导轨和行程为原创装配示意。输入 A、B 归属来自配置，时间分析沿用电源部件模拟值。",
 } as const;
 const fanGuardLayer = {
+  stages: [
+    { id: "", name: "护网与定位柱", seated: "装回护网", separated: "取下护网" },
+    {
+      id: "storage-rotor",
+      name: "叶轮与轴头",
+      seated: "放回叶轮",
+      separated: "移出叶轮",
+    },
+    {
+      id: "storage-hub",
+      name: "轮毂背孔",
+      seated: "放回叶轮",
+      separated: "移出叶轮",
+    },
+    {
+      id: "storage-spindle",
+      name: "轴套与电机座",
+      seated: "压回轴套",
+      separated: "取出轴套",
+    },
+  ],
   entry: "查看护网与定位柱",
   description:
-    "FAN-01、FAN-02 的槽位和归属来自 S4 配置。护网、四角定位柱和拆装行程为原创装配示意。时间分析沿用所选风扇的模拟读数。",
+    "FAN-01、FAN-02 的槽位和归属来自 S4 配置。护网、叶轮背孔、带肩轴套、电机座和拆装行程为原创装配示意。时间分析沿用所选风扇的模拟读数。",
   label: "风扇护网与定位柱",
   scope: "护网姿态",
   seated: "装回护网",
@@ -318,7 +339,7 @@ const checks = {
       tool: "storage-power",
       entry: "核对机后模块",
       summary: "机后模块",
-      detail: "逐槽核对控制器板卡、电源内托和风扇护网",
+      detail: "逐槽核对控制器板卡、电源内托与风扇轴系",
     },
   ],
   "server-2u": [

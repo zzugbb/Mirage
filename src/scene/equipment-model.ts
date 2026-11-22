@@ -20,6 +20,7 @@ import {
   registerCompactProcessorSeats,
 } from "./compact-processors.ts";
 import { buildSwitchFanContacts } from "./switch-fan-contacts.ts";
+import { registerStorageFanMount } from "./storage-fan-mount.ts";
 import { createFanModule } from "./fan-module.ts";
 import { switchBoard, switchAsic, switchPortCages } from "./switch-model.ts";
 import {
@@ -535,6 +536,7 @@ function children(
         root.userData.focusDirection = definition.fanModule.focusDirection;
         const mode = id === "net-fans" ? "rotor" : "guard";
         child.add(createFanModule([w, size[1], size[2]], mode));
+        if (mode === "guard") registerStorageFanMount(child);
         const {
           travel,
           focusDirection: [x, y, z],
