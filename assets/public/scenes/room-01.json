@@ -6837,6 +6837,15 @@
         "io-01"
       ],
       "dimms": 8,
+      "controllerMount": {
+        "boardId": "board-01",
+        "controllerId": "raid-01",
+        "boardCenter": [0.001225, -0.016495, -0.02724],
+        "boardSize": [0.42835, 0.00669, 0.26522],
+        "controllerCenter": [0.0673, -0.003965, -0.138255],
+        "controllerSize": [0.02492, 0.01837, 0.03193],
+        "controllerTravel": [0, 0.17, 0]
+      },
       "fanDuctLayout": {
         "ductId": "duct-01",
         "ductCenter": [0, 0.005667, 0.057688],

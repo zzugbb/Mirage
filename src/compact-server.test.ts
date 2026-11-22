@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { ControllerMountGuide } from "./scene/controller-mount.ts";
 import { mapCompactServer } from "./scene/compact-server.ts";
 import { assemblyChecks } from "./assembly-pairs.ts";
 import { assemblyPartPosition } from "./assembly-motion.ts";
@@ -109,6 +110,71 @@ test("精细 1U 模型保留内嵌贴图和材质，维护部件仍与八内存�
   assert.equal(
     assembly.groups.get("disk-04")!.parent,
     assembly.groups.get("drives-01"),
+  );
+  await t.test(
+    "M1 存储控制卡在精模和简模均贴合主板，展开及复原保持对位",
+    () => {
+      const check = assemblyChecks("srv-53").find(
+        (item) => item.tool === "controller-mount",
+      )!;
+      const { primary: card, companion: board } = check.pairs[0];
+      assert.deepEqual([card.slot, board.slot], ["RAID", "MB-01"]);
+      for (const member of [card, board])
+        assert.deepEqual(assemblyChecks("srv-53", member.id), [check]);
+      for (const device of devices)
+        assert.equal(
+          assemblyChecks(device.id).some((tool) => tool.tool === check.tool),
+          device.modelId === "server-1u",
+        );
+      const guide = new ControllerMountGuide();
+      const fallback = createEquipmentAssembly("server-1u");
+      for (const model of [assembly, fallback]) {
+        const controller = model.groups.get(card.id)!,
+          pcb = model.groups.get(board.id)!;
+        for (const amount of [0, check.startExplosion, 1, 0]) {
+          for (const part of [card, board]) {
+            const base = model.positions.get(part.id)!.toArray();
+            model.groups
+              .get(part.id)!
+              .position.fromArray(
+                assemblyPartPosition({ ...part, position: base }, amount, 1),
+              );
+          }
+          pcb.updateWorldMatrix(true, true);
+          const box = new THREE.Box3().setFromObject(controller);
+          const center = box.getCenter(new THREE.Vector3());
+          assert.ok(Math.abs(center.x - card.position[0]) < 0.00002);
+          assert.ok(Math.abs(center.z - card.position[2]) < 0.00002);
+          const lift = amount * (card.explode[1] - board.explode[1]);
+          guide.update(pcb, model.positions.get(board.id)!, lift);
+          guide.root.updateMatrixWorld(true);
+          const [footprint, projection] = guide.root.children;
+          const seat = new THREE.Box3().setFromObject(footprint);
+          assert.ok(Math.abs(seat.min.x - box.min.x) < 0.00002);
+          assert.ok(Math.abs(seat.max.z - box.max.z) < 0.00002);
+          if (amount > 0)
+            assert.ok(
+              Math.abs(
+                new THREE.Box3().setFromObject(projection).max.y - box.min.y,
+              ) < 0.00002,
+            );
+          const origin = new THREE.Vector3(
+            center.x,
+            box.min.y + 0.001 - lift,
+            center.z,
+          );
+          for (const dx of [-0.008, 0, 0.008]) {
+            const ray = new THREE.Raycaster(
+              origin.clone().add(new THREE.Vector3(dx, 0, 0)),
+              new THREE.Vector3(0, -1, 0),
+            );
+            const hit = ray.intersectObject(pcb)[0];
+            assert.ok(hit, "控制卡正下方有主板");
+            assert.ok(Math.abs(hit.distance - 0.001) < 0.00002, board.slot);
+          }
+        }
+      }
+    },
   );
   await t.test(
     "M1 两路封装贴合各自精模的底部接触面，简模与复原坐标一致",

@@ -574,7 +574,10 @@ export function createEquipmentAssembly(modelId: string): Assembly {
       size[1] = 0.002;
       size[2] = depth;
     }
-    if (model.category === "server") {
+    const mount = model.controllerMount;
+    const onControllerMount =
+      mount && (p.id === mount.boardId || p.id === mount.controllerId);
+    if (model.category === "server" && !onControllerMount) {
       if (p.id === "lid-01") {
         pos.splice(0, 3, 0, h / 2, 0);
         size.splice(0, 3, 0.44, 0.002, depth);
@@ -711,14 +714,31 @@ export function createEquipmentAssembly(modelId: string): Assembly {
         ].includes(p.id)
       )
         expansionPart(group, p, box);
-      else if (p.id === "net-board") switchBoard(group, size, box);
+      else if (mount && p.id === mount.controllerId) {
+        // 按控制卡节点外廓画底座、板体与上部组件，外部端口归属独立网卡。
+        const [w, h, d] = size;
+        box(
+          group,
+          [w * 0.82, h * 0.32, d * 0.83],
+          [0, -h * 0.34, 0],
+          "#373a39",
+        );
+        box(group, [w, h * 0.14, d], [0, -h * 0.11, 0], "#305448");
+        box(
+          group,
+          [w * 0.92, h * 0.54, d * 0.84],
+          [0, h * 0.23, 0],
+          "#858b8d",
+          0.7,
+        );
+      } else if (p.id === "net-board") switchBoard(group, size, box);
       else if (model.category !== "server" && p.node === "psu")
         rearPowerSupply(group, size, box, (depth - size[2]) / 2 + pos[2]);
       else if (p.id === "net-ports") switchPortCages(group, size, box);
       else if (p.id === "net-asic") switchAsic(group, size, box);
       else if (p.id === "sto-midplane") storageMidplane(group, size, box);
       else detail(group, p.node, size, box);
-      if (p.id === "board-01") {
+      if (p.id === "board-01" && !onControllerMount) {
         const tail = new THREE.Group();
         tail.position.z = -0.18;
         group.add(tail);

@@ -62,6 +62,7 @@ import type { RackUnitRange } from "../rack-space";
 import { RackUnitGuide } from "./rack-unit-guide";
 import { PartIsolation } from "./part-isolation";
 import { storageSlots } from "../storage-slots";
+import { ControllerMountGuide } from "./controller-mount";
 import { StorageContactGuide, storageContactObjects } from "./storage-contact";
 import { canInspectPart, internalStructureThreshold } from "../part-inspection";
 import {
@@ -199,6 +200,7 @@ export class SceneEngine {
   companionPartIds: readonly string[] = [];
   storageContact = false;
   storageBoardDisk?: string | null;
+  controllerMountGuide = new ControllerMountGuide();
   storageContactGuide = new StorageContactGuide();
   partIsolation = new PartIsolation();
   partInspection: {
@@ -380,7 +382,10 @@ export class SceneEngine {
     this.shellCutaway = new ShellCutaway(this.models.shellOccluders);
     this.scene.add(this.models.root, this.inspectionBackdrop);
     this.scene.add(this.telemetry.root, this.signals.root);
-    this.scene.add(this.storageContactGuide.root);
+    this.scene.add(
+      this.storageContactGuide.root,
+      this.controllerMountGuide.root,
+    );
     this.installation = new InstallationScene(this.models);
     this.models.root.add(this.installation.root);
     this.installDevice(state);
@@ -2696,6 +2701,27 @@ export class SceneEngine {
               ...companions,
             ])
           : this.partIsolation.apply(this.models.server, target));
+    const mount =
+      applied &&
+      companions &&
+      modelForDevice(this.state.deviceId).controllerMount;
+    const board =
+      mount &&
+      id === mount.controllerId &&
+      this.companionPartIds.includes(mount.boardId)
+        ? this.models.parts.get(mount.boardId)
+        : undefined;
+    this.controllerMountGuide.root.visible = !!board;
+    if (board && target && mount) {
+      const base = this.partBases.get(mount.boardId)!;
+      const lift =
+        target.position.y - this.partBases.get(mount.controllerId)!.y;
+      this.controllerMountGuide.update(
+        board,
+        base,
+        lift - (board.position.y - base.y),
+      );
+    }
     const boardOnly =
       id === "sto-midplane" && this.storageBoardDisk !== undefined;
     const marked =

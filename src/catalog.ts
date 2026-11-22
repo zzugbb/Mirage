@@ -40,6 +40,20 @@ const partsByModel = new Map(
             focusDirection: [0.55, 0.88, -1],
           };
         }
+        const mount = model.controllerMount;
+        if (
+          mount &&
+          (part.id === mount.boardId || part.id === mount.controllerId)
+        ) {
+          const card = part.id === mount.controllerId;
+          return {
+            ...part,
+            position: card ? mount.controllerCenter : mount.boardCenter,
+            size: card ? mount.controllerSize : mount.boardSize,
+            explode: card ? mount.controllerTravel : part.explode,
+            focusDirection: [0.32, 1, -0.85],
+          };
+        }
         const panel = panels.find((p) => "partId" in p && p.partId === part.id);
         if (!panel || !("depth" in panel) || !panel.depth || !panel.explode)
           return part;

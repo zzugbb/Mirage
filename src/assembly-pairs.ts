@@ -82,8 +82,29 @@ function processorCheck(modelId: string) {
 const bay = modelById("server-2u").expansionBay!;
 const expansionMember = (id: string) =>
   partsForModel("server-2u").find((part) => part.id === id)!;
+const compact = modelById("server-1u").controllerMount!;
+const compactParts = partsForModel("server-1u");
 const checks = {
-  "server-1u": [processorCheck("server-1u"), serverPowerCheck("server-1u")],
+  "server-1u": [
+    processorCheck("server-1u"),
+    serverPowerCheck("server-1u"),
+    {
+      tool: "controller-mount",
+      name: "控制卡装配",
+      entry: "核对存储控制卡与主板",
+      detail: "从机后上方查看控制卡及其在主板上的安装位置",
+      labels: ["控制卡", "主板"],
+      startExplosion: 0.4,
+      pairs: [
+        {
+          primary: compactParts.find(
+            (part) => part.id === compact.controllerId,
+          )!,
+          companion: compactParts.find((part) => part.id === compact.boardId)!,
+        },
+      ],
+    },
+  ],
   "storage-4u": [
     {
       tool: "storage-controllers",
