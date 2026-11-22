@@ -80,7 +80,8 @@ function processorCheck(modelId: string) {
   } as const;
 }
 const bay = modelById("server-2u").expansionBay!;
-const expansionMember = (id: string) =>
+const harness = modelById("server-2u").storageHarness!;
+const serverMember = (id: string) =>
   partsForModel("server-2u").find((part) => part.id === id)!;
 const compact = modelById("server-1u").controllerMount!;
 const compactParts = partsForModel("server-1u");
@@ -145,6 +146,22 @@ const checks = {
       startExplosion: 1,
       pairs: drivePairs,
     },
+    {
+      tool: "storage-harness",
+      name: "背板线束",
+      entry: "核对背板线束",
+      detail: "沿 SAS 线束示意核对八盘背板与存储控制卡的接线端",
+      memberLabel: "背板线束部件",
+      labels: ["磁盘背板", "背板线束", "存储控制卡"],
+      startExplosion: 0.45,
+      pairs: [
+        {
+          primary: serverMember(harness.backplane),
+          companion: serverMember(harness.harness),
+        },
+      ],
+      additionalPart: serverMember(harness.controller),
+    },
     serverPowerCheck("server-2u"),
     {
       tool: "expansion-bay",
@@ -156,11 +173,11 @@ const checks = {
       labels: ["网卡", "01 架", "02 架"],
       pairs: [
         {
-          primary: expansionMember(bay.adapter),
-          companion: expansionMember(bay.carrier),
+          primary: serverMember(bay.adapter),
+          companion: serverMember(bay.carrier),
         },
       ],
-      additionalPart: expansionMember(bay.adjacent),
+      additionalPart: serverMember(bay.adjacent),
     },
   ],
   "switch-1u": [

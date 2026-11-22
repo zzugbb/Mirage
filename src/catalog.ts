@@ -40,6 +40,19 @@ const partsByModel = new Map(
             focusDirection: [0.55, 0.88, -1],
           };
         }
+        const storage = model.storageHarness;
+        if (
+          storage &&
+          [storage.backplane, storage.harness, storage.controller].includes(
+            part.id,
+          )
+        )
+          return {
+            ...part,
+            size: part.id === storage.backplane ? storage.boardSize : part.size,
+            explode: storage.travel,
+            focusDirection: storage.focusDirection,
+          };
         const duct = model.fanDuctLayout;
         if (duct && part.id === duct.ductId)
           return {

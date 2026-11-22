@@ -7446,7 +7446,9 @@ export function Workspace() {
                           ? `本机型配置 ${dimms.length} 条内存，可逐条检视。`
                           : assembly?.tool === "rear-interfaces"
                             ? "网卡和转接架沿用贡献模型外观，管理接口区域按机型配置示意。网卡样板配置 A/B 两路逻辑端口，对应关系可在网络接入中查询。"
-                            : entity.description}
+                            : assembly?.tool === "storage-harness"
+                              ? "背板接触区按八块硬盘的位置对齐。插头和线束绕行是内部装配示意，读数沿用部件模型。"
+                              : entity.description}
                     </p>
                     {entity.kind === "rack" && (
                       <>

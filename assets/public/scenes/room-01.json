@@ -6760,6 +6760,12 @@
         "cables-01",
         "io-01"
       ],
+      "storageHarness": {
+        "backplane": "backplane-01", "harness": "cables-01", "controller": "raid-01",
+        "boardSize": [0.15, 0.064, 0.002], "socketDepth": 0.009,
+        "sideX": -0.216, "sideY": 0.012, "rearBendZ": -0.164,
+        "travel": [0, 0.19, 0], "focusDirection": [0.72, 1.22, 1.36]
+      },
       "expansionBay": {
         "adapter": "nic-01", "carrier": "riser-01", "adjacent": "riser-02",
         "spacing": 0.077, "depth": 0.112,

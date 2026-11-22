@@ -3318,7 +3318,10 @@ export class SceneEngine {
           faceColor &&
           showSelection &&
           id === this.state.selected;
-        if (rackAnchor || deviceAnchor)
+        const labelPoint = partAnchor && target.userData.labelPoint;
+        if (labelPoint)
+          target.localToWorld(this.anchorPosition.copy(labelPoint));
+        else if (rackAnchor || deviceAnchor)
           target.getWorldPosition(this.anchorPosition);
         else
           this.anchorBounds
@@ -3332,15 +3335,16 @@ export class SceneEngine {
           this.models.server.getWorldPosition(this.anchorPosition);
           this.anchorPosition.z += 0.46;
         }
-        this.anchorPosition.y += element.dataset.hotspot
-          ? 0
-          : id === "srv-01"
-            ? 0.16
-            : id === "rack-a01"
-              ? 1.17
-              : this.state.level === "room"
-                ? 1.05
-                : 0.035;
+        this.anchorPosition.y +=
+          element.dataset.hotspot || labelPoint
+            ? 0
+            : id === "srv-01"
+              ? 0.16
+              : id === "rack-a01"
+                ? 1.17
+                : this.state.level === "room"
+                  ? 1.05
+                  : 0.035;
         if (rackAnchor) {
           target.getWorldPosition(this.anchorPosition);
           this.anchorPosition.y += 2.38;

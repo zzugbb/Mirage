@@ -1,5 +1,9 @@
 import { processorPairs, drivePairs } from "../assembly-pairs.ts";
 import { compactBayForPart } from "../compact-drive-bays.ts";
+import {
+  buildStorageHarness,
+  isStorageHarnessPart,
+} from "./server-storage-harness.ts";
 import { createFanModule } from "./fan-module.ts";
 import { switchBoard, switchAsic, switchPortCages } from "./switch-model.ts";
 import {
@@ -47,7 +51,7 @@ function maker() {
     return mesh;
   };
 }
-type Box = ReturnType<typeof maker>;
+export type Box = ReturnType<typeof maker>;
 function board(root: THREE.Group, size: number[], box: Box) {
   box(root, size, [0, 0, 0], "#234e3d", 0.2);
   for (let i = 0; i < 10; i++) {
@@ -530,7 +534,7 @@ function serverSsd(root: THREE.Group, box: Box) {
     [0.0008, -0.007, -d / 2 - 0.001],
     "#ad9662",
     0.45,
-  );
+  ).name = "ssd-edge-contact";
 }
 
 function children(
@@ -820,6 +824,7 @@ export function createEquipmentAssembly(modelId: string): Assembly {
     root.add(group);
     groups.set(p.id, group);
     positions.set(p.id, group.position.clone());
+    if (model.storageHarness && isStorageHarnessPart(p.id)) continue;
     if (
       p.node === "memory" ||
       p.node === "fans" ||
@@ -897,6 +902,7 @@ export function createEquipmentAssembly(modelId: string): Assembly {
       }
     }
   }
+  if (model.storageHarness) buildStorageHarness(groups, positions, box);
   if (model.category === "server") seatProcessors(modelId, groups, positions);
   root.updateMatrixWorld(true);
   return { root, groups, positions };
@@ -929,11 +935,13 @@ export function completeServerAssembly(
       }
     } else if ([bay.adapter, bay.carrier, bay.adjacent].includes(part.id))
       expansionPart(group, part, box);
-    else detail(group, part.node, part.size, box, "server-2u");
+    else if (!isStorageHarnessPart(part.id))
+      detail(group, part.node, part.size, box, "server-2u");
     root.add(group);
     groups.set(part.id, group);
     positions.set(part.id, group.position.clone());
   }
+  buildStorageHarness(groups, positions, box);
   seatProcessors("server-2u", groups, positions);
   root.updateMatrixWorld(true);
 }
