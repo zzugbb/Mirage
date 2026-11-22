@@ -160,6 +160,36 @@ test("精细 1U 模型保留内嵌贴图和材质，维护部件仍与八内存�
       }
     },
   );
+  await t.test("M1 八条内存沿用配置身份，简模与精细模型的板位逐条对应", () => {
+    const fallback = createEquipmentAssembly("server-1u");
+    const dimms = subpartsForDevice("srv-53").filter(
+      (part) => part.parent === "memory-01",
+    );
+    const slots = sceneDefinition.equipmentModels.find(
+      (model) => model.id === "server-1u",
+    )!.memoryLayout!.slots;
+    assert.deepEqual(
+      slots.map((slot) => slot.id),
+      dimms.map((part) => part.id),
+    );
+    assert.equal(dimms.length, 8);
+    let previous = -Infinity;
+    for (const dimm of dimms) {
+      const detailed = assembly.groups.get(dimm.id)!;
+      const simple = fallback.groups.get(dimm.id)!;
+      assert.equal(simple.parent, fallback.groups.get(dimm.parent));
+      assert.equal(detailed.parent, assembly.groups.get(dimm.parent));
+      const center = new THREE.Box3()
+        .setFromObject(detailed)
+        .getCenter(new THREE.Vector3());
+      const pcb = new THREE.Box3()
+        .setFromObject(simple.children[0])
+        .getCenter(new THREE.Vector3());
+      assert.ok(center.distanceTo(pcb) < 0.0001, dimm.slot);
+      assert.ok(center.x > previous, dimm.slot);
+      previous = center.x;
+    }
+  });
   const before = new THREE.Box3()
     .setFromObject(assembly.groups.get("dimm-01")!)
     .getCenter(new THREE.Vector3());

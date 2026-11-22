@@ -3,7 +3,7 @@ import {
   assemblyMember,
   type AssemblyCheck,
 } from "./assembly-pairs";
-import { modelForDevice } from "./catalog";
+import { modelById, modelForDevice, subpartsForModel } from "./catalog";
 import { CompactDriveBays } from "./components/CompactDriveBays";
 import { compactBayForPart, compactDriveBays } from "./compact-drive-bays";
 import { useDismissibleMenu } from "./use-dismissible-menu";
@@ -371,6 +371,10 @@ function reducer(
     : reviewTransition(state, action);
 }
 
+const compactDimms = subpartsForModel(modelById("server-1u")).filter(
+  (part) => part.parent === "memory-01",
+);
+
 export function Workspace() {
   const [review, control] = useReducer(reducer, undefined, createWorkspace);
   const { scene: state, layer, tour } = review;
@@ -417,6 +421,20 @@ export function Workspace() {
   const [fanViewRevision, setFanViewRevision] = useState(0);
   const [fanFocusRevision, setFanFocusRevision] = useState(0);
   const activeFanVisit = activeFanInspection(fanVisit, state, selected);
+  const [memoryDevice, setMemoryDevice] = useState<string | null>(null);
+  const selectedDimm = compactDimms.find((part) => part.id === selected);
+  const memoryContext =
+    state.level === "device" &&
+    modelForDevice(state.deviceId).id === "server-1u" &&
+    (selected === state.deviceId || selected === "memory-01" || !!selectedDimm);
+  const activeMemory =
+    memoryDevice === state.deviceId &&
+    memoryContext &&
+    canInspectPart(state) &&
+    selected !== state.deviceId;
+  useEffect(() => {
+    if (memoryDevice && !activeMemory) setMemoryDevice(null);
+  }, [memoryDevice, activeMemory]);
   const [pairVisit, setPairVisit] = useState<{
     deviceId: string;
     tool: AssemblyCheck["tool"];
@@ -449,17 +467,19 @@ export function Workspace() {
     )
       setStructureReturn(null);
   }, [structureReturn, state.level, state.deviceId, selected]);
-  const isolatedPartId = activePair
-    ? activePair.primary.id
-    : activeFanVisit && !activeFanVisit.pending
-      ? activeFanVisit.mode === "group"
-        ? fanAssembly(state.deviceId)!.group.id
-        : activeFanVisit.fanId
-      : activeStorageVisit && !activeStorageVisit.pending
-        ? activeStorageVisit.mode === "group"
-          ? storageDriveGroup
-          : activeStorageVisit.diskId
-        : isolatedPart(state, selected, inspectionDevice);
+  const isolatedPartId = activeMemory
+    ? "memory-01"
+    : activePair
+      ? activePair.primary.id
+      : activeFanVisit && !activeFanVisit.pending
+        ? activeFanVisit.mode === "group"
+          ? fanAssembly(state.deviceId)!.group.id
+          : activeFanVisit.fanId
+        : activeStorageVisit && !activeStorageVisit.pending
+          ? activeStorageVisit.mode === "group"
+            ? storageDriveGroup
+            : activeStorageVisit.diskId
+          : isolatedPart(state, selected, inspectionDevice);
   useEffect(() => {
     if (inspectionDevice && !isolatedPartId) setInspectionDevice(null);
   }, [inspectionDevice, isolatedPartId]);
@@ -614,7 +634,8 @@ export function Workspace() {
     return () => medium.removeEventListener("change", adapt);
   }, [activeAirflowResponse]);
   useEffect(() => {
-    if (!activeStorageVisit && !activeFanVisit && !activePair) return;
+    if (!activeStorageVisit && !activeFanVisit && !activePair && !activeMemory)
+      return;
     const medium = matchMedia("(max-width: 1099px)");
     const adapt = () => {
       if (medium.matches) setNav(false);
@@ -622,7 +643,12 @@ export function Workspace() {
     adapt();
     medium.addEventListener("change", adapt);
     return () => medium.removeEventListener("change", adapt);
-  }, [activeStorageVisit?.deviceId, activeFanVisit?.deviceId, activePair]);
+  }, [
+    activeStorageVisit?.deviceId,
+    activeFanVisit?.deviceId,
+    activePair,
+    activeMemory,
+  ]);
   const [powerViewActive, setPowerViewActive] = useState(false);
   const [powerViewCommand, setPowerViewCommand] =
     useState<PowerViewCommand | null>(null);
@@ -2758,6 +2784,15 @@ export function Workspace() {
   const startStructureTool = (tool: StructureTool) => {
     if (!ready || state.level !== "device") return;
     setStructureReturn(null);
+    if (tool === "memory") {
+      if (!memoryContext) return;
+      setInspectionDevice(null);
+      setMemoryDevice(state.deviceId);
+      control({ type: "analysis", value: false });
+      if (!canInspectPart(state)) dispatch({ type: "explode", amount: 0.6 });
+      focus(selectedDimm?.id ?? compactDimms[0].id);
+      return;
+    }
     if (tool !== "fans" && tool !== "storage") {
       const check = pairTools.find((item) => item.tool === tool);
       if (!check) return;
@@ -2834,12 +2869,13 @@ export function Workspace() {
   };
   const structureVisit = activeFanVisit ?? activeStorageVisit;
   const finishStructureCheck = () => {
-    if (!ready || !(structureVisit || activePair)) return;
+    if (!ready || !(structureVisit || activePair || activeMemory)) return;
     if (inspector)
       setStructureReturn({
         deviceId: state.deviceId,
-        tool:
-          activePair && assembly
+        tool: activeMemory
+          ? "memory"
+          : activePair && assembly
             ? assembly.tool
             : activeFanVisit
               ? "fans"
@@ -2847,6 +2883,7 @@ export function Workspace() {
       });
     else partSequenceFocus.current = "heading";
     control({ type: "analysis", value: false });
+    setMemoryDevice(null);
     setPairVisit(null);
     setStorageVisit(null);
     setFanVisit(null);
@@ -3618,6 +3655,7 @@ export function Workspace() {
     setSliceCheck(null);
     setPduInspection(null);
     setPduReturning(false);
+    setMemoryDevice(null);
     setPairVisit(null);
     setInspectionDevice(null);
     setEnvironmentComparisonOpen(false);
@@ -5660,6 +5698,31 @@ export function Workspace() {
                     setSmokeRestore(true);
                   }}
                 />
+              ) : activeMemory ? (
+                <StructureToolbar
+                  label="内存组核查"
+                  state={state}
+                  dispatch={dispatch}
+                  disabled={!ready}
+                  destination="完整结构"
+                  onBack={finishStructureCheck}
+                >
+                  <div className="structure-check-scope">
+                    <select
+                      aria-label="内存条编号"
+                      disabled={!ready}
+                      value={selected}
+                      onChange={(event) => pick(event.target.value)}
+                    >
+                      <option value="memory-01">整组内存</option>
+                      {compactDimms.map((dimm) => (
+                        <option key={dimm.id} value={dimm.id}>
+                          {dimm.slot}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </StructureToolbar>
               ) : activePair && assembly ? (
                 <StructureToolbar
                   label={assembly.name + "核查"}
@@ -6927,14 +6990,17 @@ export function Workspace() {
                     </section>
                     {state.level === "device" &&
                       !activePair &&
+                      !activeMemory &&
                       !activeFanVisit &&
                       !activeStorageVisit &&
-                      (pairTools.length > 0 ||
+                      (memoryContext ||
+                        pairTools.length > 0 ||
                         compactBayContext ||
                         fanInspectionContext(state.deviceId, selected) ||
                         storageSlotContext(state.deviceId, selected)) && (
                         <StructureTools
                           assemblies={pairTools}
+                          memory={memoryContext ? compactDimms.length : 0}
                           key={`${revision}:${state.deviceId}:${compactBayContext ? "bays" : selected}`}
                           showSelection={
                             compactBayContext && selected !== state.deviceId

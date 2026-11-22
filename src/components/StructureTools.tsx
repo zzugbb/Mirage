@@ -2,13 +2,15 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import type { AssemblyCheck } from "../assembly-pairs";
 
-export type StructureTool = "fans" | "storage" | AssemblyCheck["tool"];
+export type StructureTool =
+  "fans" | "storage" | "memory" | AssemblyCheck["tool"];
 
 /** 未开始的核对工具按需展开；明确结束后才恢复入口，不跟随回看抢焦点。 */
 export function StructureTools({
   children,
   showSelection = false,
   assemblies,
+  memory,
   fans,
   slots,
   ready,
@@ -19,6 +21,7 @@ export function StructureTools({
   children?: React.ReactNode;
   showSelection?: boolean;
   assemblies: readonly AssemblyCheck[];
+  memory: number;
   fans: number;
   slots: number;
   ready: boolean;
@@ -79,6 +82,7 @@ export function StructureTools({
         <small>
           {[
             ...assemblies.map((check) => check.name),
+            memory ? "内存组" : "",
             fans ? "风扇组" : "",
             slots || children ? "盘位" : "",
           ]
@@ -101,6 +105,18 @@ export function StructureTools({
             <small>{assembly.detail}</small>
           </button>
         ))}
+        {memory > 0 && (
+          <button
+            data-structure-tool="memory"
+            disabled={!ready}
+            onClick={() => onStart("memory")}
+          >
+            <strong>
+              核对内存组 · {memory} 条 <span>↗</span>
+            </strong>
+            <small>在整组中选择 DIMM，核对编号和相邻位置</small>
+          </button>
+        )}
         {fans > 0 && (
           <button
             data-structure-tool="fans"

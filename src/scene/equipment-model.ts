@@ -310,7 +310,10 @@ function children(
       const perBank = count / 2,
         bank = i < perBank ? -1 : 1,
         x = bank * 0.16 + ((i % perBank) - (perBank - 1) / 2) * 0.0075;
-      child.position.set(x, 0, 0);
+      const slot = modelById(modelId).memoryLayout?.slots.find(
+        (slot) => slot.id === ids[i].id,
+      );
+      child.position.set(slot?.x ?? x, 0, 0);
       box(child, [0.003, 0.03125, 0.13335], [0, 0, 0], "#28523f", 0.2);
       for (let k = 0; k < 8; k++)
         box(
@@ -460,7 +463,13 @@ export function createEquipmentAssembly(modelId: string): Assembly {
         size.splice(0, 3, 0.4, 0.004, 0.22);
       }
       if (p.id === "memory-01") {
-        pos.splice(0, 3, 0, 0.002, -0.09);
+        pos.splice(
+          0,
+          3,
+          0,
+          model.memoryLayout?.centerY ?? 0.002,
+          model.memoryLayout?.centerZ ?? -0.09,
+        );
         size.splice(0, 3, 0.39, 0.03125, 0.13335);
       }
       if (p.id === "nic-01" || p.id === "riser-01") {
