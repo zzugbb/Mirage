@@ -3,7 +3,7 @@ import {
   assemblyMember,
   type AssemblyCheck,
 } from "./assembly-pairs";
-import { modelById, modelForDevice, subpartsForModel } from "./catalog";
+import { modelForDevice, subpartsForModel } from "./catalog";
 import { CompactDriveBays } from "./components/CompactDriveBays";
 import { compactBayForPart, compactDriveBays } from "./compact-drive-bays";
 import { useDismissibleMenu } from "./use-dismissible-menu";
@@ -371,10 +371,6 @@ function reducer(
     : reviewTransition(state, action);
 }
 
-const compactDimms = subpartsForModel(modelById("server-1u")).filter(
-  (part) => part.parent === "memory-01",
-);
-
 export function Workspace() {
   const [review, control] = useReducer(reducer, undefined, createWorkspace);
   const { scene: state, layer, tour } = review;
@@ -422,10 +418,20 @@ export function Workspace() {
   const [fanFocusRevision, setFanFocusRevision] = useState(0);
   const activeFanVisit = activeFanInspection(fanVisit, state, selected);
   const [memoryDevice, setMemoryDevice] = useState<string | null>(null);
-  const selectedDimm = compactDimms.find((part) => part.id === selected);
+  const deviceModel = modelForDevice(state.deviceId);
+  const dimms = useMemo(
+    () =>
+      deviceModel.memoryLayout
+        ? subpartsForModel(deviceModel).filter(
+            (part) => part.parent === "memory-01",
+          )
+        : [],
+    [deviceModel],
+  );
+  const selectedDimm = dimms.find((part) => part.id === selected);
   const memoryContext =
     state.level === "device" &&
-    modelForDevice(state.deviceId).id === "server-1u" &&
+    dimms.length > 0 &&
     (selected === state.deviceId || selected === "memory-01" || !!selectedDimm);
   const activeMemory =
     memoryDevice === state.deviceId &&
@@ -2790,7 +2796,7 @@ export function Workspace() {
       setMemoryDevice(state.deviceId);
       control({ type: "analysis", value: false });
       if (!canInspectPart(state)) dispatch({ type: "explode", amount: 0.6 });
-      focus(selectedDimm?.id ?? compactDimms[0].id);
+      focus(selectedDimm?.id ?? dimms[0].id);
       return;
     }
     if (tool !== "fans" && tool !== "storage") {
@@ -5715,7 +5721,7 @@ export function Workspace() {
                       onChange={(event) => pick(event.target.value)}
                     >
                       <option value="memory-01">整组内存</option>
-                      {compactDimms.map((dimm) => (
+                      {dimms.map((dimm) => (
                         <option key={dimm.id} value={dimm.id}>
                           {dimm.slot}
                         </option>
@@ -7000,7 +7006,7 @@ export function Workspace() {
                         storageSlotContext(state.deviceId, selected)) && (
                         <StructureTools
                           assemblies={pairTools}
-                          memory={memoryContext ? compactDimms.length : 0}
+                          memory={memoryContext ? dimms.length : 0}
                           key={`${revision}:${state.deviceId}:${compactBayContext ? "bays" : selected}`}
                           showSelection={
                             compactBayContext && selected !== state.deviceId
@@ -7280,8 +7286,8 @@ export function Workspace() {
                     <p>
                       {compactServer && selected === "storage-01"
                         ? `前置 ${compactDriveBays.length} 个托架，硬盘与背板分别建模。`
-                        : compactServer && selected === "memory-01"
-                          ? `本机型配置 ${modelForDevice(state.deviceId).dimms} 条内存，可逐条检视。`
+                        : memoryContext && selected === "memory-01"
+                          ? `本机型配置 ${dimms.length} 条内存，可逐条检视。`
                           : entity.description}
                     </p>
                     {entity.kind === "rack" && (

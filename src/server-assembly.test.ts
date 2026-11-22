@@ -6,14 +6,18 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import definition from "../assets/public/scenes/room-01.json" with { type: "json" };
 import { assemblyChecks } from "./assembly-pairs.ts";
 import { assemblyPartPosition } from "./assembly-motion.ts";
-import { partsForDevice } from "./catalog.ts";
+import {
+  modelForDevice,
+  partsForDevice,
+  subpartsForDevice,
+} from "./catalog.ts";
 import { createState, transition } from "./domain.ts";
 import { deviceHeight, rackForDevice } from "./installation.ts";
 import { inletPart } from "./power-config.ts";
 import { powerScene } from "./power-paths.ts";
 import { createEquipmentAssembly } from "./scene/equipment-model.ts";
 
-test("M2 两路输入在精模、简模和柜内供电路径上对应同一后部槽位", async () => {
+async function loadServerModel() {
   const bytes = readFileSync(
     new URL("../assets/public/models/server-2u.glb", import.meta.url),
   );
@@ -31,6 +35,40 @@ test("M2 两路输入在精模、简模和柜内供电路径上对应同一后�
   scene.scale.setScalar(scale);
   scene.position.copy(bounds.getCenter(new Vector3())).multiplyScalar(-scale);
   scene.updateMatrixWorld(true);
+  return scene;
+}
+
+test("M2 内存组的十六个编号逐一对应精模节点和简模板位", async () => {
+  const id = "srv-54";
+  const model = modelForDevice(id);
+  const dimms = subpartsForDevice(id).filter(
+    (part) => part.parent === "memory-01",
+  );
+  const scene = await loadServerModel();
+  const { groups } = createEquipmentAssembly(model.id);
+  assert.equal(dimms.length, 16);
+  assert.deepEqual(
+    model.memoryLayout!.slots.map((slot) => slot.id),
+    dimms.map((part) => part.id),
+  );
+  let previousX = -Infinity;
+  for (const part of dimms) {
+    const mesh = scene.getObjectByName(part.modelNode);
+    const simple = groups.get(part.id);
+    assert.ok(mesh && simple, part.slot);
+    assert.equal(simple.parent, groups.get(part.parent));
+    const center = new Box3().setFromObject(mesh).getCenter(new Vector3());
+    const pcb = new Box3()
+      .setFromObject(simple.children[0])
+      .getCenter(new Vector3());
+    assert.ok(center.distanceTo(pcb) < 0.0001, part.slot);
+    assert.ok(center.x > previousX, part.slot);
+    previousX = center.x;
+  }
+});
+
+test("M2 两路输入在精模、简模和柜内供电路径上对应同一后部槽位", async () => {
+  const scene = await loadServerModel();
 
   const id = "srv-54",
     model = "server-2u";
