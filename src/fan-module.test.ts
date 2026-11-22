@@ -170,8 +170,8 @@ test("N1 四个风扇槽位各自分离叶轮，轴头、框体与三臂固定�
       const layer = assemblyLayer(child);
       const tool = rearMemberLayer(switchRear, part.id);
       if (!switchRear.fans.some((fan) => fan.id === part.id)) {
-        assert.equal(layer, undefined);
-        assert.equal(tool, undefined);
+        assert.equal(layer?.node, "psu-inner-tray");
+        assert.equal(tool?.entry, "查看电源内托");
         continue;
       }
       assert.equal(tool?.entry, "查看叶轮与轴座");

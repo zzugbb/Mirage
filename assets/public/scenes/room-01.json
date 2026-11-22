@@ -1651,6 +1651,10 @@
     "stopClearance": 0.0011, "metalColor": "#657681"
   },
   "switchAssembly": {
+    "powerTray": {
+      "wall": 0.001, "railWidth": 0.004, "stopDepth": 0.0035,
+      "travelRatio": 1.04, "focusDirection": [-1, 0.82, -0.76]
+    },
     "fanRotor": {
       "travel": 0.054, "rearDepthRatio": 0.34, "focusDirection": [0.54, 0.23, -1],
       "shaftColor": "#cdb48a"

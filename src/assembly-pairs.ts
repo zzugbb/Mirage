@@ -103,7 +103,7 @@ export const controllerLayer = {
 const powerTrayLayer = {
   entry: "查看电源内托",
   description:
-    "输入 A、B 与电源身份沿用 S4 配置。内托、导轨、止挡和行程为原创装配示意。时间分析使用部件模型读数，支路未计量。",
+    "输入 A、B 与电源身份沿用当前机型配置。内托、导轨、止挡和行程为原创装配示意。时间分析使用部件模型读数，支路未计量。",
   label: "电源内托与导轨",
   scope: "内托姿态",
   seated: "推回壳体",
@@ -119,10 +119,7 @@ const fanGuardLayer = {
   separated: "取下护网",
 } as const;
 export function rearMemberLayer(layout: typeof switchRear, selected: string) {
-  if (
-    layout === storageRear &&
-    layout.supplies.some((part) => part.id === selected)
-  )
+  if (layout.supplies.some((part) => part.id === selected))
     return powerTrayLayer;
   if (layout.controllers.some((part) => part.id === selected))
     return controllerLayer;
@@ -392,7 +389,7 @@ const checks = {
       rear: switchRear,
       tool: "switch-power",
       entry: "核对双电源与风扇",
-      detail: "核对机后六槽，可逐件抽出风扇并查看叶轮与轴座",
+      detail: "逐槽核对电源内托与导轨、风扇叶轮与轴座",
     },
   ],
 } as const;

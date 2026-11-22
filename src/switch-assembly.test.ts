@@ -352,9 +352,20 @@ test("N1 机后六槽按观察次序排列，逐件抽出时导轨固定，相�
         close(module.max.z, original.max.z - offset);
         assert.ok(frame.clone().expandByScalar(1e-7).containsBox(module));
         assert.ok(bounds(support).equals(guides[j]));
-        assert.ok(
-          support.children.every((rail) => !overlaps(bounds(rail), module)),
-        );
+        const rails = support.children.map(bounds);
+        const object = groups.get(n.id)!;
+        const base = object.getObjectByName("psu-shell-base");
+        if (base) close(rails[0].max.y, bounds(base).min.y);
+        // 面板与壳底的外廓不同，逐件检查从装入到抽出的整个行程。
+        object.traverse((mesh) => {
+          if (!(mesh instanceof THREE.Mesh)) return;
+          const swept = bounds(mesh);
+          swept.max.z += offset;
+          assert.ok(
+            rails.every((rail) => !overlaps(rail, swept)),
+            n.slot + " / " + mesh.name,
+          );
+        });
       }
     }
   }

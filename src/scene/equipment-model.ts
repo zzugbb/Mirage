@@ -9,13 +9,13 @@ import {
   isStorageHarnessPart,
 } from "./server-storage-harness.ts";
 import { registerLayer } from "./assembly-layer.ts";
+import { rearPowerSupply } from "./rear-power-supply.ts";
 import { createFanModule } from "./fan-module.ts";
 import { switchBoard, switchAsic, switchPortCages } from "./switch-model.ts";
 import {
   storageController,
   storageDrive,
   storageMidplane,
-  storagePowerTray,
 } from "./storage-model.ts";
 import * as THREE from "three";
 import definition from "../../assets/public/scenes/room-01.json" with { type: "json" };
@@ -87,80 +87,6 @@ function board(root: THREE.Group, size: number[], box: Box) {
         0.8,
       );
 }
-// 两件电源共用机后观察方向；壳体、输入面板和拉手归属同一个维护部件。
-function rearPowerSupply(
-  root: THREE.Group,
-  size: number[],
-  box: Box,
-  rearClearance: number,
-  slidingTray: boolean,
-) {
-  const [w, h, d] = size;
-  const rear = -d / 2;
-  // 横杆外缘与机箱后沿保留间隙。
-  const gripDepth = Math.min(0.012, rearClearance - 0.002);
-  root.userData.focusDirection = [0.14, 0.55, -1];
-  const panel = slidingTray ? storagePowerTray(root, size, box) : root;
-  if (!slidingTray)
-    box(root, [w * 0.96, h * 0.92, d], [0, 0, 0], "#87949c", 0.72);
-  box(panel, [w, h, 0.003], [0, 0, rear], "#53616a", 0.62).name =
-    "psu-rear-panel";
-  const inletX = -w * 0.13;
-  box(
-    panel,
-    [w * 0.44, h * 0.5, 0.003],
-    [inletX, 0, rear - 0.003],
-    "#242d33",
-    0.2,
-  );
-  box(
-    panel,
-    [w * 0.34, h * 0.35, 0.001],
-    [inletX, 0, rear - 0.0046],
-    "#121b20",
-    0.12,
-  );
-  for (const sign of [-1, 1]) {
-    box(
-      panel,
-      [w * 0.43, 0.0016, 0.001],
-      [inletX, sign * h * 0.36, rear - 0.002],
-      "#20292e",
-      0.18,
-    );
-    box(
-      panel,
-      [0.004, 0.004, gripDepth],
-      [w * 0.32, sign * h * 0.28, rear - gripDepth / 2],
-      "#7f9098",
-      0.6,
-    );
-    box(
-      root,
-      [0.002, 0.001, d * 0.88],
-      [sign * w * 0.44, h * 0.47, 0],
-      "#74818b",
-      0.65,
-    );
-  }
-  box(
-    panel,
-    [0.005, h * 0.56 + 0.004, 0.003],
-    [w * 0.32, 0, rear - gripDepth],
-    "#9ba88f",
-    0.48,
-  ).name = "psu-handle";
-  // 上盖压筋沿抽取方向排列，保持模块外廓。
-  for (const x of [-0.23, 0.23])
-    box(
-      root,
-      [w * 0.055, 0.0012, d * 0.65],
-      [w * x, h * 0.46, 0.002],
-      "#a6b0b6",
-      0.7,
-    );
-}
-
 // 两只转接架共用支承与定位尺寸。网卡的双口只表达后面板接口区。
 function expansionPart(
   root: THREE.Group,
@@ -915,7 +841,9 @@ export function createEquipmentAssembly(modelId: string): Assembly {
           size,
           box,
           (depth - size[2]) / 2 + pos[2],
-          model.id === "storage-4u",
+          model.id === "storage-4u"
+            ? definition.storageAssembly.powerTray
+            : definition.switchAssembly.powerTray,
         );
       else if (p.id === "net-ports") switchPortCages(group, size, box);
       else if (p.id === "net-asic") switchAsic(group, size, box);
