@@ -363,7 +363,7 @@ const checks = {
         separated: "抬起散热器",
       },
       entry: "核对主板与交换芯片",
-      detail: "对照主板安装区，可分层查看芯片封装与散热器",
+      detail: "对照主板安装区，可分层核对底座四孔、基板定位柱与芯片封装",
       labels: ["控制主板", "芯片与散热器"],
       startExplosion: 1,
       pairs: [

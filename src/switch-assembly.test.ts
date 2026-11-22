@@ -112,6 +112,63 @@ test("分层观察只抬起散热底座和鳍片，多次切换后仍能原位�
   }
 });
 
+test("ASIC 底座四孔贯通，四柱始终留在基板，复位时孔壁与鳍片让开柱头", () => {
+  const chip = createEquipmentAssembly("switch-1u").groups.get("net-asic")!;
+  const sink = chip.getObjectByName("asic-heatsink")!;
+  const base = sink.getObjectByName("asic-sink-base")!;
+  const pins = chip.getObjectsByProperty("name", "asic-mount-pin");
+  const shoulders = chip.getObjectsByProperty("name", "asic-mount-shoulder");
+  const pcb = bounds(chip.getObjectByName("asic-substrate")!);
+  const mount = definition.switchAssembly.asicMount;
+  const pinBounds = pins.map(bounds);
+  const down = new THREE.Vector3(0, -1, 0);
+  const near = (a: number, b: number) => assert.ok(Math.abs(a - b) < 1e-7);
+  assert.equal(pins.length, 4);
+  assert.equal(shoulders.length, 4);
+  assert.equal(
+    new Set(pins.map((p) => [p.position.x, p.position.z].join(","))).size,
+    4,
+  );
+  for (const separated of [false, true, false, true, false]) {
+    poseAssemblyLayer(chip, separated);
+    chip.updateWorldMatrix(true, true);
+    const plate = bounds(base);
+    for (const [i, pin] of pins.entries()) {
+      const fixed = bounds(pin);
+      assert.ok(fixed.equals(pinBounds[i]));
+      const center = fixed.getCenter(new THREE.Vector3());
+      const shoulder = bounds(shoulders[i]);
+      const axis = shoulder.getCenter(new THREE.Vector3());
+      near(axis.x, center.x);
+      near(axis.z, center.z);
+      near(shoulder.min.y, pcb.max.y);
+      near(shoulder.max.y, fixed.min.y);
+      near(plate.min.y - shoulder.max.y, separated ? mount.lift : 0);
+      if (!separated) near(fixed.max.y - plate.max.y, mount.tipExposure);
+      for (const angle of [0, Math.PI / 2, Math.PI, (3 * Math.PI) / 2]) {
+        // 从上方穿过孔心和柱缘、有余隙；紧邻孔外的射线先命中底座而非鳍片。
+        for (const radius of [
+          0,
+          (mount.pinRadius + mount.boreRadius) / 2,
+          mount.shoulderRadius,
+        ]) {
+          const ray = new THREE.Raycaster(
+            new THREE.Vector3(
+              center.x + Math.cos(angle) * radius,
+              plate.max.y + 0.1,
+              center.z + Math.sin(angle) * radius,
+            ),
+            down,
+          );
+          const hit = ray.intersectObject(sink)[0];
+          if (radius === mount.shoulderRadius) assert.equal(hit?.object, base);
+          else assert.equal(hit, undefined);
+        }
+      }
+    }
+  }
+});
+
 test("交换机后部模块处于 1U 机箱范围，四个风扇仍可从后侧独立拾取", () => {
   const model = modelById("switch-1u");
   const assembly = createEquipmentAssembly(model.id);

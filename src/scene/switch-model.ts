@@ -89,7 +89,7 @@ export function switchAsic(root: THREE.Group, size: number[], box: Box) {
     base = 0.003;
   box(
     root,
-    [w * 0.66, substrate, d * 0.66],
+    [w, substrate, d],
     [0, boardTop + substrate / 2, 0],
     "#285742",
     0.22,
@@ -105,21 +105,90 @@ export function switchAsic(root: THREE.Group, size: number[], box: Box) {
   const heatsink = new THREE.Group();
   heatsink.name = "asic-heatsink";
   root.add(heatsink);
-  box(heatsink, [w, base, d], [0, bottom + base / 2, 0], "#9aa5ac", 0.72).name =
-    "asic-sink-base";
+  const mount = definition.switchAssembly.asicMount;
+  const cx = w / 2 - mount.cornerInset;
+  const cz = d / 2 - mount.cornerInset;
+  const plate = new THREE.Shape();
+  plate.moveTo(-w / 2, -d / 2);
+  plate.lineTo(w / 2, -d / 2);
+  plate.lineTo(w / 2, d / 2);
+  plate.lineTo(-w / 2, d / 2);
+  plate.closePath();
+
+  // 柱肩与封装齐平，较细的柱头穿过底座。孔与两级柱共用同一组中心。
+  const shoulder = new THREE.CylinderGeometry(
+    mount.shoulderRadius,
+    mount.shoulderRadius,
+    cap,
+    32,
+  );
+  const tipHeight = base + mount.tipExposure;
+  const pin = new THREE.CylinderGeometry(
+    mount.pinRadius,
+    mount.pinRadius,
+    tipHeight,
+    32,
+  );
+  const bronze = new THREE.MeshStandardMaterial({
+    color: "#b89866",
+    metalness: 0.56,
+    roughness: 0.38,
+  });
+  for (const x of [-cx, cx]) {
+    for (const z of [-cz, cz]) {
+      const hole = new THREE.Path();
+      hole.absarc(x, -z, mount.boreRadius, 0, Math.PI * 2, true);
+      plate.holes.push(hole);
+      const foot = new THREE.Mesh(shoulder, bronze);
+      foot.name = "asic-mount-shoulder";
+      foot.position.set(x, bottom - cap / 2, z);
+      const tip = new THREE.Mesh(pin, bronze);
+      tip.name = "asic-mount-pin";
+      tip.position.set(x, bottom + tipHeight / 2, z);
+      foot.castShadow = foot.receiveShadow = true;
+      tip.castShadow = tip.receiveShadow = true;
+      root.add(foot, tip);
+    }
+  }
+  const plateGeometry = new THREE.ExtrudeGeometry(plate, {
+    depth: base,
+    bevelEnabled: false,
+    curveSegments: 16,
+  });
+  plateGeometry.rotateX(-Math.PI / 2);
+  const sinkBase = new THREE.Mesh(
+    plateGeometry,
+    new THREE.MeshStandardMaterial({
+      color: "#9aa5ac",
+      metalness: 0.72,
+      roughness: 0.4,
+    }),
+  );
+  sinkBase.name = "asic-sink-base";
+  sinkBase.position.y = bottom;
+  sinkBase.castShadow = sinkBase.receiveShadow = true;
+  heatsink.add(sinkBase);
   const finHeight = h / 2 - bottom - base;
-  for (let i = 0; i < 15; i++)
+  const finWidth = w / 40;
+  for (let i = 0; i < 15; i++) {
+    const x = w * ((i + 0.5) / 15 - 0.5);
+    // 外侧鳍片降低并缩短，从默认斜视方向也能看到远端两处孔柱。
+    const outer = Math.abs(x) + finWidth / 2 >= cx - mount.cornerInset;
+    const finDepth = outer ? 2 * (cz - mount.cornerInset * 1.65) : d;
+    const height = outer ? finHeight * 0.39 : finHeight;
     box(
       heatsink,
-      [w / 40, finHeight, d],
-      [w * ((i + 0.5) / 15 - 0.5), bottom + base + finHeight / 2, 0],
+      [finWidth, height, finDepth],
+      [x, bottom + base + height / 2, 0],
       "#939fa9",
       0.8,
     );
+  }
+  const [x, y, z] = mount.focusDirection;
   registerLayer(root, {
     node: heatsink.name,
-    offset: [0, h * 2.4, 0],
-    direction: [0.55, 0.43, 1],
+    offset: [0, mount.lift, 0],
+    direction: [x, y, z],
   });
 }
 

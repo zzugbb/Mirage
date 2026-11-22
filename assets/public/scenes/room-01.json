@@ -1291,7 +1291,7 @@
         0
       ],
       "color": "#7e8991",
-      "description": "交换芯片与散热器，按当前机型配置制作的可维护部件。",
+      "description": "交换芯片与散热器共用 ASIC 部件身份。底座四孔、基板定位柱和抬升行程为原创装配示意，温度和功耗沿用部件模拟值。",
       "modelNodes": [],
       "procedural": true,
       "rise": 8,
@@ -1651,6 +1651,11 @@
     "stopClearance": 0.0011, "metalColor": "#657681"
   },
   "switchAssembly": {
+    "asicMount": {
+      "cornerInset": 0.011, "boreRadius": 0.0042, "pinRadius": 0.0031,
+      "shoulderRadius": 0.0056, "tipExposure": 0.0018,
+      "lift": 0.070, "focusDirection": [0.14, 0.54, 1]
+    },
     "powerTray": {
       "wall": 0.001, "railWidth": 0.004, "stopDepth": 0.0035,
       "travelRatio": 1.04, "focusDirection": [-1, 0.82, -0.76]
