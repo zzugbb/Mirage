@@ -112,6 +112,12 @@ const powerTrayLayer = {
   seated: "推回壳体",
   separated: "拉出内托",
 } as const;
+const storagePowerTrayLayer = {
+  ...powerTrayLayer,
+  contactScope: "board-contact",
+  description:
+    "可切换两侧电源，近看板端宽窄插片与壳内固定座的接合。接合件、导轨和行程为原创装配示意。输入 A、B 归属来自配置，时间分析沿用电源部件模拟值。",
+} as const;
 const fanGuardLayer = {
   entry: "查看护网与定位柱",
   description:
@@ -123,7 +129,7 @@ const fanGuardLayer = {
 } as const;
 export function rearMemberLayer(layout: typeof switchRear, selected: string) {
   if (layout.supplies.some((part) => part.id === selected))
-    return powerTrayLayer;
+    return layout === storageRear ? storagePowerTrayLayer : powerTrayLayer;
   if (layout.controllers.some((part) => part.id === selected))
     return controllerLayer;
   if (layout.fans.some((part) => part.id === selected))

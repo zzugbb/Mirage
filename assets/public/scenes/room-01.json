@@ -1687,7 +1687,8 @@
     },
     "powerTray": {
       "wall": 0.0015, "railWidth": 0.005, "stopDepth": 0.005,
-      "travelRatio": 1.06, "focusDirection": [-1, 0.82, -0.76]
+      "travelRatio": 1.06, "focusDirection": [-1, 0.82, -0.76],
+      "boardContact": {"width": 0.029, "travel": 0.018, "focusDirection": [0.68, 1.05, -0.85]}
     },
     "columns": 4,
     "rows": 6,

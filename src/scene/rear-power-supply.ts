@@ -1,9 +1,12 @@
 import * as THREE from "three";
 import type definition from "../../assets/public/scenes/room-01.json";
 import type { Box } from "./equipment-model.ts";
-import { registerLayer } from "./assembly-layer.ts";
+import { registerLayer, registerLayerScope } from "./assembly-layer.ts";
 
-type TrayConfig = typeof definition.switchAssembly.powerTray;
+type ContactConfig = typeof definition.storageAssembly.powerTray.boardContact;
+type TrayConfig = typeof definition.switchAssembly.powerTray & {
+  boardContact?: ContactConfig;
+};
 
 // 两件电源共用机后观察方向；壳体、输入面板和拉手归属同一个维护部件。
 export function rearPowerSupply(
@@ -250,10 +253,118 @@ function powerTray(
         0.52,
       );
   }
+  if (config.boardContact)
+    boardContact(
+      root,
+      tray,
+      box,
+      config.boardContact,
+      wall,
+      boardTop,
+      trayMid + pcbDepth / 2,
+      end - wall,
+    );
   registerLayer(root, {
     node: tray.name,
     offset: [0, 0, -d * travelRatio],
     direction: [x, y, z],
   });
   return tray;
+}
+
+// 板端从机后沿 +Z 推入壳内。座体背面贴住端壁，中肋落入宽、窄两片之间的缺口。
+function boardContact(
+  root: THREE.Group,
+  tray: THREE.Group,
+  box: Box,
+  config: ContactConfig,
+  wall: number,
+  boardTop: number,
+  boardEdge: number,
+  innerEnd: number,
+) {
+  const {
+    width,
+    travel,
+    focusDirection: [x, y, z],
+  } = config;
+  const plug = new THREE.Group(),
+    socket = new THREE.Group();
+  plug.name = "psu-board-plug";
+  socket.name = "psu-end-socket";
+  tray.add(plug);
+  root.add(socket);
+  const shoulderEnd = boardEdge + wall;
+  const mouth = shoulderEnd + wall;
+  const back = innerEnd - 2 * wall;
+  const tip = back - wall * 0.6;
+  const bladeY = boardTop + wall;
+  const keyX = width * 0.14;
+  const clearance = wall * 0.28;
+  const seatColor = "#495762";
+  box(
+    plug,
+    [width, 3 * wall, 4 * wall],
+    [0, boardTop + 1.5 * wall, shoulderEnd - 2 * wall],
+    "#395b54",
+  ).name = "psu-plug-shoulder";
+  box(
+    socket,
+    [width + 2 * wall, wall, innerEnd - mouth],
+    [0, bladeY - wall / 2, (innerEnd + mouth) / 2],
+    seatColor,
+  ).name = "psu-socket-bed";
+  box(
+    socket,
+    [width + 2 * wall, 3 * wall, innerEnd - back],
+    [0, bladeY + 1.5 * wall, (innerEnd + back) / 2],
+    seatColor,
+  ).name = "psu-socket-back";
+  for (const cx of [-(width + wall) / 2, keyX, (width + wall) / 2]) {
+    box(
+      socket,
+      [wall, 2.3 * wall, back - mouth],
+      [cx, bladeY + 1.15 * wall, (back + mouth) / 2],
+      seatColor,
+    ).name = cx === keyX ? "psu-socket-key" : "psu-socket-guide";
+  }
+  for (const [left, right] of [
+    [-width / 2, keyX - wall / 2],
+    [keyX + wall / 2, width / 2],
+  ]) {
+    const span = right - left - 2 * clearance,
+      cx = (left + right) / 2;
+    box(
+      plug,
+      [span, wall, tip - shoulderEnd],
+      [cx, bladeY + wall / 2, (tip + shoulderEnd) / 2],
+      "#407661",
+    ).name = "psu-plug-tongue";
+    const padFront = shoulderEnd + 0.4 * wall;
+    const padEnd = tip - 0.3 * wall;
+    box(
+      plug,
+      [span * 0.65, wall * 0.16, padEnd - padFront],
+      [cx, bladeY + wall * 1.08, (padFront + padEnd) / 2],
+      "#c5a05d",
+    ).name = "psu-contact-pad";
+    // 固定承片从座背伸向插片，压合面保留在可观察的上侧。
+    const fingerFront = (mouth + tip) / 2;
+    box(
+      socket,
+      [span * 0.38, wall * 0.5, back - fingerFront],
+      [cx, bladeY + 1.41 * wall, (fingerFront + back) / 2],
+      "#ad9270",
+    ).name = "psu-socket-finger";
+  }
+  registerLayer(tray, {
+    node: tray.name,
+    offset: [0, 0, -travel],
+    direction: [x, y, z],
+  });
+  registerLayerScope(root, "board-contact", {
+    layerRoot: tray,
+    moving: plug,
+    members: [plug, socket],
+  });
 }

@@ -2,7 +2,13 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as THREE from "three";
 import { createEquipmentAssembly } from "./scene/equipment-model.ts";
-import { poseAssemblyLayer } from "./scene/assembly-layer.ts";
+import {
+  poseAssemblyLayer,
+  layerScopeFor,
+  scopeBounds,
+  assemblyLayer,
+  includeSeparatedLayer,
+} from "./scene/assembly-layer.ts";
 import { RearModuleSeats } from "./scene/rear-module-seats.ts";
 import {
   assemblyChecks,
@@ -419,7 +425,12 @@ for (const modelId of ["switch-1u", "storage-4u"] as const) {
       const stops = psu.getObjectsByProperty("name", "psu-tray-stop");
       assert.equal(rails.length, 2);
       assert.equal(stops.length, 2);
-      const fixed = psu.children.filter((o) => o !== tray);
+      const fixed: THREE.Mesh[] = [];
+      for (const child of psu.children)
+        if (child !== tray)
+          child.traverse((o) => {
+            if (o instanceof THREE.Mesh) fixed.push(o);
+          });
       const seated = bounds(tray);
       const fixedBounds = fixed.map(bounds);
       close(bounds(face).max.z, bounds(shell).min.z);
@@ -465,3 +476,59 @@ for (const modelId of ["switch-1u", "storage-4u"] as const) {
     }
   });
 }
+
+test("S4 两侧板端的宽窄片分别避让中肋，推回时各自贴合固定承片", () => {
+  const { root, groups } = createEquipmentAssembly("storage-4u");
+  root.updateMatrixWorld(true);
+  for (const { id } of rearLayoutFor("storage-4u")!.supplies) {
+    const psu = groups.get(id)!;
+    const scope = layerScopeFor(psu, "board-contact")!;
+    const plug = scope.moving;
+    const socket = psu.getObjectByName("psu-end-socket")!;
+    const key = bounds(socket.getObjectByName("psu-socket-key")!);
+    const wall = bounds(psu.getObjectByName("psu-end-wall")!);
+    const fixed = bounds(socket);
+    close(fixed.max.z, wall.min.z);
+    const blades = plug.getObjectsByProperty("name", "psu-plug-tongue");
+    const pads = plug.getObjectsByProperty("name", "psu-contact-pad");
+    const fingers = socket
+      .getObjectsByProperty("name", "psu-socket-finger")
+      .map(bounds);
+    assert.deepEqual([blades.length, pads.length, fingers.length], [2, 2, 2]);
+    const [wide, narrow] = blades.map(bounds);
+    assert.ok(
+      wide.min.x < narrow.min.x &&
+        wide.max.x - wide.min.x > narrow.max.x - narrow.min.x,
+    );
+    assert.ok(wide.max.x < key.min.x && key.max.x < narrow.min.x);
+    const installed = bounds(plug);
+    const frame = includeEnd();
+    function includeEnd() {
+      const box = scopeBounds(new THREE.Box3(), scope);
+      includeSeparatedLayer(
+        box,
+        scope.layerRoot,
+        assemblyLayer(scope.layerRoot)!,
+        plug,
+      );
+      return box;
+    }
+    for (const separated of [true, false, true, false]) {
+      poseAssemblyLayer(scope.layerRoot, separated);
+      root.updateMatrixWorld(true);
+      assert.ok(bounds(socket).equals(fixed));
+      assert.ok(includeEnd().equals(frame));
+      for (const [i, pad] of pads.entries()) {
+        const face = bounds(pad),
+          finger = fingers[i];
+        assert.ok(finger.min.x > face.min.x && finger.max.x < face.max.x);
+        close(finger.min.y, face.max.y);
+        if (separated) assert.ok(bounds(plug).max.z < fixed.min.z);
+        else {
+          assert.ok(finger.min.z < face.max.z && face.max.z < finger.max.z);
+          assert.ok(bounds(plug).equals(installed));
+        }
+      }
+    }
+  }
+});

@@ -455,7 +455,7 @@ export function Workspace() {
   const [pairVisit, setPairVisit] = useState<{
     deviceId: string;
     tool: AssemblyCheck["tool"];
-    cageBankId?: string;
+    layerScopeId?: string;
     powerBayPose?: RearRowPose;
     layerPose?: LayerPose;
     rearRow?: { supplyId: string; pose: RearRowPose; fromPair: boolean };
@@ -473,6 +473,14 @@ export function Workspace() {
   const rearLayout = assembly && "rear" in assembly ? assembly.rear : undefined;
   const rearRow = rearLayout && pairVisit?.rearRow;
   const rearLayer = rearRow ? rearMemberLayer(rearLayout, selected) : undefined;
+  const powerContactScope =
+    rearLayer && "contactScope" in rearLayer
+      ? rearLayer.contactScope
+      : undefined;
+  const inspectingBoardContact =
+    !!powerContactScope && pairVisit?.layerScopeId === powerContactScope;
+  const setLayerScope = (id?: string) =>
+    setPairVisit((current) => current && { ...current, layerScopeId: id });
   const activePair = canInspectPart(state)
     ? assembly?.pairs.find(
         ({ primary, companion }) =>
@@ -505,7 +513,7 @@ export function Workspace() {
         current && {
           ...current,
           layerPose: pose,
-          cageBankId: pose ? current.cageBankId : undefined,
+          layerScopeId: pose ? current.layerScopeId : undefined,
         },
     );
   };
@@ -5668,9 +5676,10 @@ export function Workspace() {
                   ? "seated"
                   : layerPose
             }
-            cageBankId={
-              layerPose && assembly?.tool === "switch-front"
-                ? pairVisit?.cageBankId
+            layerScopeId={
+              layerPose &&
+              (assembly?.tool === "switch-front" || powerContactScope)
+                ? pairVisit?.layerScopeId
                 : undefined
             }
             dimmPose={dimmPose}
@@ -5977,17 +5986,10 @@ export function Workspace() {
                       <select
                         aria-label="导光组件范围"
                         disabled={!ready}
-                        value={pairVisit?.cageBankId ?? ""}
-                        onChange={(event) => {
-                          const id = event.target.value;
-                          setPairVisit(
-                            (current) =>
-                              current && {
-                                ...current,
-                                cageBankId: id || undefined,
-                              },
-                          );
-                        }}
+                        value={pairVisit?.layerScopeId ?? ""}
+                        onChange={(event) =>
+                          setLayerScope(event.target.value || undefined)
+                        }
                       >
                         <option value="">整排</option>
                         {assembly.cageBanks.map((bank) => (
@@ -5996,6 +5998,35 @@ export function Workspace() {
                           </option>
                         ))}
                       </select>
+                    )}
+                    {powerContactScope && rearLayout && (
+                      <>
+                        <select
+                          aria-label="核查电源"
+                          disabled={!ready}
+                          value={selected}
+                          onChange={(event) => pick(event.target.value)}
+                        >
+                          {rearLayout.supplies.map((part) => (
+                            <option key={part.id} value={part.id}>
+                              {part.slot}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          disabled={!ready}
+                          aria-pressed={inspectingBoardContact}
+                          onClick={() =>
+                            setLayerScope(
+                              inspectingBoardContact
+                                ? undefined
+                                : powerContactScope,
+                            )
+                          }
+                        >
+                          板端接合
+                        </button>
+                      </>
                     )}
                     {assembly.tool === "storage-controllers" && activePair && (
                       <select
@@ -6021,7 +6052,11 @@ export function Workspace() {
                         autoFocus={pose === "separated"}
                         onClick={() => setLayerPose(pose)}
                       >
-                        {selectedLayer[pose]}
+                        {inspectingBoardContact
+                          ? pose === "seated"
+                            ? "插入固定座"
+                            : "退出固定座"
+                          : selectedLayer[pose]}
                       </button>
                     ))}
                   </div>

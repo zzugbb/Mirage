@@ -1,4 +1,3 @@
-import { cageBankFor, cageBankBounds } from "./switch-model";
 import { roomLayoutCameraDirection } from "../room-layout.ts";
 import { rangeObservationTarget } from "../range-segments.ts";
 import {
@@ -68,6 +67,8 @@ import { storageSlots } from "../storage-slots";
 import { ControllerMountGuide } from "./controller-mount";
 import {
   assemblyLayer,
+  layerScopeFor,
+  scopeBounds,
   includeSeparatedLayer,
   poseAssemblyLayer,
   type LayerPose,
@@ -212,7 +213,7 @@ export class SceneEngine {
   isolatedPartId: string | null = null;
   companionPartIds: readonly string[] = [];
   layerPose?: LayerPose;
-  cageBankId?: string;
+  layerScopeId?: string;
   dimmPose?: LayerPose;
   rearRowPose?: RearRowPose;
   private rearModuleSeats = new RearModuleSeats();
@@ -2235,13 +2236,13 @@ export class SceneEngine {
         ? new THREE.Box3().setFromObject(object)
         : null;
     // 两种姿态共用取景范围，窗口在部件落座时缩小也能容纳分层几何。
-    const bank = cageBankFor(object, this.cageBankId);
-    if (bank && bounds) cageBankBounds(bounds, bank);
-    const layerRoot = bank?.comb ?? object;
+    const scope = layerScopeFor(object, this.layerScopeId);
+    if (scope && bounds) scopeBounds(bounds, scope);
+    const layerRoot = scope?.layerRoot ?? object;
     const layer =
       inspectionTarget && this.layerPose ? assemblyLayer(layerRoot) : undefined;
     if (layer && this.layerPose === "seated" && bounds && layerRoot)
-      includeSeparatedLayer(bounds, layerRoot, layer);
+      includeSeparatedLayer(bounds, layerRoot, layer, scope?.moving);
     if (this.dimmPose === "seated" && inspectionTarget && object && bounds)
       bounds.max.y +=
         this.dimmSocket.lift * object.getWorldScale(new THREE.Vector3()).y;
@@ -2752,8 +2753,8 @@ export class SceneEngine {
         : null;
     const target = id ? this.models.parts.get(id) : undefined;
     this.dimmSocket.update(target, this.dimmPose);
-    const bank = cageBankFor(target, this.cageBankId);
-    const layerRoot = bank?.comb ?? target;
+    const scope = layerScopeFor(target, this.layerScopeId);
+    const layerRoot = scope?.layerRoot ?? target;
     const lifted =
       this.layerPose === "separated" && assemblyLayer(layerRoot)
         ? layerRoot
@@ -2781,12 +2782,8 @@ export class SceneEngine {
         : null;
     const applied =
       !!id &&
-      (bank
-        ? this.partIsolation.applyMany(this.models.server, [
-            bank.fixed,
-            bank.comb,
-            bank.floor,
-          ])
+      (scope
+        ? this.partIsolation.applyMany(this.models.server, scope.members)
         : pair
           ? this.partIsolation.applyMany(this.models.server, [
               this.storageConnectorPose ? pair.plug : pair.disk,
@@ -2837,8 +2834,8 @@ export class SceneEngine {
       applied && !this.storageConnectorPose ? marked : null,
       boardOnly,
     );
-    const inspectionKey = bank
-      ? `${id}:bank:${this.cageBankId}`
+    const inspectionKey = scope
+      ? `${id}:scope:${this.layerScopeId}`
       : pair
         ? `${id}:${this.storageConnectorPose ? "connector" : "contact"}`
         : companions
@@ -3267,8 +3264,8 @@ export class SceneEngine {
           faceColor ? this.camera.position.z : undefined,
         );
       else {
-        const bank = cageBankFor(object, this.cageBankId);
-        if (bank) cageBankBounds(this.models.selection.box, bank);
+        const scope = layerScopeFor(object, this.layerScopeId);
+        if (scope) scopeBounds(this.models.selection.box, scope);
         else
           this.models.selection.box.setFromObject(
             this.storageContactGuide.memberFor(this.state.selected) ?? object,

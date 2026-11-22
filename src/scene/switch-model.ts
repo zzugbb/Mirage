@@ -1,4 +1,4 @@
-import { registerLayer } from "./assembly-layer.ts";
+import { registerLayer, registerLayerScope } from "./assembly-layer.ts";
 import * as THREE from "three";
 import definition from "../../assets/public/scenes/room-01.json" with { type: "json" };
 
@@ -192,18 +192,6 @@ export function switchAsic(root: THREE.Group, size: number[], box: Box) {
   });
 }
 
-type CageBank = { fixed: THREE.Group; comb: THREE.Group; floor: THREE.Mesh };
-const cageBanks = new WeakMap<THREE.Object3D, Map<string, CageBank>>();
-export function cageBankFor(root: THREE.Object3D | undefined, id?: string) {
-  return root && id ? cageBanks.get(root)?.get(id) : undefined;
-}
-export function cageBankBounds(bounds: THREE.Box3, bank: CageBank) {
-  return bounds
-    .setFromObject(bank.fixed)
-    .expandByObject(bank.floor)
-    .expandByObject(bank.comb);
-}
-
 // 端口笼与导光组件共用一个维护身份；孔位只描述前部装配外形。
 export function switchPortCages(root: THREE.Group, size: number[], box: Box) {
   const [w, h, d] = size;
@@ -212,8 +200,6 @@ export function switchPortCages(root: THREE.Group, size: number[], box: Box) {
   const base = new THREE.Group();
   base.name = "front-cage-base";
   root.add(base);
-  const banks = new Map<string, CageBank>();
-  cageBanks.set(root, banks);
   // 底座连续铺过两组和中间间隔；近看时只保留所选笼组下方的底板。
   const floorSegment = (left: number, right: number) =>
     box(
@@ -302,7 +288,11 @@ export function switchPortCages(root: THREE.Group, size: number[], box: Box) {
     const comb = new THREE.Group();
     comb.name = "bank-light-guides";
     carrier.add(comb);
-    banks.set(bank.id, { fixed: group, comb: carrier, floor });
+    registerLayerScope(root, bank.id, {
+      layerRoot: carrier,
+      moving: comb,
+      members: [group, carrier, floor],
+    });
     const [dx, dy, dz] = guides.focusDirection;
     registerLayer(carrier, {
       node: comb.name,

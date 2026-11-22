@@ -2,9 +2,13 @@ import definition from "../assets/public/scenes/room-01.json" with { type: "json
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as THREE from "three";
-import { poseAssemblyLayer } from "./scene/assembly-layer.ts";
+import {
+  poseAssemblyLayer,
+  layerScopeFor,
+  scopeBounds,
+} from "./scene/assembly-layer.ts";
 import { createEquipmentAssembly } from "./scene/equipment-model.ts";
-import { cageBankFor, cageBankBounds } from "./scene/switch-model.ts";
+
 import { RearModuleSeats } from "./scene/rear-module-seats.ts";
 import {
   assemblyChecks,
@@ -372,30 +376,30 @@ test("N1 两组导光条逐列对准笼口，抬起只移动导光条和横梁�
 test("N1 分组抬起时只移动本组导光条，逐列落回固定入光窗", () => {
   const ports = createEquipmentAssembly("switch-1u").groups.get("net-ports")!;
   const { frontCages, lightGuides } = definition.switchAssembly;
-  const banks = frontCages.map(({ id }) => cageBankFor(ports, id)!);
-  const installed = banks.map((bank) => cageBankBounds(new THREE.Box3(), bank));
+  const banks = frontCages.map(({ id }) => layerScopeFor(ports, id)!);
+  const installed = banks.map((bank) => scopeBounds(new THREE.Box3(), bank));
   const near = (a: number, b: number) => assert.ok(Math.abs(a - b) < 1e-7);
   assert.equal(installed[0].intersectsBox(installed[1]), false);
   for (const [i, bank] of banks.entries()) {
-    const roof = bounds(bank.fixed.getObjectByName("cage-roof")!);
-    const pads = bank.fixed
+    const roof = bounds(bank.members[0].getObjectByName("cage-roof")!);
+    const pads = bank.members[0]
       .getObjectsByProperty("name", "guide-inlet-base")
       .map(bounds);
-    const windows = bank.fixed.getObjectsByProperty(
+    const windows = bank.members[0].getObjectsByProperty(
       "name",
       "guide-inlet-window",
     );
-    const pipes = bank.comb.getObjectsByProperty("name", "light-guide");
+    const pipes = bank.layerRoot.getObjectsByProperty("name", "light-guide");
     const initial = windows.map(bounds);
     assert.equal(pads.length, frontCages[i].columns);
     assert.equal(pipes.length, pads.length);
     assert.equal(windows.length, pads.length);
     for (const lifted of [true, false, true, false]) {
-      poseAssemblyLayer(bank.comb, lifted);
+      poseAssemblyLayer(bank.layerRoot, lifted);
       ports.updateWorldMatrix(true, true);
       const neighbor = 1 - i;
       assert.ok(
-        cageBankBounds(new THREE.Box3(), banks[neighbor]).equals(
+        scopeBounds(new THREE.Box3(), banks[neighbor]).equals(
           installed[neighbor],
         ),
       );
@@ -416,7 +420,7 @@ test("N1 分组抬起时只移动本组导光条，逐列落回固定入光窗",
         near(hit.point.y - face.max.y, lifted ? lightGuides.lift : 0);
       }
     }
-    assert.ok(cageBankBounds(new THREE.Box3(), bank).equals(installed[i]));
+    assert.ok(scopeBounds(new THREE.Box3(), bank).equals(installed[i]));
   }
 });
 
