@@ -3,6 +3,7 @@ import type { Action, AppState } from "../domain";
 import type { FanInspection } from "../fan-inspection";
 import type { StorageSlotInspection } from "../storage-slots";
 import { modelForDevice, subpartsForDevice } from "../catalog";
+import { trayStages, type TrayStageId } from "../storage-layout";
 import { StructureMenu } from "./StructureMenu";
 
 export function StructureNavigation({
@@ -14,6 +15,7 @@ export function StructureNavigation({
   onSide,
   onFront,
   onToggleDrive,
+  onTrayStage,
   onGroup,
   onFinish,
 }: {
@@ -24,6 +26,7 @@ export function StructureNavigation({
   dispatch: (action: Action) => void;
   onSide: (side: FanInspection["side"]) => void;
   onFront: () => void;
+  onTrayStage: (id: TrayStageId) => void;
   onToggleDrive: () => void;
   onGroup: () => void;
   onFinish: () => void;
@@ -43,6 +46,9 @@ export function StructureNavigation({
     board: "中板正面",
   }[visit.mode];
   const driveInspection = visit.mode === "disk" || visit.mode === "tray";
+  const stage =
+    trayStages.find((s) => "diskId" in visit && s.id === visit.trayStage) ??
+    trayStages[0];
   const contact = visit.mode === "contact" ? visit : undefined;
   const hasDuct = fan && !!modelForDevice(visit.deviceId).fanDuctLayout;
   const group = fan
@@ -77,14 +83,35 @@ export function StructureNavigation({
               : "structure-check-scope"
         }
       >
-        <b>
-          {visit.pending
-            ? "正在展开"
-            : contact?.connectorPose
-              ? "插头与插座"
-              : scope}
-          {visit.mode !== "group" && part && ` · ${part.slot}`}
-        </b>
+        {driveInspection ? (
+          <>
+            <b>{part?.slot}</b>
+            <select
+              aria-label="托架核查位置"
+              value={stage.id}
+              disabled={disabled}
+              onChange={(e) => {
+                const next = trayStages.find((s) => s.id === e.target.value);
+                if (next) onTrayStage(next.id);
+              }}
+            >
+              {trayStages.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          </>
+        ) : (
+          <b>
+            {visit.pending
+              ? "正在展开"
+              : contact?.connectorPose
+                ? "插头与插座"
+                : scope}
+            {visit.mode !== "group" && part && ` · ${part.slot}`}
+          </b>
+        )}
         {contact && (
           <button disabled={disabled} onClick={onToggleDrive}>
             {contact.connectorPose === "separated"
@@ -96,7 +123,7 @@ export function StructureNavigation({
         )}
         {driveInspection && (
           <button disabled={disabled} onClick={onToggleDrive}>
-            {visit.mode === "tray" ? "放回托架" : "抬起盘体"}
+            {visit.mode === "tray" ? stage.close : stage.open}
           </button>
         )}
         {visit.mode === "group" &&

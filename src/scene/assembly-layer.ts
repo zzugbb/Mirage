@@ -4,6 +4,7 @@ export type LayerPose = "seated" | "separated";
 
 interface MovingLayer {
   node: string;
+  turnY?: number;
   offset: [number, number, number];
   direction: [number, number, number];
 }
@@ -58,6 +59,8 @@ export function poseAssemblyLayer(root: Object3D, separated: boolean) {
   if (!layer) return;
   const moving = root.getObjectByName(layer.node);
   if (moving) {
+    if (layer.turnY !== undefined)
+      moving.rotation.y = separated ? layer.turnY : 0;
     if (separated) moving.position.fromArray(layer.offset);
     else moving.position.set(0, 0, 0);
   }
@@ -72,6 +75,18 @@ export function includeSeparatedLayer(
 ) {
   const moving = root.getObjectByName(layer.node);
   if (!moving?.parent) return;
+  if (layer.turnY !== undefined) {
+    // 按实际转轴取另一端姿态的包围盒，再恢复当前姿态。
+    const angle = moving.rotation.y;
+    const position = moving.position.clone();
+    poseAssemblyLayer(root, true);
+    moving.updateWorldMatrix(true, true);
+    bounds.expandByObject(visibleMoving ?? moving);
+    moving.rotation.y = angle;
+    moving.position.copy(position);
+    moving.updateWorldMatrix(true, true);
+    return;
+  }
   const end = moving.parent.localToWorld(new Vector3().fromArray(layer.offset));
   const delta = end.sub(moving.getWorldPosition(new Vector3()));
   bounds.union(

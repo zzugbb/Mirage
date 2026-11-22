@@ -903,3 +903,108 @@ test("S4 四口承片的窄尾进入槽内，宽肩抵住两侧止挡，抽出�
     }
   }
 });
+
+test("S4 每个盘托的拉手绕自身铰轴打开，合回面板止挡，取景与重复开合均不改变轴位", () => {
+  const { groups } = createEquipmentAssembly("storage-4u");
+  const { openAngle } = storageAssembly.trayInspection.handle;
+  const disks = [...groups].filter(([id]) => id.startsWith("sto-disk-"));
+  assert.equal(disks.length, 24);
+  for (const [, disk] of disks) {
+    const scope = layerScopeFor(disk, "handle-swing")!;
+    const grip = scope.moving,
+      lever = grip.getObjectByName("tray-handle-lever")!;
+    const stop = bounds(disk.getObjectByName("tray-handle-stop")!);
+    const [face] = scope.members;
+    const pivot = grip.getWorldPosition(new THREE.Vector3());
+    const frame = scopeBounds(new THREE.Box3(), scope);
+    includeSeparatedLayer(frame, grip, assemblyLayer(grip)!, grip);
+    close(grip.rotation.y, 0);
+    close(bounds(face).max.z, stop.min.z);
+    const stopPoint = stop.getCenter(new THREE.Vector3());
+    stopPoint.z = stop.max.z;
+    const tip = grip.worldToLocal(stopPoint.clone());
+    const radius = stopPoint.distanceTo(pivot);
+    for (const open of [true, true, false, true, false]) {
+      poseAssemblyLayer(grip, open);
+      const nose = grip.localToWorld(tip.clone());
+      close(nose.distanceTo(pivot), radius);
+      close(grip.getWorldPosition(new THREE.Vector3()).distanceTo(pivot), 0);
+      close(grip.rotation.y, open ? -THREE.MathUtils.degToRad(openAngle) : 0);
+      assert.ok(frame.containsBox(bounds(grip)));
+      if (open) assert.ok(nose.z > stop.max.z + radius * 0.7);
+      else {
+        close(nose.distanceTo(stopPoint), 0);
+        // 在止挡宽度内实际击中拉手背面，避免仅比较外接框。
+        const ray = new THREE.Raycaster(
+          stopPoint.clone().add(new THREE.Vector3(0, 0, -0.001)),
+          new THREE.Vector3(0, 0, 1),
+        );
+        close(ray.intersectObject(lever)[0].point.z, stop.max.z);
+      }
+    }
+  }
+});
+
+test("S4 24 盘的轴帽贴上耳、轴端穿下耳，抽轴后中耳可完全移出并重合三孔轴线", () => {
+  const { groups } = createEquipmentAssembly("storage-4u");
+  const disks = [...groups].filter(([id]) => id.startsWith("sto-disk-"));
+  assert.equal(disks.length, storageAssembly.columns * storageAssembly.rows);
+  for (const [, disk] of disks) {
+    const joint = layerScopeFor(disk, "hinge-pin")!,
+      seat = layerScopeFor(disk, "handle-eye")!;
+    const pin = joint.moving,
+      eye = seat.moving;
+    const upper = disk.getObjectByName("tray-upper-ear")!,
+      lower = disk.getObjectByName("tray-lower-ear")!;
+    const shaft = pin.getObjectByName("tray-pin-shaft")!,
+      head = pin.getObjectByName("tray-pin-head")!;
+    const origin = center(shaft);
+    const holes = [upper, eye, lower];
+    const downward = (dx: number, dz: number) =>
+      new THREE.Raycaster(
+        new THREE.Vector3(
+          origin.x + dx,
+          bounds(upper).max.y + 0.1,
+          origin.z + dz,
+        ),
+        new THREE.Vector3(0, -1, 0),
+      );
+    const sleeveRadius = bounds(shaft).getSize(new THREE.Vector3()).x / 2;
+    const rest = holes.map(bounds);
+    close(bounds(head).min.y, rest[0].max.y);
+    assert.ok(bounds(shaft).min.y < rest[2].min.y);
+    assert.ok(rest[0].min.y > rest[1].max.y && rest[1].min.y > rest[2].max.y);
+    assert.deepEqual(seat.extractedLayers, [pin]);
+    for (const open of [true, false, true, false]) {
+      poseAssemblyLayer(pin, open);
+      disk.updateWorldMatrix(true, true);
+      if (open) {
+        assert.ok(bounds(shaft).min.y > rest[0].max.y);
+        poseAssemblyLayer(seat.layerRoot, true);
+        disk.updateWorldMatrix(true, true);
+        assert.ok(bounds(eye).min.z > Math.max(rest[0].max.z, rest[2].max.z));
+        poseAssemblyLayer(seat.layerRoot, false);
+        disk.updateWorldMatrix(true, true);
+      }
+      for (const [i, ear] of holes.entries()) {
+        assert.ok(bounds(ear).equals(rest[i]));
+        for (const a of [0, Math.PI / 2, Math.PI, Math.PI * 1.5]) {
+          const x = Math.cos(a),
+            z = Math.sin(a);
+          assert.equal(
+            downward(x * sleeveRadius, z * sleeveRadius).intersectObject(ear)
+              .length,
+            0,
+          );
+          assert.ok(
+            downward(
+              x * sleeveRadius * 1.7,
+              z * sleeveRadius * 1.7,
+            ).intersectObject(ear).length,
+          );
+        }
+      }
+      if (!open) close(bounds(head).min.y, rest[0].max.y);
+    }
+  }
+});

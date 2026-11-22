@@ -2,6 +2,7 @@ import {
   controllerMounts,
   controllerCooler,
 } from "./storage-controller-mounts.ts";
+import { storageTrayHandle } from "./storage-tray-handle.ts";
 import { registerLayer } from "./assembly-layer.ts";
 import * as THREE from "three";
 import { buildControllerCage } from "./storage-controller-cage.ts";
@@ -199,22 +200,14 @@ export function storageDrive(
   box(tray, [w, h * 0.68, 0.002], [0, 0, front - 0.001], "#505e68", 0.6);
   const faceW = (size[0] / columns) * 0.94,
     faceH = (size[1] / rows) * 0.88;
-  box(tray, [faceW, faceH, 0.008], [0, 0, size[2] / 2], "#28333d", 0.4);
-  for (const side of [-1, 1])
-    box(
-      tray,
-      [0.004, faceH * 0.65, 0.006],
-      [side * faceW * 0.3, 0, size[2] / 2 + 0.006],
-      "#7c8992",
-      0.65,
-    );
-  box(
+  const face = box(
     tray,
-    [faceW * 0.6, 0.003, 0.003],
-    [0, -faceH * 0.2, size[2] / 2 + 0.009],
-    "#a2adb4",
-    0.7,
+    [faceW, faceH, 0.008],
+    [0, 0, size[2] / 2],
+    "#28333d",
+    0.4,
   );
+  storageTrayHandle(root, tray, face, box);
   const { lift, focusDirection } = storageAssembly.trayInspection;
   registerLayer(root, {
     node: drive.name,

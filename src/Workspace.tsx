@@ -5828,18 +5828,22 @@ export function Workspace() {
                     : layerPose
             }
             layerScopeId={
-              processorInspection && layerPose && activePair
-                ? processorStage + ":" + activePair.primary.id
-                : contactFan && fanStage
-                  ? fanStage.id + ":" + contactFan.id
-                  : pathContact
-                    ? station.id
-                    : layerPose &&
-                        (assembly?.tool === "switch-front" ||
-                          stagedLayer ||
-                          controllerInspection)
-                      ? pairVisit?.layerScopeId
-                      : undefined
+              (activeStorageVisit?.mode === "tray" ||
+                activeStorageVisit?.mode === "disk") &&
+              activeStorageVisit.trayStage !== "drive"
+                ? activeStorageVisit.trayStage
+                : processorInspection && layerPose && activePair
+                  ? processorStage + ":" + activePair.primary.id
+                  : contactFan && fanStage
+                    ? fanStage.id + ":" + contactFan.id
+                    : pathContact
+                      ? station.id
+                      : layerPose &&
+                          (assembly?.tool === "switch-front" ||
+                            stagedLayer ||
+                            controllerInspection)
+                        ? pairVisit?.layerScopeId
+                        : undefined
             }
             dimmPose={dimmPose}
             rearRowPose={
@@ -6715,6 +6719,15 @@ export function Workspace() {
                     takeover();
                     setStorageViewRevision((n) => n + 1);
                   }}
+                  onTrayStage={(trayStage) => {
+                    if (!ready || !activeStorageVisit) return;
+                    setStorageVisit({
+                      ...activeStorageVisit,
+                      mode: "disk",
+                      trayStage,
+                    });
+                    setStorageViewRevision((n) => n + 1);
+                  }}
                   onToggleDrive={() => {
                     if (!ready || !activeStorageVisit) return;
                     if (activeStorageVisit.mode === "contact") {
@@ -7085,6 +7098,7 @@ export function Workspace() {
                   setStorageVisit({
                     ...activeStorageVisit,
                     mode: "disk",
+                    trayStage: undefined,
                     diskId: id,
                   });
                   setStorageViewRevision((n) => n + 1);

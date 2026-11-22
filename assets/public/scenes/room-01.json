@@ -1740,7 +1740,10 @@
     ],
     "contactInspection": {"travel": 0.018, "focusDirection": [0.90, 1.10, 0.66]},
     "railThickness": 0.001,
-    "trayInspection": {"lift": 0.068, "focusDirection": [0.95, 0.74, -1]}
+    "trayInspection": {
+      "lift": 0.068, "focusDirection": [0.95, 0.74, -1],
+      "handle": {"openAngle": 54, "pinTravel": 0.014, "gripTravel": 0.012}
+    }
   },
   "rendering": {
     "roomBackdrop": {

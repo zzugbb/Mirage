@@ -23,6 +23,24 @@ export function controllerPortStages(index: number) {
     },
   ] as const;
 }
+export const trayStages = [
+  { id: "drive", name: "盘体与托架", open: "抬起盘体", close: "放回托架" },
+  {
+    id: "handle-swing",
+    name: "拉手与止挡",
+    open: "打开拉手",
+    close: "合回止挡",
+  },
+  { id: "hinge-pin", name: "铰轴与轴耳", open: "抽出铰轴", close: "插回铰轴" },
+  {
+    id: "handle-eye",
+    name: "活动耳与耳座",
+    open: "移出活动耳",
+    close: "对回耳座",
+  },
+] as const;
+export type TrayStageId = (typeof trayStages)[number]["id"];
+
 const drives = definition.parts.find((part) => part.id === "sto-drives")!;
 
 /** 盘组与中板共用槽位中心；只是当前 4U 配置的装配示意。 */

@@ -1,6 +1,10 @@
 import { deviceById } from "./installation.ts";
 import { modelForDevice, subpartsForDevice } from "./catalog.ts";
-import { storageAssembly, storageSlot } from "./storage-layout.ts";
+import {
+  storageAssembly,
+  storageSlot,
+  type TrayStageId,
+} from "./storage-layout.ts";
 import { canInspectPart } from "./part-inspection.ts";
 import type { AppState } from "./domain.ts";
 
@@ -24,6 +28,7 @@ export type StorageSlotInspection = {
   mode: "group" | "disk" | "tray" | "contact" | "board";
   diskId: string | null;
   pending: boolean;
+  trayStage?: TrayStageId;
   connectorPose?: "seated" | "separated";
 };
 export function storageSlotContext(deviceId: string, selected: string) {
