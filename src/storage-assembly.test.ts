@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import * as THREE from "three";
 import { createEquipmentAssembly } from "./scene/equipment-model.ts";
 import { poseAssemblyLayer } from "./scene/assembly-layer.ts";
-import { assemblyChecks } from "./assembly-pairs.ts";
+import { RearModuleSeats } from "./scene/rear-module-seats.ts";
+import { assemblyChecks, assemblyMember } from "./assembly-pairs.ts";
 import { devices } from "./installation.ts";
 import { inletPart, powerLinks } from "./power-config.ts";
 import { sourcePorts } from "./network.ts";
@@ -270,4 +271,67 @@ test("S4 两个电源槽与配置输入和安装面板一致，从机后点选�
       assert.equal(hit, psu);
     }
   }
+});
+
+test("S4 六个后置模块逐件抽出时穿行区域有净空，固定托边避让面板并承托控制器托盘", () => {
+  const { root, groups, positions } = createEquipmentAssembly("storage-4u");
+  const check = assemblyChecks("sto-04").find(
+    (c) => c.tool === "storage-power",
+  )!;
+  assert.ok("rear" in check);
+  const members = check.rear.members;
+  assert.deepEqual(
+    members.map((p) => p.slot),
+    ["CTRL-B", "CTRL-A", "PSU-B", "FAN-02", "FAN-01", "PSU-A"],
+  );
+  const seated = members.map((p) => bounds(groups.get(p.id)!));
+  const row = new RearModuleSeats();
+  const intersects = (a: THREE.Box3, b: THREE.Box3) => {
+    const size = a.clone().intersect(b).getSize(new THREE.Vector3());
+    return Math.min(size.x, size.y, size.z) > 1e-7;
+  };
+  for (const [i, part] of members.entries()) {
+    assert.equal(assemblyMember(check, part.id)?.id, part.id);
+    for (const pose of ["seated", "withdrawn"] as const) {
+      row.restoreModule();
+      row.update(groups, positions, part.id, "storage-4u", pose);
+      root.updateMatrixWorld(true);
+      const module = groups.get(part.id)!;
+      const current = bounds(module);
+      close(current.min.x, seated[i].min.x);
+      close(current.min.y, seated[i].min.y);
+      if (pose === "withdrawn")
+        assert.ok(current.max.z < seated[i].max.z - 0.04);
+      else close(current.min.z, seated[i].min.z);
+      const sweep = current.clone().union(seated[i]);
+      for (const [j, neighbor] of members.entries())
+        if (i !== j) {
+          assert.ok(bounds(groups.get(neighbor.id)!).equals(seated[j]));
+          assert.ok(
+            !intersects(sweep, seated[j]),
+            part.slot + " / " + neighbor.slot,
+          );
+        }
+      const rails = row.guides.getObjectByName(part.slot)!;
+      if ("node" in part && part.node === "controller") {
+        close(
+          bounds(rails.children[0]).max.y,
+          bounds(module.getObjectByName("controller-tray")!).min.y,
+        );
+      }
+      module.traverse((mesh) => {
+        if (mesh instanceof THREE.Mesh)
+          for (const rail of rails.children)
+            assert.ok(
+              !intersects(bounds(mesh), bounds(rail)),
+              part.slot + " / " + mesh.name,
+            );
+      });
+    }
+  }
+  row.dispose();
+  root.updateMatrixWorld(true);
+  assert.ok(
+    members.every((part, i) => bounds(groups.get(part.id)!).equals(seated[i])),
+  );
 });

@@ -43,23 +43,50 @@ function powerPair(modelId: string) {
     parts.find((part) => part.id === inletPart(modelId, feed))!;
   return { primary: psu("A"), companion: psu("B") };
 }
-const switchPower = powerPair("switch-1u");
-const switchFanGroup = network.find((part) => part.node === "fans")!;
-const switchFans = subpartsForModel(modelById("switch-1u")).filter(
-  (part) => part.parent === switchFanGroup.id,
-);
-const [rearLeftSupply, rearRightSupply] = [
-  switchPower.primary,
-  switchPower.companion,
-].sort((a, b) => b.position[0] - a.position[0]);
-// 风扇子件在模组内沿 +X 排列；从机后（-Z）观察时次序反转。
-export const switchRear = {
-  fanGroup: switchFanGroup,
-  fans: switchFans,
-  supplies: [switchPower.primary, switchPower.companion],
-  members: [rearLeftSupply, ...[...switchFans].reverse(), rearRightSupply],
-  companions: [switchPower.companion.id, switchFanGroup.id],
-};
+function rearModules(modelId: string, controllers: typeof storage) {
+  const power = powerPair(modelId);
+  const supplies = [power.primary, power.companion];
+  const fanGroup = partsForModel(modelId).find((part) => part.node === "fans")!;
+  const fans = subpartsForModel(modelById(modelId)).filter(
+    (part) => part.parent === fanGroup.id,
+  );
+  // 从机后看 +X 在左。S4 上层为控制器，下层和 N1 一样由电源夹着风扇排。
+  const fromRear = (a: typeof power.primary, b: typeof power.primary) =>
+    b.position[0] - a.position[0];
+  const [left, right] = [...supplies].sort(fromRear);
+  return {
+    fanGroup,
+    fans,
+    supplies,
+    controllers,
+    members: [
+      ...[...controllers].sort(fromRear),
+      left,
+      ...[...fans].reverse(),
+      right,
+    ],
+    companions: [
+      power.companion.id,
+      fanGroup.id,
+      ...controllers.map((p) => p.id),
+    ],
+  };
+}
+export const switchRear = rearModules("switch-1u", []);
+const storageRear = rearModules("storage-4u", storage);
+export const rearLayoutFor = (modelId: string) =>
+  modelId === "storage-4u"
+    ? storageRear
+    : modelId === "switch-1u"
+      ? switchRear
+      : undefined;
+export const controllerLayer = {
+  members: "both",
+  label: "控制器板卡与托盘",
+  scope: "板卡姿态",
+  seated: "放回支柱",
+  separated: "抬起板卡",
+} as const;
 function rearPowerCheck(modelId: "switch-1u" | "storage-4u") {
   return {
     tool: modelId === "switch-1u" ? "switch-power" : "storage-power",
@@ -146,18 +173,19 @@ const checks = {
       name: "双控制器",
       entry: "核对双控制器",
       detail: "对照 A/B 槽位，可分层核对所选控制器的板卡与托盘",
-      layer: {
-        members: "both",
-        label: "控制器板卡与托盘",
-        scope: "板卡姿态",
-        seated: "放回支柱",
-        separated: "抬起板卡",
-      },
+      layer: controllerLayer,
       labels: [controllerA.name, controllerB.name],
       startExplosion: 0.3,
       pairs: [{ primary: controllerA, companion: controllerB }],
     },
-    rearPowerCheck("storage-4u"),
+    {
+      ...rearPowerCheck("storage-4u"),
+      rear: storageRear,
+      tool: "storage-power",
+      entry: "核对机后模块",
+      summary: "机后模块",
+      detail: "按上下两层对照控制器、电源和风扇，逐件抽出或放回",
+    },
   ],
   "server-2u": [
     processorCheck("server-2u"),
@@ -271,6 +299,7 @@ const checks = {
     },
     {
       ...rearPowerCheck("switch-1u"),
+      rear: switchRear,
       tool: "switch-power",
       entry: "核对双电源与风扇",
       detail: "在同一排核对两件电源与四件风扇，可逐件查看槽位",
@@ -282,8 +311,12 @@ export type AssemblyCheck = (typeof checks)[keyof typeof checks][number];
 
 // 从单件进入沿用该件，从模组进入选择本组第一件。
 export function assemblyMember(check: AssemblyCheck, selected: string) {
-  if (check.tool === "switch-power") {
-    const fan = switchRear.fans.find(
+  if ("rear" in check) {
+    const controller = check.rear.controllers.find(
+      (part) => part.id === selected,
+    );
+    if (controller) return controller;
+    const fan = check.rear.fans.find(
       (part) => part.id === selected || part.parent === selected,
     );
     if (fan) return fan;

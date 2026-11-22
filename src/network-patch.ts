@@ -49,9 +49,7 @@ export function networkPatch(
   const storageY = deviceHeight(source.deviceId);
   const exitY =
     storageY +
-    (exterior
-      ? patchSettings.exteriorInterfaceY
-      : patchSettings.controllerPanelY);
+    (exterior ? patchSettings.exteriorInterfaceY : controller.position[1]);
   // 外观只有后面板的公共接口区，按配置部件的左右顺序放置代表点。
   const sx = exterior
     ? (Math.sign(controller.position[0]) *
@@ -78,10 +76,6 @@ export function networkPatch(
     fz = front + frontClearance;
   const above = ty + definition.rack.unitPitch * 0.66;
   return [
-    // 未加载外观的活动装配露出内置控制器，先向上避开后置风扇再出柜。
-    ...(mountedStructure
-      ? [point(sx, storageY + controller.position[1], sz)]
-      : []),
     point(sx, exitY, sz),
     point(sx, exitY, rz),
     point(sideX, exitY, rz),

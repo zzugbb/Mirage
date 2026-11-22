@@ -83,7 +83,9 @@ export function StructureTools({
         <strong>结构核对</strong>
         <small>
           {[
-            ...assemblies.map((check) => check.name),
+            ...assemblies.map((check) =>
+              "summary" in check ? check.summary : check.name,
+            ),
             memory ? "内存组" : "",
             fans ? "风扇组" : "",
             slots || children ? "盘位" : "",

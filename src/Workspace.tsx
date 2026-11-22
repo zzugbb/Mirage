@@ -1,9 +1,9 @@
-import type { RearRowPose } from "./scene/switch-rear-row";
+import type { RearRowPose } from "./scene/rear-module-seats";
 import type { LayerPose } from "./scene/assembly-layer";
 import {
   assemblyChecks,
   assemblyMember,
-  switchRear,
+  controllerLayer,
   type AssemblyCheck,
 } from "./assembly-pairs";
 import { modelForDevice, subpartsForModel } from "./catalog";
@@ -468,23 +468,27 @@ export function Workspace() {
     assembly && "additionalPart" in assembly
       ? assembly.additionalPart
       : undefined;
-  const rearRow =
-    assembly?.tool === "switch-power" ? pairVisit?.rearRow : undefined;
+  const rearLayout = assembly && "rear" in assembly ? assembly.rear : undefined;
+  const rearRow = rearLayout && pairVisit?.rearRow;
+  const rearController =
+    !!rearRow && rearLayout.controllers.some((part) => part.id === selected);
   const activePair = canInspectPart(state)
     ? assembly?.pairs.find(
         ({ primary, companion }) =>
           selected === primary.id ||
           selected === companion.id ||
           selected === additionalPart?.id ||
-          (!!rearRow && switchRear.fans.some((fan) => fan.id === selected)),
+          (!!rearRow &&
+            rearLayout.members.some((part) => part.id === selected)),
       )
     : undefined;
-  const selectedLayer =
-    assembly &&
-    "layer" in assembly &&
-    activePair &&
-    (assembly.layer.members === "both" ||
-      activePair[assembly.layer.members].id === selected)
+  const selectedLayer = rearController
+    ? controllerLayer
+    : assembly &&
+        "layer" in assembly &&
+        activePair &&
+        (assembly.layer.members === "both" ||
+          activePair[assembly.layer.members].id === selected)
       ? assembly.layer
       : undefined;
   const layerPose = selectedLayer ? pairVisit?.layerPose : undefined;
@@ -494,14 +498,22 @@ export function Workspace() {
     setPairVisit((current) => current && { ...current, layerPose: pose });
   };
   const companionPartIds = useMemo(() => {
-    if (rearRow) return switchRear.companions;
     if (layerPose) return [];
+    if (rearRow) return rearLayout.companions;
     if (activePair)
       return additionalPart
         ? [activePair.companion.id, additionalPart.id]
         : [activePair.companion.id];
     return compareFanDuct && fanDuct ? [fanDuct.id] : [];
-  }, [activePair, additionalPart, compareFanDuct, fanDuct, layerPose, rearRow]);
+  }, [
+    activePair,
+    additionalPart,
+    compareFanDuct,
+    fanDuct,
+    layerPose,
+    rearRow,
+    rearLayout,
+  ]);
   useEffect(() => {
     if (pairVisit && !activePair) setPairVisit(null);
     else if (pairVisit?.layerPose && !selectedLayer) setLayerPose();
@@ -1534,12 +1546,8 @@ export function Workspace() {
     feedback.key === presentationKey(state);
   useLayoutEffect(() => {
     if (
-      !(
-        selectedLayer ||
-        (activeMemory && selectedDimm) ||
-        assembly?.tool === "switch-power"
-      ) ||
-      rearRow ||
+      !(selectedLayer || (activeMemory && selectedDimm) || rearLayout) ||
+      (rearRow && !rearController) ||
       layerPose ||
       dimmPose
     )
@@ -1563,6 +1571,8 @@ export function Workspace() {
     selectedDimm,
     dimmPose,
     rearRow,
+    rearController,
+    rearLayout,
     assembly,
     ready,
   ]);
@@ -2902,8 +2912,9 @@ export function Workspace() {
       setInspectionDevice(null);
       const member = assemblyMember(check, selected);
       const startRow =
-        tool === "switch-power" &&
-        !switchRear.supplies.some((part) => part.id === selected);
+        "rear" in check &&
+        (tool === "storage-power" ||
+          !check.rear.supplies.some((part) => part.id === selected));
       setPairVisit({
         deviceId: state.deviceId,
         tool,
@@ -3018,10 +3029,10 @@ export function Workspace() {
     control({ type: "finish-part-inspection" });
   };
   const showRearSupplies = () => {
-    if (!rearRow) return;
+    if (!rearRow || !rearLayout) return;
     returningToLayer.current = true;
     pick(
-      switchRear.supplies.some((part) => part.id === selected)
+      rearLayout.supplies.some((part) => part.id === selected)
         ? selected
         : rearRow.supplyId,
     );
@@ -5635,7 +5646,7 @@ export function Workspace() {
                   : layerPose
             }
             dimmPose={dimmPose}
-            rearRowPose={activePair ? rearRow?.pose : undefined}
+            rearRowPose={activePair && !layerPose ? rearRow?.pose : undefined}
             storageContact={activeStorageVisit?.mode === "contact"}
             companionPartIds={companionPartIds}
             isolatedPartId={isolatedPartId}
@@ -5914,7 +5925,7 @@ export function Workspace() {
                   state={state}
                   dispatch={dispatch}
                   disabled={!ready}
-                  destination={assembly.name}
+                  destination={rearRow ? "机后排布" : assembly.name}
                   onBack={() => {
                     returningToLayer.current = true;
                     setLayerPose();
@@ -5964,7 +5975,7 @@ export function Workspace() {
                       autoFocus
                       onChange={(event) => pick(event.target.value)}
                     >
-                      {switchRear.members.map((part) => (
+                      {rearLayout.members.map((part) => (
                         <option key={part.id} value={part.id}>
                           {part.slot}
                         </option>
@@ -5991,6 +6002,15 @@ export function Workspace() {
                     >
                       {rearRow.pose === "seated" ? "抽出模块" : "放回槽位"}
                     </button>
+                    {rearController && (
+                      <button
+                        ref={layerEntry}
+                        disabled={!ready}
+                        onClick={() => setLayerPose("separated")}
+                      >
+                        查看控制器板卡
+                      </button>
+                    )}
                   </div>
                 </StructureToolbar>
               ) : activePair && assembly ? (
@@ -6004,7 +6024,7 @@ export function Workspace() {
                 >
                   <div
                     className={
-                      selectedLayer || assembly.tool === "switch-power"
+                      selectedLayer || rearLayout
                         ? "structure-check-scope assembly-layer-scope"
                         : "structure-check-scope"
                     }
@@ -6075,7 +6095,7 @@ export function Workspace() {
                         )}
                       </div>
                     )}
-                    {assembly.tool === "switch-power" && (
+                    {rearLayout && (
                       <button
                         ref={layerEntry}
                         disabled={!ready}
@@ -7627,7 +7647,7 @@ export function Workspace() {
                       {compactServer && selected === "storage-01"
                         ? `前置 ${compactDriveBays.length} 个托架，硬盘与背板分别建模。`
                         : rearRow
-                          ? "电源 A/B 来自机型输入配置，风扇编号沿用风扇组子件。托边、限位与抽出行程为装配示意，时间分析使用部件模型读数。"
+                          ? "模块编号及 A/B 归属来自本机型配置。托边、限位与抽出行程为装配示意，时间分析沿用所选部件的模型读数。"
                           : dimmPose
                             ? "槽位按本机型的内存条编号与模型位置对应。槽体、卡扣和抬起间距为装配示意，读数沿用内存条模型。"
                             : memoryContext && selected === "memory-01"

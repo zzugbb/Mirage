@@ -1,14 +1,14 @@
 import * as THREE from "three";
-import { switchRear } from "../assembly-pairs.ts";
+import { rearLayoutFor } from "../assembly-pairs.ts";
 import { localMeshBounds } from "./local-mesh-bounds.ts";
 
 import definition from "../../assets/public/scenes/room-01.json" with { type: "json" };
 
-const seat = definition.switchAssembly.rearSeats;
+const seat = definition.rearModuleSeats;
 export type RearRowPose = "seated" | "withdrawn";
 
 // 每个槽的支承边沿取自同一装配坐标下的模块外廓。抽出距离仅用于观察。
-export class SwitchRearRow {
+export class RearModuleSeats {
   readonly guides = new THREE.Group();
   private readonly metal = new THREE.MeshStandardMaterial({
     color: seat.metalColor,
@@ -21,7 +21,7 @@ export class SwitchRearRow {
   private moved?: { module: THREE.Group; z: number };
 
   constructor() {
-    this.guides.name = "switch-rear-seats";
+    this.guides.name = "rear-module-seats";
   }
 
   private rail(
@@ -41,15 +41,26 @@ export class SwitchRearRow {
     parent.add(mesh);
   }
 
-  private build(fans: THREE.Group, parts: Map<string, THREE.Group>) {
+  private build(
+    fans: THREE.Group,
+    parts: Map<string, THREE.Group>,
+    layout: NonNullable<ReturnType<typeof rearLayoutFor>>,
+  ) {
     this.envelope.makeEmpty();
-    for (const part of switchRear.members) {
-      const bounds = localMeshBounds(parts.get(part.id)!, fans);
-      const size = bounds.getSize(new THREE.Vector3());
-      const center = bounds.getCenter(new THREE.Vector3());
+    for (const part of layout.members) {
+      const module = parts.get(part.id)!;
+      const bounds = localMeshBounds(module, fans);
+      // 控制器由托盘承载，后面板下沿低于托盘底面。
+      const tray = module.getObjectByName("controller-tray");
+      const support = tray ? localMeshBounds(tray, fans) : bounds;
+      const panel = module.getObjectByName("controller-rear-panel");
+      if (panel)
+        support.min.z = localMeshBounds(panel, fans).max.z + seat.stopClearance;
+      const size = support.getSize(new THREE.Vector3());
+      const center = support.getCenter(new THREE.Vector3());
       const slot = new THREE.Group();
       slot.name = part.slot;
-      slot.position.set(center.x, bounds.min.y, center.z);
+      slot.position.set(center.x, support.min.y, center.z);
       this.guides.add(slot);
       // 两条托边在底面接触，内侧限位留出净空，向机后开口。
       const edge = size.x / 2 + seat.sideClearance + seat.wallThickness;
@@ -82,7 +93,7 @@ export class SwitchRearRow {
         seat.wallHeight / 2 - seat.ledgeThickness,
         size.z / 2 + seat.stopClearance + seat.wallThickness / 2,
       );
-      const travel = size.z * seat.travelRatio;
+      const travel = (bounds.max.z - bounds.min.z) * seat.travelRatio;
       this.travel.set(part.id, travel);
       bounds.min.z -= travel;
       this.envelope.union(bounds);
@@ -109,18 +120,24 @@ export class SwitchRearRow {
     parts: Map<string, THREE.Group>,
     bases: Map<string, THREE.Vector3>,
     selected: string,
+    modelId: string,
     pose?: RearRowPose,
   ) {
-    const fans = parts.get(switchRear.fanGroup.id);
-    if (!pose || !fans) {
+    const layout = pose && rearLayoutFor(modelId);
+    const fans = layout && parts.get(layout.fanGroup.id);
+    if (!layout || !fans) {
       this.clear();
       return;
     }
     if (this.guides.parent && this.guides.parent !== fans) this.clear();
-    // 核对装配槽位时，风扇排和两个电源共用就位姿态。
-    for (const part of [switchRear.fanGroup, ...switchRear.supplies])
+    // 同屏核对时，所有模块以装配位置为基准。
+    for (const part of [
+      layout.fanGroup,
+      ...layout.supplies,
+      ...layout.controllers,
+    ])
       parts.get(part.id)!.position.copy(bases.get(part.id)!);
-    if (!this.guides.parent) this.build(fans, parts);
+    if (!this.guides.parent) this.build(fans, parts, layout);
     const module = parts.get(selected);
     const travel = this.travel.get(selected);
     if (pose === "withdrawn" && module && travel !== undefined) {

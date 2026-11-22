@@ -98,6 +98,22 @@ test("从存储安装位查看时避开后置风扇，已加载外观改用后�
       "storage-4u": "ready",
       "switch-1u": "ready",
     })!;
+    const [source] = networkEndpoints(link.id);
+    const controller = partsForDevice(source.deviceId).find(
+      (p) => p.id === source.partId,
+    )!;
+    for (const path of [idle, networkPatch(rack, link, assets)!]) {
+      assert.ok(
+        Math.abs(
+          path[0].y -
+            origin.y -
+            deviceHeight(source.deviceId) -
+            controller.position[1],
+        ) < 1e-7,
+      );
+      assert.equal(path[0].y, path[1].y);
+      assert.ok(path[1].z < path[0].z);
+    }
     assert.ok(idle[0].z > loaded[0].z);
     assert.ok(loaded.at(-1)!.z < idle.at(-1)!.z);
     assert.ok(

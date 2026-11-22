@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import * as THREE from "three";
 import { poseAssemblyLayer } from "./scene/assembly-layer.ts";
 import { createEquipmentAssembly } from "./scene/equipment-model.ts";
-import { SwitchRearRow } from "./scene/switch-rear-row.ts";
+import { RearModuleSeats } from "./scene/rear-module-seats.ts";
 import {
   assemblyChecks,
   assemblyMember,
@@ -313,7 +313,7 @@ test("N1 两组导光条逐列对准笼口，抬起只移动导光条和横梁�
 
 test("N1 机后六槽按观察次序排列，逐件抽出时导轨固定，相邻模块与退出姿态正确", () => {
   const { root, groups, positions } = createEquipmentAssembly("switch-1u");
-  const row = new SwitchRearRow();
+  const row = new RearModuleSeats();
   const { members } = switchRear;
   assert.deepEqual(
     members.map((m) => m.slot),
@@ -328,13 +328,13 @@ test("N1 机后六槽按观察次序排列，逐件抽出时导轨固定，相�
     assert.ok(assemblyChecks("sw-12", m.id).includes(check));
     if (i) assert.ok(installed[i].max.x < installed[i - 1].min.x);
   }
-  row.update(groups, positions, members[0].id, "seated");
+  row.update(groups, positions, members[0].id, "switch-1u", "seated");
   const guides = row.guides.children.map(bounds);
   const close = (x: number, y: number) => assert.ok(Math.abs(x - y) < 1e-7);
   for (const [i, m] of members.entries()) {
     for (const pose of ["withdrawn", "seated", "withdrawn"] as const) {
       row.restoreModule();
-      row.update(groups, positions, m.id, pose);
+      row.update(groups, positions, m.id, "switch-1u", pose);
       root.updateMatrixWorld(true);
       const frame = new THREE.Box3();
       row.includeFrame(frame);
@@ -345,7 +345,7 @@ test("N1 机后六槽按观察次序排列，逐件抽出时导轨固定，相�
         const depth = original.max.z - original.min.z;
         const offset =
           pose === "withdrawn" && i === j
-            ? depth * definition.switchAssembly.rearSeats.travelRatio
+            ? depth * definition.rearModuleSeats.travelRatio
             : 0;
         close(module.min.x, original.min.x);
         close(module.min.y, original.min.y);
@@ -360,7 +360,7 @@ test("N1 机后六槽按观察次序排列，逐件抽出时导轨固定，相�
   }
   row.dispose();
   root.updateMatrixWorld(true);
-  assert.equal(root.getObjectByName("switch-rear-seats"), undefined);
+  assert.equal(root.getObjectByName("rear-module-seats"), undefined);
   assert.deepEqual(
     members.map((m) => bounds(groups.get(m.id)!)),
     installed,

@@ -119,7 +119,7 @@ export class InstallationScene {
           .filter((part) => part.node === "controller")
           .map((part) => [
             part.position[0],
-            patchSettings.controllerPanelY,
+            part.position[1],
             -model.depth / 2 - panelDepth / 2,
           ]);
         batch(

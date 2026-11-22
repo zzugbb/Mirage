@@ -1,4 +1,4 @@
-import type { RearRowPose } from "../scene/switch-rear-row";
+import type { RearRowPose } from "../scene/rear-module-seats";
 import type { LayerPose } from "../scene/assembly-layer";
 import { roomAirflowTarget } from "../cooling";
 import { useDismissibleMenu } from "../use-dismissible-menu";

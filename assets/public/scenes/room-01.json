@@ -1503,8 +1503,8 @@
       "slot": "CTRL-A",
       "position": [
         -0.075,
-        0,
-        -0.1203
+        0.058,
+        -0.242
       ],
       "size": [
         0.13,
@@ -1531,8 +1531,8 @@
       "slot": "CTRL-B",
       "position": [
         0.075,
-        0,
-        -0.1203
+        0.058,
+        -0.242
       ],
       "size": [
         0.13,
@@ -1618,7 +1618,7 @@
       "position": [
         0,
         0,
-        -0.2921
+        -0.337
       ],
       "size": [
         0.18,
@@ -1644,13 +1644,13 @@
     "cooling": "mirage-cooling-unit-v1",
     "power": "mirage-power-cabinet-v1"
   },
+  "rearModuleSeats": {
+    "travelRatio": 0.85, "focusDirection": [0.12, 0.64, -1],
+    "ledgeWidth": 0.003, "ledgeThickness": 0.0012,
+    "wallThickness": 0.001, "wallHeight": 0.003, "sideClearance": 0.0005,
+    "stopClearance": 0.0011, "metalColor": "#657681"
+  },
   "switchAssembly": {
-    "rearSeats": {
-      "travelRatio": 0.85, "focusDirection": [0.12, 0.64, -1],
-      "ledgeWidth": 0.003, "ledgeThickness": 0.0012,
-      "wallThickness": 0.001, "wallHeight": 0.003, "sideClearance": 0.0005,
-      "stopClearance": 0.0011, "metalColor": "#657681"
-    },
     "lightGuides": {
       "width": 0.0032, "height": 0.002, "standHeight": 0.0015,
       "railHeight": 0.0014, "lift": 0.029, "focusDirection": [0.47, 0.62, 1]
@@ -5555,7 +5555,6 @@
         "postBypassX": 0.242,
         "rearClearance": 0.047,
         "frontClearance": 0.038,
-        "controllerPanelY": 0.052,
         "controllerPanelDepth": 0.008,
         "exteriorInterfaceWidth": 0.105,
         "exteriorInterfaceY": 0.023,
