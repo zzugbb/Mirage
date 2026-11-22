@@ -145,6 +145,11 @@ export function FanInspection({
         <p>
           编号按机型配置排列，每个维护子件可含多个叶轮。前、后侧沿设备坐标。
         </p>
+        {visit.mode === "single" && modelForDevice(deviceId).fanDuctLayout && (
+          <p>
+            整件沿用当前模型外观。转子位置按机型配置，护网、轴头、轮毂与电机座为原创剖视示意。
+          </p>
+        )}
         {visit.side === "duct" &&
           modelForDevice(deviceId).id === "server-2u" && (
             <p>

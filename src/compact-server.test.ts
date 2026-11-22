@@ -654,15 +654,17 @@ test("精细 1U 模型保留内嵌贴图和材质，维护部件仍与八内存�
     for (const fan of fans) {
       const detailed = assembly.groups.get(fan.id)!;
       const fallback = simple.groups.get(fan.id)!;
-      assert.equal(detailed.children.length, 2);
-      assert.equal(fallback.children.length, 2);
-      for (const [i, rotor] of detailed.children.entries()) {
+      const exterior = detailed.children.filter((node) => node.visible);
+      const proxyRotors = fallback.children.filter((node) => node.visible);
+      assert.equal(exterior.length, 2);
+      assert.equal(proxyRotors.length, 2);
+      for (const [i, rotor] of exterior.entries()) {
         assert.ok(
-          middle(rotor).distanceTo(middle(fallback.children[i])) < 0.001,
+          middle(rotor).distanceTo(middle(proxyRotors[i])) < 0.001,
           fan.slot,
         );
         assert.ok(box(rotor).min.z > box(duct).max.z, fan.slot);
-        assert.ok(box(fallback.children[i]).min.z > box(proxy).max.z, fan.slot);
+        assert.ok(box(proxyRotors[i]).min.z > box(proxy).max.z, fan.slot);
       }
     }
   });

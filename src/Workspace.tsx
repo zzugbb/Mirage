@@ -438,6 +438,8 @@ export function Workspace() {
   const [fanViewRevision, setFanViewRevision] = useState(0);
   const [fanFocusRevision, setFanFocusRevision] = useState(0);
   const activeFanVisit = activeFanInspection(fanVisit, state, selected);
+  const fanShaft =
+    activeFanVisit?.mode === "single" ? activeFanVisit.shaft : undefined;
   const fanDuct = activeFanVisit
     ? fanAssembly(state.deviceId)?.duct
     : undefined;
@@ -3160,7 +3162,7 @@ export function Workspace() {
     if (!activeFanVisit || !ready) return;
     setInspector(true);
     if (matchMedia("(max-width: 1099px)").matches) setNav(false);
-    setFanVisit({ ...activeFanVisit, mode: "group" });
+    setFanVisit({ ...activeFanVisit, mode: "group", shaft: undefined });
     control({ type: "pick", id: activeFanVisit.fanId });
     control({ type: "analysis", value: false });
     setFanViewRevision((n) => n + 1);
@@ -5833,31 +5835,37 @@ export function Workspace() {
                 : undefined
             }
             layerPose={
-              pathContact
-                ? pathVisit?.pose
-                : activeStorageVisit?.mode === "tray"
+              fanShaft
+                ? fanShaft.open
                   ? "separated"
-                  : activeStorageVisit?.mode === "disk"
-                    ? "seated"
-                    : layerPose
+                  : "seated"
+                : pathContact
+                  ? pathVisit?.pose
+                  : activeStorageVisit?.mode === "tray"
+                    ? "separated"
+                    : activeStorageVisit?.mode === "disk"
+                      ? "seated"
+                      : layerPose
             }
             layerScopeId={
-              (activeStorageVisit?.mode === "tray" ||
-                activeStorageVisit?.mode === "disk") &&
-              activeStorageVisit.trayStage !== "drive"
-                ? activeStorageVisit.trayStage
-                : processorInspection && layerPose && activePair
-                  ? processorStage + ":" + activePair.primary.id
-                  : contactFan && fanStage
-                    ? fanStage.id + ":" + contactFan.id
-                    : pathContact
-                      ? station.id
-                      : layerPose &&
-                          (assembly?.tool === "switch-front" ||
-                            stagedLayer ||
-                            controllerInspection)
-                        ? pairVisit?.layerScopeId
-                        : undefined
+              fanShaft
+                ? fanShaft.stage + ":" + fanShaft.rotor
+                : (activeStorageVisit?.mode === "tray" ||
+                      activeStorageVisit?.mode === "disk") &&
+                    activeStorageVisit.trayStage !== "drive"
+                  ? activeStorageVisit.trayStage
+                  : processorInspection && layerPose && activePair
+                    ? processorStage + ":" + activePair.primary.id
+                    : contactFan && fanStage
+                      ? fanStage.id + ":" + contactFan.id
+                      : pathContact
+                        ? station.id
+                        : layerPose &&
+                            (assembly?.tool === "switch-front" ||
+                              stagedLayer ||
+                              controllerInspection)
+                          ? pairVisit?.layerScopeId
+                          : undefined
             }
             dimmPose={dimmPose}
             rearRowPose={
@@ -6804,6 +6812,10 @@ export function Workspace() {
                   }}
                   onGroup={activeFanVisit ? returnFanGroup : returnStorageGroup}
                   onFinish={finishStructureCheck}
+                  onShaft={(shaft) => {
+                    if (activeFanVisit && ready)
+                      setFanVisit({ ...activeFanVisit, shaft });
+                  }}
                   onSide={(side) => {
                     if (!activeFanVisit || !ready) return;
                     takeover();
@@ -7128,7 +7140,11 @@ export function Workspace() {
                 onInspect={() => {
                   if (!activeFanVisit || !ready) return;
                   setFanFocusRevision((n) => n + 1);
-                  setFanVisit({ ...activeFanVisit, mode: "single" });
+                  setFanVisit({
+                    ...activeFanVisit,
+                    mode: "single",
+                    shaft: undefined,
+                  });
                   pick(activeFanVisit.fanId);
                 }}
                 onGroup={returnFanGroup}

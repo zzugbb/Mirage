@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import type { Action, AppState } from "../domain";
-import type { FanInspection } from "../fan-inspection";
+import { shaftStages, type FanInspection } from "../fan-inspection";
 import type { StorageSlotInspection } from "../storage-slots";
 import { modelForDevice, subpartsForDevice } from "../catalog";
 import { trayStages, type TrayStageId } from "../storage-layout";
@@ -13,6 +13,7 @@ export function StructureNavigation({
   ready,
   dispatch,
   onSide,
+  onShaft,
   onFront,
   onToggleDrive,
   onTrayStage,
@@ -24,6 +25,7 @@ export function StructureNavigation({
   analysis: boolean;
   ready: boolean;
   dispatch: (action: Action) => void;
+  onShaft: (shaft: FanInspection["shaft"]) => void;
   onSide: (side: FanInspection["side"]) => void;
   onFront: () => void;
   onTrayStage: (id: TrayStageId) => void;
@@ -83,7 +85,58 @@ export function StructureNavigation({
               : "structure-check-scope"
         }
       >
-        {driveInspection ? (
+        {fan?.mode === "single" && hasDuct ? (
+          <>
+            <select
+              aria-label="风扇装配位置"
+              disabled={disabled}
+              value={fan.shaft ? fan.shaft.stage + ":" + fan.shaft.rotor : ""}
+              onChange={(event) => {
+                const [id, index] = event.target.value.split(":");
+                const stage = shaftStages.find((s) => s.id === id);
+                onShaft(
+                  stage
+                    ? {
+                        stage: stage.id,
+                        rotor: Number(index),
+                        open: fan.shaft?.open ?? true,
+                      }
+                    : undefined,
+                );
+              }}
+            >
+              <option value="">整件 · {part?.slot}</option>
+              {modelForDevice(visit.deviceId)
+                .fanDuctLayout!.modules.find((s) => s.id === fan.fanId)!
+                .rotorX.flatMap((_, i, xs) =>
+                  shaftStages.map((s) => (
+                    <option key={s.id + i} value={s.id + ":" + i}>
+                      {xs.length > 1
+                        ? i === 0
+                          ? "左转子 · "
+                          : "右转子 · "
+                        : ""}
+                      {s.name}
+                    </option>
+                  )),
+                )}
+            </select>
+            {fan.shaft && (
+              <button
+                disabled={disabled}
+                onClick={() =>
+                  fan.shaft && onShaft({ ...fan.shaft, open: !fan.shaft.open })
+                }
+              >
+                {
+                  shaftStages.find((s) => s.id === fan.shaft!.stage)![
+                    fan.shaft.open ? "close" : "open"
+                  ]
+                }
+              </button>
+            )}
+          </>
+        ) : driveInspection ? (
           <>
             <b>{part?.slot}</b>
             <select

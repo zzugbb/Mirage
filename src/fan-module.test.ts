@@ -426,3 +426,52 @@ test("S4 两槽的叶轮背孔对轴，轴套止肩抵住电机座，分合后�
     dispose(assembly.root);
   }
 });
+
+test("M1 八个、M2 四个转子按配置独立核查，固定轴和相邻转子保留在位", () => {
+  for (const model of ["server-1u", "server-2u"]) {
+    const { root, groups } = createEquipmentAssembly(model);
+    const layout = definition.equipmentModels.find(
+      (m) => m.id === model,
+    )!.fanDuctLayout!;
+    for (const { id, rotorX } of layout.modules) {
+      const fan = groups.get(id)!;
+      for (const [index, x] of rotorX.entries()) {
+        const scope = layerScopeFor(fan, "rotor:" + index)!;
+        const mechanism = scope.cutaway!;
+        const center = mechanism.getWorldPosition(new THREE.Vector3());
+        assert.ok(
+          center.distanceTo(
+            new THREE.Vector3(x, layout.rotorY, layout.rotorZ),
+          ) < 1e-7,
+        );
+        const moving = mechanism.getObjectByName("fan-rotor")!,
+          pin = mechanism.getObjectByName("fan-shaft")!;
+        const base = moving.getWorldPosition(new THREE.Vector3()),
+          fixed = pin.getWorldPosition(new THREE.Vector3());
+        for (const open of [true, false]) {
+          poseAssemblyLayer(scope.layerRoot, open);
+          root.updateWorldMatrix(true, true);
+          const dz = base.z - moving.getWorldPosition(new THREE.Vector3()).z;
+          if (open) assert.ok(dz > 0.01);
+          else assert.equal(dz, 0);
+          assert.ok(
+            fixed.distanceTo(pin.getWorldPosition(new THREE.Vector3())) < 1e-8,
+          );
+          for (const [k] of rotorX.entries())
+            if (k !== index)
+              assert.equal(
+                fan
+                  .getObjectByName("fan-cutaway-" + (k + 1))!
+                  .getObjectByName("fan-rotor")!.position.z,
+                0,
+              );
+        }
+        for (const stage of ["guard", "hub", "spindle"])
+          assert.equal(
+            layerScopeFor(fan, stage + ":" + index)!.cutaway,
+            mechanism,
+          );
+      }
+    }
+  }
+});

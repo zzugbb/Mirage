@@ -13,6 +13,7 @@ import {
   isStorageHarnessPart,
 } from "./server-storage-harness.ts";
 import { registerLayer } from "./assembly-layer.ts";
+import { buildServerFanMounts } from "./server-fan-mount.ts";
 import { buildServerPowerContacts } from "./server-power-contact.ts";
 import { rearPowerSupply } from "./rear-power-supply.ts";
 import {
@@ -866,6 +867,7 @@ export function createEquipmentAssembly(modelId: string): Assembly {
   if (model.category === "server") seatProcessors(modelId, groups, positions);
   if (model.processorSeat) registerCompactProcessorSeats(groups);
   if (modelId === "server-2u") registerServerProcessorSeats(groups);
+  if (model.fanDuctLayout) buildServerFanMounts(groups, modelId);
   if (model.powerBays) buildServerPowerContacts(groups, box, modelId);
   root.updateMatrixWorld(true);
   return { root, groups, positions };
@@ -911,6 +913,7 @@ export function completeServerAssembly(
   replaceRtcProxy(groups.get(model.rtcMount!.boardId)!);
   buildRtcMount(groups, positions, model.rtcMount!.boardPoint[1], box);
   buildStorageHarness(groups, positions, box);
+  buildServerFanMounts(groups, model.id);
   buildServerPowerContacts(groups, box, model.id);
   seatProcessors("server-2u", groups, positions);
   registerServerProcessorSeats(groups);

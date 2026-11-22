@@ -21,7 +21,18 @@ export function fanAssembly(deviceId: string) {
     : undefined;
   return fans.length ? { group, fans, duct } : null;
 }
+export const shaftStages = [
+  { id: "guard", name: "护网与定位柱", open: "取下护网", close: "装回护网" },
+  { id: "rotor", name: "叶轮与轴头", open: "移出叶轮", close: "放回叶轮" },
+  { id: "hub", name: "轮毂背孔", open: "移出叶轮", close: "放回叶轮" },
+  { id: "spindle", name: "轴套与电机座", open: "取出轴套", close: "压回轴套" },
+] as const;
 export type FanInspection = {
+  shaft?: {
+    stage: (typeof shaftStages)[number]["id"];
+    rotor: number;
+    open: boolean;
+  };
   deviceId: string;
   mode: "group" | "single";
   fanId: string;
