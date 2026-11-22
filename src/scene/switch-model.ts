@@ -1,4 +1,5 @@
 import { registerLayer, registerLayerScope } from "./assembly-layer.ts";
+import { switchCageBanks } from "../switch-cages.ts";
 import * as THREE from "three";
 import definition from "../../assets/public/scenes/room-01.json" with { type: "json" };
 
@@ -192,6 +193,102 @@ export function switchAsic(root: THREE.Group, size: number[], box: Box) {
   });
 }
 
+// 同一笼组复用几何和材质；每个安装位保留自己的承片姿态。
+function cageInsertSeat(
+  clearWidth: number,
+  depth: number,
+  wall: number,
+  box: Box,
+) {
+  const seat = new THREE.Group();
+  const blade = new THREE.Group();
+  blade.name = "cage-insert";
+  seat.add(blade);
+  const width = clearWidth * 0.88;
+  const halfBlade = width * 0.38;
+  const rear = -depth / 2 + wall;
+  const shoulder = rear + depth * 0.13;
+  const front = depth * 0.33;
+  const thickness = wall * 0.75;
+  const support = wall * 0.7;
+  const keyX = width * 0.1,
+    keyHalf = width * 0.075;
+  const keyDepth = depth * 0.23;
+  box(
+    seat,
+    [width, support, front - rear],
+    [0, support / 2, (front + rear) / 2],
+    "#555f69",
+  ).name = "insert-bed";
+  box(
+    seat,
+    [width, thickness * 2, shoulder - rear],
+    [0, support + thickness, (rear + shoulder) / 2],
+    "#7b8791",
+  ).name = "insert-stop";
+  box(
+    seat,
+    [keyHalf * 2, thickness * 1.45, keyDepth],
+    [keyX, support + thickness * 0.725, shoulder + keyDepth / 2],
+    "#cd9a63",
+  ).name = "insert-key";
+  const railWidth = width / 2 - halfBlade - wall * 0.12;
+  for (const side of [-1, 1])
+    box(
+      seat,
+      [railWidth, thickness * 1.5, front - shoulder],
+      [
+        (side * (width - railWidth)) / 2,
+        support + thickness * 0.75,
+        (front + shoulder) / 2,
+      ],
+      "#85979a",
+    ).name = "insert-rail";
+
+  // 片尾缺口贯通，左右两肩可穿过固定键两侧并同时抵住后挡肩。
+  const gap = wall * 0.12,
+    mouth = front + depth * 0.07;
+  const profile = new THREE.Shape();
+  profile.moveTo(-halfBlade, shoulder);
+  profile.lineTo(keyX - keyHalf - gap, shoulder);
+  profile.lineTo(keyX - keyHalf - gap, shoulder + keyDepth + gap);
+  profile.lineTo(keyX + keyHalf + gap, shoulder + keyDepth + gap);
+  profile.lineTo(keyX + keyHalf + gap, shoulder);
+  profile.lineTo(halfBlade, shoulder);
+  profile.lineTo(halfBlade, mouth - wall);
+  profile.lineTo(halfBlade - wall, mouth);
+  profile.lineTo(-halfBlade + wall, mouth);
+  profile.lineTo(-halfBlade, mouth - wall);
+  profile.closePath();
+  const geometry = new THREE.ExtrudeGeometry(profile, {
+    depth: thickness,
+    bevelEnabled: false,
+  });
+  geometry.rotateX(Math.PI / 2);
+  geometry.translate(0, support + thickness, 0);
+  const tongue = new THREE.Mesh(
+    geometry,
+    new THREE.MeshStandardMaterial({ color: "#47685f", roughness: 0.56 }),
+  );
+  tongue.name = "insert-tongue";
+  tongue.castShadow = tongue.receiveShadow = true;
+  blade.add(tongue);
+  // 表面金属带只标示承片的朝向，不对应针脚或网络端口。
+  for (const side of [-1, 1])
+    box(
+      blade,
+      [width * 0.14, wall * 0.09, depth * 0.26],
+      [
+        side * halfBlade * 0.54,
+        support + thickness + wall * 0.045,
+        mouth - depth * 0.22,
+      ],
+      "#c5a779",
+      0.52,
+    ).name = "insert-strip";
+  return seat;
+}
+
 // 端口笼与导光组件共用一个维护身份；孔位只描述前部装配外形。
 export function switchPortCages(root: THREE.Group, size: number[], box: Box) {
   const [w, h, d] = size;
@@ -244,7 +341,7 @@ export function switchPortCages(root: THREE.Group, size: number[], box: Box) {
     metalness: 0.08,
     roughness: 0.32,
   });
-  for (const bank of definition.switchAssembly.frontCages) {
+  for (const bank of switchCageBanks) {
     const { columns, width, centerX } = bank;
     const group = new THREE.Group();
     group.position.x = centerX;
@@ -252,36 +349,51 @@ export function switchPortCages(root: THREE.Group, size: number[], box: Box) {
     const left = centerX - width / 2,
       right = centerX + width / 2;
     if (left > leftEdge) floorSegment(leftEdge, left);
-    const floor = floorSegment(left, right);
+    const floor = new THREE.Group();
+    base.add(floor);
     leftEdge = right;
     const bottom = -h / 2 + wall;
     const top = roofTop - wall;
+    const cellWidth = width / columns;
+    const frameTemplate = new THREE.Group();
     // 后衬低于笼口，主板前沿与底座背面在装配态相接。
     box(
-      group,
-      [width, top - bottom, wall],
+      frameTemplate,
+      [cellWidth, top - bottom, wall],
       [0, (top + bottom) / 2, (wall - d) / 2],
       "#19242b",
       0.18,
     ).name = "cage-backing";
-    box(group, [width, wall, d], [0, (top + bottom) / 2, 0], "#9ba8ad", 0.72);
     box(
-      group,
-      [width, wall, roofFront + front],
+      frameTemplate,
+      [cellWidth, wall, d],
+      [0, (top + bottom) / 2, 0],
+      "#9ba8ad",
+      0.72,
+    ).name = "cage-shelf";
+    box(
+      frameTemplate,
+      [cellWidth, wall, roofFront + front],
       [0, roofTop - wall / 2, (roofFront - front) / 2],
       "#9ba8ad",
       0.72,
     ).name = "cage-roof";
+    const dividers = [];
     for (let column = 0; column <= columns; column++) {
       const x = (width - wall) * (column / columns - 0.5);
-      box(
+      const divider = box(
         group,
         [wall, top - bottom, d],
         [x, (top + bottom) / 2, 0],
         "#8d9aa3",
         0.7,
       );
+      divider.name = "cage-divider";
+      dividers.push(divider);
     }
+    const pitch = (width - wall) / columns;
+    const seatTemplate = cageInsertSeat(pitch - wall, d, wall, box);
+    const { travel, focusDirection } = definition.switchAssembly.cageInsert;
     const carrier = new THREE.Group();
     carrier.position.x = centerX;
     moving.add(carrier);
@@ -322,21 +434,75 @@ export function switchPortCages(root: THREE.Group, size: number[], box: Box) {
       const padDepth = d * 0.25,
         padZ = d * 0.15;
       const footH = guides.standHeight * 0.55;
-      box(
+      const pad = box(
         group,
         [guides.width * 1.7, footH, padDepth],
         [pipe.position.x, roofTop + footH / 2, padZ],
         "#616c70",
-      ).name = "guide-inlet-base";
-      box(
+      );
+      pad.name = "guide-inlet-base";
+      const window = box(
         group,
         [guides.width, guides.standHeight - footH, padDepth * 0.72],
         [pipe.position.x, roofTop + (guides.standHeight + footH) / 2, padZ],
         "#d4b780",
         0.26,
-      ).name = "guide-inlet-window";
+      );
+      window.name = "guide-inlet-window";
       pipe.castShadow = pipe.receiveShadow = true;
       comb.add(pipe);
+      const frame = frameTemplate.clone();
+      frame.position.x = cellWidth * (column + 0.5 - columns / 2);
+      group.add(frame);
+      const bottomPanel = floorSegment(
+        left + cellWidth * column,
+        left + cellWidth * (column + 1),
+      );
+      floor.add(bottomPanel);
+      const cellMembers = [
+        frame,
+        bottomPanel,
+        dividers[column],
+        dividers[column + 1],
+        pipe,
+        pad,
+        window,
+      ];
+      const rowInserts = bank.inserts.filter(
+        (insert) => insert.column === column + 1,
+      );
+      const seats = rowInserts.map((insert) => {
+        const seat = seatTemplate.clone();
+        seat.name = insert.id;
+        seat.position.set(
+          pipe.position.x,
+          insert.row === "upper" ? (top + bottom + wall) / 2 : bottom,
+          0,
+        );
+        group.add(seat);
+        return seat;
+      });
+      for (const [index, insert] of rowInserts.entries()) {
+        const seat = seats[index];
+        const blade = seat.getObjectByName("cage-insert")!;
+        registerLayer(seat, {
+          node: blade.name,
+          offset: [0, 0, travel],
+          direction: [focusDirection[0], focusDirection[1], focusDirection[2]],
+        });
+        const scope = {
+          layerRoot: seat,
+          moving: blade,
+          selectedBranch: blade,
+          selectionPadding: 0.0003,
+        };
+        registerLayerScope(root, insert.id, { ...scope, members: [seat] });
+        registerLayerScope(root, insert.cageId, {
+          ...scope,
+          members: [...cellMembers, ...seats],
+          direction: [0.23, 0.34, 1],
+        });
+      }
     }
   }
   if (leftEdge < w / 2) floorSegment(leftEdge, w / 2);

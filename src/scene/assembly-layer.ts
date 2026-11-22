@@ -16,6 +16,7 @@ interface LayerScope {
   moving: Object3D;
   members: Object3D[];
   selectedBranch?: Object3D;
+  direction?: MovingLayer["direction"];
   selectionPadding?: number;
 }
 const scopes = new WeakMap<Object3D, Map<string, LayerScope>>();

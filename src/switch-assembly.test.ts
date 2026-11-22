@@ -556,3 +556,124 @@ test("N1 四个固定座落在板缘，各槽两片触片避开通风口并对�
     }
   }
 });
+
+test("N1 两组上下排承片逐列装在对应笼口，固定座均在本列的隔墙之间", () => {
+  const ports = createEquipmentAssembly("switch-1u").groups.get("net-ports")!;
+  const floor = bounds(ports.getObjectByName("front-cage-base")!);
+  for (const bank of definition.switchAssembly.frontCages) {
+    const group = layerScopeFor(ports, bank.id)!.members[0];
+    const back = bounds(group.getObjectByName("cage-backing")!);
+    const dividers = group
+      .getObjectsByProperty("name", "cage-divider")
+      .map(bounds);
+    const shelf = bounds(group.getObjectByName("cage-shelf")!);
+    assert.equal(dividers.length, bank.columns + 1);
+    for (let column = 1; column <= bank.columns; column++) {
+      const left = dividers[column - 1].max.x,
+        right = dividers[column].min.x;
+      const center = (left + right) / 2;
+      for (const row of ["upper", "lower"]) {
+        const scope = layerScopeFor(ports, [bank.id, row, column].join("-"))!;
+        assert.equal(scope.layerRoot.parent, group);
+        const bed = bounds(scope.layerRoot.getObjectByName("insert-bed")!);
+        assert.ok(
+          Math.abs(bed.getCenter(new THREE.Vector3()).x - center) < 1e-7,
+        );
+        assert.ok(bed.min.x > left && bed.max.x < right);
+        assert.ok(Math.abs(bed.min.z - back.max.z) < 1e-7);
+        const shelfY = row === "lower" ? floor.max.y : shelf.max.y;
+        assert.ok(Math.abs(bed.min.y - shelfY) < 1e-7);
+      }
+    }
+  }
+});
+
+test("N1 承片落在双轨之间，偏心键穿过片尾缺口；两肩贴挡、抽出和再次推回均能由射线核对", () => {
+  const ports = createEquipmentAssembly("switch-1u").groups.get("net-ports")!;
+  for (const bank of definition.switchAssembly.frontCages) {
+    for (const row of ["upper", "lower"]) {
+      const scope = layerScopeFor(
+        ports,
+        bank.id + "-" + row + "-" + bank.columns,
+      )!;
+      const seat = scope.layerRoot,
+        tongue = seat.getObjectByName("insert-tongue")!;
+      const key = bounds(seat.getObjectByName("insert-key")!);
+      const stop = bounds(seat.getObjectByName("insert-stop")!);
+      const rails = seat
+        .getObjectsByProperty("name", "insert-rail")
+        .map(bounds);
+      const bed = bounds(seat.getObjectByName("insert-bed")!);
+      const home = bounds(tongue);
+      const near = (a: number, b: number) => assert.ok(Math.abs(a - b) < 1e-7);
+      for (const separated of [false, true, true, false]) {
+        poseAssemblyLayer(seat, separated);
+        seat.updateWorldMatrix(true, true);
+        const blade = bounds(tongue);
+        const travel = separated
+          ? definition.switchAssembly.cageInsert.travel
+          : 0;
+        near(blade.min.z - stop.max.z, travel);
+        near(blade.min.y, bed.max.y);
+        assert.ok(blade.min.x > rails[0].max.x && blade.max.x < rails[1].min.x);
+        const center = key.getCenter(new THREE.Vector3());
+        assert.ok(center.x > blade.getCenter(new THREE.Vector3()).x);
+        const probe = (x: number, z: number) =>
+          new THREE.Raycaster(
+            new THREE.Vector3(x, blade.max.y + 0.01, z),
+            new THREE.Vector3(0, -1, 0),
+          ).intersectObject(tongue).length > 0;
+        const z = center.z + travel;
+        assert.equal(probe(center.x, z), false);
+        assert.ok(probe((blade.min.x + key.min.x) / 2, z));
+        assert.ok(probe((blade.max.x + key.max.x) / 2, z));
+        if (separated) assert.ok(blade.min.z > rails[0].max.z);
+      }
+      assert.ok(bounds(tongue).equals(home));
+    }
+  }
+});
+
+test("笼位视图和承片近看指向同一活动件，上下排共用本列真实框体及导光条", () => {
+  const ports = createEquipmentAssembly("switch-1u").groups.get("net-ports")!;
+  for (const { id, columns } of definition.switchAssembly.frontCages) {
+    for (let column = 1; column <= columns; column++) {
+      const upper = layerScopeFor(
+        ports,
+        [id, "upper", column, "cage"].join("-"),
+      )!;
+      const lower = layerScopeFor(
+        ports,
+        [id, "lower", column, "cage"].join("-"),
+      )!;
+      assert.deepEqual(upper.members, lower.members);
+      assert.ok(
+        upper.members.includes(upper.layerRoot) &&
+          upper.members.includes(lower.layerRoot),
+      );
+      assert.notEqual(upper.moving, lower.moving);
+      const guide = upper.members.find(
+        (member) => member.name === "light-guide",
+      )!;
+      assert.equal(
+        upper.members.filter((part) => part.name === "cage-divider").length,
+        2,
+      );
+      for (const [row, scope] of [
+        ["upper", upper],
+        ["lower", lower],
+      ] as const) {
+        const detail = layerScopeFor(ports, [id, row, column].join("-"))!;
+        assert.equal(detail.layerRoot, scope.layerRoot);
+        assert.equal(detail.moving, scope.selectedBranch);
+        const center = bounds(guide).getCenter(new THREE.Vector3());
+        const seat = bounds(scope.layerRoot);
+        assert.ok(
+          center.x > seat.min.x &&
+            center.x < seat.max.x &&
+            center.y > seat.max.y,
+        );
+      }
+    }
+  }
+});

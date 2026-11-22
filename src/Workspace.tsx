@@ -1,3 +1,5 @@
+import { FrontCageControls } from "./components/FrontCageControls";
+import { switchCageSelection } from "./switch-cages";
 import type { RearRowPose } from "./scene/rear-module-seats";
 import type { LayerPose } from "./scene/assembly-layer";
 import {
@@ -549,6 +551,10 @@ export function Workspace() {
         activePair[assembly.layer.members].id === selected)
       ? assembly.layer
       : undefined);
+  const cageSelection =
+    assembly?.tool === "switch-front"
+      ? switchCageSelection(pairVisit?.layerScopeId)
+      : undefined;
   const stagedLayer =
     selectedLayer && "stages" in selectedLayer ? selectedLayer : undefined;
   const stage = stagedLayer?.stages.find(
@@ -6201,24 +6207,18 @@ export function Workspace() {
                   <div
                     className="structure-check-scope assembly-layer-scope"
                     role="group"
-                    aria-label={selectedLayer.scope}
+                    aria-label={
+                      cageSelection?.insert
+                        ? "笼内承片姿态"
+                        : selectedLayer.scope
+                    }
                   >
-                    {"cageBanks" in assembly && (
-                      <select
-                        aria-label="导光组件范围"
+                    {cageSelection && (
+                      <FrontCageControls
+                        selection={cageSelection}
+                        onChange={setLayerScope}
                         disabled={!ready}
-                        value={pairVisit?.layerScopeId ?? ""}
-                        onChange={(event) =>
-                          setLayerScope(event.target.value || undefined)
-                        }
-                      >
-                        <option value="">整排</option>
-                        {assembly.cageBanks.map((bank) => (
-                          <option key={bank.id} value={bank.id}>
-                            {bank.columns} 列笼组
-                          </option>
-                        ))}
-                      </select>
+                      />
                     )}
                     {rearLayout &&
                       (stagedLayer ||
@@ -6441,7 +6441,11 @@ export function Workspace() {
                                   ? pose === "seated"
                                     ? "插入固定座"
                                     : "退出固定座"
-                                  : (stage ?? selectedLayer)[pose]}
+                                  : cageSelection?.insert
+                                    ? pose === "seated"
+                                      ? "推回承片"
+                                      : "抽出承片"
+                                    : (stage ?? selectedLayer)[pose]}
                       </button>
                     ))}
                   </div>

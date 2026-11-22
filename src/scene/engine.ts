@@ -2362,7 +2362,7 @@ export class SceneEngine {
         direction.set(1, 0.51, 0.46).transformDirection(object.matrixWorld);
       if (layer) {
         direction
-          .fromArray(layer.direction)
+          .fromArray(scope?.direction ?? layer.direction)
           .transformDirection(object.matrixWorld);
         // 从板底核查贯通孔时，轨道须允许镜头到达该层配置的下视点。
         if (scope && direction.y < 0)
