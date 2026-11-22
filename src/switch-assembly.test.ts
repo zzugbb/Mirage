@@ -2,7 +2,7 @@ import definition from "../assets/public/scenes/room-01.json" with { type: "json
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as THREE from "three";
-import { poseSwitchHeatsink } from "./scene/switch-model.ts";
+import { poseAssemblyLayer } from "./scene/assembly-layer.ts";
 import { createEquipmentAssembly } from "./scene/equipment-model.ts";
 import { assemblyChecks, assemblyMember } from "./assembly-pairs.ts";
 import { devices } from "./installation.ts";
@@ -88,7 +88,7 @@ test("分层观察只抬起散热底座和鳍片，多次切换后仍能原位�
   const original = sink.children.map((mesh) => bounds(mesh));
   assert.ok(sink.children.length > 1);
   for (const separated of [true, true, false, true, false]) {
-    poseSwitchHeatsink(chip, separated);
+    poseAssemblyLayer(chip, separated);
     chip.updateMatrixWorld(true);
     const delta = new THREE.Vector3(0, sink.position.y, 0);
     assert.equal(sink.position.y > 0, separated);

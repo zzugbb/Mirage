@@ -1,3 +1,4 @@
+import { registerLayer } from "./assembly-layer.ts";
 import * as THREE from "three";
 import definition from "../../assets/public/scenes/room-01.json" with { type: "json" };
 
@@ -115,15 +116,11 @@ export function switchAsic(root: THREE.Group, size: number[], box: Box) {
       "#939fa9",
       0.8,
     );
-}
-
-export type ChipPose = "seated" | "separated";
-
-// 观察间距按模型高度取值，仅用于显露封装接触面。
-export const heatsinkLift = asic.size[1] * 2.4;
-export function poseSwitchHeatsink(root: THREE.Object3D, separated: boolean) {
-  const sink = root.getObjectByName("asic-heatsink");
-  if (sink) sink.position.y = separated ? heatsinkLift : 0;
+  registerLayer(root, {
+    node: heatsink.name,
+    lift: h * 2.4,
+    direction: [0.55, 0.43, 1],
+  });
 }
 
 // 端口笼与导光组件共用一个维护身份；孔位只描述前部装配外形。

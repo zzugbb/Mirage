@@ -1,3 +1,4 @@
+import { registerLayer } from "./assembly-layer.ts";
 import * as THREE from "three";
 import { storageAssembly, storageSlot } from "../storage-layout.ts";
 
@@ -117,7 +118,7 @@ export function storageController(root: THREE.Group, size: number[], box: Box) {
   const pcb = new THREE.Group();
   pcb.name = "controller-board";
   root.add(pcb);
-  box(pcb, boardSize, [0, 0, 0], "#305443", 0.2);
+  box(pcb, boardSize, [0, 0, 0], "#305443", 0.2).name = "controller-pcb";
   for (const side of [-1, 1]) {
     for (const z of [-0.32, 0, 0.32]) {
       box(
@@ -144,11 +145,12 @@ export function storageController(root: THREE.Group, size: number[], box: Box) {
         root,
         [0.006, boardBottom - trayTop, 0.006],
         [x * boardSize[0], (boardBottom + trayTop) / 2, z * boardSize[2]],
-        "#79858c",
+        "#ab9463",
         0.55,
-      );
+      ).name = "controller-standoff";
     }
-  box(root, [w, 0.003, d - 0.012], [0, trayY, 0.006], "#7d8c94", 0.65);
+  box(root, [w, 0.003, d - 0.012], [0, trayY, 0.006], "#7d8c94", 0.65).name =
+    "controller-tray";
   for (const side of [-1, 1]) {
     box(
       root,
@@ -180,13 +182,18 @@ export function storageController(root: THREE.Group, size: number[], box: Box) {
   );
   const sinkW = w * 0.45,
     sinkD = d * 0.27;
-  box(root, [sinkW, 0.004, sinkD], [0, 0.0035, 0], "#89979e", 0.67);
+  box(pcb, [sinkW, 0.004, sinkD], [0, 0.0035, 0], "#89979e", 0.67);
   for (let i = 0; i < 9; i++)
     box(
-      root,
+      pcb,
       [0.0025, 0.009, sinkD],
       [((i - 4) * sinkW) / 9, 0.01, 0],
       "#a4afb6",
       0.67,
     );
+  registerLayer(root, {
+    node: pcb.name,
+    lift: h * 1.85,
+    direction: [1, 1.12, -0.72],
+  });
 }

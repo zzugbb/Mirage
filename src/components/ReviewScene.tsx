@@ -1,4 +1,4 @@
-import type { ChipPose } from "../scene/switch-model";
+import type { LayerPose } from "../scene/assembly-layer";
 import { roomAirflowTarget } from "../cooling";
 import { useDismissibleMenu } from "../use-dismissible-menu";
 import { storageDriveGroup } from "../storage-slots";
@@ -153,7 +153,7 @@ export function ReviewScene({
   fanViewRevision = 0,
   fanViewSide = "front",
   storageViewRevision = 0,
-  chipPose,
+  layerPose,
   storageContact = false,
   storageBoardDisk,
   sliceViewCommand,
@@ -300,7 +300,7 @@ export function ReviewScene({
   fanViewRevision?: number;
   fanViewSide?: "front" | "rear" | "iso";
   storageViewRevision?: number;
-  chipPose?: ChipPose;
+  layerPose?: LayerPose;
   storageContact?: boolean;
   storageBoardDisk?: string | null;
   sliceControls: SliceControls;
@@ -1033,7 +1033,7 @@ export function ReviewScene({
     active.isolatedPartId = isolatedPartId;
     active.companionPartIds = companionPartIds;
     if (companionPartIds.length) setOrbit(false);
-    active.chipPose = chipPose;
+    active.layerPose = layerPose;
     active.storageContact = storageContact;
     active.storageBoardDisk = storageBoardDisk;
     active.invalidate();
@@ -1046,7 +1046,7 @@ export function ReviewScene({
   }, [
     isolatedPartId,
     companionPartIds,
-    chipPose,
+    layerPose,
     storageContact,
     storageBoardDisk,
     state.level,
@@ -1650,7 +1650,7 @@ export function ReviewScene({
       ? [alarmDevice]
       : ambientSelected ||
           !sliceVisible ||
-          chipPose ||
+          layerPose ||
           storageBoardDisk !== undefined
         ? []
         : layer === "environment" && roomLabelDevice && !moreLabels && !sliceRow

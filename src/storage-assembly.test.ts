@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as THREE from "three";
 import { createEquipmentAssembly } from "./scene/equipment-model.ts";
+import { poseAssemblyLayer } from "./scene/assembly-layer.ts";
 import { assemblyChecks } from "./assembly-pairs.ts";
 import { devices } from "./installation.ts";
 import { inletPart, powerLinks } from "./power-config.ts";
@@ -121,6 +122,56 @@ test("S4 核查选择与配置槽位、逻辑端口归属及后面板拾取一�
     for (const id of ["sto-psu-a", "sto-psu-b", "sto-fans", "sto-midplane"]) {
       const other = bounds(assembly.groups.get(id)!);
       assert.ok(!a.intersectsBox(other) && !b.intersectsBox(other), id);
+    }
+  }
+});
+
+test("S4 各控制器的板卡和散热片随板抬起，四个支柱及托盘留在各自槽位", () => {
+  const { groups } = createEquipmentAssembly("storage-4u");
+  const check = assemblyChecks("sto-04").find(
+    (item) => item.tool === "storage-controllers",
+  )!;
+  const { primary, companion } = check.pairs[0];
+  for (const [part, other] of [
+    [primary, companion],
+    [companion, primary],
+  ]) {
+    const root = groups.get(part.id)!;
+    const pcb = root.getObjectByName("controller-pcb")!;
+    const board = pcb.parent!;
+    const tray = root.getObjectByName("controller-tray")!;
+    const posts = root.children.filter((o) => o.name === "controller-standoff");
+    const neighbor = groups.get(other.id)!;
+    const fixed = [
+      tray,
+      neighbor,
+      root.getObjectByName("controller-rear-panel")!,
+      ...posts,
+    ];
+    const rest = fixed.map(bounds);
+    const atRest = bounds(board);
+    assert.equal(posts.length, 4);
+    for (const post of posts) {
+      close(bounds(post).min.y, bounds(tray).max.y);
+      close(bounds(post).max.y, bounds(pcb).min.y);
+      const middle = center(post);
+      assert.ok(
+        board.children.some(
+          (o) =>
+            Math.abs(center(o).x - middle.x) < 1e-7 &&
+            Math.abs(center(o).z - middle.z) < 1e-7,
+        ),
+      );
+    }
+    for (const separated of [true, true, false, true, false]) {
+      poseAssemblyLayer(root, separated);
+      root.updateMatrixWorld(true);
+      const rise = bounds(pcb).min.y - bounds(posts[0]).max.y;
+      if (separated) assert.ok(rise > part.size[1]);
+      else close(rise, 0);
+      close(bounds(board).max.y - atRest.max.y, rise);
+      if (separated) close(bounds(root).max.y, bounds(board).max.y);
+      assert.deepEqual(fixed.map(bounds), rest);
     }
   }
 });
