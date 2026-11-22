@@ -1669,6 +1669,10 @@
     }
   },
   "storageAssembly": {
+    "powerTray": {
+      "wall": 0.0015, "railWidth": 0.005, "stopDepth": 0.005,
+      "travelRatio": 1.06, "focusDirection": [-1, 0.82, -0.76]
+    },
     "columns": 4,
     "rows": 6,
     "driveSize": [

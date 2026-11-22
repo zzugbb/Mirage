@@ -4,7 +4,12 @@ import * as THREE from "three";
 import { createEquipmentAssembly } from "./scene/equipment-model.ts";
 import { poseAssemblyLayer } from "./scene/assembly-layer.ts";
 import { RearModuleSeats } from "./scene/rear-module-seats.ts";
-import { assemblyChecks, assemblyMember } from "./assembly-pairs.ts";
+import {
+  assemblyChecks,
+  assemblyMember,
+  rearMemberLayer,
+  rearLayoutFor,
+} from "./assembly-pairs.ts";
 import { devices } from "./installation.ts";
 import { inletPart, powerLinks } from "./power-config.ts";
 import { sourcePorts } from "./network.ts";
@@ -319,6 +324,12 @@ test("S4 六个后置模块逐件抽出时穿行区域有净空，固定托边�
           bounds(module.getObjectByName("controller-tray")!).min.y,
         );
       }
+      if ("node" in part && part.node === "psu") {
+        close(
+          bounds(rails.children[0]).max.y,
+          bounds(module.getObjectByName("psu-shell-base")!).min.y,
+        );
+      }
       module.traverse((mesh) => {
         if (mesh instanceof THREE.Mesh)
           for (const rail of rails.children)
@@ -333,5 +344,74 @@ test("S4 六个后置模块逐件抽出时穿行区域有净空，固定托边�
   root.updateMatrixWorld(true);
   assert.ok(
     members.every((part, i) => bounds(groups.get(part.id)!).equals(seated[i])),
+  );
+});
+
+test("S4 两路电源的输入面板随内托抽出，推回时两侧导轨承托且端面贴合止挡", () => {
+  const layout = rearLayoutFor("storage-4u")!;
+  const { root, groups } = createEquipmentAssembly("storage-4u");
+  root.updateMatrixWorld(true);
+  for (const supply of layout.supplies) {
+    assert.equal(rearMemberLayer(layout, supply.id)?.entry, "查看电源内托");
+    const psu = groups.get(supply.id)!;
+    const tray = psu.getObjectByName("psu-inner-tray")!;
+    const shell = psu.getObjectByName("psu-shell-side")!;
+    const floor = tray.getObjectByName("psu-tray-floor")!;
+    const face = tray.getObjectByName("psu-rear-panel")!;
+    assert.ok(
+      tray.getObjectByName("psu-handle") &&
+        tray.getObjectByName("psu-tray-board"),
+    );
+    const rails = psu.getObjectsByProperty("name", "psu-inner-rail");
+    const stops = psu.getObjectsByProperty("name", "psu-tray-stop");
+    assert.equal(rails.length, 2);
+    assert.equal(stops.length, 2);
+    const fixed = psu.children.filter((o) => o !== tray);
+    const seated = bounds(tray);
+    const fixedBounds = fixed.map(bounds);
+    close(bounds(face).max.z, bounds(shell).min.z);
+    for (const rail of rails) {
+      close(bounds(floor).min.y, bounds(rail).max.y);
+      assert.ok(
+        bounds(rail)
+          .clone()
+          .intersect(bounds(floor))
+          .getSize(new THREE.Vector3()).x > 0.003,
+      );
+    }
+    for (const stop of stops) close(bounds(floor).max.z, bounds(stop).min.z);
+    for (const separated of [true, true, false, true, false]) {
+      poseAssemblyLayer(psu, separated);
+      root.updateMatrixWorld(true);
+      assert.deepEqual(fixed.map(bounds), fixedBounds);
+      close(bounds(tray).min.x, seated.min.x);
+      close(bounds(tray).min.y, seated.min.y);
+      if (separated) assert.ok(bounds(tray).max.z < bounds(shell).min.z);
+      else assert.ok(bounds(tray).equals(seated));
+      // 每件沿 Z 轴平移的扫过范围都应避开固定实体，允许装配面相贴。
+      tray.traverse((mesh) => {
+        if (!(mesh instanceof THREE.Mesh)) return;
+        const box = bounds(mesh);
+        const path = box
+          .clone()
+          .union(
+            box.clone().translate(new THREE.Vector3(0, 0, -tray.position.z)),
+          );
+        for (const obstacle of fixedBounds) {
+          const overlap = obstacle
+            .clone()
+            .intersect(path)
+            .getSize(new THREE.Vector3());
+          assert.ok(
+            Math.min(overlap.x, overlap.y, overlap.z) < 1e-7,
+            mesh.name,
+          );
+        }
+      });
+    }
+  }
+  const network = rearLayoutFor("switch-1u")!;
+  assert.ok(
+    network.supplies.every((supply) => !rearMemberLayer(network, supply.id)),
   );
 });

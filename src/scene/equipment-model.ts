@@ -14,6 +14,7 @@ import {
   storageController,
   storageDrive,
   storageMidplane,
+  storagePowerTray,
 } from "./storage-model.ts";
 import * as THREE from "three";
 import definition from "../../assets/public/scenes/room-01.json" with { type: "json" };
@@ -91,25 +92,28 @@ function rearPowerSupply(
   size: number[],
   box: Box,
   rearClearance: number,
+  slidingTray: boolean,
 ) {
   const [w, h, d] = size;
   const rear = -d / 2;
   // 横杆外缘与机箱后沿保留间隙。
   const gripDepth = Math.min(0.012, rearClearance - 0.002);
   root.userData.focusDirection = [0.14, 0.55, -1];
-  box(root, [w * 0.96, h * 0.92, d], [0, 0, 0], "#87949c", 0.72);
-  box(root, [w, h, 0.003], [0, 0, rear], "#53616a", 0.62).name =
+  const panel = slidingTray ? storagePowerTray(root, size, box) : root;
+  if (!slidingTray)
+    box(root, [w * 0.96, h * 0.92, d], [0, 0, 0], "#87949c", 0.72);
+  box(panel, [w, h, 0.003], [0, 0, rear], "#53616a", 0.62).name =
     "psu-rear-panel";
   const inletX = -w * 0.13;
   box(
-    root,
+    panel,
     [w * 0.44, h * 0.5, 0.003],
     [inletX, 0, rear - 0.003],
     "#242d33",
     0.2,
   );
   box(
-    root,
+    panel,
     [w * 0.34, h * 0.35, 0.001],
     [inletX, 0, rear - 0.0046],
     "#121b20",
@@ -117,14 +121,14 @@ function rearPowerSupply(
   );
   for (const sign of [-1, 1]) {
     box(
-      root,
+      panel,
       [w * 0.43, 0.0016, 0.001],
       [inletX, sign * h * 0.36, rear - 0.002],
       "#20292e",
       0.18,
     );
     box(
-      root,
+      panel,
       [0.004, 0.004, gripDepth],
       [w * 0.32, sign * h * 0.28, rear - gripDepth / 2],
       "#7f9098",
@@ -139,12 +143,12 @@ function rearPowerSupply(
     );
   }
   box(
-    root,
+    panel,
     [0.005, h * 0.56 + 0.004, 0.003],
     [w * 0.32, 0, rear - gripDepth],
     "#9ba88f",
     0.48,
-  );
+  ).name = "psu-handle";
   // 上盖压筋沿抽取方向排列，保持模块外廓。
   for (const x of [-0.23, 0.23])
     box(
@@ -903,7 +907,13 @@ export function createEquipmentAssembly(modelId: string): Assembly {
         );
       } else if (p.id === "net-board") switchBoard(group, size, box);
       else if (model.category !== "server" && p.node === "psu")
-        rearPowerSupply(group, size, box, (depth - size[2]) / 2 + pos[2]);
+        rearPowerSupply(
+          group,
+          size,
+          box,
+          (depth - size[2]) / 2 + pos[2],
+          model.id === "storage-4u",
+        );
       else if (p.id === "net-ports") switchPortCages(group, size, box);
       else if (p.id === "net-asic") switchAsic(group, size, box);
       else if (p.id === "sto-midplane") storageMidplane(group, size, box);

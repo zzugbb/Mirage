@@ -99,7 +99,21 @@ export const controllerLayer = {
   seated: "放回支柱",
   separated: "抬起板卡",
 } as const;
+const powerTrayLayer = {
+  entry: "查看电源内托",
+  description:
+    "输入 A、B 与电源身份沿用 S4 配置。内托、导轨、止挡和行程为原创装配示意。时间分析使用部件模型读数，支路未计量。",
+  label: "电源内托与导轨",
+  scope: "内托姿态",
+  seated: "推回壳体",
+  separated: "拉出内托",
+} as const;
 export function rearMemberLayer(layout: typeof switchRear, selected: string) {
+  if (
+    layout === storageRear &&
+    layout.supplies.some((part) => part.id === selected)
+  )
+    return powerTrayLayer;
   if (layout.controllers.some((part) => part.id === selected))
     return controllerLayer;
   if (layout === switchRear && layout.fans.some((part) => part.id === selected))
@@ -232,7 +246,7 @@ const checks = {
       tool: "storage-power",
       entry: "核对机后模块",
       summary: "机后模块",
-      detail: "按上下两层对照控制器、电源和风扇，逐件抽出或放回",
+      detail: "按机后槽位核对模块，可查看控制器板卡或电源内托",
     },
   ],
   "server-2u": [

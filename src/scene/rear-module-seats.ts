@@ -50,12 +50,19 @@ export class RearModuleSeats {
     for (const part of layout.members) {
       const module = parts.get(part.id)!;
       const bounds = localMeshBounds(module, fans);
-      // 控制器由托盘承载，后面板下沿低于托盘底面。
-      const tray = module.getObjectByName("controller-tray");
-      const support = tray ? localMeshBounds(tray, fans) : bounds;
-      const panel = module.getObjectByName("controller-rear-panel");
-      if (panel)
-        support.min.z = localMeshBounds(panel, fans).max.z + seat.stopClearance;
+      // 后面板下沿可能低于承载面。柜内托边只托住壳底或控制器托盘，并避开面板。
+      const base =
+        module.getObjectByName("controller-tray") ??
+        module.getObjectByName("psu-shell-base");
+      const support = base ? localMeshBounds(base, fans) : bounds;
+      if (base) {
+        const panel =
+          module.getObjectByName("controller-rear-panel") ??
+          module.getObjectByName("psu-rear-panel");
+        if (panel)
+          support.min.z =
+            localMeshBounds(panel, fans).max.z + seat.stopClearance;
+      }
       const size = support.getSize(new THREE.Vector3());
       const center = support.getCenter(new THREE.Vector3());
       const slot = new THREE.Group();
