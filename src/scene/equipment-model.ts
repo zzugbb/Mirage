@@ -1,7 +1,7 @@
 import { processorPairs, drivePairs } from "../assembly-pairs.ts";
 import { compactBayForPart } from "../compact-drive-bays.ts";
 import { createFanModule } from "./fan-module.ts";
-import { switchBoard, switchAsic } from "./switch-model.ts";
+import { switchBoard, switchAsic, switchPortCages } from "./switch-model.ts";
 import {
   storageController,
   storageDrive,
@@ -244,20 +244,6 @@ function detail(root: THREE.Group, node: string, size: number[], box: Box) {
         "#151d23",
         0.1,
       );
-  } else if (node === "ports") {
-    for (let i = 0; i < 54; i++) {
-      const up = i >= 48,
-        x = up ? 0.145 + ((i - 48) % 3) * 0.024 : -0.18 + (i % 24) * 0.0125,
-        y = (Math.floor((up ? i - 48 : i) / (up ? 3 : 24)) - 0.5) * 0.013;
-      box(root, [up ? 0.02 : 0.01, 0.011, 0.014], [x, y, 0], "#a1adb6", 0.8);
-      box(
-        root,
-        [up ? 0.016 : 0.007, 0.007, 0.003],
-        [x, y, 0.009],
-        "#10181e",
-        0.1,
-      );
-    }
   } else
     box(root, size, [0, 0, 0], node === "lid" ? "#9aa5ae" : "#4e5a64", 0.75);
 }
@@ -573,6 +559,7 @@ export function createEquipmentAssembly(modelId: string): Assembly {
       if (p.id === "net-board") switchBoard(group, size, box);
       else if (model.category !== "server" && p.node === "psu")
         rearPowerSupply(group, size, box, (depth - size[2]) / 2 + pos[2]);
+      else if (p.id === "net-ports") switchPortCages(group, size, box);
       else if (p.id === "net-asic") switchAsic(group, size, box);
       else if (p.id === "sto-midplane") storageMidplane(group, size, box);
       else detail(group, p.node, size, box);

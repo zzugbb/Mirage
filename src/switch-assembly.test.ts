@@ -1,3 +1,4 @@
+import definition from "../assets/public/scenes/room-01.json" with { type: "json" };
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as THREE from "three";
@@ -168,5 +169,49 @@ test("N1 双电源核查沿用两路输入配置，机后左右槽位与安装�
     ).intersectObject(root)[0].object;
     while (hit && !hit.userData.entityId) hit = hit.parent;
     assert.equal(hit, psu);
+  }
+});
+
+test("N1 端口笼底座贴合主板前沿，两排笼口均可从机前拾取为同一组件", () => {
+  const { root, groups } = createEquipmentAssembly("switch-1u");
+  const ports = groups.get("net-ports")!;
+  const base = bounds(ports.getObjectByName("front-cage-base")!);
+  const board = bounds(
+    groups.get("net-board")!.getObjectByName("switch-main-board")!,
+  );
+  assert.ok(Math.abs(base.min.z - board.max.z) < 1e-7);
+  assert.ok(base.min.y < board.max.y && base.max.y > board.min.y);
+  assert.ok(Math.abs(base.max.x - board.max.x) < 1e-7);
+  const front = bounds(ports).max.z;
+  for (const bank of definition.switchAssembly.frontCages) {
+    for (let column = 0; column < bank.columns; column++) {
+      const x =
+        bank.centerX + bank.width * ((column + 0.5) / bank.columns - 0.5);
+      for (const y of [-0.006, 0.006]) {
+        const hit = new THREE.Raycaster(
+          new THREE.Vector3(x, y, front + 0.02),
+          new THREE.Vector3(0, 0, -1),
+        ).intersectObject(root)[0];
+        assert.equal(hit?.object.name, "cage-backing");
+        assert.ok(front - hit.point.z > 0.01);
+        let owner: THREE.Object3D | null = hit.object;
+        while (owner && !owner.userData.entityId) owner = owner.parent;
+        assert.equal(owner, ports);
+      }
+    }
+  }
+  for (const device of devices) {
+    const check = assemblyChecks(device.id).find(
+      (item) => item.tool === "switch-front",
+    );
+    assert.equal(Boolean(check), device.modelId === "switch-1u");
+    if (!check) continue;
+    assert.deepEqual(
+      [check.pairs[0].primary.slot, check.pairs[0].companion.slot],
+      ["PORT", "CTRL"],
+    );
+    assert.deepEqual(assemblyChecks(device.id, "net-ports"), [check]);
+    assert.ok(assemblyChecks(device.id, "net-board").includes(check));
+    assert.ok(!assemblyChecks(device.id, "net-asic").includes(check));
   }
 });

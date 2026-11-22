@@ -122,6 +122,20 @@ const checks = {
         },
       ],
     },
+    {
+      tool: "switch-front",
+      name: "前置端口笼",
+      entry: "核对端口笼与主板",
+      detail: "从机前对照端口组件与主板前沿",
+      labels: ["端口笼", "控制主板"],
+      startExplosion: 0.35,
+      pairs: [
+        {
+          primary: network.find((part) => part.id === "net-ports")!,
+          companion: network.find((part) => part.id === "net-board")!,
+        },
+      ],
+    },
     rearPowerCheck("switch-1u"),
   ],
 } as const;

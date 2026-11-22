@@ -113,3 +113,40 @@ export function switchAsic(root: THREE.Group, size: number[], box: Box) {
       0.8,
     );
 }
+
+// 端口笼与导光组件共用一个维护身份；孔位只描述前部装配外形。
+export function switchPortCages(root: THREE.Group, size: number[], box: Box) {
+  const [w, h, d] = size;
+  const wall = 0.0012;
+  root.userData.focusDirection = [0.14, 0.34, 1];
+  box(root, [w, wall, d], [0, (-h + wall) / 2, 0], "#85939b", 0.72).name =
+    "front-cage-base";
+  for (const bank of definition.switchAssembly.frontCages) {
+    const { columns, width, centerX } = bank;
+    const group = new THREE.Group();
+    group.position.x = centerX;
+    root.add(group);
+    // 后衬低于笼口，主板前沿与底座背面在装配态相接。
+    box(
+      group,
+      [width, h - 2 * wall, wall],
+      [0, 0, (wall - d) / 2],
+      "#19242b",
+      0.18,
+    ).name = "cage-backing";
+    for (const y of [0, h / 2 - 1.5 * wall])
+      box(group, [width, wall, d], [0, y, 0], "#9ba8ad", 0.72);
+    for (let column = 0; column <= columns; column++) {
+      const x = (width - wall) * (column / columns - 0.5);
+      box(group, [wall, h - 3 * wall, d], [x, -wall / 2, 0], "#8d9aa3", 0.7);
+      if (column < columns)
+        box(
+          group,
+          [0.0028, wall, 0.003],
+          [x + width / columns / 2, h / 2 - wall / 2, d / 2 - 0.002],
+          "#bac7bf",
+          0.25,
+        );
+    }
+  }
+}

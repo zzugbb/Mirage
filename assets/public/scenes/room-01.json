@@ -1645,6 +1645,10 @@
     "power": "mirage-power-cabinet-v1"
   },
   "switchAssembly": {
+    "frontCages": [
+      {"columns": 24, "width": 0.30, "centerX": -0.044},
+      {"columns": 3, "width": 0.070, "centerX": 0.159}
+    ],
     "boardRearExtension": {
       "width": 0.21,
       "depth": 0.056
