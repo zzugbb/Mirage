@@ -778,3 +778,128 @@ test("S4 内托抽出后，整板从柱肩抬到终点的全行程避开输入�
     });
   }
 });
+
+test("S4 各端口罩脚进出底座四个长孔时，两侧罩壁贴座，尾座和承片保持安装位", () => {
+  const { groups } = createEquipmentAssembly("storage-4u");
+  const { hoodLift, wall } = storageAssembly.controllerPorts;
+  for (const id of ["sto-controller-a", "sto-controller-b"]) {
+    const root = groups.get(id)!;
+    const cages = root.getObjectsByProperty("name", "controller-port-cage");
+    for (const [i, cage] of cages.entries()) {
+      const scope = layerScopeFor(root, "port-" + i + "-hood")!;
+      const hood = cage.getObjectByName("controller-port-hood")!;
+      assert.ok(scope.moving === hood);
+      const tabs = hood.getObjectsByProperty("name", "controller-port-tab");
+      const floor = cage.getObjectByName("controller-port-floor")!,
+        deck = bounds(floor);
+      const seat = cage.getObjectByName("controller-port-seat")!,
+        rest = bounds(seat);
+      assert.equal(tabs.length, 4);
+      for (const separated of [true, false, true, false]) {
+        poseAssemblyLayer(scope.layerRoot, separated);
+        root.updateWorldMatrix(true, true);
+        for (const cheek of hood.getObjectsByProperty(
+          "name",
+          "controller-port-cheek",
+        ))
+          close(bounds(cheek).min.y - deck.max.y, separated ? hoodLift : 0);
+        for (const tab of tabs) {
+          const pin = bounds(tab),
+            axis = center(tab);
+          assert.ok(pin.min.y > deck.min.y);
+          assert.equal(pin.min.y > deck.max.y, separated);
+          const probe = (x: number, z: number) =>
+            new THREE.Raycaster(
+              new THREE.Vector3(x, deck.max.y + 0.002, z),
+              new THREE.Vector3(0, -1, 0),
+            ).intersectObject(floor).length > 0;
+          for (const x of [pin.min.x, pin.max.x])
+            for (const z of [pin.min.z, pin.max.z])
+              assert.equal(probe(x, z), false);
+          assert.ok(probe(axis.x, pin.max.z + wall * 0.5));
+        }
+        assert.ok(bounds(seat).equals(rest));
+        assert.equal(
+          cage.getObjectByName("controller-port-insert")!.position.length(),
+          0,
+        );
+        assert.equal(
+          cages[1 - i].getObjectByName(hood.name)!.position.length(),
+          0,
+        );
+      }
+    }
+  }
+});
+
+test("S4 四口承片的窄尾进入槽内，宽肩抵住两侧止挡，抽出后窄尾和接触片全部离座", () => {
+  const { groups } = createEquipmentAssembly("storage-4u");
+  const { tongueTravel } = storageAssembly.controllerPorts;
+  for (const id of ["sto-controller-a", "sto-controller-b"]) {
+    const root = groups.get(id)!;
+    const ports = sourcePorts("sto-04").filter((p) => p.partId === id);
+    for (const [i, cage] of root
+      .getObjectsByProperty("name", "controller-port-cage")
+      .entries()) {
+      const scope = layerScopeFor(root, "port-" + i + "-tongue")!;
+      assert.equal(cage.userData.logicalPort, ports[i].port);
+      assert.ok(
+        scope.extractedLayers?.[0] ===
+          cage.getObjectByName("controller-port-hood"),
+      );
+      const tongue = cage.getObjectByName("controller-port-tongue")!;
+      const bed = bounds(cage.getObjectByName("controller-port-bed")!);
+      const roof = bounds(cage.getObjectByName("controller-port-socket-roof")!);
+      const back = bounds(cage.getObjectByName("controller-port-socket-back")!);
+      const stops = cage
+        .getObjectsByProperty("name", "controller-port-stop")
+        .map(bounds);
+      assert.equal(stops.length, 2);
+      for (const split of [true, false, true, false]) {
+        poseAssemblyLayer(scope.layerRoot, split);
+        root.updateWorldMatrix(true, true);
+        const b = bounds(tongue),
+          origin = center(tongue);
+        close(b.min.y, bed.max.y);
+        assert.equal(b.max.z < bed.min.z, split);
+        assert.ok(b.max.z < back.min.z);
+        for (const stop of stops) {
+          const x =
+            (Math.max(b.min.x, stop.min.x) + Math.min(b.max.x, stop.max.x)) / 2;
+          const ray = new THREE.Raycaster(
+            new THREE.Vector3(x, origin.y, back.max.z),
+            new THREE.Vector3(0, 0, -1),
+          );
+          const shoulder = ray.intersectObject(tongue)[0];
+          close(stop.min.z - shoulder.point.z, split ? tongueTravel : 0);
+        }
+        const pads = cage
+          .getObjectsByProperty("name", "controller-port-pad")
+          .map(bounds);
+        assert.equal(pads.length, 3);
+        const springs = cage.getObjectsByProperty(
+          "name",
+          "controller-port-spring",
+        );
+        for (const [index, pad] of pads.entries()) {
+          const spring = bounds(springs[index]);
+          close(spring.max.y, roof.min.y);
+          close(spring.min.y, pad.max.y);
+          const point = pad.getCenter(new THREE.Vector3());
+          point.z = bed.min.z + (back.min.z - bed.min.z) * 0.33;
+          const ray = new THREE.Raycaster(point, new THREE.Vector3(0, 1, 0));
+          close(ray.intersectObject(springs[index])[0].point.y, pad.max.y);
+          assert.equal(point.z > pad.min.z && point.z < pad.max.z, !split);
+          close(pad.min.y, b.max.y);
+          assert.ok(
+            pad.min.x > stops[0].max.x &&
+              pad.max.x < stops[1].min.x &&
+              pad.max.y < roof.min.y,
+          );
+          assert.equal(pad.min.z > bed.min.z, !split);
+          assert.equal(pad.max.z < bed.min.z, split);
+        }
+      }
+    }
+  }
+});

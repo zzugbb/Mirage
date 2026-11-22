@@ -127,7 +127,7 @@ const rotorLayer = {
 export const controllerLayer = {
   entry: "查看控制器板卡",
   description:
-    "控制器身份与双口归属来自 S4 配置。板卡孔柱、端口笼、芯片封装、散热器与拆装行程为原创装配示意。时间分析使用所选控制器的模拟读数。",
+    "控制器身份与双口归属来自 S4 配置。板卡孔柱、端口屏蔽罩、承片与尾座、芯片封装、散热器与拆装行程为原创装配示意。时间分析使用所选控制器的模拟读数。",
   members: "both",
   label: "控制器板卡与托盘",
   scope: "板卡姿态",
@@ -439,7 +439,7 @@ const checks = {
       tool: "storage-controllers",
       name: "双控制器",
       entry: "核对双控制器",
-      detail: "对照 A/B 槽位，核对板边双口、四角支柱和芯片散热器",
+      detail: "对照 A/B 槽位，核对四角支柱、芯片散热器及每个端口的罩脚与承片",
       layer: controllerLayer,
       labels: [controllerA.name, controllerB.name],
       startExplosion: 0.3,

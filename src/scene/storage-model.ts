@@ -4,8 +4,12 @@ import {
 } from "./storage-controller-mounts.ts";
 import { registerLayer } from "./assembly-layer.ts";
 import * as THREE from "three";
-import { networkSettings } from "../network.ts";
-import { storageAssembly, storageSlot } from "../storage-layout.ts";
+import { buildControllerCage } from "./storage-controller-cage.ts";
+import {
+  controllerPortsFor,
+  storageAssembly,
+  storageSlot,
+} from "../storage-layout.ts";
 
 import type { Box } from "./equipment-model.ts";
 
@@ -231,16 +235,14 @@ function controllerPorts(
 ) {
   const { cageSize, pitch, wall, panelGap, panelThickness } =
     storageAssembly.controllerPorts;
-  const [w, h, d] = cageSize;
+  const [w, h] = cageSize;
   const shape = new THREE.Shape();
   shape.moveTo(-width / 2, -panelHeight / 2);
   shape.lineTo(width / 2, -panelHeight / 2);
   shape.lineTo(width / 2, panelHeight / 2);
   shape.lineTo(-width / 2, panelHeight / 2);
   shape.closePath();
-  const ports = networkSettings.sourcePorts["storage-4u"].filter(
-    (port) => port.partId === root.userData.entityId,
-  );
+  const ports = controllerPortsFor(root.userData.entityId);
   const y = boardTop + h / 2;
   const mouthZ = panelZ + panelThickness + panelGap;
   for (const [i, port] of ports.entries()) {
@@ -258,32 +260,7 @@ function controllerPorts(
     cage.name = "controller-port-cage";
     cage.position.set(x, y, mouthZ);
     pcb.add(cage);
-    const metal = "#84949b";
-    for (const side of [-1, 1]) {
-      box(cage, [w, wall, d], [0, (side * (h - wall)) / 2, d / 2], metal);
-      box(
-        cage,
-        [wall, h - 2 * wall, d],
-        [(side * (w - wall)) / 2, 0, d / 2],
-        metal,
-      );
-    }
-    box(
-      cage,
-      [w - 2 * wall, h - 2 * wall, wall],
-      [0, 0, d - wall / 2],
-      "#25343b",
-    );
-    // 承片从内壁伸向开口，前缘留空，从机后可辨认笼口深度。
-    const tongueDepth = d - 2 * wall;
-    const tongue = box(
-      cage,
-      [w - 4 * wall, wall, tongueDepth],
-      [0, -h * 0.18, d - wall - tongueDepth / 2],
-      "#ac915f",
-      0.4,
-    );
-    tongue.name = "controller-port-tongue";
+    buildControllerCage(root, cage, i, box);
     cage.userData.logicalPort = port.port;
   }
   const panel = new THREE.Mesh(

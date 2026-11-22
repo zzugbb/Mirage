@@ -13,7 +13,11 @@ import {
   type FanContactView,
   type AssemblyCheck,
 } from "./assembly-pairs";
-import { storageAssembly } from "./storage-layout";
+import {
+  controllerPortsFor,
+  controllerPortStages,
+  storageAssembly,
+} from "./storage-layout";
 import { modelForDevice, subpartsForModel } from "./catalog";
 import { CompactDriveBays } from "./components/CompactDriveBays";
 import {
@@ -569,6 +573,15 @@ export function Workspace() {
       ? "processor-sink"
       : "processor-seat";
   const controllerInspection = selectedLayer === controllerLayer;
+  const portOptions = controllerInspection
+    ? controllerPortsFor(selected).map((port, index) => ({
+        port,
+        stages: controllerPortStages(index),
+      }))
+    : [];
+  const portStage = portOptions
+    .flatMap((option) => option.stages)
+    .find((item) => item.id === pairVisit?.layerScopeId);
   const inspectingCooler =
     controllerInspection && pairVisit?.layerScopeId === "controller-cooler";
   const powerBayPose =
@@ -6407,6 +6420,15 @@ export function Workspace() {
                               ),
                             )}
                           </optgroup>
+                          {portOptions.map(({ port, stages }) => (
+                            <optgroup key={port.port} label={port.name}>
+                              {stages.map((item) => (
+                                <option key={item.id} value={item.id}>
+                                  {port.name} · {item.name}
+                                </option>
+                              ))}
+                            </optgroup>
+                          ))}
                           <option value="controller-cooler">
                             芯片与散热器
                           </option>
@@ -6436,7 +6458,7 @@ export function Workspace() {
                                 ? pose === "seated"
                                   ? "推回承片"
                                   : "抽出承片"
-                                : (stage ?? selectedLayer)[pose]}
+                                : (portStage ?? stage ?? selectedLayer)[pose]}
                       </button>
                     ))}
                   </div>
