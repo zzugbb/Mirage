@@ -154,6 +154,7 @@ export function ReviewScene({
   fanViewSide = "front",
   storageViewRevision = 0,
   layerPose,
+  dimmPose,
   storageContact = false,
   storageBoardDisk,
   sliceViewCommand,
@@ -301,6 +302,7 @@ export function ReviewScene({
   fanViewSide?: "front" | "rear" | "iso";
   storageViewRevision?: number;
   layerPose?: LayerPose;
+  dimmPose?: LayerPose;
   storageContact?: boolean;
   storageBoardDisk?: string | null;
   sliceControls: SliceControls;
@@ -1034,6 +1036,7 @@ export function ReviewScene({
     active.companionPartIds = companionPartIds;
     if (companionPartIds.length) setOrbit(false);
     active.layerPose = layerPose;
+    active.dimmPose = dimmPose;
     active.storageContact = storageContact;
     active.storageBoardDisk = storageBoardDisk;
     active.invalidate();
@@ -1047,6 +1050,7 @@ export function ReviewScene({
     isolatedPartId,
     companionPartIds,
     layerPose,
+    dimmPose,
     storageContact,
     storageBoardDisk,
     state.level,
@@ -1651,6 +1655,7 @@ export function ReviewScene({
       : ambientSelected ||
           !sliceVisible ||
           layerPose ||
+          dimmPose ||
           storageBoardDisk !== undefined
         ? []
         : layer === "environment" && roomLabelDevice && !moreLabels && !sliceRow

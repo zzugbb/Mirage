@@ -60,6 +60,7 @@ import { sliceViewPoints, sliceViewFrame } from "../slice-view";
 import type { SliceDeviceInspection } from "../slice-device";
 import type { RackUnitRange } from "../rack-space";
 import { RackUnitGuide } from "./rack-unit-guide";
+import { DimmSocket } from "./dimm-socket";
 import { PartIsolation } from "./part-isolation";
 import { storageSlots } from "../storage-slots";
 import { ControllerMountGuide } from "./controller-mount";
@@ -204,6 +205,8 @@ export class SceneEngine {
   isolatedPartId: string | null = null;
   companionPartIds: readonly string[] = [];
   layerPose?: LayerPose;
+  dimmPose?: LayerPose;
+  private dimmSocket = new DimmSocket();
   private liftedPart?: THREE.Object3D;
   storageContact = false;
   storageBoardDisk?: string | null;
@@ -1784,6 +1787,7 @@ export class SceneEngine {
     this.partIsolation.restore();
     const model = modelForDevice(state.deviceId);
     if (model.id === this.assemblyModel) return;
+    this.dimmSocket.update();
     const assembly =
       this.assemblies.get(model.id) ??
       this.registerAssembly(model.id, createEquipmentAssembly(model.id));
@@ -2223,6 +2227,9 @@ export class SceneEngine {
       inspectionTarget && this.layerPose ? assemblyLayer(object) : undefined;
     if (layer && this.layerPose === "seated" && bounds && object)
       bounds.max.y += layer.lift * object.getWorldScale(new THREE.Vector3()).y;
+    if (this.dimmPose === "seated" && inspectionTarget && object && bounds)
+      bounds.max.y +=
+        this.dimmSocket.lift * object.getWorldScale(new THREE.Vector3()).y;
     const contactPair =
       inspectionTarget && this.storageContact
         ? storageContactObjects(
@@ -2304,6 +2311,8 @@ export class SceneEngine {
         direction
           .fromArray(focusDirection)
           .transformDirection(object.matrixWorld);
+      if (this.dimmPose)
+        direction.set(1, 0.51, 0.46).transformDirection(object.matrixWorld);
       if (layer)
         direction
           .fromArray(layer.direction)
@@ -2695,6 +2704,7 @@ export class SceneEngine {
         ? this.isolatedPartId
         : null;
     const target = id ? this.models.parts.get(id) : undefined;
+    this.dimmSocket.update(target, this.dimmPose);
     const lifted =
       this.layerPose === "separated" && assemblyLayer(target)
         ? target
@@ -3467,6 +3477,7 @@ export class SceneEngine {
     );
   };
   dispose() {
+    this.dimmSocket.dispose();
     this.partIsolation.restore();
     this.onRenderFrame = null;
     this.onAnchorsProjected = null;

@@ -424,6 +424,7 @@ export function Workspace() {
   const compareFanDuct =
     activeFanVisit?.mode === "group" && activeFanVisit.side === "duct";
   const [memoryDevice, setMemoryDevice] = useState<string | null>(null);
+  const [socketPose, setSocketPose] = useState<LayerPose>();
   const deviceModel = modelForDevice(state.deviceId);
   const dimms = useMemo(
     () =>
@@ -446,7 +447,9 @@ export function Workspace() {
     selected !== state.deviceId;
   useEffect(() => {
     if (memoryDevice && !activeMemory) setMemoryDevice(null);
-  }, [memoryDevice, activeMemory]);
+    if (!activeMemory || !selectedDimm) setSocketPose(undefined);
+  }, [memoryDevice, activeMemory, selectedDimm]);
+  const dimmPose = activeMemory && selectedDimm ? socketPose : undefined;
   const [pairVisit, setPairVisit] = useState<{
     deviceId: string;
     tool: AssemblyCheck["tool"];
@@ -509,7 +512,9 @@ export function Workspace() {
       setStructureReturn(null);
   }, [structureReturn, state.level, state.deviceId, selected]);
   const isolatedPartId = activeMemory
-    ? "memory-01"
+    ? dimmPose
+      ? selected
+      : "memory-01"
     : activePair
       ? layerPose
         ? selected
@@ -1520,7 +1525,12 @@ export function Workspace() {
     !!feedback?.settled &&
     feedback.key === presentationKey(state);
   useLayoutEffect(() => {
-    if (!selectedLayer || layerPose) returningToLayer.current = false;
+    if (
+      !(selectedLayer || (activeMemory && selectedDimm)) ||
+      layerPose ||
+      dimmPose
+    )
+      returningToLayer.current = false;
     if (!returningToLayer.current) return;
     // 镜头归位时操作条会短暂禁用；就位后恢复焦点，用户接管后停止恢复。
     if (ready) layerEntry.current?.focus({ preventScroll: true });
@@ -1533,7 +1543,7 @@ export function Workspace() {
       document.removeEventListener("pointerdown", release, true);
       document.removeEventListener("keydown", release, true);
     };
-  }, [selectedLayer, layerPose, ready]);
+  }, [selectedLayer, layerPose, activeMemory, selectedDimm, dimmPose, ready]);
   useEffect(() => {
     if (!pendingPatch) return;
     if (networkTrace?.id === pendingPatch) {
@@ -5572,6 +5582,7 @@ export function Workspace() {
                 : undefined
             }
             layerPose={layerPose}
+            dimmPose={dimmPose}
             storageContact={activeStorageVisit?.mode === "contact"}
             companionPartIds={companionPartIds}
             isolatedPartId={isolatedPartId}
@@ -5791,27 +5802,57 @@ export function Workspace() {
                 />
               ) : activeMemory ? (
                 <StructureToolbar
-                  label="内存组核查"
+                  label={dimmPose ? "内存槽位核查" : "内存组核查"}
                   state={state}
                   dispatch={dispatch}
                   disabled={!ready}
-                  destination="完整结构"
-                  onBack={finishStructureCheck}
+                  destination={dimmPose ? "内存组" : "完整结构"}
+                  onBack={
+                    dimmPose
+                      ? () => {
+                          returningToLayer.current = true;
+                          setSocketPose(undefined);
+                        }
+                      : finishStructureCheck
+                  }
                 >
-                  <div className="structure-check-scope">
+                  <div className="structure-check-scope assembly-layer-scope">
                     <select
                       aria-label="内存条编号"
                       disabled={!ready}
                       value={selected}
                       onChange={(event) => pick(event.target.value)}
                     >
-                      <option value="memory-01">整组内存</option>
+                      {!dimmPose && <option value="memory-01">整组内存</option>}
                       {dimms.map((dimm) => (
                         <option key={dimm.id} value={dimm.id}>
                           {dimm.slot}
                         </option>
                       ))}
                     </select>
+                    {dimmPose ? (
+                      <button
+                        disabled={!ready}
+                        autoFocus
+                        onClick={() =>
+                          setSocketPose(
+                            dimmPose === "separated" ? "seated" : "separated",
+                          )
+                        }
+                      >
+                        {dimmPose === "separated" ? "放回插槽" : "抬起内存条"}
+                      </button>
+                    ) : (
+                      selectedDimm && (
+                        <button
+                          ref={layerEntry}
+                          disabled={!ready}
+                          onClick={() => setSocketPose("separated")}
+                        >
+                          核对插槽
+                        </button>
+                      )
+                    )}
                   </div>
                 </StructureToolbar>
               ) : layerPose && selectedLayer && assembly ? (
@@ -7447,15 +7488,17 @@ export function Workspace() {
                     <p>
                       {compactServer && selected === "storage-01"
                         ? `前置 ${compactDriveBays.length} 个托架，硬盘与背板分别建模。`
-                        : memoryContext && selected === "memory-01"
-                          ? `本机型配置 ${dimms.length} 条内存，可逐条检视。`
-                          : assembly?.tool === "rear-interfaces"
-                            ? "网卡和转接架沿用贡献模型外观，管理接口区域按机型配置示意。网卡样板配置 A/B 两路逻辑端口，对应关系可在网络接入中查询。"
-                            : assembly?.tool === "storage-harness"
-                              ? "背板接触区按八块硬盘的位置对齐。插头和线束绕行是内部装配示意，读数沿用部件模型。"
-                              : assembly?.tool === "storage-controllers"
-                                ? "A/B 槽位来自机型配置。板卡、四个托盘支柱与抬起间距为装配示意，读数沿用所选控制器。"
-                                : entity.description}
+                        : dimmPose
+                          ? "槽位按本机型的内存条编号与模型位置对应。槽体、卡扣和抬起间距为装配示意，读数沿用内存条模型。"
+                          : memoryContext && selected === "memory-01"
+                            ? `本机型配置 ${dimms.length} 条内存，可逐条检视。`
+                            : assembly?.tool === "rear-interfaces"
+                              ? "网卡和转接架沿用贡献模型外观，管理接口区域按机型配置示意。网卡样板配置 A/B 两路逻辑端口，对应关系可在网络接入中查询。"
+                              : assembly?.tool === "storage-harness"
+                                ? "背板接触区按八块硬盘的位置对齐。插头和线束绕行是内部装配示意，读数沿用部件模型。"
+                                : assembly?.tool === "storage-controllers"
+                                  ? "A/B 槽位来自机型配置。板卡、四个托盘支柱与抬起间距为装配示意，读数沿用所选控制器。"
+                                  : entity.description}
                     </p>
                     {entity.kind === "rack" && (
                       <>

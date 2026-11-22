@@ -116,7 +116,7 @@ export function StructureTools({
             <strong>
               核对内存组 · {memory} 条 <span>↗</span>
             </strong>
-            <small>在整组中选择 DIMM，核对编号和相邻位置</small>
+            <small>按 DIMM 编号选条，可核对插槽与两端卡扣</small>
           </button>
         )}
         {fans > 0 && (
