@@ -1659,6 +1659,11 @@
     "powerTray": {
       "wall": 0.001, "railWidth": 0.004, "stopDepth": 0.0035,
       "travelRatio": 1.04, "focusDirection": [-1, 0.82, -0.76],
+      "inputSocket": {
+        "width": 0.026, "height": 0.018, "bevel": 0.0048, "clearance": 0.00045,
+        "wall": 0.0011, "depth": 0.0068, "travel": 0.056, "focusDirection": [0.75, 0.42, -1],
+        "core": {"travel": 0.021, "direction": [1, 0.48, -0.72], "bladeTravel": 0.029, "bladeDirection": [0.90, 0.55, -0.85]}
+      },
       "boardContact": {"width": 0.022, "travel": 0.014, "focusDirection": [0.68, 1.05, -0.85]},
       "boardMount": {
         "holeRadius": 0.0019, "pinRadius": 0.0013, "shoulderRadius": 0.0027,

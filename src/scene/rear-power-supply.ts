@@ -28,26 +28,7 @@ export function rearPowerSupply(
   panel.name = "psu-input-panel";
   tray.add(panel);
   const inletX = -w * 0.13;
-  if ("inputSocket" in config)
-    powerInputSocket(root, panel, box, config.inputSocket, w, h, rear, inletX);
-  else {
-    box(panel, [w, h, 0.003], [0, 0, rear], "#53616a", 0.62).name =
-      "psu-rear-panel";
-    box(
-      panel,
-      [w * 0.44, h * 0.5, 0.003],
-      [inletX, 0, rear - 0.003],
-      "#242d33",
-      0.2,
-    );
-    box(
-      panel,
-      [w * 0.34, h * 0.35, 0.001],
-      [inletX, 0, rear - 0.0046],
-      "#121b20",
-      0.12,
-    );
-  }
+  powerInputSocket(root, panel, box, config.inputSocket, w, h, rear, inletX);
   for (const sign of [-1, 1]) {
     box(
       panel,

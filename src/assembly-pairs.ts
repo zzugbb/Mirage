@@ -163,24 +163,37 @@ const powerStages = [
     separated: "退出固定座",
   },
 ] as const;
+const inputPanelStage = {
+  id: "input-panel",
+  name: "输入座与面板",
+  seated: "装回输入座",
+  separated: "取出输入座",
+} as const;
 const switchPowerTrayLayer = {
   ...powerTrayLayer,
   stageLabel: "电源核查位置",
-  stages: powerStages,
+  stages: [
+    ...powerStages,
+    inputPanelStage,
+    {
+      id: "input-core",
+      name: "芯座与座套",
+      seated: "压回芯座",
+      separated: "取出芯座",
+    },
+    {
+      id: "input-blades",
+      name: "端子与芯孔",
+      seated: "插回端子",
+      separated: "退出端子",
+    },
+  ],
   description:
-    "电源身份与输入 A、B 来自 N1 配置。内托四柱、板端宽窄插片与壳内固定座为原创装配示意。时间分析沿用部件模拟值，支路未计量。",
+    "电源身份与输入 A、B 来自 N1 配置。内托四柱、板端接合、输入座削角与三片端子的装配均为原创示意。时间分析沿用部件模拟值，支路未计量。",
 } as const;
 const storagePowerTrayLayer = {
   ...switchPowerTrayLayer,
-  stages: [
-    ...powerStages,
-    {
-      id: "input-panel",
-      name: "输入座与面板",
-      seated: "装回输入座",
-      separated: "取出输入座",
-    },
-  ],
+  stages: [...powerStages, inputPanelStage],
   description:
     "可在两侧电源间切换，对照输入座与面板削角孔、板卡四柱和板端宽窄插片。输入 A、B 归属来自配置。内部装配与行程为原创示意，时间分析沿用部件模拟值，支路未计量。",
 } as const;

@@ -800,3 +800,127 @@ test("N1 双套筒连片贴住板侧座面，两孔由实体孔底封闭，抽�
     assert.ok(bounds(carrier).equals(installed));
   }
 });
+
+test("N1 两路输入座的法兰贴合面板，芯座按削角进入套筒，后肩复位时抵住套口", () => {
+  const { root, groups } = createEquipmentAssembly("switch-1u");
+  const fit = definition.switchAssembly.powerTray.inputSocket;
+  const near = (a: number, b: number) => assert.ok(Math.abs(a - b) < 1e-7);
+  for (const { id } of switchRear.supplies) {
+    const psu = groups.get(id)!;
+    const outer = layerScopeFor(psu, "input-panel")!,
+      inner = layerScopeFor(psu, "input-core")!;
+    assert.ok(inner.extractedLayers?.[0] === outer.layerRoot);
+    const panel = psu.getObjectByName("psu-rear-panel")!,
+      flange = psu.getObjectByName("psu-input-flange")!,
+      sleeve = psu.getObjectByName("psu-input-sleeve")!;
+    const nose = psu.getObjectByName("psu-core-key")!,
+      shoulder = psu.getObjectByName("psu-core-shoulder")!;
+    const base = bounds(panel),
+      home = bounds(inner.moving),
+      origin = bounds(sleeve).getCenter(new THREE.Vector3());
+    const ray = (x: number, y: number) =>
+      new THREE.Raycaster(
+        new THREE.Vector3(x, y, base.min.z - 0.1),
+        new THREE.Vector3(0, 0, 1),
+      );
+    const right = origin.x + fit.width / 2 - fit.wall,
+      top = origin.y + fit.height / 2 - fit.wall;
+    assert.ok(ray(right, top).intersectObject(panel).length);
+    assert.equal(
+      ray(right, 2 * origin.y - top).intersectObject(panel).length,
+      0,
+    );
+    const board = bounds(psu.getObjectByName("psu-board-assembly")!);
+    assert.ok(board.min.z > bounds(outer.moving).max.z);
+    for (const open of [true, false, true]) {
+      poseAssemblyLayer(outer.layerRoot, open);
+      root.updateWorldMatrix(true, true);
+      near(base.min.z - bounds(flange).max.z, open ? fit.travel : 0);
+      if (open) assert.ok(bounds(outer.moving).max.z < base.min.z);
+    }
+    for (const open of [true, false, true, false]) {
+      poseAssemblyLayer(inner.layerRoot, open);
+      root.updateWorldMatrix(true, true);
+      near(
+        bounds(shoulder).min.z - bounds(sleeve).max.z,
+        open ? fit.core.travel : 0,
+      );
+      assert.equal(bounds(nose).min.z > bounds(sleeve).max.z, open);
+      // 芯座前段的各顶点均能通过套筒内孔，中心处有实体肩面。
+      const mesh = nose as THREE.Mesh<THREE.BufferGeometry>;
+      const points = mesh.geometry.attributes.position;
+      for (let i = 0; i < points.count; i++) {
+        const pt = nose.localToWorld(
+          new THREE.Vector3().fromBufferAttribute(points, i),
+        );
+        assert.equal(ray(pt.x, pt.y).intersectObject(sleeve).length, 0);
+      }
+      assert.ok(ray(origin.x, origin.y).intersectObject(shoulder).length);
+    }
+    poseAssemblyLayer(outer.layerRoot, false);
+    root.updateWorldMatrix(true, true);
+    assert.ok(bounds(inner.moving).equals(home));
+  }
+});
+
+test("N1 三片端子随绝缘压板进出同向芯孔，横竖片退出后贯通，插回时板底贴合肩面", () => {
+  const { root, groups } = createEquipmentAssembly("switch-1u");
+  const fit = definition.switchAssembly.powerTray.inputSocket;
+  for (const { id } of switchRear.supplies) {
+    const psu = groups.get(id)!,
+      scope = layerScopeFor(psu, "input-blades")!;
+    assert.equal(scope.extractedLayers?.length, 2);
+    assert.ok(
+      scope.extractedLayers[0] === layerScopeFor(psu, "input-panel")!.layerRoot,
+    );
+    assert.ok(
+      scope.extractedLayers[1] === layerScopeFor(psu, "input-core")!.layerRoot,
+    );
+    const plates = ["psu-core-key", "psu-core-shoulder"].map((name) =>
+      psu.getObjectByName(name)!,
+    );
+    const fingers = scope.moving.getObjectsByProperty(
+      "name",
+      "psu-input-blade",
+    );
+    assert.equal(fingers.length, 3);
+    const home = bounds(scope.moving);
+    for (const layer of scope.extractedLayers!) poseAssemblyLayer(layer, true);
+    for (const open of [true, false, true, false]) {
+      poseAssemblyLayer(scope.layerRoot, open);
+      root.updateWorldMatrix(true, true);
+      const back = bounds(plates[1]),
+        nose = bounds(plates[0]),
+        keeper = bounds(scope.moving.getObjectByName("psu-blade-keeper")!);
+      assert.ok(
+        Math.abs(
+          keeper.min.z - back.max.z - (open ? fit.core.bladeTravel : 0),
+        ) < 1e-7,
+      );
+      for (const [i, blade] of fingers.entries()) {
+        const tip = bounds(blade),
+          c = tip.getCenter(new THREE.Vector3()),
+          sz = tip.getSize(new THREE.Vector3());
+        assert.equal(sz.x > sz.y, i === 2);
+        assert.equal(tip.min.z > back.max.z, open);
+        if (!open) assert.ok(tip.min.z < nose.min.z);
+        const ray = (x: number, y: number) =>
+          new THREE.Raycaster(
+            new THREE.Vector3(x, y, nose.min.z - 0.05),
+            new THREE.Vector3(0, 0, 1),
+          );
+        for (const x of [tip.min.x, tip.max.x])
+          for (const y of [tip.min.y, tip.max.y])
+            assert.equal(ray(x, y).intersectObjects(plates).length, 0);
+        assert.ok(
+          ray(tip.max.x + fit.clearance, c.y).intersectObject(plates[0]).length,
+        );
+        assert.ok(ray(c.x, c.y).intersectObject(blade).length);
+      }
+    }
+    for (const layer of [...scope.extractedLayers!].reverse())
+      poseAssemblyLayer(layer, false);
+    root.updateWorldMatrix(true, true);
+    assert.ok(bounds(scope.moving).equals(home));
+  }
+});
