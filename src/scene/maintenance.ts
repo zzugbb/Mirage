@@ -1,5 +1,10 @@
 import { createAnnotationGroup } from "./annotations.ts";
-import { doorTip, type DoorReference, type DoorSweep } from "../door-sweep.ts";
+import type { GrilleDoorSweep } from "../grille-door-sweep.ts";
+import {
+  doorSector,
+  type DoorReference,
+  type DoorSweep,
+} from "../door-sweep.ts";
 import * as THREE from "three";
 import { maintenanceSettings } from "../maintenance.ts";
 import type {
@@ -73,6 +78,17 @@ export class MaintenanceGeometry {
       depthWrite: false,
     }),
   );
+  grillePatch = new THREE.Mesh(
+    new THREE.BufferGeometry(),
+    new THREE.MeshBasicMaterial({
+      color: "#ffbd60",
+      opacity: 0.8,
+      transparent: true,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+      toneMapped: false,
+    }),
+  );
   transform = new THREE.Object3D();
   constructor() {
     this.root.visible = false;
@@ -83,8 +99,14 @@ export class MaintenanceGeometry {
       this.overlap,
       this.sweepFill,
       this.sweepLines,
+      this.grillePatch,
     );
-    this.sweepFill.visible = this.sweepLines.visible = false;
+    this.grillePatch.name = "grille-swept-area";
+    this.grillePatch.raycast = () => {};
+    this.grillePatch.visible =
+      this.sweepFill.visible =
+      this.sweepLines.visible =
+        false;
     this.sweepFill.raycast = this.sweepLines.raycast = () => {};
     this.overlap.visible = false;
     this.overlap.raycast = () => {};
@@ -154,35 +176,52 @@ export class MaintenanceGeometry {
     this.fill.instanceMatrix.needsUpdate =
       this.border.instanceMatrix.needsUpdate = true;
   }
-  showDoorSweeps(sweeps: DoorSweep[] | undefined, reference: DoorReference) {
-    this.sweepFill.visible = this.sweepLines.visible = !!sweeps;
-    if (!sweeps) return;
+  showDoorSweeps(
+    sweeps: DoorSweep[] | undefined,
+    reference: DoorReference,
+    grille?: GrilleDoorSweep | null,
+  ) {
+    this.sweepFill.visible = this.sweepLines.visible = !!sweeps || !!grille;
+    this.grillePatch.visible = !!grille?.patch.length;
+    if (!sweeps && !grille) return;
     const fill: number[] = [],
-      lines: number[] = [];
-    for (const sweep of sweeps) {
-      const y = sweep.area.position[1] + 0.012;
-      for (const leaf of sweep.leaves) {
-        const hinge = [leaf.hingeX, y, leaf.hingeZ];
-        const point = (angle: number) => {
-          const p = doorTip(leaf, angle);
-          return [p.x, y, p.z];
-        };
-        const angle = sweep[reference].angle;
-        const steps = Math.max(1, Math.ceil(angle / 4));
-        let previous = point(0);
-        lines.push(...hinge, ...previous);
-        for (let i = 1; i <= steps; i++) {
-          const current = point((angle * i) / steps);
-          fill.push(...hinge, ...previous, ...current);
-          lines.push(...previous, ...current);
-          previous = current;
+      lines: number[] = [],
+      patch: number[] = [];
+    const outline = (points: GrilleDoorSweep["sector"], y: number) => {
+      for (const [i, a] of points.entries()) {
+        const b = points[(i + 1) % points.length];
+        lines.push(a.x, y, a.z, b.x, y, b.z);
+      }
+    };
+    const face = (
+      points: GrilleDoorSweep["sector"],
+      y: number,
+      target: number[],
+    ) => {
+      for (let i = 1; i + 1 < points.length; i++) {
+        for (const p of [points[0], points[i], points[i + 1]])
+          target.push(p.x, y, p.z);
+      }
+    };
+    if (grille) {
+      face(grille.sector, grille.y, fill);
+      outline(grille.sector, grille.y + 0.001);
+      outline(grille.frame, grille.y + 0.002);
+      face(grille.patch, grille.y + 0.003, patch);
+    } else {
+      for (const sweep of sweeps ?? []) {
+        const y = sweep.area.position[1] + 0.012;
+        for (const leaf of sweep.leaves) {
+          const sector = doorSector(leaf, sweep[reference].angle, 4);
+          face(sector, y, fill);
+          outline(sector, y);
         }
-        lines.push(...hinge, ...previous);
       }
     }
     for (const [mesh, coordinates] of [
       [this.sweepFill, fill],
       [this.sweepLines, lines],
+      [this.grillePatch, patch],
     ] as const) {
       mesh.geometry.dispose();
       mesh.geometry.setAttribute(
@@ -197,7 +236,7 @@ export class MaintenanceGeometry {
   }
   dispose() {
     this.overlap.material.dispose();
-    for (const mesh of [this.sweepFill, this.sweepLines]) {
+    for (const mesh of [this.sweepFill, this.sweepLines, this.grillePatch]) {
       mesh.geometry.dispose();
       mesh.material.dispose();
     }

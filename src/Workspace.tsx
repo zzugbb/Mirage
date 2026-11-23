@@ -1,3 +1,4 @@
+import { grilleDoorSweep } from "./grille-door-sweep";
 import { RearServiceDetails } from "./components/RearServiceDetails";
 import { rearServiceInspection } from "./rear-service";
 import type { DoorReference } from "./door-sweep";
@@ -1032,6 +1033,22 @@ export function Workspace() {
   const [doorReference, setDoorReference] = useState<DoorReference>("peak");
   const [maintenanceView, setMaintenanceView] =
     useState<MaintenanceInspection | null>(null);
+  const [grilleDoorReference, setGrilleDoorReference] =
+    useState<DoorReference | null>(null);
+  const grilleSweep = useMemo(
+    () =>
+      maintenanceView?.aisle && maintenanceView.overlap && grilleDoorReference
+        ? grilleDoorSweep(
+            maintenanceView.aisle,
+            maintenanceView.overlap.grille,
+            grilleDoorReference,
+          )
+        : null,
+    [maintenanceView, grilleDoorReference],
+  );
+  useEffect(() => {
+    if (!maintenanceView?.overlap) setGrilleDoorReference(null);
+  }, [maintenanceView?.overlap]);
   const [entranceView, setEntranceView] = useState<EntranceInspection | null>(
     null,
   );
@@ -6281,6 +6298,7 @@ export function Workspace() {
             onReturnToAisles={aisleVisit ? returnToAisles : undefined}
             rearService={rearService}
             maintenanceView={maintenanceView}
+            grilleSweep={grilleSweep}
             doorReference={doorReference}
             onMaintenanceViewChange={setMaintenanceView}
             entranceView={entranceView}
@@ -7832,7 +7850,7 @@ export function Workspace() {
                         ),
                       )}
                     </select>
-                    {maintenanceView.overlap && (
+                    {maintenanceView.overlap && !grilleSweep && (
                       <span>
                         高亮面为面框落在柜前预留内的部分，宽{" "}
                         {maintenanceView.overlap.overlapWidth.toFixed(2)} m × 深{" "}
@@ -7841,6 +7859,43 @@ export function Workspace() {
                       </span>
                     )}
                   </label>
+                )}
+                {maintenanceView.overlap && maintenanceView.aisle && (
+                  <div className="aisle-door-check">
+                    <label>
+                      柜前门扇与格栅
+                      <select
+                        disabled={!ready}
+                        value={grilleDoorReference ?? ""}
+                        onChange={(e) =>
+                          setGrilleDoorReference(
+                            e.target.value === "open"
+                              ? "open"
+                              : e.target.value === "peak"
+                                ? "peak"
+                                : null,
+                          )
+                        }
+                      >
+                        <option value="">只看维护预留</option>
+                        <option value="peak">从闭合扫至最大进深</option>
+                        <option value="open">从闭合扫至配置全开</option>
+                      </select>
+                    </label>
+                    {grilleSweep && (
+                      <p aria-live="polite">
+                        <b>
+                          {maintenanceView.aisle.front.rackName.split(" ")[0]}{" "}
+                          前门 · 0–{grilleSweep.angle}°
+                        </b>
+                        <br />
+                        {grilleSweep.area
+                          ? `扫过面框约 ${(grilleSweep.area * 10000).toFixed(1)} cm²，橙色为重叠部分。`
+                          : "扫掠与所选面框没有面积重叠。"}
+                        面积按门扇地面投影估算，未计门厚、安装高差及实际净距。
+                      </p>
+                    )}
+                  </div>
                 )}
                 <p>
                   地面轮廓仅表示配置预留，不是实测净距、人员作业条件或通行结论。未包含全部建筑障碍物。

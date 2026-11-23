@@ -1,3 +1,4 @@
+import type { GrilleDoorSweep } from "../grille-door-sweep";
 import type { RearServiceInspection } from "../rear-service";
 import { doorTip, type DoorReference } from "../door-sweep";
 import type { RearRowPose } from "../scene/rear-module-seats";
@@ -224,6 +225,7 @@ export function ReviewScene({
   maintenanceView,
   rearService,
   doorReference,
+  grilleSweep,
   aisleCommand,
   aisleRosterVisible,
   onReturnToAisles,
@@ -283,6 +285,7 @@ export function ReviewScene({
   rearService: RearServiceInspection | null;
   maintenanceView: MaintenanceInspection | null;
   doorReference: DoorReference;
+  grilleSweep: GrilleDoorSweep | null;
   aisleCommand: { rackId: string | null; grilleId?: string } | null;
   aisleRosterVisible: boolean;
   onReturnToAisles?: () => void;
@@ -828,7 +831,7 @@ export function ReviewScene({
           position: [
             overlap.grille.position[0],
             overlap.grille.position[1],
-            overlap.minZ - 0.08,
+            grilleSweep ? overlap.grille.position[2] : overlap.minZ - 0.08,
           ],
           text: overlap.name,
         },
@@ -855,6 +858,7 @@ export function ReviewScene({
     maintenanceView,
     doorReference,
     openRearService,
+    grilleSweep,
   ]);
   const visibleAirflow = airflow;
   const airflowResponseControl = visibleAirflow?.routes[0] && (
@@ -1760,10 +1764,17 @@ export function ReviewScene({
     maintenanceGeometry.current?.update(
       serviceArea ? [serviceArea] : maintenance,
       comparison,
-      maintenanceView?.overlap,
+      grilleSweep ? undefined : maintenanceView?.overlap,
     );
     if (engine.current) engine.current.comparedAisle = comparison;
-  }, [maintenance, comparison, maintenanceView, serviceArea, retry]);
+  }, [
+    maintenance,
+    comparison,
+    maintenanceView,
+    serviceArea,
+    grilleSweep,
+    retry,
+  ]);
   useEffect(() => {
     maintenanceGeometry.current?.showDoorSweeps(
       openRearService
@@ -1772,9 +1783,17 @@ export function ReviewScene({
           ? maintenanceView?.sweeps
           : undefined,
       openRearService ? "open" : doorReference,
+      inspecting ? grilleSweep : null,
     );
     engine.current?.invalidate();
-  }, [inspecting, maintenanceView, doorReference, openRearService, retry]);
+  }, [
+    inspecting,
+    maintenanceView,
+    doorReference,
+    openRearService,
+    grilleSweep,
+    retry,
+  ]);
   useEffect(() => {
     if (!serviceArea || hingeX === undefined) return;
     setOrbit(false);
@@ -2277,7 +2296,7 @@ export function ReviewScene({
               data-anchor={area.id}
               data-anchor-level={openRearService ? "rack" : "room"}
               data-hotspot={
-                maintenanceView?.sweeps || openRearService
+                maintenanceView?.sweeps || openRearService || grilleSweep
                   ? "center"
                   : undefined
               }

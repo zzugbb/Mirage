@@ -17,6 +17,16 @@ export function doorTip(leaf: DoorLeaf, degrees: number) {
   };
 }
 
+export function doorSector(leaf: DoorLeaf, angle: number, stepDegrees: number) {
+  const steps = Math.max(1, Math.ceil(angle / stepDegrees));
+  return [
+    { x: leaf.hingeX, z: leaf.hingeZ },
+    ...Array.from({ length: steps + 1 }, (_, i) =>
+      doorTip(leaf, (angle * i) / steps),
+    ),
+  ];
+}
+
 /** 柜面到门扇基准线自由端的纵向投影。忽略厚度、五金及人员空间。 */
 export function aisleDoorSweeps(aisle: MaintenanceAisle) {
   const { frontDoor, rearDoor } = definition.rack.enclosure;
