@@ -2797,6 +2797,12 @@ export function ReviewScene({
                   原创理线布置 · 现场扎点与线长未登记
                 </small>
               )}
+              {patchSection === "rear" &&
+                modelForDevice(networkLink.source).category === "server" && (
+                  <small>
+                    机后网卡面板 · 逻辑口 {networkLink.sourcePort} · 区域定位
+                  </small>
+                )}
               {patch && patchSection && !patchGuide && (
                 <small>
                   {patchSections[patchSection].measure}{" "}

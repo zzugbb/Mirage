@@ -3,7 +3,7 @@ import * as THREE from "three";
 import type { NetworkMarker } from "../network.ts";
 import {
   patchSettings,
-  patchSections,
+  patchSectionRange,
   type PatchSection,
 } from "../network-patch.ts";
 
@@ -127,11 +127,11 @@ export class NetworkGeometry {
       }
     }
     if (this.cable && this.hiddenLine) {
-      const start = section
-        ? this.sectionRings[patchSections[section].start]
-        : 0;
-      const end = section
-        ? this.sectionRings[patchSections[section].end]
+      const span =
+        section && patchSectionRange(this.sectionRings.length, section);
+      const start = span ? this.sectionRings[span.start] : 0;
+      const end = span
+        ? this.sectionRings[span.end]
         : this.cable.geometry.parameters.tubularSegments;
       const indicesPerSpan = this.cable.geometry.parameters.radialSegments * 6;
       this.cable.geometry.setDrawRange(

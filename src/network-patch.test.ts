@@ -26,9 +26,12 @@ import { createPatchGuides } from "./scene/rack-enclosure.ts";
 
 const rack = { ...createState(), level: "rack" as const, deviceId: "sw-14" };
 const assets = initialModelLoads();
-const links = networkLinks.filter((link) => canShowNetworkPatch(rack, link));
+const storageLinks = networkLinks.filter(
+  (link) => modelForDevice(link.source).category === "storage",
+);
+const links = storageLinks.filter((link) => canShowNetworkPatch(rack, link));
 
-test("两柜八条跳线按同一弧长顺序分段，实线与遮挡虚线共用分界", () => {
+test("两柜全部样板跳线按同一弧长顺序分段，实线与遮挡虚线共用分界", () => {
   const geometry = new NetworkGeometry();
   for (const link of networkLinks.filter((link) =>
     patchSettings.sourceIds.includes(link.source),
@@ -37,7 +40,7 @@ test("两柜八条跳线按同一弧长顺序分段，实线与遮挡虚线共�
     for (const load of ["ready", "failed"] as const) {
       const points = networkPatch(state, link, {
         ...assets,
-        "storage-4u": load,
+        [modelForDevice(link.source).id]: load,
         "switch-1u": load,
       })!;
       const markers = networkMarkers(state, link.source, link.id);
@@ -66,9 +69,9 @@ test("两柜八条跳线按同一弧长顺序分段，实线与遮挡虚线共�
         patchSectionOffsetMm(points, "rear"),
       );
       const projections = [
-        ["side", points[3].y - points[2].y],
+        ["side", points.at(-7)!.y - points.at(-8)!.y],
         ["rear", points[2].x - points[0].x],
-        ["front", points[4].x - points[9].x],
+        ["front", points.at(-6)!.x - points.at(-1)!.x],
       ] as const;
       for (const [section, meters] of projections)
         assert.ok(
@@ -80,7 +83,7 @@ test("两柜八条跳线按同一弧长顺序分段，实线与遮挡虚线共�
   geometry.dispose();
 });
 
-test("B03 柜内只显示本柜的四条样板接入，控制器、端口组与高度跟随配置", () => {
+test("B03 柜内四条存储分支，控制器、端口组与高度跟随配置", () => {
   assert.deepEqual(
     links.map((link) => link.target),
     ["sw-13", "sw-14", "sw-13", "sw-14"],
@@ -211,7 +214,7 @@ test("从存储安装位查看时避开后置风扇，已加载外观改用后�
 
 test("B04 两台存储启用四条同柜接入，复用 B03 在各装配状态下的局部走线", () => {
   const b04 = { ...rack, deviceId: "sw-16" };
-  const branches = networkLinks.filter((link) =>
+  const branches = storageLinks.filter((link) =>
     canShowNetworkPatch(b04, link),
   );
   assert.deepEqual(
@@ -226,7 +229,7 @@ test("B04 两台存储启用四条同柜接入，复用 B03 在各装配状态�
   const allowed = networkLinks.filter((link) =>
     canShowNetworkPatch({ ...rack, deviceId: link.source }, link),
   );
-  assert.equal(allowed.length, 8);
+  assert.equal(allowed.length, 40);
   for (const [index, link] of branches.entries()) {
     const original = links[index];
     assert.equal(networkPatch(rack, link, assets), null);
@@ -272,7 +275,7 @@ test("B04 两台存储启用四条同柜接入，复用 B03 在各装配状态�
 
 test("两柜八条分支按实际路径提供环位，精简两种外观的跳线均穿过对应环口", () => {
   const group = createPatchGuides();
-  const branches = networkLinks.filter((link) =>
+  const branches = storageLinks.filter((link) =>
     patchSettings.sourceIds.includes(link.source),
   );
   assert.deepEqual(
@@ -284,7 +287,7 @@ test("两柜八条分支按实际路径提供环位，精简两种外观的跳�
     for (const load of ["ready", "failed"] as const) {
       const points = networkPatch({ ...rack, deviceId: link.source }, link, {
         ...assets,
-        "storage-4u": load,
+        [modelForDevice(link.source).id]: load,
         "switch-1u": load,
       })!;
       const [from, to] = points.slice(2, 4).map((p) => p.clone().sub(origin));
@@ -337,7 +340,7 @@ test("端口 10 的高位出线避开低环，弯头和管面在两种外观下�
       };
       const points = networkPatch(state, link, {
         ...assets,
-        "storage-4u": load,
+        [modelForDevice(link.source).id]: load,
         "switch-1u": load,
       })!;
       geometry.update(networkMarkers(state, link.source, link.id), points);
@@ -350,4 +353,81 @@ test("端口 10 的高位出线避开低环，弯头和管面在两种外观下�
     }
   }
   geometry.dispose();
+});
+
+test("两样板柜的 32 条服务器分支从各机型网卡区引出，再从侧壁转入对应理线环", () => {
+  const branches = networkLinks.filter(
+    (link) =>
+      modelForDevice(link.source).category === "server" &&
+      patchSettings.sourceIds.includes(link.source),
+  );
+  assert.equal(branches.length, 32);
+  for (const link of branches) {
+    const model = modelForDevice(link.source);
+    const panel = model.rearPanels.find(
+      (p) => "partId" in p && p.partId === "nic-01",
+    )!;
+    const origin = new Vector3(...rackForDevice(link.source).position);
+    const ends = networkEndpoints(link.id);
+    assert.equal(ends[0].partId, "nic-01");
+    assert.ok(link.targetPort >= 1 && link.targetPort <= 8);
+    for (const load of ["ready", "failed"] as const) {
+      const state = { ...rack, deviceId: link.target };
+      const points = networkPatch(state, link, {
+        ...assets,
+        [model.id]: load,
+      })!;
+      const local = points.map((p) => p.clone().sub(origin));
+      assert.ok(Math.abs(local[0].x - panel.center[0]) < 1e-8);
+      assert.ok(
+        Math.abs(local[0].y - deviceHeight(link.source) - panel.center[1]) <
+          1e-8,
+      );
+      assert.ok(local[0].z <= installedFrontZ - model.depth + 1e-8);
+      assert.ok(local[1].z < local[0].z && local[2].z === local[1].z);
+      assert.ok(Math.abs(local[2].x - patchSettings.sideX) < 1e-8);
+      assert.ok(Math.abs(local[3].z - sideGuides.centerZ) < 1e-8);
+      assert.ok(local[3].x === local[2].x && local[3].y === local[2].y);
+      assert.deepEqual(
+        guidesOnPatch(points, link.source),
+        link.targetPort === 8
+          ? ["upper", "outlet"]
+          : ["lower", "upper", "outlet"],
+      );
+      assert.equal(local.at(-1)!.y, deviceHeight(link.target));
+    }
+  }
+});
+
+test("机柜代理沿用背板面，定位到服务器自身时改用网卡装配后缘并保留引出余量", () => {
+  for (const id of ["srv-54", "srv-62"]) {
+    const link = networkLinks.find((link) => link.source === id)!;
+    const model = modelForDevice(id);
+    const origin = new Vector3(...rackForDevice(id).position);
+    for (const status of ["ready", "failed"] as const) {
+      const loads = { ...assets, [model.id]: status };
+      const active = networkPatch({ ...rack, deviceId: id }, link, loads)!;
+      const proxy = networkPatch(
+        { ...rack, deviceId: link.target },
+        link,
+        loads,
+      )!;
+      const rearFace =
+        id === "srv-54" ? -0.448 : status === "ready" ? -0.406285 : -0.36;
+      assert.ok(
+        Math.abs(
+          active[0].z - origin.z - installedFrontZ + model.depth / 2 - rearFace,
+        ) < 1e-7,
+      );
+      assert.ok(
+        active[0].z - active[1].z >= patchSettings.rearClearance - 1e-8,
+      );
+      assert.ok(
+        Math.abs(
+          proxy[0].z - origin.z - installedFrontZ + model.depth + 0.008,
+        ) < 1e-7,
+      );
+      assert.deepEqual(guidesOnPatch(proxy, id), guidesOnPatch(active, id));
+    }
+  }
 });

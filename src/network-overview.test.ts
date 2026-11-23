@@ -104,8 +104,17 @@ test("组合查找限定同一条连接，跨柜存储、两端编号、U位与�
 });
 
 test("可看走线仅列出已支持的同柜连接，并与查找和分支共同筛选", () => {
+  const rows = networkConnectionRows("", "all", true);
+  assert.equal(rows.length, 40);
+  assert.ok(
+    rows.every((row) => ["rack-a07", "rack-a08"].includes(row.rack.id)),
+  );
   assert.deepEqual(
-    networkConnectionRows("", "all", true).map(({ link }) => [
+    networkConnectionRows("B04 端口06", "B", true).map((row) => row.link.id),
+    ["link-srv-62-1"],
+  );
+  assert.deepEqual(
+    networkConnectionRows("STO", "all", true).map(({ link }) => [
       link.source,
       link.target,
     ]),

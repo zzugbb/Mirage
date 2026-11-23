@@ -44,6 +44,8 @@ export class InstallationScene {
       });
       group.userData.entityId = rack.id;
       updateRackBlanking(group, rack.id);
+      group.getObjectByName("rack-patch-guides")!.visible =
+        patchSettings.sideGuides.rackIds.includes(rack.id);
       for (const pdu of pdus.filter((pdu) => pdu.rackId === rack.id))
         group.getObjectByName(`pdu-${pdu.feed}`)!.userData.entityId = pdu.id;
       group.position.fromArray(rack.position);
@@ -112,7 +114,7 @@ export class InstallationScene {
         .filter((device) => device.modelId === model.id)
         .map((device) => device.id);
       const patchIds = ids.filter((id) => patchSettings.sourceIds.includes(id));
-      if (patchIds.length) {
+      if (model.category === "storage" && patchIds.length) {
         // 同型号样板共用后面板几何，各实例按自己的安装位平移。
         const panelDepth = patchSettings.controllerPanelDepth;
         const controllerCenters = partsForDevice(patchIds[0])

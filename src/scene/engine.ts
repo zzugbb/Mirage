@@ -63,7 +63,7 @@ import {
   isPatchGuide,
   guidesOnPatch,
   patchGuideCenter,
-  patchSections,
+  patchSectionRange,
   sideGuides,
   type PatchGuide,
 } from "../network-patch";
@@ -1118,7 +1118,7 @@ export class SceneEngine {
         const center = patchGuideCenter(view).add(this.models.rack.position);
         this.frameNetworkPatch([center], view);
       } else {
-        const { start, end } = patchSections[view];
+        const { start, end } = patchSectionRange(this.patchPoints.length, view);
         this.frameNetworkPatch(this.patchPoints.slice(start, end + 1), view);
       }
       return;
