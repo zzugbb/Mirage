@@ -6,6 +6,8 @@ import type { LayerPose } from "./scene/assembly-layer";
 import {
   assemblyChecks,
   isAsicBoardStage,
+  layerForSelection,
+  type AssemblyLayerVisit,
   assemblyMember,
   rearMemberLayer,
   controllerLayer,
@@ -480,12 +482,11 @@ export function Workspace() {
   const [pairVisit, setPairVisit] = useState<{
     deviceId: string;
     tool: AssemblyCheck["tool"];
-    layerScopeId?: string;
+    layer?: AssemblyLayerVisit;
     processorSlot?: string;
     fanContact?: { view: FanContactView; fanId: string };
     storagePath?: { stationId: string; origin: string; pose: LayerPose };
     powerBayPose?: RearRowPose;
-    layerPose?: LayerPose;
     rearRow?: { supplyId: string; pose: RearRowPose; fromPair: boolean };
   } | null>(null);
   const pairTools = options?.assemblies ?? [];
@@ -520,7 +521,7 @@ export function Workspace() {
       ? fanContactStages.find((stage) => stage.id === "fan-contact")
       : requestedFanStage;
   const processorBoardSlot =
-    pairVisit?.layerPose && selected === "board-01"
+    pairVisit?.layer?.pose && selected === "board-01"
       ? pairVisit.processorSlot
       : undefined;
   const assembly =
@@ -540,7 +541,11 @@ export function Workspace() {
     ? rearMemberLayer(rearLayout, contactFan?.id ?? selected)
     : undefined;
   const setLayerScope = (id?: string) =>
-    setPairVisit((current) => current && { ...current, layerScopeId: id });
+    setPairVisit((current) =>
+      current?.layer
+        ? { ...current, layer: { ...current.layer, scopeId: id } }
+        : current,
+    );
   const activePair = canInspectPart(state)
     ? assembly?.pairs.find(
         ({ primary, companion }) =>
@@ -570,9 +575,19 @@ export function Workspace() {
           activePair[assembly.layer.members].id === selected)
         ? assembly.layer
         : undefined));
+  // 同类槽位共用装配定义。跨类选件在绘制工具栏和场景之前回到新件的初始安装位。
+  const selectedVisit = layerForSelection(pairVisit?.layer, selectedLayer);
+  if (pairVisit && pairVisit.layer !== selectedVisit) {
+    setPairVisit({
+      ...pairVisit,
+      layer: selectedVisit,
+      processorSlot: undefined,
+      fanContact: undefined,
+    });
+  }
   const cageSelection =
     assembly?.tool === "switch-front"
-      ? switchCageSelection(pairVisit?.layerScopeId)
+      ? switchCageSelection(pairVisit?.layer?.scopeId)
       : undefined;
   const stagedLayer =
     selectedLayer && "stages" in selectedLayer ? selectedLayer : undefined;
@@ -580,11 +595,11 @@ export function Workspace() {
     (supply) => supply.id === selected,
   );
   const stage = stagedLayer?.stages.find(
-    (item) => item.id === (pairVisit?.layerScopeId ?? ""),
+    (item) => item.id === (pairVisit?.layer?.scopeId ?? ""),
   );
   const processorInspection = selectedLayer === processorLayer;
   const processorStage =
-    pairVisit?.layerScopeId === "processor-sink" ||
+    pairVisit?.layer?.scopeId === "processor-sink" ||
     selected === activePair?.companion.id
       ? "processor-sink"
       : "processor-seat";
@@ -597,12 +612,12 @@ export function Workspace() {
     : [];
   const portStage = portOptions
     .flatMap((option) => option.stages)
-    .find((item) => item.id === pairVisit?.layerScopeId);
+    .find((item) => item.id === pairVisit?.layer?.scopeId);
   const inspectingCooler =
-    controllerInspection && pairVisit?.layerScopeId === "controller-cooler";
+    controllerInspection && pairVisit?.layer?.scopeId === "controller-cooler";
   const powerBayPose =
     assembly && "powerBays" in assembly ? pairVisit?.powerBayPose : undefined;
-  const layerPose = selectedLayer ? pairVisit?.layerPose : undefined;
+  const layerPose = selectedVisit?.pose;
   const layerEntry = useRef<HTMLButtonElement>(null);
   const pathEntry = useRef<HTMLButtonElement>(null);
   const returningToLayer = useRef<false | "layer" | "path">(false);
@@ -611,11 +626,17 @@ export function Workspace() {
       (current) =>
         current && {
           ...current,
-          layerPose: pose,
+          layer:
+            pose && selectedLayer
+              ? {
+                  definition: selectedLayer,
+                  pose,
+                  scopeId: current.layer?.scopeId,
+                }
+              : undefined,
           processorSlot:
             pose && processorInspection ? activePair?.primary.id : undefined,
           fanContact: pose ? current.fanContact : undefined,
-          layerScopeId: pose ? current.layerScopeId : undefined,
         },
     );
   };
@@ -671,13 +692,12 @@ export function Workspace() {
         (current) => current && { ...current, storagePath: undefined },
       );
     else if (
-      pairVisit?.layerPose &&
+      pairVisit?.layer?.pose &&
       assembly?.tool === "switch-board" &&
       selected === "net-board" &&
-      !isAsicBoardStage(pairVisit.layerScopeId)
+      !isAsicBoardStage(pairVisit.layer?.scopeId)
     )
       setLayerScope("asic-lands");
-    else if (pairVisit?.layerPose && !selectedLayer) setLayerPose();
   }, [
     pairVisit,
     activePair,
@@ -5887,7 +5907,7 @@ export function Workspace() {
                               (assembly?.tool === "switch-front" ||
                                 stagedLayer ||
                                 controllerInspection)
-                            ? pairVisit?.layerScopeId
+                            ? pairVisit?.layer?.scopeId
                             : undefined
             }
             dimmPose={dimmPose}
@@ -6391,15 +6411,16 @@ export function Workspace() {
                           const fanId = contactFan?.id ?? selected;
                           const owner = next?.boardOnly ? "net-board" : fanId;
                           if (selected !== owner) pick(owner);
-                          setPairVisit(
-                            (current) =>
-                              current && {
-                                ...current,
-                                layerPose: "seated",
-                                fanContact: next
-                                  ? { view: next.id, fanId }
-                                  : undefined,
-                              },
+                          setPairVisit((current) =>
+                            current?.layer
+                              ? {
+                                  ...current,
+                                  layer: { ...current.layer, pose: "seated" },
+                                  fanContact: next
+                                    ? { view: next.id, fanId }
+                                    : undefined,
+                                }
+                              : current,
                           );
                         }}
                       >
@@ -6479,7 +6500,7 @@ export function Workspace() {
                         <select
                           aria-label="控制器核查位置"
                           disabled={!ready}
-                          value={pairVisit?.layerScopeId ?? ""}
+                          value={pairVisit?.layer?.scopeId ?? ""}
                           onChange={(event) =>
                             setLayerScope(event.target.value || undefined)
                           }

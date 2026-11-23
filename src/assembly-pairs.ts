@@ -1,3 +1,4 @@
+import type { LayerPose } from "./scene/assembly-layer.ts";
 import { modelById, partsForModel, subpartsForModel } from "./catalog.ts";
 import { compactDriveBays } from "./compact-drive-bays.ts";
 import { inletPart } from "./power-config.ts";
@@ -670,6 +671,27 @@ const checks = {
 } as const;
 
 export type AssemblyCheck = (typeof checks)[keyof typeof checks][number];
+
+type AssemblyLayerDefinition =
+  | Extract<AssemblyCheck, { layer: unknown }>["layer"]
+  | typeof adapterMountLayer
+  | NonNullable<ReturnType<typeof rearMemberLayer>>;
+
+export interface AssemblyLayerVisit {
+  definition: AssemblyLayerDefinition;
+  pose: LayerPose;
+  scopeId?: string;
+}
+
+export function layerForSelection(
+  visit: AssemblyLayerVisit | undefined,
+  definition: AssemblyLayerDefinition | undefined,
+): AssemblyLayerVisit | undefined {
+  if (!visit || !definition) return undefined;
+  return visit.definition === definition
+    ? visit
+    : { definition, pose: "seated" };
+}
 
 // 从单件进入沿用该件，从模组进入选择本组第一件。
 export function assemblyMember(check: AssemblyCheck, selected: string) {
