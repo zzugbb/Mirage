@@ -1,3 +1,5 @@
+import { RearServiceDetails } from "./components/RearServiceDetails";
+import { rearServiceInspection } from "./rear-service";
 import type { DoorReference } from "./door-sweep";
 import { structureOptions } from "./structure-options";
 import { FrontCageControls } from "./components/FrontCageControls";
@@ -302,6 +304,7 @@ import {
   isPowerFacility,
   pduById,
   pduName,
+  pdus,
   powerDeviceIds,
   powerLinks,
   powerSettings,
@@ -1421,6 +1424,12 @@ export function Workspace() {
   } | null>(null);
   const [aisleVisit, setAisleVisit] = useState<{
     aisle: MaintenanceAisle;
+    service?: MaintenanceAisle;
+    layer: typeof layer;
+    metric: "power" | "temperature";
+    resourceQuery: string;
+    filter: typeof filter;
+    onlyAlarms: boolean;
     rackId: string;
     scroll: number;
     query: string;
@@ -1428,6 +1437,30 @@ export function Workspace() {
     camera: TaskViewMemory | null;
   } | null>(null);
   const [aisleReturn, setAisleReturn] = useState<typeof aisleVisit>(null);
+  const [aisleReturning, setAisleReturning] = useState(false);
+  const rearService = useMemo(() => {
+    if (
+      !aisleVisit?.service ||
+      state.level !== "rack" ||
+      rackForDevice(state.deviceId).id !== aisleVisit.service.rear.rackId ||
+      layer !== "power" ||
+      pduInspection?.pduId !== selected
+    )
+      return null;
+    return rearServiceInspection(
+      aisleVisit.service,
+      selected,
+      pduInspection.outlet,
+    );
+  }, [
+    aisleVisit,
+    state.level,
+    state.deviceId,
+    layer,
+    selected,
+    pduInspection?.pduId,
+    pduInspection?.outlet,
+  ]);
   const [comparisonSize, setComparisonSize] = useState(2);
   const [comparisonRow, setComparisonRow] = useState("all");
   const [comparisonRack, setComparisonRack] = useState<string | null>(null);
@@ -2968,6 +3001,11 @@ export function Workspace() {
     if (aisleVisit?.aisle.id !== aisle.id || aisleVisit.query !== aisleQuery)
       setAisleVisit({
         aisle,
+        layer,
+        metric,
+        resourceQuery: query,
+        filter,
+        onlyAlarms,
         rackId,
         scroll,
         query: aisleQuery,
@@ -2982,12 +3020,57 @@ export function Workspace() {
     pick(rackId);
     setAisleCommand({ rackId });
   };
+  const openRearSocket = (
+    aisle: MaintenanceAisle,
+    id: string,
+    outlet: number,
+  ) => {
+    const row = pduOutlet(id, outlet);
+    if (
+      !ready ||
+      !aisleVisit ||
+      !row ||
+      pduById(id)?.rackId !== aisle.rear.rackId
+    )
+      return;
+    setAisleVisit({ ...aisleVisit, service: aisle });
+    if (state.level === "room") {
+      setQuery("");
+      setFilter("all");
+      setOnlyAlarms(false);
+    }
+    if (selected !== id || state.level !== "rack") focus(id);
+    control({ type: "layer", layer: "power" });
+    control({ type: "analysis", value: false });
+    dispatch({ type: "rear-door", open: true });
+    setPduInspection({ pduId: id, outlet, query: "", scroll: 0 });
+    setPowerLinkId(row.link?.id ?? null);
+  };
   const returnToAisles = () => {
     if (!aisleVisit || !ready) return;
+    setAisleReturning(true);
+    if (state.level !== "room")
+      control({ type: "open-resource", id: "room-01" });
+  };
+  useEffect(() => {
+    if (!aisleReturning || !aisleVisit || !ready || state.level !== "room")
+      return;
     setAisleCommand({ rackId: null });
     setAisleQuery(aisleVisit.query);
     setAisleReturn(aisleVisit);
     setAisleVisit(null);
+    setAisleReturning(false);
+    if (aisleVisit.service) {
+      setPduInspection(null);
+      setPowerLinkId(null);
+      setRackView("space");
+      setSpaceMode("aisles");
+      setQuery(aisleVisit.resourceQuery);
+      setFilter(aisleVisit.filter);
+      setOnlyAlarms(aisleVisit.onlyAlarms);
+      setMetric(aisleVisit.metric);
+      control({ type: "layer", layer: aisleVisit.layer });
+    }
     selectObject(aisleVisit.rackId);
     control({ type: "analysis", value: false });
     setInspector(
@@ -2995,14 +3078,29 @@ export function Workspace() {
     );
     skipNavigationSearch.current = !nav;
     setNav(true);
-  };
+  }, [aisleReturning, aisleVisit, ready, state.level]);
   useEffect(() => {
-    if (!aisleVisit) return;
+    if (!aisleVisit || aisleReturning || !ready) return;
+    if (
+      aisleVisit.service &&
+      pduInspection &&
+      pduById(pduInspection.pduId)?.rackId === aisleVisit.service.rear.rackId &&
+      pduInspectionIncludes(pduInspection, selected, state.deviceId)
+    )
+      return;
     if (!roomAisles || !rackById(selected)) {
       setAisleVisit(null);
       setAisleCommand({ rackId: null });
     }
-  }, [aisleVisit, roomAisles, selected]);
+  }, [
+    aisleVisit,
+    aisleReturning,
+    ready,
+    roomAisles,
+    selected,
+    pduInspection,
+    state.deviceId,
+  ]);
   const locateFacilityFromList = (id: string, button: HTMLButtonElement) => {
     const scroll = button.closest(".study-resource-list")?.scrollTop ?? 0;
     setLayoutVisit({
@@ -4176,6 +4274,7 @@ export function Workspace() {
     setSpaceRestore(null);
     setSpaceMode("units");
     setAisleQuery("");
+    setAisleReturning(false);
     setAisleVisit(null);
     setAisleReturn(null);
     setAisleCommand(null);
@@ -4776,7 +4875,10 @@ export function Workspace() {
         )}
         {aisleVisit && (
           <div className="study-task-return">
-            <button disabled={!ready} onClick={returnToAisles}>
+            <button
+              disabled={!ready || aisleReturning}
+              onClick={returnToAisles}
+            >
               ← 返回通道名单 · {aisleVisit.aisle.front.rackName.split(" ")[0]} /{" "}
               {aisleVisit.aisle.rear.rackName.split(" ")[0]}
             </button>
@@ -6177,6 +6279,7 @@ export function Workspace() {
             aisleCommand={aisleCommand}
             aisleRosterVisible={roomAisles && nav}
             onReturnToAisles={aisleVisit ? returnToAisles : undefined}
+            rearService={rearService}
             maintenanceView={maintenanceView}
             doorReference={doorReference}
             onMaintenanceViewChange={setMaintenanceView}
@@ -7604,6 +7707,19 @@ export function Workspace() {
                 </small>
               </section>
             )}
+            {rearService && aisleVisit?.service && !review.analysis && (
+              <RearServiceDetails
+                inspection={rearService}
+                ready={ready}
+                showSweep={state.rearDoorOpen && !powerViewActive}
+                onSelect={(id, outlet) =>
+                  openRearSocket(aisleVisit.service!, id, outlet)
+                }
+                onInspect={(link) =>
+                  control({ type: "inspect-power-input", linkId: link.id })
+                }
+              />
+            )}
             {maintenanceView && !review.analysis && (
               <section
                 className="maintenance-view-details"
@@ -7668,6 +7784,28 @@ export function Workspace() {
                     </small>
                   </div>
                 )}
+                {maintenanceView.sweeps &&
+                  maintenanceView.aisle &&
+                  aisleVisit && (
+                    <div>
+                      {pdus
+                        .filter(
+                          (pdu) =>
+                            pdu.rackId === maintenanceView.aisle!.rear.rackId,
+                        )
+                        .map((pdu) => (
+                          <button
+                            key={pdu.id}
+                            disabled={!ready}
+                            onClick={() =>
+                              openRearSocket(maintenanceView.aisle!, pdu.id, 1)
+                            }
+                          >
+                            开后门核对 {pduName(pdu.id)} ↗
+                          </button>
+                        ))}
+                    </div>
+                  )}
                 {maintenanceView.aisle && !maintenanceView.sweeps && (
                   <label className="aisle-grille-check">
                     {maintenanceView.aisle.front.rackName.split(" ")[0]}{" "}

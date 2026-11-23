@@ -1,3 +1,4 @@
+import type { RearServiceInspection } from "../rear-service";
 import { doorTip, type DoorReference } from "../door-sweep";
 import type { RearRowPose } from "../scene/rear-module-seats";
 import type { LayerPose } from "../scene/assembly-layer";
@@ -221,6 +222,7 @@ export function ReviewScene({
   onEnvironmentView,
   smokeInspectionActive,
   maintenanceView,
+  rearService,
   doorReference,
   aisleCommand,
   aisleRosterVisible,
@@ -278,6 +280,7 @@ export function ReviewScene({
   onEnvironmentViewChange: (inspection: EnvironmentInspection | null) => void;
   onEnvironmentView: (action: EnvironmentViewCommand["action"]) => void;
   smokeInspectionActive: boolean;
+  rearService: RearServiceInspection | null;
   maintenanceView: MaintenanceInspection | null;
   doorReference: DoorReference;
   aisleCommand: { rackId: string | null; grilleId?: string } | null;
@@ -672,8 +675,15 @@ export function ReviewScene({
           }
         : powerViewPaired && supplyBase
           ? pairedPowerScene(state, selectedId, powerLinkId)
-          : focusedPowerScene(supplyBase, powerViewActive),
-    [supplyBase, powerViewActive, powerViewPaired, mount, selectedId],
+          : focusedPowerScene(supplyBase, powerViewActive || !!rearService),
+    [
+      supplyBase,
+      powerViewActive,
+      powerViewPaired,
+      mount,
+      selectedId,
+      rearService,
+    ],
   );
   const [showPowerInputs, setShowPowerInputs] = useState(false);
   useEffect(
@@ -774,7 +784,28 @@ export function ReviewScene({
           (comparison ? [comparison.front, comparison.rear] : rackAreas)),
     [inspecting, maintenanceView, comparison, rackAreas],
   );
+  const openRearService =
+    state.rearDoorOpen && !powerViewActive ? rearService : null;
+  const serviceArea = openRearService?.sweep.area;
+  const hingeX = openRearService?.leaf.hingeX;
   const areaLabels = useMemo(() => {
+    if (openRearService) {
+      const { sweep, tip, side } = openRearService;
+      const y = sweep.area.position[1];
+      return [
+        {
+          id: "rear-service-leaf",
+          text: side + "自由边",
+          position: [tip.x, y + 0.02, tip.z],
+        },
+        {
+          id: "rear-service-reserve",
+          text: "检修预留 " + sweep.area.depth.toFixed(2) + " m",
+          position: [sweep.area.position[0], y, sweep.area.bounds.minZ],
+        },
+      ];
+    }
+
     if (maintenanceView?.sweeps)
       return maintenanceView.sweeps.map((sweep) => {
         const ref = sweep[doorReference],
@@ -818,7 +849,13 @@ export function ReviewScene({
         text: reserveGapText(comparison.gap),
       });
     return labels;
-  }, [maintenance, comparison, maintenanceView, doorReference]);
+  }, [
+    maintenance,
+    comparison,
+    maintenanceView,
+    doorReference,
+    openRearService,
+  ]);
   const visibleAirflow = airflow;
   const airflowResponseControl = visibleAirflow?.routes[0] && (
     <button
@@ -944,7 +981,12 @@ export function ReviewScene({
           active!.camera,
         );
         evidence.frame(active!.camera, roomReady);
-        areas.setReady(roomReady);
+        areas.setReady(
+          roomReady ||
+            (level === "rack" &&
+              active!.presentation.rearDoor === 1 &&
+              active!.presentation.pose.inspection === 0),
+        );
         flow.animate(
           airflowVisualTime(
             currentState.current,
@@ -1716,19 +1758,29 @@ export function ReviewScene({
   }, [visibleAirflow, flowView, retry]);
   useEffect(() => {
     maintenanceGeometry.current?.update(
-      maintenance,
+      serviceArea ? [serviceArea] : maintenance,
       comparison,
       maintenanceView?.overlap,
     );
     if (engine.current) engine.current.comparedAisle = comparison;
-  }, [maintenance, comparison, maintenanceView, retry]);
+  }, [maintenance, comparison, maintenanceView, serviceArea, retry]);
   useEffect(() => {
     maintenanceGeometry.current?.showDoorSweeps(
-      inspecting ? maintenanceView?.sweeps : undefined,
-      doorReference,
+      openRearService
+        ? [openRearService.sweep]
+        : inspecting
+          ? maintenanceView?.sweeps
+          : undefined,
+      openRearService ? "open" : doorReference,
     );
     engine.current?.invalidate();
-  }, [inspecting, maintenanceView, doorReference, retry]);
+  }, [inspecting, maintenanceView, doorReference, openRearService, retry]);
+  useEffect(() => {
+    if (!serviceArea || hingeX === undefined) return;
+    setOrbit(false);
+    setView("rear");
+    engine.current?.frameRearService(serviceArea, hingeX);
+  }, [serviceArea, hingeX, retry]);
   useEffect(() => {
     powerGeometry.current?.update(showSupply ? supply : null);
   }, [supply, showSupply, retry]);
@@ -1792,7 +1844,8 @@ export function ReviewScene({
   const labels = sceneLabels(
     alarmDevice
       ? [alarmDevice]
-      : ambientSelected ||
+      : rearService ||
+          ambientSelected ||
           !sliceVisible ||
           layerPose ||
           dimmPose ||
@@ -2222,7 +2275,12 @@ export function ReviewScene({
               hidden
               aria-hidden="true"
               data-anchor={area.id}
-              data-hotspot={maintenanceView?.sweeps ? "center" : undefined}
+              data-anchor-level={openRearService ? "rack" : "room"}
+              data-hotspot={
+                maintenanceView?.sweeps || openRearService
+                  ? "center"
+                  : undefined
+              }
               data-anchor-kind="position"
               data-anchor-position={area.position.join(",")}
               className="review-flow-anchor review-maintenance-anchor"

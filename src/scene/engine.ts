@@ -97,7 +97,7 @@ import {
   type ModelLoadState,
   type ModelAssetId,
 } from "../model-loading";
-import type { MaintenanceAisle } from "../maintenance.ts";
+import type { MaintenanceArea, MaintenanceAisle } from "../maintenance.ts";
 import { updateRackBlanking } from "./rack-blanking";
 import {
   roomFacilityById,
@@ -1639,6 +1639,31 @@ export class SceneEngine {
     this.controls.minDistance = 0.5;
     this.onMaintenanceView(inspection);
     this.frameMaintenance();
+  }
+  frameRearService(area: MaintenanceArea, hingeX: number) {
+    const { width, height, rect } = this.observationViewport();
+    const { minX, maxX, minZ, maxZ } = area.bounds;
+    const points = [minX, maxX].flatMap((x) => [
+      new THREE.Vector3(x, area.position[1], minZ),
+      new THREE.Vector3(x, area.position[1], maxZ),
+      new THREE.Vector3(x, area.position[1] + definition.rack.size[1], maxZ),
+    ]);
+    // 从相对门扇一侧看向插座，给图例和门扇自由边留出画面。
+    const margin = Math.min(rect.left, width * 0.18);
+    const fit = observationFrame(
+      points,
+      new THREE.Vector3(-Math.sign(hingeX - area.position[0]) * 0.32, 0.5, -1),
+      width,
+      height,
+      { ...rect, right: width - margin },
+      1.5,
+      0.1,
+    );
+    this.currentView = "rear";
+    this.targetPosition.copy(fit.position);
+    this.targetLook.copy(fit.target);
+    this.moving = true;
+    this.invalidate();
   }
   frameMaintenance() {
     if (!this.maintenanceObservation) return;
