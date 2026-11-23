@@ -4,6 +4,8 @@ import {
   rim,
   condensateFloorY,
   nearestCondensateSensing,
+  condensateSensingSegments,
+  distanceToReceiver,
 } from "./condensate.ts";
 import { leakDetection } from "./leak-detection.ts";
 import { leakInspection } from "./leak-view.ts";
@@ -307,6 +309,45 @@ test("冷凝水管口与接水斗同轴且留有配置间隔，斗口与管口�
     through.intersectObject(receiver, true)[0].object.name,
     "condensate-receiver",
   );
+});
+
+test("逐段最近点与沿线里程使用同一条配置折线，按指定里程重定位仍能核对斗口", () => {
+  assert.equal(
+    condensateSensingSegments.length,
+    leakDetection.sensingPoints.length - 1,
+  );
+  for (const entry of condensateSensingSegments) {
+    const floor = leakInspection("floor", {
+      fromJoint: entry.fromJoint,
+    }).floor!;
+    assert.equal(floor.index, entry.segment - 1);
+    assert.ok(
+      floor.point.distanceTo(new THREE.Vector3().fromArray(entry.point)) < 1e-9,
+    );
+    for (let i = 0; i <= 100; i++) {
+      const sample = floor.start.clone().lerp(floor.end, i / 100);
+      assert.ok(entry.distance <= distanceToReceiver(sample.toArray()) + 1e-9);
+    }
+    assert.ok(
+      Math.abs(entry.distance - distanceToReceiver(floor.point.toArray())) <
+        1e-9,
+    );
+  }
+  assert.deepEqual(
+    condensateSensingSegments.map((s) => s.fromJoint.toFixed(3)),
+    ["1.345", "1.750", "3.005"],
+  );
+  assert.deepEqual(
+    condensateSensingSegments.map((s) => s.distance.toFixed(3)),
+    ["0.250", "0.155", "1.100"],
+  );
+  for (const station of [0, 1.5, 2.85, 4.35]) {
+    const f = leakInspection("floor", { fromJoint: station }).floor!;
+    assert.equal(
+      distanceToReceiver(f.point.toArray()),
+      Math.hypot(f.point.x - rim[0], f.point.z - rim[2]),
+    );
+  }
 });
 
 test("接水斗轴线投影定位到已登记感应段的最近点，实际布置留出该点的俯视视线", () => {

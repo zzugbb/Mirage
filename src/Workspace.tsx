@@ -1124,6 +1124,13 @@ export function Workspace() {
   useEffect(() => {
     if (panelInspection && !inspectionOrigin) setPanelInspection(null);
   }, [panelInspection, inspectionOrigin]);
+  const [receiverSegment, setReceiverSegment] = useState(
+    nearestCondensateSensing.segment,
+  );
+  useEffect(() => {
+    if (selected !== condensate.receiver.id)
+      setReceiverSegment(nearestCondensateSensing.segment);
+  }, [selected]);
   const [leakView, setLeakView] = useState<LeakInspection | null>(null);
   const [leakViewCommand, setLeakViewCommand] =
     useState<LeakViewCommand | null>(null);
@@ -3183,14 +3190,14 @@ export function Workspace() {
       selected === condensate.sourceId ||
       selected === condensate.sensingCableId) && (
       <CondensateDetails
+        segment={receiverSegment}
+        onSegment={setReceiverSegment}
         id={selected}
         ready={ready}
         onLocate={focus}
-        onSense={() => {
+        onSense={(fromJoint) => {
           pick(condensate.sensingCableId);
-          requestLeakView("floor", {
-            fromJoint: nearestCondensateSensing.fromJoint,
-          });
+          requestLeakView("floor", { fromJoint });
         }}
       />
     );
@@ -8867,6 +8874,10 @@ export function Workspace() {
                     selectedId={selected}
                     onPreview={pick}
                     onLocate={focus}
+                    onReceiver={(segment) => {
+                      setReceiverSegment(segment);
+                      focus(condensate.receiver.id);
+                    }}
                     ready={ready}
                   />
                 ) : environment && fixture ? (

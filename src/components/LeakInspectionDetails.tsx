@@ -1,3 +1,5 @@
+import { condensateSensingSegments, distanceToReceiver } from "../condensate";
+import { DrainFloorPlan } from "./DrainFloorPlan";
 import {
   leakDetection,
   nearbyCooling,
@@ -66,6 +68,7 @@ export function LeakInspectionDetails({
   onLocate,
   ready,
   onPosition,
+  onReceiver,
   onHistory,
 }: {
   inspection: LeakInspection;
@@ -74,9 +77,12 @@ export function LeakInspectionDetails({
   onLocate: (id: string) => void;
   ready: boolean;
   onPosition: (target: LeakFloorTarget) => void;
+  onReceiver: (segment: number) => void;
   onHistory: () => void;
 }) {
   const { view, markers, leadLength, sensingLength } = inspection;
+  const closest =
+    inspection.floor && condensateSensingSegments[inspection.floor.index];
   const coordinates = (
     <dl>
       {markers.map(({ id, title, point }) => (
@@ -144,6 +150,34 @@ export function LeakInspectionDetails({
             里程只计感应线（共 {sensingLength.toFixed(3)}{" "}
             m）。尺寸线从所选点量至柜体配置投影。检漏信号未接入，探测范围未登记。
           </small>
+          {closest && (
+            <details className="drain-comparison">
+              <summary>对照冷凝水接水斗</summary>
+              <DrainFloorPlan
+                segment={inspection.floor.index + 1}
+                point={inspection.floor.point.toArray()}
+              />
+              <p>
+                当前点至斗口中心的平面距离为{" "}
+                {distanceToReceiver(inspection.floor.point.toArray()).toFixed(
+                  3,
+                )}{" "}
+                m。本段最近距离为 {closest.distance.toFixed(3)} m。
+              </p>
+              <button
+                disabled={!ready}
+                onClick={() => onPosition({ fromJoint: closest.fromJoint })}
+              >
+                定位本段最近点
+              </button>
+              <button
+                disabled={!ready}
+                onClick={() => onReceiver(closest.segment)}
+              >
+                定位冷凝水接水斗
+              </button>
+            </details>
+          )}
           <button disabled={!ready} onClick={onHistory}>
             回看{nearbyCooling.name}输入 ↗
           </button>

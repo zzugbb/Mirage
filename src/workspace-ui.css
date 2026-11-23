@@ -7590,3 +7590,17 @@
 .raceway-registration small {
   color: #a5bac4;
 }
+.drain-floor-plan {
+  display: block;
+  width: 100%;
+  max-height: 158px;
+  background: #10212b;
+  border-radius: 3px;
+}
+.drain-floor-plan text {
+  fill: #c7d9df;
+  font-size: 12px;
+}
+.drain-comparison[open] > * + * {
+  margin-top: 6px;
+}

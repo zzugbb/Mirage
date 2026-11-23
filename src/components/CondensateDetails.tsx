@@ -1,7 +1,9 @@
+import { DrainFloorPlan } from "./DrainFloorPlan";
 import {
   condensate,
   condensateSource,
   mouthGap,
+  condensateSensingSegments,
   nearestCondensateSensing as nearest,
 } from "../condensate";
 
@@ -9,12 +11,16 @@ export function CondensateDetails({
   id,
   ready,
   onLocate,
+  segment,
+  onSegment,
   onSense,
 }: {
   id: string;
   ready: boolean;
   onLocate: (id: string) => void;
-  onSense: () => void;
+  segment: number;
+  onSegment: (segment: number) => void;
+  onSense: (fromJoint: number) => void;
 }) {
   const { pipe, receiver } = condensate;
   const atPipe = id === pipe.id,
@@ -35,12 +41,6 @@ export function CondensateDetails({
           {mouthGap.toFixed(3)} m。
         </p>
       )}
-      {atReceiver && (
-        <p>
-          斗口高 {condensate.rimHeight.toFixed(3)} m。斗口中心至感应段{" "}
-          {nearest.segment} 的平面距离为 {nearest.distance.toFixed(3)} m。
-        </p>
-      )}
       {related.map((peer) => (
         <button
           key={peer.id}
@@ -51,9 +51,12 @@ export function CondensateDetails({
         </button>
       ))}
       {atReceiver && (
-        <button disabled={!ready} onClick={onSense}>
-          定位最近感应点 · 距接头 {nearest.fromJoint.toFixed(3)} m
-        </button>
+        <ReceiverSensing
+          ready={ready}
+          segment={segment}
+          onSegment={onSegment}
+          onSense={onSense}
+        />
       )}
       {(atPipe || atReceiver) && (
         <p>
@@ -61,5 +64,44 @@ export function CondensateDetails({
         </p>
       )}
     </section>
+  );
+}
+
+function ReceiverSensing({
+  ready,
+  segment,
+  onSegment,
+  onSense,
+}: {
+  ready: boolean;
+  segment: number;
+  onSegment: (segment: number) => void;
+  onSense: (fromJoint: number) => void;
+}) {
+  const selected = condensateSensingSegments[segment - 1];
+  return (
+    <>
+      <label className="leak-floor-segment">
+        对照感应段
+        <select
+          value={segment}
+          onChange={(e) => onSegment(Number(e.target.value))}
+        >
+          {condensateSensingSegments.map((s) => (
+            <option key={s.segment} value={s.segment}>
+              第 {s.segment} 段{s === nearest ? " · 全线最近" : ""}
+            </option>
+          ))}
+        </select>
+      </label>
+      <DrainFloorPlan segment={segment} point={selected.point} />
+      <p>
+        斗口高 {condensate.rimHeight.toFixed(3)} m。斗口中心至第 {segment}{" "}
+        段的最近平面距离为 {selected.distance.toFixed(3)} m。
+      </p>
+      <button disabled={!ready} onClick={() => onSense(selected.fromJoint)}>
+        定位最近感应点 · 距接头 {selected.fromJoint.toFixed(3)} m
+      </button>
+    </>
   );
 }

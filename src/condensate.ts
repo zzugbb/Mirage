@@ -39,34 +39,42 @@ export const isCondensate = (id: string) =>
   condensateFixtures.some((f) => f.id === id);
 
 // 平面距离从斗口轴线量至感应段中心线；沿线里程仍按三维配置折线累计。
-function nearestSensingPoint(points: number[][]) {
-  let distance = Infinity,
-    fromJoint = 0,
-    traveled = 0,
-    segment = 0;
-  for (let i = 1; i < points.length; i++) {
-    const [ax, ay, az] = points[i - 1],
-      [bx, by, bz] = points[i];
+function sensingProjections(points: number[][]) {
+  let traveled = 0;
+  return points.slice(1).map(([bx, by, bz], index) => {
+    const [ax, ay, az] = points[index];
     const dx = bx - ax,
-      dz = bz - az,
-      lengthSq = dx * dx + dz * dz;
-    const t = lengthSq
+      dy = by - ay,
+      dz = bz - az;
+    const planarLengthSq = dx * dx + dz * dz;
+    const t = planarLengthSq
       ? Math.max(
           0,
-          Math.min(1, ((rim[0] - ax) * dx + (rim[2] - az) * dz) / lengthSq),
+          Math.min(
+            1,
+            ((rim[0] - ax) * dx + (rim[2] - az) * dz) / planarLengthSq,
+          ),
         )
       : 0;
-    const gap = Math.hypot(rim[0] - ax - t * dx, rim[2] - az - t * dz);
-    const length = Math.hypot(dx, by - ay, dz);
-    if (gap < distance) {
-      distance = gap;
-      fromJoint = traveled + t * length;
-      segment = i;
-    }
+    const point = [ax + t * dx, ay + t * dy, az + t * dz];
+    const length = Math.hypot(dx, dy, dz);
+    const fromJoint = traveled + t * length;
     traveled += length;
-  }
-  return { distance, fromJoint, segment };
+    return {
+      segment: index + 1,
+      point,
+      fromJoint,
+      distance: distanceToReceiver(point),
+    };
+  });
 }
-export const nearestCondensateSensing = nearestSensingPoint(
+export function distanceToReceiver(point: number[]) {
+  return Math.hypot(point[0] - rim[0], point[2] - rim[2]);
+}
+export const condensateSensingSegments = sensingProjections(
   leakDetection.sensingPoints,
+);
+export const nearestCondensateSensing = condensateSensingSegments.reduce(
+  (nearest, candidate) =>
+    candidate.distance < nearest.distance ? candidate : nearest,
 );
