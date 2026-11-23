@@ -1,3 +1,4 @@
+import type { FrontServiceInspection } from "../front-service.ts";
 import { createAnnotationGroup } from "./annotations.ts";
 import type { GrilleDoorSweep } from "../grille-door-sweep.ts";
 import {
@@ -89,8 +90,19 @@ export class MaintenanceGeometry {
       toneMapped: false,
     }),
   );
+  frontRuler = new THREE.LineSegments(
+    new THREE.BufferGeometry(),
+    new THREE.LineBasicMaterial({
+      color: "#ffd38b",
+      toneMapped: false,
+      depthWrite: false,
+    }),
+  );
   transform = new THREE.Object3D();
   constructor() {
+    this.frontRuler.name = "front-service-projection";
+    this.frontRuler.visible = false;
+    this.frontRuler.raycast = () => {};
     this.root.visible = false;
     this.root.add(
       this.border,
@@ -100,6 +112,7 @@ export class MaintenanceGeometry {
       this.sweepFill,
       this.sweepLines,
       this.grillePatch,
+      this.frontRuler,
     );
     this.grillePatch.name = "grille-swept-area";
     this.grillePatch.raycast = () => {};
@@ -176,6 +189,32 @@ export class MaintenanceGeometry {
     this.fill.instanceMatrix.needsUpdate =
       this.border.instanceMatrix.needsUpdate = true;
   }
+  showFrontService(inspection: FrontServiceInspection | null) {
+    this.frontRuler.visible = !!inspection;
+    if (!inspection) return;
+    const { area, height, frontZ } = inspection;
+    const [x, floor] = area.position,
+      y = floor + 0.012;
+    const side = area.bounds.maxX,
+      end = area.bounds.maxZ;
+    const point = (x: number, y: number, z: number) =>
+      new THREE.Vector3(x, y, z);
+    const shoulder = point(side, height, frontZ),
+      foot = point(side, y, frontZ);
+    this.frontRuler.geometry.setFromPoints([
+      point(x, height, frontZ),
+      shoulder,
+      shoulder,
+      foot,
+      foot,
+      point(side, y, end),
+      point(side - 0.06, y, frontZ),
+      point(side + 0.06, y, frontZ),
+      point(side - 0.06, y, end),
+      point(side + 0.06, y, end),
+    ]);
+    this.frontRuler.geometry.computeBoundingSphere();
+  }
   showDoorSweeps(
     sweeps: DoorSweep[] | undefined,
     reference: DoorReference,
@@ -236,7 +275,12 @@ export class MaintenanceGeometry {
   }
   dispose() {
     this.overlap.material.dispose();
-    for (const mesh of [this.sweepFill, this.sweepLines, this.grillePatch]) {
+    for (const mesh of [
+      this.sweepFill,
+      this.sweepLines,
+      this.grillePatch,
+      this.frontRuler,
+    ]) {
       mesh.geometry.dispose();
       mesh.material.dispose();
     }

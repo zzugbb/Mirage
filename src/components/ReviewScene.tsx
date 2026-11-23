@@ -1,3 +1,4 @@
+import type { FrontServiceInspection } from "../front-service";
 import type { GrilleDoorSweep } from "../grille-door-sweep";
 import type { RearServiceInspection } from "../rear-service";
 import { doorTip, type DoorReference } from "../door-sweep";
@@ -223,6 +224,7 @@ export function ReviewScene({
   onEnvironmentView,
   smokeInspectionActive,
   maintenanceView,
+  frontService,
   rearService,
   doorReference,
   grilleSweep,
@@ -282,6 +284,7 @@ export function ReviewScene({
   onEnvironmentViewChange: (inspection: EnvironmentInspection | null) => void;
   onEnvironmentView: (action: EnvironmentViewCommand["action"]) => void;
   smokeInspectionActive: boolean;
+  frontService: FrontServiceInspection | null;
   rearService: RearServiceInspection | null;
   maintenanceView: MaintenanceInspection | null;
   doorReference: DoorReference;
@@ -792,6 +795,21 @@ export function ReviewScene({
   const serviceArea = openRearService?.sweep.area;
   const hingeX = openRearService?.leaf.hingeX;
   const areaLabels = useMemo(() => {
+    if (frontService) {
+      const { area, device, height, frontZ, offset } = frontService;
+      return [
+        {
+          id: "service-device-front",
+          text: device.name + (offset ? " 抽出前沿" : " 安装前沿"),
+          position: [area.position[0], height, frontZ],
+        },
+        {
+          id: "service-front-boundary",
+          text: "柜前预留 " + area.depth.toFixed(2) + " m",
+          position: [area.bounds.maxX, area.position[1], area.bounds.maxZ],
+        },
+      ];
+    }
     if (openRearService) {
       const { sweep, tip, side } = openRearService;
       const y = sweep.area.position[1];
@@ -857,6 +875,7 @@ export function ReviewScene({
     comparison,
     maintenanceView,
     doorReference,
+    frontService,
     openRearService,
     grilleSweep,
   ]);
@@ -988,7 +1007,11 @@ export function ReviewScene({
         areas.setReady(
           roomReady ||
             (level === "rack" &&
-              active!.presentation.rearDoor === 1 &&
+              (active!.presentation.rearDoor === 1 ||
+                (areas.frontRuler.visible &&
+                  ["open", "extended", "closed"].includes(
+                    active!.lastPhase ?? "",
+                  ))) &&
               active!.presentation.pose.inspection === 0),
         );
         flow.animate(
@@ -1762,16 +1785,22 @@ export function ReviewScene({
   }, [visibleAirflow, flowView, retry]);
   useEffect(() => {
     maintenanceGeometry.current?.update(
-      serviceArea ? [serviceArea] : maintenance,
+      frontService
+        ? [frontService.area]
+        : serviceArea
+          ? [serviceArea]
+          : maintenance,
       comparison,
       grilleSweep ? undefined : maintenanceView?.overlap,
     );
+    maintenanceGeometry.current?.showFrontService(frontService);
     if (engine.current) engine.current.comparedAisle = comparison;
   }, [
     maintenance,
     comparison,
     maintenanceView,
     serviceArea,
+    frontService,
     grilleSweep,
     retry,
   ]);
@@ -1794,6 +1823,14 @@ export function ReviewScene({
     grilleSweep,
     retry,
   ]);
+  const frontArea = frontService?.area,
+    frontHeight = frontService?.height;
+  useEffect(() => {
+    if (!frontArea || frontHeight === undefined) return;
+    setOrbit(false);
+    setView("iso");
+    engine.current?.frameFrontService(frontArea, frontHeight);
+  }, [frontArea, frontHeight, state.focusRevision, retry]);
   useEffect(() => {
     if (!serviceArea || hingeX === undefined) return;
     setOrbit(false);
@@ -1863,7 +1900,8 @@ export function ReviewScene({
   const labels = sceneLabels(
     alarmDevice
       ? [alarmDevice]
-      : rearService ||
+      : frontService ||
+          rearService ||
           ambientSelected ||
           !sliceVisible ||
           layerPose ||
@@ -2294,9 +2332,14 @@ export function ReviewScene({
               hidden
               aria-hidden="true"
               data-anchor={area.id}
-              data-anchor-level={openRearService ? "rack" : "room"}
+              data-anchor-level={
+                frontService || openRearService ? "rack" : "room"
+              }
               data-hotspot={
-                maintenanceView?.sweeps || openRearService || grilleSweep
+                maintenanceView?.sweeps ||
+                frontService ||
+                openRearService ||
+                grilleSweep
                   ? "center"
                   : undefined
               }
@@ -2552,6 +2595,7 @@ export function ReviewScene({
           crossing ||
           selectedFixture ||
           airflow ||
+          frontService ||
           maintenance.length > 0 ||
           supply ||
           network.length > 0 ||

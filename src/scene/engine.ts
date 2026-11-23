@@ -1640,6 +1640,29 @@ export class SceneEngine {
     this.onMaintenanceView(inspection);
     this.frameMaintenance();
   }
+  frameFrontService(area: MaintenanceArea, deviceY: number) {
+    const { width, height, rect } = this.observationViewport();
+    const { minX, maxX, minZ, maxZ } = area.bounds;
+    const points = [minX, maxX].flatMap((x) => [
+      new THREE.Vector3(x, area.position[1], maxZ),
+      new THREE.Vector3(x, area.position[1], minZ),
+      new THREE.Vector3(x, Math.max(0.85, deviceY + 0.18), minZ),
+    ]);
+    const fit = observationFrame(
+      points,
+      new THREE.Vector3(0.78, 0.67, 1),
+      width,
+      height,
+      rect,
+      1.6,
+      0.12,
+    );
+    this.currentView = "iso";
+    this.targetPosition.copy(fit.position);
+    this.targetLook.copy(fit.target);
+    this.moving = true;
+    this.invalidate();
+  }
   frameRearService(area: MaintenanceArea, hingeX: number) {
     const { width, height, rect } = this.observationViewport();
     const { minX, maxX, minZ, maxZ } = area.bounds;

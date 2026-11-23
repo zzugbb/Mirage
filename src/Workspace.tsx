@@ -1,3 +1,5 @@
+import { frontServiceInspection, frontServiceDevices } from "./front-service";
+import { FrontServiceDetails } from "./components/FrontServiceDetails";
 import { grilleDoorSweep } from "./grille-door-sweep";
 import { RearServiceDetails } from "./components/RearServiceDetails";
 import { rearServiceInspection } from "./rear-service";
@@ -1442,6 +1444,7 @@ export function Workspace() {
   const [aisleVisit, setAisleVisit] = useState<{
     aisle: MaintenanceAisle;
     service?: MaintenanceAisle;
+    frontService?: MaintenanceAisle["front"];
     layer: typeof layer;
     metric: "power" | "temperature";
     resourceQuery: string;
@@ -1455,6 +1458,36 @@ export function Workspace() {
   } | null>(null);
   const [aisleReturn, setAisleReturn] = useState<typeof aisleVisit>(null);
   const [aisleReturning, setAisleReturning] = useState(false);
+  const frontArea = aisleVisit?.frontService;
+  const frontService = useMemo(
+    () =>
+      frontArea &&
+      state.level === "rack" &&
+      layer === "overview" &&
+      rackForDevice(state.deviceId).id === frontArea.rackId
+        ? frontServiceInspection(
+            frontArea,
+            selected,
+            state.trayExtended && selected === state.deviceId,
+          )
+        : null,
+    [
+      frontArea,
+      state.level,
+      layer,
+      state.deviceId,
+      state.trayExtended,
+      selected,
+    ],
+  );
+  const shownFront =
+    aisleVisit &&
+    maintenanceView?.areas.find(
+      (area) =>
+        area.kind === "front" &&
+        maintenanceAisle(area.rackId)?.front.rackId === area.rackId,
+    );
+  const firstFrontDevice = shownFront && frontServiceDevices(shownFront)[0];
   const rearService = useMemo(() => {
     if (
       !aisleVisit?.service ||
@@ -3037,6 +3070,22 @@ export function Workspace() {
     pick(rackId);
     setAisleCommand({ rackId });
   };
+  const openFrontDevice = (area: MaintenanceAisle["front"], id: string) => {
+    if (!ready || !aisleVisit || !frontServiceInspection(area, id, false))
+      return;
+    setAisleVisit({ ...aisleVisit, service: undefined, frontService: area });
+    if (state.level === "room") {
+      setQuery("");
+      setFilter("all");
+      setOnlyAlarms(false);
+    }
+    control({ type: "locate-installation", id });
+    if (state.level === "room") dispatch({ type: "door", open: true });
+    control({ type: "layer", layer: "overview" });
+    control({ type: "analysis", value: false });
+    setInspector(true);
+    if (matchMedia("(max-width: 1099px)").matches) setNav(false);
+  };
   const openRearSocket = (
     aisle: MaintenanceAisle,
     id: string,
@@ -3077,7 +3126,7 @@ export function Workspace() {
     setAisleReturn(aisleVisit);
     setAisleVisit(null);
     setAisleReturning(false);
-    if (aisleVisit.service) {
+    if (aisleVisit.service || aisleVisit.frontService) {
       setPduInspection(null);
       setPowerLinkId(null);
       setRackView("space");
@@ -3105,6 +3154,14 @@ export function Workspace() {
       pduInspectionIncludes(pduInspection, selected, state.deviceId)
     )
       return;
+    if (
+      aisleVisit.frontService &&
+      state.level !== "room" &&
+      rackForDevice(state.deviceId).id === aisleVisit.frontService.rackId &&
+      (deviceById(selected)?.rackId === aisleVisit.frontService.rackId ||
+        (state.level === "device" && entityById(selected)?.kind === "part"))
+    )
+      return;
     if (!roomAisles || !rackById(selected)) {
       setAisleVisit(null);
       setAisleCommand({ rackId: null });
@@ -3114,6 +3171,7 @@ export function Workspace() {
     aisleReturning,
     ready,
     roomAisles,
+    state.level,
     selected,
     pduInspection,
     state.deviceId,
@@ -6296,6 +6354,7 @@ export function Workspace() {
             aisleCommand={aisleCommand}
             aisleRosterVisible={roomAisles && nav}
             onReturnToAisles={aisleVisit ? returnToAisles : undefined}
+            frontService={review.pendingId ? null : frontService}
             rearService={rearService}
             maintenanceView={maintenanceView}
             grilleSweep={grilleSweep}
@@ -7725,6 +7784,21 @@ export function Workspace() {
                 </small>
               </section>
             )}
+            {frontService && !review.analysis && (
+              <FrontServiceDetails
+                inspection={frontService}
+                ready={ready}
+                trayAvailable={
+                  !state.trayExtended || state.deviceId === selected
+                }
+                doorOpen={state.doorOpen}
+                onSelect={(id) => openFrontDevice(frontService.area, id)}
+                onOpenDoor={() => dispatch({ type: "door", open: true })}
+                onExtract={() =>
+                  control({ type: "extract-resource", id: selected })
+                }
+              />
+            )}
             {rearService && aisleVisit?.service && !review.analysis && (
               <RearServiceDetails
                 inspection={rearService}
@@ -7759,6 +7833,20 @@ export function Workspace() {
                     </span>
                   </div>
                 ))}
+                {shownFront &&
+                  firstFrontDevice &&
+                  (maintenanceView.view === "front" ||
+                    (maintenanceView.view === "aisle" &&
+                      !maintenanceView.overlap)) && (
+                    <button
+                      disabled={!ready}
+                      onClick={() =>
+                        openFrontDevice(shownFront, firstFrontDevice.id)
+                      }
+                    >
+                      核对 {shownFront.rackName.split(" ")[0]} 柜前设备行程 ↗
+                    </button>
+                  )}
                 {maintenanceView.aisle && (
                   <p>
                     柜面间距 {maintenanceView.aisle.faceDistance.toFixed(2)} m ·{" "}
