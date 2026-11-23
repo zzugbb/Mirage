@@ -282,8 +282,9 @@ export function buildModels() {
   const holes = new THREE.CanvasTexture(perforation);
   holes.wrapS = holes.wrapT = THREE.RepeatWrapping;
   holes.repeat.set(24, 84);
+  const frontDoor = definition.rack.enclosure.frontDoor;
   const steelDoor = new THREE.Mesh(
-    new THREE.PlaneGeometry(0.51, rh - 0.21),
+    new THREE.PlaneGeometry(frontDoor.width - 0.06, rh - 0.21),
     new THREE.MeshStandardMaterial({
       color: "#32363b",
       metalness: 0.65,
@@ -296,30 +297,42 @@ export function buildModels() {
   );
   const rackDoor = new THREE.Group();
   rackDoor.name = "rack-door";
-  rackDoor.position.set(-0.285, 0, 0.57);
+  rackDoor.position.set(frontDoor.hingeX, 0, frontDoor.hingeZ);
   rack.add(rackDoor);
-  steelDoor.position.set(0.285, rh / 2 + 0.05, 0);
+  steelDoor.position.set(frontDoor.width / 2, rh / 2 + 0.05, 0);
   steelDoor.castShadow = true;
   rackDoor.add(steelDoor);
-  for (const x of [-0.277, 0.277])
+  for (const x of [0.008, frontDoor.width - 0.008])
     box(
       rackDoor,
       [0.025, rh - 0.11, 0.025],
-      [x + 0.285, rh / 2 + 0.05, 0.005],
+      [x, rh / 2 + 0.05, 0.005],
       "#282c31",
       0.65,
     );
   for (const y of [0.115, rh - 0.015])
-    box(rackDoor, [0.57, 0.034, 0.025], [0.285, y, 0.005], "#282c31", 0.65);
+    box(
+      rackDoor,
+      [frontDoor.width, 0.034, 0.025],
+      [frontDoor.width / 2, y, 0.005],
+      "#282c31",
+      0.65,
+    );
   box(
     rackDoor,
     [0.018, 0.22, 0.035],
-    [0.512, rh / 2 + 0.05, 0.037],
+    [frontDoor.width - 0.058, rh / 2 + 0.05, 0.037],
     "#72777e",
     0.85,
   );
   for (const y of [0.45, 1.72])
-    box(rack, [0.025, 0.065, 0.035], [-0.28, y, 0.59], "#777b80", 0.8);
+    box(
+      rack,
+      [0.025, 0.065, 0.035],
+      [frontDoor.hingeX + 0.005, y, frontDoor.hingeZ + 0.02],
+      "#777b80",
+      0.8,
+    );
   for (let z = -0.23; z < 0.4; z += 0.032)
     box(rack, [0.35, 0.002, 0.006], [0, rh + 0.035, z], "#15171b");
   const rackSlide = new THREE.Group();

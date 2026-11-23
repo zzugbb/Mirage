@@ -1,3 +1,4 @@
+import type { DoorReference } from "./door-sweep";
 import { structureOptions } from "./structure-options";
 import { FrontCageControls } from "./components/FrontCageControls";
 import { switchCageSelection } from "./switch-cages";
@@ -1024,6 +1025,7 @@ export function Workspace() {
     activeAirflowVisit,
     locatedCoolingDevice,
   ]);
+  const [doorReference, setDoorReference] = useState<DoorReference>("peak");
   const [maintenanceView, setMaintenanceView] =
     useState<MaintenanceInspection | null>(null);
   const [entranceView, setEntranceView] = useState<EntranceInspection | null>(
@@ -6160,6 +6162,7 @@ export function Workspace() {
             aisleRosterVisible={roomAisles && nav}
             onReturnToAisles={aisleVisit ? returnToAisles : undefined}
             maintenanceView={maintenanceView}
+            doorReference={doorReference}
             onMaintenanceViewChange={setMaintenanceView}
             entranceView={entranceView}
             entranceViewCommand={entranceViewCommand}
@@ -7612,7 +7615,44 @@ export function Workspace() {
                     {reserveGapText(maintenanceView.aisle.gap)}
                   </p>
                 )}
-                {maintenanceView.aisle && (
+                {maintenanceView.sweeps && (
+                  <div className="aisle-door-check">
+                    <label>
+                      门扇投影位置
+                      <select
+                        value={doorReference}
+                        onChange={(e) =>
+                          setDoorReference(
+                            e.target.value === "open" ? "open" : "peak",
+                          )
+                        }
+                      >
+                        <option value="peak">扫掠最大进深</option>
+                        <option value="open">配置全开位置</option>
+                      </select>
+                    </label>
+                    {maintenanceView.sweeps.map((sweep) => {
+                      const ref = sweep[doorReference];
+                      return (
+                        <p key={sweep.area.id}>
+                          <b>
+                            {sweep.area.rackName.split(" ")[0]}{" "}
+                            {sweep.area.kind === "front" ? "前门" : "双扇后门"}{" "}
+                            · {ref.angle}°
+                          </b>
+                          <br />
+                          自由边距柜面 {ref.depth.toFixed(3)} m ·{" "}
+                          {ref.remaining >= 0 ? "至预留边界" : "超出预留"}{" "}
+                          {Math.abs(ref.remaining).toFixed(3)} m
+                        </p>
+                      );
+                    })}
+                    <small>
+                      扇形为铰轴至门扇自由边的地面投影，未计入门厚及五金。门位仅供布置核查。
+                    </small>
+                  </div>
+                )}
+                {maintenanceView.aisle && !maintenanceView.sweeps && (
                   <label className="aisle-grille-check">
                     {maintenanceView.aisle.front.rackName.split(" ")[0]}{" "}
                     柜前格栅

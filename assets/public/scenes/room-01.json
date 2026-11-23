@@ -538,6 +538,11 @@
     },
     "enclosure": {
       "description": "双扇冲孔后门、顶部刷条进线口及PDU侧壁支架为结构布置示意；不定义开孔率、散热能力或实际施工布线",
+      "frontDoor": {
+        "width": 0.57,
+        "hingeX": -0.285,
+        "hingeZ": 0.57
+      },
       "rearDoor": {
         "width": 0.522,
         "heightInset": 0.2,

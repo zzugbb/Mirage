@@ -22,7 +22,7 @@ test("八柜分段观察复用配置预留，排间两侧身份稳定，无关�
       const inspection = maintenanceInspection(rack.id, view.id)!;
       assert.ok(maintenanceViewIncludes(inspection, rack.id));
       assert.equal(maintenanceViewIncludes(inspection, "srv-01"), false);
-      if (view.id === "aisle") {
+      if (view.id === "aisle" || view.id === "doors") {
         const aisle = maintenanceAisle(rack.id)!;
         assert.deepEqual(inspection.areas, [aisle.front, aisle.rear]);
         const other = inspection.areas.find((a) => a.rackId !== rack.id)!;
@@ -42,7 +42,7 @@ test("八柜分段观察复用配置预留，排间两侧身份稳定，无关�
   }
 });
 
-test("八柜三种观察在桌面组合画幅内，地面边界视线不穿过已定义机柜", () => {
+test("八柜各段观察在桌面组合画幅内，地面边界视线不穿过已定义机柜", () => {
   for (const rack of racks)
     for (const view of maintenanceViews) {
       const inspection = maintenanceInspection(rack.id, view.id)!;

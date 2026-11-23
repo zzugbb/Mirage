@@ -1,4 +1,5 @@
 import { createAnnotationGroup } from "./annotations.ts";
+import { doorTip, type DoorReference, type DoorSweep } from "../door-sweep.ts";
 import * as THREE from "three";
 import { maintenanceSettings } from "../maintenance.ts";
 import type {
@@ -53,10 +54,38 @@ export class MaintenanceGeometry {
       toneMapped: false,
     }),
   );
+  sweepFill = new THREE.Mesh(
+    new THREE.BufferGeometry(),
+    new THREE.MeshBasicMaterial({
+      color: "#9bd9da",
+      transparent: true,
+      opacity: 0.3,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+      toneMapped: false,
+    }),
+  );
+  sweepLines = new THREE.LineSegments(
+    new THREE.BufferGeometry(),
+    new THREE.LineBasicMaterial({
+      color: "#fae5b9",
+      toneMapped: false,
+      depthWrite: false,
+    }),
+  );
   transform = new THREE.Object3D();
   constructor() {
     this.root.visible = false;
-    this.root.add(this.border, this.fill, this.ruler, this.overlap);
+    this.root.add(
+      this.border,
+      this.fill,
+      this.ruler,
+      this.overlap,
+      this.sweepFill,
+      this.sweepLines,
+    );
+    this.sweepFill.visible = this.sweepLines.visible = false;
+    this.sweepFill.raycast = this.sweepLines.raycast = () => {};
     this.overlap.visible = false;
     this.overlap.raycast = () => {};
     for (const mesh of [this.border, this.fill, this.ruler]) {
@@ -125,11 +154,53 @@ export class MaintenanceGeometry {
     this.fill.instanceMatrix.needsUpdate =
       this.border.instanceMatrix.needsUpdate = true;
   }
+  showDoorSweeps(sweeps: DoorSweep[] | undefined, reference: DoorReference) {
+    this.sweepFill.visible = this.sweepLines.visible = !!sweeps;
+    if (!sweeps) return;
+    const fill: number[] = [],
+      lines: number[] = [];
+    for (const sweep of sweeps) {
+      const y = sweep.area.position[1] + 0.012;
+      for (const leaf of sweep.leaves) {
+        const hinge = [leaf.hingeX, y, leaf.hingeZ];
+        const point = (angle: number) => {
+          const p = doorTip(leaf, angle);
+          return [p.x, y, p.z];
+        };
+        const angle = sweep[reference].angle;
+        const steps = Math.max(1, Math.ceil(angle / 4));
+        let previous = point(0);
+        lines.push(...hinge, ...previous);
+        for (let i = 1; i <= steps; i++) {
+          const current = point((angle * i) / steps);
+          fill.push(...hinge, ...previous, ...current);
+          lines.push(...previous, ...current);
+          previous = current;
+        }
+        lines.push(...hinge, ...previous);
+      }
+    }
+    for (const [mesh, coordinates] of [
+      [this.sweepFill, fill],
+      [this.sweepLines, lines],
+    ] as const) {
+      mesh.geometry.dispose();
+      mesh.geometry.setAttribute(
+        "position",
+        new THREE.Float32BufferAttribute(coordinates, 3),
+      );
+      mesh.geometry.computeBoundingSphere();
+    }
+  }
   setReady(ready: boolean) {
     this.root.visible = this.enabled && ready;
   }
   dispose() {
     this.overlap.material.dispose();
+    for (const mesh of [this.sweepFill, this.sweepLines]) {
+      mesh.geometry.dispose();
+      mesh.material.dispose();
+    }
     this.geometry.dispose();
     for (const mesh of [this.border, this.fill, this.ruler]) {
       mesh.material.dispose();

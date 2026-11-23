@@ -10,6 +10,12 @@ import {
   maintenanceSettings,
 } from "./maintenance.ts";
 import { Matrix4, Vector3 } from "three";
+import { aisleDoorSweeps, doorTip } from "./door-sweep.ts";
+import {
+  createRackRearDoors,
+  poseRackRearDoors,
+} from "./scene/rack-enclosure.ts";
+import { mechanismTransform } from "./mechanics.ts";
 import { MaintenanceGeometry } from "./scene/maintenance.ts";
 
 test("维护范围绑定稳定机柜身份，按正面方向布置，未知对象不生成范围", () => {
@@ -204,4 +210,68 @@ test("通道名单每组只列一次，可用任一侧柜号或两端组合查�
   assert.deepEqual(findMaintenanceAisles("Ｂ０３"), [target]);
   assert.deepEqual(findMaintenanceAisles("a03 B03"), [target]);
   assert.deepEqual(findMaintenanceAisles("A02 B03"), []);
+});
+
+test("四组通道的自由边轨迹与前后门机构同向；最大进深按全行程而非末端计算", () => {
+  const { rack } = definition;
+  const { frontDoor, rearDoor } = rack.enclosure;
+  const rear = createRackRearDoors();
+  const leafWidth = (rearDoor.width - rearDoor.seam) / 2;
+  for (const aisle of findMaintenanceAisles("")) {
+    const [front, back] = aisleDoorSweeps(aisle);
+    const frontRack = definition.installation.racks.find(
+      (r) => r.id === aisle.front.rackId,
+    )!;
+    const rearRack = definition.installation.racks.find(
+      (r) => r.id === aisle.rear.rackId,
+    )!;
+    for (const progress of [0, 0.25, 0.5, 0.75, 1]) {
+      const { doorAngle } = mechanismTransform({
+        door: progress,
+        tray: 0,
+        inspection: 0,
+      });
+      const end = new Vector3(frontDoor.width, 0, 0).applyAxisAngle(
+        new Vector3(0, 1, 0),
+        doorAngle,
+      );
+      const point = doorTip(front.leaves[0], (-doorAngle * 180) / Math.PI);
+      assert.ok(
+        Math.abs(point.x - frontRack.position[0] - frontDoor.hingeX - end.x) <
+          1e-8,
+      );
+      assert.ok(
+        Math.abs(point.z - frontRack.position[2] - frontDoor.hingeZ - end.z) <
+          1e-8,
+      );
+      poseRackRearDoors(rear, progress);
+      for (const [i, side] of ["left", "right"].entries()) {
+        const leaf = rear.getObjectByName("rear-door-" + side)!;
+        const tip = leaf.localToWorld(
+          new Vector3(i === 0 ? leafWidth : -leafWidth, 0, 0),
+        );
+        const planar = doorTip(
+          back.leaves[i],
+          (Math.abs(leaf.rotation.y) * 180) / Math.PI,
+        );
+        assert.ok(
+          Math.abs(planar.x - rearRack.position[0] - tip.x) < 1e-8 &&
+            Math.abs(planar.z - rearRack.position[2] - tip.z) < 1e-8,
+        );
+      }
+    }
+    assert.deepEqual([front.peak.angle, back.peak.angle], [90, 90]);
+    for (const sweep of [front, back]) {
+      assert.ok(
+        sweep.open.angle > sweep.peak.angle &&
+          sweep.peak.depth > sweep.open.depth,
+      );
+      assert.ok(
+        Math.abs(sweep.peak.remaining + sweep.peak.depth - sweep.area.depth) <
+          1e-8,
+      );
+    }
+    assert.ok(Math.abs(front.peak.depth - 0.59) < 1e-8);
+    assert.ok(Math.abs(back.peak.depth - 0.276) < 1e-8);
+  }
 });

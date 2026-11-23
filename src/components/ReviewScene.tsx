@@ -1,3 +1,4 @@
+import { doorTip, type DoorReference } from "../door-sweep";
 import type { RearRowPose } from "../scene/rear-module-seats";
 import type { LayerPose } from "../scene/assembly-layer";
 import { roomAirflowTarget } from "../cooling";
@@ -210,6 +211,7 @@ export function ReviewScene({
   onEnvironmentView,
   smokeInspectionActive,
   maintenanceView,
+  doorReference,
   aisleCommand,
   aisleRosterVisible,
   onReturnToAisles,
@@ -266,6 +268,7 @@ export function ReviewScene({
   onEnvironmentView: (action: EnvironmentViewCommand["action"]) => void;
   smokeInspectionActive: boolean;
   maintenanceView: MaintenanceInspection | null;
+  doorReference: DoorReference;
   aisleCommand: { rackId: string | null; grilleId?: string } | null;
   aisleRosterVisible: boolean;
   onReturnToAisles?: () => void;
@@ -523,7 +526,8 @@ export function ReviewScene({
   const flowView = airflowWorkspace.view;
   const localCutaway =
     state.level === "room" &&
-    ((coolingRangeObservation && !!flowView && layer === "airflow") ||
+    ((maintenanceView?.view === "doors" && layer === "overview") ||
+      (coolingRangeObservation && !!flowView && layer === "airflow") ||
       (layer === "overview" &&
         (crossing?.kind === "roof-entry" ||
           crossing?.kind === "lighting-round" ||
@@ -716,6 +720,20 @@ export function ReviewScene({
     [inspecting, maintenanceView, comparison, rackAreas],
   );
   const areaLabels = useMemo(() => {
+    if (maintenanceView?.sweeps)
+      return maintenanceView.sweeps.map((sweep) => {
+        const ref = sweep[doorReference],
+          tip = doorTip(sweep.leaves[sweep.leaves.length - 1], ref.angle);
+        return {
+          id: sweep.area.id + "-door",
+          position: [tip.x, sweep.area.position[1] + 0.012, tip.z],
+          text:
+            sweep.area.rackName.split(" ")[0] +
+            (sweep.area.kind === "front" ? " 前门 " : " 后门 ") +
+            ref.depth.toFixed(3) +
+            " m",
+        };
+      });
     const overlap = maintenanceView?.overlap;
     if (overlap)
       return [
@@ -745,7 +763,7 @@ export function ReviewScene({
         text: reserveGapText(comparison.gap),
       });
     return labels;
-  }, [maintenance, comparison, maintenanceView]);
+  }, [maintenance, comparison, maintenanceView, doorReference]);
   const visibleAirflow = airflow;
   const airflowResponseControl = visibleAirflow?.routes[0] && (
     <button
@@ -1259,7 +1277,10 @@ export function ReviewScene({
     maintenanceFocus.current = action;
     setMaintenanceScope((scope) => scope && { ...scope, rackId });
     onSelect(rackId);
-    engine.current.observeMaintenance(rackId, "aisle");
+    engine.current.observeMaintenance(
+      rackId,
+      maintenanceView?.view === "doors" ? "doors" : "aisle",
+    );
   };
   useEffect(() => {
     engine.current?.frameMaintenance();
@@ -1636,6 +1657,13 @@ export function ReviewScene({
     );
     if (engine.current) engine.current.comparedAisle = comparison;
   }, [maintenance, comparison, maintenanceView, retry]);
+  useEffect(() => {
+    maintenanceGeometry.current?.showDoorSweeps(
+      inspecting ? maintenanceView?.sweeps : undefined,
+      doorReference,
+    );
+    engine.current?.invalidate();
+  }, [inspecting, maintenanceView, doorReference, retry]);
   useEffect(() => {
     powerGeometry.current?.update(showSupply ? supply : null);
   }, [supply, showSupply, retry]);
@@ -2128,6 +2156,7 @@ export function ReviewScene({
               hidden
               aria-hidden="true"
               data-anchor={area.id}
+              data-hotspot={maintenanceView?.sweeps ? "center" : undefined}
               data-anchor-kind="position"
               data-anchor-position={area.position.join(",")}
               className="review-flow-anchor review-maintenance-anchor"
@@ -2589,7 +2618,9 @@ export function ReviewScene({
                         )}
                         {maintenanceViews
                           .filter(
-                            (item) => item.id !== "aisle" || availableAisle,
+                            (item) =>
+                              (item.id !== "aisle" && item.id !== "doors") ||
+                              availableAisle,
                           )
                           .map((item) => (
                             <option key={item.id} value={item.id}>

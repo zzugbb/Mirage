@@ -7,6 +7,7 @@ import {
   type MaintenanceArea,
   type MaintenanceGrille,
 } from "./maintenance.ts";
+import { aisleDoorSweeps } from "./door-sweep.ts";
 import { floorGrilleSettings } from "./floor-grilles.ts";
 import { observationFrame, type FrameRect } from "./observation-frame.ts";
 
@@ -14,6 +15,7 @@ export const maintenanceViews = [
   { id: "front", name: "近看柜前" },
   { id: "rear", name: "近看柜后" },
   { id: "aisle", name: "俯看排间" },
+  { id: "doors", name: "两柜门扇投影" },
 ] as const;
 export type MaintenanceView = (typeof maintenanceViews)[number]["id"];
 
@@ -38,12 +40,15 @@ export function maintenanceInspection(
 ) {
   const configured = maintenanceAreas(rackId);
   if (!configured.length) return null;
-  const aisle = view === "aisle" ? maintenanceAisle(rackId) : undefined;
-  if (view === "aisle" && !aisle) return null;
+  const paired = view === "aisle" || view === "doors";
+  const aisle = paired ? maintenanceAisle(rackId) : undefined;
+  if (paired && !aisle) return null;
   const areas = aisle
     ? [aisle.front, aisle.rear]
     : configured.filter((area) => area.kind === view);
-  const grilles = aisle ? maintenanceGrilles(aisle.front) : [];
+  const sweeps = aisle && view === "doors" ? aisleDoorSweeps(aisle) : undefined;
+  const grilles =
+    aisle && view === "aisle" ? maintenanceGrilles(aisle.front) : [];
   const overlap = grilles.find(({ grille }) => grille.id === grilleId);
   if (grilleId && !overlap) return null;
   const points =
@@ -63,7 +68,7 @@ export function maintenanceInspection(
             new Vector3(maxX, definition.rack.size[1], face),
           ];
         });
-  return { rackId, view, areas, aisle, points, grilles, overlap };
+  return { rackId, view, areas, aisle, points, grilles, overlap, sweeps };
 }
 export type MaintenanceInspection = NonNullable<
   ReturnType<typeof maintenanceInspection>
@@ -82,7 +87,7 @@ export function maintenanceViewFrame(
 ) {
   return observationFrame(
     inspection.points,
-    inspection.view === "aisle"
+    inspection.aisle
       ? new Vector3(0, 1, 0.025)
       : new Vector3(0.12, 1, inspection.view === "front" ? 0.32 : -0.32),
     width,
