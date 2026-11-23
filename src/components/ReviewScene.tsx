@@ -2336,7 +2336,9 @@ export function ReviewScene({
               hidden
               aria-hidden="true"
               data-anchor={marker.id}
-              data-hotspot={leakView.floor ? "center" : undefined}
+              data-hotspot={
+                leakView.floor || leakView.route ? "center" : undefined
+              }
               data-anchor-kind="position"
               data-anchor-position={marker.point.toArray().join(",")}
               className="review-flow-anchor review-crossing-anchor"

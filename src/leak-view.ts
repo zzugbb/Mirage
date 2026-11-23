@@ -10,6 +10,7 @@ import { observationFrame, type FrameRect } from "./observation-frame.ts";
 
 export const leakViews = [
   { id: "all", label: "完整布置" },
+  { id: "route", label: "整支路里程" },
   { id: "lead", label: "控制器与引线" },
   { id: "sensing", label: "感应线路径" },
   { id: "end", label: "末端封接" },
@@ -17,43 +18,59 @@ export const leakViews = [
 ] as const;
 export type LeakView = (typeof leakViews)[number]["id"];
 export type LeakFloorTarget = number | { fromJoint: number };
+export type LeakTarget = LeakFloorTarget | { fromController: number };
 export type LeakViewCommand = {
   revision: number;
   view: LeakView | null;
-  target?: LeakFloorTarget;
+  target?: LeakTarget;
 };
 export const leakViewIncludes = (id: string) =>
   isLeakFixture(id) || id === leakDetection.nearbyFacilityId;
 const vector = (point: number[]) => new Vector3().fromArray(point);
 
-/** 里程从接头起算，折点归入下一段，末端归入最后一段。仅指定段时沿用段中点。 */
-function leakFloorSegment(sensing: Vector3[], target: LeakFloorTarget) {
+/** 里程从传入折线的起点算起，折点归入下一段，末端归入最后一段。仅指定段时沿用段中点。 */
+function pathPosition(points: Vector3[], segment: number, requested?: number) {
   const ends: number[] = [0];
-  for (let i = 1; i < sensing.length; i++)
-    ends.push(ends[i - 1] + sensing[i - 1].distanceTo(sensing[i]));
+  for (let i = 1; i < points.length; i++)
+    ends.push(ends[i - 1] + points[i - 1].distanceTo(points[i]));
   const total = ends[ends.length - 1];
-  const requested = typeof target === "object" ? target.fromJoint : null;
   let index =
-    typeof target === "number" &&
-    Number.isInteger(target) &&
-    target >= 0 &&
-    target < sensing.length - 1
-      ? target
+    Number.isInteger(segment) && segment >= 0 && segment < points.length - 1
+      ? segment
       : 0;
-  let fromJoint = (ends[index] + ends[index + 1]) / 2;
-  if (requested !== null && Number.isFinite(requested)) {
-    fromJoint = Math.max(0, Math.min(requested, total));
+  let distance = (ends[index] + ends[index + 1]) / 2;
+  if (requested !== undefined && Number.isFinite(requested)) {
+    distance = Math.max(0, Math.min(requested, total));
     // 消除米制小数在段长累加时的舍入误差，精确落在接头或转角上。
-    fromJoint = ends.find((at) => Math.abs(at - fromJoint) < 1e-9) ?? fromJoint;
-    const next = ends.findIndex((at) => at > fromJoint);
-    index = next === -1 ? sensing.length - 2 : next - 1;
+    distance = ends.find((at) => Math.abs(at - distance) < 1e-9) ?? distance;
+    const next = ends.findIndex((at) => at > distance);
+    index = next === -1 ? points.length - 2 : next - 1;
   }
-  const start = sensing[index],
-    end = sensing[index + 1];
+  const start = points[index],
+    end = points[index + 1];
   const length = start.distanceTo(end);
   const point = start
     .clone()
-    .lerp(end, length ? (fromJoint - ends[index]) / length : 0);
+    .lerp(end, length ? (distance - ends[index]) / length : 0);
+  return { index, start, end, length, point, station: distance, total, ends };
+}
+
+function leakFloorSegment(sensing: Vector3[], target: LeakTarget) {
+  const {
+    index,
+    start,
+    end,
+    length,
+    point,
+    station: fromJoint,
+    total,
+  } = pathPosition(
+    sensing,
+    typeof target === "number" ? target : 0,
+    typeof target === "object" && "fromJoint" in target
+      ? target.fromJoint
+      : undefined,
+  );
   const center = vector(nearbyCooling.position),
     half = vector(nearbyCooling.size).multiplyScalar(0.5);
   const min = center.clone().sub(half),
@@ -82,6 +99,8 @@ function leakFloorSegment(sensing: Vector3[], target: LeakFloorTarget) {
     length,
     point,
     fromJoint,
+    station: fromJoint,
+    total,
     toEnd: total - fromJoint,
     edge,
     distance: point.distanceTo(edge),
@@ -94,10 +113,45 @@ function leakFloorSegment(sensing: Vector3[], target: LeakFloorTarget) {
 
 function inspectionSection(
   view: LeakView,
-  target: LeakFloorTarget,
+  target: LeakTarget,
   lead: Vector3[],
   sensing: Vector3[],
 ) {
+  if (view === "route") {
+    const points = [...lead, ...sensing.slice(1)];
+    const leadSegments = lead.length - 1;
+    const leadLength = configuredPathLength(leakDetection.leadPoints);
+    const position = pathPosition(
+      points,
+      typeof target === "number" ? target : 0,
+      typeof target === "object" && "fromController" in target
+        ? target.fromController
+        : undefined,
+    );
+    const isLead = position.index < leadSegments;
+    const fromJoint = isLead
+      ? null
+      : Math.max(0, position.station - leadLength);
+    const number = position.index + 1 - (isLead ? 0 : leadSegments);
+    const label = (isLead ? "引线第" : "感应线第") + number + "段";
+    const route = { ...position, isLead, fromJoint, label };
+    const path = [position.start, position.end];
+    return {
+      route,
+      floor: null,
+      points: path,
+      paths: [path],
+      markers: [
+        {
+          id: "leak-route-point",
+          title: label + " · 距线首 " + position.station.toFixed(3) + " m",
+          point: position.point,
+          objectId:
+            position.station === 0 ? leakDetection.controllerId : leakCable.id,
+        },
+      ],
+    };
+  }
   const floor = view === "floor" ? leakFloorSegment(sensing, target) : null;
   if (floor) {
     const markers = [
@@ -116,6 +170,7 @@ function inspectionSection(
     ];
     return {
       floor,
+      route: null,
       paths: [[floor.start, floor.end]],
       points: [...sensing, ...floor.corners],
       markers,
@@ -154,14 +209,14 @@ function inspectionSection(
         : view === "sensing"
           ? [sensing]
           : [[end.clone().lerp(sensing.at(-2)!, 0.2), end]];
-  return { floor: null, paths, points: paths.flat(), markers };
+  return { route: null, floor: null, paths, points: paths.flat(), markers };
 }
 
 /** 只核对已登记折线。编号是布置端点身份，不表示信号流向或独立测点。 */
-export function leakInspection(view: LeakView, target: LeakFloorTarget = 0) {
+export function leakInspection(view: LeakView, target: LeakTarget = 0) {
   const lead = leakDetection.leadPoints.map(vector);
   const sensing = leakDetection.sensingPoints.map(vector);
-  const { floor, paths, points, markers } = inspectionSection(
+  const { route, floor, paths, points, markers } = inspectionSection(
     view,
     target,
     lead,
@@ -183,6 +238,7 @@ export function leakInspection(view: LeakView, target: LeakFloorTarget = 0) {
     paths,
     points,
     sightPoints,
+    route,
     floor,
     markers,
     leadLength: configuredPathLength(leakDetection.leadPoints),
@@ -198,8 +254,11 @@ export function leakViewFrame(
   rect: FrameRect,
 ) {
   // 整段从上方核对，避免邻近制冷柜遮住其后方地面感应线；封端从后侧近看。
-  const direction =
-    inspection.view === "floor"
+  const direction = inspection.route
+    ? inspection.route.isLead
+      ? new Vector3(0.42, 0.5, 1.3)
+      : new Vector3(0.05, 1, -0.04)
+    : inspection.view === "floor"
       ? new Vector3(0, 1, -0.04)
       : inspection.view === "end"
         ? new Vector3(1, 2, -0.4)
@@ -212,13 +271,15 @@ export function leakViewFrame(
     width,
     height,
     rect,
-    inspection.view === "floor"
-      ? 3.5
-      : inspection.view === "end"
-        ? 1.1
-        : inspection.view === "lead"
-          ? 2.4
-          : 7,
+    inspection.route
+      ? 1.15
+      : inspection.view === "floor"
+        ? 3.5
+        : inspection.view === "end"
+          ? 1.1
+          : inspection.view === "lead"
+            ? 2.4
+            : 7,
     0.16,
   );
 }

@@ -33,7 +33,7 @@ import {
   leakViewFrame,
   type LeakInspection,
   type LeakView,
-  type LeakFloorTarget,
+  type LeakTarget,
 } from "../leak-view.ts";
 import {
   maintenanceInspection,
@@ -1601,7 +1601,7 @@ export class SceneEngine {
     this.onLeakView(null);
     this.invalidate();
   }
-  observeLeak(view: LeakView, target?: LeakFloorTarget) {
+  observeLeak(view: LeakView, target?: LeakTarget) {
     // 同一次观察内允许改选目标段，保留首次镜头并接续尚未结束的取景。
     if (this.state.level !== "room" || (this.moving && !this.leakObservation))
       return;
@@ -1621,7 +1621,12 @@ export class SceneEngine {
     this.panelViewport = undefined;
     this.leakObservation = { pair, previous };
     this.currentView =
-      view === "all" || view === "sensing" || view === "floor" ? "top" : "iso";
+      view === "all" ||
+      view === "sensing" ||
+      view === "floor" ||
+      (pair.route && !pair.route.isLead)
+        ? "top"
+        : "iso";
     this.currentFocus = false;
     this.interior = false;
     this.controls.minAzimuthAngle = -Infinity;

@@ -7624,3 +7624,25 @@
 .drain-support-inspection > summary {
   cursor: pointer;
 }
+
+.leak-route-stops {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.leak-route-stops button,
+.leak-view-details > button {
+  background: var(--raised);
+  color: inherit;
+  border: 1px solid var(--study-line);
+  border-radius: 4px;
+  padding: 4px 8px;
+}
+
+.leak-route-scale {
+  display: block;
+  width: 100%;
+  max-height: 48px;
+  fill: currentColor;
+  font-size: 11px;
+}

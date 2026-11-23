@@ -261,3 +261,52 @@ test("换段仍选段中；反向量距得到相同布置点和尺寸线，投�
   }
   geometry.dispose();
 });
+
+test("整支路跨过引线接头后与柜旁里程指向同一点，折点归入下一段", () => {
+  const samples = [
+    [0, 0],
+    [0.275, 1],
+    [0.975, 2],
+    [1.444, 2],
+    [1.445, 3],
+    [2.945, 4],
+    [3.745, 4],
+    [4.295, 5],
+    [5.795, 5],
+  ];
+  const points = [
+    ...leakDetection.leadPoints,
+    ...leakDetection.sensingPoints.slice(1),
+  ];
+  for (const [at, i] of samples) {
+    const inspection = leakInspection("route", { fromController: at }),
+      route = inspection.route!;
+    assert.equal(route.index, i);
+    assert.deepEqual(arrays(inspection.paths[0]), points.slice(i, i + 2));
+    assert.ok(Math.abs(route.station - at) < 1e-10);
+    assert.ok(Math.abs(route.total - 5.795) < 1e-10);
+    assert.ok(
+      route.point.distanceTo(route.start) +
+        route.point.distanceTo(route.end) -
+        route.length <
+        1e-10,
+    );
+    assert.equal(
+      inspection.markers[0].objectId,
+      at === 0 ? leakDetection.controllerId : leakDetection.cableId,
+    );
+    if (i < 3) assert.equal(route.fromJoint, null);
+    else {
+      assert.ok(Math.abs(route.fromJoint! - (at - 1.445)) < 1e-10);
+      const floor = leakInspection("floor", {
+        fromJoint: route.fromJoint!,
+      }).floor!;
+      assert.equal(floor.index, i - 3);
+      assert.ok(floor.point.distanceTo(route.point) < 1e-10);
+    }
+  }
+  for (let i = 0; i < points.length - 1; i++) {
+    const r = leakInspection("route", i).route!;
+    assert.ok(r.start.clone().lerp(r.end, 0.5).distanceTo(r.point) < 1e-10);
+  }
+});
