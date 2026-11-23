@@ -7,6 +7,7 @@ import {
   elbow,
   sleeveStart,
   turn,
+  drainStands,
 } from "../condensate.ts";
 
 // 仅制作柜侧样板管道与地面承水件，开口之间保留可见间隔。
@@ -25,6 +26,45 @@ export function buildCondensate(root: THREE.Group, id: string) {
     root.add(mesh);
     return mesh;
   };
+  const stand = drainStands.find((item) => item.id === id);
+  if (stand) {
+    const { footSize, postWidth, clampThickness, clampWidth } = c.supports;
+    const radius = c.pipeRadius + clampThickness;
+    const half = clampWidth / 2;
+    const profile = [
+      [c.pipeRadius, -half],
+      [radius, -half],
+      [radius, half],
+      [c.pipeRadius, half],
+      [c.pipeRadius, -half],
+    ];
+    const clamp = add(
+      new THREE.LatheGeometry(
+        profile.map(([r, y]) => new THREE.Vector2(r, y)),
+        32,
+      ),
+      "drain-stand-clamp",
+    );
+    clamp.position.y = stand.axis[1] - root.position.y;
+    clamp.quaternion.setFromUnitVectors(
+      new THREE.Vector3(0, 1, 0),
+      new THREE.Vector3(0, -c.fall, c.run).normalize(),
+    );
+    const foot = add(
+      new THREE.BoxGeometry(...(footSize as [number, number, number])),
+      "drain-stand-foot",
+    );
+    foot.position.y = condensateFloorY + footSize[1] / 2 - root.position.y;
+    // 立柱止于管夹下半壁内，不穿入管腔。
+    const bottom = condensateFloorY + footSize[1];
+    const top = stand.axis[1] - c.pipeRadius - clampThickness / 2;
+    const post = add(
+      new THREE.BoxGeometry(postWidth, top - bottom, postWidth),
+      "drain-stand-post",
+    );
+    post.position.y = (top + bottom) / 2 - root.position.y;
+    return;
+  }
   if (pipe) {
     const tube = (a: number[], b: number[], radius: number, name: string) => {
       const start = new THREE.Vector3().fromArray(a),

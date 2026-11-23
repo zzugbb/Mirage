@@ -1,8 +1,11 @@
 import {
   condensate,
   mouthGap,
+  turn,
+  elbow,
   rim,
   condensateFloorY,
+  drainStands,
   nearestCondensateSensing,
   condensateSensingSegments,
   distanceToReceiver,
@@ -55,8 +58,8 @@ function makeFixtures() {
 
 test("机房布置设施的身份、安装对象与场景位置一致，几何可射线选择", () => {
   const { mounts, fixtures } = makeFixtures();
-  assert.equal(fixtures.size, 24);
-  assert.equal(new Set(roomFixtures.map((f) => f.id)).size, 24);
+  assert.equal(fixtures.size, 26);
+  assert.equal(new Set(roomFixtures.map((f) => f.id)).size, 26);
   for (const f of roomFixtures) {
     assert.equal(entityById(f.id)?.kind, "facility");
     assert.equal(entityById(f.id)?.parent, "room-01");
@@ -69,6 +72,7 @@ test("机房布置设施的身份、安装对象与场景位置一致，几何�
         "patch-panel",
         "wall-raceway",
         "exit-sign",
+        "condensate-stand",
         "condensate-pipe",
         "condensate-receiver",
         "cable-tray",
@@ -309,6 +313,60 @@ test("冷凝水管口与接水斗同轴且留有配置间隔，斗口与管口�
     through.intersectObject(receiver, true)[0].object.name,
     "condensate-receiver",
   );
+});
+
+test("斜管两支座从地面底板接到管夹，管夹轴线与管道共线且内壁贴合管外径", () => {
+  const { fixtures } = makeFixtures();
+  const v = (p: number[]) => new THREE.Vector3().fromArray(p);
+  const axis = v(elbow).sub(v(turn)).normalize();
+  const pipeLine = new THREE.Line3(v(turn), v(elbow));
+  const near = (a: number, b: number) => assert.ok(Math.abs(a - b) < 1e-6);
+  for (const stand of drainStands) {
+    const group = fixtures.get(stand.id)!;
+    group.updateWorldMatrix(true, true);
+    const clamp = group.getObjectByName(
+      "drain-stand-clamp",
+    ) as THREE.Mesh<THREE.LatheGeometry>;
+    const center = clamp.getWorldPosition(new THREE.Vector3());
+    near(
+      center.distanceTo(
+        pipeLine.closestPointToPoint(center, true, new THREE.Vector3()),
+      ),
+      0,
+    );
+    near(center.z - turn[2], stand.offset);
+    near(
+      new THREE.Vector3(0, 1, 0).applyQuaternion(clamp.quaternion).dot(axis),
+      1,
+    );
+    near(
+      Math.min(...clamp.geometry.parameters.points.map((p) => p.x)),
+      condensate.pipeRadius,
+    );
+    const foot = new THREE.Box3().setFromObject(
+      group.getObjectByName("drain-stand-foot")!,
+    );
+    const post = new THREE.Box3().setFromObject(
+      group.getObjectByName("drain-stand-post")!,
+    );
+    const bowl = fixtures.get(condensate.receiver.id)!;
+    bowl.updateWorldMatrix(true, true);
+    assert.ok(
+      !new THREE.Box3()
+        .setFromObject(group)
+        .intersectsBox(new THREE.Box3().setFromObject(bowl)),
+    );
+    near(foot.min.y, condensateFloorY);
+    near(foot.max.y, post.min.y);
+    assert.ok(
+      post.max.y >
+        center.y - condensate.pipeRadius - condensate.supports.clampThickness &&
+        post.max.y < center.y - condensate.pipeRadius,
+    );
+  }
+  const [up, down] = drainStands;
+  near(down.axis[2] - up.axis[2], 0.26);
+  near(up.axis[1] - down.axis[1], 0.0104);
 });
 
 test("逐段最近点与沿线里程使用同一条配置折线，按指定里程重定位仍能核对斗口", () => {

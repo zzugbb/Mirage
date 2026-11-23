@@ -26,6 +26,22 @@ export const rim = [mouth[0], condensate.rimHeight, mouth[2]];
 export const mouthGap = mouth[1] - rim[1];
 export const condensateFloorY = definition.rendering.floor.surfaceY;
 const fixture = { mountId: "room-01", dataStatus: "not-applicable" };
+export const drainStands = condensate.supports.stations.map((station) => {
+  const axis = [
+    turn[0],
+    turn[1] - (condensate.fall * station.offset) / condensate.run,
+    turn[2] + station.offset,
+  ];
+  return {
+    ...fixture,
+    ...station,
+    kind: "condensate-stand",
+    location: "制冷单元东侧 · 排水斜管下方",
+    focus: condensate.supports.focus,
+    axis,
+    position: [axis[0], (axis[1] + condensateFloorY) / 2, axis[2]],
+  };
+});
 export const condensateFixtures = [
   { ...fixture, ...condensate.pipe, kind: "condensate-pipe", position: elbow },
   {
@@ -34,6 +50,7 @@ export const condensateFixtures = [
     kind: "condensate-receiver",
     position: rim,
   },
+  ...drainStands,
 ];
 export const isCondensate = (id: string) =>
   condensateFixtures.some((f) => f.id === id);

@@ -52,6 +52,18 @@ const sightOffsets = new Map(
           p.map((n, axis) => n - elbow[axis]),
         ),
       ] as const;
+    if ("axis" in fixture)
+      return [
+        fixture.id,
+        [
+          fixture.axis,
+          [
+            fixture.axis[0],
+            definition.rendering.floor.surfaceY,
+            fixture.axis[2],
+          ],
+        ].map((p) => p.map((n, i) => n - fixture.position[i])),
+      ] as const;
     if ("sectionSize" in fixture)
       return [fixture.id, racewaySightOffsets(fixture)] as const;
     if ("span" in fixture)

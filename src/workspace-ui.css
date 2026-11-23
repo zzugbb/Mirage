@@ -7612,3 +7612,15 @@
 .drain-comparison[open] > * + * {
   margin-top: 6px;
 }
+
+.drain-support-profile {
+  display: block;
+  width: 100%;
+  height: 140px;
+  color: var(--text);
+  background: #111f2b;
+  border-radius: 4px;
+}
+.drain-support-inspection > summary {
+  cursor: pointer;
+}

@@ -87,7 +87,9 @@ export function FixtureDetails({
                         ? "弯头中心高"
                         : fixture.kind === "condensate-receiver"
                           ? "斗口标高"
-                          : "中心高度"}
+                          : fixture.kind === "condensate-stand"
+                            ? "管夹中心标高"
+                            : "中心高度"}
           </dt>
           <dd>
             {(isEntrance
@@ -96,8 +98,12 @@ export function FixtureDetails({
                 ? trayRungBottom(fixture.position[1])
                 : light
                   ? light.position[1] + diffuserBottom
-                  : fixture.position[1]
-            ).toFixed(fixture.kind === "leak-cable" ? 3 : 2)}{" "}
+                  : "axis" in fixture
+                    ? fixture.axis[1]
+                    : fixture.position[1]
+            ).toFixed(
+              "axis" in fixture ? 4 : fixture.kind === "leak-cable" ? 3 : 2,
+            )}{" "}
             <small>m</small>
           </dd>
         </div>

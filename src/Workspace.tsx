@@ -3199,6 +3199,10 @@ export function Workspace() {
         id={selected}
         ready={ready}
         onLocate={focus}
+        onHistory={() => {
+          focus(condensate.sourceId);
+          analyze();
+        }}
         onSense={(fromJoint) => {
           pick(condensate.sensingCableId);
           requestLeakView("floor", { fromJoint });

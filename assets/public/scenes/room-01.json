@@ -558,6 +558,17 @@
           "distance": 1.05
         }
       },
+      "supports": {
+        "stations": [
+          { "id": "drain-stand-01", "name": "排水管上游支座", "offset": 0.045 },
+          { "id": "drain-stand-02", "name": "排水管下游支座", "offset": 0.305 }
+        ],
+        "footSize": [0.076, 0.012, 0.08],
+        "postWidth": 0.018,
+        "clampThickness": 0.009,
+        "clampWidth": 0.028,
+        "focus": { "direction": [1, 0.23, 0.29], "distance": 1.28 }
+      },
       "outletHeight": 0.54,
       "offsetZ": 0,
       "run": 0.45,
