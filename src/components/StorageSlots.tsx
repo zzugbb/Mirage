@@ -31,10 +31,9 @@ export function StorageSlots({
   onGroup: () => void;
   onFinish: () => void;
 }) {
-  const slots = storageSlots(deviceId),
-    current =
-      slots.find((slot) => slot.id === selected) ??
-      slots.find((slot) => slot.id === visit.diskId);
+  const slots = storageSlots(deviceId);
+  const diskId = selected === "sto-midplane" ? visit.diskId : selected;
+  const current = slots.find((slot) => slot.id === diskId);
   const host = useRef<HTMLElement>(null),
     pendingFocus = useRef(false);
   // 返回可能先重建按钮、再开始镜头适配；保留焦点意图直到下一次主动操作。
@@ -56,9 +55,11 @@ export function StorageSlots({
     if (!ready || visit.pending || !pendingFocus.current || !host.current)
       return;
     const entry = host.current.querySelector<HTMLElement>(
-      visit.mode === "group"
-        ? `[data-slot-id="${current?.id ?? slots[0].id}"]`
-        : "select",
+      visit.mode !== "group"
+        ? "select"
+        : current
+          ? `[data-slot-id="${current.id}"]`
+          : ".storage-slot-grid",
     );
     entry?.focus({ preventScroll: true });
     if (focusRevision) entry?.scrollIntoView({ block: "nearest" });
@@ -95,6 +96,7 @@ export function StorageSlots({
             }}
             role="group"
             aria-label="正面盘位图"
+            tabIndex={-1}
           >
             {slots.map((slot) => (
               <button

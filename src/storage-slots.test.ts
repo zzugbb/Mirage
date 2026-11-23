@@ -4,6 +4,7 @@ import {
   storageSlots,
   storageSlotContext,
   storageSlotEntry,
+  returnStorageInspection,
   activeStorageSlots,
   storageSlotKey,
   type StorageSlotInspection,
@@ -119,4 +120,42 @@ test("盘位键盘按四列移动且不绕行边界，Home和End停在同行", (
   assert.equal(storageSlotKey(5, "Home", 24), 4);
   assert.equal(storageSlotKey(5, "End", 24), 7);
   assert.equal(storageSlotKey(5, "ArrowDown", 24), 9);
+});
+
+test("退出插合近看保留中板本体，返回正面盘组才恢复对应盘或整组", () => {
+  const visit = {
+    deviceId: "sto-04",
+    mode: "contact" as const,
+    diskId: "sto-disk-24",
+    pending: false,
+    connectorPose: "separated" as const,
+  };
+  for (const selected of ["sto-midplane", "sto-disk-24"]) {
+    const contact = returnStorageInspection(visit, selected);
+    assert.equal(contact.selected, selected);
+    assert.equal(contact.visit.mode, "contact");
+    assert.equal(contact.visit.connectorPose, undefined);
+    const group = returnStorageInspection(contact.visit, selected);
+    assert.deepEqual(group, {
+      selected: "sto-disk-24",
+      visit: {
+        deviceId: visit.deviceId,
+        mode: "group",
+        diskId: visit.diskId,
+        pending: false,
+      },
+    });
+  }
+  for (const id of ["sto-drives", visit.deviceId]) {
+    const group = returnStorageInspection({ ...visit, mode: "group" }, id);
+    assert.equal(group.selected, id);
+    assert.equal(group.visit.diskId, null);
+  }
+  assert.equal(
+    returnStorageInspection(
+      { ...visit, mode: "board", diskId: null },
+      "sto-midplane",
+    ).selected,
+    "sto-drives",
+  );
 });

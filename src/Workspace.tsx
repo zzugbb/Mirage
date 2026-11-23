@@ -50,6 +50,7 @@ import { StorageSlots } from "./components/StorageSlots";
 import {
   activeStorageSlots,
   storageSlotEntry,
+  returnStorageInspection,
   storageSlots,
   storageDriveGroup,
   type StorageSlotInspection,
@@ -3217,22 +3218,10 @@ export function Workspace() {
     if (!activeStorageVisit || !ready) return;
     setInspector(true);
     if (matchMedia("(max-width: 1099px)").matches) setNav(false);
-    if (
-      activeStorageVisit.mode === "contact" &&
-      activeStorageVisit.connectorPose
-    ) {
-      setStorageVisit({ ...activeStorageVisit, connectorPose: undefined });
-    } else
-      setStorageVisit({
-        ...activeStorageVisit,
-        mode: "group",
-        connectorPose: undefined,
-      });
-    if (selected === "sto-midplane")
-      control({
-        type: "pick",
-        id: activeStorageVisit.diskId ?? storageDriveGroup,
-      });
+    const next = returnStorageInspection(activeStorageVisit, selected);
+    setStorageVisit(next.visit);
+    if (next.selected !== selected)
+      control({ type: "pick", id: next.selected });
     control({ type: "analysis", value: false });
     setStorageViewRevision((n) => n + 1);
     setStorageFocusRevision((n) => n + 1);

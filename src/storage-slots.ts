@@ -31,6 +31,31 @@ export type StorageSlotInspection = {
   trayStage?: TrayStageId;
   connectorPose?: "seated" | "separated";
 };
+export function returnStorageInspection(
+  visit: StorageSlotInspection,
+  selected: string,
+) {
+  if (visit.mode === "contact" && visit.connectorPose)
+    return { visit: { ...visit, connectorPose: undefined }, selected };
+
+  // 退出中板才切回对应盘。盘位总览只沿用实际选中的单盘。
+  const target =
+    selected === "sto-midplane"
+      ? (visit.diskId ?? storageDriveGroup)
+      : selected;
+  const diskId =
+    target === storageDriveGroup || target === visit.deviceId ? null : target;
+  return {
+    visit: {
+      deviceId: visit.deviceId,
+      mode: "group" as const,
+      diskId,
+      pending: false,
+    },
+    selected: target,
+  };
+}
+
 /** 从整机进入盘组，从单盘进入时详情、三维选择与盘位图沿用同一块盘。 */
 export function storageSlotEntry(deviceId: string, selected: string) {
   const slots = storageSlots(deviceId);
