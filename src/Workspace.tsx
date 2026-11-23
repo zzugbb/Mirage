@@ -1052,6 +1052,12 @@ export function Workspace() {
     }));
   };
   const [crossing, setCrossing] = useState<FixtureCrossing | null>(null);
+  const crossingOverview =
+    crossing?.kind === "roof-entry" ? crossing.overview : crossing;
+  const crossingOriginId =
+    crossingOverview?.kind === "lighting-round"
+      ? crossingOverview.source.id
+      : crossingOverview?.id;
   const [crossingCommand, setCrossingCommand] =
     useState<CrossingViewCommand | null>(null);
   const crossingEntry = useRef<{ element: HTMLElement; scroll: number } | null>(
@@ -7794,19 +7800,6 @@ export function Workspace() {
                       </>
                     )}
                   {!review.analysis &&
-                    (crossing.kind === "rack-tray" ||
-                      crossing.kind === "roof-entry") && (
-                      <RoofEntryDetails
-                        crossing={crossing}
-                        ready={ready}
-                        onInspect={requestCrossing}
-                        onHistory={(id) => {
-                          focus(id);
-                          analyze();
-                        }}
-                      />
-                    )}
-                  {!review.analysis &&
                     (crossing.kind === "lighting-round" ||
                       crossing.kind === "light-tray") && (
                       <LightingRoundDetails
@@ -7840,10 +7833,21 @@ export function Workspace() {
                         }}
                       />
                     )}
-                  {layoutVisit?.crossing?.id !==
-                    (crossing.kind === "lighting-round"
-                      ? crossing.source.id
-                      : crossing.id) && (
+                  {!review.analysis &&
+                    (crossing.kind === "lighting-round" ||
+                      crossing.kind === "rack-tray" ||
+                      crossing.kind === "roof-entry") && (
+                      <RoofEntryDetails
+                        crossing={crossing}
+                        ready={ready}
+                        onInspect={requestCrossing}
+                        onHistory={(id) => {
+                          focus(id);
+                          analyze();
+                        }}
+                      />
+                    )}
+                  {layoutVisit?.crossing?.id !== crossingOriginId && (
                     <button
                       disabled={!ready}
                       onClick={() => requestCrossing(null)}

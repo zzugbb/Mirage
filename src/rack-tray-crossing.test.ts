@@ -5,6 +5,8 @@ import {
   fixtureCrossing,
   crossingViewFrame,
   roofEntryPlacement,
+  lightingRound,
+  selectRoofView,
   rackRoof,
 } from "./fixture-crossing.ts";
 import {
@@ -14,6 +16,7 @@ import {
 } from "./cable-trays.ts";
 import { fixtureById } from "./fixtures.ts";
 import { rackById } from "./installation.ts";
+import { lightTrayCrossings } from "./ceiling-lights.ts";
 import { buildCableTray } from "./scene/cable-trays.ts";
 import { createRackRoof } from "./scene/rack-enclosure.ts";
 
@@ -141,6 +144,31 @@ test("未登记柜排、设备和任意设施不会被推断为桥架连接", ()
     ["rack-a01", "rack-a02"],
   ])
     assert.equal(fixtureCrossing(a, b), null);
+});
+
+test("柜顶开口切换保留进入时的灯桥与机柜，桥架详情仍返回原柜顶", () => {
+  for (const { light, tray } of lightTrayCrossings) {
+    const row = cableTraySettings.rows.find((r) => r.fixtureId === tray.id)!;
+    for (const id of row.rackIds) {
+      const cabinet = fixtureCrossing(tray.id, id);
+      assert.ok(cabinet?.kind === "rack-tray");
+      const combined = lightingRound(light.id, tray.id, id)!;
+      for (const overview of [combined, cabinet]) {
+        const first = selectRoofView(overview, 0);
+        assert.ok(first?.kind === "roof-entry");
+        const second = selectRoofView(first, 1);
+        assert.ok(second?.kind === "roof-entry");
+        assert.equal(second.upper.id, tray.id);
+        assert.equal(second.lower.id, id);
+        assert.deepEqual(
+          second.points,
+          roofEntryPlacement(tray.id, id, 1)?.points,
+        );
+        assert.equal(selectRoofView(second, null), overview);
+        assert.equal(selectRoofView(first, rackRoof.entryXs.length), null);
+      }
+    }
+  }
 });
 
 test("八柜的两处进线口落在各自孔边，投影从同一 X 截面的侧梁外缘量取", () => {

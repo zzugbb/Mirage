@@ -1,8 +1,8 @@
 import {
-  fixtureCrossing,
-  roofEntryPlacement,
+  selectRoofView,
   rackRoof,
   type FixtureCrossing,
+  type RackRoofView,
 } from "../fixture-crossing";
 
 export function RoofEntryDetails({
@@ -11,11 +11,13 @@ export function RoofEntryDetails({
   onInspect,
   onHistory,
 }: {
-  crossing: Extract<FixtureCrossing, { kind: "rack-tray" | "roof-entry" }>;
+  crossing: RackRoofView;
   ready: boolean;
   onInspect: (pair: FixtureCrossing) => void;
   onHistory: (id: string) => void;
 }) {
+  const overview =
+    crossing.kind === "roof-entry" ? crossing.overview : crossing;
   return (
     <div className="roof-entry-details">
       <label>
@@ -25,19 +27,18 @@ export function RoofEntryDetails({
           disabled={!ready}
           value={crossing.kind === "roof-entry" ? crossing.index : ""}
           onChange={(e) => {
-            const { upper, lower } = crossing;
-            const next =
-              e.target.value === ""
-                ? fixtureCrossing(upper.id, lower.id)
-                : roofEntryPlacement(
-                    upper.id,
-                    lower.id,
-                    Number(e.target.value),
-                  );
+            const next = selectRoofView(
+              crossing,
+              e.target.value === "" ? null : Number(e.target.value),
+            );
             if (next) onInspect(next);
           }}
         >
-          <option value="">整柜 · 横档与柜顶板</option>
+          <option value="">
+            {overview.kind === "lighting-round"
+              ? "同框 · 顶灯、桥架与柜顶"
+              : "整柜 · 横档与柜顶板"}
+          </option>
           {rackRoof.entryXs.map((x, i) => (
             <option key={x} value={i}>
               开口 {i + 1} · 柜内 X {x > 0 ? "+" : ""}

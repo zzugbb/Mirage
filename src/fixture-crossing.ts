@@ -203,11 +203,28 @@ export const crossingObjectIds = (pair: FixtureCrossing) =>
   pair.kind === "lighting-round"
     ? [pair.source.light.id, pair.upper.id, pair.lower.id]
     : [pair.upper.id, pair.lower.id];
-export type FixtureCrossing =
+type RackRoofOverview =
   | NonNullable<ReturnType<typeof lightingRound>>
+  | NonNullable<ReturnType<typeof rackTrayCrossing>>;
+export type RackRoofView =
+  | RackRoofOverview
+  | (NonNullable<ReturnType<typeof roofEntryPlacement>> & {
+      overview: RackRoofOverview;
+    });
+export type FixtureCrossing =
+  | RackRoofView
   | NonNullable<ReturnType<typeof fixtureCrossing>>
-  | ReturnType<typeof smokeTrayPlacement>
-  | NonNullable<ReturnType<typeof roofEntryPlacement>>;
+  | ReturnType<typeof smokeTrayPlacement>;
+
+export function selectRoofView(
+  current: RackRoofView,
+  index: number | null,
+): RackRoofView | null {
+  const overview = current.kind === "roof-entry" ? current.overview : current;
+  if (index === null) return overview;
+  const entry = roofEntryPlacement(overview.upper.id, overview.lower.id, index);
+  return entry && { ...entry, overview };
+}
 export type CrossingViewCommand = {
   revision: number;
   pair: FixtureCrossing | null;
