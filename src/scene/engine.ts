@@ -2854,7 +2854,10 @@ export class SceneEngine {
       const surface = this.pickSurface(event);
       if (
         surface?.panelPort &&
-        surface.id === this.state.selected &&
+        (surface.id === this.state.selected ||
+          this.models.fixtures
+            .get(surface.id)
+            ?.getObjectByName("panel-port-outline")?.visible) &&
         !this.moving &&
         this.onInspectPanelPort
       ) {

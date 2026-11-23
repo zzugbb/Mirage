@@ -7686,3 +7686,47 @@
   border: 1px dashed #b8cfd2;
   color: #e6fbf6;
 }
+.panel-entry-layout {
+  display: grid;
+  gap: 8px;
+}
+.panel-entry-layout svg {
+  width: 100%;
+  background: #14232d;
+  border-radius: 4px;
+}
+.panel-entry-layout .entry-case,
+.panel-entry-layout .entry-channel {
+  fill: #364c57;
+  stroke: #98aeb8;
+  stroke-width: 2;
+}
+.panel-entry-layout .entry-channel {
+  fill: #647d89;
+}
+.panel-entry-layout .entry-port {
+  fill: #14232d;
+  stroke: #92a9b5;
+  stroke-width: 2;
+}
+.panel-entry-layout .entry-port.active {
+  stroke: #9de4dc;
+  stroke-width: 4;
+}
+.panel-entry-layout .entry-projection {
+  fill: none;
+  stroke: #e5c080;
+  stroke-width: 3;
+  stroke-dasharray: 6 5;
+}
+.panel-entry-layout .entry-center {
+  fill: #e5c080;
+}
+.panel-entry-layout text {
+  font-size: 19px;
+  fill: #e0ebec;
+}
+
+.panel-entry-layout .entry-offset {
+  white-space: nowrap;
+}

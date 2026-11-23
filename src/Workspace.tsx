@@ -8,7 +8,11 @@ import {
 } from "./condensate";
 import { CondensateDetails } from "./components/CondensateDetails";
 import { PanelRegisterDetails } from "./components/PanelRegisterDetails";
-import { racewayById, racewayRegisterStart } from "./panel-raceway";
+import {
+  racewayById,
+  racewayRegisterStart,
+  panelEntryPlacement,
+} from "./panel-raceway";
 import { PatchPanelDetails } from "./components/PatchPanelDetails";
 import { PanelRacewayDetails } from "./components/PanelRacewayDetails";
 import { patchPanelById, portAtPanel, type PanelPort } from "./patch-panels";
@@ -1126,6 +1130,7 @@ export function Workspace() {
     fixtureId: string;
     origin: PanelPort;
     register?: PanelRegisterOrigin;
+    entryView?: boolean;
   } | null>(null);
   const inspectionOrigin =
     panelInspection?.fixtureId === selected &&
@@ -1136,8 +1141,16 @@ export function Workspace() {
   const register = inspectionOrigin ? panelInspection?.register : undefined;
   const [registerReturn, setRegisterReturn] =
     useState<PanelRegisterOrigin | null>(null);
+  const entryView = !!register && !!panelInspection?.entryView;
   const panelPort =
-    inspectionOrigin?.panelId === selected ? inspectionOrigin : null;
+    entryView && inspectionOrigin
+      ? portAtPanel(
+          inspectionOrigin,
+          panelEntryPlacement(selected)?.panel.id ?? selected,
+        )
+      : inspectionOrigin?.panelId === selected
+        ? inspectionOrigin
+        : null;
   useEffect(() => {
     if (panelInspection && !inspectionOrigin) setPanelInspection(null);
   }, [panelInspection, inspectionOrigin]);
@@ -3217,7 +3230,18 @@ export function Workspace() {
   const inspectPanelPort = (port: PanelPort) => {
     focus(port.panelId);
     control({ type: "analysis", value: false });
-    setPanelInspection({ fixtureId: port.panelId, origin: port, register });
+    setPanelInspection({
+      fixtureId: port.panelId,
+      origin:
+        entryView &&
+        inspectionOrigin &&
+        panelPort?.panelId === port.panelId &&
+        panelPort.port === port.port
+          ? inspectionOrigin
+          : port,
+      register,
+      entryView,
+    });
   };
   const condensateDetails = layer === "overview" &&
     state.level === "room" &&
@@ -9069,15 +9093,26 @@ export function Workspace() {
                           target={inspectionOrigin}
                           selected={selected}
                           ready={ready}
+                          entryView={entryView}
+                          onEntryView={(id, enabled) => {
+                            focus(id);
+                            setPanelInspection({
+                              fixtureId: id,
+                              origin: inspectionOrigin,
+                              register,
+                              entryView: enabled,
+                            });
+                          }}
                           onLocate={inspectPanelPort}
                           onChoose={(port) => {
-                            if (patchPanelById(selected))
+                            if (!entryView && patchPanelById(selected))
                               inspectPanelPort(port);
                             else
                               setPanelInspection({
                                 fixtureId: selected,
                                 origin: port,
                                 register,
+                                entryView,
                               });
                           }}
                           onHistory={(id) => {

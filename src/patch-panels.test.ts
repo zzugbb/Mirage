@@ -126,3 +126,42 @@ test("三段线槽和两块面板均可按端接登记起查，当侧优先且�
     );
   }
 });
+
+test("逐孔由孔中心量到箱顶入盒中心，沿横槽换端只量已登记的孔", async () => {
+  const { panelEntryMeasure, racewayAxisSpan } =
+    await import("./panel-raceway.ts");
+  const [west, east] = patchPanels;
+  for (const panel of patchPanels) {
+    const other = panel.id === west.id ? east : west;
+    const side = panel.id === west.id ? "west" : "east";
+    for (const port of panelPortNumbers) {
+      const origin = { panelId: panel.id, port };
+      const result = panelEntryMeasure("raceway-" + side, origin)!;
+      assert.deepEqual(result, panelEntryMeasure(panel.id, origin));
+      const hole = result.hole!;
+      const [x, y] = panelPortCenter(port);
+      assert.ok(
+        Math.abs(panel.position[0] + x + hole.dx - result.drop.position[0]) <
+          1e-9,
+      );
+      assert.ok(
+        Math.abs(
+          panel.position[1] +
+            y +
+            hole.rise -
+            (result.drop.position[1] - result.drop.sectionSize[1] / 2),
+        ) < 1e-9,
+      );
+      const peer = panelTermination(origin)?.peer ?? null;
+      assert.deepEqual(
+        panelEntryMeasure(other.id, origin)?.hole?.endpoint ?? null,
+        peer,
+      );
+    }
+  }
+  assert.equal(Math.round(racewayAxisSpan * 1000), 5560);
+  assert.equal(
+    panelEntryMeasure("raceway-horizontal", { panelId: west.id, port: 1 }),
+    null,
+  );
+});

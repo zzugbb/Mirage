@@ -2004,7 +2004,9 @@ export function ReviewScene({
     },
   );
   const selectedFixture =
-    !panelPort && state.level === "room" && selectedId === state.selected
+    panelPort?.panelId !== selectedId &&
+    state.level === "room" &&
+    selectedId === state.selected
       ? layer === "overview"
         ? roomFacilityById(selectedId)
         : fixtureById(selectedId)

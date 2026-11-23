@@ -1,5 +1,11 @@
 import scene from "../assets/public/scenes/room-01.json" with { type: "json" };
-import { panelSettings, patchPanelById } from "./patch-panels.ts";
+import {
+  panelSettings,
+  patchPanelById,
+  panelPortCenter,
+  portAtPanel,
+  type PanelPort,
+} from "./patch-panels.ts";
 
 const layout = scene.room.panelRaceway;
 const { width, depth, trunkCenterY } = layout;
@@ -74,4 +80,32 @@ export function racewayRegisterStart(id: string) {
       .flatMap((c) => [c.first, c.second])
       .find((p) => p.panelId === localPanel) ?? { panelId: localPanel, port: 1 }
   );
+}
+
+export const racewayTrunk = trunk;
+export const racewayAxisSpan = Math.max(...xs) - Math.min(...xs);
+
+export function panelEntryPlacement(id: string) {
+  const drop = drops.find((d) => d.id === id || d.panelId === id);
+  if (!drop) return null;
+  const panel = patchPanelById(drop.panelId)!;
+  return {
+    panel,
+    drop,
+    entryX: drop.position[0] - panel.position[0],
+    top: panelSettings.size[1] / 2,
+  };
+}
+
+/** 在同一块配线架的正立面量取孔心与箱顶入盒中心，未登记的另一端只看箱体。 */
+export function panelEntryMeasure(id: string, origin: PanelPort) {
+  const placement = panelEntryPlacement(id);
+  if (!placement) return null;
+  const endpoint = portAtPanel(origin, placement.panel.id);
+  if (!endpoint) return { ...placement, hole: null };
+  const [x, y] = panelPortCenter(endpoint.port);
+  return {
+    ...placement,
+    hole: { endpoint, x, y, dx: placement.entryX - x, rise: placement.top - y },
+  };
 }
