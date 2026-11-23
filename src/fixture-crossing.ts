@@ -92,6 +92,74 @@ export function trayEndSupport(trayId: string, side: -1 | 1) {
   };
 }
 
+export const traySupportStations = [...cableTraySettings.supportXs].sort(
+  (a, b) => a - b,
+);
+
+/** 横托沿本排桥架的 X 轴编号。柜中心恰在分界时归入下一跨。 */
+export function traySupportBay(trayId: string, index: number) {
+  const row = trayRow(trayId);
+  const tray = definition.room.fixtures.find(
+    (f) => f.id === trayId && f.kind === "cable-tray",
+  );
+  const left = traySupportStations[index],
+    right = traySupportStations[index + 1];
+  if (!tray || !row || left === undefined || right === undefined) return null;
+  const [x, y, z] = tray.position;
+  const toward = Math.sign(z) || 1;
+  const points = [left, right].map(
+    (station) =>
+      new Vector3(
+        x + station,
+        y + traySupportCenterY,
+        z + (toward * cableTraySettings.supportWidth) / 2,
+      ),
+  );
+  const racks = row.rackIds
+    .map(rackById)
+    .filter((r) => !!r)
+    .filter((r) => {
+      const dx = r.position[0] - x;
+      return (
+        dx >= left &&
+        (dx < right ||
+          (dx === right && index === traySupportStations.length - 2))
+      );
+    })
+    .sort((a, b) => a.position[0] - b.position[0]);
+  const roofMarkers = racks.map((rack) => ({
+    id: "tray-bay-" + rack.id,
+    title: rack.name,
+    point: new Vector3(
+      rack.position[0],
+      rack.position[1] +
+        definition.rack.size[1] +
+        definition.rack.enclosure.roof.thickness / 2,
+      rack.position[2] + toward * definition.rack.size[2] * 0.4,
+    ),
+  }));
+  return {
+    kind: "tray-bay" as const,
+    id: trayId + ":bay:" + index,
+    title: "桥架支吊跨距核对",
+    index,
+    racks,
+    toward,
+    horizontal: right - left,
+    points: [...points, ...roofMarkers.map((m) => m.point)],
+    upper: { id: trayId, name: tray.name, surface: "起始横托中心线" },
+    lower: { id: trayId, name: tray.name, surface: "相邻横托中心线" },
+    markers: [
+      ...points.map((point, i) => ({
+        id: i ? "tray-bay-right" : "tray-bay-left",
+        title: `横托 ${index + i + 1}`,
+        point,
+      })),
+      ...roofMarkers,
+    ],
+  };
+}
+
 /** 只核对已登记柜排对应；上端必须落在实际横档，下端位于实心柜顶板。 */
 function rackTrayCrossing(first: string, second: string) {
   const rack = rackById(first) ?? rackById(second);
@@ -325,7 +393,7 @@ export function lightingRound(lightId: string, trayId: string, rackId: string) {
   };
 }
 export const crossingObjectIds = (pair: FixtureCrossing) =>
-  pair.kind === "tray-support"
+  pair.kind === "tray-support" || pair.kind === "tray-bay"
     ? [pair.upper.id]
     : pair.kind === "smoke-light"
       ? [pair.round.points[0].id, pair.round.points[1].id, pair.light.id]
@@ -343,6 +411,7 @@ export type RackRoofView =
 export type FixtureCrossing =
   | RackRoofView
   | SmokeLightInspection
+  | NonNullable<ReturnType<typeof traySupportBay>>
   | NonNullable<ReturnType<typeof trayEndSupport>>
   | NonNullable<ReturnType<typeof fixtureCrossing>>
   | ReturnType<typeof smokeTrayPlacement>;
@@ -362,6 +431,7 @@ export type CrossingViewCommand = {
   dismiss?: boolean;
 };
 export function crossingDirection(pair: FixtureCrossing) {
+  if (pair.kind === "tray-bay") return new Vector3(0, 0.19, pair.toward);
   if (pair.kind === "tray-support")
     return new Vector3(pair.side * 0.34, 0.12, 1);
   if (pair.kind === "roof-entry") return new Vector3(0.15, 1, -0.36);

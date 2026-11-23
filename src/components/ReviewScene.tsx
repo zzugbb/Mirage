@@ -565,7 +565,8 @@ export function ReviewScene({
     ((maintenanceView?.view === "doors" && layer === "overview") ||
       (coolingRangeObservation && !!flowView && layer === "airflow") ||
       (layer === "overview" &&
-        (crossing?.kind === "tray-support" ||
+        (crossing?.kind === "tray-bay" ||
+          crossing?.kind === "tray-support" ||
           crossing?.kind === "roof-entry" ||
           crossing?.kind === "lighting-round" ||
           crossing?.kind === "light-tray")));
@@ -2346,6 +2347,7 @@ export function ReviewScene({
               aria-hidden="true"
               data-anchor={marker.id}
               data-hotspot={
+                crossing.kind === "tray-bay" ||
                 crossing.kind === "tray-support" ||
                 crossing.kind === "lighting-round" ||
                 crossing.kind === "roof-entry"
@@ -2770,7 +2772,9 @@ export function ReviewScene({
             >
               <strong>{crossing.title}</strong>
               <span>
-                {crossing.kind === "tray-support" ? (
+                {crossing.kind === "tray-bay" ? (
+                  `横托轴距 ${crossing.horizontal.toFixed(3)} m`
+                ) : crossing.kind === "tray-support" ? (
                   `端部伸出 ${(crossing.horizontal * 1000).toFixed(1)} mm`
                 ) : crossing.kind === "roof-entry" ? (
                   `Z 向投影间距 ${(crossing.horizontal * 1000).toFixed(1)} mm`

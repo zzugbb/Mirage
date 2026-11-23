@@ -9,7 +9,12 @@ import {
   rackTrayRelations,
   trayOuterWidth,
 } from "./cable-trays.ts";
-import { trayEndSupport } from "./fixture-crossing.ts";
+import {
+  trayEndSupport,
+  traySupportBay,
+  traySupportStations,
+  crossingObjectIds,
+} from "./fixture-crossing.ts";
 import { fixtureById, fixtureSightOffsets } from "./fixtures.ts";
 import { createRackRoof } from "./scene/rack-enclosure.ts";
 import { buildCableTray } from "./scene/cable-trays.ts";
@@ -222,4 +227,43 @@ test("两排桥架两端的尺线命中端帽与最近横托，端柜从所属�
     }
   }
   assert.equal(trayEndSupport("room-01", 1), null);
+});
+
+test("两排支吊跨段使用模型中的横托中心，按登记柜排与机柜中心归入对应跨", () => {
+  assert.deepEqual(traySupportStations, [-4.4, -1.45, 1.45, 4.4]);
+  const root = new THREE.Group();
+  buildCableTray(root);
+  const beams = instanceBounds(
+    root.getObjectByName("tray-supports") as THREE.InstancedMesh,
+  ).filter((box) => Math.abs(box.max.z - box.min.z - s.supportWidth) < 1e-6);
+  assert.equal(beams.length, traySupportStations.length);
+  for (const row of s.rows) {
+    const origin = new THREE.Vector3().fromArray(
+      fixtureById(row.fixtureId)!.position,
+    );
+    const racks = [];
+    for (let i = 0; i < traySupportStations.length - 1; i++) {
+      const bay = traySupportBay(row.fixtureId, i)!;
+      assert.deepEqual(crossingObjectIds(bay), [row.fixtureId]);
+      assert.equal(bay.horizontal.toFixed(3), i === 1 ? "2.900" : "2.950");
+      assert.equal(bay.racks.length, i === 1 ? 2 : 1);
+      racks.push(...bay.racks.map((r) => r.id));
+      assert.equal(bay.points.length, 2 + bay.racks.length);
+      bay.points.slice(0, 2).forEach((p, j) => {
+        const box = beams[i + j],
+          local = p.clone().sub(origin);
+        assert.ok(box.distanceToPoint(local) < 1e-6);
+        assert.ok(
+          Math.abs(box.getCenter(new THREE.Vector3()).x - local.x) < 1e-6,
+        );
+        assert.ok(
+          Math.abs(local.z - (origin.z < 0 ? box.min.z : box.max.z)) < 1e-6,
+        );
+      });
+    }
+    assert.deepEqual(racks, row.rackIds);
+    for (const invalid of [-1, 0.5, traySupportStations.length - 1])
+      assert.equal(traySupportBay(row.fixtureId, invalid), null);
+  }
+  assert.equal(traySupportBay("room-01", 0), null);
 });

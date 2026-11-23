@@ -207,6 +207,8 @@ import {
   lightingRound,
   fixtureCrossing,
   trayEndSupport,
+  traySupportBay,
+  traySupportStations,
   smokeTrayPlacement,
   smokeLightInspection,
   type FixtureCrossing,
@@ -1169,7 +1171,8 @@ export function Workspace() {
     const control = document.activeElement;
     crossingInspectPending.current =
       ((pair?.kind === "smoke-light" && crossing?.kind === "smoke-light") ||
-        (pair?.kind === "tray-support" && crossing?.kind === "tray-support")) &&
+        (pair?.kind === "tray-support" && crossing?.kind === "tray-support") ||
+        (pair?.kind === "tray-bay" && crossing?.kind === "tray-bay")) &&
       control instanceof HTMLSelectElement &&
       control.closest(".crossing-details")
         ? control
@@ -8394,7 +8397,8 @@ export function Workspace() {
             {crossing &&
               !(
                 review.analysis &&
-                (crossing.kind === "tray-support" ||
+                (crossing.kind === "tray-bay" ||
+                  crossing.kind === "tray-support" ||
                   crossing.kind === "lighting-round" ||
                   crossing.kind === "roof-entry")
               ) && (
@@ -8413,6 +8417,7 @@ export function Workspace() {
                   <strong>{crossing.title} · 配置</strong>
                   {crossing.kind !== "lighting-round" &&
                     crossing.kind !== "tray-support" &&
+                    crossing.kind !== "tray-bay" &&
                     crossing.kind !== "roof-entry" && (
                       <>
                         <div>
@@ -8470,6 +8475,21 @@ export function Workspace() {
                         )}{" "}
                         mm。
                       </p>
+                      <button
+                        disabled={!ready}
+                        onClick={() =>
+                          requestCrossing(
+                            traySupportBay(
+                              crossing.upper.id,
+                              crossing.side === -1
+                                ? 0
+                                : traySupportStations.length - 2,
+                            ),
+                          )
+                        }
+                      >
+                        核对相邻横托跨距 ↗
+                      </button>
                       <p>
                         同排相邻端柜为{crossing.rack.name}
                         。尺寸取自支吊布置，现场锚固、承载和施工净距待核实。
@@ -8496,6 +8516,55 @@ export function Workspace() {
                       >
                         回看{crossing.rack.name}设备汇总 ↗
                       </button>
+                    </div>
+                  )}
+                  {!review.analysis && crossing.kind === "tray-bay" && (
+                    <div className="roof-entry-details">
+                      <label>
+                        支吊跨段
+                        <select
+                          aria-label="支吊跨段"
+                          disabled={!ready}
+                          value={crossing.index}
+                          onChange={(e) =>
+                            requestCrossing(
+                              traySupportBay(
+                                crossing.upper.id,
+                                Number(e.target.value),
+                              ),
+                            )
+                          }
+                        >
+                          {traySupportStations.slice(1).map((station, i) => (
+                            <option key={station} value={i}>
+                              横托 {i + 1} 至 {i + 2}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <p>
+                        两横托中心沿 X 轴相距{" "}
+                        <b>{crossing.horizontal.toFixed(3)} m</b>。横托按机房 X
+                        坐标从小到大编号。
+                      </p>
+                      <p>
+                        本排有 {crossing.racks.length}{" "}
+                        台机柜的中心落在此跨。可继续核对柜顶板和进线口。
+                      </p>
+                      {crossing.racks.map((rack) => (
+                        <button
+                          key={rack.id}
+                          disabled={!ready}
+                          onClick={() =>
+                            requestCrossing(
+                              fixtureCrossing(crossing.upper.id, rack.id),
+                            )
+                          }
+                        >
+                          核对{rack.name}柜顶 ↗
+                        </button>
+                      ))}
+                      <small>样板布置。现场锚固、承载与敷线待核实。</small>
                     </div>
                   )}
                   {!review.analysis && crossing.kind === "smoke-tray" && (

@@ -22,7 +22,12 @@ export class CrossingGeometry {
     if (!pair) return;
     const [top, bottom] = pair.points;
     const points: THREE.Vector3[] = [];
-    if (pair.kind === "tray-support") {
+    if (pair.kind === "tray-bay") {
+      const offset = new THREE.Vector3(0, -0.1, pair.toward * 0.1);
+      const a = top.clone().add(offset);
+      const b = bottom.clone().add(offset);
+      points.push(top, a, a, b, b, bottom);
+    } else if (pair.kind === "tray-support") {
       const z = Math.max(top.z, bottom.z) + 0.07;
       const a = new THREE.Vector3(top.x, bottom.y, z);
       const b = new THREE.Vector3(bottom.x, bottom.y, z);
