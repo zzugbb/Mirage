@@ -1,3 +1,4 @@
+import { condensate, condensateFloorY, drainStands } from "./condensate.ts";
 import { Vector3 } from "three";
 import {
   configuredPathLength,
@@ -17,7 +18,8 @@ export const leakViews = [
   { id: "floor", label: leakCable.location },
 ] as const;
 export type LeakView = (typeof leakViews)[number]["id"];
-export type LeakFloorTarget = number | { fromJoint: number };
+export type LeakFloorTarget =
+  number | { fromJoint?: number; segment?: number; standId?: string };
 export type LeakTarget = LeakFloorTarget | { fromController: number };
 export type LeakViewCommand = {
   revision: number;
@@ -29,7 +31,12 @@ export const leakViewIncludes = (id: string) =>
 const vector = (point: number[]) => new Vector3().fromArray(point);
 
 /** 里程从传入折线的起点算起，折点归入下一段，末端归入最后一段。仅指定段时沿用段中点。 */
-function pathPosition(points: Vector3[], segment: number, requested?: number) {
+function pathPosition(
+  points: Vector3[],
+  segment: number,
+  requested?: number,
+  retainSegment = false,
+) {
   const ends: number[] = [0];
   for (let i = 1; i < points.length; i++)
     ends.push(ends[i - 1] + points[i - 1].distanceTo(points[i]));
@@ -44,7 +51,12 @@ function pathPosition(points: Vector3[], segment: number, requested?: number) {
     // 消除米制小数在段长累加时的舍入误差，精确落在接头或转角上。
     distance = ends.find((at) => Math.abs(at - distance) < 1e-9) ?? distance;
     const next = ends.findIndex((at) => at > distance);
-    index = next === -1 ? points.length - 2 : next - 1;
+    if (!(
+      retainSegment &&
+      distance >= ends[index] &&
+      distance <= ends[index + 1]
+    ))
+      index = next === -1 ? points.length - 2 : next - 1;
   }
   const start = points[index],
     end = points[index + 1];
@@ -56,6 +68,11 @@ function pathPosition(points: Vector3[], segment: number, requested?: number) {
 }
 
 function leakFloorSegment(sensing: Vector3[], target: LeakTarget) {
+  const choice =
+    typeof target === "object" && !("fromController" in target)
+      ? target
+      : undefined;
+  const stand = drainStands.find((s) => s.id === choice?.standId);
   const {
     index,
     start,
@@ -66,13 +83,19 @@ function leakFloorSegment(sensing: Vector3[], target: LeakTarget) {
     total,
   } = pathPosition(
     sensing,
-    typeof target === "number" ? target : 0,
-    typeof target === "object" && "fromJoint" in target
-      ? target.fromJoint
-      : undefined,
+    typeof target === "number" ? target : (choice?.segment ?? 0),
+    choice?.fromJoint,
+    choice?.segment !== undefined,
   );
-  const center = vector(nearbyCooling.position),
-    half = vector(nearbyCooling.size).multiplyScalar(0.5);
+  const size = stand ? condensate.supports.footSize : nearbyCooling.size;
+  const center = stand
+      ? new Vector3(
+          stand.axis[0],
+          condensateFloorY + size[1] / 2,
+          stand.axis[2],
+        )
+      : vector(nearbyCooling.position),
+    half = vector(size).multiplyScalar(0.5);
   const min = center.clone().sub(half),
     max = center.clone().add(half);
   const edge = point.clone().clamp(min, max);
@@ -98,6 +121,7 @@ function leakFloorSegment(sensing: Vector3[], target: LeakTarget) {
     end,
     length,
     point,
+    stand,
     fromJoint,
     station: fromJoint,
     total,
@@ -157,22 +181,25 @@ function inspectionSection(
     const markers = [
       {
         id: "leak-floor-segment",
-        title: `感应段 ${floor.index + 1} · 距柜 ${floor.distance.toFixed(3)} m`,
+        title: `感应段 ${floor.index + 1} · ${floor.stand ? "距底板" : "距柜"} ${floor.distance.toFixed(3)} m`,
         point: floor.point,
         objectId: leakCable.id,
       },
       {
         id: "leak-floor-cabinet",
-        title: nearbyCooling.name,
+        title: floor.stand?.name ?? nearbyCooling.name,
         point: floor.top,
-        objectId: nearbyCooling.id,
+        objectId: floor.stand?.id ?? nearbyCooling.id,
       },
     ];
     return {
       floor,
       route: null,
       paths: [[floor.start, floor.end]],
-      points: [...sensing, ...floor.corners],
+      points: [
+        ...(floor.stand ? [floor.start, floor.end] : sensing),
+        ...floor.corners,
+      ],
       markers,
     };
   }
@@ -274,7 +301,9 @@ export function leakViewFrame(
     inspection.route
       ? 1.15
       : inspection.view === "floor"
-        ? 3.5
+        ? inspection.floor?.stand
+          ? 1.55
+          : 3.5
         : inspection.view === "end"
           ? 1.1
           : inspection.view === "lead"

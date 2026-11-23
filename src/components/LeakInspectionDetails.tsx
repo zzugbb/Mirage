@@ -1,4 +1,10 @@
-import { condensateSensingSegments, distanceToReceiver } from "../condensate";
+import { standSensingSegments } from "../drain-foot";
+import {
+  condensate,
+  drainStands,
+  condensateSensingSegments,
+  distanceToReceiver,
+} from "../condensate";
 import { DrainFloorPlan } from "./DrainFloorPlan";
 import {
   leakDetection,
@@ -103,7 +109,7 @@ export function LeakInspectionDetails({
   ready,
   onPosition,
   onRoute,
-  onReceiver,
+  onDrainFixture,
   onHistory,
 }: {
   inspection: LeakInspection;
@@ -113,12 +119,23 @@ export function LeakInspectionDetails({
   ready: boolean;
   onPosition: (target: LeakFloorTarget) => void;
   onRoute: (target: number | { fromController: number }) => void;
-  onReceiver: (segment: number) => void;
+  onDrainFixture: (id: string, segment: number) => void;
   onHistory: () => void;
 }) {
   const { view, route, markers, leadLength, sensingLength } = inspection;
   const closest =
     inspection.floor && condensateSensingSegments[inspection.floor.index];
+  const floor = inspection.floor;
+  const stand = floor?.stand;
+  const footNearest =
+    stand && floor ? standSensingSegments(stand)[floor.index] : null;
+  const positionFloor = (target: LeakFloorTarget) => {
+    if (!stand) return onPosition(target);
+    onPosition({
+      ...(typeof target === "number" ? { segment: target } : target),
+      standId: stand.id,
+    });
+  };
   const sectionSelect = useRef<HTMLSelectElement>(null);
   const pendingFocus = useRef<"route" | "floor" | null>(null);
   useEffect(() => {
@@ -243,7 +260,7 @@ export function LeakInspectionDetails({
               aria-label="核对感应段"
               value={inspection.floor.index}
               disabled={!ready}
-              onChange={(e) => onPosition(Number(e.target.value))}
+              onChange={(e) => positionFloor(Number(e.target.value))}
             >
               {leakDetection.sensingPoints.slice(1).map((_, i) => (
                 <option key={i} value={i}>
@@ -257,8 +274,29 @@ export function LeakInspectionDetails({
             startLabel="感应线接头"
             position={inspection.floor}
             ready={ready}
-            onDistance={(fromJoint) => onPosition({ fromJoint })}
+            onDistance={(fromJoint) => positionFloor({ fromJoint })}
           />
+          <label className="leak-floor-segment">
+            地面尺寸基准
+            <select
+              value={stand?.id ?? nearbyCooling.id}
+              disabled={!ready}
+              onChange={(e) =>
+                onPosition({
+                  fromJoint: inspection.floor!.fromJoint,
+                  segment: inspection.floor!.index,
+                  standId: e.target.value,
+                })
+              }
+            >
+              <option value={nearbyCooling.id}>制冷柜投影</option>
+              {drainStands.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}底板
+                </option>
+              ))}
+            </select>
+          </label>
           <dl>
             <div>
               <dt>距接头 / 距末端</dt>
@@ -268,7 +306,7 @@ export function LeakInspectionDetails({
               </dd>
             </div>
             <div>
-              <dt>柜旁位置（机房坐标）</dt>
+              <dt>{stand ? "底板" : "柜"}旁位置（机房坐标）</dt>
               <dd>{inspection.floor.side}</dd>
             </div>
             <div>
@@ -276,13 +314,14 @@ export function LeakInspectionDetails({
               <dd>{inspection.floor.length.toFixed(2)} m</dd>
             </div>
             <div>
-              <dt>所选点至柜体投影</dt>
+              <dt>所选点至{stand ? "底板" : "柜体"}投影</dt>
               <dd>{inspection.floor.distance.toFixed(3)} m</dd>
             </div>
           </dl>
           <small>
             里程只计感应线（共 {sensingLength.toFixed(3)}{" "}
-            m）。尺寸线从所选点量至柜体配置投影。检漏信号未接入，探测范围未登记。
+            m）。尺寸线从所选点量至{stand ? stand.name + "底板" : "柜体"}
+            配置投影。检漏信号未接入，探测范围未登记。
           </small>
           <button
             disabled={!ready}
@@ -297,6 +336,37 @@ export function LeakInspectionDetails({
           >
             查看整支路同一里程点 ↗
           </button>
+          {stand && footNearest && floor && (
+            <div className="drain-comparison">
+              <DrainFloorPlan
+                segment={floor.index + 1}
+                point={floor.point.toArray()}
+                stand={stand}
+                edge={floor.edge}
+              />
+              <p>
+                本段距底板最近 {footNearest.distance.toFixed(3)} m，距接头{" "}
+                {footNearest.fromJoint.toFixed(3)} m。
+              </p>
+              <button
+                disabled={!ready}
+                onClick={() =>
+                  positionFloor({
+                    fromJoint: footNearest.fromJoint,
+                    segment: floor.index,
+                  })
+                }
+              >
+                定位本段底板最近点
+              </button>
+              <button
+                disabled={!ready}
+                onClick={() => onDrainFixture(stand.id, floor.index + 1)}
+              >
+                定位{stand.name}
+              </button>
+            </div>
+          )}
           {closest && (
             <details className="drain-comparison">
               <summary>对照冷凝水接水斗</summary>
@@ -319,7 +389,9 @@ export function LeakInspectionDetails({
               </button>
               <button
                 disabled={!ready}
-                onClick={() => onReceiver(closest.segment)}
+                onClick={() =>
+                  onDrainFixture(condensate.receiver.id, closest.segment)
+                }
               >
                 定位冷凝水接水斗
               </button>

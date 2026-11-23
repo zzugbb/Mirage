@@ -1,4 +1,6 @@
-import { condensate, condensateSource, rim } from "../condensate";
+import { condensate, condensateSource, drainStands, rim } from "../condensate";
+import { footCorners, type DrainStand } from "../drain-foot";
+import type { Point } from "../planar-gap";
 import { leakDetection } from "../leak-detection";
 
 const path = leakDetection.sensingPoints;
@@ -32,16 +34,20 @@ const z = (v: number) => 82 - (v - (maxZ + minZ) / 2) * scale;
 export function DrainFloorPlan({
   segment,
   point,
+  stand,
+  edge,
 }: {
   segment: number;
   point: number[];
+  stand?: DrainStand;
+  edge?: Point;
 }) {
   return (
     <svg
       className="drain-floor-plan"
       viewBox="0 0 248 170"
       role="img"
-      aria-label={`接水斗与感应段 ${segment} 的地面投影，虚线连接斗口中心和所选点`}
+      aria-label={`${stand?.name ?? "接水斗"}与感应段 ${segment} 的地面投影，虚线连接量取位置和所选点`}
     >
       <text x={5} y={14}>
         ← X · Z ↑
@@ -89,9 +95,24 @@ export function DrainFloorPlan({
         stroke="#d3bc8a"
         fill="#443e32"
       />
+      {stand &&
+        drainStands.map((s) => {
+          const [, , max] = footCorners(s);
+          const [w, , d] = condensate.supports.footSize;
+          return (
+            <rect
+              key={s.id}
+              x={x(max.x)}
+              y={z(max.z)}
+              width={w * scale}
+              height={d * scale}
+              fill={s.id === stand.id ? "#fedc92" : "#71939d"}
+            />
+          );
+        })}
       <line
-        x1={x(rim[0])}
-        y1={z(rim[2])}
+        x1={x(edge?.x ?? rim[0])}
+        y1={z(edge?.z ?? rim[2])}
         x2={x(point[0])}
         y2={z(point[2])}
         stroke="#ead49f"

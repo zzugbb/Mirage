@@ -1,11 +1,7 @@
 import { grilleSeatInspection } from "./grille-seat";
 import { GrilleSeatDetails } from "./components/GrilleSeatDetails";
 import { entranceFixture } from "./entrance";
-import {
-  condensate,
-  isCondensate,
-  nearestCondensateSensing,
-} from "./condensate";
+import { condensate, isCondensate } from "./condensate";
 import { CondensateDetails } from "./components/CondensateDetails";
 import { PanelRegisterDetails } from "./components/PanelRegisterDetails";
 import {
@@ -1169,12 +1165,12 @@ export function Workspace() {
   useEffect(() => {
     if (panelInspection && !inspectionOrigin) setPanelInspection(null);
   }, [panelInspection, inspectionOrigin]);
-  const [receiverSegment, setReceiverSegment] = useState(
-    nearestCondensateSensing.segment,
-  );
+  const [drainSegment, setDrainSegment] = useState<{
+    id: string;
+    segment: number;
+  } | null>(null);
   useEffect(() => {
-    if (selected !== condensate.receiver.id)
-      setReceiverSegment(nearestCondensateSensing.segment);
+    setDrainSegment((current) => (current?.id === selected ? current : null));
   }, [selected]);
   const [leakView, setLeakView] = useState<LeakInspection | null>(null);
   const [leakViewCommand, setLeakViewCommand] =
@@ -3269,8 +3265,10 @@ export function Workspace() {
       selected === condensate.sourceId ||
       selected === condensate.sensingCableId) && (
       <CondensateDetails
-        segment={receiverSegment}
-        onSegment={setReceiverSegment}
+        segment={
+          drainSegment?.id === selected ? drainSegment.segment : undefined
+        }
+        onSegment={(segment) => setDrainSegment({ id: selected, segment })}
         id={selected}
         ready={ready}
         onLocate={focus}
@@ -3278,9 +3276,13 @@ export function Workspace() {
           focus(condensate.sourceId);
           analyze();
         }}
-        onSense={(fromJoint) => {
+        onSense={(fromJoint, segment, standId) => {
           pick(condensate.sensingCableId);
-          requestLeakView("floor", { fromJoint });
+          requestLeakView("floor", {
+            fromJoint,
+            segment: segment - 1,
+            standId,
+          });
         }}
       />
     );
@@ -9058,9 +9060,9 @@ export function Workspace() {
                     selectedId={selected}
                     onPreview={pick}
                     onLocate={focus}
-                    onReceiver={(segment) => {
-                      setReceiverSegment(segment);
-                      focus(condensate.receiver.id);
+                    onDrainFixture={(id, segment) => {
+                      setDrainSegment({ id, segment });
+                      focus(id);
                     }}
                     ready={ready}
                   />
