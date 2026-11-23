@@ -155,7 +155,7 @@ test("地板为每处格栅留出开口，外围保持原高度、边界和连�
 
 test("格栅面框与横条齐平、浅凹背衬低于横条，间隙不会被地板填死", () => {
   const root = createFloorGrilles();
-  assert.equal(root.children.length, 3);
+  assert.equal(root.children.length, 4);
   const frames = root.getObjectByName("grille-frames") as THREE.InstancedMesh;
   const slats = root.getObjectByName("grille-slats") as THREE.InstancedMesh;
   const backs = root.getObjectByName("grille-backs") as THREE.InstancedMesh;
@@ -252,7 +252,7 @@ test("34 处格栅的面框、横条与背衬均可射线映射到正确格栅�
   const { floorGrilleRows } = await import("./floor-grilles.ts");
   const root = createFloorGrilles();
   root.updateMatrixWorld(true);
-  assert.equal(root.children.length, 3);
+  assert.equal(root.children.length, 4);
   for (const grille of floorGrilles) {
     const row = floorGrilleRows.find((r) => r.rowId === grille.rowId)!;
     const [x, , z] = grille.position;
@@ -309,4 +309,45 @@ test("格栅排与机柜双向对应，代表落点沿用最近格栅；切片�
   assert.equal(overridden.routes[0].floorGrille.rowId, "row-a");
   assert.deepEqual(rackGrilleRelations("missing"), []);
   assert.deepEqual(grilleRowRelations("missing"), []);
+});
+
+test("逐块移开面框时四边承托仍与框底相接，换块和退出均复原原实例", () => {
+  const tiles = createFloorGrilles();
+  const frames = tiles.getObjectByName("grille-frames") as THREE.InstancedMesh;
+  const slats = tiles.getObjectByName("grille-slats") as THREE.InstancedMesh;
+  const seats = tiles.getObjectByName("grille-seats") as THREE.InstancedMesh;
+  const backs = tiles.getObjectByName("grille-backs") as THREE.InstancedMesh;
+  const original = [frames, slats, seats, backs].map((mesh) =>
+    mesh.instanceMatrix.array.slice(),
+  );
+  for (const [index] of floorGrilles.entries()) {
+    for (let side = 0; side < 4; side++) {
+      const f = instanceBounds(frames, 4 * index + side);
+      const seat = instanceBounds(seats, 4 * index + side);
+      close(f.min.y, seat.max.y);
+      close(
+        seat.getSize(new THREE.Vector3())[side < 2 ? "x" : "z"],
+        s.seatWidth,
+      );
+      assert.ok(instanceBounds(backs, index).max.y < seat.min.y);
+    }
+    tiles.setRemovedFace(index);
+    for (const [mesh, count] of [
+      [frames, 4],
+      [slats, s.slatCount],
+    ] as const) {
+      assert.ok(
+        mesh.userData.instanceVisible.every(
+          (visible: boolean, i: number) =>
+            visible === (Math.floor(i / count) !== index),
+        ),
+      );
+    }
+  }
+  tiles.setRemovedFace(-1);
+  for (const [i, mesh] of [frames, slats, seats, backs].entries()) {
+    assert.deepEqual(mesh.instanceMatrix.array, original[i]);
+    assert.ok(mesh.userData.instanceVisible.every(Boolean));
+  }
+  dispose(tiles);
 });

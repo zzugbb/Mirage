@@ -30,6 +30,12 @@ export function createFloorGrilles() {
     floorGrilles.length * 4,
     0.45,
   );
+  const seats = batch(
+    "grille-seats",
+    s.seatColor,
+    floorGrilles.length * 4,
+    0.45,
+  );
   const slats = batch(
     "grille-slats",
     s.slatColor,
@@ -57,12 +63,26 @@ export function createFloorGrilles() {
   floorGrilles.forEach(({ rowId, position: [x, y, z] }, index) => {
     for (const [mesh, count] of [
       [frames, 4],
+      [seats, 4],
       [slats, s.slatCount],
       [backs, 1],
     ] as const)
       for (let i = 0; i < count; i++)
         mesh.userData.instanceEntityIds[index * count + i] = `grilles-${rowId}`;
     for (const [i, side] of [-1, 1].entries()) {
+      const seatY = y - s.frameHeight - s.seatThickness / 2;
+      place(
+        seats,
+        index * 4 + i,
+        [s.seatWidth, s.seatThickness, s.depth],
+        [x + (side * (s.width - s.seatWidth)) / 2, seatY, z],
+      );
+      place(
+        seats,
+        index * 4 + i + 2,
+        [s.width - 2 * s.seatWidth, s.seatThickness, s.seatWidth],
+        [x, seatY, z + (side * (s.depth - s.seatWidth)) / 2],
+      );
       place(
         frames,
         index * 4 + i,
@@ -94,9 +114,38 @@ export function createFloorGrilles() {
       [x, y - s.recessDepth + s.backingThickness / 2, z],
     );
   });
-  for (const mesh of [frames, slats, backs]) {
+  for (const mesh of [frames, slats, backs, seats]) {
     mesh.instanceMatrix.needsUpdate = true;
     mesh.computeBoundingSphere();
   }
-  return root;
+  const saved: {
+    mesh: THREE.InstancedMesh;
+    instance: number;
+    matrix: THREE.Matrix4;
+  }[] = [];
+  const hidden = new THREE.Matrix4().makeScale(0, 0, 0);
+  function setRemovedFace(index: number) {
+    for (const { mesh, instance, matrix } of saved) {
+      mesh.setMatrixAt(instance, matrix);
+      mesh.userData.instanceVisible[instance] = true;
+      mesh.instanceMatrix.needsUpdate = true;
+    }
+    saved.length = 0;
+    if (!floorGrilles[index]) return;
+    for (const [mesh, count] of [
+      [frames, 4],
+      [slats, s.slatCount],
+    ] as const) {
+      for (let i = 0; i < count; i++) {
+        const instance = index * count + i;
+        const matrix = new THREE.Matrix4();
+        mesh.getMatrixAt(instance, matrix);
+        saved.push({ mesh, instance, matrix });
+        mesh.setMatrixAt(instance, hidden);
+        mesh.userData.instanceVisible[instance] = false;
+      }
+      mesh.instanceMatrix.needsUpdate = true;
+    }
+  }
+  return Object.assign(root, { setRemovedFace });
 }

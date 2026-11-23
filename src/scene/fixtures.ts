@@ -63,7 +63,7 @@ export function buildRoomFixtures(
         );
       }
     } else if ("span" in fixture) {
-      // 可见几何仍由三个实例批次统一绘制；此包围体只用于整排取景和选中角标。
+      // 可见几何仍由地面实例批次统一绘制；此包围体只用于整排取景和选中角标。
       const bounds = box(
         group,
         [

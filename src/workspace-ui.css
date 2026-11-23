@@ -7646,3 +7646,24 @@
   fill: currentColor;
   font-size: 11px;
 }
+
+.grille-seat-section {
+  display: block;
+  width: 100%;
+  height: 104px;
+  background: #101f29;
+  fill: currentColor;
+  font-size: 4.8px;
+}
+.grille-seat-sizes {
+  margin: 0;
+}
+.grille-seat-sizes > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 0;
+}
+.grille-seat-sizes dd {
+  margin: 0;
+}

@@ -2353,6 +2353,7 @@ export function ReviewScene({
               aria-hidden="true"
               data-anchor={marker.id}
               data-hotspot={
+                crossing.kind === "grille-seat" ||
                 crossing.kind === "tray-bay" ||
                 crossing.kind === "tray-support" ||
                 crossing.kind === "lighting-round" ||
@@ -2778,7 +2779,12 @@ export function ReviewScene({
             >
               <strong>{crossing.title}</strong>
               <span>
-                {crossing.kind === "tray-bay" ? (
+                {crossing.kind === "grille-seat" ? (
+                  crossing.row.name +
+                  " · " +
+                  String(crossing.index + 1).padStart(2, "0") +
+                  " 号"
+                ) : crossing.kind === "tray-bay" ? (
                   `横托轴距 ${crossing.horizontal.toFixed(3)} m`
                 ) : crossing.kind === "tray-support" ? (
                   `端部伸出 ${(crossing.horizontal * 1000).toFixed(1)} mm`

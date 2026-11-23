@@ -143,6 +143,7 @@ export function buildModels() {
     fixtures,
     surroundings,
     floorGroup,
+    grilles,
     floor,
   } = buildRoomShell(room, box, glow, text);
   const facilities = new Map<string, THREE.Group>();
@@ -413,6 +414,7 @@ export function buildModels() {
     room,
     surroundings,
     floorGroup,
+    grilles,
     floor,
     shellOccluders,
     rack,

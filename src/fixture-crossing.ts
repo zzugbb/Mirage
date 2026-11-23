@@ -1,3 +1,4 @@
+import type { GrilleSeat } from "./grille-seat.ts";
 import definition from "../assets/public/scenes/room-01.json" with { type: "json" };
 import type { EnvironmentRound } from "./environment-rounds.ts";
 import { rackById } from "./installation.ts";
@@ -393,7 +394,9 @@ export function lightingRound(lightId: string, trayId: string, rackId: string) {
   };
 }
 export const crossingObjectIds = (pair: FixtureCrossing) =>
-  pair.kind === "tray-support" || pair.kind === "tray-bay"
+  pair.kind === "grille-seat" ||
+  pair.kind === "tray-support" ||
+  pair.kind === "tray-bay"
     ? [pair.upper.id]
     : pair.kind === "smoke-light"
       ? [pair.round.points[0].id, pair.round.points[1].id, pair.light.id]
@@ -409,6 +412,7 @@ export type RackRoofView =
       overview: RackRoofOverview;
     });
 export type FixtureCrossing =
+  | GrilleSeat
   | RackRoofView
   | SmokeLightInspection
   | NonNullable<ReturnType<typeof traySupportBay>>
@@ -431,6 +435,7 @@ export type CrossingViewCommand = {
   dismiss?: boolean;
 };
 export function crossingDirection(pair: FixtureCrossing) {
+  if (pair.kind === "grille-seat") return new Vector3(0.04, 1, 0.38);
   if (pair.kind === "tray-bay") return new Vector3(0, 0.19, pair.toward);
   if (pair.kind === "tray-support")
     return new Vector3(pair.side * 0.34, 0.12, 1);

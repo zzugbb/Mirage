@@ -754,6 +754,9 @@
     "floorGrille": {
       "width": 0.44,
       "depth": 0.46,
+      "seatWidth": 0.014,
+      "seatThickness": 0.004,
+      "seatColor": "#a8b8b6",
       "frameWidth": 0.02,
       "frameHeight": 0.018,
       "slatCount": 7,

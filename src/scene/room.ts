@@ -122,7 +122,8 @@ export function buildRoomShell(
   }
   text(backWall, "MIRAGE  /  01", [-2.6, 3.38, back + 0.15], 0.25);
   // 两排机柜前方保留通行与送风格栅，地面线只作空间导向。
-  floorGroup.add(createFloorGrilles());
+  const grilles = createFloorGrilles();
+  floorGroup.add(grilles);
   for (const { z } of definition.airflow.floorOutlets) {
     for (const x of [-4.6, 4.6])
       box(floorGroup, [0.018, 0.007, 1.15], [x, 0.058, z], "#6c9da9", 0.1);
@@ -146,5 +147,5 @@ export function buildRoomShell(
     box,
     glow,
   );
-  return { occluders, fixtures, surroundings, floorGroup, floor };
+  return { occluders, fixtures, surroundings, floorGroup, floor, grilles };
 }

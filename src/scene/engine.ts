@@ -1321,6 +1321,7 @@ export class SceneEngine {
   };
   clearCrossingView() {
     if (!this.crossingObservation) return;
+    this.models.grilles.setRemovedFace(-1);
     this.crossingObservation = undefined;
     this.moving = false;
     this.onCrossingView(null);
@@ -1345,8 +1346,14 @@ export class SceneEngine {
     this.clearRangeView();
     this.clearAirflowView();
     this.panelViewport = undefined;
+    this.models.grilles.setRemovedFace(
+      pair.kind === "grille-seat" && pair.removed ? pair.instance : -1,
+    );
     this.crossingObservation = { pair, previous };
-    this.currentView = pair.kind === "roof-entry" ? "top" : "front";
+    this.currentView =
+      pair.kind === "roof-entry" || pair.kind === "grille-seat"
+        ? "top"
+        : "front";
     this.currentFocus = false;
     this.interior = false;
     this.controls.minAzimuthAngle = -Infinity;
@@ -1363,13 +1370,20 @@ export class SceneEngine {
   frameCrossing() {
     if (!this.crossingObservation) return;
     const { width, height, rect } = this.observationViewport();
-    const fit = crossingViewFrame(
-      this.crossingObservation.pair.points,
-      width,
-      height,
-      rect,
-      crossingDirection(this.crossingObservation.pair),
-    );
+    const { pair } = this.crossingObservation;
+    const direction = crossingDirection(pair);
+    const fit =
+      pair.kind === "grille-seat"
+        ? observationFrame(
+            pair.points,
+            direction,
+            width,
+            height,
+            rect,
+            0.95,
+            0.12,
+          )
+        : crossingViewFrame(pair.points, width, height, rect, direction);
     this.targetPosition.copy(fit.position);
     this.targetLook.copy(fit.target);
     this.controls.maxDistance = Math.max(45, fit.distance * 1.2);
@@ -1938,6 +1952,12 @@ export class SceneEngine {
     this.partInspection = saved.partInspection;
     this.view(saved.camera.view, saved.camera.focus);
     Object.assign(this, saved.observations);
+    const crossing = this.crossingObservation?.pair;
+    this.models.grilles.setRemovedFace(
+      crossing?.kind === "grille-seat" && crossing.removed
+        ? crossing.instance
+        : -1,
+    );
     this.restoreObservationView(saved.camera);
     this.camera.position.copy(saved.camera.position);
     this.controls.target.copy(saved.camera.target);

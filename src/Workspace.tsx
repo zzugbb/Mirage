@@ -1,3 +1,5 @@
+import { grilleSeatInspection } from "./grille-seat";
+import { GrilleSeatDetails } from "./components/GrilleSeatDetails";
 import { entranceFixture } from "./entrance";
 import {
   condensate,
@@ -1158,7 +1160,9 @@ export function Workspace() {
     null,
   );
   const crossingReturning = useRef(false);
-  const crossingInspectPending = useRef<boolean | HTMLSelectElement>(false);
+  const crossingInspectPending = useRef<
+    boolean | HTMLSelectElement | HTMLButtonElement
+  >(false);
   const requestCrossing = (pair: FixtureCrossing | null) => {
     if (pair && !crossing) {
       const element = document.activeElement as HTMLElement;
@@ -1171,10 +1175,13 @@ export function Workspace() {
     if (!pair) crossingReturning.current = true;
     const control = document.activeElement;
     crossingInspectPending.current =
-      ((pair?.kind === "smoke-light" && crossing?.kind === "smoke-light") ||
+      ((pair?.kind === "grille-seat" && crossing?.kind === "grille-seat") ||
+        (pair?.kind === "smoke-light" && crossing?.kind === "smoke-light") ||
         (pair?.kind === "tray-support" && crossing?.kind === "tray-support") ||
         (pair?.kind === "tray-bay" && crossing?.kind === "tray-bay")) &&
-      control instanceof HTMLSelectElement &&
+      (control instanceof HTMLSelectElement ||
+        (pair?.kind === "grille-seat" &&
+          control instanceof HTMLButtonElement)) &&
       control.closest(".crossing-details")
         ? control
         : !!pair;
@@ -2746,7 +2753,7 @@ export function Workspace() {
   useEffect(() => {
     const pending = crossingInspectPending.current;
     if (!pending || !crossing || !ready) return;
-    if (pending instanceof HTMLSelectElement && pending.isConnected) {
+    if (typeof pending !== "boolean" && pending.isConnected) {
       if (
         document.activeElement === document.body ||
         document.activeElement === pending
@@ -6383,6 +6390,7 @@ export function Workspace() {
                                   (patchPanelById(row.id) ||
                                     racewayById(row.id) ||
                                     isCondensate(row.id) ||
+                                    grilleRowById(row.id) ||
                                     entranceViewIncludes(row.id) ||
                                     environmentRoundFor(row.id) ||
                                     isLeakFixture(row.id) ||
@@ -8410,7 +8418,8 @@ export function Workspace() {
             {crossing &&
               !(
                 review.analysis &&
-                (crossing.kind === "tray-bay" ||
+                (crossing.kind === "grille-seat" ||
+                  crossing.kind === "tray-bay" ||
                   crossing.kind === "tray-support" ||
                   crossing.kind === "lighting-round" ||
                   crossing.kind === "roof-entry")
@@ -8428,7 +8437,8 @@ export function Workspace() {
                   }}
                 >
                   <strong>{crossing.title} · 配置</strong>
-                  {crossing.kind !== "lighting-round" &&
+                  {crossing.kind !== "grille-seat" &&
+                    crossing.kind !== "lighting-round" &&
                     crossing.kind !== "tray-support" &&
                     crossing.kind !== "tray-bay" &&
                     crossing.kind !== "roof-entry" && (
@@ -8459,6 +8469,21 @@ export function Workspace() {
                         </p>
                       </>
                     )}
+                  {crossing.kind === "grille-seat" && (
+                    <GrilleSeatDetails
+                      seat={crossing}
+                      ready={ready}
+                      onView={(index, removed) =>
+                        requestCrossing(
+                          grilleSeatInspection(crossing.row.id, index, removed),
+                        )
+                      }
+                      onHistory={(id) => {
+                        focus(id);
+                        analyze();
+                      }}
+                    />
+                  )}
                   {!review.analysis && crossing.kind === "tray-support" && (
                     <div className="roof-entry-details">
                       <label>
@@ -9048,16 +9073,35 @@ export function Workspace() {
                     }
                     grilleRelations={
                       grilleRowById(fixture.id) && (
-                        <GrilleBranches
-                          key={fixture.id}
-                          rowId={fixture.id}
-                          ready={ready}
-                          activeRack={grilleRack[fixture.id]}
-                          restore={grilleReturning ? grilleVisit : null}
-                          onPreview={pick}
-                          onLocate={focus}
-                          onAirflow={visitGrilleBranch}
-                        />
+                        <>
+                          {layer === "overview" && state.level === "room" && (
+                            <div
+                              className="entrance-view-entry"
+                              hidden={!!crossing}
+                            >
+                              <button
+                                disabled={!ready}
+                                onClick={() =>
+                                  requestCrossing(
+                                    grilleSeatInspection(fixture.id, 0),
+                                  )
+                                }
+                              >
+                                逐块核对格栅安装 ↗
+                              </button>
+                            </div>
+                          )}
+                          <GrilleBranches
+                            key={fixture.id}
+                            rowId={fixture.id}
+                            ready={ready}
+                            activeRack={grilleRack[fixture.id]}
+                            restore={grilleReturning ? grilleVisit : null}
+                            onPreview={pick}
+                            onLocate={focus}
+                            onAirflow={visitGrilleBranch}
+                          />
+                        </>
                       )
                     }
                     comparisonReady={ready}
