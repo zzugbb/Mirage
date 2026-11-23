@@ -7,7 +7,8 @@ import {
   nearestCondensateSensing,
 } from "./condensate";
 import { CondensateDetails } from "./components/CondensateDetails";
-import { racewayById } from "./panel-raceway";
+import { PanelRegisterDetails } from "./components/PanelRegisterDetails";
+import { racewayById, racewayRegisterStart } from "./panel-raceway";
 import { PatchPanelDetails } from "./components/PatchPanelDetails";
 import { PanelRacewayDetails } from "./components/PanelRacewayDetails";
 import { patchPanelById, portAtPanel, type PanelPort } from "./patch-panels";
@@ -457,6 +458,13 @@ function reducer(
     ? workspacePreset(state, action.shot)
     : reviewTransition(state, action);
 }
+
+type PanelRegisterOrigin = {
+  selected: string;
+  initial: PanelPort | null;
+  camera: TaskViewMemory | null;
+  scroll: number;
+};
 
 export function Workspace() {
   const [review, control] = useReducer(reducer, undefined, createWorkspace);
@@ -1117,6 +1125,7 @@ export function Workspace() {
   const [panelInspection, setPanelInspection] = useState<{
     fixtureId: string;
     origin: PanelPort;
+    register?: PanelRegisterOrigin;
   } | null>(null);
   const inspectionOrigin =
     panelInspection?.fixtureId === selected &&
@@ -1124,6 +1133,9 @@ export function Workspace() {
     layer === "overview"
       ? panelInspection.origin
       : null;
+  const register = inspectionOrigin ? panelInspection?.register : undefined;
+  const [registerReturn, setRegisterReturn] =
+    useState<PanelRegisterOrigin | null>(null);
   const panelPort =
     inspectionOrigin?.panelId === selected ? inspectionOrigin : null;
   useEffect(() => {
@@ -2023,6 +2035,18 @@ export function Workspace() {
     !review.pendingEndpoint &&
     !!feedback?.settled &&
     feedback.key === presentationKey(state);
+  useEffect(() => {
+    if (!registerReturn || !ready) return;
+    if (registerReturn.selected === selected) {
+      const entry = document.querySelector<HTMLButtonElement>(
+        "[data-start-panel-register]",
+      );
+      entry?.focus({ preventScroll: true });
+      const panel = entry?.closest<HTMLElement>(".study-inspector");
+      if (panel) panel.scrollTop = registerReturn.scroll;
+    }
+    setRegisterReturn(null);
+  }, [registerReturn, ready, selected]);
   useLayoutEffect(() => {
     if (
       !(
@@ -3193,7 +3217,7 @@ export function Workspace() {
   const inspectPanelPort = (port: PanelPort) => {
     focus(port.panelId);
     control({ type: "analysis", value: false });
-    setPanelInspection({ fixtureId: port.panelId, origin: port });
+    setPanelInspection({ fixtureId: port.panelId, origin: port, register });
   };
   const condensateDetails = layer === "overview" &&
     state.level === "room" &&
@@ -6526,6 +6550,7 @@ export function Workspace() {
             taskReturn={
               (returningFromAirflow && airflowOrigin) ||
               (layoutReturning && layoutVisit?.origin) ||
+              registerReturn ||
               aisleReturn ||
               (alarmReturning && alarmVisit) ||
               (portReturning && portVisit) ||
@@ -9038,8 +9063,63 @@ export function Workspace() {
                     condensateDetails={condensateDetails}
                     racewayDetails={
                       layer === "overview" &&
-                      state.level === "room" && (
+                      state.level === "room" &&
+                      (register && inspectionOrigin ? (
+                        <PanelRegisterDetails
+                          target={inspectionOrigin}
+                          selected={selected}
+                          ready={ready}
+                          onLocate={inspectPanelPort}
+                          onChoose={(port) => {
+                            if (patchPanelById(selected))
+                              inspectPanelPort(port);
+                            else
+                              setPanelInspection({
+                                fixtureId: selected,
+                                origin: port,
+                                register,
+                              });
+                          }}
+                          onHistory={(id) => {
+                            focus(id);
+                            analyze();
+                          }}
+                          onExit={() => {
+                            setRegisterReturn(register);
+                            if (register.camera) pick(register.selected);
+                            else focus(register.selected);
+                            setPanelInspection(
+                              register.initial
+                                ? {
+                                    fixtureId: register.selected,
+                                    origin: register.initial,
+                                  }
+                                : null,
+                            );
+                          }}
+                        />
+                      ) : (
                         <PanelRacewayDetails
+                          onRegister={(entry) => {
+                            const start =
+                              inspectionOrigin ??
+                              racewayRegisterStart(selected);
+                            if (start)
+                              setPanelInspection({
+                                fixtureId: selected,
+                                origin: start,
+                                register: {
+                                  selected,
+                                  initial: inspectionOrigin,
+                                  camera:
+                                    captureTaskView.current?.("room") ?? null,
+                                  scroll:
+                                    entry.closest<HTMLElement>(
+                                      ".study-inspector",
+                                    )?.scrollTop ?? 0,
+                                },
+                              });
+                          }}
                           fixture={fixture}
                           origin={inspectionOrigin}
                           ready={ready}
@@ -9059,10 +9139,11 @@ export function Workspace() {
                             }
                           }}
                         />
-                      )
+                      ))
                     }
                     panelPorts={
                       fixture.kind === "patch-panel" &&
+                      !register &&
                       layer === "overview" &&
                       state.level === "room" && (
                         <PatchPanelDetails

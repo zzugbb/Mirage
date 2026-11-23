@@ -101,3 +101,28 @@ test("两块面板逐孔拾取命中登记实例，切换对端与清除只影�
     ),
   );
 });
+
+test("三段线槽和两块面板均可按端接登记起查，当侧优先且不扩展到邻柜", async () => {
+  const { racewayRegisterStart, racewayConnections, racewayPanels } =
+    await import("./panel-raceway.ts");
+  assert.deepEqual(
+    racewayPanels.map((p) => p.id),
+    ["patch-panel-01", "patch-panel-02"],
+  );
+  for (const id of ["raceway-horizontal", "raceway-west", "patch-panel-01"])
+    assert.deepEqual(racewayRegisterStart(id), racewayConnections[0].first);
+  for (const id of ["raceway-east", "patch-panel-02"])
+    assert.deepEqual(racewayRegisterStart(id), racewayConnections[0].second);
+  assert.equal(racewayRegisterStart("rack-a08"), null);
+  assert.equal(racewayConnections.length, 4);
+  for (const connection of racewayConnections) {
+    assert.deepEqual(
+      panelTermination(connection.first)?.peer,
+      connection.second,
+    );
+    assert.deepEqual(
+      panelTermination(connection.second)?.peer,
+      connection.first,
+    );
+  }
+});

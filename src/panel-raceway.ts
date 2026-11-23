@@ -54,3 +54,24 @@ export function racewaySightOffsets(section: (typeof racewaySections)[number]) {
     return point;
   });
 }
+
+/** 只列两端箱体之间登记的孔位。线槽布置不作为施工路由证明。 */
+export const racewayPanels = drops
+  .map((drop) => patchPanelById(drop.panelId)!)
+  .sort((a, b) => a.position[0] - b.position[0]);
+export const racewayConnections = panelSettings.connections.filter(
+  ({ first, second }) =>
+    first.panelId !== second.panelId &&
+    [first, second].every((p) => racewayPanels.some((f) => f.id === p.panelId)),
+);
+export function racewayRegisterStart(id: string) {
+  const localPanel =
+    drops.find((d) => d.id === id || d.panelId === id)?.panelId ??
+    (id === trunk.id ? racewayPanels[0]?.id : undefined);
+  if (!localPanel) return null;
+  return (
+    racewayConnections
+      .flatMap((c) => [c.first, c.second])
+      .find((p) => p.panelId === localPanel) ?? { panelId: localPanel, port: 1 }
+  );
+}

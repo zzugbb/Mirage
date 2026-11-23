@@ -4631,6 +4631,7 @@
   gap: 5px;
   font-size: 12px;
 }
+.panel-register select,
 .roof-entry-details select,
 .lighting-round select {
   background: var(--raised);
@@ -7666,4 +7667,22 @@
 }
 .grille-seat-sizes dd {
   margin: 0;
+}
+.panel-register label,
+.panel-register-face {
+  display: grid;
+  gap: 5px;
+}
+.panel-register select {
+  width: 100%;
+  min-width: 0;
+}
+.panel-register-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.workspace-ui .panel-register button[data-peer] {
+  border: 1px dashed #b8cfd2;
+  color: #e6fbf6;
 }

@@ -12,11 +12,13 @@ export function PanelRacewayDetails({
   origin,
   ready,
   onLocate,
+  onRegister,
 }: {
   fixture: RoomFixture;
   origin: PanelPort | null;
   ready: boolean;
   onLocate: (id: string) => void;
+  onRegister: (entry: HTMLButtonElement) => void;
 }) {
   const neighbors = racewayNeighbors(fixture.id);
   if (!neighbors.length) return null;
@@ -43,6 +45,13 @@ export function PanelRacewayDetails({
           <small>槽内敷线待核实</small>
         </div>
       )}
+      <button
+        data-start-panel-register
+        disabled={!ready}
+        onClick={(e) => onRegister(e.currentTarget)}
+      >
+        核对双端孔位 ↗
+      </button>
       {neighbors.map((peer) => {
         const port = origin && portAtPanel(origin, peer.id);
         return (
