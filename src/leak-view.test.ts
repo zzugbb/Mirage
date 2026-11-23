@@ -79,7 +79,7 @@ test("柜旁三段分别取配置端点、机房方位及段中到柜体投影�
     assert.ok(Math.abs(floor.length - length) < 1e-10);
     assert.equal(floor.side, side);
     assert.ok(Math.abs(floor.distance - distance) < 1e-10);
-    assert.equal(floor.middle.y, floor.edge.y);
+    assert.equal(floor.point.y, floor.edge.y);
     assert.deepEqual(
       inspection.markers.map((m) => m.objectId),
       [leakDetection.cableId, leakDetection.nearbyFacilityId],
@@ -114,8 +114,18 @@ test("地面尺寸线只标当前段，换段后重画两端刻线", () => {
       assert.ok(first.distanceTo(start) < 1e-6);
       vertex += 2 * dashes;
     });
-    assert.equal(positions.count, vertex);
-    const measured = [floor.start, floor.end, floor.middle, floor.edge];
+    assert.equal(positions.count, vertex + 48);
+    const ringCenter = floor.point.clone();
+    ringCenter.y += 0.018;
+    for (let i = vertex; i < positions.count; i++)
+      assert.ok(
+        Math.abs(
+          new Vector3()
+            .fromBufferAttribute(positions, i)
+            .distanceTo(ringCenter) - 0.055,
+        ) < 1e-6,
+      );
+    const measured = [floor.start, floor.end, floor.point, floor.edge];
     measured.forEach((expected, i) => {
       const position = new Vector3().fromBufferAttribute(positions, i);
       position.y -= 0.018;
@@ -207,4 +217,47 @@ test("反复切段不会残留旧端点或截断新线段；标记保留深度�
   assert.equal(drawing.root.visible, false);
   drawing.dispose();
   assert.equal(parent.children.length, 0);
+});
+
+test("沿感应线由接头计距，折点归入下一段，末端不计引线或闭环", () => {
+  for (const [fromJoint, index, x, z] of [
+    [0, 0, -6.35, -4.1],
+    [0.3, 0, -6.05, -4.1],
+    [1.499, 0, -4.851, -4.1],
+    [1.5, 1, -4.85, -4.1],
+    [1.501, 1, -4.85, -4.101],
+    [2.3, 1, -4.85, -4.9],
+    [2.85, 2, -4.85, -5.45],
+    [3.05, 2, -5.05, -5.45],
+    [4.35, 2, -6.35, -5.45],
+  ]) {
+    const a = leakInspection("floor", { fromJoint });
+    const floor = a.floor!;
+    assert.equal(floor.index, index);
+    assert.ok(floor.point.distanceTo(new Vector3(x, 0.065, z)) < 1e-9);
+    assert.ok(Math.abs(floor.fromJoint + floor.toEnd - a.sensingLength) < 1e-9);
+    assert.ok(Math.abs(floor.fromJoint - fromJoint) < 1e-9);
+    assert.ok(a.markers[0].point.equals(floor.point));
+    assert.ok(floor.point.distanceTo(floor.edge) === floor.distance);
+  }
+});
+
+test("换段仍选段中；反向量距得到相同布置点和尺寸线，投影距离随点移动", () => {
+  const middle = leakInspection("floor", 1);
+  assert.ok(Math.abs(middle.floor!.fromJoint - 2.175) < 1e-9);
+  const a = leakInspection("floor", { fromJoint: 1.5 });
+  const b = leakInspection("floor", { fromJoint: a.sensingLength - 2.85 });
+  assert.ok(b.floor!.point.equals(a.floor!.point));
+  assert.ok(Math.abs(a.floor!.distance - Math.hypot(0.225, 0.375)) < 1e-9);
+  assert.ok(Math.abs(a.floor!.distance - middle.floor!.distance) > 0.2);
+  const geometry = new LeakViewGeometry();
+  geometry.update(a);
+  const line = geometry.root.children[0] as LineSegments;
+  const positions = line.geometry.getAttribute("position");
+  for (const [i, point] of [a.floor!.point, a.floor!.edge].entries()) {
+    const drawn = new Vector3().fromBufferAttribute(positions, 2 + i);
+    drawn.y -= 0.018;
+    assert.ok(drawn.distanceTo(point) < 1e-6);
+  }
+  geometry.dispose();
 });

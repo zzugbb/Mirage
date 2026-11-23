@@ -16,39 +16,59 @@ export const leakViews = [
   { id: "floor", label: leakCable.location },
 ] as const;
 export type LeakView = (typeof leakViews)[number]["id"];
+export type LeakFloorTarget = number | { fromJoint: number };
 export type LeakViewCommand = {
   revision: number;
   view: LeakView | null;
-  segment?: number;
+  target?: LeakFloorTarget;
 };
 export const leakViewIncludes = (id: string) =>
   isLeakFixture(id) || id === leakDetection.nearbyFacilityId;
 const vector = (point: number[]) => new Vector3().fromArray(point);
 
-/** 在机房水平坐标系中，从感应段中点取柜体配置投影上的最近点。 */
-function leakFloorSegment(sensing: Vector3[], segment: number) {
-  const index =
-    Number.isInteger(segment) && segment >= 0 && segment < sensing.length - 1
-      ? segment
+/** 里程从接头起算，折点归入下一段，末端归入最后一段。仅指定段时沿用段中点。 */
+function leakFloorSegment(sensing: Vector3[], target: LeakFloorTarget) {
+  const ends: number[] = [0];
+  for (let i = 1; i < sensing.length; i++)
+    ends.push(ends[i - 1] + sensing[i - 1].distanceTo(sensing[i]));
+  const total = ends[ends.length - 1];
+  const requested = typeof target === "object" ? target.fromJoint : null;
+  let index =
+    typeof target === "number" &&
+    Number.isInteger(target) &&
+    target >= 0 &&
+    target < sensing.length - 1
+      ? target
       : 0;
+  let fromJoint = (ends[index] + ends[index + 1]) / 2;
+  if (requested !== null && Number.isFinite(requested)) {
+    fromJoint = Math.max(0, Math.min(requested, total));
+    // 消除米制小数在段长累加时的舍入误差，精确落在接头或转角上。
+    fromJoint = ends.find((at) => Math.abs(at - fromJoint) < 1e-9) ?? fromJoint;
+    const next = ends.findIndex((at) => at > fromJoint);
+    index = next === -1 ? sensing.length - 2 : next - 1;
+  }
   const start = sensing[index],
     end = sensing[index + 1];
-  const middle = start.clone().lerp(end, 0.5);
+  const length = start.distanceTo(end);
+  const point = start
+    .clone()
+    .lerp(end, length ? (fromJoint - ends[index]) / length : 0);
   const center = vector(nearbyCooling.position),
     half = vector(nearbyCooling.size).multiplyScalar(0.5);
   const min = center.clone().sub(half),
     max = center.clone().add(half);
-  const edge = middle.clone().clamp(min, max);
-  edge.y = middle.y;
+  const edge = point.clone().clamp(min, max);
+  edge.y = point.y;
   const sides = (["x", "z"] as const).flatMap((axis) => {
-    const offset = middle[axis] - edge[axis];
+    const offset = point[axis] - edge[axis];
     return offset ? [(offset > 0 ? "+" : "−") + axis.toUpperCase()] : [];
   });
   const footprint = [
-    new Vector3(min.x, middle.y, min.z),
-    new Vector3(max.x, middle.y, min.z),
-    new Vector3(max.x, middle.y, max.z),
-    new Vector3(min.x, middle.y, max.z),
+    new Vector3(min.x, point.y, min.z),
+    new Vector3(max.x, point.y, min.z),
+    new Vector3(max.x, point.y, max.z),
+    new Vector3(min.x, point.y, max.z),
   ];
   const corners = footprint.flatMap(({ x, z }) => [
     new Vector3(x, min.y, z),
@@ -59,10 +79,12 @@ function leakFloorSegment(sensing: Vector3[], segment: number) {
     index,
     start,
     end,
-    length: start.distanceTo(end),
-    middle,
+    length,
+    point,
+    fromJoint,
+    toEnd: total - fromJoint,
     edge,
-    distance: middle.distanceTo(edge),
+    distance: point.distanceTo(edge),
     side: sides.length ? sides.join(" / ") + " 侧" : "投影内",
     footprint,
     corners,
@@ -72,17 +94,17 @@ function leakFloorSegment(sensing: Vector3[], segment: number) {
 
 function inspectionSection(
   view: LeakView,
-  segment: number,
+  target: LeakFloorTarget,
   lead: Vector3[],
   sensing: Vector3[],
 ) {
-  const floor = view === "floor" ? leakFloorSegment(sensing, segment) : null;
+  const floor = view === "floor" ? leakFloorSegment(sensing, target) : null;
   if (floor) {
     const markers = [
       {
         id: "leak-floor-segment",
         title: `感应段 ${floor.index + 1} · 距柜 ${floor.distance.toFixed(3)} m`,
-        point: floor.middle,
+        point: floor.point,
         objectId: leakCable.id,
       },
       {
@@ -136,12 +158,12 @@ function inspectionSection(
 }
 
 /** 只核对已登记折线。编号是布置端点身份，不表示信号流向或独立测点。 */
-export function leakInspection(view: LeakView, segment = 0) {
+export function leakInspection(view: LeakView, target: LeakFloorTarget = 0) {
   const lead = leakDetection.leadPoints.map(vector);
   const sensing = leakDetection.sensingPoints.map(vector);
   const { floor, paths, points, markers } = inspectionSection(
     view,
-    segment,
+    target,
     lead,
     sensing,
   );

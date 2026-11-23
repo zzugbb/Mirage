@@ -4,7 +4,60 @@ import {
   leakCable,
   leakController,
 } from "../leak-detection";
-import type { LeakInspection } from "../leak-view";
+import { useEffect, useRef, useState } from "react";
+import type { LeakInspection, LeakFloorTarget } from "../leak-view";
+
+function LeakDistanceInput({
+  floor,
+  total,
+  ready,
+  onPosition,
+}: {
+  floor: NonNullable<LeakInspection["floor"]>;
+  total: number;
+  ready: boolean;
+  onPosition: (target: LeakFloorTarget) => void;
+}) {
+  const [origin, setOrigin] = useState("joint");
+  const input = useRef<HTMLInputElement>(null);
+  const distance = origin === "joint" ? floor.fromJoint : floor.toEnd;
+  useEffect(() => {
+    if (input.current) input.current.value = distance.toFixed(3);
+  }, [floor, origin, distance]);
+  return (
+    <form
+      className="leak-distance-input"
+      onSubmit={(event) => {
+        event.preventDefault();
+        const value = input.current?.valueAsNumber;
+        if (ready && value !== undefined && Number.isFinite(value))
+          onPosition({ fromJoint: origin === "joint" ? value : total - value });
+      }}
+    >
+      <label>
+        量取起点
+        <select value={origin} onChange={(e) => setOrigin(e.target.value)}>
+          <option value="joint">感应线接头</option>
+          <option value="end">末端封接</option>
+        </select>
+      </label>
+      <label>
+        沿线距离（m）
+        <input
+          ref={input}
+          type="number"
+          required
+          min="0"
+          max={Number(total.toFixed(6))}
+          step="0.001"
+        />
+      </label>
+      <button disabled={!ready} type="submit">
+        按距离定位
+      </button>
+    </form>
+  );
+}
 
 export function LeakInspectionDetails({
   inspection,
@@ -12,7 +65,7 @@ export function LeakInspectionDetails({
   onPreview,
   onLocate,
   ready,
-  onSegment,
+  onPosition,
   onHistory,
 }: {
   inspection: LeakInspection;
@@ -20,7 +73,7 @@ export function LeakInspectionDetails({
   onPreview: (id: string) => void;
   onLocate: (id: string) => void;
   ready: boolean;
-  onSegment: (index: number) => void;
+  onPosition: (target: LeakFloorTarget) => void;
   onHistory: () => void;
 }) {
   const { view, markers, leadLength, sensingLength } = inspection;
@@ -51,7 +104,7 @@ export function LeakInspectionDetails({
               aria-label="核对感应段"
               value={inspection.floor.index}
               disabled={!ready}
-              onChange={(e) => onSegment(Number(e.target.value))}
+              onChange={(e) => onPosition(Number(e.target.value))}
             >
               {leakDetection.sensingPoints.slice(1).map((_, i) => (
                 <option key={i} value={i}>
@@ -60,7 +113,20 @@ export function LeakInspectionDetails({
               ))}
             </select>
           </label>
+          <LeakDistanceInput
+            floor={inspection.floor}
+            total={sensingLength}
+            ready={ready}
+            onPosition={onPosition}
+          />
           <dl>
+            <div>
+              <dt>距接头 / 距末端</dt>
+              <dd>
+                {inspection.floor.fromJoint.toFixed(3)} /{" "}
+                {inspection.floor.toEnd.toFixed(3)} m
+              </dd>
+            </div>
             <div>
               <dt>柜旁位置（机房坐标）</dt>
               <dd>{inspection.floor.side}</dd>
@@ -70,12 +136,13 @@ export function LeakInspectionDetails({
               <dd>{inspection.floor.length.toFixed(2)} m</dd>
             </div>
             <div>
-              <dt>段中至柜体投影</dt>
+              <dt>所选点至柜体投影</dt>
               <dd>{inspection.floor.distance.toFixed(3)} m</dd>
             </div>
           </dl>
           <small>
-            虚线框为柜体配置投影，尺寸线从所选段中点量至框边。检漏信号未接入，探测范围未登记。
+            里程只计感应线（共 {sensingLength.toFixed(3)}{" "}
+            m）。尺寸线从所选点量至柜体配置投影。检漏信号未接入，探测范围未登记。
           </small>
           <button disabled={!ready} onClick={onHistory}>
             回看{nearbyCooling.name}输入 ↗

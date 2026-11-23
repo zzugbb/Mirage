@@ -5011,7 +5011,8 @@
   justify-content: space-between;
   gap: 8px;
 }
-.leak-floor-segment select {
+.leak-floor-segment select,
+.leak-distance-input :is(select, input, button) {
   color: inherit;
   background: var(--raised);
   border: 1px solid var(--study-line);
@@ -7426,4 +7427,23 @@
   gap: 5px;
   padding-block: 8px;
   border-block: 1px solid #34454f;
+}
+
+.leak-distance-input {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 8px;
+}
+.leak-distance-input label {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.leak-distance-input input {
+  min-width: 0;
+  width: 100%;
+}
+.leak-distance-input button {
+  justify-self: start;
+  grid-column: 1 / -1;
 }

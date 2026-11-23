@@ -165,6 +165,7 @@ import {
 import {
   type LeakInspection,
   type LeakView,
+  type LeakFloorTarget,
   type LeakViewCommand,
 } from "./leak-view";
 import { LeakInspectionDetails } from "./components/LeakInspectionDetails";
@@ -1100,11 +1101,11 @@ export function Workspace() {
   const [leakView, setLeakView] = useState<LeakInspection | null>(null);
   const [leakViewCommand, setLeakViewCommand] =
     useState<LeakViewCommand | null>(null);
-  const requestLeakView = (view: LeakView | null, segment?: number) => {
+  const requestLeakView = (view: LeakView | null, target?: LeakFloorTarget) => {
     takeover();
     setLeakViewCommand((current) => ({
       view,
-      segment,
+      target,
       revision: (current?.revision ?? 0) + 1,
     }));
   };
@@ -8739,7 +8740,7 @@ export function Workspace() {
                 ) : leakView ? (
                   <LeakInspectionDetails
                     inspection={leakView}
-                    onSegment={(index) => requestLeakView("floor", index)}
+                    onPosition={(target) => requestLeakView("floor", target)}
                     onHistory={() => {
                       pick(nearbyCooling.id);
                       analyze();

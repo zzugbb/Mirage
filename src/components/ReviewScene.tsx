@@ -1643,9 +1643,9 @@ export function ReviewScene({
       active.restoreLeakView();
     } else if (layer === "overview") {
       fixtureReturnEntry.current = null;
-      fixtureRangeFocus.current = leakViewCommand.segment === undefined;
+      fixtureRangeFocus.current = leakViewCommand.target === undefined;
       setOrbit(false);
-      active.observeLeak(leakViewCommand.view, leakViewCommand.segment);
+      active.observeLeak(leakViewCommand.view, leakViewCommand.target);
     }
     setView(active.currentView);
   }, [leakViewCommand?.revision]);

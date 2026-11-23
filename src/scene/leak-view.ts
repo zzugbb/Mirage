@@ -28,13 +28,13 @@ export class LeakViewGeometry {
         points.push(lifted(path[i - 1]), lifted(path[i]));
     // 地面尺寸线单独绘制，两端短刻线与感应线实体区分。
     if (inspection.floor) {
-      const { middle, edge, footprint } = inspection.floor;
-      const offset = edge.clone().sub(middle);
+      const { point, edge, footprint } = inspection.floor;
+      const offset = edge.clone().sub(point);
       const tick = new THREE.Vector3(-offset.z, 0, offset.x)
         .normalize()
         .multiplyScalar(0.04);
-      points.push(lifted(middle), lifted(edge));
-      for (const p of [middle, edge])
+      points.push(lifted(point), lifted(edge));
+      for (const p of [point, edge])
         points.push(lifted(p).sub(tick), lifted(p).add(tick));
       // 配置投影独立于精模外形，以虚线标出尺寸线的柜体基准。
       footprint.forEach((start, i) => {
@@ -47,23 +47,25 @@ export class LeakViewGeometry {
           );
         }
       });
-    } else {
-      for (const marker of inspection.markers) {
-        const center = lifted(marker.point);
-        for (let i = 0; i < 24; i++)
-          for (const a of [i, i + 1])
-            points.push(
-              center
-                .clone()
-                .add(
-                  new THREE.Vector3(
-                    Math.cos((a * Math.PI) / 12) * 0.055,
-                    0,
-                    Math.sin((a * Math.PI) / 12) * 0.055,
-                  ),
+    }
+    const markedPoints = inspection.floor
+      ? [inspection.floor.point]
+      : inspection.markers.map((marker) => marker.point);
+    for (const point of markedPoints) {
+      const center = lifted(point);
+      for (let i = 0; i < 24; i++)
+        for (const a of [i, i + 1])
+          points.push(
+            center
+              .clone()
+              .add(
+                new THREE.Vector3(
+                  Math.cos((a * Math.PI) / 12) * 0.055,
+                  0,
+                  Math.sin((a * Math.PI) / 12) * 0.055,
                 ),
-            );
-      }
+              ),
+          );
     }
     // 观察段顶点数量不同，替换缓冲前释放旧 GPU 数据，避免残留上段线条。
     this.geometry.dispose();
