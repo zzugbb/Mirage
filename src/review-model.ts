@@ -403,8 +403,9 @@ function reviewInteractionTransition(
         target.id !== rackForDevice(current.deviceId).id) ||
       target.kind === "room" ||
       target.kind === "facility";
+    const targetPdu = pduById(target.id);
     const targetRack =
-      pduById(target.id)?.rackId ??
+      targetPdu?.rackId ??
       (target.kind === "rack"
         ? target.id
         : target.kind === "device"
@@ -416,7 +417,9 @@ function reviewInteractionTransition(
       elsewhere &&
       (current.level === "device" ||
         (current.level === "rack" &&
-          (current.trayExtended || (current.rearDoorOpen && leavesRack))))
+          (current.trayExtended ||
+            (leavesRack &&
+              (current.rearDoorOpen || (targetPdu && current.doorOpen))))))
     ) {
       scene =
         current.level === "device"
@@ -429,8 +432,8 @@ function reviewInteractionTransition(
             };
       return { ...state, scene, selectedId: action.id, pendingId: action.id };
     }
-    if (pduById(target.id)) {
-      const pdu = pduById(target.id)!;
+    if (targetPdu) {
+      const pdu = targetPdu;
       if (
         current.level !== "rack" ||
         rackForDevice(current.deviceId).id !== pdu.rackId

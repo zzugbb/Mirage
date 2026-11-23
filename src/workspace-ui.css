@@ -7793,3 +7793,39 @@
   color: var(--study-muted);
   margin-top: 5px;
 }
+
+.chassis-door-gap {
+  border-block-start: 1px solid #34454f;
+  padding-block: 7px;
+}
+.chassis-door-gap summary {
+  cursor: pointer;
+  font-size: 12px;
+}
+.chassis-door-gap label,
+.chassis-door-gap button {
+  margin-top: 6px;
+}
+.chassis-gap-plan {
+  display: grid;
+  grid-template-columns: 88px 1fr;
+  align-items: center;
+  gap: 8px;
+}
+.chassis-gap-plan > div {
+  display: grid;
+  gap: 2px;
+}
+.chassis-gap-plan svg {
+  width: 100%;
+}
+.chassis-gap-plan b {
+  font-size: 16px;
+  margin-top: 8px;
+}
+.chassis-gap-plan strong:last-of-type {
+  margin-top: 8px;
+}
+.chassis-door-gap small {
+  display: block;
+}

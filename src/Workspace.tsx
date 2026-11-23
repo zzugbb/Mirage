@@ -21,6 +21,7 @@ import {
   frontServiceDevices,
   type FrontServiceView,
 } from "./front-service";
+import type { ChassisDoorSelection } from "./components/ChassisDoorGap";
 import { FrontServiceDetails } from "./components/FrontServiceDetails";
 import { grilleDoorSweep } from "./grille-door-sweep";
 import { AisleDoorDetails } from "./components/AisleDoorDetails";
@@ -1594,8 +1595,10 @@ export function Workspace() {
   const [aisleVisit, setAisleVisit] = useState<{
     aisle: MaintenanceAisle;
     service?: MaintenanceAisle;
+    openPduOnArrival?: string;
     frontService?: MaintenanceAisle["front"];
     frontView?: FrontServiceView;
+    doorSelection?: ChassisDoorSelection;
     layer: typeof layer;
     metric: "power" | "temperature";
     resourceQuery: string;
@@ -3373,7 +3376,15 @@ export function Workspace() {
       pduById(id)?.rackId !== aisle.rear.rackId
     )
       return;
-    setAisleVisit({ ...aisleVisit, service: aisle });
+    const crossingRacks =
+      state.level === "rack" &&
+      rackForDevice(state.deviceId).id !== aisle.rear.rackId;
+    setAisleVisit({
+      ...aisleVisit,
+      frontService: undefined,
+      service: aisle,
+      openPduOnArrival: crossingRacks ? id : undefined,
+    });
     if (state.level === "room") {
       setQuery("");
       setFilter("all");
@@ -3382,10 +3393,23 @@ export function Workspace() {
     if (selected !== id || state.level !== "rack") focus(id);
     control({ type: "layer", layer: "power" });
     control({ type: "analysis", value: false });
-    dispatch({ type: "rear-door", open: true });
+    if (!crossingRacks) dispatch({ type: "rear-door", open: true });
     setPduInspection({ pduId: id, outlet, query: "", scroll: 0 });
     setPowerLinkId(row.link?.id ?? null);
   };
+  useEffect(() => {
+    const target = aisleVisit?.openPduOnArrival;
+    if (!target || !ready) return;
+    setAisleVisit(
+      (visit) => visit && { ...visit, openPduOnArrival: undefined },
+    );
+    if (
+      selected === target &&
+      state.level === "rack" &&
+      rackForDevice(state.deviceId).id === aisleVisit.service?.rear.rackId
+    )
+      dispatch({ type: "rear-door", open: true });
+  }, [aisleVisit, ready, selected, state.level, state.deviceId, dispatch]);
   const returnToAisles = () => {
     if (!aisleVisit || !ready) return;
     setAisleReturning(true);
@@ -8241,6 +8265,11 @@ export function Workspace() {
             {frontService && !review.analysis && (
               <FrontServiceDetails
                 inspection={frontService}
+                doorSelection={aisleVisit?.doorSelection}
+                onDoorSelection={(doorSelection) =>
+                  setAisleVisit((visit) => visit && { ...visit, doorSelection })
+                }
+                onLocatePdu={(aisle, id) => openRearSocket(aisle, id, 1)}
                 onView={(frontView) =>
                   setAisleVisit((visit) => visit && { ...visit, frontView })
                 }

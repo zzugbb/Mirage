@@ -1,3 +1,5 @@
+import { ChassisDoorGap, type ChassisDoorSelection } from "./ChassisDoorGap";
+import type { MaintenanceAisle } from "../maintenance";
 import { unitLabel } from "../catalog";
 import {
   frontServiceDevices,
@@ -11,6 +13,9 @@ export function FrontServiceDetails({
   trayAvailable,
   doorOpen,
   onView,
+  onLocatePdu,
+  doorSelection,
+  onDoorSelection,
   onSelect,
   onExtract,
   onOpenDoor,
@@ -19,6 +24,9 @@ export function FrontServiceDetails({
   ready: boolean;
   trayAvailable: boolean;
   doorOpen: boolean;
+  doorSelection?: ChassisDoorSelection;
+  onDoorSelection: (value: ChassisDoorSelection) => void;
+  onLocatePdu: (aisle: MaintenanceAisle, id: string) => void;
   onView: (view: FrontServiceView) => void;
   onSelect: (id: string) => void;
   onExtract: () => void;
@@ -95,6 +103,13 @@ export function FrontServiceDetails({
           {offset ? "推回安装位" : "沿导轨抽出"}
         </button>
       )}
+      <ChassisDoorGap
+        inspection={inspection}
+        ready={ready}
+        selection={doorSelection}
+        onChange={onDoorSelection}
+        onLocate={onLocatePdu}
+      />
     </section>
   );
 }
