@@ -40,6 +40,8 @@ import {
   type MaintenanceView,
 } from "../maintenance-view.ts";
 import {
+  crossingDirection,
+  crossingObjectIds,
   crossingViewFrame,
   type FixtureCrossing,
 } from "../fixture-crossing.ts";
@@ -1230,7 +1232,11 @@ export class SceneEngine {
     this.invalidate();
   }
   observeCrossing(pair: FixtureCrossing) {
-    if (this.state.level !== "room" || this.moving) return;
+    if (
+      this.state.level !== "room" ||
+      (this.moving && !this.crossingObservation)
+    )
+      return;
     this.clearMaintenanceView();
     this.clearLeakView();
     this.clearEntranceView();
@@ -1265,9 +1271,7 @@ export class SceneEngine {
       width,
       height,
       rect,
-      this.crossingObservation.pair.kind === "smoke-tray"
-        ? new THREE.Vector3(0.85, -0.34, -0.9)
-        : undefined,
+      crossingDirection(this.crossingObservation.pair),
     );
     this.targetPosition.copy(fit.position);
     this.targetLook.copy(fit.target);
@@ -3238,15 +3242,14 @@ export class SceneEngine {
           : this.leakObservation
             ? this.models.fixtures.get(leakDetection.controllerId)
             : this.crossingObservation
-              ? [
-                  this.crossingObservation.pair.upper.id,
-                  this.crossingObservation.pair.lower.id,
-                ].flatMap((id) => {
-                  const object =
-                    this.models.fixtures.get(id) ??
-                    this.models.facilities.get(id);
-                  return object ? [object] : [];
-                })
+              ? crossingObjectIds(this.crossingObservation.pair).flatMap(
+                  (id) => {
+                    const object =
+                      this.models.fixtures.get(id) ??
+                      this.models.facilities.get(id);
+                    return object ? [object] : [];
+                  },
+                )
               : selectedFixture &&
                   !this.airflowObservation &&
                   !this.sliceObservation &&

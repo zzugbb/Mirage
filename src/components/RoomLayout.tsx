@@ -118,9 +118,17 @@ export function RoomLayout({
         if (entry && !visible(button) && visible(entry)) button = entry;
       }
       button?.focus({ preventScroll: true });
-      (button?.closest("[data-layout-device-row]") ?? button)?.scrollIntoView({
-        block: "nearest",
-      });
+      const rect = button?.getBoundingClientRect();
+      const viewport = host.current.getBoundingClientRect();
+      const crossingVisible =
+        scope === "ceiling" &&
+        rect &&
+        rect.bottom > viewport.top &&
+        rect.top < viewport.bottom;
+      if (!crossingVisible)
+        (button?.closest("[data-layout-device-row]") ?? button)?.scrollIntoView(
+          { block: "nearest" },
+        );
     }
   }, [visible, restoreRevision, scroll]);
   useLayoutEffect(() => {

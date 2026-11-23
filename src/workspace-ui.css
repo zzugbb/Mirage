@@ -4568,10 +4568,48 @@
   display: grid;
   gap: 10px;
 }
+.lighting-round dl {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  font-size: 12px;
+}
+.lighting-round dl div,
+.lighting-round label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 5px;
+}
+.lighting-round dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+.lighting-round label {
+  margin-block: 5px;
+}
+.lighting-round select {
+  background: var(--raised);
+  color: inherit;
+  border: 1px solid var(--line);
+  padding: 4px;
+}
+.lighting-locations {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.lighting-round small {
+  color: #a5bac3;
+}
+.lighting-resume {
+  margin: 8px 22px;
+}
 .crossing-details > div {
   display: grid;
   gap: 4px;
 }
+.lighting-resume button,
 .crossing-details button,
 .crossing-scene-key button {
   cursor: pointer;

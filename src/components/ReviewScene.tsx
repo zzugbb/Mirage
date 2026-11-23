@@ -48,7 +48,11 @@ import {
   type EnvironmentPair,
 } from "../environment-pair";
 import type { EnvironmentMetric } from "../environment-monitoring";
-import type { FixtureCrossing, CrossingViewCommand } from "../fixture-crossing";
+import {
+  crossingObjectIds,
+  type FixtureCrossing,
+  type CrossingViewCommand,
+} from "../fixture-crossing";
 import { CrossingGeometry } from "../scene/fixture-crossing";
 import {
   focusedPowerScene,
@@ -517,16 +521,17 @@ export function ReviewScene({
     }
   }, [state.level, frameRoomAirflow, airflow, airflowWorkspace]);
   const flowView = airflowWorkspace.view;
-  const serviceStage =
-    coolingRangeObservation &&
-    !!flowView &&
+  const localCutaway =
     state.level === "room" &&
-    layer === "airflow";
+    ((coolingRangeObservation && !!flowView && layer === "airflow") ||
+      (layer === "overview" &&
+        (crossing?.kind === "lighting-round" ||
+          crossing?.kind === "light-tray")));
   const [stageCutaway, setStageCutaway] = useState(true);
   useEffect(() => {
-    if (!serviceStage) setStageCutaway(true);
-  }, [serviceStage]);
-  const shellCutaway = serviceStage ? stageCutaway : cutaway;
+    if (!localCutaway) setStageCutaway(true);
+  }, [localCutaway]);
+  const shellCutaway = localCutaway ? stageCutaway : cutaway;
   useEffect(() => {
     if (!flowView) return;
     const legend = airflowWorkspace.panel.current?.closest(".review-legend");
@@ -1474,7 +1479,7 @@ export function ReviewScene({
       crossing &&
       (layer !== "overview" ||
         state.level !== "room" ||
-        ![crossing.upper.id, crossing.lower.id].includes(selectedId))
+        !crossingObjectIds(crossing).includes(selectedId))
     )
       engine.current?.clearCrossingView();
   }, [crossing, layer, state.level, selectedId]);
@@ -2051,6 +2056,9 @@ export function ReviewScene({
               hidden
               aria-hidden="true"
               data-anchor={marker.id}
+              data-hotspot={
+                crossing.kind === "lighting-round" ? "center" : undefined
+              }
               data-anchor-kind="position"
               data-anchor-position={marker.point.toArray().join(",")}
               className="review-flow-anchor review-crossing-anchor"
@@ -2458,7 +2466,9 @@ export function ReviewScene({
               <span>
                 {crossing.kind === "smoke-tray"
                   ? `水平间距 ${crossing.horizontal.toFixed(2)}`
-                  : `表面高差 ${Math.abs(crossing.difference).toFixed(2)}`}{" "}
+                  : crossing.kind === "lighting-round"
+                    ? `沿桥架 X 向间距 ${Math.abs(crossing.alongX).toFixed(2)}`
+                    : `表面高差 ${Math.abs(crossing.difference).toFixed(2)}`}{" "}
                 m · 配置
               </span>
               <button disabled={!sceneSettled} onClick={onReturnCrossing}>
@@ -3223,12 +3233,12 @@ export function ReviewScene({
                     checked={shellCutaway}
                     disabled={state.level !== "room"}
                     onChange={(e) =>
-                      serviceStage
+                      localCutaway
                         ? setStageCutaway(e.target.checked)
                         : setCutaway(e.target.checked)
                     }
                   />
-                  {serviceStage ? "观察段建筑剖切" : "自动建筑剖切"}
+                  {localCutaway ? "观察段建筑剖切" : "自动建筑剖切"}
                 </label>
                 <label>
                   <input

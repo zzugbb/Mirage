@@ -174,7 +174,9 @@ import {
 } from "./environment-pair";
 import type { EnvironmentMetric } from "./environment-monitoring";
 import { EnvironmentPairAnalysis } from "./components/EnvironmentPairAnalysis";
+import { LightingRoundDetails } from "./components/LightingRoundDetails";
 import {
+  lightingRound,
   fixtureCrossing,
   smokeTrayPlacement,
   type FixtureCrossing,
@@ -243,7 +245,7 @@ import { RackInstallation } from "./components/RackInstallation";
 import { rackBlankingUnits, unitRanges } from "./rack-blanking";
 import { fixtureById } from "./fixtures";
 import { powerContextIncludes, powerLinkById } from "./power-trace";
-import { rackTrayRelations } from "./cable-trays";
+import { rackTrayRelations, trayRelations } from "./cable-trays";
 import {
   isLeakFixture,
   leakRelations,
@@ -5278,7 +5280,10 @@ export function Workspace() {
                 if (!point || !ready) return;
                 const pair = fixtureCrossing(point.lightId, point.trayId);
                 if (!pair) return;
-                if (crossing?.id !== id || layoutVisit?.crossing?.id !== id)
+                if (
+                  layoutVisit?.crossing?.id !== id ||
+                  layoutVisit.query !== layoutQuery
+                )
                   setLayoutVisit({
                     id: point.lightId,
                     crossing: point,
@@ -7637,52 +7642,121 @@ export function Workspace() {
                 </button>
               </div>
             )}
-            {crossing && (
-              <section
-                className="crossing-details"
-                aria-label={crossing.title}
-                tabIndex={-1}
-                onKeyDown={(event) => {
-                  if (event.key === "Escape" && ready) {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    requestCrossing(null);
-                  }
-                }}
-              >
-                <strong>{crossing.title} · 配置</strong>
-                <div>
-                  <button onClick={() => pick(crossing.upper.id)}>
-                    ① {crossing.upper.name}
-                  </button>
-                  <span>
-                    {crossing.upper.surface} {crossing.points[0].y.toFixed(3)} m
-                  </span>
-                </div>
-                <div>
-                  <button onClick={() => pick(crossing.lower.id)}>
-                    ② {crossing.lower.name}
-                  </button>
-                  <span>
-                    {crossing.lower.surface} {crossing.points[1].y.toFixed(3)} m
-                  </span>
-                </div>
-                <p>
-                  {crossing.upper.surface}比{crossing.lower.surface}
-                  {crossing.difference >= 0 ? "高" : "低"}{" "}
-                  <b>{Math.abs(crossing.difference).toFixed(2)} m</b>。
-                  {crossing.boundary}
-                </p>
-                {layoutVisit?.crossing?.id !== crossing.id && (
+            {!crossing &&
+              !review.analysis &&
+              state.level === "room" &&
+              layer === "overview" &&
+              layoutVisit?.crossing &&
+              (selected === layoutVisit.crossing.lightId ||
+                selected === layoutVisit.crossing.trayId ||
+                trayRelations(layoutVisit.crossing.trayId).some(
+                  (r) => r.id === selected,
+                )) && (
+                <div className="lighting-resume">
                   <button
                     disabled={!ready}
-                    onClick={() => requestCrossing(null)}
+                    onClick={() => {
+                      const origin = layoutVisit.crossing!;
+                      pick(origin.lightId);
+                      requestCrossing(
+                        fixtureCrossing(origin.lightId, origin.trayId),
+                      );
+                    }}
                   >
-                    ← 返回核对前视角
+                    核对{layoutVisit.crossing.name} ↗
                   </button>
-                )}
-              </section>
-            )}
+                </div>
+              )}
+            {crossing &&
+              !(review.analysis && crossing.kind === "lighting-round") && (
+                <section
+                  className="crossing-details"
+                  aria-label={crossing.title}
+                  tabIndex={-1}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape" && ready) {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      requestCrossing(null);
+                    }
+                  }}
+                >
+                  <strong>{crossing.title} · 配置</strong>
+                  {crossing.kind !== "lighting-round" && (
+                    <>
+                      <div>
+                        <button onClick={() => pick(crossing.upper.id)}>
+                          ① {crossing.upper.name}
+                        </button>
+                        <span>
+                          {crossing.upper.surface}{" "}
+                          {crossing.points[0].y.toFixed(3)} m
+                        </span>
+                      </div>
+                      <div>
+                        <button onClick={() => pick(crossing.lower.id)}>
+                          ② {crossing.lower.name}
+                        </button>
+                        <span>
+                          {crossing.lower.surface}{" "}
+                          {crossing.points[1].y.toFixed(3)} m
+                        </span>
+                      </div>
+                      <p>
+                        {crossing.upper.surface}比{crossing.lower.surface}
+                        {crossing.difference >= 0 ? "高" : "低"}{" "}
+                        <b>{Math.abs(crossing.difference).toFixed(2)} m</b>。
+                        {crossing.boundary}
+                      </p>
+                    </>
+                  )}
+                  {!review.analysis &&
+                    (crossing.kind === "lighting-round" ||
+                      crossing.kind === "light-tray") && (
+                      <LightingRoundDetails
+                        pair={crossing}
+                        ready={ready}
+                        onLocate={focus}
+                        onHistory={(id) => {
+                          focus(id);
+                          analyze();
+                        }}
+                        onRack={(id) => {
+                          const source =
+                            crossing.kind === "light-tray"
+                              ? crossing
+                              : crossing.source;
+                          const next = lightingRound(
+                            source.light.id,
+                            source.tray.id,
+                            id,
+                          );
+                          if (next) {
+                            pick(source.tray.id);
+                            requestCrossing(next);
+                          }
+                        }}
+                        onSource={() => {
+                          if (crossing.kind === "lighting-round") {
+                            pick(crossing.source.light.id);
+                            requestCrossing(crossing.source);
+                          }
+                        }}
+                      />
+                    )}
+                  {layoutVisit?.crossing?.id !==
+                    (crossing.kind === "lighting-round"
+                      ? crossing.source.id
+                      : crossing.id) && (
+                    <button
+                      disabled={!ready}
+                      onClick={() => requestCrossing(null)}
+                    >
+                      ← 返回核对前视角
+                    </button>
+                  )}
+                </section>
+              )}
             {review.analysis ? (
               <>
                 <div className="study-time-control">

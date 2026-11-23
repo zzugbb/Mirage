@@ -3,11 +3,7 @@ import type { EnvironmentRound } from "./environment-rounds.ts";
 import { rackById } from "./installation.ts";
 import { trayRow, trayRungBottom, trayRungXs } from "./cable-trays.ts";
 import { Vector3 } from "three";
-import {
-  lightTrayCrossings,
-  diffuserBottom,
-  lightProfile,
-} from "./ceiling-lights.ts";
+import { lightTrayCrossings, diffuserBottom } from "./ceiling-lights.ts";
 import { cableTraySettings } from "./cable-trays.ts";
 import { observationFrame, type FrameRect } from "./observation-frame.ts";
 
@@ -20,7 +16,7 @@ export function fixtureCrossing(first: string, second: string) {
   );
   if (!crossing) return rackTrayCrossing(first, second);
   const { light, tray, difference } = crossing;
-  const x = light.position[0] + lightProfile.diffuserWidth / 2;
+  const x = light.position[0];
   const z = tray.position[2] + cableTraySettings.railSpacing / 2;
   const upper = new Vector3(x, light.position[1] + diffuserBottom, z);
   const lower = new Vector3(x, upper.y - difference, z);
@@ -57,7 +53,8 @@ function rackTrayCrossing(first: string, second: string) {
       (a, b) => Math.abs(a - rack.position[0]) - Math.abs(b - rack.position[0]),
     );
   if (!xs.length) return null;
-  const z = tray.position[2] + cableTraySettings.rungSize[2] / 2;
+  // 取侧梁轴线下方的横档底面，避免把正好落在几何外缘的射线算到背景。
+  const z = tray.position[2] + cableTraySettings.railSpacing / 2;
   if (Math.abs(z - rack.position[2]) > definition.rack.size[2] / 2) return null;
   const upper = new Vector3(xs[0], trayRungBottom(tray.position[1]), z);
   const lower = new Vector3(
@@ -104,7 +101,41 @@ export function smokeTrayPlacement(round: EnvironmentRound) {
     ],
   };
 }
+/** 同一桥架上的两处独立取样，保留各自的水平位置与高度基准。 */
+export function lightingRound(lightId: string, trayId: string, rackId: string) {
+  const source = fixtureCrossing(lightId, trayId);
+  const cabinet = rackTrayCrossing(trayId, rackId);
+  if (source?.kind !== "light-tray" || source.light.id !== lightId || !cabinet)
+    return null;
+  const alongX = cabinet.points[0].x - source.points[1].x;
+  return {
+    ...cabinet,
+    kind: "lighting-round" as const,
+    title: "顶灯、桥架与柜顶",
+    id: source.id + ":" + rackId,
+    source,
+    alongX,
+    points: [...cabinet.points, ...source.points],
+    markers: [
+      {
+        id: "round-light",
+        title: `${source.light.name} · 高差 ${Math.abs(source.difference).toFixed(2)} m`,
+        point: source.points[0],
+      },
+      {
+        id: "round-roof",
+        title: `${cabinet.lower.name} · 高差 ${Math.abs(cabinet.difference).toFixed(2)} m`,
+        point: cabinet.points[1],
+      },
+    ],
+  };
+}
+export const crossingObjectIds = (pair: FixtureCrossing) =>
+  pair.kind === "lighting-round"
+    ? [pair.source.light.id, pair.upper.id, pair.lower.id]
+    : [pair.upper.id, pair.lower.id];
 export type FixtureCrossing =
+  | NonNullable<ReturnType<typeof lightingRound>>
   | NonNullable<ReturnType<typeof fixtureCrossing>>
   | ReturnType<typeof smokeTrayPlacement>;
 export type CrossingViewCommand = {
@@ -112,6 +143,15 @@ export type CrossingViewCommand = {
   pair: FixtureCrossing | null;
   dismiss?: boolean;
 };
+export function crossingDirection(pair: FixtureCrossing) {
+  if (pair.kind === "smoke-tray") return new Vector3(0.85, -0.34, -0.9);
+  if (pair.kind === "lighting-round" || pair.kind === "light-tray") {
+    const tray = pair.kind === "lighting-round" ? pair.source.tray : pair.tray;
+    // 从当前柜排的外侧看向桥架，保持少量俯角以兼容轨道相机的极角限制。
+    return new Vector3(0.25, 0.1, Math.sign(tray.position[2]) || 1);
+  }
+  return new Vector3(0.55, 0.08, 1);
+}
 export function crossingViewFrame(
   points: Vector3[],
   width: number,

@@ -7,7 +7,13 @@ import {
   lightProfile,
 } from "./ceiling-lights.ts";
 import { cableTraySettings } from "./cable-trays.ts";
-import { fixtureCrossing, crossingViewFrame } from "./fixture-crossing.ts";
+import { CrossingGeometry } from "./scene/fixture-crossing.ts";
+import {
+  lightingRound,
+  crossingObjectIds,
+  fixtureCrossing,
+  crossingViewFrame,
+} from "./fixture-crossing.ts";
 
 test("六处交叉双向共用配置表面，标记确实落在灯罩底面和侧梁顶面", () => {
   assert.equal(lightTrayCrossings.length, 6);
@@ -70,4 +76,44 @@ test("交叉表面在桌面侧栏组合画幅内，上下表面保留可辨间�
       assert.ok(Math.abs(positions[0] - positions[1]) > 35);
     }
   }
+});
+
+test("灯桥巡检只承接本排四柜，两处独立的高差括线跟随灯和所选横档", () => {
+  const drawing = new CrossingGeometry();
+  let count = 0;
+  for (const { light, tray } of lightTrayCrossings) {
+    const source = fixtureCrossing(light.id, tray.id)!;
+    for (const row of cableTraySettings.rows) {
+      for (const id of row.rackIds) {
+        const route = lightingRound(light.id, tray.id, id);
+        if (row.fixtureId !== tray.id) {
+          assert.equal(route, null);
+          continue;
+        }
+        assert.ok(route);
+        const rack = fixtureCrossing(tray.id, id)!;
+        assert.deepEqual(route.points, [...rack.points, ...source.points]);
+        assert.equal(route.alongX, rack.points[0].x - light.position[0]);
+        assert.deepEqual(crossingObjectIds(route), [light.id, tray.id, id]);
+        drawing.update(route);
+        const positions = drawing.geometry.getAttribute("position");
+        assert.equal(positions.count, 12);
+        for (const [i, j] of [
+          [0, 0],
+          [5, 1],
+          [6, 2],
+          [11, 3],
+        ]) {
+          assert.ok(Math.abs(positions.getX(i) - route.points[j].x) < 1e-6);
+          assert.ok(Math.abs(positions.getY(i) - route.points[j].y) < 1e-6);
+          assert.ok(Math.abs(positions.getZ(i) - route.points[j].z) < 1e-6);
+        }
+        count++;
+      }
+    }
+    drawing.update(source);
+    assert.equal(drawing.geometry.drawRange.count, 6);
+  }
+  assert.equal(count, 24);
+  drawing.dispose();
 });
