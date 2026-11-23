@@ -7374,3 +7374,32 @@
   justify-items: start;
   gap: 5px;
 }
+
+.feeder-comparison {
+  margin: 0 0 10px;
+}
+.feeder-reference-actions,
+.feeder-comparison dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+}
+.feeder-reference-actions button {
+  background: var(--raised);
+  border: 1px solid #3e5260;
+  border-radius: 4px;
+  padding: 4px 7px;
+  font: inherit;
+}
+.feeder-comparison label {
+  display: grid;
+  margin-top: 8px;
+}
+.feeder-comparison dl {
+  margin: 4px 0;
+  font-size: 11px;
+}
+.feeder-comparison dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}

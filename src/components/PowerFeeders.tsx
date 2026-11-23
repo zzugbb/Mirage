@@ -1,12 +1,16 @@
 import { useLayoutEffect, useMemo, useRef } from "react";
 import { pdus, pduName, pduById, type PowerLink } from "../power-config";
 import {
+  compareFeederInputs,
+  feederDifferenceText,
+  type FeederReference,
   feederConnections,
   feederInputSummary,
   feederInputText,
   type FeederSelection,
 } from "../power-feeders";
 
+import { scenario } from "../simulation";
 import type { SpatialReading } from "../spatial";
 import { sourceValue } from "../reading-sources";
 
@@ -14,6 +18,9 @@ export function PowerFeeders({
   selection,
   readings,
   time,
+  reference,
+  onReference,
+  onSeek,
   onChange,
   onTrace,
   ready,
@@ -25,6 +32,9 @@ export function PowerFeeders({
   selection: FeederSelection;
   readings: Map<string, SpatialReading>;
   time: number;
+  reference: FeederReference | null;
+  onReference: (reference: FeederReference | null) => void;
+  onSeek: (time: number) => void;
   onChange: (value: FeederSelection) => void;
   onTrace: (link: PowerLink, fromName: boolean) => void;
   ready: boolean;
@@ -39,6 +49,12 @@ export function PowerFeeders({
     () => feederInputSummary(result.members, readings),
     [result, readings],
   );
+  const baseline = useMemo(
+    () => reference && feederInputSummary(result.members, reference.readings),
+    [reference, result],
+  );
+  const comparison = baseline && compareFeederInputs(baseline, summary);
+  const pinButton = useRef<HTMLButtonElement>(null);
   const host = useRef<HTMLDivElement>(null);
   const restorePending = useRef(true);
   useLayoutEffect(() => {
@@ -157,6 +173,68 @@ export function PowerFeeders({
           </small>
           <small>按所选范围逐台计入，查找只筛名单。回路未计量。</small>
         </section>
+        <section
+          className="feeder-comparison"
+          aria-label="出线整机输入时刻对照"
+        >
+          <div className="feeder-reference-actions">
+            <button
+              ref={pinButton}
+              onClick={() => onReference({ time, readings })}
+            >
+              {reference ? "改用当前时刻为基准" : "固定当前时刻对照"}
+            </button>
+            {reference && (
+              <button
+                onClick={() => {
+                  onReference(null);
+                  pinButton.current?.focus({ preventScroll: true });
+                }}
+              >
+                结束对照
+              </button>
+            )}
+          </div>
+          {reference && baseline && comparison && (
+            <>
+              <label>
+                基准 {reference.time} 秒 → 当前 {time} 秒
+                <input
+                  aria-label="出线对照回看时刻"
+                  type="range"
+                  min="0"
+                  max={scenario.duration}
+                  value={time}
+                  onChange={(e) => onSeek(Number(e.target.value))}
+                />
+              </label>
+              <dl>
+                <div>
+                  <dt>
+                    基准合计 · {baseline.coverage}/{baseline.count} 台
+                  </dt>
+                  <dd>{sourceValue(baseline.total, "power")}</dd>
+                </div>
+                <div>
+                  <dt>合计差（当前 − 基准）</dt>
+                  <dd>{feederDifferenceText(comparison.difference)}</dd>
+                </div>
+                <div>
+                  <dt>共同有效设备变化 · {comparison.sharedCount} 台</dt>
+                  <dd>{feederDifferenceText(comparison.sharedDelta)}</dd>
+                </div>
+                <div>
+                  <dt>仅当前有效 · {comparison.currentOnlyCount} 台计入</dt>
+                  <dd>{sourceValue(comparison.currentOnlyWatts, "power")}</dd>
+                </div>
+                <div>
+                  <dt>仅基准有效 · {comparison.baselineOnlyCount} 台移出</dt>
+                  <dd>{sourceValue(comparison.baselineOnlyWatts, "power")}</dd>
+                </div>
+              </dl>
+            </>
+          )}
+        </section>
         <input
           aria-label="出线核查查找设备"
           placeholder="查找机柜或设备编号"
@@ -170,7 +248,12 @@ export function PowerFeeders({
               className="feeder-device-name"
               data-feeder-key={device.id}
               aria-label={`核对 ${device.name} 的配电出线`}
-              aria-describedby={"feeder-watts-" + device.id}
+              aria-describedby={[
+                "feeder-watts-" + device.id,
+                baseline && "feeder-prior-" + device.id,
+              ]
+                .filter(Boolean)
+                .join(" ")}
               aria-pressed={selected === device.id}
               disabled={!ready}
               onClick={() => visit(links[0], true)}
@@ -185,6 +268,11 @@ export function PowerFeeders({
               <small>
                 {rack.name} · {units}
               </small>
+              {baseline && (
+                <small id={"feeder-prior-" + device.id}>
+                  基准 {feederInputText(baseline.byDevice.get(device.id)!)}
+                </small>
+              )}
             </button>
             {links.map((link) => (
               <button

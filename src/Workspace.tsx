@@ -76,7 +76,11 @@ import {
 } from "./components/SmokeInspection";
 import { isSmokeFixture } from "./smoke-inspection";
 import { PowerFeeders } from "./components/PowerFeeders";
-import { initialFeeders, type FeederSelection } from "./power-feeders";
+import {
+  initialFeeders,
+  type FeederReference,
+  type FeederSelection,
+} from "./power-feeders";
 import { PowerOverview } from "./components/PowerOverview";
 import {
   powerOverviewIncludes,
@@ -1273,6 +1277,11 @@ export function Workspace() {
   const [smokeReturning, setSmokeReturning] = useState(false);
   const [smokeRestore, setSmokeRestore] = useState(false);
   const [feeders, setFeeders] = useState(initialFeeders);
+  const [feederReference, setFeederReference] =
+    useState<FeederReference | null>(null);
+  useEffect(() => {
+    setFeederReference(null);
+  }, [state.replayCycle]);
   const feederScroll = useRef(0);
   const focusFeederRoute = useRef(false);
   const [feederRestore, setFeederRestore] = useState<string | null>(null);
@@ -4430,6 +4439,7 @@ export function Workspace() {
     setPowerOrder("budget");
     setPowerRack("rack-a01");
     setFeeders(initialFeeders());
+    setFeederReference(null);
     setFeederRestore(null);
     feederScroll.current = 0;
     setPowerQuery("");
@@ -5593,6 +5603,9 @@ export function Workspace() {
             </section>
           ) : state.level === "room" && navigationView === "feeders" ? (
             <PowerFeeders
+              reference={feederReference}
+              onReference={setFeederReference}
+              onSeek={(time) => dispatch({ type: "seek", time })}
               selection={feeders}
               readings={spatial.readings}
               time={state.time}

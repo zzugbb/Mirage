@@ -7,6 +7,8 @@ import { pduOutlet } from "./pdu-outlets.ts";
 import { powerLinksForContext } from "./power-trace.ts";
 import { spatialSnapshot } from "./spatial.ts";
 import {
+  compareFeederInputs,
+  feederDifferenceText,
   feederInputSummary,
   feederInputText,
   feederConnections,
@@ -178,4 +180,56 @@ test("仅有停机零输入时合计为零，整组缺测保留空值，回看�
   assert.equal(recovered.byDevice.get("srv-59")?.value, 109.2);
   assert.equal(recovered.total?.toFixed(1), "2258.0");
   assert.equal(recovered.coverage, 12);
+});
+
+test("时刻对照把同批功耗变化与仅一端有效的整机输入分开，回看和前看符号相反", () => {
+  const { members } = feederConnections({
+    first: "pdu-b04-b",
+    second: "pdu-b04-a",
+    group: "both",
+    query: "SRV-63",
+  });
+  const earlier = feederInputSummary(members, spatialSnapshot(40).readings);
+  const later = feederInputSummary(members, spatialSnapshot(60).readings);
+  const back = compareFeederInputs(later, earlier);
+  assert.equal(back.sharedCount, 11);
+  assert.equal(feederDifferenceText(back.sharedDelta), "-6.7 W");
+  assert.equal(back.currentOnlyCount, 1);
+  assert.equal(back.currentOnlyWatts, 109.2);
+  assert.equal(back.baselineOnlyWatts, null);
+  assert.equal(feederDifferenceText(back.difference), "+102.5 W");
+  const forward = compareFeederInputs(earlier, later);
+  assert.equal(feederDifferenceText(forward.sharedDelta), "+6.7 W");
+  assert.equal(forward.baselineOnlyCount, 1);
+  assert.equal(forward.baselineOnlyWatts, 109.2);
+  assert.equal(forward.currentOnlyWatts, null);
+  assert.equal(feederDifferenceText(forward.difference), "-102.5 W");
+});
+
+test("覆盖数相同但有效设备互换时仍按身份配对，保留有效零值与整组空值", () => {
+  const { members } = feederConnections({
+    ...initialFeeders(),
+    first: "pdu-b04-b",
+  });
+  const at40 = spatialSnapshot(40).readings;
+  const zero = at40.get("srv-63")!,
+    active = at40.get("srv-59")!;
+  const zeros = feederInputSummary(members, new Map([[zero.id, zero]]));
+  const watts = feederInputSummary(members, new Map([[active.id, active]]));
+  const empty = feederInputSummary(members, new Map());
+  const swapped = compareFeederInputs(zeros, watts);
+  assert.deepEqual(swapped, {
+    sharedCount: 0,
+    sharedDelta: null,
+    currentOnlyCount: 1,
+    currentOnlyWatts: 109.2,
+    baselineOnlyCount: 1,
+    baselineOnlyWatts: 0,
+    difference: 109.2,
+  });
+  assert.equal(compareFeederInputs(zeros, zeros).sharedDelta, 0);
+  assert.equal(compareFeederInputs(empty, zeros).difference, null);
+  assert.equal(compareFeederInputs(zeros, empty).baselineOnlyWatts, 0);
+  assert.equal(feederDifferenceText(-0.00000001), "0.0 W");
+  assert.equal(feederDifferenceText(null), "—");
 });

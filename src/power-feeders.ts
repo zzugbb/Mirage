@@ -103,3 +103,52 @@ export function feederInputText(
     sourceValue(row.value, "power") + (row.value === 0 ? " · 有效零值" : "")
   );
 }
+
+export type FeederReference = {
+  time: number;
+  readings: Map<string, SpatialReading>;
+};
+
+/** 在同一出线范围内按整机身份配对，两端各自的有效合计与共同有效设备的变化分开计算。 */
+export function compareFeederInputs(
+  baseline: ReturnType<typeof feederInputSummary>,
+  current: ReturnType<typeof feederInputSummary>,
+) {
+  let sharedCount = 0,
+    sharedDelta = 0;
+  let currentOnlyCount = 0,
+    currentOnlyWatts = 0;
+  let baselineOnlyCount = 0,
+    baselineOnlyWatts = 0;
+  for (const [id, row] of current.byDevice) {
+    const prior = baseline.byDevice.get(id)?.value ?? null;
+    if (prior !== null && row.value !== null) {
+      sharedCount++;
+      sharedDelta += row.value - prior;
+    } else if (row.value !== null) {
+      currentOnlyCount++;
+      currentOnlyWatts += row.value;
+    } else if (prior !== null) {
+      baselineOnlyCount++;
+      baselineOnlyWatts += prior;
+    }
+  }
+  return {
+    sharedCount,
+    sharedDelta: sharedCount ? sharedDelta : null,
+    currentOnlyCount,
+    currentOnlyWatts: currentOnlyCount ? currentOnlyWatts : null,
+    baselineOnlyCount,
+    baselineOnlyWatts: baselineOnlyCount ? baselineOnlyWatts : null,
+    difference:
+      current.total !== null && baseline.total !== null
+        ? current.total - baseline.total
+        : null,
+  };
+}
+
+export function feederDifferenceText(value: number | null) {
+  if (value === null) return "—";
+  const rounded = Number(value.toFixed(1));
+  return (rounded > 0 ? "+" : "") + sourceValue(rounded, "power");
+}
