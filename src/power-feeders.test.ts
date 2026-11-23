@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { pdus, powerLinks } from "./power-config.ts";
+import { pdus, powerLinks, powerSettings, pduById } from "./power-config.ts";
+import { createReview, reviewTransition } from "./review-model.ts";
+import { powerScene } from "./power-paths.ts";
+import { pduOutlet } from "./pdu-outlets.ts";
+import { powerLinksForContext } from "./power-trace.ts";
 import { feederConnections, initialFeeders } from "./power-feeders.ts";
 
 test("逐条出线核查覆盖八柜全部登记输入，保留配置插座与安装位", () => {
@@ -70,4 +74,47 @@ test("跨柜两路保留各自范围，空交集与空查找不影响配置总�
   const empty = feederConnections({ ...pair, query: "STO-99" });
   assert.deepEqual(empty.matching, []);
   assert.equal(empty.devices, 20);
+});
+
+test("从任一出线设备行保持原支路，可在柜前换到本机另一出线并定位实际插座", () => {
+  const room = reviewTransition(createReview(), {
+    type: "focus-resource",
+    id: powerSettings.sourceId,
+  });
+  for (const feeder of pdus) {
+    for (const { device, links } of feederConnections({
+      ...initialFeeders(),
+      first: feeder.id,
+    }).matching) {
+      assert.equal(links[0].pduId, feeder.id);
+      const branches = powerLinksForContext(device.id, device.id);
+      const origin = powerScene(
+        room.scene,
+        powerSettings.sourceId,
+        links[0].id,
+      )!.labels[0];
+      for (const branch of branches) {
+        const pdu = pduById(branch.pduId)!;
+        const source = powerScene(
+          room.scene,
+          powerSettings.sourceId,
+          branch.id,
+        )!;
+        assert.equal(source.deviceId, device.id);
+        assert.equal(source.labels[0].title, `逻辑出线 ${pdu.sourcePort}`);
+        assert.deepEqual(source.labels[0].point, origin.point);
+        const atPdu = reviewTransition(room, {
+          type: "focus-resource",
+          id: pdu.id,
+        });
+        assert.equal(atPdu.scene.level, "rack");
+        assert.equal(atPdu.selectedId, pdu.id);
+        assert.equal(pduOutlet(pdu.id, branch.outlet)?.link?.id, branch.id);
+        assert.equal(
+          powerScene(atPdu.scene, pdu.id, branch.id)?.traceId,
+          branch.id,
+        );
+      }
+    }
+  }
 });

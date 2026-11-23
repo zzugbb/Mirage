@@ -1189,6 +1189,7 @@ export function Workspace() {
   const [smokeRestore, setSmokeRestore] = useState(false);
   const [feeders, setFeeders] = useState(initialFeeders);
   const feederScroll = useRef(0);
+  const focusFeederRoute = useRef(false);
   const [feederRestore, setFeederRestore] = useState<string | null>(null);
   const [powerRack, setPowerRack] = useState("rack-a01");
   const selectedRackId = rackById(selected)?.id ?? deviceById(selected)?.rackId;
@@ -1205,7 +1206,13 @@ export function Workspace() {
   const [powerOverviewVisit, setPowerOverviewVisit] = useState<{
     camera: TaskViewMemory | null;
     listQuery: string;
-    feeder?: { selection: FeederSelection; linkId: string; scroll: number };
+    feeder?: {
+      selection: FeederSelection;
+      inspection: PduInspection | null;
+      linkId: string;
+      focusKey: string;
+      scroll: number;
+    };
     listFilter: PowerOverviewFilter;
     scope: PowerOverviewScope;
     order: PowerOverviewOrder;
@@ -2031,7 +2038,8 @@ export function Workspace() {
     if (origin) {
       setFeeders(origin.selection);
       feederScroll.current = origin.scroll;
-      setFeederRestore(origin.linkId);
+      setPduInspection(origin.inspection);
+      setFeederRestore(origin.focusKey);
       setPowerLinkId(origin.linkId);
     }
     setPowerQuery(powerOverviewVisit.listQuery);
@@ -2286,6 +2294,26 @@ export function Workspace() {
     return () => cancelAnimationFrame(frame);
   }, [ready, selected, isolatedPartId]);
 
+  useEffect(() => {
+    if (
+      !focusFeederRoute.current ||
+      selected !== powerSettings.sourceId ||
+      !ready ||
+      powerViewPaired ||
+      !activePowerLink
+    )
+      return;
+    const route = inspectorRef.current?.querySelector<HTMLElement>(
+      ".power-feeder-route",
+    );
+    const button = route?.querySelector<HTMLButtonElement>(
+      "[aria-pressed='true']",
+    );
+    if (!button) return;
+    focusFeederRoute.current = false;
+    route?.scrollIntoView({ block: "nearest" });
+    button.focus({ preventScroll: true });
+  }, [selected, ready, powerViewPaired, activePowerLink]);
   useEffect(() => {
     if (!pduReturning) return;
     const cancel = () => setPduReturning(false);
@@ -2955,6 +2983,10 @@ export function Workspace() {
       query: layoutQuery,
       origin: captureLayoutOrigin(),
       resourceList: { query, filter, scroll },
+      power:
+        id === powerSettings.sourceId
+          ? { linkId: powerLinkId, inspection: pduInspection }
+          : undefined,
     });
     setLayoutReturning(false);
     setOpenRound(null);
@@ -3110,7 +3142,7 @@ export function Workspace() {
   };
   const inspectPowerOverview = (
     id: string,
-    action: "installation" | "internal" | "analysis" | "details",
+    action: "installation" | "internal" | "analysis" | "details" | "feeder",
     feederLinkId?: string,
   ) => {
     if (!ready) return;
@@ -3122,7 +3154,9 @@ export function Workspace() {
             feeder: feederLinkId
               ? {
                   selection: feeders,
+                  inspection: pduInspection,
                   linkId: feederLinkId,
+                  focusKey: action === "feeder" ? id : feederLinkId,
                   scroll: feederScroll.current,
                 }
               : undefined,
@@ -3141,7 +3175,11 @@ export function Workspace() {
     setPowerRestore(0);
     control({ type: "analysis", value: false });
     setMetric("power");
-    if (action === "details" || action === "analysis") {
+    if (action === "feeder") {
+      focusFeederRoute.current = true;
+      setFeederRestore(null);
+      focus(powerSettings.sourceId);
+    } else if (action === "details" || action === "analysis") {
       pick(id);
       if (action === "analysis") analyze();
     } else {
@@ -4428,6 +4466,10 @@ export function Workspace() {
                       setAirflowVisit(null);
                       setAirflowResponse(null);
                     }
+                    if (layoutVisit.id === powerSettings.sourceId) {
+                      setPowerOverviewVisit(null);
+                      setFeederRestore(null);
+                    }
                     // 先退出当前设施核对，再恢复布置图选择。
                     if (
                       state.level !== "room" ||
@@ -5104,7 +5146,10 @@ export function Workspace() {
               visible={nav}
               ready={ready}
               scroll={feederScroll}
-              restoreLink={feederRestore}
+              restoreKey={feederRestore}
+              selected={
+                powerOverviewVisit?.feeder ? powerOverviewVisit.id : selected
+              }
               onChange={(next) => {
                 if (
                   next.first !== feeders.first ||
@@ -5120,8 +5165,12 @@ export function Workspace() {
                 setFeederRestore(null);
                 setFeeders(next);
               }}
-              onTrace={(link) => {
-                inspectPowerOverview(link.deviceId, "installation", link.id);
+              onTrace={(link, fromName) => {
+                inspectPowerOverview(
+                  link.deviceId,
+                  fromName ? "feeder" : "installation",
+                  link.id,
+                );
                 setPowerLinkId(link.id);
               }}
             />
@@ -5786,7 +5835,8 @@ export function Workspace() {
                                 if (
                                   roomResourceList &&
                                   (environmentRoundFor(row.id) ||
-                                    isCoolingSource(row.id))
+                                    isCoolingSource(row.id) ||
+                                    row.id === powerSettings.sourceId)
                                 ) {
                                   locateFacilityFromList(
                                     row.id,
@@ -8231,6 +8281,17 @@ export function Workspace() {
                           setPduInspection(visit);
                           if (visit.outlet === null) setPowerLinkId(null);
                         }}
+                        onLocateOutlet={(link) => {
+                          setPduReturning(true);
+                          focus(link.pduId);
+                          setPduInspection({
+                            pduId: link.pduId,
+                            outlet: link.outlet,
+                            query: "",
+                            scroll: 0,
+                          });
+                          setPowerLinkId(link.id);
+                        }}
                         onPduSelect={(pduId, outlet) => {
                           const row = pduOutlet(pduId, outlet);
                           if (!row) return;
@@ -8279,11 +8340,13 @@ export function Workspace() {
                         readings={spatial.readings}
                         ready={ready}
                         onSelect={(id) => pick(id)}
-                        onLocate={(id) =>
+                        onLocate={(id) => {
+                          if (id === powerSettings.sourceId && activePowerLink)
+                            focusFeederRoute.current = true;
                           focus(id, {
                             installation: entityById(id)?.kind === "device",
-                          })
-                        }
+                          });
+                        }}
                         onViewPower={
                           layer === "power" || state.level === "room"
                             ? undefined

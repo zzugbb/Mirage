@@ -1476,6 +1476,23 @@
     gap: 8px;
     padding-inline: 16px;
   }
+  .study-header:has(
+    .study-task-return ~ .study-task-return ~ .study-task-return
+  ) {
+    gap: 5px;
+    padding-inline: 12px;
+  }
+  .study-header:has(
+      .study-task-return ~ .study-task-return ~ .study-task-return
+    )
+    .study-task-return
+    button {
+    padding-inline: 5px;
+  }
+  .study-brand,
+  .workspace-shots > summary {
+    white-space: nowrap;
+  }
   .study-task-return ~ .study-task-return ~ .study-path {
     margin-left: 0;
     /* 两个返回入口并列时，从当前对象一端显示可滚动的空间路径。 */
@@ -6811,7 +6828,6 @@
   color: #b1c1ca;
 }
 .feeder-overview h3,
-.feeder-device > div,
 .feeder-device button {
   display: flex;
   align-items: baseline;
@@ -6857,11 +6873,17 @@
   margin-top: 6px;
   background: var(--raised);
 }
+.feeder-device .feeder-device-name {
+  margin-top: 0;
+  background: transparent;
+  text-align: left;
+}
 .feeder-device button b {
   color: #c7dce6;
   font-weight: 500;
 }
 
+.feeder-device button[aria-pressed="true"],
 .feeder-device button[aria-current="true"],
 .feeder-device button:focus-visible {
   border-color: #89b3ba;
@@ -7143,4 +7165,12 @@
   margin-bottom: 6px;
   border: 1px solid #46606b;
   border-radius: 4px;
+}
+
+.power-feeder-route {
+  display: grid;
+  gap: 8px;
+}
+.power-feeder-route small {
+  color: var(--study-muted);
 }

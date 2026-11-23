@@ -2985,6 +2985,18 @@ export function ReviewScene({
               {layer === "power" && supply && showSupply && (
                 <div className="power-scene-key" aria-label="供电路径示意">
                   <strong>{supply.caption}</strong>
+                  {selectedId === powerSettings.sourceId &&
+                    supply.traceId &&
+                    !powerViewActive && (
+                      <small>
+                        配电柜 ·{" "}
+                        {assets["power-01"] === "ready"
+                          ? "贡献模型外观"
+                          : assets["power-01"] === "failed"
+                            ? "加载失败 · 简化柜体"
+                            : "简化柜体"}
+                      </small>
+                    )}
                   {powerViewPoints(state, selectedId, supply.traceId).length ===
                     2 && (
                     <PowerViewActions

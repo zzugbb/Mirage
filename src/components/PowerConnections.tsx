@@ -13,6 +13,7 @@ import {
   powerSettings,
   inletPart,
   powerDeviceIds,
+  type PowerLink,
 } from "../power-config";
 import type { SpatialReading } from "../spatial";
 import { powerLinkById, powerTraceStops } from "../power-trace";
@@ -24,6 +25,7 @@ export function PowerConnections({
   pduInspection,
   onPduChange,
   onPduSelect,
+  onLocateOutlet,
   selectedId,
   readings,
   ready,
@@ -40,6 +42,7 @@ export function PowerConnections({
   paired: boolean;
   pduInspection: PduInspection | null;
   onPduChange: (visit: PduInspection) => void;
+  onLocateOutlet: (link: PowerLink) => void;
   onPduSelect: (pduId: string, outlet: number) => void;
   state: AppState;
   selectedId: string;
@@ -78,6 +81,9 @@ export function PowerConnections({
   );
   const stops = powerTraceStops(activeLinkId);
   const activeLink = powerLinkById(activeLinkId);
+  const deviceInputs = activeLink
+    ? powerLinks.filter((link) => link.deviceId === activeLink.deviceId)
+    : [];
   const canTrace = ready && !!powerScene(state, selectedId);
   return (
     <ConnectionSection
@@ -139,6 +145,12 @@ export function PowerConnections({
           >
             查看电源 {activeLink.inlet} ↗
           </button>
+          <button
+            disabled={!ready}
+            onClick={() => onLocate(powerSettings.sourceId)}
+          >
+            核对配电柜出线 {pduById(activeLink.pduId)!.sourcePort} ↗
+          </button>
           <small>输入端点为配置位置，整机功耗未分摊。</small>
         </section>
       )}
@@ -159,26 +171,65 @@ export function PowerConnections({
                 结束追踪
               </button>
             </header>
-            {activeLink && (
+            {activeLink && selectedId === powerSettings.sourceId && (
+              <section
+                className="power-feeder-route"
+                aria-label="设备出线与插座"
+              >
+                <strong>
+                  {deviceById(activeLink.deviceId)!.name} · 配电柜出线
+                </strong>
+                <div
+                  className="power-pair-inputs"
+                  role="group"
+                  aria-label="选择设备出线"
+                >
+                  {deviceInputs.map((link) => (
+                    <button
+                      key={link.id}
+                      disabled={!ready}
+                      aria-pressed={link.id === activeLink.id}
+                      onClick={() => onTrace(link.id)}
+                    >
+                      <b>
+                        {pduById(link.pduId)!.sourcePort} · 输入 {link.inlet}
+                      </b>
+                      <span>
+                        {pduName(link.pduId)} · 插座{" "}
+                        {String(link.outlet).padStart(2, "0")}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                <button
+                  disabled={!ready}
+                  onClick={() => onLocateOutlet(activeLink)}
+                >
+                  定位 {pduName(activeLink.pduId)} · 插座{" "}
+                  {String(activeLink.outlet).padStart(2, "0")} ↗
+                </button>
+                <small>配电柜共用一个出线示意位置，实体端子位置未配置。</small>
+              </section>
+            )}
+
+            {activeLink && selectedId !== powerSettings.sourceId && (
               <div
                 className="power-input-switch"
                 role="group"
                 aria-label="同一设备的供电输入"
               >
                 <span>{deviceById(activeLink.deviceId)!.name} 输入</span>
-                {powerLinks
-                  .filter((link) => link.deviceId === activeLink.deviceId)
-                  .map((link) => (
-                    <button
-                      key={link.id}
-                      disabled={!ready}
-                      aria-pressed={link.id === activeLinkId}
-                      aria-label={`查看 ${deviceById(link.deviceId)!.name} 输入 ${link.inlet}`}
-                      onClick={() => onTrace(link.id)}
-                    >
-                      {link.inlet} · {pduName(link.pduId)}
-                    </button>
-                  ))}
+                {deviceInputs.map((link) => (
+                  <button
+                    key={link.id}
+                    disabled={!ready}
+                    aria-pressed={link.id === activeLinkId}
+                    aria-label={`查看 ${deviceById(link.deviceId)!.name} 输入 ${link.inlet}`}
+                    onClick={() => onTrace(link.id)}
+                  >
+                    {link.inlet} · {pduName(link.pduId)}
+                  </button>
+                ))}
               </div>
             )}
             <ol>

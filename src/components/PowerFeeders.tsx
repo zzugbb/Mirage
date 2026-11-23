@@ -7,15 +7,17 @@ export function PowerFeeders({
   onChange,
   onTrace,
   ready,
-  restoreLink,
+  restoreKey,
+  selected,
   visible,
   scroll,
 }: {
   selection: FeederSelection;
   onChange: (value: FeederSelection) => void;
-  onTrace: (link: PowerLink) => void;
+  onTrace: (link: PowerLink, fromName: boolean) => void;
   ready: boolean;
-  restoreLink: string | null;
+  restoreKey: string | null;
+  selected: string;
   visible: boolean;
   scroll: React.RefObject<number>;
 }) {
@@ -25,24 +27,27 @@ export function PowerFeeders({
   const restorePending = useRef(true);
   useLayoutEffect(() => {
     restorePending.current = true;
-  }, [visible, restoreLink]);
+  }, [visible, restoreKey]);
   useLayoutEffect(() => {
     if (
       !ready ||
       !visible ||
       !host.current ||
-      !restoreLink ||
+      !restoreKey ||
       !restorePending.current
     )
       return;
     restorePending.current = false;
     host.current.scrollTop = scroll.current;
     const button = host.current.querySelector<HTMLButtonElement>(
-      `[data-feeder-link="${restoreLink}"]`,
+      `[data-feeder-key="${restoreKey}"]`,
     );
     button?.focus({ preventScroll: true });
-    button?.scrollIntoView({ block: "nearest" });
-  }, [restoreLink, visible, ready, scroll]);
+  }, [restoreKey, visible, ready, scroll]);
+  function visit(link: PowerLink, fromName: boolean) {
+    if (host.current) scroll.current = host.current.scrollTop;
+    onTrace(link, fromName);
+  }
   const options = (exclude?: string) =>
     pdus
       .filter((p) => p.id !== exclude)
@@ -131,23 +136,31 @@ export function PowerFeeders({
           value={query}
           onChange={(e) => onChange({ ...selection, query: e.target.value })}
         />
-        <p>点输入可进柜查看。出线与插座未计量，A/B 上游独立性待核实。</p>
+        <p>点设备名核对配电柜出线，点输入可直接进柜。</p>
         {result.matching.map(({ device, rack, units, links }) => (
           <div key={device.id} className="feeder-device">
-            <div>
+            <button
+              className="feeder-device-name"
+              data-feeder-key={device.id}
+              aria-label={`核对 ${device.name} 的配电出线`}
+              aria-pressed={selected === device.id}
+              disabled={!ready}
+              onClick={() => visit(links[0], true)}
+            >
               <strong>{device.name}</strong>
               <small>
                 {rack.name} · {units}
               </small>
-            </div>
+            </button>
             {links.map((link) => (
               <button
                 key={link.id}
                 data-feeder-link={link.id}
-                aria-current={restoreLink === link.id ? "true" : undefined}
+                data-feeder-key={link.id}
+                aria-current={restoreKey === link.id ? "true" : undefined}
                 disabled={!ready}
                 aria-label={`进柜查看 ${device.name} 输入 ${link.inlet}，${pduById(link.pduId)!.sourcePort} 插座 ${link.outlet}`}
-                onClick={() => onTrace(link)}
+                onClick={() => visit(link, false)}
               >
                 <span>
                   {pduById(link.pduId)!.sourcePort} · 插座{" "}
