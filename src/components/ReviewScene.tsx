@@ -797,6 +797,19 @@ export function ReviewScene({
   const areaLabels = useMemo(() => {
     if (frontService) {
       const { area, device, height, frontZ, offset } = frontService;
+      if (frontService.view === "chassis")
+        return [
+          {
+            id: "service-device-tail",
+            text: device.name + " · " + unitLabel(device.id) + " 尾端",
+            position: [area.bounds.maxX, height + 0.04, frontService.rearZ],
+          },
+          {
+            id: "service-rack-mouth",
+            text: "柜口基准",
+            position: [area.bounds.maxX, height - 0.13, area.bounds.minZ],
+          },
+        ];
       return [
         {
           id: "service-device-front",
@@ -1824,13 +1837,19 @@ export function ReviewScene({
     retry,
   ]);
   const frontArea = frontService?.area,
-    frontHeight = frontService?.height;
+    frontHeight = frontService?.height,
+    chassisDepth =
+      frontService?.view === "chassis" ? frontService.depth : undefined;
   useEffect(() => {
     if (!frontArea || frontHeight === undefined) return;
     setOrbit(false);
     setView("iso");
-    engine.current?.frameFrontService(frontArea, frontHeight);
-  }, [frontArea, frontHeight, state.focusRevision, retry]);
+    const active = engine.current;
+    active?.frameFrontService(frontArea, frontHeight, chassisDepth);
+    return () => {
+      if (active) active.frontServiceFrame = undefined;
+    };
+  }, [frontArea, frontHeight, chassisDepth, state.focusRevision, retry]);
   useEffect(() => {
     if (!serviceArea || hingeX === undefined) return;
     setOrbit(false);

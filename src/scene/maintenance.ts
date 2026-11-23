@@ -94,6 +94,7 @@ export class MaintenanceGeometry {
     new THREE.BufferGeometry(),
     new THREE.LineBasicMaterial({
       color: "#ffd38b",
+      transparent: true,
       toneMapped: false,
       depthWrite: false,
     }),
@@ -201,18 +202,36 @@ export class MaintenanceGeometry {
       new THREE.Vector3(x, y, z);
     const shoulder = point(side, height, frontZ),
       foot = point(side, y, frontZ);
-    this.frontRuler.geometry.setFromPoints([
-      point(x, height, frontZ),
-      shoulder,
-      shoulder,
-      foot,
-      foot,
-      point(side, y, end),
-      point(side - 0.06, y, frontZ),
-      point(side + 0.06, y, frontZ),
-      point(side - 0.06, y, end),
-      point(side + 0.06, y, end),
-    ]);
+    const { rearZ } = inspection;
+    const mouthZ = area.bounds.minZ;
+    // 在柜体外侧作纵向投影，后沿隐藏在柜内时仍可从柜侧读尺。
+    const points =
+      inspection.view === "chassis"
+        ? [
+            point(side, height, rearZ),
+            shoulder,
+            point(side, height - 0.04, rearZ),
+            point(side, height + 0.04, rearZ),
+            point(side, height - 0.04, frontZ),
+            point(side, height + 0.04, frontZ),
+            point(side, height - 0.13, mouthZ),
+            point(side, height + 0.09, mouthZ),
+            shoulder,
+            point(x, height, frontZ),
+          ]
+        : [
+            point(x, height, frontZ),
+            shoulder,
+            shoulder,
+            foot,
+            foot,
+            point(side, y, end),
+            point(side - 0.06, y, frontZ),
+            point(side + 0.06, y, frontZ),
+            point(side - 0.06, y, end),
+            point(side + 0.06, y, end),
+          ];
+    this.frontRuler.geometry.setFromPoints(points);
     this.frontRuler.geometry.computeBoundingSphere();
   }
   showDoorSweeps(

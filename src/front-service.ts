@@ -15,21 +15,28 @@ export function frontServiceDevices(area: MaintenanceArea) {
     .sort((a, b) => a.startUnit - b.startUnit);
 }
 
+export type FrontServiceView = "reserve" | "chassis";
+
 export function frontServiceInspection(
   area: MaintenanceArea,
   deviceId: string,
   extended: boolean,
+  view: FrontServiceView = "reserve",
 ) {
   const device = deviceById(deviceId),
     rack = rackById(area.rackId);
   if (!rack || area.kind !== "front" || device?.rackId !== rack.id) return null;
+  const model = modelForDevice(device.id);
   const travel =
-    modelForDevice(device.id).category === "switch"
-      ? 0
-      : definition.rack.motion.trayTravel;
+    model.category === "switch" ? 0 : definition.rack.motion.trayTravel;
   const offset = extended ? travel : 0;
   const frontZ = rack.position[2] + installedFrontZ + offset;
+  const rearZ = frontZ - model.depth;
   return {
+    view,
+    depth: model.depth,
+    rearZ,
+    tailInset: area.bounds.minZ - rearZ,
     area,
     device,
     travel,

@@ -1,4 +1,8 @@
-import { frontServiceInspection, frontServiceDevices } from "./front-service";
+import {
+  frontServiceInspection,
+  frontServiceDevices,
+  type FrontServiceView,
+} from "./front-service";
 import { FrontServiceDetails } from "./components/FrontServiceDetails";
 import { grilleDoorSweep } from "./grille-door-sweep";
 import { RearServiceDetails } from "./components/RearServiceDetails";
@@ -1445,6 +1449,7 @@ export function Workspace() {
     aisle: MaintenanceAisle;
     service?: MaintenanceAisle;
     frontService?: MaintenanceAisle["front"];
+    frontView?: FrontServiceView;
     layer: typeof layer;
     metric: "power" | "temperature";
     resourceQuery: string;
@@ -1469,10 +1474,12 @@ export function Workspace() {
             frontArea,
             selected,
             state.trayExtended && selected === state.deviceId,
+            aisleVisit?.frontView,
           )
         : null,
     [
       frontArea,
+      aisleVisit?.frontView,
       state.level,
       layer,
       state.deviceId,
@@ -7787,6 +7794,9 @@ export function Workspace() {
             {frontService && !review.analysis && (
               <FrontServiceDetails
                 inspection={frontService}
+                onView={(frontView) =>
+                  setAisleVisit((visit) => visit && { ...visit, frontView })
+                }
                 ready={ready}
                 trayAvailable={
                   !state.trayExtended || state.deviceId === selected

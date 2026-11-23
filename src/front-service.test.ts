@@ -57,3 +57,45 @@ test("柜前投影尺跟随安装高度及前沿，归位与退出不残留抽�
   assert.equal(overlay.frontRuler.visible, false);
   overlay.dispose();
 });
+
+test("柜侧投影在同一安装高度按机型深度区分尾端与柜口", () => {
+  const [aisle] = findMaintenanceAisles("B03");
+  const overlay = new MaintenanceGeometry();
+  for (const [id, depth, extendedInset] of [
+    ["srv-49", 0.9, 0.315],
+    ["srv-50", 0.72, 0.135],
+    ["sto-01", 0.756, 0.171],
+    ["sw-13", 0.45, 0.445],
+  ] as const) {
+    for (const extended of [false, true, false]) {
+      const check = frontServiceInspection(
+        aisle.front,
+        id,
+        extended,
+        "chassis",
+      )!;
+      assert.ok(
+        Math.abs(check.tailInset - (extended ? extendedInset : depth - 0.005)) <
+          1e-9,
+      );
+      overlay.showFrontService(check);
+      const points = overlay.frontRuler.geometry.getAttribute("position");
+      assert.ok(Math.abs(points.getZ(1) - points.getZ(0) - depth) < 1e-5);
+      assert.ok(
+        Math.abs(points.getZ(6) - points.getZ(0) - check.tailInset) < 1e-5,
+      );
+      assert.ok(Math.abs(points.getY(0) - check.height) < 1e-6);
+      assert.ok(Math.abs(points.getX(0) - aisle.front.bounds.maxX) < 1e-6);
+    }
+    overlay.showFrontService(frontServiceInspection(aisle.front, id, false));
+    assert.ok(
+      Math.abs(
+        overlay.frontRuler.geometry.getAttribute("position").getZ(5) -
+          aisle.front.bounds.maxZ,
+      ) < 1e-5,
+    );
+  }
+  overlay.showFrontService(null);
+  assert.equal(overlay.frontRuler.visible, false);
+  overlay.dispose();
+});

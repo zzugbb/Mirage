@@ -310,6 +310,11 @@ export class SceneEngine {
   currentView: View = "iso";
   currentFocus = false;
   comparedAisle?: MaintenanceAisle;
+  frontServiceFrame?: {
+    area: MaintenanceArea;
+    deviceY: number;
+    chassisDepth?: number;
+  };
   onAssets: (state: ModelLoadState) => void = () => {};
   assetLoader: ModelLoading;
 
@@ -1640,17 +1645,39 @@ export class SceneEngine {
     this.onMaintenanceView(inspection);
     this.frameMaintenance();
   }
-  frameFrontService(area: MaintenanceArea, deviceY: number) {
+  frameFrontService(
+    area: MaintenanceArea,
+    deviceY: number,
+    chassisDepth?: number,
+  ) {
+    this.frontServiceFrame = { area, deviceY, chassisDepth };
     const { width, height, rect } = this.observationViewport();
     const { minX, maxX, minZ, maxZ } = area.bounds;
-    const points = [minX, maxX].flatMap((x) => [
-      new THREE.Vector3(x, area.position[1], maxZ),
-      new THREE.Vector3(x, area.position[1], minZ),
-      new THREE.Vector3(x, Math.max(0.85, deviceY + 0.18), minZ),
-    ]);
+    const points =
+      chassisDepth !== undefined
+        ? [deviceY - 0.2, deviceY + 0.22].flatMap((y) => [
+            new THREE.Vector3(maxX, y, minZ - chassisDepth),
+            new THREE.Vector3(
+              maxX,
+              y,
+              minZ + definition.rack.motion.trayTravel,
+            ),
+            new THREE.Vector3(
+              area.position[0],
+              y,
+              minZ + definition.rack.motion.trayTravel,
+            ),
+          ])
+        : [minX, maxX].flatMap((x) => [
+            new THREE.Vector3(x, area.position[1], maxZ),
+            new THREE.Vector3(x, area.position[1], minZ),
+            new THREE.Vector3(x, Math.max(0.85, deviceY + 0.18), minZ),
+          ]);
     const fit = observationFrame(
       points,
-      new THREE.Vector3(0.78, 0.67, 1),
+      chassisDepth === undefined
+        ? new THREE.Vector3(0.78, 0.67, 1)
+        : new THREE.Vector3(1, 0.31, 0.46),
       width,
       height,
       rect,
@@ -1740,6 +1767,11 @@ export class SceneEngine {
     // 画布随容器布局，只调整绘图缓冲区，避免折叠侧栏时旧宽度撑出滚动条。
     this.renderer.setSize(width, height, false);
     this.pipeline.resize(width, height);
+    if (this.frontServiceFrame && this.state.level === "rack") {
+      const { area, deviceY, chassisDepth } = this.frontServiceFrame;
+      this.frameFrontService(area, deviceY, chassisDepth);
+      return;
+    }
     if (this.maintenanceObservation) {
       this.frameMaintenance();
       return;
@@ -3381,7 +3413,9 @@ export class SceneEngine {
     this.unitGuide.update(
       this.state,
       this.camera.position,
-      patchCutaway || this.presentation.pose.inspection > 0,
+      patchCutaway ||
+        this.presentation.pose.inspection > 0 ||
+        this.frontServiceFrame?.chassisDepth !== undefined,
       this.rangeObservation?.range ?? this.unitRange,
     );
     this.models.root.updateMatrixWorld(true);
