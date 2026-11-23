@@ -62,7 +62,7 @@ import {
   type PowerViewCommand,
 } from "../power-view";
 import { PowerViewActions } from "./PowerViewActions";
-import type { NetworkViewCommand } from "../network-view";
+import type { NetworkView, NetworkViewCommand } from "../network-view";
 import type { SliceViewCommand } from "../slice-view";
 import { SliceEvidenceGeometry } from "../scene/slice-evidence";
 import type { SliceDeviceInspection } from "../slice-device";
@@ -144,7 +144,11 @@ import { budgetPercent, budgetRatio, budgetStateText } from "../power-budget";
 import { alarmCurrentStatus } from "../alarm-queue";
 import { metricAttentionColor, qualityNames, signalStyles } from "../status";
 import { networkMarkers, networkLinkById, switchRole } from "../network";
-import { networkPatch } from "../network-patch";
+import {
+  networkPatch,
+  patchSections,
+  patchSectionOffsetMm,
+} from "../network-patch";
 import { NetworkGeometry } from "../scene/network";
 
 export function ReviewScene({
@@ -234,7 +238,7 @@ export function ReviewScene({
   onPowerViewChange,
   onPowerView,
   networkViewCommand,
-  networkViewActive,
+  networkView,
   onNetworkViewChange,
   onNetworkView,
   powerLinkId = null,
@@ -291,8 +295,8 @@ export function ReviewScene({
   onPowerViewChange: (active: boolean) => void;
   onPowerView: (action: PowerViewCommand["action"]) => void;
   networkViewCommand: NetworkViewCommand | null;
-  networkViewActive: boolean;
-  onNetworkViewChange: (active: boolean) => void;
+  networkView: NetworkView | null;
+  onNetworkViewChange: (view: NetworkView | null) => void;
   onNetworkView: (action: NetworkViewCommand["action"]) => void;
   sliceViewCommand: SliceViewCommand | null;
   slicePlaneActive: boolean;
@@ -676,6 +680,13 @@ export function ReviewScene({
     patch,
     isolatedPartId,
   ]);
+  const patchSection =
+    patch && networkView && networkView !== "observe" ? networkView : undefined;
+  const visibleNetworkMarkers = useMemo(() => {
+    if (!patchSection) return network;
+    if (patchSection === "side") return [];
+    return patchSection === "rear" ? network.slice(0, 1) : network.slice(1);
+  }, [network, patchSection]);
   const availableAisle = networkLinkId ? undefined : aisle;
   const rackAreas = useMemo(
     () =>
@@ -972,7 +983,7 @@ export function ReviewScene({
         callbacks.current.onLeakViewChange(null);
         callbacks.current.onCrossingChange(null);
         callbacks.current.onPowerViewChange(false);
-        callbacks.current.onNetworkViewChange(false);
+        callbacks.current.onNetworkViewChange(null);
         callbacks.current.onRangeViewChange(null, null);
         callbacks.current.onSlicePlaneChange(false);
         callbacks.current.onSliceViewChange(false);
@@ -1581,20 +1592,29 @@ export function ReviewScene({
       active.restoreNetworkView();
     } else if (layer === "overview") {
       setOrbit(false);
-      active.observeNetwork(selectedId, networkLinkId);
+      active.observeNetwork(
+        selectedId,
+        networkLinkId,
+        networkViewCommand.action,
+      );
     }
     setView(active.currentView);
   }, [networkViewCommand?.revision]);
   useEffect(() => {
-    networkGeometry.current?.update(network, patch, selectedId);
+    networkGeometry.current?.update(
+      visibleNetworkMarkers,
+      network.length ? patch : null,
+      selectedId,
+      patchSection,
+    );
     if (engine.current) engine.current.patchPoints = patch;
-  }, [network, patch, selectedId, retry]);
+  }, [network, visibleNetworkMarkers, patch, selectedId, patchSection, retry]);
   useEffect(() => {
     engine.current?.updateNetworkView(
       selectedId,
       layer === "overview" && !isolatedPartId ? networkLinkId : null,
     );
-  }, [network, layer, selectedId, isolatedPartId, shotRevision, retry]);
+  }, [network, patch, layer, selectedId, isolatedPartId, shotRevision, retry]);
   useEffect(() => {
     const active = engine.current;
     if (!active || !sliceViewCommand) return;
@@ -1777,7 +1797,7 @@ export function ReviewScene({
     (supplyLabels?.map((label) => label.id).join(":") ?? "") +
     (supply?.deviceId ?? "") +
     networkLinkId +
-    network.map((marker) => marker.id).join(":");
+    visibleNetworkMarkers.map((marker) => marker.id).join(":");
   useEffect(() => {
     const active = engine.current;
     const viewport = host.current?.parentElement;
@@ -2115,7 +2135,7 @@ export function ReviewScene({
               <b>{marker.title}</b>
             </div>
           ))}
-          {network.map((marker) => (
+          {visibleNetworkMarkers.map((marker) => (
             <div
               key={marker.id}
               hidden
@@ -2451,7 +2471,7 @@ export function ReviewScene({
             {supplyLabels?.map((label) => (
               <line key={label.id} data-flow-line={label.id} />
             ))}
-            {network.map((marker) => (
+            {visibleNetworkMarkers.map((marker) => (
               <line key={marker.id} data-flow-line={marker.id} />
             ))}
             {visibleAirflow?.routes.flatMap((route) =>
@@ -2544,6 +2564,33 @@ export function ReviewScene({
                     : "设备位置示意"}
               </small>
               {patch && <small>后门及右侧板剖示 · 虚线为遮挡段</small>}
+              {patch && networkView && (
+                <label className="network-patch-section">
+                  观察范围
+                  <select
+                    aria-label="柜内走线观察范围"
+                    disabled={!sceneSettled}
+                    value={networkView}
+                    onChange={(event) =>
+                      onNetworkView(event.target.value as NetworkView)
+                    }
+                  >
+                    <option value="observe">整条跳线</option>
+                    {Object.entries(patchSections).map(([id, section]) => (
+                      <option key={id} value={id}>
+                        {section.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              {patch && patchSection && (
+                <small>
+                  {patchSections[patchSection].measure}{" "}
+                  {patchSectionOffsetMm(patch, patchSection).toFixed(1)} mm ·
+                  示意投影
+                </small>
+              )}
               <div className="network-view-actions">
                 {network.length === 2 &&
                   network.every((marker) => marker.point) && (
@@ -2551,22 +2598,19 @@ export function ReviewScene({
                       aria-disabled={!sceneSettled}
                       onClick={() => {
                         if (sceneSettled)
-                          onNetworkView(
-                            networkViewActive ? "return" : "observe",
-                          );
+                          onNetworkView(networkView ? "return" : "observe");
                       }}
                       onKeyDown={(event) => {
-                        if (event.key !== "Escape" || !networkViewActive)
-                          return;
+                        if (event.key !== "Escape" || !networkView) return;
                         event.preventDefault();
                         event.stopPropagation();
                         if (sceneSettled) onNetworkView("return");
                       }}
                     >
-                      {networkViewActive ? "返回原视角" : "同框观察两端"}
+                      {networkView ? "返回原视角" : "同框观察两端"}
                     </button>
                   )}
-                {!networkViewActive && (
+                {!networkView && (
                   <button onClick={onClearNetwork}>结束标记</button>
                 )}
               </div>
@@ -3211,6 +3255,7 @@ export function ReviewScene({
                 <option value="top">俯视</option>
                 <option value="front">前视</option>
                 <option value="rear">后视</option>
+                {view === "right" && <option value="right">右视</option>}
               </select>
             ) : (
               (

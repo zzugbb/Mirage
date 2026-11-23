@@ -4391,6 +4391,13 @@
 .network-scene-key .network-view-actions {
   margin: 0;
 }
+.network-patch-section {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+}
+.network-patch-section select,
 .power-view-actions select {
   pointer-events: auto;
   padding: 4px 6px;

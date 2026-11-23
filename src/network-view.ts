@@ -1,6 +1,7 @@
 import { Vector3 } from "three";
 import { networkMarkers, networkLinkById } from "./network.ts";
 import type { AppState } from "./domain.ts";
+import type { PatchSection } from "./network-patch.ts";
 import { observationFrame, type FrameRect } from "./observation-frame.ts";
 
 /** 同框只观察当前场景内的两个安装端点，不把隐藏对端带入部件展示台。 */
@@ -38,7 +39,8 @@ export function networkViewFrame(
 }
 export const networkViewSource = (linkId: string | null) =>
   networkLinkById(linkId)?.source ?? null;
+export type NetworkView = "observe" | PatchSection;
 export type NetworkViewCommand = {
   revision: number;
-  action: "observe" | "return";
+  action: NetworkView | "return";
 };

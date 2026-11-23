@@ -57,7 +57,9 @@ import {
   networkViewFrame,
   networkViewPoints,
   networkViewSource,
+  type NetworkView,
 } from "../network-view";
+import { patchSections } from "../network-patch";
 import { slicePlanePoints, slicePlaneFrame } from "../slice-plane-view";
 import type { TemperatureSlice } from "../temperature-slice";
 import { sliceViewPoints, sliceViewFrame } from "../slice-view";
@@ -1005,8 +1007,9 @@ export class SceneEngine {
     this.restoreObservationView(previous);
   }
   patchPoints: THREE.Vector3[] | null = null;
-  onNetworkView: (active: boolean) => void = () => {};
+  onNetworkView: (view: NetworkView | null) => void = () => {};
   private networkObservation?: {
+    view: NetworkView;
     sourceId: string;
     targets: THREE.Vector3[];
     key: string;
@@ -1016,12 +1019,22 @@ export class SceneEngine {
     if (!this.networkObservation) return;
     this.networkObservation = undefined;
     this.moving = false;
-    this.onNetworkView(false);
+    this.onNetworkView(null);
   }
-  observeNetwork(selected: string, linkId: string | null) {
+  observeNetwork(
+    selected: string,
+    linkId: string | null,
+    view: NetworkView = "observe",
+  ) {
     const targets = networkViewPoints(this.state, selected, linkId);
     const sourceId = networkViewSource(linkId);
-    if (!targets.length || !sourceId || this.moving) return;
+    if (
+      !targets.length ||
+      !sourceId ||
+      this.moving ||
+      (view !== "observe" && !this.patchPoints)
+    )
+      return;
     const previous =
       this.networkObservation?.previous ?? this.captureObservationView();
     this.clearAirflowView();
@@ -1036,12 +1049,12 @@ export class SceneEngine {
     this.clearInletView();
     this.clearMaintenanceView();
     this.networkObservation = {
+      view,
       sourceId,
       targets,
       key: JSON.stringify(this.patchPoints ?? targets),
       previous,
     };
-    this.currentView = this.patchPoints ? "iso" : "front";
     this.currentFocus = false;
     this.interior = false;
     this.controls.minAzimuthAngle = -Infinity;
@@ -1050,7 +1063,7 @@ export class SceneEngine {
     this.controls.minDistance = 0.5;
     this.autoOrbit = false;
     this.frameNetwork();
-    this.onNetworkView(true);
+    this.onNetworkView(view);
   }
   updateNetworkView(selected: string, linkId: string | null) {
     if (!this.networkObservation) return;
@@ -1065,17 +1078,25 @@ export class SceneEngine {
     }
     const key = JSON.stringify(this.patchPoints ?? targets);
     if (key === this.networkObservation.key) return;
+    if (!this.patchPoints) this.networkObservation.view = "observe";
     this.networkObservation.targets = targets;
     this.networkObservation.key = key;
     this.frameNetwork();
+    this.onNetworkView(this.networkObservation.view);
   }
   private frameNetwork() {
     if (!this.networkObservation) return;
     if (this.patchPoints) {
-      this.frameNetworkPatch(this.patchPoints, "iso");
+      const view = this.networkObservation.view;
+      if (view === "observe") this.frameNetworkPatch(this.patchPoints, "iso");
+      else {
+        const { start, end } = patchSections[view];
+        this.frameNetworkPatch(this.patchPoints.slice(start, end + 1), view);
+      }
       return;
     }
     const { width, height, rect } = this.observationViewport();
+    this.currentView = "front";
     const fit = networkViewFrame(
       this.networkObservation.targets,
       width,
@@ -1090,13 +1111,16 @@ export class SceneEngine {
   }
   private frameNetworkPatch(
     points: THREE.Vector3[],
-    view: "iso" | "front" | "rear",
+    view: "iso" | "front" | "rear" | "side",
   ) {
     const { width, height, rect, legendRect } = this.observationViewport();
+    this.currentView = view === "side" ? "right" : view;
     const direction =
       view === "iso"
         ? new THREE.Vector3(1.05, 0.32, 1)
-        : new THREE.Vector3(0, 0.1, view === "rear" ? -1 : 1);
+        : view === "side"
+          ? new THREE.Vector3(1, 0.14, 0.15)
+          : new THREE.Vector3(0, 0.1, view === "rear" ? -1 : 1);
     const fit = observationFrame(
       points,
       direction,

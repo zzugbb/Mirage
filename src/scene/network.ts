@@ -1,7 +1,11 @@
 import { createAnnotationGroup } from "./annotations.ts";
 import * as THREE from "three";
 import type { NetworkMarker } from "../network.ts";
-import { patchSettings } from "../network-patch.ts";
+import {
+  patchSettings,
+  patchSections,
+  type PatchSection,
+} from "../network-patch.ts";
 
 /** 直段间插入相切圆滑弯头，限制切角距离，避免样条过冲侵入柜柱或设备。 */
 function patchCurve(points: THREE.Vector3[]) {
@@ -45,6 +49,7 @@ export class NetworkGeometry {
   cable?: THREE.Mesh<THREE.TubeGeometry, THREE.MeshBasicMaterial>;
   hiddenLine?: THREE.Line<THREE.BufferGeometry, THREE.LineDashedMaterial>;
   selectedId = "";
+  private sectionRings: number[] = [];
   constructor() {
     this.root.add(this.dots);
     this.root.visible = false;
@@ -60,11 +65,13 @@ export class NetworkGeometry {
       object?.removeFromParent();
     }
     this.cable = this.hiddenLine = undefined;
+    this.sectionRings = [];
   }
   update(
     markers: NetworkMarker[],
     points: THREE.Vector3[] | null = null,
     selectedId = "",
+    section?: PatchSection,
   ) {
     this.selectedId = selectedId;
     if (this.patchPoints !== points) {
@@ -86,9 +93,23 @@ export class NetworkGeometry {
             depthWrite: false,
           }),
         );
-        // 被设备遮住的段落只投影细虚线，柜前与柜后可由实虚读出。
+        // 管面与遮挡虚线使用同一组弧长采样；两段在最靠近折点的管环处分界。
+        const segments = this.cable.geometry.parameters.tubularSegments;
+        const samples = Array.from({ length: segments + 1 }, (_, i) =>
+          curve.getPointAt(i / segments),
+        );
+        this.sectionRings = points.map((point) =>
+          samples.reduce(
+            (nearest, sample, i) =>
+              sample.distanceToSquared(point) <
+              samples[nearest].distanceToSquared(point)
+                ? i
+                : nearest,
+            0,
+          ),
+        );
         this.hiddenLine = new THREE.Line(
-          new THREE.BufferGeometry().setFromPoints(curve.getSpacedPoints(192)),
+          new THREE.BufferGeometry().setFromPoints(samples),
           new THREE.LineDashedMaterial({
             color: patchSettings.color,
             dashSize: 0.017,
@@ -104,6 +125,20 @@ export class NetworkGeometry {
         this.cable.raycast = this.hiddenLine.raycast = () => {};
         this.root.add(this.cable, this.hiddenLine);
       }
+    }
+    if (this.cable && this.hiddenLine) {
+      const start = section
+        ? this.sectionRings[patchSections[section].start]
+        : 0;
+      const end = section
+        ? this.sectionRings[patchSections[section].end]
+        : this.cable.geometry.parameters.tubularSegments;
+      const indicesPerSpan = this.cable.geometry.parameters.radialSegments * 6;
+      this.cable.geometry.setDrawRange(
+        start * indicesPerSpan,
+        (end - start) * indicesPerSpan,
+      );
+      this.hiddenLine.geometry.setDrawRange(start, end - start + 1);
     }
     this.markers = markers;
     this.root.visible = false;
@@ -133,7 +168,7 @@ export class NetworkGeometry {
       this.dots.setMatrixAt(index++, this.transform.matrix);
     }
     this.dots.count = index;
-    this.root.visible = ready && index > 0;
+    this.root.visible = ready && (index > 0 || !!this.cable);
     this.dots.instanceMatrix.needsUpdate = true;
   }
   dispose() {

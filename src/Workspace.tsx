@@ -190,7 +190,7 @@ import {
   peakScopeIds,
   type PeakProcessState,
 } from "./peak-provenance";
-import type { NetworkViewCommand } from "./network-view";
+import type { NetworkView, NetworkViewCommand } from "./network-view";
 import type { SliceViewCommand } from "./slice-view";
 import { inspectSliceDevice, type SliceCheck } from "./slice-device";
 import { SliceEvidenceDetails } from "./components/SliceEvidenceDetails";
@@ -1082,7 +1082,7 @@ export function Workspace() {
       revision: (current?.revision ?? 0) + 1,
     }));
   };
-  const [networkViewActive, setNetworkViewActive] = useState(false);
+  const [networkView, setNetworkView] = useState<NetworkView | null>(null);
   const [networkViewCommand, setNetworkViewCommand] =
     useState<NetworkViewCommand | null>(null);
   const requestNetworkView = (action: NetworkViewCommand["action"]) => {
@@ -6185,8 +6185,8 @@ export function Workspace() {
             onPowerViewChange={setPowerViewActive}
             onPowerView={requestPowerView}
             networkViewCommand={networkViewCommand}
-            networkViewActive={networkViewActive}
-            onNetworkViewChange={setNetworkViewActive}
+            networkView={networkView}
+            onNetworkViewChange={setNetworkView}
             onNetworkView={requestNetworkView}
             powerLinkId={activePowerLink}
             pduInspection={pduInspection}

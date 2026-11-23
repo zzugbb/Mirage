@@ -76,7 +76,12 @@ export function NetworkOverview({
       ].find((el) => el.dataset.networkFocus === focusKey.current) ??
       host.current.querySelector<HTMLElement>("input");
     entry?.focus({ preventScroll: true });
-    if (restoreRevision) entry?.scrollIntoView({ block: "nearest" });
+    if (restoreRevision && entry) {
+      const viewport = host.current.getBoundingClientRect();
+      const row = entry.getBoundingClientRect();
+      if (row.bottom <= viewport.top || row.top >= viewport.bottom)
+        entry.scrollIntoView({ block: "nearest" });
+    }
   }, [visible, restoreRevision, ready, scroll, focusKey]);
   return (
     <section

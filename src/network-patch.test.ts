@@ -13,6 +13,7 @@ import { networkEndpoints, networkMarkers } from "./network.ts";
 import {
   canShowNetworkPatch,
   networkPatch,
+  patchSectionOffsetMm,
   patchSettings,
 } from "./network-patch.ts";
 import { NetworkGeometry } from "./scene/network.ts";
@@ -20,6 +21,58 @@ import { NetworkGeometry } from "./scene/network.ts";
 const rack = { ...createState(), level: "rack" as const, deviceId: "sw-14" };
 const assets = initialModelLoads();
 const links = networkLinks.filter((link) => canShowNetworkPatch(rack, link));
+
+test("两柜四条跳线按同一弧长顺序分段，实线与遮挡虚线共用分界", () => {
+  const geometry = new NetworkGeometry();
+  for (const link of networkLinks.filter((link) =>
+    patchSettings.sourceIds.includes(link.source),
+  )) {
+    const state = { ...rack, deviceId: link.target };
+    for (const load of ["ready", "failed"] as const) {
+      const points = networkPatch(state, link, {
+        ...assets,
+        "storage-4u": load,
+        "switch-1u": load,
+      })!;
+      const markers = networkMarkers(state, link.source, link.id);
+      geometry.update(markers, points);
+      const tube = geometry.cable!.geometry;
+      const hidden = geometry.hiddenLine!.geometry;
+      const full = tube.index!.count;
+      let cursor = 0;
+      for (const section of ["rear", "side", "front"] as const) {
+        geometry.update(markers, points, link.source, section);
+        assert.equal(geometry.cable!.geometry, tube);
+        const { start, count } = tube.drawRange;
+        assert.equal(start, cursor);
+        assert.ok(count > 0 && count < full);
+        const stride = tube.parameters.radialSegments * 6;
+        assert.equal(hidden.drawRange.start * stride, start);
+        assert.equal((hidden.drawRange.count - 1) * stride, count);
+        cursor += count;
+      }
+      assert.equal(cursor, full);
+      geometry.update(markers, points);
+      assert.deepEqual(tube.drawRange, { start: 0, count: full });
+      const shifted = points.map((p) => p.clone().add(new Vector3(6, 0, 0)));
+      assert.equal(
+        patchSectionOffsetMm(shifted, "rear"),
+        patchSectionOffsetMm(points, "rear"),
+      );
+      const projections = [
+        ["side", points[3].y - points[2].y],
+        ["rear", points[2].x - points[0].x],
+        ["front", points[4].x - points[9].x],
+      ] as const;
+      for (const [section, meters] of projections)
+        assert.ok(
+          Math.abs(patchSectionOffsetMm(points, section) - meters * 1000) <
+            0.001,
+        );
+    }
+  }
+  geometry.dispose();
+});
 
 test("B03 柜内只显示本柜的两条样板接入，控制器、端口组与高度跟随配置", () => {
   assert.deepEqual(

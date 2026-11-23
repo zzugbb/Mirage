@@ -17,6 +17,28 @@ import { Vector3 } from "three";
 
 export const patchSettings = networkSettings.patchIllustration;
 
+// 相邻观察段共用同一折点。尺寸取自当前分支的示意中心线。
+export const patchSections = {
+  rear: { label: "柜后引出", start: 0, end: 2, axis: "x", measure: "柜后横移" },
+  side: { label: "柜侧上行", start: 2, end: 4, axis: "y", measure: "柜侧上升" },
+  front: {
+    label: "柜前接入",
+    start: 4,
+    end: 9,
+    axis: "x",
+    measure: "柜前横移",
+  },
+} as const;
+export type PatchSection = keyof typeof patchSections;
+export function patchSectionOffsetMm(points: Vector3[], section: PatchSection) {
+  const { start, end, axis } = patchSections[section];
+  // 同一柜内偏移换到另一柜的世界坐标后，去除相减产生的浮点尾差。
+  return (
+    Math.round(Math.abs(points[end][axis] - points[start][axis]) * 1_000_000) /
+    1_000
+  );
+}
+
 export function canShowNetworkPatch(state: AppState, link?: NetworkLink) {
   return (
     !!link &&
