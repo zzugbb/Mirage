@@ -105,6 +105,7 @@ export function feederInputText(
 }
 
 export type FeederReference = {
+  showEnergy: boolean;
   time: number;
   readings: Map<string, SpatialReading>;
 };

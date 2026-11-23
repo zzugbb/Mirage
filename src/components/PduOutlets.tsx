@@ -1,3 +1,4 @@
+import type { FeederEnergyInterval } from "../feeder-energy";
 import { useLayoutEffect, useRef } from "react";
 import { pduOutlets, pduOutlet, type PduInspection } from "../pdu-outlets";
 import { pduName, inletPart } from "../power-config";
@@ -16,6 +17,7 @@ export function PduOutlets({
   onSelect,
   onPreview,
   onInspect,
+  interval,
   onAnalyzeDevice,
 }: {
   pduId: string;
@@ -27,7 +29,8 @@ export function PduOutlets({
   onSelect: (outlet: number) => void;
   onPreview: (id: string) => void;
   onInspect: (linkId: string) => void;
-  onAnalyzeDevice: (id: string) => void;
+  interval: FeederEnergyInterval | null;
+  onAnalyzeDevice: (id: string, time?: number) => void;
 }) {
   const current =
     visit?.pduId === pduId
@@ -126,6 +129,7 @@ export function PduOutlets({
                 }
               </small>
               <FeederDeviceHistory
+                interval={interval}
                 deviceId={chosen.device.id}
                 readings={readings}
                 ready={ready}

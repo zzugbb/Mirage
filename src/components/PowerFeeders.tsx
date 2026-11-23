@@ -10,6 +10,11 @@ import {
   type FeederSelection,
 } from "../power-feeders";
 
+import {
+  energyText,
+  feederEnergyInterval,
+  feederIntervalEnergy,
+} from "../feeder-energy";
 import { scenario } from "../simulation";
 import type { SpatialReading } from "../spatial";
 import { sourceValue } from "../reading-sources";
@@ -54,6 +59,20 @@ export function PowerFeeders({
     [reference, result],
   );
   const comparison = baseline && compareFeederInputs(baseline, summary);
+  const interval = useMemo(
+    () =>
+      reference?.showEnergy ? feederEnergyInterval(reference.time, time) : null,
+    [reference, time],
+  );
+  const energy = useMemo(
+    () =>
+      interval &&
+      feederIntervalEnergy(
+        result.members.map((row) => row.device.id),
+        interval,
+      ),
+    [interval, result],
+  );
   const pinButton = useRef<HTMLButtonElement>(null);
   const host = useRef<HTMLDivElement>(null);
   const restorePending = useRef(true);
@@ -180,7 +199,13 @@ export function PowerFeeders({
           <div className="feeder-reference-actions">
             <button
               ref={pinButton}
-              onClick={() => onReference({ time, readings })}
+              onClick={() =>
+                onReference({
+                  time,
+                  readings,
+                  showEnergy: reference?.showEnergy ?? false,
+                })
+              }
             >
               {reference ? "改用当前时刻为基准" : "固定当前时刻对照"}
             </button>
@@ -232,6 +257,47 @@ export function PowerFeeders({
                   <dd>{sourceValue(comparison.baselineOnlyWatts, "power")}</dd>
                 </div>
               </dl>
+              <button
+                className="feeder-energy-toggle"
+                aria-expanded={reference.showEnergy}
+                onClick={() =>
+                  onReference({
+                    ...reference,
+                    showEnergy: !reference.showEnergy,
+                  })
+                }
+              >
+                核对区间电量
+              </button>
+              {interval && energy && (
+                <section
+                  className="feeder-energy"
+                  aria-label="关联整机区间电量"
+                >
+                  <header>
+                    <strong>
+                      {interval.start}–{interval.end} 秒 · 已知电量
+                    </strong>
+                    <b>{energyText(energy.wattHours)}</b>
+                  </header>
+                  {interval.start === interval.end ? (
+                    <small>请移动回看时刻，选取至少 1 秒的区间。</small>
+                  ) : (
+                    <>
+                      <small>
+                        完整 {energy.complete} 台 · 部分 {energy.partial} 台 ·
+                        无有效时段 {energy.unavailable} 台
+                      </small>
+                      <small>
+                        各设备有效时长之和 {energy.covered}/{energy.possible} 秒
+                      </small>
+                      <small>
+                        由整机模拟功耗逐秒积分，只累计相邻两端均有效的时段。
+                      </small>
+                    </>
+                  )}
+                </section>
+              )}
             </>
           )}
         </section>
@@ -251,6 +317,10 @@ export function PowerFeeders({
               aria-describedby={[
                 "feeder-watts-" + device.id,
                 baseline && "feeder-prior-" + device.id,
+                energy &&
+                  interval &&
+                  interval.end > interval.start &&
+                  "feeder-energy-" + device.id,
               ]
                 .filter(Boolean)
                 .join(" ")}
@@ -271,6 +341,13 @@ export function PowerFeeders({
               {baseline && (
                 <small id={"feeder-prior-" + device.id}>
                   基准 {feederInputText(baseline.byDevice.get(device.id)!)}
+                </small>
+              )}
+              {energy && interval && interval.end > interval.start && (
+                <small id={"feeder-energy-" + device.id}>
+                  区间 {energyText(energy.byDevice.get(device.id)!.wattHours)} ·
+                  有效 {energy.byDevice.get(device.id)!.covered}/
+                  {interval.end - interval.start} 秒
                 </small>
               )}
             </button>

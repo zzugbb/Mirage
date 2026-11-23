@@ -75,6 +75,7 @@ import {
   SmokeInspectionDetails,
 } from "./components/SmokeInspection";
 import { isSmokeFixture } from "./smoke-inspection";
+import { feederEnergyInterval } from "./feeder-energy";
 import { PowerFeeders } from "./components/PowerFeeders";
 import {
   initialFeeders,
@@ -9085,8 +9086,19 @@ export function Workspace() {
                     {sourceInspector}
                     {(layer === "power" || powerFacility) && (
                       <PowerConnections
+                        interval={
+                          powerOverviewVisit?.feeder &&
+                          feederReference?.showEnergy
+                            ? feederEnergyInterval(
+                                feederReference.time,
+                                state.time,
+                              )
+                            : null
+                        }
                         paired={powerViewPaired}
-                        onAnalyzeDevice={(id) => {
+                        onAnalyzeDevice={(id, at) => {
+                          if (at !== undefined)
+                            dispatch({ type: "seek", time: at });
                           if (layoutVisit?.resourceList) {
                             setQuery("");
                             setFilter("all");

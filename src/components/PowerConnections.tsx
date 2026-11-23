@@ -1,3 +1,4 @@
+import type { FeederEnergyInterval } from "../feeder-energy";
 import { ConnectionSection } from "./ConnectionSection";
 import { FeederDeviceHistory } from "./FeederDeviceHistory";
 import { PduOutlets } from "./PduOutlets";
@@ -40,10 +41,12 @@ export function PowerConnections({
   onInspect,
   paired,
   onInspectMount,
+  interval,
   onAnalyzeDevice,
 }: {
   paired: boolean;
-  onAnalyzeDevice: (id: string) => void;
+  interval: FeederEnergyInterval | null;
+  onAnalyzeDevice: (id: string, time?: number) => void;
   onInspectMount?: () => void;
   pduInspection: PduInspection | null;
   onPduChange: (visit: PduInspection) => void;
@@ -214,6 +217,7 @@ export function PowerConnections({
                   {String(activeLink.outlet).padStart(2, "0")} ↗
                 </button>
                 <FeederDeviceHistory
+                  interval={interval}
                   deviceId={activeLink.deviceId}
                   readings={readings}
                   ready={ready}
@@ -358,6 +362,7 @@ export function PowerConnections({
             </button>
           )}
           <PduOutlets
+            interval={interval}
             key={pdu.id}
             pduId={pdu.id}
             inScene={!!powerScene(state, pdu.id)}
