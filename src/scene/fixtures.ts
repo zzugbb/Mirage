@@ -5,6 +5,7 @@ import {
   housingLength,
   diffuserBottom,
 } from "../ceiling-lights.ts";
+import { buildPatchPanel } from "./patch-panels.ts";
 import { buildEntrance } from "./entrance.ts";
 import { buildLeakCable } from "./leak-detection.ts";
 import { buildCableTray } from "./cable-trays.ts";
@@ -73,6 +74,8 @@ export function buildRoomFixtures(
           "#74818b",
           0.45,
         );
+    } else if (fixture.kind === "patch-panel") {
+      buildPatchPanel(group, fixture.name.split(" ")[0]);
     } else if (fixture.kind === "entrance") {
       buildEntrance(group);
     } else if (fixture.kind === "cable-tray") {

@@ -2483,6 +2483,32 @@
   overflow-wrap: anywhere;
   color: #d4dfe3;
 }
+.workspace-ui .panel-port-details {
+  display: grid;
+  gap: 8px;
+  padding-bottom: 14px;
+  color: #c4d5da;
+}
+.panel-port-grid,
+.panel-port-details [aria-live] {
+  display: grid;
+  gap: 4px;
+}
+.workspace-ui .panel-port-details button {
+  border: 1px solid #45616b;
+  background: #1e303a;
+  color: #c4d5da;
+  border-radius: 4px;
+  padding: 5px 6px;
+}
+.workspace-ui .panel-port-grid button[aria-pressed="true"] {
+  border-color: #a7dfd7;
+  color: #e6fbf6;
+  background: #365057;
+}
+.panel-port-details p {
+  margin: 0;
+}
 .workspace-ui .tray-end-actions {
   display: grid;
   justify-items: end;

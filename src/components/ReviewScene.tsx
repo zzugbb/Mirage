@@ -1,3 +1,5 @@
+import { markPanelPort } from "../scene/patch-panels";
+import type { PanelPort } from "../patch-panels";
 import type { FrontServiceInspection } from "../front-service";
 import type { GrilleDoorSweep } from "../grille-door-sweep";
 import type { RearServiceInspection } from "../rear-service";
@@ -242,6 +244,8 @@ export function ReviewScene({
   onEntranceViewChange,
   onEntranceView,
   leakView,
+  panelPort,
+  onInspectPanelPort,
   leakViewCommand,
   onLeakViewChange,
   onLeakView,
@@ -304,6 +308,8 @@ export function ReviewScene({
   onEntranceViewChange: (inspection: EntranceInspection | null) => void;
   onEntranceView: (view: EntranceView | null) => void;
   leakView: LeakInspection | null;
+  panelPort: PanelPort | null;
+  onInspectPanelPort: (target: PanelPort) => void;
   leakViewCommand: LeakViewCommand | null;
   onLeakViewChange: (inspection: LeakInspection | null) => void;
   onLeakView: (view: LeakView | null) => void;
@@ -423,6 +429,7 @@ export function ReviewScene({
   const currentState = useRef(state);
   currentState.current = state;
   const callbacks = useRef({
+    onInspectPanelPort,
     onSelect,
     onPhase,
     onFeedback,
@@ -440,6 +447,7 @@ export function ReviewScene({
     onNetworkViewChange,
   });
   callbacks.current = {
+    onInspectPanelPort,
     onSelect,
     onPhase,
     onFeedback,
@@ -1247,6 +1255,17 @@ export function ReviewScene({
     setView(active.currentView);
   }, [rangeViewCommand?.revision]);
   useEffect(() => {
+    const active = engine.current;
+    if (!active) return;
+    active.onInspectPanelPort =
+      layer === "overview"
+        ? (port) => callbacks.current.onInspectPanelPort(port)
+        : undefined;
+    markPanelPort(active.models.fixtures, panelPort);
+    if (panelPort) setOrbit(false);
+    active.invalidate();
+  }, [panelPort, layer, retry]);
+  useEffect(() => {
     if (engine.current) engine.current.unitRange = unitRange;
   }, [unitRange, retry]);
   useEffect(() => {
@@ -1978,7 +1997,7 @@ export function ReviewScene({
     },
   );
   const selectedFixture =
-    state.level === "room" && selectedId === state.selected
+    !panelPort && state.level === "room" && selectedId === state.selected
       ? layer === "overview"
         ? roomFacilityById(selectedId)
         : fixtureById(selectedId)

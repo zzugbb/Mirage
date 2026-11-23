@@ -25,6 +25,7 @@ import {
 
 export function FixtureDetails({
   fixture,
+  panelPorts,
   grilleRelations,
   onInspectSupport,
   onInspectEntrance,
@@ -36,6 +37,7 @@ export function FixtureDetails({
   onLocate,
 }: {
   fixture: RoomFixture;
+  panelPorts?: ReactNode;
   grilleRelations?: ReactNode;
   onInspectSupport?: (side: -1 | 1) => void;
   onInspectEntrance?: () => void;
@@ -57,6 +59,7 @@ export function FixtureDetails({
       : [...entranceRelations(fixture.id), ...leakRelations(fixture.id)];
   return (
     <section className="fixture-details" aria-label="设施布置">
+      {panelPorts}
       <dl>
         <div>
           <dt>安装位置</dt>

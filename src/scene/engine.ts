@@ -1,3 +1,4 @@
+import type { PanelPort } from "../patch-panels.ts";
 import { isAsicBoardStage } from "../assembly-pairs.ts";
 import { compactPathModules } from "../compact-drive-bays";
 import { roomLayoutCameraDirection } from "../room-layout.ts";
@@ -286,6 +287,7 @@ export class SceneEngine {
   raycaster = new THREE.Raycaster();
   private rackHint = document.createElement("span");
   reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  onInspectPanelPort?: (target: PanelPort) => void;
   onSelect: (id: string, enter?: boolean) => void;
   onError: (message: string) => void;
   host: HTMLElement;
@@ -2727,7 +2729,7 @@ export class SceneEngine {
   }
   private pickSurface(
     event: MouseEvent | PointerEvent,
-  ): { id: string; blankUnit?: number } | null {
+  ): { id: string; blankUnit?: number; panelPort?: number } | null {
     const rect = this.renderer.domElement.getBoundingClientRect();
     this.raycaster.setFromCamera(
       new THREE.Vector2(
@@ -2799,6 +2801,10 @@ export class SceneEngine {
               entityById(id)?.kind === "part" && this.state.level !== "device"
                 ? this.state.deviceId
                 : id,
+            panelPort:
+              index === undefined
+                ? undefined
+                : hit.object.userData.panelPorts?.[index],
             blankUnit,
           };
         }
@@ -2820,8 +2826,18 @@ export class SceneEngine {
         new THREE.Vector2(event.clientX, event.clientY),
       ) < 5
     ) {
-      const id = this.pick(event);
-      if (id) this.onSelect(id);
+      const surface = this.pickSurface(event);
+      if (
+        surface?.panelPort &&
+        surface.id === this.state.selected &&
+        !this.moving &&
+        this.onInspectPanelPort
+      ) {
+        this.onInspectPanelPort({
+          panelId: surface.id,
+          port: surface.panelPort,
+        });
+      } else if (surface) this.onSelect(surface.id);
     }
   };
   doubleClick = (event: MouseEvent) => {

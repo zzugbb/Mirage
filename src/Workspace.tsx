@@ -1,3 +1,5 @@
+import { PatchPanelDetails } from "./components/PatchPanelDetails";
+import { patchPanelById, type PanelPort } from "./patch-panels";
 import {
   frontServiceInspection,
   frontServiceDevices,
@@ -1099,6 +1101,16 @@ export function Workspace() {
       revision: (current?.revision ?? 0) + 1,
     }));
   };
+  const [panelPort, setPanelPort] = useState<PanelPort | null>(null);
+  useEffect(() => {
+    if (
+      panelPort &&
+      (selected !== panelPort.panelId ||
+        state.level !== "room" ||
+        layer !== "overview")
+    )
+      setPanelPort(null);
+  }, [selected, state.level, layer, panelPort]);
   const [leakView, setLeakView] = useState<LeakInspection | null>(null);
   const [leakViewCommand, setLeakViewCommand] =
     useState<LeakViewCommand | null>(null);
@@ -3147,6 +3159,11 @@ export function Workspace() {
       stageRef.current?.scrollIntoView({ block: "nearest" });
     }
   };
+  const inspectPanelPort = (port: PanelPort) => {
+    focus(port.panelId);
+    control({ type: "analysis", value: false });
+    setPanelPort(port);
+  };
   const captureLayoutOrigin = () => ({
     camera: captureTaskView.current?.("room") ?? null,
     inspector,
@@ -4564,6 +4581,7 @@ export function Workspace() {
     setComparisonReturning(false);
     setComparisonFocus(false);
     comparisonScroll.current = 0;
+    setPanelPort(null);
     setShot(next);
     setRevision((n) => n + 1);
     setQuery("");
@@ -4925,6 +4943,7 @@ export function Workspace() {
                 <button
                   disabled={!ready || layoutReturning}
                   onClick={() => {
+                    setPanelPort(null);
                     setLayoutReturning(true);
                     if (layoutVisit.id === coolingSource.id && coolingVisit) {
                       setCoolingVisit(null);
@@ -6311,7 +6330,8 @@ export function Workspace() {
                               onClick={(event) => {
                                 if (
                                   roomResourceList &&
-                                  (entranceViewIncludes(row.id) ||
+                                  (patchPanelById(row.id) ||
+                                    entranceViewIncludes(row.id) ||
                                     environmentRoundFor(row.id) ||
                                     isLeakFixture(row.id) ||
                                     isCoolingSource(row.id) ||
@@ -6632,6 +6652,8 @@ export function Workspace() {
             onEntranceViewChange={setEntranceView}
             onEntranceView={requestEntranceView}
             leakView={leakView}
+            panelPort={panelPort}
+            onInspectPanelPort={inspectPanelPort}
             leakViewCommand={leakViewCommand}
             onLeakViewChange={setLeakView}
             onLeakView={requestLeakView}
@@ -8843,6 +8865,22 @@ export function Workspace() {
                     }
                     onPreview={pick}
                     onLocate={focus}
+                    panelPorts={
+                      fixture.kind === "patch-panel" &&
+                      layer === "overview" &&
+                      state.level === "room" && (
+                        <PatchPanelDetails
+                          id={fixture.id}
+                          target={panelPort}
+                          ready={ready}
+                          onInspect={inspectPanelPort}
+                          onHistory={(id) => {
+                            focus(id);
+                            analyze();
+                          }}
+                        />
+                      )
+                    }
                     grilleRelations={
                       grilleRowById(fixture.id) && (
                         <GrilleBranches

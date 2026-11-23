@@ -1,0 +1,84 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import * as THREE from "three";
+import {
+  patchPanels,
+  panelSettings,
+  panelPortNumbers,
+  panelPortCenter,
+  panelTermination,
+} from "./patch-panels.ts";
+import { rackById } from "./installation.ts";
+import scene from "../assets/public/scenes/room-01.json" with { type: "json" };
+import { buildPatchPanel, markPanelPort } from "./scene/patch-panels.ts";
+
+test("配线登记双向唯一且不从孔号推测对端，参照柜和安装墙面来自样板配置", () => {
+  const used = new Set<string>();
+  for (const { id, first, second } of panelSettings.connections) {
+    assert.deepEqual(panelTermination(first), { id, peer: second });
+    assert.deepEqual(panelTermination(second), { id, peer: first });
+    for (const endpoint of [first, second]) {
+      assert.ok(panelPortNumbers.includes(endpoint.port));
+      assert.ok(patchPanels.some((p) => p.id === endpoint.panelId));
+      const key = endpoint.panelId + "/" + endpoint.port;
+      assert.ok(!used.has(key));
+      used.add(key);
+    }
+  }
+  assert.equal(used.size, 8);
+  for (const p of patchPanels) {
+    assert.equal(p.mountId, "shell-back-wall");
+    assert.ok(
+      Math.abs(
+        p.position[2] -
+          panelSettings.size[2] / 2 -
+          (-scene.room.size[2] / 2 + scene.room.wallThickness / 2),
+      ) < 1e-9,
+    );
+    assert.ok(rackById(p.referenceRackId!));
+    for (const n of panelPortNumbers)
+      assert.equal(
+        !!panelTermination({ panelId: p.id, port: n }),
+        used.has(p.id + "/" + n),
+      );
+  }
+});
+
+test("两块面板逐孔拾取命中登记实例，切换对端与清除只影响所选孔框", () => {
+  const groups = new Map<string, THREE.Group>();
+  for (const p of patchPanels) {
+    const g = new THREE.Group();
+    buildPatchPanel(g, p.name);
+    g.position.fromArray(p.position);
+    g.updateMatrixWorld(true);
+    groups.set(p.id, g);
+  }
+  for (const [id, g] of groups)
+    for (const port of panelPortNumbers) {
+      markPanelPort(groups, { panelId: id, port });
+      const outline = g.getObjectByName("panel-port-outline")!;
+      assert.equal(outline.visible, true);
+      const pos = new THREE.Vector3().fromArray(panelPortCenter(port));
+      assert.equal(outline.position.x, pos.x);
+      assert.equal(outline.position.y, pos.y);
+      const origin = g.localToWorld(pos).add(new THREE.Vector3(0, 0, 0.2));
+      const hit = new THREE.Raycaster(
+        origin,
+        new THREE.Vector3(0, 0, -1),
+      ).intersectObject(g, true)[0];
+      assert.equal(hit.object.name, "panel-apertures");
+      assert.equal(hit.object.userData.panelPorts[hit.instanceId!], port);
+      assert.equal(
+        [...groups.values()].filter(
+          (g) => g.getObjectByName("panel-port-outline")!.visible,
+        ).length,
+        1,
+      );
+    }
+  markPanelPort(groups, null);
+  assert.ok(
+    [...groups.values()].every(
+      (g) => !g.getObjectByName("panel-port-outline")!.visible,
+    ),
+  );
+});

@@ -257,8 +257,123 @@
           ],
           "distance": 5
         }
+      },
+      {
+        "id": "patch-panel-01",
+        "kind": "patch-panel",
+        "name": "PP-01 配线架",
+        "position": [
+          -3.15,
+          1.55,
+          -5.87
+        ],
+        "dataStatus": "not-applicable",
+        "location": "后墙西段 · B 排",
+        "mountId": "shell-back-wall",
+        "focus": {
+          "direction": [
+            0.09,
+            0.08,
+            1
+          ],
+          "distance": 0.82
+        },
+        "referenceRackId": "rack-a05"
+      },
+      {
+        "id": "patch-panel-02",
+        "kind": "patch-panel",
+        "name": "PP-02 配线架",
+        "position": [
+          2.65,
+          1.55,
+          -5.87
+        ],
+        "dataStatus": "not-applicable",
+        "location": "后墙东段 · B 排",
+        "mountId": "shell-back-wall",
+        "focus": {
+          "direction": [
+            0.09,
+            0.08,
+            1
+          ],
+          "distance": 0.82
+        },
+        "referenceRackId": "rack-a08"
       }
     ],
+    "patchPanels": {
+      "description": "原创壁挂样板配线架。孔位按正面逐行从左到右编号，跨架端接仅按本表登记。邻近端柜供位置参照与模拟回看。",
+      "size": [
+        0.48,
+        0.2,
+        0.1
+      ],
+      "rows": 2,
+      "columns": 4,
+      "pitchX": 0.094,
+      "pitchY": 0.064,
+      "firstCenter": [
+        -0.141,
+        0.019
+      ],
+      "bezelSize": [
+        0.05,
+        0.026,
+        0.006
+      ],
+      "apertureSize": [
+        0.039,
+        0.017
+      ],
+      "connections": [
+        {
+          "id": "PL-01",
+          "first": {
+            "panelId": "patch-panel-01",
+            "port": 1
+          },
+          "second": {
+            "panelId": "patch-panel-02",
+            "port": 6
+          }
+        },
+        {
+          "id": "PL-02",
+          "first": {
+            "panelId": "patch-panel-01",
+            "port": 2
+          },
+          "second": {
+            "panelId": "patch-panel-02",
+            "port": 5
+          }
+        },
+        {
+          "id": "PL-03",
+          "first": {
+            "panelId": "patch-panel-01",
+            "port": 4
+          },
+          "second": {
+            "panelId": "patch-panel-02",
+            "port": 2
+          }
+        },
+        {
+          "id": "PL-04",
+          "first": {
+            "panelId": "patch-panel-01",
+            "port": 7
+          },
+          "second": {
+            "panelId": "patch-panel-02",
+            "port": 3
+          }
+        }
+      ]
+    },
     "cableTrays": {
       "description": "既有两排桥架的布置示意；柜排关系仅表示空间对应，未配置实际线缆、桥架互连、分隔或承载能力",
       "length": 9.5,
