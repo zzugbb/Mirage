@@ -1,11 +1,12 @@
 import type { FrontServiceInspection } from "../front-service.ts";
 import { createAnnotationGroup } from "./annotations.ts";
 import type { GrilleDoorSweep } from "../grille-door-sweep.ts";
+import { doorSector, type DoorSweep } from "../door-sweep.ts";
 import {
-  doorSector,
-  type DoorReference,
-  type DoorSweep,
-} from "../door-sweep.ts";
+  aisleDoorPose,
+  type AisleDoorPosition,
+  type OpposedDoorGap,
+} from "../aisle-door-gap.ts";
 import * as THREE from "three";
 import { maintenanceSettings } from "../maintenance.ts";
 import type {
@@ -99,8 +100,19 @@ export class MaintenanceGeometry {
       depthWrite: false,
     }),
   );
+  doorRuler = new THREE.LineSegments(
+    new THREE.BufferGeometry(),
+    new THREE.LineBasicMaterial({
+      color: "#fff5b4",
+      toneMapped: false,
+      depthWrite: false,
+    }),
+  );
   transform = new THREE.Object3D();
   constructor() {
+    this.doorRuler.name = "opposed-door-distance";
+    this.doorRuler.visible = false;
+    this.doorRuler.raycast = () => {};
     this.frontRuler.name = "front-service-projection";
     this.frontRuler.visible = false;
     this.frontRuler.raycast = () => {};
@@ -114,6 +126,7 @@ export class MaintenanceGeometry {
       this.sweepLines,
       this.grillePatch,
       this.frontRuler,
+      this.doorRuler,
     );
     this.grillePatch.name = "grille-swept-area";
     this.grillePatch.raycast = () => {};
@@ -236,9 +249,28 @@ export class MaintenanceGeometry {
   }
   showDoorSweeps(
     sweeps: DoorSweep[] | undefined,
-    reference: DoorReference,
+    reference: AisleDoorPosition,
     grille?: GrilleDoorSweep | null,
+    gap?: OpposedDoorGap | null,
   ) {
+    this.doorRuler.visible = !!gap && !grille;
+    if (gap && !grille) {
+      const y = gap.floor + 0.018;
+      const { from, to, distance } = gap;
+      const dx = distance ? ((to.z - from.z) * 0.045) / distance : 0.045;
+      const dz = distance ? ((from.x - to.x) * 0.045) / distance : 0;
+      const marks = [
+        new THREE.Vector3(from.x, y, from.z),
+        new THREE.Vector3(to.x, y, to.z),
+      ];
+      for (const p of [from, to])
+        marks.push(
+          new THREE.Vector3(p.x - dx, y, p.z - dz),
+          new THREE.Vector3(p.x + dx, y, p.z + dz),
+        );
+      this.doorRuler.geometry.setFromPoints(marks);
+      this.doorRuler.geometry.computeBoundingSphere();
+    }
     this.sweepFill.visible = this.sweepLines.visible = !!sweeps || !!grille;
     this.grillePatch.visible = !!grille?.patch.length;
     if (!sweeps && !grille) return;
@@ -270,7 +302,11 @@ export class MaintenanceGeometry {
       for (const sweep of sweeps ?? []) {
         const y = sweep.area.position[1] + 0.012;
         for (const leaf of sweep.leaves) {
-          const sector = doorSector(leaf, sweep[reference].angle, 4);
+          const sector = doorSector(
+            leaf,
+            aisleDoorPose(sweep, reference).angle,
+            4,
+          );
           face(sector, y, fill);
           outline(sector, y);
         }
@@ -299,6 +335,7 @@ export class MaintenanceGeometry {
       this.sweepLines,
       this.grillePatch,
       this.frontRuler,
+      this.doorRuler,
     ]) {
       mesh.geometry.dispose();
       mesh.material.dispose();

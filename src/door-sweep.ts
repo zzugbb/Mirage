@@ -63,6 +63,7 @@ export function maintenanceDoorSweep(area: MaintenanceArea) {
   return {
     area,
     leaves,
+    closed: reference(0),
     peak: reference(Math.min(open, 90)),
     open: reference(open),
   };

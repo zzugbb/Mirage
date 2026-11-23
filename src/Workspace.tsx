@@ -23,8 +23,14 @@ import {
 } from "./front-service";
 import { FrontServiceDetails } from "./components/FrontServiceDetails";
 import { grilleDoorSweep } from "./grille-door-sweep";
+import { AisleDoorDetails } from "./components/AisleDoorDetails";
 import { RearServiceDetails } from "./components/RearServiceDetails";
 import { rearServiceInspection } from "./rear-service";
+import {
+  opposedDoorGap,
+  type AisleDoorPosition,
+  type RearLeafSide,
+} from "./aisle-door-gap";
 import type { DoorReference } from "./door-sweep";
 import { structureOptions } from "./structure-options";
 import { FrontCageControls } from "./components/FrontCageControls";
@@ -340,7 +346,6 @@ import {
   isPowerFacility,
   pduById,
   pduName,
-  pdus,
   powerDeviceIds,
   powerLinks,
   powerSettings,
@@ -1096,9 +1101,17 @@ export function Workspace() {
     locatedCoolingDevice,
     atCoolingProbe,
   ]);
-  const [doorReference, setDoorReference] = useState<DoorReference>("peak");
+  const [doorReference, setDoorReference] = useState<AisleDoorPosition>("peak");
   const [maintenanceView, setMaintenanceView] =
     useState<MaintenanceInspection | null>(null);
+  const [rearLeafSide, setRearLeafSide] = useState<RearLeafSide>("right");
+  const doorGap = useMemo(
+    () =>
+      maintenanceView?.sweeps
+        ? opposedDoorGap(maintenanceView.sweeps, doorReference, rearLeafSide)
+        : null,
+    [maintenanceView, doorReference, rearLeafSide],
+  );
   const [grilleDoorReference, setGrilleDoorReference] =
     useState<DoorReference | null>(null);
   const grilleSweep = useMemo(
@@ -6776,6 +6789,7 @@ export function Workspace() {
             maintenanceView={maintenanceView}
             grilleSweep={grilleSweep}
             doorReference={doorReference}
+            doorGap={doorGap}
             onMaintenanceViewChange={setMaintenanceView}
             entranceView={entranceView}
             entranceViewCommand={entranceViewCommand}
@@ -8296,65 +8310,21 @@ export function Workspace() {
                     {reserveGapText(maintenanceView.aisle.gap)}
                   </p>
                 )}
-                {maintenanceView.sweeps && (
-                  <div className="aisle-door-check">
-                    <label>
-                      门扇投影位置
-                      <select
-                        value={doorReference}
-                        onChange={(e) =>
-                          setDoorReference(
-                            e.target.value === "open" ? "open" : "peak",
-                          )
-                        }
-                      >
-                        <option value="peak">扫掠最大进深</option>
-                        <option value="open">配置全开位置</option>
-                      </select>
-                    </label>
-                    {maintenanceView.sweeps.map((sweep) => {
-                      const ref = sweep[doorReference];
-                      return (
-                        <p key={sweep.area.id}>
-                          <b>
-                            {sweep.area.rackName.split(" ")[0]}{" "}
-                            {sweep.area.kind === "front" ? "前门" : "双扇后门"}{" "}
-                            · {ref.angle}°
-                          </b>
-                          <br />
-                          自由边距柜面 {ref.depth.toFixed(3)} m ·{" "}
-                          {ref.remaining >= 0 ? "至预留边界" : "超出预留"}{" "}
-                          {Math.abs(ref.remaining).toFixed(3)} m
-                        </p>
-                      );
-                    })}
-                    <small>
-                      扇形为铰轴至门扇自由边的地面投影，未计入门厚及五金。门位仅供布置核查。
-                    </small>
-                  </div>
+                {maintenanceView.sweeps && maintenanceView.aisle && doorGap && (
+                  <AisleDoorDetails
+                    sweeps={maintenanceView.sweeps}
+                    position={doorReference}
+                    gap={doorGap}
+                    onPosition={setDoorReference}
+                    onSide={setRearLeafSide}
+                    ready={ready}
+                    onOpenPdu={
+                      aisleVisit
+                        ? (id) => openRearSocket(maintenanceView.aisle!, id, 1)
+                        : undefined
+                    }
+                  />
                 )}
-                {maintenanceView.sweeps &&
-                  maintenanceView.aisle &&
-                  aisleVisit && (
-                    <div>
-                      {pdus
-                        .filter(
-                          (pdu) =>
-                            pdu.rackId === maintenanceView.aisle!.rear.rackId,
-                        )
-                        .map((pdu) => (
-                          <button
-                            key={pdu.id}
-                            disabled={!ready}
-                            onClick={() =>
-                              openRearSocket(maintenanceView.aisle!, pdu.id, 1)
-                            }
-                          >
-                            开后门核对 {pduName(pdu.id)} ↗
-                          </button>
-                        ))}
-                    </div>
-                  )}
                 {maintenanceView.aisle && !maintenanceView.sweeps && (
                   <label className="aisle-grille-check">
                     {maintenanceView.aisle.front.rackName.split(" ")[0]}{" "}

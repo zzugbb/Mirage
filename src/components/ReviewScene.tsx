@@ -3,7 +3,12 @@ import type { PanelPort } from "../patch-panels";
 import type { FrontServiceInspection } from "../front-service";
 import type { GrilleDoorSweep } from "../grille-door-sweep";
 import type { RearServiceInspection } from "../rear-service";
-import { doorTip, type DoorReference } from "../door-sweep";
+import {
+  aisleDoorPose,
+  type AisleDoorPosition,
+  type OpposedDoorGap,
+} from "../aisle-door-gap";
+import { doorTip } from "../door-sweep";
 import type { RearRowPose } from "../scene/rear-module-seats";
 import type { LayerPose } from "../scene/assembly-layer";
 import { roomAirflowTarget } from "../cooling";
@@ -234,6 +239,7 @@ export function ReviewScene({
   frontService,
   rearService,
   doorReference,
+  doorGap,
   grilleSweep,
   aisleCommand,
   aisleRosterVisible,
@@ -297,7 +303,8 @@ export function ReviewScene({
   frontService: FrontServiceInspection | null;
   rearService: RearServiceInspection | null;
   maintenanceView: MaintenanceInspection | null;
-  doorReference: DoorReference;
+  doorReference: AisleDoorPosition;
+  doorGap: OpposedDoorGap | null;
   grilleSweep: GrilleDoorSweep | null;
   aisleCommand: { rackId: string | null; grilleId?: string } | null;
   aisleRosterVisible: boolean;
@@ -881,14 +888,23 @@ export function ReviewScene({
 
     if (maintenanceView?.sweeps)
       return maintenanceView.sweeps.map((sweep) => {
-        const ref = sweep[doorReference],
-          tip = doorTip(sweep.leaves[sweep.leaves.length - 1], ref.angle);
+        const ref = aisleDoorPose(sweep, doorReference),
+          tip = doorTip(
+            sweep.area.kind === "rear" && doorGap
+              ? doorGap.leaf
+              : sweep.leaves[sweep.leaves.length - 1],
+            ref.angle,
+          );
         return {
           id: sweep.area.id + "-door",
           position: [tip.x, sweep.area.position[1] + 0.012, tip.z],
           text:
             sweep.area.rackName.split(" ")[0] +
-            (sweep.area.kind === "front" ? " 前门 " : " 后门 ") +
+            (sweep.area.kind === "front"
+              ? " 前门 "
+              : doorGap?.side === "left"
+                ? " 左后扇 "
+                : " 右后扇 ") +
             ref.depth.toFixed(3) +
             " m",
         };
@@ -927,6 +943,7 @@ export function ReviewScene({
     comparison,
     maintenanceView,
     doorReference,
+    doorGap,
     frontService,
     openRearService,
     grilleSweep,
@@ -1881,6 +1898,7 @@ export function ReviewScene({
           : undefined,
       openRearService ? "open" : doorReference,
       grilleFront?.sweep ?? (inspecting ? grilleSweep : null),
+      inspecting && !openRearService ? doorGap : null,
     );
     engine.current?.invalidate();
   }, [
@@ -1888,6 +1906,7 @@ export function ReviewScene({
     inspecting,
     maintenanceView,
     doorReference,
+    doorGap,
     openRearService,
     grilleSweep,
     retry,
