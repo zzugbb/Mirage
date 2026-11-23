@@ -1821,7 +1821,12 @@ export function Workspace() {
       setFanViewRevision((n) => n + 1);
       setFanFocusRevision((n) => n + 1);
     } else if (selected === fanDuct?.id && !compareFanDuct) {
-      setFanVisit({ ...fanVisit, mode: "group", side: "duct" });
+      setFanVisit({
+        ...fanVisit,
+        mode: "group",
+        side: "duct",
+        shaft: undefined,
+      });
       setFanViewRevision((n) => n + 1);
     } else if (
       fanAssembly(state.deviceId)!.fans.some((fan) => fan.id === selected) &&
@@ -1833,7 +1838,7 @@ export function Workspace() {
       (selected === state.deviceId ||
         selected === fanAssembly(state.deviceId)!.group.id)
     ) {
-      setFanVisit({ ...fanVisit, mode: "group" });
+      setFanVisit({ ...fanVisit, mode: "group", shaft: undefined });
       setFanViewRevision((n) => n + 1);
     }
   }, [
@@ -3204,7 +3209,6 @@ export function Workspace() {
     setInspector(true);
     if (matchMedia("(max-width: 1099px)").matches) setNav(false);
     setFanVisit({ ...activeFanVisit, mode: "group", shaft: undefined });
-    control({ type: "pick", id: activeFanVisit.fanId });
     control({ type: "analysis", value: false });
     setFanViewRevision((n) => n + 1);
     setFanFocusRevision((n) => n + 1);
@@ -7183,15 +7187,16 @@ export function Workspace() {
                   setFanFocusRevision((n) => n + 1);
                   pick(id);
                 }}
-                onInspect={() => {
+                onInspect={(id) => {
                   if (!activeFanVisit || !ready) return;
                   setFanFocusRevision((n) => n + 1);
                   setFanVisit({
                     ...activeFanVisit,
                     mode: "single",
+                    fanId: id,
                     shaft: undefined,
                   });
-                  pick(activeFanVisit.fanId);
+                  pick(id);
                 }}
                 onGroup={returnFanGroup}
                 onFinish={finishStructureCheck}

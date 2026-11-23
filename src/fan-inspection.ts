@@ -21,6 +21,16 @@ export function fanAssembly(deviceId: string) {
     : undefined;
   return fans.length ? { group, fans, duct } : null;
 }
+export function fanInspectionTarget(
+  assembly: NonNullable<ReturnType<typeof fanAssembly>>,
+  selected: string,
+  lastFanId: string,
+) {
+  // 仅导风罩的具名对照入口使用上次风扇，整机和整组没有隐含的单件选择。
+  const id = selected === assembly.duct?.id ? lastFanId : selected;
+  return assembly.fans.find((fan) => fan.id === id);
+}
+
 export const shaftStages = [
   { id: "guard", name: "护网与定位柱", open: "取下护网", close: "装回护网" },
   { id: "rotor", name: "叶轮与轴头", open: "移出叶轮", close: "放回叶轮" },

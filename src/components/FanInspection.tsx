@@ -3,6 +3,7 @@ import { modelForDevice } from "../catalog";
 import {
   fanAssembly,
   fanInspectionNeighbor,
+  fanInspectionTarget,
   type FanInspection as Visit,
 } from "../fan-inspection";
 
@@ -23,11 +24,12 @@ export function FanInspection({
   ready: boolean;
   focusRevision: number;
   onSelect: (id: string) => void;
-  onInspect: () => void;
+  onInspect: (id: string) => void;
   onGroup: () => void;
   onFinish: () => void;
 }) {
   const assembly = fanAssembly(deviceId)!;
+  const target = fanInspectionTarget(assembly, selected, visit.fanId);
   const host = useRef<HTMLElement>(null),
     pendingFocus = useRef(false);
   useEffect(() => {
@@ -47,11 +49,15 @@ export function FanInspection({
   useLayoutEffect(() => {
     if (!ready || visit.pending || !pendingFocus.current) return;
     const entry = host.current?.querySelector<HTMLElement>(
-      visit.mode === "group" ? `[data-fan-id="${visit.fanId}"]` : "select",
+      visit.mode === "single"
+        ? "select"
+        : target
+          ? `[data-fan-id="${target.id}"]`
+          : ".fan-inspection-list",
     );
     entry?.focus({ preventScroll: true });
     entry?.scrollIntoView({ block: "nearest" });
-  }, [ready, visit.pending, focusRevision, visit.mode]);
+  }, [ready, visit.pending, focusRevision, visit.mode, target?.id]);
   return (
     <section
       ref={host}
@@ -70,17 +76,25 @@ export function FanInspection({
         <>
           <div className="structure-check-heading">
             <strong>风扇清单</strong>
-            <button disabled={!ready || visit.pending} onClick={onInspect}>
-              {selected === assembly.duct?.id
-                ? `只看 ${assembly.fans.find((fan) => fan.id === visit.fanId)?.slot}`
-                : "只看所选子件"}{" "}
-              ↗
-            </button>
+            {target ? (
+              <button
+                disabled={!ready || visit.pending}
+                onClick={() => onInspect(target.id)}
+              >
+                {selected === assembly.duct?.id
+                  ? `只看 ${target.slot}`
+                  : "只看所选子件"}{" "}
+                ↗
+              </button>
+            ) : (
+              <span role="status">请选择风扇</span>
+            )}
           </div>
           <div
             className="fan-inspection-list"
             role="group"
             aria-label="风扇子件清单"
+            tabIndex={-1}
           >
             {assembly.fans.map((fan, index) => (
               <button

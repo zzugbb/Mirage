@@ -5,6 +5,7 @@ import {
   fanInspectionContext,
   activeFanInspection,
   fanInspectionNeighbor,
+  fanInspectionTarget,
   type FanInspection,
 } from "./fan-inspection.ts";
 import { devices } from "./installation.ts";
@@ -142,4 +143,26 @@ test("风扇清单键盘按配置顺序移动焦点，首尾不循环，未知�
         );
       assert.equal(fanInspectionNeighbor(i, "Enter", count), i);
     }
+});
+
+test("风扇单件检视跟随当前选择，仅导风罩能按编号重访上次风扇", () => {
+  for (const device of devices) {
+    const assembly = fanAssembly(device.id)!;
+    const last = assembly.fans.at(-1)!;
+    for (const id of [device.id, assembly.group.id, "unknown"]) {
+      assert.equal(fanInspectionTarget(assembly, id, last.id), undefined);
+    }
+    for (const fan of assembly.fans)
+      assert.equal(fanInspectionTarget(assembly, fan.id, last.id), fan);
+    if (assembly.duct) {
+      assert.equal(
+        fanInspectionTarget(assembly, assembly.duct.id, last.id),
+        last,
+      );
+      assert.equal(
+        fanInspectionTarget(assembly, assembly.duct.id, "unknown"),
+        undefined,
+      );
+    }
+  }
 });
