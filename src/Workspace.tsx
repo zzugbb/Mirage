@@ -4982,6 +4982,7 @@ export function Workspace() {
                     if (
                       state.level !== "room" ||
                       layoutScope === "fixtures" ||
+                      layoutScope === "wall" ||
                       !!layoutVisit.resourceList ||
                       entranceView
                     )
@@ -5765,6 +5766,10 @@ export function Workspace() {
                 setLayoutRestore(0);
                 setLayoutReturning(false);
                 showAirflow(branch.device.id);
+              }}
+              onInspectWall={(origin, target) => {
+                rememberLayoutSelection(origin);
+                focus(target);
               }}
               onPreviewCrossing={(id) => {
                 const pair = roomLayoutCrossings.find((p) => p.id === id);

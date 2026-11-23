@@ -1,3 +1,4 @@
+import { rearWallItems } from "./rear-wall.ts";
 import definition from "../assets/public/scenes/room-01.json" with { type: "json" };
 import { devices, racks, deviceById } from "./installation.ts";
 import {
@@ -77,7 +78,8 @@ export const roomLayoutItems: RoomLayoutItem[] = [
     depth: definition.room.wallThickness,
   },
 ];
-export type RoomLayoutScope = "equipment" | "fixtures" | "ceiling" | "grilles";
+export type RoomLayoutScope =
+  "equipment" | "fixtures" | "ceiling" | "grilles" | "wall";
 
 export const roomLayoutBranches = floorGrilleRows.flatMap((row) =>
   grilleBranches(row.id).map((branch) => ({
@@ -183,6 +185,7 @@ export const roomLayoutLeakPath = {
   ]),
 };
 export function roomLayoutScopeItems(scope: RoomLayoutScope): RoomLayoutItem[] {
+  if (scope === "wall") return rearWallItems;
   if (scope === "grilles") return roomLayoutBranches;
   return scope === "ceiling"
     ? roomLayoutCrossings
@@ -275,7 +278,7 @@ export function roomLayoutMatches(
 export function roomLayoutNeighbor(
   id: string,
   key: string,
-  scope: RoomLayoutScope = "equipment",
+  scope: Exclude<RoomLayoutScope, "wall"> = "equipment",
 ) {
   const items = roomLayoutScopeItems(scope);
   const current = items.find((item) => item.id === id);

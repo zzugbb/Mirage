@@ -129,7 +129,13 @@ export function buildRoomFixtures(
       box(group, [0.08, 0.02, 0.06], [0, -0.035, 0], "#697577");
       box(group, [0.025, 0.5, 0.025], [0, 0.26, 0], "#58676d", 0.5);
     } else if (fixture.kind === "access") {
-      box(group, [0.13, 0.23, 0.055], [0, 0, 0], "#26383d", 0.3);
+      box(
+        group,
+        definition.room.entrance.readerBodySize,
+        [0, 0, 0],
+        "#26383d",
+        0.3,
+      );
       box(group, [0.085, 0.07, 0.008], [0, 0.04, 0.031], "#7d9697");
       box(group, [0.045, 0.045, 0.009], [0, -0.055, 0.032], "#131e23");
     } else {

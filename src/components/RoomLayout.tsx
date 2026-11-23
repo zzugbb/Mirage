@@ -1,3 +1,4 @@
+import { RearWallElevation } from "./RearWallElevation";
 import { useLayoutEffect, useRef, type RefObject } from "react";
 import {
   roomLayoutItems,
@@ -23,6 +24,7 @@ const scopes = {
   equipment: { name: "机柜与设备", hint: "柜号、U 位、设备或机型" },
   fixtures: { name: "环境与安全", hint: "查找设施或配置位置" },
   ceiling: { name: "顶灯与桥架", hint: "查找顶灯、桥架或柜排" },
+  wall: { name: "后墙立面", hint: "查找配线架、线槽或门区设施" },
   grilles: { name: "柜前格栅", hint: "查找柜位、代表设备或格栅" },
 } satisfies Record<RoomLayoutScope, { name: string; hint: string }>;
 
@@ -36,6 +38,7 @@ export function RoomLayout({
   onPreviewCrossing,
   onInspectCrossing,
   onInspectBranch,
+  onInspectWall,
   onScope,
   onQuery,
   ready,
@@ -57,6 +60,7 @@ export function RoomLayout({
   onOpenFixtureRoster: () => void;
   crossingId: string | null;
   onPreviewCrossing: (id: string) => void;
+  onInspectWall: (origin: string, target: string) => void;
   onInspectBranch: (branch: GrilleBranch) => void;
   onInspectCrossing: (id: string) => void;
   onScope: (scope: RoomLayoutScope) => void;
@@ -95,6 +99,12 @@ export function RoomLayout({
   useLayoutEffect(() => {
     if (!visible || !host.current) return;
     host.current.scrollTop = scroll.current;
+    if (restoreRevision && scope === "wall") {
+      host.current
+        .querySelector<HTMLButtonElement>(`[data-wall-row="${selected}"]`)
+        ?.focus({ preventScroll: true });
+      return;
+    }
     if (restoreRevision) {
       let button =
         host.current.querySelector<HTMLButtonElement>(
@@ -203,7 +213,9 @@ export function RoomLayout({
         const target = event.target as HTMLElement;
         if (
           target !== search.current &&
-          !target.closest("[data-device-result], [data-layout-id]")
+          !target.closest(
+            "[data-device-result], [data-layout-id], [data-wall-row]",
+          )
         )
           return;
         if (event.nativeEvent.isComposing) {
@@ -235,9 +247,11 @@ export function RoomLayout({
           {scope === "fixtures" && (
             <button onClick={onOpenFixtureRoster}>设施名单</button>
           )}
-          <button disabled={!ready} onClick={onPlan}>
-            俯看三维布置
-          </button>
+          {scope !== "wall" && (
+            <button disabled={!ready} onClick={onPlan}>
+              俯看三维布置
+            </button>
+          )}
         </div>
         <div className="room-layout-search">
           <input
@@ -254,13 +268,18 @@ export function RoomLayout({
                 !single
               )
                 return;
-              const target = singleDevice
-                ? host.current?.querySelector<HTMLButtonElement>(
-                    `[data-device-result="${singleDevice.id}"]`,
-                  )
-                : map.current?.querySelector<HTMLButtonElement>(
-                    `[data-layout-id="${single.id}"]`,
-                  );
+              const target =
+                scope === "wall"
+                  ? host.current?.querySelector<HTMLButtonElement>(
+                      `[data-wall-row="${single.id}"]`,
+                    )
+                  : singleDevice
+                    ? host.current?.querySelector<HTMLButtonElement>(
+                        `[data-device-result="${singleDevice.id}"]`,
+                      )
+                    : map.current?.querySelector<HTMLButtonElement>(
+                        `[data-layout-id="${single.id}"]`,
+                      );
               if (target) {
                 event.preventDefault();
                 target.focus();
@@ -301,6 +320,24 @@ export function RoomLayout({
           scroll.current = event.currentTarget.scrollTop;
         }}
       >
+        {layoutContents()}
+      </div>
+    </section>
+  );
+
+  function layoutContents() {
+    if (scope === "wall")
+      return (
+        <RearWallElevation
+          selected={selected}
+          query={query}
+          ready={ready}
+          onPreview={onPreview}
+          onInspect={onInspectWall}
+        />
+      );
+    return (
+      <>
         <div
           ref={map}
           className="room-layout-map"
@@ -612,7 +649,7 @@ export function RoomLayout({
                   : "柜前格栅按最近位置标出代表落点，不表示独占供风或实测风量。"}
           </p>
         </details>
-      </div>
-    </section>
-  );
+      </>
+    );
+  }
 }
