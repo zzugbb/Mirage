@@ -7,7 +7,11 @@ import {
   type PduMountInspection,
 } from "../pdu-mounts.ts";
 
-import { patchGuideCenter, sideGuides } from "../network-patch.ts";
+import {
+  patchGuideKeys,
+  patchGuideCenter,
+  sideGuides,
+} from "../network-patch.ts";
 
 const settings = definition.rack.enclosure;
 const [width, height, depth] = definition.rack.size;
@@ -209,7 +213,7 @@ export function createRackRoof() {
   return group;
 }
 
-/** 两只水平理线环靠两端安装脚连接右侧壁，开口留给纵向跳线。 */
+/** 水平理线环靠两端安装脚连接右侧壁，开口留给纵向跳线。 */
 export function createPatchGuides() {
   const group = new THREE.Group();
   group.name = "rack-patch-guides";
@@ -220,7 +224,7 @@ export function createPatchGuides() {
   });
   const { wallX, innerEdgeX, openingDepth, stock } = sideGuides;
   const width = wallX - innerEdgeX;
-  for (const key of ["lower", "upper"] as const) {
+  for (const key of patchGuideKeys) {
     const ring = new THREE.Group();
     ring.name = `patch-guide-${key}`;
     ring.position.copy(patchGuideCenter(key));

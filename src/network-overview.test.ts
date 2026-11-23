@@ -110,8 +110,12 @@ test("可看走线仅列出已支持的同柜连接，并与查找和分支共�
       link.target,
     ]),
     [
+      ["sto-02", "sw-13"],
+      ["sto-02", "sw-14"],
       ["sto-01", "sw-13"],
       ["sto-01", "sw-14"],
+      ["sto-04", "sw-15"],
+      ["sto-04", "sw-16"],
       ["sto-03", "sw-15"],
       ["sto-03", "sw-16"],
     ],
@@ -120,7 +124,10 @@ test("可看走线仅列出已支持的同柜连接，并与查找和分支共�
     networkConnectionRows("B04 09", "B", true).map(({ link }) => link.target),
     ["sw-16"],
   );
-  assert.equal(networkConnectionRows("STO-04", "all", true).length, 0);
+  assert.equal(
+    networkConnectionRows("STO-04 U38 端口10", "all", true).length,
+    2,
+  );
 });
 
 test("交换机端口与控制器分支按字段匹配，U 位可落在任一端安装跨度内", () => {

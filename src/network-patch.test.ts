@@ -16,6 +16,8 @@ import {
   patchSectionOffsetMm,
   patchSettings,
   patchGuideCenter,
+  patchGuideKeys,
+  guidesOnPatch,
   sideGuides,
 } from "./network-patch.ts";
 import { NetworkGeometry } from "./scene/network.ts";
@@ -26,7 +28,7 @@ const rack = { ...createState(), level: "rack" as const, deviceId: "sw-14" };
 const assets = initialModelLoads();
 const links = networkLinks.filter((link) => canShowNetworkPatch(rack, link));
 
-test("两柜四条跳线按同一弧长顺序分段，实线与遮挡虚线共用分界", () => {
+test("两柜八条跳线按同一弧长顺序分段，实线与遮挡虚线共用分界", () => {
   const geometry = new NetworkGeometry();
   for (const link of networkLinks.filter((link) =>
     patchSettings.sourceIds.includes(link.source),
@@ -78,14 +80,14 @@ test("两柜四条跳线按同一弧长顺序分段，实线与遮挡虚线共�
   geometry.dispose();
 });
 
-test("B03 柜内只显示本柜的两条样板接入，控制器、端口组与高度跟随配置", () => {
+test("B03 柜内只显示本柜的四条样板接入，控制器、端口组与高度跟随配置", () => {
   assert.deepEqual(
     links.map((link) => link.target),
-    ["sw-13", "sw-14"],
+    ["sw-13", "sw-14", "sw-13", "sw-14"],
   );
   const paths = links.map((link) => {
     const [source, target] = networkEndpoints(link.id);
-    assert.equal(target.port, 9);
+    assert.equal(target.port, source.deviceId === "sto-01" ? 9 : 10);
     const points = networkPatch(rack, link, assets)!;
     const local = points.map((p) =>
       p.clone().sub(new Vector3(...rackForDevice(source.deviceId).position)),
@@ -137,18 +139,18 @@ test("弯头避开柜柱、PDU 和侧板；切换分支释放旧线，预览复�
     assert.equal(geometry.cable, cable);
     assert.equal(geometry.root.children.length, 3);
   }
-  assert.equal(released, 2);
+  assert.equal(released, (links.length - 1) * 2);
   geometry.update([]);
-  assert.equal(released, 4);
+  assert.equal(released, links.length * 2);
   assert.equal(geometry.root.children.length, 1);
   geometry.dispose();
 });
 
 test("从存储安装位查看时避开后置风扇，已加载外观改用后面板公共接口区", () => {
-  const active = { ...rack, deviceId: "sto-01" };
-  const origin = new Vector3(...rackForDevice(active.deviceId).position);
   const geometry = new NetworkGeometry();
   for (const link of links) {
+    const active = { ...rack, deviceId: link.source };
+    const origin = new Vector3(...rackForDevice(active.deviceId).position);
     const idle = networkPatch(active, link, assets)!;
     const loaded = networkPatch(active, link, {
       ...assets,
@@ -207,7 +209,7 @@ test("从存储安装位查看时避开后置风扇，已加载外观改用后�
   geometry.dispose();
 });
 
-test("B04 的 STO-03 仅启用两条同柜接入，复用 B03 在各装配状态下的局部走线", () => {
+test("B04 两台存储启用四条同柜接入，复用 B03 在各装配状态下的局部走线", () => {
   const b04 = { ...rack, deviceId: "sw-16" };
   const branches = networkLinks.filter((link) =>
     canShowNetworkPatch(b04, link),
@@ -217,21 +219,29 @@ test("B04 的 STO-03 仅启用两条同柜接入，复用 B03 在各装配状态
     [
       ["sto-03", "sw-15", 9],
       ["sto-03", "sw-16", 9],
+      ["sto-04", "sw-15", 10],
+      ["sto-04", "sw-16", 10],
     ],
   );
   const allowed = networkLinks.filter((link) =>
     canShowNetworkPatch({ ...rack, deviceId: link.source }, link),
   );
-  assert.equal(allowed.length, 4);
+  assert.equal(allowed.length, 8);
   for (const [index, link] of branches.entries()) {
     const original = links[index];
     assert.equal(networkPatch(rack, link, assets), null);
     const ends = networkEndpoints(link.id);
-    assert.equal(ends[0].location, "B04 机柜 / U25–28");
-    assert.equal(ends[0].partName, index === 0 ? "控制器 A" : "控制器 B");
+    assert.equal(
+      ends[0].location,
+      link.source === "sto-03" ? "B04 机柜 / U25–28" : "B04 机柜 / U35–38",
+    );
+    assert.equal(
+      ends[0].partName,
+      link.sourcePort === 1 ? "控制器 A" : "控制器 B",
+    );
     assert.equal(
       ends[1].location,
-      index === 0 ? "B04 机柜 / U39" : "B04 机柜 / U41",
+      link.sourcePort === 1 ? "B04 机柜 / U39" : "B04 机柜 / U41",
     );
     for (const activeEnd of ["source", "target"] as const) {
       for (const loads of [
@@ -260,7 +270,7 @@ test("B04 的 STO-03 仅启用两条同柜接入，复用 B03 在各装配状态
   }
 });
 
-test("两柜上下理线环固定在右壁，四条分支在精简两种外观下均从环内穿过", () => {
+test("两柜八条分支按实际路径提供环位，精简两种外观的跳线均穿过对应环口", () => {
   const group = createPatchGuides();
   const branches = networkLinks.filter((link) =>
     patchSettings.sourceIds.includes(link.source),
@@ -280,7 +290,12 @@ test("两柜上下理线环固定在右壁，四条分支在精简两种外观�
       const [from, to] = points.slice(2, 4).map((p) => p.clone().sub(origin));
       assert.equal(from.x, to.x);
       assert.equal(from.z, to.z);
-      for (const key of ["lower", "upper"] as const) {
+      const keys = guidesOnPatch(points, link.source);
+      assert.deepEqual(
+        keys,
+        link.targetPort === 9 ? ["lower", "upper", "outlet"] : ["outlet"],
+      );
+      for (const key of keys) {
         const ring = group.getObjectByName(`patch-guide-${key}`)!;
         const center = patchGuideCenter(key);
         assert.deepEqual(ring.position.toArray(), center.toArray());
@@ -301,4 +316,38 @@ test("两柜上下理线环固定在右壁，四条分支在精简两种外观�
     }
   }
   assert.ok(patchGuideCenter("upper").y > patchGuideCenter("lower").y);
+});
+
+test("端口 10 的高位出线避开低环，弯头和管面在两种外观下均避开三个环的金属件", () => {
+  const rack = rackForDevice("sto-02");
+  const guides = createPatchGuides();
+  guides.position.fromArray(rack.position);
+  const metal = patchGuideKeys.flatMap((key) =>
+    guides
+      .getObjectByName(`patch-guide-${key}`)!
+      .children.map((piece) => new Box3().setFromObject(piece)),
+  );
+  const geometry = new NetworkGeometry();
+  for (const link of links.filter((link) => link.targetPort === 10)) {
+    for (const load of ["ready", "failed"] as const) {
+      const state = {
+        ...createState(),
+        level: "rack" as const,
+        deviceId: link.source,
+      };
+      const points = networkPatch(state, link, {
+        ...assets,
+        "storage-4u": load,
+        "switch-1u": load,
+      })!;
+      geometry.update(networkMarkers(state, link.source, link.id), points);
+      const vertices = geometry.cable!.geometry.attributes.position;
+      const vertex = new Vector3();
+      for (let i = 0; i < vertices.count; i++) {
+        vertex.fromBufferAttribute(vertices, i);
+        assert.ok(metal.every((piece) => !piece.containsPoint(vertex)));
+      }
+    }
+  }
+  geometry.dispose();
 });

@@ -5647,12 +5647,15 @@
       },
       "switchPartId": "net-ports",
       "patchIllustration": {
-        "sourceIds": ["sto-01", "sto-03"],
+        "sourceIds": ["sto-01", "sto-02", "sto-03", "sto-04"],
         "description": "柜前看右侧理线示意，端点仅定位控制器区域与接入口组",
         "sideGuides": {
           "rackIds": ["rack-a07", "rack-a08"],
-          "lower": { "unit": 30, "label": "下理线环" },
-          "upper": { "unit": 35, "label": "上理线环" },
+          "positions": {
+            "lower": { "unit": 30, "label": "下理线环" },
+            "upper": { "unit": 35, "label": "上理线环" },
+            "outlet": { "unit": 39, "label": "接入端理线环" }
+          },
           "centerZ": -0.248,
           "openingDepth": 0.04,
           "innerEdgeX": 0.249,

@@ -61,6 +61,7 @@ import {
 } from "../network-view";
 import {
   isPatchGuide,
+  guidesOnPatch,
   patchGuideCenter,
   patchSections,
   sideGuides,
@@ -1045,7 +1046,10 @@ export class SceneEngine {
       !targets.length ||
       !sourceId ||
       this.moving ||
-      (view !== "observe" && !this.patchPoints)
+      (view !== "observe" && !this.patchPoints) ||
+      (isPatchGuide(view) &&
+        this.patchPoints &&
+        !guidesOnPatch(this.patchPoints, sourceId).includes(view))
     )
       return;
     const previous =
@@ -1092,6 +1096,14 @@ export class SceneEngine {
     const key = JSON.stringify(this.patchPoints ?? targets);
     if (key === this.networkObservation.key) return;
     if (!this.patchPoints) this.networkObservation.view = "observe";
+    else if (
+      isPatchGuide(this.networkObservation.view) &&
+      !guidesOnPatch(
+        this.patchPoints,
+        this.networkObservation.sourceId,
+      ).includes(this.networkObservation.view)
+    )
+      this.networkObservation.view = "side";
     this.networkObservation.targets = targets;
     this.networkObservation.key = key;
     this.frameNetwork();

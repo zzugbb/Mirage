@@ -158,6 +158,7 @@ import {
   patchSections,
   patchSectionOffsetMm,
   isPatchGuide,
+  guidesOnPatch,
   sideGuides,
 } from "../network-patch";
 import { NetworkGeometry } from "../scene/network";
@@ -743,7 +744,9 @@ export function ReviewScene({
     isolatedPartId,
   ]);
   const patchGuide =
-    patch && isPatchGuide(networkView) ? sideGuides[networkView] : null;
+    patch && isPatchGuide(networkView)
+      ? sideGuides.positions[networkView]
+      : null;
   const patchSection =
     patch && networkView && networkView !== "observe"
       ? isPatchGuide(networkView)
@@ -2777,9 +2780,10 @@ export function ReviewScene({
                         {section.label}
                       </option>
                     ))}
-                    {(["lower", "upper"] as const).map((key) => (
+                    {guidesOnPatch(patch, networkLink.source).map((key) => (
                       <option key={key} value={key}>
-                        {sideGuides[key].label} · U{sideGuides[key].unit}
+                        {sideGuides.positions[key].label} · U
+                        {sideGuides.positions[key].unit}
                       </option>
                     ))}
                   </select>

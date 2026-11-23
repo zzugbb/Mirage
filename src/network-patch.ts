@@ -18,18 +18,42 @@ import { Vector3 } from "three";
 export const patchSettings = networkSettings.patchIllustration;
 
 export const sideGuides = patchSettings.sideGuides;
-export type PatchGuide = "lower" | "upper";
+export type PatchGuide = keyof typeof sideGuides.positions;
+export const patchGuideKeys = Object.keys(sideGuides.positions) as PatchGuide[];
 export function isPatchGuide(view: string | null): view is PatchGuide {
-  return view === "lower" || view === "upper";
+  return view !== null && Object.hasOwn(sideGuides.positions, view);
 }
 
 export function patchGuideCenter(guide: PatchGuide) {
   return new Vector3(
     (sideGuides.innerEdgeX + sideGuides.wallX) / 2,
     definition.rack.unitOrigin +
-      sideGuides[guide].unit * definition.rack.unitPitch,
+      sideGuides.positions[guide].unit * definition.rack.unitPitch,
     sideGuides.centerZ,
   );
+}
+
+/** 仅提供当前分支直线穿过的环口。圆弧过渡和金属边缘不算穿环。 */
+export function guidesOnPatch(points: Vector3[], sourceId: string) {
+  const rack = rackForDevice(sourceId);
+  if (!sideGuides.rackIds.includes(rack.id)) return [];
+  const [rx, ry, rz] = rack.position;
+  const start = points[2],
+    end = points[3];
+  const radius = patchSettings.cableRadius;
+  const x = start.x - rx,
+    z = start.z - rz;
+  if (
+    x - radius <= sideGuides.innerEdgeX + sideGuides.stock ||
+    x + radius >= sideGuides.wallX - sideGuides.stock ||
+    Math.abs(z - sideGuides.centerZ) + radius >= sideGuides.openingDepth / 2
+  )
+    return [];
+  return patchGuideKeys.filter((key) => {
+    const y = patchGuideCenter(key).y + ry;
+    const margin = patchSettings.bendRadius + sideGuides.stock;
+    return start.y + margin < y && y < end.y - margin;
+  });
 }
 
 // 相邻观察段共用同一折点。尺寸取自当前分支的示意中心线。

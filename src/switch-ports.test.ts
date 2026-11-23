@@ -107,7 +107,7 @@ test("走线查找使用连接的示意能力，保留原逻辑编号与全部�
     assert.equal(rows.length, 54);
     assert.deepEqual(
       rows.filter((row) => row.matches).map((row) => row.port),
-      expected.includes(id) ? [9] : [],
+      expected.includes(id) ? [9, 10] : [],
     );
     assert.ok(rows.every((row) => row.matches === row.patchSupported));
   }
