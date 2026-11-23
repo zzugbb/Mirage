@@ -1,6 +1,7 @@
 import { compactDriveBays } from "../compact-drive-bays";
 import { updateRackBlanking } from "./rack-blanking";
 import { createEquipmentRearProxy } from "./equipment-rear-proxy";
+import { patchSourceIds } from "../network.ts";
 import { patchSettings } from "../network-patch";
 import { equipmentModels, modelForDevice, partsForDevice } from "../catalog";
 import * as THREE from "three";
@@ -45,7 +46,7 @@ export class InstallationScene {
       group.userData.entityId = rack.id;
       updateRackBlanking(group, rack.id);
       group.getObjectByName("rack-patch-guides")!.visible =
-        patchSettings.sideGuides.rackIds.includes(rack.id);
+        patchSettings.rackIds.includes(rack.id);
       for (const pdu of pdus.filter((pdu) => pdu.rackId === rack.id))
         group.getObjectByName(`pdu-${pdu.feed}`)!.userData.entityId = pdu.id;
       group.position.fromArray(rack.position);
@@ -113,7 +114,7 @@ export class InstallationScene {
       const ids = devices
         .filter((device) => device.modelId === model.id)
         .map((device) => device.id);
-      const patchIds = ids.filter((id) => patchSettings.sourceIds.includes(id));
+      const patchIds = ids.filter((id) => patchSourceIds.has(id));
       if (model.category === "storage" && patchIds.length) {
         // 同型号样板共用后面板几何，各实例按自己的安装位平移。
         const panelDepth = patchSettings.controllerPanelDepth;

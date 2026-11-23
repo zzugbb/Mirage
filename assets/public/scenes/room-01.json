@@ -5647,16 +5647,10 @@
       },
       "switchPartId": "net-ports",
       "patchIllustration": {
-        "sourceIds": [
-          "sto-01", "sto-02", "sto-03", "sto-04",
-          "srv-49", "srv-50", "srv-51", "srv-52",
-          "srv-53", "srv-54", "srv-55", "srv-56",
-          "srv-57", "srv-58", "srv-59", "srv-60",
-          "srv-61", "srv-62", "srv-63", "srv-64"
-        ],
+        "rackIds": ["rack-a01", "rack-a02", "rack-a03", "rack-a04", "rack-a05", "rack-a06", "rack-a07", "rack-a08"],
+        "sourceModelIds": ["server-1u", "server-2u", "storage-4u"],
         "description": "柜前看右侧理线示意，端点仅定位网卡或控制器区域与交换机接入口组",
         "sideGuides": {
-          "rackIds": ["rack-a07", "rack-a08"],
           "positions": {
             "lower": { "unit": 30, "label": "下理线环" },
             "upper": { "unit": 35, "label": "上理线环" },

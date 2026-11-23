@@ -36,7 +36,7 @@ export function patchGuideCenter(guide: PatchGuide) {
 /** 仅提供当前分支直线穿过的环口。圆弧过渡和金属边缘不算穿环。 */
 export function guidesOnPatch(points: Vector3[], sourceId: string) {
   const rack = rackForDevice(sourceId);
-  if (!sideGuides.rackIds.includes(rack.id)) return [];
+  if (!patchSettings.rackIds.includes(rack.id)) return [];
   const [rx, ry, rz] = rack.position;
   const span = patchSectionRange(points.length, "side");
   const start = points[span.start],

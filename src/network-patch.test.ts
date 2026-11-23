@@ -4,12 +4,17 @@ import { Box3, Vector3 } from "three";
 import { networkLinks, partsForDevice, modelForDevice } from "./catalog.ts";
 import { createState } from "./domain.ts";
 import {
+  deviceById,
   deviceHeight,
   rackForDevice,
   installedFrontZ,
 } from "./installation.ts";
 import { initialModelLoads } from "./model-loading.ts";
-import { networkEndpoints, networkMarkers } from "./network.ts";
+import {
+  networkEndpoints,
+  networkMarkers,
+  supportsNetworkPatch,
+} from "./network.ts";
 import {
   canShowNetworkPatch,
   networkPatch,
@@ -31,11 +36,9 @@ const storageLinks = networkLinks.filter(
 );
 const links = storageLinks.filter((link) => canShowNetworkPatch(rack, link));
 
-test("两柜全部样板跳线按同一弧长顺序分段，实线与遮挡虚线共用分界", () => {
+test("八柜全部样板跳线按同一弧长顺序分段，实线与遮挡虚线共用分界", () => {
   const geometry = new NetworkGeometry();
-  for (const link of networkLinks.filter((link) =>
-    patchSettings.sourceIds.includes(link.source),
-  )) {
+  for (const link of networkLinks.filter(supportsNetworkPatch)) {
     const state = { ...rack, deviceId: link.target };
     for (const load of ["ready", "failed"] as const) {
       const points = networkPatch(state, link, {
@@ -229,7 +232,7 @@ test("B04 两台存储启用四条同柜接入，复用 B03 在各装配状态�
   const allowed = networkLinks.filter((link) =>
     canShowNetworkPatch({ ...rack, deviceId: link.source }, link),
   );
-  assert.equal(allowed.length, 40);
+  assert.equal(allowed.length, 136);
   for (const [index, link] of branches.entries()) {
     const original = links[index];
     assert.equal(networkPatch(rack, link, assets), null);
@@ -275,12 +278,10 @@ test("B04 两台存储启用四条同柜接入，复用 B03 在各装配状态�
 
 test("两柜八条分支按实际路径提供环位，精简两种外观的跳线均穿过对应环口", () => {
   const group = createPatchGuides();
-  const branches = storageLinks.filter((link) =>
-    patchSettings.sourceIds.includes(link.source),
-  );
+  const branches = storageLinks.filter(supportsNetworkPatch);
   assert.deepEqual(
     new Set(branches.map((link) => rackForDevice(link.source).id)),
-    new Set(sideGuides.rackIds),
+    new Set(["rack-a07", "rack-a08"]),
   );
   for (const link of branches) {
     const origin = new Vector3(...rackForDevice(link.source).position);
@@ -321,17 +322,16 @@ test("两柜八条分支按实际路径提供环位，精简两种外观的跳�
   assert.ok(patchGuideCenter("upper").y > patchGuideCenter("lower").y);
 });
 
-test("端口 10 的高位出线避开低环，弯头和管面在两种外观下均避开三个环的金属件", () => {
-  const rack = rackForDevice("sto-02");
+test("八柜 136 条示意跳线的弯头和管面在精模和简模下均避开理线环金属件", () => {
   const guides = createPatchGuides();
-  guides.position.fromArray(rack.position);
   const metal = patchGuideKeys.flatMap((key) =>
     guides
       .getObjectByName(`patch-guide-${key}`)!
       .children.map((piece) => new Box3().setFromObject(piece)),
   );
   const geometry = new NetworkGeometry();
-  for (const link of links.filter((link) => link.targetPort === 10)) {
+  for (const link of networkLinks) {
+    const origin = new Vector3(...rackForDevice(link.source).position);
     for (const load of ["ready", "failed"] as const) {
       const state = {
         ...createState(),
@@ -347,21 +347,24 @@ test("端口 10 的高位出线避开低环，弯头和管面在两种外观下�
       const vertices = geometry.cable!.geometry.attributes.position;
       const vertex = new Vector3();
       for (let i = 0; i < vertices.count; i++) {
-        vertex.fromBufferAttribute(vertices, i);
-        assert.ok(metal.every((piece) => !piece.containsPoint(vertex)));
+        vertex.fromBufferAttribute(vertices, i).sub(origin);
+        assert.ok(
+          metal.every((piece) => !piece.containsPoint(vertex)),
+          link.id,
+        );
       }
     }
   }
   geometry.dispose();
 });
 
-test("两样板柜的 32 条服务器分支从各机型网卡区引出，再从侧壁转入对应理线环", () => {
+test("八柜的 128 条服务器分支从各机型网卡区引出，再从侧壁转入对应理线环", () => {
   const branches = networkLinks.filter(
     (link) =>
       modelForDevice(link.source).category === "server" &&
-      patchSettings.sourceIds.includes(link.source),
+      supportsNetworkPatch(link),
   );
-  assert.equal(branches.length, 32);
+  assert.equal(branches.length, 128);
   for (const link of branches) {
     const model = modelForDevice(link.source);
     const panel = model.rearPanels.find(
@@ -390,7 +393,7 @@ test("两样板柜的 32 条服务器分支从各机型网卡区引出，再从�
       assert.ok(local[3].x === local[2].x && local[3].y === local[2].y);
       assert.deepEqual(
         guidesOnPatch(points, link.source),
-        link.targetPort === 8
+        deviceById(link.source)!.startUnit > 30
           ? ["upper", "outlet"]
           : ["lower", "upper", "outlet"],
       );
@@ -430,4 +433,12 @@ test("机柜代理沿用背板面，定位到服务器自身时改用网卡装�
       assert.deepEqual(guidesOnPatch(proxy, id), guidesOnPatch(active, id));
     }
   }
+});
+
+test("跨柜连接、未知设备和同柜非交换机对端不显示柜内跳线", () => {
+  const link = networkLinks.find((item) => item.source === "srv-04")!;
+  assert.ok(supportsNetworkPatch(link));
+  for (const target of ["sw-01", "srv-03", "missing"])
+    assert.equal(supportsNetworkPatch({ ...link, target }), false);
+  assert.equal(supportsNetworkPatch({ ...link, source: "missing" }), false);
 });

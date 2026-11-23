@@ -64,7 +64,7 @@ import {
   guidesOnPatch,
   patchGuideCenter,
   patchSectionRange,
-  sideGuides,
+  patchSettings,
   type PatchGuide,
 } from "../network-patch";
 import { slicePlanePoints, slicePlaneFrame } from "../slice-plane-view";
@@ -1996,7 +1996,7 @@ export class SceneEngine {
     if (this.models.rack.userData.entityId !== rack.id)
       this.presentation.resetRearDoor();
     this.models.rack.position.fromArray(rack.position);
-    this.models.patchGuides.visible = sideGuides.rackIds.includes(rack.id);
+    this.models.patchGuides.visible = patchSettings.rackIds.includes(rack.id);
     this.models.bench.position.set(
       rack.position[0],
       0,

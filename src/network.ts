@@ -15,10 +15,22 @@ import {
 import type { AppState } from "./domain.ts";
 export const networkSettings = definition.installation.networkAccess;
 export type NetworkLink = (typeof networkLinks)[number];
+// 走线使用已登记的柜体布置和源机型，分支及端口仍以接入配置为准。
+const patchLayout = networkSettings.patchIllustration;
+export const patchSourceIds = new Set(
+  devices
+    .filter(
+      (device) =>
+        patchLayout.rackIds.includes(device.rackId) &&
+        patchLayout.sourceModelIds.includes(device.modelId),
+    )
+    .map((device) => device.id),
+);
 export function supportsNetworkPatch(link: NetworkLink) {
   return (
-    networkSettings.patchIllustration.sourceIds.includes(link.source) &&
-    rackForDevice(link.source).id === rackForDevice(link.target).id
+    patchSourceIds.has(link.source) &&
+    !!switchRole(link.target) &&
+    deviceById(link.source)!.rackId === deviceById(link.target)?.rackId
   );
 }
 export const networkLinkById = (id: string | null) =>

@@ -99,7 +99,7 @@ test("往返只延续本交换机、已配置对端及其部件，未配置口�
 });
 
 test("走线查找使用连接的示意能力，保留原逻辑编号与全部端口", () => {
-  const expected = ["sw-13", "sw-14", "sw-15", "sw-16"];
+  const storageSwitches = ["sw-13", "sw-14", "sw-15", "sw-16"];
   for (const { id } of devices.filter(
     (d) => modelForDevice(d.id).category === "switch",
   )) {
@@ -107,7 +107,9 @@ test("走线查找使用连接的示意能力，保留原逻辑编号与全部�
     assert.equal(rows.length, 54);
     assert.deepEqual(
       rows.filter((row) => row.matches).map((row) => row.port),
-      expected.includes(id) ? [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] : [],
+      storageSwitches.includes(id)
+        ? [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        : [1, 2, 3, 4, 5, 6, 7, 8],
     );
     assert.ok(rows.every((row) => row.matches === row.patchSupported));
   }
