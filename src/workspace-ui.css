@@ -7579,3 +7579,14 @@
 .wall-inset .wall-outline[data-peer="true"] {
   stroke-dasharray: 4 2;
 }
+
+.raceway-registration {
+  display: grid;
+  gap: 3px;
+  border-left: 2px solid #709fa6;
+  padding-left: 9px;
+  font-size: 12px;
+}
+.raceway-registration small {
+  color: #a5bac4;
+}

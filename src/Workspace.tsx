@@ -6,7 +6,8 @@ import {
 import { CondensateDetails } from "./components/CondensateDetails";
 import { racewayById } from "./panel-raceway";
 import { PatchPanelDetails } from "./components/PatchPanelDetails";
-import { patchPanelById, type PanelPort } from "./patch-panels";
+import { PanelRacewayDetails } from "./components/PanelRacewayDetails";
+import { patchPanelById, portAtPanel, type PanelPort } from "./patch-panels";
 import {
   frontServiceInspection,
   frontServiceDevices,
@@ -1108,16 +1109,21 @@ export function Workspace() {
       revision: (current?.revision ?? 0) + 1,
     }));
   };
-  const [panelPort, setPanelPort] = useState<PanelPort | null>(null);
+  const [panelInspection, setPanelInspection] = useState<{
+    fixtureId: string;
+    origin: PanelPort;
+  } | null>(null);
+  const inspectionOrigin =
+    panelInspection?.fixtureId === selected &&
+    state.level === "room" &&
+    layer === "overview"
+      ? panelInspection.origin
+      : null;
+  const panelPort =
+    inspectionOrigin?.panelId === selected ? inspectionOrigin : null;
   useEffect(() => {
-    if (
-      panelPort &&
-      (selected !== panelPort.panelId ||
-        state.level !== "room" ||
-        layer !== "overview")
-    )
-      setPanelPort(null);
-  }, [selected, state.level, layer, panelPort]);
+    if (panelInspection && !inspectionOrigin) setPanelInspection(null);
+  }, [panelInspection, inspectionOrigin]);
   const [leakView, setLeakView] = useState<LeakInspection | null>(null);
   const [leakViewCommand, setLeakViewCommand] =
     useState<LeakViewCommand | null>(null);
@@ -3169,7 +3175,7 @@ export function Workspace() {
   const inspectPanelPort = (port: PanelPort) => {
     focus(port.panelId);
     control({ type: "analysis", value: false });
-    setPanelPort(port);
+    setPanelInspection({ fixtureId: port.panelId, origin: port });
   };
   const condensateDetails = layer === "overview" &&
     state.level === "room" &&
@@ -4605,7 +4611,7 @@ export function Workspace() {
     setComparisonReturning(false);
     setComparisonFocus(false);
     comparisonScroll.current = 0;
-    setPanelPort(null);
+    setPanelInspection(null);
     setShot(next);
     setRevision((n) => n + 1);
     setQuery("");
@@ -4967,7 +4973,7 @@ export function Workspace() {
                 <button
                   disabled={!ready || layoutReturning}
                   onClick={() => {
-                    setPanelPort(null);
+                    setPanelInspection(null);
                     setLayoutReturning(true);
                     if (layoutVisit.id === coolingSource.id && coolingVisit) {
                       setCoolingVisit(null);
@@ -8904,7 +8910,31 @@ export function Workspace() {
                     onPreview={pick}
                     onLocate={focus}
                     condensateDetails={condensateDetails}
-                    showRaceway={layer === "overview" && state.level === "room"}
+                    racewayDetails={
+                      layer === "overview" &&
+                      state.level === "room" && (
+                        <PanelRacewayDetails
+                          fixture={fixture}
+                          origin={inspectionOrigin}
+                          ready={ready}
+                          onLocate={(id) => {
+                            const port =
+                              inspectionOrigin &&
+                              portAtPanel(inspectionOrigin, id);
+                            if (port) {
+                              inspectPanelPort(port);
+                            } else {
+                              setPanelInspection(
+                                inspectionOrigin && racewayById(id)
+                                  ? { fixtureId: id, origin: inspectionOrigin }
+                                  : null,
+                              );
+                              focus(id);
+                            }
+                          }}
+                        />
+                      )
+                    }
                     panelPorts={
                       fixture.kind === "patch-panel" &&
                       layer === "overview" &&

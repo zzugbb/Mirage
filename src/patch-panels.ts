@@ -28,3 +28,14 @@ export function panelTermination({ panelId, port }: PanelPort) {
   }
   return null;
 }
+
+/** 沿布置核对到箱体时，只恢复起点孔或已经登记的对端孔。 */
+export function portAtPanel(origin: PanelPort, panelId: string) {
+  if (origin.panelId === panelId) return origin;
+  const peer = panelTermination(origin)?.peer;
+  return peer?.panelId === panelId ? peer : null;
+}
+
+export function panelPortLabel(port: PanelPort) {
+  return `${patchPanelById(port.panelId)!.name} · 孔 ${String(port.port).padStart(2, "0")}`;
+}

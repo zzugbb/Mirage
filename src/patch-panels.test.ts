@@ -5,6 +5,7 @@ import {
   patchPanels,
   panelSettings,
   panelPortNumbers,
+  portAtPanel,
   panelPortCenter,
   panelTermination,
 } from "./patch-panels.ts";
@@ -41,6 +42,24 @@ test("配线登记双向唯一且不从孔号推测对端，参照柜和安装�
         !!panelTermination({ panelId: p.id, port: n }),
         used.has(p.id + "/" + n),
       );
+  }
+});
+
+test("线槽往返保留起点孔，另一块面板只定位已登记的对端", () => {
+  for (const panel of patchPanels) {
+    const other = patchPanels.find((p) => p.id !== panel.id)!;
+    for (const port of panelPortNumbers) {
+      const origin = { panelId: panel.id, port };
+      assert.deepEqual(portAtPanel(origin, panel.id), origin);
+      const entry = panelSettings.connections
+        .flatMap(({ first, second }) => [
+          [first, second],
+          [second, first],
+        ])
+        .find(([from]) => from.panelId === panel.id && from.port === port);
+      assert.deepEqual(portAtPanel(origin, other.id), entry?.[1] ?? null);
+      assert.equal(portAtPanel(origin, "raceway-horizontal"), null);
+    }
   }
 });
 
