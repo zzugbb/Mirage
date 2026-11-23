@@ -67,6 +67,35 @@ test("入口核对仅延续门与读卡器，洞口与高度来自既有配置�
   assert.equal(JSON.stringify(definition.room), before);
 });
 
+test("门区横向尺寸取读卡器中心与近侧门框外缘，两个端点投到同一尺寸平面", () => {
+  const inspection = entranceInspection("jamb");
+  const [line, ...ticks] = inspection.paths;
+  const reader = definition.room.fixtures.find(
+    (f) => f.id === entranceSettings.readerId,
+  )!;
+  const door = new Group();
+  door.position.fromArray(entranceFixture.position);
+  buildEntrance(door);
+  door.updateMatrixWorld(true);
+  const frame = new Box3().setFromObject(
+    door.getObjectByName("entrance-jamb--1")!,
+  );
+  assert.equal(inspection.jamb?.side, "左");
+  assert.ok(Math.abs(inspection.jamb!.distance - 0.25) < 1e-10);
+  assert.equal(line[0].x, reader.position[0]);
+  assert.ok(Math.abs(line[1].x - frame.min.x) < 1e-8);
+  assert.equal(line[0].y, line[1].y);
+  assert.equal(line[0].z, line[1].z);
+  assert.equal(line[0].distanceTo(line[1]), inspection.jamb!.distance);
+  for (const [index, tick] of ticks.entries()) {
+    assert.equal(tick[0].x, line[index].x);
+    assert.equal(tick[1].x, line[index].x);
+    assert.ok(tick[0].y < line[index].y && line[index].y < tick[1].y);
+    assert.equal(inspection.markers[index].point.x, line[index].x);
+    assert.equal(inspection.markers[index].point.y, reader.position[1]);
+  }
+});
+
 test("把手标记与实际参数化门扇的室内侧把手轴重合，不使用未旋转的位置", () => {
   const root = new Group();
   root.position.fromArray(entranceFixture.position);
@@ -91,7 +120,7 @@ test("把手标记与实际参数化门扇的室内侧把手轴重合，不使�
   });
 });
 
-test("入口三段取景适配桌面侧栏和分析画幅，已登记机柜及设施不遮住核对位置", () => {
+test("入口各段取景适配桌面侧栏和分析画幅，已登记机柜及设施不遮住核对位置", () => {
   const blockers = [
     ...definition.installation.racks.map((r) =>
       new Box3().setFromCenterAndSize(
@@ -159,7 +188,14 @@ test("入口轮廓与端点切换不残留，保留深度遮挡并独立释放",
     parent = new Group();
   parent.add(drawing.root);
   const lines = drawing.root.children[0] as LineSegments;
-  for (const id of ["all", "access", "opening", "all"] as const) {
+  for (const id of [
+    "all",
+    "jamb",
+    "access",
+    "opening",
+    "jamb",
+    "all",
+  ] as const) {
     const inspection = entranceInspection(id);
     drawing.update(inspection);
     assert.equal(drawing.root.visible, true);

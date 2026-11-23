@@ -133,7 +133,9 @@ import {
   sourceInspectionRow,
   type SourceInspection,
 } from "./source-inspection";
+import { EntranceInspectionDetails } from "./components/EntranceInspectionDetails";
 import {
+  entranceViewIncludes,
   type EntranceInspection,
   type EntranceView,
   type EntranceViewCommand,
@@ -5841,7 +5843,8 @@ export function Workspace() {
                               onClick={(event) => {
                                 if (
                                   roomResourceList &&
-                                  (environmentRoundFor(row.id) ||
+                                  (entranceViewIncludes(row.id) ||
+                                    environmentRoundFor(row.id) ||
                                     isLeakFixture(row.id) ||
                                     isCoolingSource(row.id) ||
                                     row.id === powerSettings.sourceId)
@@ -7939,6 +7942,18 @@ export function Workspace() {
                     origin={smokeVisit.id}
                     selected={selected}
                   />
+                ) : entranceView && entranceViewIncludes(selected) ? (
+                  <EntranceInspectionDetails
+                    inspection={entranceView}
+                    selectedId={selected}
+                    onPreview={pick}
+                    onLocate={focus}
+                    ready={ready}
+                    onProbeHistory={(id) => {
+                      focus(id);
+                      analyze();
+                    }}
+                  />
                 ) : leakView ? (
                   <LeakInspectionDetails
                     inspection={leakView}
@@ -7972,7 +7987,6 @@ export function Workspace() {
                         ? () => requestEntranceView("all")
                         : undefined
                     }
-                    entranceInspection={entranceView}
                     onInspectLeak={
                       layer === "overview" && state.level === "room"
                         ? () => requestLeakView("all")

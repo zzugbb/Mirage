@@ -1434,10 +1434,14 @@ export class SceneEngine {
     this.invalidate();
   }
   observeEntrance(view: EntranceView) {
+    if (
+      this.state.level !== "room" ||
+      (this.moving && !this.entranceObservation)
+    )
+      return;
+    const pair = entranceInspection(view);
     this.clearEnvironmentView();
     this.clearInletView();
-    const pair = entranceInspection(view);
-    if (this.state.level !== "room" || this.moving) return;
     this.clearLeakView();
     this.clearMaintenanceView();
     this.clearCrossingView();

@@ -12,6 +12,7 @@ export const entranceViews = [
   { id: "all", label: "入口全貌" },
   { id: "opening", label: "洞口尺寸" },
   { id: "access", label: "读卡器与把手" },
+  { id: "jamb", label: "读卡器与洞口侧缘" },
 ] as const;
 export type EntranceView = (typeof entranceViews)[number]["id"];
 export type EntranceViewCommand = {
@@ -39,6 +40,43 @@ export function entranceInspection(view: EntranceView) {
   const reader = new Vector3().fromArray(fixtureById(s.readerId)!.position);
   reader.z += 0.065;
   const handle = entranceHandlePoint();
+  const heights = {
+    readerHeight: reader.y,
+    handleHeight: handle.y,
+    openingBottom: opening.bottom,
+  };
+  if (view === "jamb") {
+    const left = reader.x <= entranceFixture.position[0];
+    const x = left ? opening.left : opening.right;
+    const jamb = { side: left ? "左" : "右", distance: Math.abs(reader.x - x) };
+    // 尺寸线在两者前方的同一平面，仅量机房 X 方向的投影差。
+    const depth = Math.max(reader.z, z);
+    const lineY = reader.y + 0.18;
+    const dimension = [reader.x, x].map((px) => new Vector3(px, lineY, depth));
+    const paths = [
+      dimension,
+      ...dimension.map((p) => [
+        p.clone().setY(lineY - 0.04),
+        p.clone().setY(lineY + 0.04),
+      ]),
+    ];
+    const markers = [
+      { id: "entrance-reader", title: "读卡器中心", point: reader },
+      {
+        id: "entrance-jamb",
+        title: `洞口${jamb.side}缘 · ${jamb.distance.toFixed(3)} m`,
+        point: corner(x, reader.y),
+      },
+    ];
+    return {
+      view,
+      jamb,
+      paths,
+      markers,
+      points: [...paths.flat(), ...markers.map((m) => m.point)],
+      ...heights,
+    };
+  }
   const outline = [
     corner(opening.left, opening.bottom),
     corner(opening.left, opening.top),
@@ -129,9 +167,8 @@ export function entranceInspection(view: EntranceView) {
     paths,
     points,
     markers,
-    readerHeight: reader.y,
-    handleHeight: handle.y,
-    openingBottom: opening.bottom,
+    jamb: null,
+    ...heights,
   };
 }
 export type EntranceInspection = ReturnType<typeof entranceInspection>;
@@ -143,11 +180,11 @@ export function entranceViewFrame(
 ) {
   return observationFrame(
     inspection.points,
-    new Vector3(0.3, 0.12, 1),
+    inspection.jamb ? new Vector3(0, 0.05, 1) : new Vector3(0.3, 0.12, 1),
     width,
     height,
     rect,
-    inspection.view === "access" ? 2.4 : 4.2,
+    inspection.jamb ? 1.6 : inspection.view === "access" ? 2.4 : 4.2,
     0.15,
   );
 }

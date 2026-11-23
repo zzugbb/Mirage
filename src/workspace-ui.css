@@ -4939,6 +4939,10 @@
   summary {
   cursor: pointer;
 }
+.entrance-history[open] > :is(button, small) {
+  display: block;
+  margin-top: 7px;
+}
 .leak-floor-segment {
   display: flex;
   align-items: center;
@@ -4965,6 +4969,7 @@
 }
 :is(.entrance-view-entry, .leak-view-entry) button,
 .entrance-view-peer button,
+.entrance-history button,
 .leak-view-preview button,
 .leak-view-preview select,
 .fixture-observation-controls button,

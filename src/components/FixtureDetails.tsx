@@ -1,8 +1,4 @@
-import { EntranceInspectionDetails } from "./EntranceInspectionDetails";
-import {
-  entranceViewIncludes,
-  type EntranceInspection,
-} from "../entrance-view";
+import { entranceViewIncludes } from "../entrance-view";
 import type { ReactNode } from "react";
 import { floorGrilleSettings, grilleRowRelations } from "../floor-grilles";
 import { diffuserBottom, lightTrayRelations } from "../ceiling-lights";
@@ -31,7 +27,6 @@ export function FixtureDetails({
   fixture,
   grilleRelations,
   onInspectEntrance,
-  entranceInspection,
   onInspectLeak,
   onCompare,
   onCompareRack,
@@ -42,7 +37,6 @@ export function FixtureDetails({
   fixture: RoomFixture;
   grilleRelations?: ReactNode;
   onInspectEntrance?: () => void;
-  entranceInspection?: EntranceInspection | null;
   onInspectLeak?: () => void;
   onCompare?: (id: string) => void;
   onCompareRack?: (id: string) => void;
@@ -50,16 +44,6 @@ export function FixtureDetails({
   onPreview: (id: string) => void;
   onLocate: (id: string) => void;
 }) {
-  if (entranceInspection && entranceViewIncludes(fixture.id)) {
-    return (
-      <EntranceInspectionDetails
-        inspection={entranceInspection}
-        selectedId={fixture.id}
-        onPreview={onPreview}
-        onLocate={onLocate}
-      />
-    );
-  }
   const light = "length" in fixture ? fixture : null;
   const grilleRow = "span" in fixture ? fixture : null;
   const isEntrance = fixture.kind === "entrance";
