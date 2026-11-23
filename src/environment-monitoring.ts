@@ -126,6 +126,13 @@ export function environmentObservation(id: string, time: number) {
 }
 export const environmentValue = (value: number | null, unit: string) =>
   value === null ? "—" : `${value.toFixed(1)} ${unit}`;
+export const environmentChannelText = (
+  channel: EnvironmentChannel,
+  unit: string,
+) =>
+  channel.value === null
+    ? environmentQuality[channel.quality]
+    : environmentValue(channel.value, unit);
 const historyCache = new Map<
   string,
   Record<EnvironmentMetric, ReviewPoint[]>

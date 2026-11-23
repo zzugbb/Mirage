@@ -7092,3 +7092,53 @@
   border-radius: 4px;
   min-height: 32px;
 }
+
+.workspace-ui .environment-round {
+  margin: 4px 22px 12px;
+  border-block: 1px solid #34454f;
+}
+.environment-round button {
+  width: 100%;
+  text-align: left;
+  color: #d4dfe3;
+}
+.environment-round-toggle,
+.environment-round li button {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 4px 8px;
+  padding: 9px 5px;
+}
+.environment-round button span,
+.environment-round small,
+.environment-round p {
+  color: #a4b9c2;
+  font-size: 11px;
+}
+.environment-round p {
+  margin: 4px 5px 8px;
+  line-height: 1.5;
+}
+.environment-round ol {
+  padding: 0;
+  list-style: none;
+  margin: 0 0 8px;
+}
+.environment-round li {
+  border-top: 1px solid #34454f;
+}
+.environment-round li button[aria-current],
+.environment-round li button:hover {
+  background: #293f49;
+}
+.environment-round small {
+  grid-column: 1 / -1;
+}
+.environment-round .environment-round-compare {
+  width: auto;
+  padding: 6px 9px;
+  margin-bottom: 6px;
+  border: 1px solid #46606b;
+  border-radius: 4px;
+}

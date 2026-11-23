@@ -1250,7 +1250,8 @@ export class SceneEngine {
     this.interior = false;
     this.controls.minAzimuthAngle = -Infinity;
     this.controls.maxAzimuthAngle = Infinity;
-    this.controls.maxPolarAngle = Math.PI / 2 - 0.03;
+    this.controls.maxPolarAngle =
+      pair.kind === "smoke-tray" ? Math.PI * 0.65 : Math.PI / 2 - 0.03;
     this.controls.minDistance = 0.5;
     this.autoOrbit = false;
     this.onCrossingView(pair);
@@ -1264,6 +1265,9 @@ export class SceneEngine {
       width,
       height,
       rect,
+      this.crossingObservation.pair.kind === "smoke-tray"
+        ? new THREE.Vector3(0.85, -0.34, -0.9)
+        : undefined,
     );
     this.targetPosition.copy(fit.position);
     this.targetLook.copy(fit.target);

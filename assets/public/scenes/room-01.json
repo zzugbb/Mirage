@@ -78,6 +78,10 @@
       "frameColor": "#62707b",
       "hardwareColor": "#b4c0c8"
     },
+    "environmentRounds": [
+      { "rowId": "row-a", "smokeId": "smoke-01", "trayId": "cable-tray-a", "probeId": "environment-01" },
+      { "rowId": "row-b", "smokeId": "smoke-02", "trayId": "cable-tray-b", "probeId": "environment-02" }
+    ],
     "fixtures": [
       {
         "id": "entrance-01",

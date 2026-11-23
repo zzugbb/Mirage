@@ -2441,7 +2441,10 @@ export function ReviewScene({
             >
               <strong>{crossing.title}</strong>
               <span>
-                表面高差 {Math.abs(crossing.difference).toFixed(2)} m · 配置
+                {crossing.kind === "smoke-tray"
+                  ? `水平间距 ${crossing.horizontal.toFixed(2)}`
+                  : `表面高差 ${Math.abs(crossing.difference).toFixed(2)}`}{" "}
+                m · 配置
               </span>
               <button disabled={!sceneSettled} onClick={onReturnCrossing}>
                 ← 返回核对前视角

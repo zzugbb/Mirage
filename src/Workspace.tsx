@@ -87,6 +87,8 @@ import {
   type AlarmSeverity,
   type AlarmVisit,
 } from "./alarm-queue";
+import { EnvironmentRoundDetails } from "./components/EnvironmentRoundDetails";
+import { environmentRoundFor } from "./environment-rounds";
 import { FixtureRoster } from "./components/FixtureRoster";
 import { fixtureRoster, type FixtureSource } from "./fixture-roster";
 import { RoomLayout } from "./components/RoomLayout";
@@ -172,6 +174,7 @@ import type { EnvironmentMetric } from "./environment-monitoring";
 import { EnvironmentPairAnalysis } from "./components/EnvironmentPairAnalysis";
 import {
   fixtureCrossing,
+  smokeTrayPlacement,
   type FixtureCrossing,
   type CrossingViewCommand,
 } from "./fixture-crossing";
@@ -1157,6 +1160,7 @@ export function Workspace() {
   const [layoutRestore, setLayoutRestore] = useState(0);
   const [layoutVisit, setLayoutVisit] = useState<{
     id: string;
+    resourceList?: { query: string; filter: ResourceFilter; scroll: number };
     roster?: { source: FixtureSource; query: string; scroll: number };
     crossing?: (typeof roomLayoutCrossings)[number];
     grille?: { name: string; slice: SliceControls };
@@ -1616,6 +1620,14 @@ export function Workspace() {
   const entity = entityById(selected)!;
   const fixture = fixtureById(selected);
   const environment = environmentProbe(selected);
+  const round =
+    state.level === "room" && layer === "overview"
+      ? environmentRoundFor(selected)
+      : undefined;
+  const [openRound, setOpenRound] = useState<string | null>(null);
+  useEffect(() => {
+    if (openRound && openRound !== round?.row.id) setOpenRound(null);
+  }, [round, openRound]);
   const pairedEnvironment =
     environmentPairVisit &&
     layer === "environment" &&
@@ -2216,11 +2228,22 @@ export function Workspace() {
       fixtureScroll.current = layoutVisit.roster.scroll;
       fixtureRestore.current = layoutVisit.id;
     }
+    setOpenRound(null);
+    if (layoutVisit.resourceList) {
+      const origin = layoutVisit.resourceList;
+      setQuery(origin.query);
+      setFilter(origin.filter);
+      roomSearchFocus.current = {
+        ...origin,
+        id: layoutVisit.id,
+        inspector: layoutVisit.origin.inspector,
+      };
+    }
     setLayoutQuery(layoutVisit.query);
     control({ type: "layer", layer: layoutVisit.layer });
     control({ type: "analysis", value: false });
     setMetric(layoutVisit.metric);
-    setRackView("layout");
+    setRackView(layoutVisit.resourceList ? "list" : "layout");
     skipNavigationSearch.current = true;
     setNav(true);
     if (matchMedia("(max-width: 1099px)").matches) setInspector(false);
@@ -2638,7 +2661,7 @@ export function Workspace() {
       row.focus({ preventScroll: true });
       if (list) list.scrollTop = origin.scroll;
     }
-  }, [selected, nav, ready, query, filter]);
+  }, [selected, nav, ready, query, filter, layoutRestore]);
   const compactServer =
     state.level === "device" &&
     modelForDevice(state.deviceId).id === "server-1u";
@@ -2861,6 +2884,7 @@ export function Workspace() {
   ) => {
     const powerCabinet = id === powerSettings.sourceId;
     if (
+      !layoutVisit?.resourceList &&
       layoutVisit?.id === id &&
       layoutVisit.roster?.source === roster?.source &&
       layoutVisit.roster?.query === roster?.query
@@ -2921,6 +2945,21 @@ export function Workspace() {
       setAisleCommand({ rackId: null });
     }
   }, [aisleVisit, roomAisles, selected]);
+  const locateRoundFromList = (id: string, button: HTMLButtonElement) => {
+    const scroll = button.closest(".study-resource-list")?.scrollTop ?? 0;
+    setLayoutVisit({
+      id,
+      layer,
+      metric,
+      query: layoutQuery,
+      origin: captureLayoutOrigin(),
+      resourceList: { query, filter, scroll },
+    });
+    setLayoutReturning(false);
+    setOpenRound(null);
+    control({ type: "analysis", value: false });
+    focus(id);
+  };
   const inspectFixtureRow = (id: string) => {
     if (!ready) return;
     rememberLayoutSelection(id, {
@@ -4019,6 +4058,7 @@ export function Workspace() {
     setLayoutQuery("");
     setLayoutScope("equipment");
     setShowFixtureRoster(false);
+    setOpenRound(null);
     setFixtureQuery("");
     setFixtureSource("all");
     fixtureScroll.current = 0;
@@ -4293,6 +4333,21 @@ export function Workspace() {
     comparisonVisit &&
     `返回机房核查（${rackById(comparisonVisit.range.rackId)!.name.split(" ")[0]} · ${spaceRangeLabel(comparisonVisit.range)}）`;
 
+  const roundDetails = round && !smokeVisit && (
+    <EnvironmentRoundDetails
+      round={round}
+      hidden={!!crossing}
+      selected={selected}
+      time={state.time}
+      open={openRound === round.row.id}
+      ready={ready}
+      onToggle={() =>
+        setOpenRound(openRound === round.row.id ? null : round.row.id)
+      }
+      onLocate={focus}
+      onCompare={() => requestCrossing(smokeTrayPlacement(round))}
+    />
+  );
   const layoutReturnName = layoutVisit
     ? (layoutVisit.grille?.name ??
       layoutVisit.crossing?.name ??
@@ -4362,13 +4417,19 @@ export function Workspace() {
                     if (
                       state.level !== "room" ||
                       layoutScope === "fixtures" ||
+                      !!layoutVisit.resourceList ||
                       entranceView
                     )
                       control({ type: "open-resource", id: "room-01" });
                   }}
                 >
-                  ← 返回{layoutVisit.roster ? "设施名单" : "布置图"} ·{" "}
-                  {layoutReturnName}
+                  ← 返回
+                  {layoutVisit.resourceList
+                    ? "机房名单"
+                    : layoutVisit.roster
+                      ? "设施名单"
+                      : "布置图"}{" "}
+                  · {layoutReturnName}
                 </button>
                 <button
                   aria-label="结束布置导览往返"
@@ -5706,16 +5767,26 @@ export function Workspace() {
                                   !canSelectInScene(state, row.id))
                               }
                               aria-label={`${unitQuery ? "定位安装位置" : "定位"} ${row.name}`}
-                              onClick={() =>
-                                unitQuery
-                                  ? focus(row.id, {
-                                      installation: true,
-                                      showDetails: false,
-                                    })
-                                  : locateOnly
-                                    ? selectObject(row.id, true)
-                                    : focus(row.id, { showDetails: false })
-                              }
+                              onClick={(event) => {
+                                if (
+                                  roomResourceList &&
+                                  environmentRoundFor(row.id)
+                                ) {
+                                  locateRoundFromList(
+                                    row.id,
+                                    event.currentTarget,
+                                  );
+                                } else if (unitQuery) {
+                                  focus(row.id, {
+                                    installation: true,
+                                    showDetails: false,
+                                  });
+                                } else if (locateOnly) {
+                                  selectObject(row.id, true);
+                                } else {
+                                  focus(row.id, { showDetails: false });
+                                }
+                              }}
                             >
                               {roomUnitDevice ? "定位安装位" : "定位"}
                             </button>
@@ -7461,7 +7532,8 @@ export function Workspace() {
                 </p>
               </section>
             )}
-            {isSmokeFixture(selected) && !smokeVisit && (
+            {!review.analysis && !environment && roundDetails}
+            {isSmokeFixture(selected) && !smokeVisit && !crossing && (
               <div className="smoke-inspection-entry">
                 <button
                   data-smoke-start
@@ -8457,6 +8529,7 @@ export function Workspace() {
                 )}
               </>
             )}
+            {(review.analysis || environment) && roundDetails}
           </aside>
         )}
       </main>

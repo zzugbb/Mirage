@@ -20,6 +20,12 @@ export class CrossingGeometry {
     this.root.visible = !!pair;
     if (!pair) return;
     const [top, bottom] = pair.points;
+    if (pair.kind === "smoke-tray") {
+      const foot = top.clone().setY(bottom.y);
+      this.geometry.setFromPoints([top, foot, foot, bottom]);
+      this.geometry.computeBoundingSphere();
+      return;
+    }
     const a = top.clone().add(new THREE.Vector3(-0.22, 0, 0));
     const b = bottom.clone().add(new THREE.Vector3(-0.22, 0, 0));
     this.geometry.setFromPoints([top, a, a, b, b, bottom]);

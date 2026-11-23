@@ -6,16 +6,11 @@ import {
 } from "../fixture-roster";
 import {
   environmentObservation,
-  environmentQuality,
-  environmentValue,
-  type EnvironmentChannel,
+  environmentChannelText,
 } from "../environment-monitoring";
 
 const probeCount = fixtureRoster.filter((row) => row.simulated).length;
-const channelText = (channel: EnvironmentChannel, unit: string) =>
-  channel.value === null
-    ? environmentQuality[channel.quality]
-    : environmentValue(channel.value, unit);
+
 export function FixtureRoster({
   source,
   query,
@@ -61,7 +56,6 @@ export function FixtureRoster({
     if (!target) return;
     list.current.scrollTop = scroll.current;
     target.focus({ preventScroll: true });
-    target.scrollIntoView({ block: "nearest" });
     restore.current = null;
   });
   const resetScroll = () => {
@@ -156,7 +150,7 @@ export function FixtureRoster({
                 id={`roster-${fixture.id}-reading`}
               >
                 {observation
-                  ? `温度 ${channelText(observation.temperature, "°C")} · 湿度 ${channelText(observation.humidity, "%RH")}`
+                  ? `温度 ${environmentChannelText(observation.temperature, "°C")} · 湿度 ${environmentChannelText(observation.humidity, "%RH")}`
                   : signal}
               </span>
             </button>

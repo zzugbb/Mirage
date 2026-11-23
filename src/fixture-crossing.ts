@@ -1,4 +1,5 @@
 import definition from "../assets/public/scenes/room-01.json" with { type: "json" };
+import type { EnvironmentRound } from "./environment-rounds.ts";
 import { rackById } from "./installation.ts";
 import { trayRow, trayRungBottom, trayRungXs } from "./cable-trays.ts";
 import { Vector3 } from "three";
@@ -82,7 +83,30 @@ function rackTrayCrossing(first: string, second: string) {
       "只比较当前配置横档底面与柜顶板表面的高度，不含线缆、吊装附件或其他障碍物；不是最小净距、施工或安全结论，也不表示桥架与机柜已接线。",
   };
 }
-export type FixtureCrossing = NonNullable<ReturnType<typeof fixtureCrossing>>;
+/** 配置中心与水平轴线的相对位置。两点不在同一铅垂线上。 */
+export function smokeTrayPlacement(round: EnvironmentRound) {
+  const [smoke, tray] = round.points;
+  const center = new Vector3().fromArray(smoke.position);
+  const axis = new Vector3().fromArray(round.trayReference);
+  return {
+    kind: "smoke-tray" as const,
+    id: `${smoke.id}:${tray.id}`,
+    title: "烟感与桥架位置",
+    upper: { id: smoke.id, name: smoke.name, surface: "烟感中心" },
+    lower: { id: tray.id, name: tray.name, surface: "桥架轴线" },
+    difference: center.y - axis.y,
+    horizontal: round.smokeOffset,
+    boundary: "距离按布置中心计算，构件外缘净距和烟感探测范围未配置。",
+    points: [center, axis],
+    markers: [
+      { id: "placement-smoke", title: "① 烟感中心", point: center },
+      { id: "placement-tray", title: "② 桥架轴线", point: axis },
+    ],
+  };
+}
+export type FixtureCrossing =
+  | NonNullable<ReturnType<typeof fixtureCrossing>>
+  | ReturnType<typeof smokeTrayPlacement>;
 export type CrossingViewCommand = {
   revision: number;
   pair: FixtureCrossing | null;
@@ -93,18 +117,11 @@ export function crossingViewFrame(
   width: number,
   height: number,
   rect: FrameRect,
+  direction = new Vector3(0.55, 0.08, 1),
 ) {
   const context = points.flatMap((point) => [
     point.clone().add(new Vector3(-0.55, 0, -0.4)),
     point.clone().add(new Vector3(0.55, 0, 0.4)),
   ]);
-  return observationFrame(
-    context,
-    new Vector3(0.55, 0.08, 1),
-    width,
-    height,
-    rect,
-    2.4,
-    0.08,
-  );
+  return observationFrame(context, direction, width, height, rect, 2.4, 0.08);
 }
