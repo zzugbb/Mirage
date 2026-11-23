@@ -12,6 +12,7 @@ import {
 import definition from "../assets/public/scenes/room-01.json" with { type: "json" };
 import {
   entranceFixture,
+  entranceLeaf,
   exitSign,
   emergencyLight,
   entranceOpening,
@@ -126,6 +127,41 @@ test("把手标记与实际参数化门扇的室内侧把手轴重合，不使�
         material.dispose();
     }
   });
+});
+
+test("入口门两种姿态从门板自由边厚度中点量至配电柜配置投影", () => {
+  const facility = definition.facilities.find(
+    (f) => f.id === definition.installation.powerDistribution.sourceId,
+  )!;
+  const cabinet = new Box3().setFromCenterAndSize(
+    new Vector3(...facility.position),
+    new Vector3(...facility.size),
+  );
+  const inspection = entranceInspection("cabinet");
+  assert.ok(entranceViewIncludes(facility.id, inspection.view));
+  assert.ok(!entranceViewIncludes(facility.id, "opening"));
+  assert.equal(inspection.view, "cabinet");
+  const placement = inspection.cabinet;
+  const root = new Group();
+  root.position.fromArray(entranceFixture.position);
+  const pivot = buildEntrance(root);
+  const panel = root.getObjectByName("entrance-leaf")!;
+  for (const [pose, angle] of [
+    [placement.displayed, entranceSettings.displayAngle],
+    [placement.closed, 0],
+  ] as const) {
+    pivot.rotation.y = angle;
+    root.updateMatrixWorld(true);
+    const freeEnd = panel.localToWorld(
+      new Vector3(entranceLeaf.width / 2, 0, 0),
+    );
+    const nearest = cabinet.clampPoint(freeEnd, new Vector3());
+    assert.ok(freeEnd.setY(pose.edge.y).distanceTo(pose.edge) < 1e-10);
+    assert.ok(nearest.setY(pose.edge.y).distanceTo(pose.cabinet) < 1e-10);
+    assert.ok(Math.abs(nearest.distanceTo(freeEnd) - pose.distance) < 1e-10);
+  }
+  assert.ok(placement.displayed.distance < placement.closed.distance);
+  assert.equal(placement.footprint.length, 4);
 });
 
 test("入口各段取景适配桌面侧栏和分析画幅，已登记机柜及设施不遮住核对位置", () => {

@@ -1,3 +1,4 @@
+import { entranceFixture } from "./entrance";
 import {
   condensate,
   isCondensate,
@@ -6697,7 +6698,15 @@ export function Workspace() {
             entranceView={entranceView}
             entranceViewCommand={entranceViewCommand}
             onEntranceViewChange={setEntranceView}
-            onEntranceView={requestEntranceView}
+            onEntranceView={(view) => {
+              if (
+                view &&
+                view !== "cabinet" &&
+                selected === powerSettings.sourceId
+              )
+                pick(entranceFixture.id);
+              requestEntranceView(view);
+            }}
             leakView={leakView}
             panelPort={panelPort}
             onInspectPanelPort={inspectPanelPort}
@@ -8920,14 +8929,15 @@ export function Workspace() {
                     origin={smokeVisit.id}
                     selected={selected}
                   />
-                ) : entranceView && entranceViewIncludes(selected) ? (
+                ) : entranceView &&
+                  entranceViewIncludes(selected, entranceView.view) ? (
                   <EntranceInspectionDetails
                     inspection={entranceView}
                     selectedId={selected}
                     onPreview={pick}
                     onLocate={focus}
                     ready={ready}
-                    onProbeHistory={(id) => {
+                    onHistory={(id) => {
                       focus(id);
                       analyze();
                     }}
@@ -9344,6 +9354,18 @@ export function Workspace() {
                         </StructureTools>
                       )}
                     {sourceInspector}
+                    {selected === powerSettings.sourceId &&
+                      layer === "overview" &&
+                      state.level === "room" && (
+                        <div className="entrance-view-entry">
+                          <button
+                            disabled={!ready}
+                            onClick={() => requestEntranceView("cabinet")}
+                          >
+                            核对门扇与配电柜 ↗
+                          </button>
+                        </div>
+                      )}
                     {(layer === "power" || powerFacility) && (
                       <PowerConnections
                         interval={

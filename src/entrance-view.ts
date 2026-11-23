@@ -1,3 +1,7 @@
+import {
+  entranceCabinetPlacement,
+  entranceCabinet,
+} from "./entrance-cabinet.ts";
 import { Vector3 } from "three";
 import {
   entranceSettings as s,
@@ -12,6 +16,7 @@ import { observationFrame, type FrameRect } from "./observation-frame.ts";
 
 export const entranceViews = [
   { id: "all", label: "入口全貌" },
+  { id: "cabinet", label: "门扇与配电柜" },
   { id: "opening", label: "洞口尺寸" },
   { id: "access", label: "读卡器与把手" },
   { id: "lintel", label: "出口标志与门楣" },
@@ -23,7 +28,8 @@ export type EntranceViewCommand = {
   revision: number;
   view: EntranceView | null;
 };
-export const entranceViewIncludes = (id: string) =>
+export const entranceViewIncludes = (id: string, view?: EntranceView) =>
+  (view === "cabinet" && id === entranceCabinet.id) ||
   [s.fixtureId, s.readerId, exitSign.id, emergencyLight.id].includes(id);
 
 /** 把手轴沿用门扇局部坐标与静态展示角；高度为机房坐标，不是从洞口底部重算的安装规范。 */
@@ -49,6 +55,19 @@ export function entranceInspection(view: EntranceView) {
     handleHeight: handle.y,
     openingBottom: opening.bottom,
   };
+  if (view === "cabinet") {
+    const { displayed, closed, hinge, footprint, paths, markers, points } =
+      entranceCabinetPlacement();
+    return {
+      view,
+      jamb: null,
+      cabinet: { displayed, closed, hinge, footprint },
+      paths,
+      markers,
+      points,
+      ...heights,
+    };
+  }
   if (view === "lintel" || view === "lights") {
     const sign = new Vector3().fromArray(exitSign.position);
     const lamp = new Vector3().fromArray(emergencyLight.position);
@@ -248,9 +267,11 @@ export function entranceViewFrame(
 ) {
   return observationFrame(
     inspection.points,
-    inspection.jamb || "measure" in inspection
-      ? new Vector3(0, 0.05, 1)
-      : new Vector3(0.3, 0.12, 1),
+    inspection.view === "cabinet"
+      ? new Vector3(0.03, 1, 0.22)
+      : inspection.jamb || "measure" in inspection
+        ? new Vector3(0, 0.05, 1)
+        : new Vector3(0.3, 0.12, 1),
     width,
     height,
     rect,

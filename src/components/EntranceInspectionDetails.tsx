@@ -1,7 +1,82 @@
 import { environmentProbes } from "../environment-monitoring";
-import { entranceSettings, entranceRelations } from "../entrance";
+import { entranceCabinet } from "../entrance-cabinet";
+import {
+  entranceFixture,
+  entranceSettings,
+  entranceRelations,
+} from "../entrance";
 
 import type { EntranceInspection } from "../entrance-view";
+
+type CabinetPlacement = Extract<
+  EntranceInspection,
+  { view: "cabinet" }
+>["cabinet"];
+
+function CabinetPlan({ placement }: { placement: CabinetPlacement }) {
+  const { displayed, closed, hinge, footprint } = placement;
+  const points = [hinge, displayed.edge, closed.edge, ...footprint];
+  const xs = points.map((p) => p.x);
+  const zs = points.map((p) => p.z);
+  const left = Math.min(...xs) - 0.1;
+  const top = Math.min(...zs) - 0.1;
+  const width = Math.max(...xs) - left + 0.1;
+  const height = Math.max(...zs) - top + 0.1;
+  return (
+    <svg
+      className="entrance-cabinet-plan"
+      role="img"
+      aria-label="门扇与柜体的平面布置。实线为展示位，虚线为合拢参考位，两条细线分别连到柜体最近点。"
+      viewBox={[left, top, width, height].join(" ")}
+    >
+      <polygon
+        points={footprint.map((p) => [p.x, p.z].join(",")).join(" ")}
+        fill="#314550"
+        stroke="#93a6b0"
+        strokeWidth={0.013}
+      />
+      <text
+        x={(footprint[0].x + footprint[2].x) / 2}
+        y={(footprint[0].z + footprint[2].z) / 2}
+        textAnchor="middle"
+        dominantBaseline="central"
+        fontSize={0.14}
+        fill="currentColor"
+      >
+        {entranceCabinet.name}
+      </text>
+      {[closed, displayed].map((pose) => (
+        <g
+          key={pose === closed ? "closed" : "displayed"}
+          stroke={pose === closed ? "#a7bbc7" : "#82d6c9"}
+          strokeDasharray={pose === closed ? "0.055 0.03" : undefined}
+        >
+          <line
+            x1={hinge.x}
+            y1={hinge.z}
+            x2={pose.edge.x}
+            y2={pose.edge.z}
+            strokeWidth={0.035}
+          />
+          <line
+            x1={pose.edge.x}
+            y1={pose.edge.z}
+            x2={pose.cabinet.x}
+            y2={pose.cabinet.z}
+            strokeWidth={0.013}
+          />
+          <circle
+            cx={pose.edge.x}
+            cy={pose.edge.z}
+            r={0.028}
+            fill="currentColor"
+            stroke="none"
+          />
+        </g>
+      ))}
+    </svg>
+  );
+}
 
 export function EntranceInspectionDetails({
   inspection,
@@ -9,34 +84,53 @@ export function EntranceInspectionDetails({
   onPreview,
   onLocate,
   ready,
-  onProbeHistory,
+  onHistory,
 }: {
   inspection: EntranceInspection;
   selectedId: string;
   onPreview: (id: string) => void;
   onLocate: (id: string) => void;
   ready: boolean;
-  onProbeHistory: (id: string) => void;
+  onHistory: (id: string) => void;
 }) {
-  const peers = entranceRelations(selectedId);
   const { view } = inspection;
+  const peers = view === "cabinet" ? [] : entranceRelations(selectedId);
   return (
     <section className="entrance-view-details" aria-label="入口布置核对">
       <strong>
-        {view === "lintel"
-          ? "出口标志与门楣"
-          : view === "lights"
-            ? "标志与应急灯"
-            : inspection.jamb
-              ? "读卡器与洞口侧缘"
-              : view === "opening"
-                ? "洞口外缘"
-                : view === "access"
-                  ? "相对机房地面的高度"
-                  : "入口配置"}
+        {view === "cabinet"
+          ? "门扇自由边与柜体投影"
+          : view === "lintel"
+            ? "出口标志与门楣"
+            : view === "lights"
+              ? "标志与应急灯"
+              : inspection.jamb
+                ? "读卡器与洞口侧缘"
+                : view === "opening"
+                  ? "洞口外缘"
+                  : view === "access"
+                    ? "相对机房地面的高度"
+                    : "入口配置"}
       </strong>
       <dl>
-        {"measure" in inspection ? (
+        {view === "cabinet" ? (
+          <>
+            <div>
+              <dt>
+                展示位 ·{" "}
+                {Math.round(
+                  (Math.abs(entranceSettings.displayAngle) * 180) / Math.PI,
+                )}
+                °
+              </dt>
+              <dd>{inspection.cabinet.displayed.distance.toFixed(3)} m</dd>
+            </div>
+            <div>
+              <dt>合拢参考位 · 0°</dt>
+              <dd>{inspection.cabinet.closed.distance.toFixed(3)} m</dd>
+            </div>
+          </>
+        ) : "measure" in inspection ? (
           <div>
             <dt>
               {view === "lintel" ? "标志下缘至门框上缘" : "两箱体中心水平间距"}
@@ -103,6 +197,38 @@ export function EntranceInspectionDetails({
           按样板安装位置量取。标志面板和灯头均为静态示意，供电、照度及应急自检未接入。
         </small>
       )}
+      {view === "cabinet" && (
+        <>
+          <CabinetPlan placement={inspection.cabinet} />
+          <small>
+            从门板自由边的厚度中点量至柜体配置矩形。实线标出展示位及平面间距，虚线标出合拢参考位。现场通行净距待实测。
+          </small>
+          <div className="entrance-view-peer">
+            {selectedId !== entranceFixture.id && (
+              <button
+                disabled={!ready}
+                onClick={() => onLocate(entranceFixture.id)}
+              >
+                定位机房入口门
+              </button>
+            )}
+            {selectedId !== entranceCabinet.id && (
+              <button
+                disabled={!ready}
+                onClick={() => onLocate(entranceCabinet.id)}
+              >
+                定位配电柜
+              </button>
+            )}
+            <button
+              disabled={!ready}
+              onClick={() => onHistory(entranceCabinet.id)}
+            >
+              回看配电柜关联输入 ↗
+            </button>
+          </div>
+        </>
+      )}
       {peers.map((peer) => (
         <div key={peer.id} className="entrance-view-peer">
           <span>{peer.name}</span>
@@ -129,7 +255,7 @@ export function EntranceInspectionDetails({
             <button
               key={fixture.id}
               disabled={!ready}
-              onClick={() => onProbeHistory(fixture.id)}
+              onClick={() => onHistory(fixture.id)}
             >
               {fixture.name} · {fixture.location} ↗
             </button>

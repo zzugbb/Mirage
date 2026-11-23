@@ -5050,6 +5050,14 @@
   border-radius: 4px;
   padding: 4px 8px;
 }
+.entrance-cabinet-plan {
+  display: block;
+  width: 100%;
+  height: 118px;
+  background: var(--panel-deep, #111f2b);
+  border-radius: 4px;
+}
+
 .entrance-view-peer,
 .leak-view-preview,
 .leak-view-preview label,

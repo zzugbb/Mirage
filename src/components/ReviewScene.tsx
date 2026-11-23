@@ -1604,7 +1604,7 @@ export function ReviewScene({
       entranceView &&
       (layer !== "overview" ||
         state.level !== "room" ||
-        !entranceViewIncludes(selectedId))
+        !entranceViewIncludes(selectedId, entranceView.view))
     )
       engine.current?.clearEntranceView();
   }, [entranceView, layer, state.level, selectedId]);
@@ -2318,7 +2318,11 @@ export function ReviewScene({
               hidden
               aria-hidden="true"
               data-anchor={marker.id}
-              data-hotspot={entranceView.jamb ? "center" : undefined}
+              data-hotspot={
+                entranceView.jamb || entranceView.view === "cabinet"
+                  ? "center"
+                  : undefined
+              }
               data-anchor-kind="position"
               data-anchor-position={marker.point.toArray().join(",")}
               className="review-flow-anchor review-crossing-anchor"
