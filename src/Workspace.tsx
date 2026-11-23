@@ -2634,10 +2634,9 @@ export function Workspace() {
     );
     if (row?.getClientRects().length) {
       const list = row.closest<HTMLElement>(".study-resource-list");
-      if (list) list.scrollTop = origin.scroll;
       roomSearchFocus.current = null;
       row.focus({ preventScroll: true });
-      row.scrollIntoView({ block: "nearest" });
+      if (list) list.scrollTop = origin.scroll;
     }
   }, [selected, nav, ready, query, filter]);
   const compactServer =
