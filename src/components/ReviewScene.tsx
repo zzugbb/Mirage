@@ -266,7 +266,7 @@ export function ReviewScene({
   onEnvironmentView: (action: EnvironmentViewCommand["action"]) => void;
   smokeInspectionActive: boolean;
   maintenanceView: MaintenanceInspection | null;
-  aisleCommand: { rackId: string | null } | null;
+  aisleCommand: { rackId: string | null; grilleId?: string } | null;
   aisleRosterVisible: boolean;
   onReturnToAisles?: () => void;
   onMaintenanceViewChange: (inspection: MaintenanceInspection | null) => void;
@@ -715,6 +715,19 @@ export function ReviewScene({
     [inspecting, maintenanceView, comparison, rackAreas],
   );
   const areaLabels = useMemo(() => {
+    const overlap = maintenanceView?.overlap;
+    if (overlap)
+      return [
+        {
+          id: overlap.grille.id,
+          position: [
+            overlap.grille.position[0],
+            overlap.grille.position[1],
+            overlap.minZ - 0.08,
+          ],
+          text: overlap.name,
+        },
+      ];
     const labels = maintenance.map((area) => ({
       id: area.id,
       position: area.position,
@@ -731,7 +744,7 @@ export function ReviewScene({
         text: reserveGapText(comparison.gap),
       });
     return labels;
-  }, [maintenance, comparison]);
+  }, [maintenance, comparison, maintenanceView]);
   const visibleAirflow = airflow;
   const airflowResponseControl = visibleAirflow?.routes[0] && (
     <button
@@ -1301,12 +1314,12 @@ export function ReviewScene({
       setMaintenanceScope(null);
       return;
     }
-    const { rackId } = aisleCommand;
-    aisleOrigin.current = rackId;
+    const { rackId, grilleId } = aisleCommand;
+    if (grilleId === undefined) aisleOrigin.current = rackId;
     setMaintenanceScope({ rackId, paired: true });
     setOrbit(false);
-    maintenanceFocus.current = "view";
-    active.observeMaintenance(rackId, "aisle");
+    if (grilleId === undefined) maintenanceFocus.current = "view";
+    active.observeMaintenance(rackId, "aisle", grilleId);
   }, [aisleCommand]);
   useEffect(() => {
     const active = engine.current;
@@ -1615,9 +1628,13 @@ export function ReviewScene({
     airflowGeometry.current?.update(visibleAirflow, flowView);
   }, [visibleAirflow, flowView, retry]);
   useEffect(() => {
-    maintenanceGeometry.current?.update(maintenance, comparison);
+    maintenanceGeometry.current?.update(
+      maintenance,
+      comparison,
+      maintenanceView?.overlap,
+    );
     if (engine.current) engine.current.comparedAisle = comparison;
-  }, [maintenance, comparison, retry]);
+  }, [maintenance, comparison, maintenanceView, retry]);
   useEffect(() => {
     powerGeometry.current?.update(showSupply ? supply : null);
   }, [supply, showSupply, retry]);

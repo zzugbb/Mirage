@@ -1399,6 +1399,7 @@ export function Workspace() {
   const [aisleQuery, setAisleQuery] = useState("");
   const [aisleCommand, setAisleCommand] = useState<{
     rackId: string | null;
+    grilleId?: string;
   } | null>(null);
   const [aisleVisit, setAisleVisit] = useState<{
     aisle: MaintenanceAisle;
@@ -7609,6 +7610,42 @@ export function Workspace() {
                     柜面间距 {maintenanceView.aisle.faceDistance.toFixed(2)} m ·{" "}
                     {reserveGapText(maintenanceView.aisle.gap)}
                   </p>
+                )}
+                {maintenanceView.aisle && (
+                  <label className="aisle-grille-check">
+                    {maintenanceView.aisle.front.rackName.split(" ")[0]}{" "}
+                    柜前格栅
+                    <select
+                      aria-label="核对柜前格栅"
+                      disabled={!ready}
+                      value={maintenanceView.overlap?.grille.id ?? ""}
+                      onChange={(e) =>
+                        setAisleCommand({
+                          rackId: selected,
+                          grilleId: e.target.value,
+                        })
+                      }
+                    >
+                      <option value="">
+                        整组通道 · {maintenanceView.grilles.length} 块相交
+                      </option>
+                      {maintenanceView.grilles.map(
+                        ({ grille, name, contained }) => (
+                          <option key={grille.id} value={grille.id}>
+                            {name} · {contained ? "完全在内" : "部分相交"}
+                          </option>
+                        ),
+                      )}
+                    </select>
+                    {maintenanceView.overlap && (
+                      <span>
+                        高亮面为面框落在柜前预留内的部分，宽{" "}
+                        {maintenanceView.overlap.overlapWidth.toFixed(2)} m × 深{" "}
+                        {maintenanceView.overlap.overlapDepth.toFixed(2)}{" "}
+                        m。格栅无独立风量采样。
+                      </span>
+                    )}
+                  </label>
                 )}
                 <p>
                   地面轮廓仅表示配置预留，不是实测净距、人员作业条件或通行结论。未包含全部建筑障碍物。

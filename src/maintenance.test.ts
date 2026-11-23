@@ -97,6 +97,7 @@ test("维护几何不参与拾取，保留遮挡和缓冲，转场及离开总�
     geometry.border.material,
     geometry.fill.material,
     geometry.ruler.material,
+    geometry.overlap.material,
   ];
   const buffer = geometry.border.instanceMatrix;
   geometry.update(maintenanceAreas("rack-a01"));
@@ -124,7 +125,7 @@ test("维护几何不参与拾取，保留遮挡和缓冲，转场及离开总�
   for (const resource of resources)
     resource.addEventListener("dispose", () => disposed++);
   geometry.dispose();
-  assert.equal(disposed, 4);
+  assert.equal(disposed, resources.length);
   assert.equal(geometry.root.children.length, 0);
 });
 

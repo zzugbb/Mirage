@@ -2,7 +2,11 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Box3, PerspectiveCamera, Ray, Vector3 } from "three";
 import definition from "../assets/public/scenes/room-01.json" with { type: "json" };
-import { maintenanceAreas, maintenanceAisle } from "./maintenance.ts";
+import {
+  maintenanceAreas,
+  maintenanceAisle,
+  maintenanceGrilles,
+} from "./maintenance.ts";
 import {
   maintenanceInspection,
   maintenanceViews,
@@ -96,4 +100,54 @@ test("八柜三种观察在桌面组合画幅内，地面边界视线不穿过�
         }
       }
     }
+});
+
+test("格栅按完整面框求交，四组含中心在界外的薄条，边线相切不计", () => {
+  const groups = ["rack-a05", "rack-a06", "rack-a07", "rack-a08"].map((id) =>
+    maintenanceInspection(id, "aisle")!,
+  );
+  assert.deepEqual(
+    groups.map((group) => group.grilles.length),
+    [3, 3, 3, 2],
+  );
+  const aisle = groups[2].aisle!;
+  assert.deepEqual(
+    groups[2].grilles.map((g) => [
+      g.grille.id.slice(-2),
+      g.contained,
+      g.overlapWidth.toFixed(2),
+      g.overlapDepth.toFixed(2),
+    ]),
+    [
+      ["10", false, "0.07", "0.46"],
+      ["11", true, "0.44", "0.46"],
+      ["12", false, "0.37", "0.46"],
+    ],
+  );
+  const edge = groups[2].grilles[0];
+  assert.ok(edge.grille.position[0] < aisle.front.bounds.minX);
+  const touching = {
+    ...aisle.front,
+    bounds: { ...aisle.front.bounds, minX: edge.maxX },
+  };
+  assert.ok(
+    !maintenanceGrilles(touching).some((o) => o.grille.id === edge.grille.id),
+  );
+  assert.deepEqual(maintenanceGrilles(aisle.rear), []);
+  for (const group of groups) {
+    const { front, rear } = group.aisle!;
+    for (const g of group.grilles) {
+      const inspection = maintenanceInspection(
+        rear.rackId,
+        "aisle",
+        g.grille.id,
+      )!;
+      assert.ok(maintenanceViewIncludes(inspection, front.rackId));
+      assert.deepEqual(inspection.overlap, g);
+    }
+    assert.equal(
+      maintenanceInspection(front.rackId, "aisle", "grille-row-a-01"),
+      null,
+    );
+  }
 });

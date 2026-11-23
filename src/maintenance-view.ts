@@ -1,6 +1,13 @@
 import { Vector3 } from "three";
 import definition from "../assets/public/scenes/room-01.json" with { type: "json" };
-import { maintenanceAreas, maintenanceAisle } from "./maintenance.ts";
+import {
+  maintenanceAreas,
+  maintenanceAisle,
+  maintenanceGrilles,
+  type MaintenanceArea,
+  type MaintenanceGrille,
+} from "./maintenance.ts";
+import { floorGrilleSettings } from "./floor-grilles.ts";
 import { observationFrame, type FrameRect } from "./observation-frame.ts";
 
 export const maintenanceViews = [
@@ -10,8 +17,25 @@ export const maintenanceViews = [
 ] as const;
 export type MaintenanceView = (typeof maintenanceViews)[number]["id"];
 
+function grilleFramePoints(front: MaintenanceArea, overlap: MaintenanceGrille) {
+  const [x, y, z] = overlap.grille.position;
+  const { width, depth } = floorGrilleSettings;
+  const { minX, maxX, minZ, maxZ } = front.bounds;
+  // 四角包住整块面框与柜前预留，中心在界外时仍能看清两条边。
+  return [Math.min(minX, x - width / 2), Math.max(maxX, x + width / 2)].flatMap(
+    (px) =>
+      [Math.min(minZ, z - depth / 2), Math.max(maxZ, z + depth / 2)].map(
+        (pz) => new Vector3(px, y, pz),
+      ),
+  );
+}
+
 /** 只观察现有配置预留；不从镜头或地面空白推导工程净距。 */
-export function maintenanceInspection(rackId: string, view: MaintenanceView) {
+export function maintenanceInspection(
+  rackId: string,
+  view: MaintenanceView,
+  grilleId?: string,
+) {
   const configured = maintenanceAreas(rackId);
   if (!configured.length) return null;
   const aisle = view === "aisle" ? maintenanceAisle(rackId) : undefined;
@@ -19,21 +43,27 @@ export function maintenanceInspection(rackId: string, view: MaintenanceView) {
   const areas = aisle
     ? [aisle.front, aisle.rear]
     : configured.filter((area) => area.kind === view);
-  const points = areas.flatMap((area) => {
-    const { minX, maxX, minZ, maxZ } = area.bounds;
-    const y = area.position[1];
-    const face = area.kind === "front" ? minZ : maxZ;
-    return [
-      new Vector3(minX, y, minZ),
-      new Vector3(maxX, y, minZ),
-      new Vector3(minX, y, maxZ),
-      new Vector3(maxX, y, maxZ),
-      new Vector3(area.position[0], y, (minZ + maxZ) / 2),
-      new Vector3(minX, definition.rack.size[1], face),
-      new Vector3(maxX, definition.rack.size[1], face),
-    ];
-  });
-  return { rackId, view, areas, aisle, points };
+  const grilles = aisle ? maintenanceGrilles(aisle.front) : [];
+  const overlap = grilles.find(({ grille }) => grille.id === grilleId);
+  if (grilleId && !overlap) return null;
+  const points =
+    overlap && aisle
+      ? grilleFramePoints(aisle.front, overlap)
+      : areas.flatMap((area) => {
+          const { minX, maxX, minZ, maxZ } = area.bounds;
+          const y = area.position[1];
+          const face = area.kind === "front" ? minZ : maxZ;
+          return [
+            new Vector3(minX, y, minZ),
+            new Vector3(maxX, y, minZ),
+            new Vector3(minX, y, maxZ),
+            new Vector3(maxX, y, maxZ),
+            new Vector3(area.position[0], y, (minZ + maxZ) / 2),
+            new Vector3(minX, definition.rack.size[1], face),
+            new Vector3(maxX, definition.rack.size[1], face),
+          ];
+        });
+  return { rackId, view, areas, aisle, points, grilles, overlap };
 }
 export type MaintenanceInspection = NonNullable<
   ReturnType<typeof maintenanceInspection>
@@ -58,7 +88,7 @@ export function maintenanceViewFrame(
     width,
     height,
     rect,
-    3,
+    inspection.overlap ? 2.1 : 3,
     0.15,
   );
 }

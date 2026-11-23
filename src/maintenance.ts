@@ -1,5 +1,10 @@
 import definition from "../assets/public/scenes/room-01.json" with { type: "json" };
 import { rackById, racks } from "./installation.ts";
+import {
+  floorGrilles,
+  floorGrilleRows,
+  floorGrilleSettings,
+} from "./floor-grilles.ts";
 
 export const maintenanceSettings = definition.room.maintenance;
 export type MaintenanceArea = {
@@ -49,6 +54,39 @@ export function maintenanceAreas(rackId: string): MaintenanceArea[] {
     };
   });
 }
+
+/** 用完整面框与配置预留相交；只接触边线的格栅不计入。 */
+export function maintenanceGrilles(area: MaintenanceArea) {
+  const { width, depth } = floorGrilleSettings;
+  const tolerance = 1e-8;
+  return floorGrilles.flatMap((grille) => {
+    const [x, , z] = grille.position;
+    const minX = Math.max(area.bounds.minX, x - width / 2);
+    const maxX = Math.min(area.bounds.maxX, x + width / 2);
+    const minZ = Math.max(area.bounds.minZ, z - depth / 2);
+    const maxZ = Math.min(area.bounds.maxZ, z + depth / 2);
+    const overlapWidth = maxX - minX,
+      overlapDepth = maxZ - minZ;
+    if (overlapWidth <= tolerance || overlapDepth <= tolerance) return [];
+    const row = floorGrilleRows.find((r) => r.rowId === grille.rowId)!;
+    return [
+      {
+        grille,
+        name: row.name + " " + grille.id.split("-").at(-1),
+        minX,
+        maxX,
+        minZ,
+        maxZ,
+        overlapWidth,
+        overlapDepth,
+        contained:
+          width - overlapWidth <= tolerance &&
+          depth - overlapDepth <= tolerance,
+      },
+    ];
+  });
+}
+export type MaintenanceGrille = ReturnType<typeof maintenanceGrilles>[number];
 
 // 当前样板同向朝 +Z。只比较柜宽投影重合、双方各自只有一个对柜的跨排位置。
 const alignedRacks = (rack: (typeof racks)[number]) =>

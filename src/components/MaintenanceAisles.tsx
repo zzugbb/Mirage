@@ -32,9 +32,8 @@ export function MaintenanceAisles({
       `[data-aisle-row="${restore.rackId}"]`,
     );
     if (!target) return;
-    list.current.scrollTop = restore.scroll;
     target.focus({ preventScroll: true });
-    target.scrollIntoView({ block: "nearest" });
+    list.current.scrollTop = restore.scroll;
     onRestored();
   }, [restore, visible, ready, onRestored]);
   const inspect = (row: MaintenanceAisle) => {

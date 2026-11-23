@@ -1564,9 +1564,9 @@ export class SceneEngine {
     this.onMaintenanceView(null);
     this.invalidate();
   }
-  observeMaintenance(rackId: string, view: MaintenanceView) {
+  observeMaintenance(rackId: string, view: MaintenanceView, grilleId?: string) {
     if (this.state.level !== "room" || this.moving) return;
-    const inspection = maintenanceInspection(rackId, view);
+    const inspection = maintenanceInspection(rackId, view, grilleId);
     if (!inspection) return;
     const previous =
       this.maintenanceObservation?.previous ?? this.captureObservationView();

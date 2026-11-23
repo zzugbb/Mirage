@@ -1,7 +1,11 @@
 import { createAnnotationGroup } from "./annotations.ts";
 import * as THREE from "three";
 import { maintenanceSettings } from "../maintenance.ts";
-import type { MaintenanceArea, MaintenanceAisle } from "../maintenance.ts";
+import type {
+  MaintenanceArea,
+  MaintenanceAisle,
+  MaintenanceGrille,
+} from "../maintenance.ts";
 
 /** 两个中性地面范围，保留深度测试，不参与对象拾取或运行告警。 */
 export class MaintenanceGeometry {
@@ -39,10 +43,22 @@ export class MaintenanceGeometry {
     }),
     3,
   );
+  overlap = new THREE.Mesh(
+    this.geometry,
+    new THREE.MeshBasicMaterial({
+      color: "#ffcd80",
+      transparent: true,
+      opacity: 0.52,
+      depthWrite: false,
+      toneMapped: false,
+    }),
+  );
   transform = new THREE.Object3D();
   constructor() {
     this.root.visible = false;
-    this.root.add(this.border, this.fill, this.ruler);
+    this.root.add(this.border, this.fill, this.ruler, this.overlap);
+    this.overlap.visible = false;
+    this.overlap.raycast = () => {};
     for (const mesh of [this.border, this.fill, this.ruler]) {
       mesh.count = 0;
       mesh.raycast = () => {};
@@ -50,9 +66,22 @@ export class MaintenanceGeometry {
       mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     }
   }
-  update(areas: MaintenanceArea[], aisle?: MaintenanceAisle) {
+  update(
+    areas: MaintenanceArea[],
+    aisle?: MaintenanceAisle,
+    overlap?: MaintenanceGrille,
+  ) {
     this.enabled = areas.length > 0;
     this.root.visible = this.enabled;
+    this.overlap.visible = !!overlap && !!aisle;
+    if (overlap && aisle) {
+      this.overlap.scale.set(overlap.overlapWidth, 0.002, overlap.overlapDepth);
+      this.overlap.position.set(
+        (overlap.minX + overlap.maxX) / 2,
+        aisle.front.position[1] + 0.006,
+        (overlap.minZ + overlap.maxZ) / 2,
+      );
+    }
     let index = 0;
     for (const [i, area] of areas.entries()) {
       const [x, y, z] = area.position;
@@ -100,6 +129,7 @@ export class MaintenanceGeometry {
     this.root.visible = this.enabled && ready;
   }
   dispose() {
+    this.overlap.material.dispose();
     this.geometry.dispose();
     for (const mesh of [this.border, this.fill, this.ruler]) {
       mesh.material.dispose();

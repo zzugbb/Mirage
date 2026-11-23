@@ -4785,6 +4785,15 @@
   padding: 12px 0;
   border-bottom: 1px solid var(--line);
 }
+.aisle-grille-check {
+  display: grid;
+  gap: 5px;
+  font-size: 12px;
+}
+.aisle-grille-check select {
+  width: 100%;
+  min-width: 0;
+}
 .maintenance-view-details > div {
   display: grid;
   gap: 5px;
