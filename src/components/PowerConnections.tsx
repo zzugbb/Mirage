@@ -1,4 +1,5 @@
 import { ConnectionSection } from "./ConnectionSection";
+import { FeederDeviceHistory } from "./FeederDeviceHistory";
 import { PduOutlets } from "./PduOutlets";
 import type { PduInspection } from "../pdu-outlets";
 import type { AppState } from "../domain";
@@ -39,8 +40,10 @@ export function PowerConnections({
   onInspect,
   paired,
   onInspectMount,
+  onAnalyzeDevice,
 }: {
   paired: boolean;
+  onAnalyzeDevice: (id: string) => void;
   onInspectMount?: () => void;
   pduInspection: PduInspection | null;
   onPduChange: (visit: PduInspection) => void;
@@ -210,6 +213,12 @@ export function PowerConnections({
                   定位 {pduName(activeLink.pduId)} · 插座{" "}
                   {String(activeLink.outlet).padStart(2, "0")} ↗
                 </button>
+                <FeederDeviceHistory
+                  deviceId={activeLink.deviceId}
+                  readings={readings}
+                  ready={ready}
+                  onAnalyze={onAnalyzeDevice}
+                />
                 <small>配电柜共用一个出线示意位置，实体端子位置未配置。</small>
               </section>
             )}
@@ -359,6 +368,7 @@ export function PowerConnections({
             onSelect={(outlet) => onPduSelect(pdu.id, outlet)}
             onPreview={onSelect}
             onInspect={onInspect}
+            onAnalyzeDevice={onAnalyzeDevice}
           />
         </>
       ) : device && model ? (

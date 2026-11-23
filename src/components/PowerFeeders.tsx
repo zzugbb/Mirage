@@ -1,9 +1,19 @@
 import { useLayoutEffect, useMemo, useRef } from "react";
 import { pdus, pduName, pduById, type PowerLink } from "../power-config";
-import { feederConnections, type FeederSelection } from "../power-feeders";
+import {
+  feederConnections,
+  feederInputSummary,
+  feederInputText,
+  type FeederSelection,
+} from "../power-feeders";
+
+import type { SpatialReading } from "../spatial";
+import { sourceValue } from "../reading-sources";
 
 export function PowerFeeders({
   selection,
+  readings,
+  time,
   onChange,
   onTrace,
   ready,
@@ -13,6 +23,8 @@ export function PowerFeeders({
   scroll,
 }: {
   selection: FeederSelection;
+  readings: Map<string, SpatialReading>;
+  time: number;
   onChange: (value: FeederSelection) => void;
   onTrace: (link: PowerLink, fromName: boolean) => void;
   ready: boolean;
@@ -23,6 +35,10 @@ export function PowerFeeders({
 }) {
   const { first, second, group, query } = selection;
   const result = useMemo(() => feederConnections(selection), [selection]);
+  const summary = useMemo(
+    () => feederInputSummary(result.members, readings),
+    [result, readings],
+  );
   const host = useRef<HTMLDivElement>(null);
   const restorePending = useRef(true);
   useLayoutEffect(() => {
@@ -130,6 +146,17 @@ export function PowerFeeders({
             ))}
           </div>
         )}
+        <section className="feeder-input-summary" aria-label="所选范围整机输入">
+          <div>
+            <strong>有效整机输入合计</strong>
+            <b>{sourceValue(summary.total, "power")}</b>
+          </div>
+          <small>
+            第 {time} 秒 · 计入 {summary.coverage}/{summary.count} 台
+            {summary.zeros > 0 && " · 有效零值 " + summary.zeros + " 台"}
+          </small>
+          <small>按所选范围逐台计入，查找只筛名单。回路未计量。</small>
+        </section>
         <input
           aria-label="出线核查查找设备"
           placeholder="查找机柜或设备编号"
@@ -143,11 +170,18 @@ export function PowerFeeders({
               className="feeder-device-name"
               data-feeder-key={device.id}
               aria-label={`核对 ${device.name} 的配电出线`}
+              aria-describedby={"feeder-watts-" + device.id}
               aria-pressed={selected === device.id}
               disabled={!ready}
               onClick={() => visit(links[0], true)}
             >
               <strong>{device.name}</strong>
+              <span
+                className="feeder-input-value"
+                id={"feeder-watts-" + device.id}
+              >
+                {feederInputText(summary.byDevice.get(device.id)!)}
+              </span>
               <small>
                 {rack.name} · {units}
               </small>

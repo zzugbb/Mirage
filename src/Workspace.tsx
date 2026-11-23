@@ -5594,6 +5594,8 @@ export function Workspace() {
           ) : state.level === "room" && navigationView === "feeders" ? (
             <PowerFeeders
               selection={feeders}
+              readings={spatial.readings}
+              time={state.time}
               visible={nav}
               ready={ready}
               scroll={feederScroll}
@@ -9071,6 +9073,15 @@ export function Workspace() {
                     {(layer === "power" || powerFacility) && (
                       <PowerConnections
                         paired={powerViewPaired}
+                        onAnalyzeDevice={(id) => {
+                          if (layoutVisit?.resourceList) {
+                            setQuery("");
+                            setFilter("all");
+                          }
+                          focus(id, { installation: true });
+                          setMetric("power");
+                          analyze();
+                        }}
                         onInspectMount={
                           initialPduMount === null
                             ? undefined

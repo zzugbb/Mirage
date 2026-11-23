@@ -7344,3 +7344,33 @@
 .probe-input-list small {
   width: 100%;
 }
+
+.feeder-input-summary {
+  display: grid;
+  gap: 4px;
+  margin: 10px 0;
+  padding: 8px 0;
+  border-block: 1px solid #34454f;
+}
+.feeder-input-summary > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+}
+.feeder-input-summary small,
+.feeder-device-history small {
+  color: var(--study-muted);
+}
+.feeder-device .feeder-device-name {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 3px 5px;
+}
+.feeder-device-name small {
+  grid-column: 1 / -1;
+}
+.feeder-device-history {
+  display: grid;
+  justify-items: start;
+  gap: 5px;
+}

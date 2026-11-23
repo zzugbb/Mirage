@@ -3,7 +3,7 @@ import { pduOutlets, pduOutlet, type PduInspection } from "../pdu-outlets";
 import { pduName, inletPart } from "../power-config";
 import { unitLabel } from "../catalog";
 import { entityById } from "../domain";
-import { qualityNames } from "../status";
+import { FeederDeviceHistory } from "./FeederDeviceHistory";
 import type { SpatialReading } from "../spatial";
 
 export function PduOutlets({
@@ -16,6 +16,7 @@ export function PduOutlets({
   onSelect,
   onPreview,
   onInspect,
+  onAnalyzeDevice,
 }: {
   pduId: string;
   visit: PduInspection | null;
@@ -26,6 +27,7 @@ export function PduOutlets({
   onSelect: (outlet: number) => void;
   onPreview: (id: string) => void;
   onInspect: (linkId: string) => void;
+  onAnalyzeDevice: (id: string) => void;
 }) {
   const current =
     visit?.pduId === pduId
@@ -46,13 +48,6 @@ export function PduOutlets({
   }, [current.query]);
   const rows = pduOutlets(pduId, current.query),
     chosen = pduOutlet(pduId, current.outlet);
-  const reading = chosen?.device ? readings.get(chosen.device.id) : null;
-  const value =
-    reading?.quality === "valid" &&
-    reading.power !== null &&
-    Number.isFinite(reading.power)
-      ? `${reading.power.toFixed(1)} W`
-      : null;
   return (
     <section
       className="pdu-outlets"
@@ -130,13 +125,12 @@ export function PduOutlets({
                   )!.name
                 }
               </small>
-              <span>
-                关联整机输入 ·{" "}
-                {value ??
-                  (reading?.quality === "valid"
-                    ? "无有效功耗"
-                    : qualityNames[reading?.quality ?? "missing"])}
-              </span>
+              <FeederDeviceHistory
+                deviceId={chosen.device.id}
+                readings={readings}
+                ready={ready}
+                onAnalyze={onAnalyzeDevice}
+              />
               <div className="pdu-outlet-actions">
                 <button onClick={() => onPreview(chosen.device!.id)}>
                   预览对端

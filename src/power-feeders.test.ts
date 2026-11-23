@@ -5,7 +5,13 @@ import { createReview, reviewTransition } from "./review-model.ts";
 import { powerScene } from "./power-paths.ts";
 import { pduOutlet } from "./pdu-outlets.ts";
 import { powerLinksForContext } from "./power-trace.ts";
-import { feederConnections, initialFeeders } from "./power-feeders.ts";
+import { spatialSnapshot } from "./spatial.ts";
+import {
+  feederInputSummary,
+  feederInputText,
+  feederConnections,
+  initialFeeders,
+} from "./power-feeders.ts";
 
 test("逐条出线核查覆盖八柜全部登记输入，保留配置插座与安装位", () => {
   const found = new Set<string>();
@@ -117,4 +123,59 @@ test("从任一出线设备行保持原支路，可在柜前换到本机另一�
       }
     }
   }
+});
+
+test("出线整机输入按关联分组去重，查找不改分母；跨柜两路独有之和等于并集", () => {
+  const data = spatialSnapshot(60).readings;
+  const inspect = (
+    second: string,
+    group: "all" | "both" | "first" | "second",
+    query = "",
+  ) => {
+    const { members } = feederConnections({
+      first: "pdu-b04-b",
+      second,
+      group,
+      query,
+    });
+    return feederInputSummary(members, data);
+  };
+  const single = inspect("", "all"),
+    paired = inspect("pdu-b04-a", "both", "SRV-59");
+  assert.deepEqual(
+    [paired.count, paired.coverage, paired.zeros, paired.total?.toFixed(1)],
+    [12, 11, 1, "2155.5"],
+  );
+  assert.equal(single.total, paired.total);
+  assert.equal(feederInputText(paired.byDevice.get("srv-59")!), "数据过期");
+  assert.equal(
+    feederInputText(paired.byDevice.get("srv-63")!),
+    "0.0 W · 有效零值",
+  );
+  const all = inspect("pdu-a01-b", "all"),
+    first = inspect("pdu-a01-b", "first"),
+    second = inspect("pdu-a01-b", "second");
+  assert.equal(
+    all.total?.toFixed(1),
+    (first.total! + second.total!).toFixed(1),
+  );
+  assert.equal(all.count, first.count + second.count);
+  assert.equal(inspect("pdu-a01-b", "both").total, null);
+});
+
+test("仅有停机零输入时合计为零，整组缺测保留空值，回看到过期前恢复关联设备", () => {
+  const { members } = feederConnections({
+    first: "pdu-b04-a",
+    second: "",
+    group: "all",
+    query: "",
+  });
+  const at40 = spatialSnapshot(40).readings;
+  const one = at40.get("srv-63")!;
+  assert.equal(feederInputSummary(members, new Map([[one.id, one]])).total, 0);
+  assert.equal(feederInputSummary(members, new Map()).total, null);
+  const recovered = feederInputSummary(members, at40);
+  assert.equal(recovered.byDevice.get("srv-59")?.value, 109.2);
+  assert.equal(recovered.total?.toFixed(1), "2258.0");
+  assert.equal(recovered.coverage, 12);
 });
