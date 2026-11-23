@@ -55,7 +55,6 @@ import {
   storageDriveGroup,
   type StorageSlotInspection,
 } from "./storage-slots";
-import { canInspectPart } from "./part-inspection";
 import type {
   NetworkOverviewScope,
   NetworkOverviewRole,
@@ -204,7 +203,12 @@ import {
 import type { RackUnitRange } from "./rack-space";
 import { MaintenanceAisles } from "./components/MaintenanceAisles";
 import { RoomSpaceComparison } from "./components/RoomSpaceComparison";
-import { isolatedPart, partInspectionSequence } from "./part-inspection";
+import {
+  canInspectPart,
+  closesPartInspection,
+  isolatedPart,
+  partInspectionSequence,
+} from "./part-inspection";
 import { grilleRowById, rackGrilleRelations } from "./floor-grilles";
 import {
   activeAirflowInspection,
@@ -2725,6 +2729,10 @@ export function Workspace() {
     (action: Action) => control({ type: "scene", action }),
     [],
   );
+  const dispatchStructure = (action: Action) => {
+    if (closesPartInspection(action)) partSequenceFocus.current = "isolate";
+    dispatch(action);
+  };
   const takeover = useCallback(() => control({ type: "takeover" }), []);
   const rememberRoomSearch = useCallback(
     (id: string) => {
@@ -6135,7 +6143,7 @@ export function Workspace() {
                 <StructureToolbar
                   label={dimmPose ? "内存槽位核查" : "内存组核查"}
                   state={state}
-                  dispatch={dispatch}
+                  dispatch={dispatchStructure}
                   disabled={!ready}
                   destination={dimmPose ? "内存组" : "完整结构"}
                   onBack={
@@ -6190,7 +6198,7 @@ export function Workspace() {
                 <StructureToolbar
                   label="存储通路核查"
                   state={state}
-                  dispatch={dispatch}
+                  dispatch={dispatchStructure}
                   disabled={!ready}
                   destination={assembly!.name}
                   onBack={() => {
@@ -6273,7 +6281,7 @@ export function Workspace() {
                 <StructureToolbar
                   label={selectedLayer.label + "核查"}
                   state={state}
-                  dispatch={dispatch}
+                  dispatch={dispatchStructure}
                   disabled={!ready}
                   destination={rearRow ? "机后排布" : assembly.name}
                   onBack={() => {
@@ -6555,7 +6563,7 @@ export function Workspace() {
                 <StructureToolbar
                   label="机后排布核查"
                   state={state}
-                  dispatch={dispatch}
+                  dispatch={dispatchStructure}
                   disabled={!ready}
                   destination={rearRow.fromPair ? "双电源" : "完整结构"}
                   onBack={
@@ -6619,7 +6627,7 @@ export function Workspace() {
                 <StructureToolbar
                   label={assembly.name + "核查"}
                   state={state}
-                  dispatch={dispatch}
+                  dispatch={dispatchStructure}
                   disabled={!ready}
                   destination="完整结构"
                   onBack={finishStructureCheck}
@@ -6815,7 +6823,7 @@ export function Workspace() {
                   state={state}
                   analysis={review.analysis}
                   ready={ready}
-                  dispatch={dispatch}
+                  dispatch={dispatchStructure}
                   onFront={() => {
                     takeover();
                     setStorageViewRevision((n) => n + 1);
@@ -6872,7 +6880,7 @@ export function Workspace() {
                     isolatedPartId,
                   )!}
                   state={state}
-                  dispatch={dispatch}
+                  dispatch={dispatchStructure}
                   ready={ready}
                   onSelect={(id, action) => {
                     partSequenceFocus.current = action;

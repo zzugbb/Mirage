@@ -1,11 +1,21 @@
 import { partsForDevice, subpartsForDevice } from "./catalog.ts";
 import { deviceById } from "./installation.ts";
-import type { AppState } from "./domain.ts";
+import type { Action, AppState } from "./domain.ts";
 
 // 与外观/内部示意切换的过渡边界一致，避免尚在显示外观时隔离内部空分支。
 export const internalStructureThreshold = 0.015;
 export const canInspectPart = (state: AppState) =>
   state.level === "device" && state.explosion > internalStructureThreshold;
+
+/** 工具栏合盖或收至外观范围时，原核查控件将离开页面。 */
+export function closesPartInspection(action: Action) {
+  return (
+    (action.type === "cover" && !action.open) ||
+    (action.type === "explode" &&
+      Number.isFinite(action.amount) &&
+      action.amount <= internalStructureThreshold)
+  );
+}
 
 /** 单部件检视只作用于当前已展开的设备；换实例或复原即结束。 */
 export function isolatedPart(

@@ -2,7 +2,12 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as THREE from "three";
 import { PartIsolation } from "./scene/part-isolation.ts";
-import { isolatedPart, partInspectionSequence } from "./part-inspection.ts";
+import {
+  closesPartInspection,
+  internalStructureThreshold,
+  isolatedPart,
+  partInspectionSequence,
+} from "./part-inspection.ts";
 import { createReview, reviewTransition } from "./review-model.ts";
 import { createState } from "./domain.ts";
 import { devices } from "./installation.ts";
@@ -228,4 +233,19 @@ test("未展开、离开设备或安全归位中拒绝逐项检视，外机型�
     reviewTransition(sw, { type: "inspect-adjacent-part", id: "memory-01" }),
     sw,
   );
+});
+
+test("只有合盖和收至外观范围的有效展开操作移除当前核查工具栏", () => {
+  assert.equal(closesPartInspection({ type: "cover", open: false }), true);
+  assert.equal(closesPartInspection({ type: "cover", open: true }), false);
+  for (const [amount, closes] of [
+    [0, true],
+    [0.01, true],
+    [internalStructureThreshold, true],
+    [0.02, false],
+    [1, false],
+    [NaN, false],
+  ] as const)
+    assert.equal(closesPartInspection({ type: "explode", amount }), closes);
+  assert.equal(closesPartInspection({ type: "seek", time: 40 }), false);
 });

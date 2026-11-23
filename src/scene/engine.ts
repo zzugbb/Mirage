@@ -2941,9 +2941,10 @@ export class SceneEngine {
       this.partInspection = null;
       // 跨层级或实例导航由原导航流程取景，不把旧设备镜头带到新位置。
       if (this.state.level === "device" && this.state.deviceId === deviceId) {
-        // 明确返回整机时按完整展开范围取景；仅取消暂隐仍恢复进入前镜头。
-        if (this.state.selected === deviceId) {
-          this.view(this.currentView, true);
+        // 合盖或收拢后按当前外观取景，旧部件特写的距离可能已不在整机轨道范围内。
+        const focusDevice = this.state.selected === deviceId;
+        if (focusDevice || !canInspectPart(this.state)) {
+          this.view(this.currentView, focusDevice);
           this.host.dataset.isolatedPart = "";
           return;
         }
