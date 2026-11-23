@@ -47,6 +47,7 @@ import {
 import { StorageSlots } from "./components/StorageSlots";
 import {
   activeStorageSlots,
+  storageSlotEntry,
   storageSlots,
   storageDriveGroup,
   type StorageSlotInspection,
@@ -1835,10 +1836,15 @@ export function Workspace() {
       setStorageViewRevision((n) => n + 1);
       setStorageFocusRevision((n) => n + 1);
     } else if (
-      storageVisit.mode !== "group" &&
+      (storageVisit.mode !== "group" || storageVisit.diskId !== null) &&
       (selected === state.deviceId || selected === storageDriveGroup)
     ) {
-      setStorageVisit({ ...storageVisit, mode: "group" });
+      setStorageVisit({
+        deviceId: state.deviceId,
+        mode: "group",
+        diskId: null,
+        pending: false,
+      });
       setStorageViewRevision((n) => n + 1);
     } else if (
       storageSlots(state.deviceId).some((slot) => slot.id === selected) &&
@@ -3155,23 +3161,18 @@ export function Workspace() {
       setInspector(true);
       if (matchMedia("(max-width: 1099px)").matches) setNav(false);
     } else {
+      const entry = storageSlotEntry(state.deviceId, selected);
+      if (!entry) return;
       takeover();
       setInspectionDevice(null);
       setFanVisit(null);
       setStorageVisit({
         deviceId: state.deviceId,
-        mode: selected === "sto-midplane" ? "board" : "group",
-        diskId: storageSlots(state.deviceId).some(
-          (slot) => slot.id === selected,
-        )
-          ? selected
-          : null,
+        mode: entry.mode,
+        diskId: entry.diskId,
         pending: true,
       });
-      control({
-        type: "pick",
-        id: selected === "sto-midplane" ? selected : storageDriveGroup,
-      });
+      control({ type: "pick", id: entry.selected });
       control({ type: "analysis", value: false });
       if (!canInspectPart(state)) dispatch({ type: "explode", amount: 1 });
       setInspector(true);

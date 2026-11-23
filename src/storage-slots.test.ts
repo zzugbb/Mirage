@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   storageSlots,
   storageSlotContext,
+  storageSlotEntry,
   activeStorageSlots,
   storageSlotKey,
   type StorageSlotInspection,
@@ -35,6 +36,29 @@ test("四台存储盘位图与模型的24个子件逐位对应，正面从左到
   }
   for (const id of ["srv-01", "srv-05", "sw-01", "missing"])
     assert.deepEqual(storageSlots(id), []);
+});
+test("从任一已装硬盘进入盘位核对时，详情与格位选择同盘；整机、盘组与中板各自保留入口语义", () => {
+  for (const device of ["sto-01", "sto-02", "sto-03", "sto-04"]) {
+    for (const { id } of storageSlots(device))
+      assert.deepEqual(storageSlotEntry(device, id), {
+        mode: "group",
+        selected: id,
+        diskId: id,
+      });
+    for (const selected of [device, "sto-drives"])
+      assert.deepEqual(storageSlotEntry(device, selected), {
+        mode: "group",
+        selected: "sto-drives",
+        diskId: null,
+      });
+    assert.deepEqual(storageSlotEntry(device, "sto-midplane"), {
+      mode: "board",
+      selected: "sto-midplane",
+      diskId: null,
+    });
+    assert.equal(storageSlotEntry(device, "sto-disk-25"), null);
+  }
+  assert.equal(storageSlotEntry("sw-12", "sto-disk-24"), null);
 });
 test("盘位核对限定原存储实例，复原、离开设备或选择无关部件立即失效", () => {
   const state = {

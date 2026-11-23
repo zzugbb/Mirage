@@ -31,15 +31,24 @@ export type StorageSlotInspection = {
   trayStage?: TrayStageId;
   connectorPose?: "seated" | "separated";
 };
-export function storageSlotContext(deviceId: string, selected: string) {
+/** 从整机进入盘组，从单盘进入时详情、三维选择与盘位图沿用同一块盘。 */
+export function storageSlotEntry(deviceId: string, selected: string) {
   const slots = storageSlots(deviceId);
-  return (
-    !!slots.length &&
-    (selected === deviceId ||
-      selected === storageDriveGroup ||
-      selected === "sto-midplane" ||
-      slots.some((slot) => slot.id === selected))
-  );
+  if (!slots.length) return null;
+  if (selected === "sto-midplane")
+    return { mode: "board", selected, diskId: null } as const;
+  if (selected === deviceId || selected === storageDriveGroup)
+    return {
+      mode: "group",
+      selected: storageDriveGroup,
+      diskId: null,
+    } as const;
+  return slots.some((slot) => slot.id === selected)
+    ? ({ mode: "group", selected, diskId: selected } as const)
+    : null;
+}
+export function storageSlotContext(deviceId: string, selected: string) {
+  return !!storageSlotEntry(deviceId, selected);
 }
 export function activeStorageSlots(
   visit: StorageSlotInspection | null,
