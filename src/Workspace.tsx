@@ -317,6 +317,7 @@ import {
   powerDeviceIds,
   powerLinks,
   powerSettings,
+  type PowerLink,
 } from "./power-config";
 import {
   pduOutlet,
@@ -325,6 +326,7 @@ import {
 } from "./pdu-outlets";
 import { PowerConnections } from "./components/PowerConnections";
 import { canShowNetworkPatch } from "./network-patch";
+import { NetworkPowerInputs } from "./components/NetworkPowerInputs";
 import { NetworkTrace } from "./components/NetworkTrace";
 import { NetworkConnections } from "./components/NetworkConnections";
 import {
@@ -1367,6 +1369,7 @@ export function Workspace() {
   const [networkMapVisit, setNetworkMapVisit] = useState<{
     camera: TaskViewMemory | null;
     linkId: string | null;
+    powerBranchId?: string;
     selection: string;
     scope: NetworkOverviewScope;
     role: NetworkOverviewRole;
@@ -1391,6 +1394,25 @@ export function Workspace() {
     portCheck.port === networkTrace.targetPort &&
     networkDeviceId(selected, state.deviceId) === portCheck.switchId;
 
+  const visitedPowerBranch = networkLinkById(
+    networkMapVisit?.powerBranchId ?? null,
+  );
+  const tracedInput = powerLinkById(activePowerLink);
+  const inspectingNetworkPower =
+    layer === "power" &&
+    visitedPowerBranch &&
+    tracedInput &&
+    [visitedPowerBranch.source, visitedPowerBranch.target].includes(
+      tracedInput.deviceId,
+    );
+  const supplyBranch = inspectingNetworkPower
+    ? visitedPowerBranch
+    : networkMapVisit && (!portCheck || portOwnsTrace)
+      ? networkTrace
+      : undefined;
+  const [pendingNetworkOutlet, setPendingNetworkOutlet] = useState<
+    string | null
+  >(null);
   const networkControlFocus = useRef<"endpoint" | "branch" | "port" | null>(
     null,
   );
@@ -1935,6 +1957,23 @@ export function Workspace() {
     pathVisit,
     assembly,
     ready,
+  ]);
+  useEffect(() => {
+    if (!pendingNetworkOutlet) return;
+    if (!inspectingNetworkPower || pendingNetworkOutlet !== activePowerLink) {
+      setPendingNetworkOutlet(null);
+      return;
+    }
+    if (!ready || review.pendingId || state.level !== "rack") return;
+    setPendingNetworkOutlet(null);
+    requestPowerView("observe");
+  }, [
+    pendingNetworkOutlet,
+    inspectingNetworkPower,
+    activePowerLink,
+    ready,
+    review.pendingId,
+    state.level,
   ]);
   useEffect(() => {
     if (!pendingPatch) return;
@@ -2574,10 +2613,18 @@ export function Workspace() {
       networkMapVisit &&
       state.level === "room" &&
       ready &&
-      rackView !== "network"
+      rackView !== "network" &&
+      !inspectingNetworkPower
     )
       setNetworkMapVisit(null);
-  }, [networkMapReturning, networkMapVisit, state.level, ready, rackView]);
+  }, [
+    networkMapReturning,
+    networkMapVisit,
+    state.level,
+    ready,
+    rackView,
+    inspectingNetworkPower,
+  ]);
   useEffect(() => {
     const target = networkControlFocus.current;
     if (!target) return;
@@ -3613,7 +3660,32 @@ export function Workspace() {
     setNetworkLinkId(id);
     if (!id) setNetworkMapVisit(null);
   };
+  const locateNetworkInput = (input: PowerLink) => {
+    if (!supplyBranch || !ready) return;
+    setNetworkMapVisit(
+      (visit) => visit && { ...visit, powerBranchId: supplyBranch.id },
+    );
+    setPortCheck(null);
+    setPortVisit(null);
+    if (state.level !== "rack" || selected !== input.pduId) focus(input.pduId);
+    control({ type: "layer", layer: "power" });
+    control({ type: "analysis", value: false });
+    dispatch({ type: "rear-door", open: true });
+    setPowerLinkId(input.id);
+    setPduInspection({
+      pduId: input.pduId,
+      outlet: input.outlet,
+      query: "",
+      scroll: 0,
+    });
+    setPendingNetworkOutlet(input.id);
+  };
   const returnNetworkMap = () => {
+    if (networkMapVisit?.powerBranchId) {
+      setPowerLinkId(null);
+      setPduInspection(null);
+      setPendingNetworkOutlet(null);
+    }
     setNetworkMapReturning(true);
     setPortVisit(null);
     control({ type: "analysis", value: false });
@@ -7560,6 +7632,14 @@ export function Workspace() {
                   if (id) networkControlFocus.current = "branch";
                   changeNetworkTrace(id);
                 }}
+              />
+            )}
+            {supplyBranch && !review.analysis && state.level !== "device" && (
+              <NetworkPowerInputs
+                branch={supplyBranch}
+                activeInput={inspectingNetworkPower ? activePowerLink : null}
+                ready={ready}
+                onLocate={locateNetworkInput}
               />
             )}
             {activeFanVisit && !review.analysis && (

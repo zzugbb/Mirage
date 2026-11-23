@@ -81,6 +81,7 @@ export function powerViewFrame(
   height: number,
   rect: FrameRect,
   mountSide?: number,
+  openRackCenterX?: number,
 ) {
   if (mountSide)
     return observationFrame(
@@ -97,10 +98,16 @@ export function powerViewFrame(
     point.clone().add(new Vector3(-0.18, 0, 0)),
     point.clone().add(new Vector3(0.18, 0, 0)),
   ]);
-  // 柜后略俯看，与柜前网络取景分开；保留真实柜体遮挡。
+  // 控件会把可用画幅推到一侧。后门打开时从柜口内看两侧插座，
+  // 用偏航抵消取景平移，避免相机落到打开的门扇外侧。
+  const offsetX =
+    openRackCenterX === undefined
+      ? 0
+      : Math.sign(openRackCenterX - points[0].x) * 0.45 +
+        ((width - rect.left - rect.right) / height) * Math.tan(Math.PI / 9);
   return observationFrame(
     context,
-    new Vector3(0, 0.18, -1),
+    new Vector3(offsetX, 0.18, -1),
     width,
     height,
     rect,

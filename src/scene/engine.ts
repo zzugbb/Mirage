@@ -1290,6 +1290,11 @@ export class SceneEngine {
       height,
       rect,
       this.powerObservation.mount?.side,
+      this.state.level === "rack" &&
+        this.state.rearDoorOpen &&
+        !this.powerObservation.paired
+        ? this.models.rack.position.x
+        : undefined,
     );
     this.targetPosition.copy(fit.position);
     this.targetLook.copy(fit.target);

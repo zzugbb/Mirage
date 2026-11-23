@@ -7254,3 +7254,11 @@
 .power-feeder-route small {
   color: var(--study-muted);
 }
+
+.network-power-inputs section > small {
+  display: block;
+  margin-top: 3px;
+}
+.network-power-inputs .network-endpoint-picker {
+  margin: 5px 0 8px;
+}

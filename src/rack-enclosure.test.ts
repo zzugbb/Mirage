@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as THREE from "three";
 import definition from "../assets/public/scenes/room-01.json" with { type: "json" };
-import { powerSettings, pdus } from "./power-config.ts";
+import { powerSettings, pdus, pduById } from "./power-config.ts";
 import { pduOutletPosition, pduPosition } from "./power-paths.ts";
 import {
   createPduMounts,
@@ -252,4 +252,40 @@ test("按所选插座高度进入最近支架，未选插座从中部核对，�
     pduMountInspection({ ...state, level: "device" }, "pdu-a01-a", 0),
     null,
   );
+});
+
+test("两档桌面从打开的柜口核对 168 个输入时，门扇均让出所选插座中心", () => {
+  const doors = createRackRearDoors();
+  poseRackRearDoors(doors, 1);
+  for (const link of powerSettings.links) {
+    const rack = rackById(pduById(link.pduId)!.rackId)!;
+    const state = {
+      ...createState(),
+      level: "rack" as const,
+      deviceId: link.deviceId,
+    };
+    doors.position.fromArray(rack.position);
+    doors.updateMatrixWorld(true);
+    const points = powerViewPoints(state, link.pduId, link.id);
+    for (const [width, height] of [
+      [852, 836],
+      [744, 704],
+    ]) {
+      const { position } = powerViewFrame(
+        points,
+        width,
+        height,
+        { left: 290, right: width - 40, top: 100, bottom: height - 48 },
+        undefined,
+        rack.position[0],
+      );
+      const ray = new THREE.Raycaster(
+        position,
+        points[0].clone().sub(position).normalize(),
+        0,
+        position.distanceTo(points[0]),
+      );
+      assert.equal(ray.intersectObject(doors, true).length, 0, link.id);
+    }
+  }
 });
