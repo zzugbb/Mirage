@@ -7730,3 +7730,38 @@
 .panel-entry-layout .entry-offset {
   white-space: nowrap;
 }
+
+.probe-elevation-racks {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+}
+.probe-elevation-racks button {
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+  padding: 4px 1px;
+  font-size: 11px;
+}
+.probe-elevation-racks [aria-current="true"] {
+  outline: 1px solid currentColor;
+}
+.probe-elevation-column {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 62%;
+  height: 84px;
+  background: #303d44;
+}
+.probe-elevation-column i[data-kind="device"] {
+  background: #86979d;
+}
+.probe-elevation-column i[data-aligned] {
+  background: #4babab;
+}
+.probe-elevation-column b {
+  position: absolute;
+  inset-inline: -4px;
+  border-bottom: 2px solid #f2c06c;
+}

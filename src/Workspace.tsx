@@ -367,6 +367,7 @@ import {
   switchRole,
 } from "./network";
 import { coolingProbeForDevice } from "./cooling-probe";
+import { ProbeElevation } from "./components/ProbeElevation";
 import {
   ProbeRackInlets,
   type ProbeInputCheck,
@@ -1887,12 +1888,15 @@ export function Workspace() {
   useEffect(() => {
     if (openRound && openRound !== round?.row.id) setOpenRound(null);
   }, [round, openRound]);
-  const [probeRackDevice, setProbeRackDevice] = useState<string | null>(null);
+  const [probeRackDevice, setProbeRackDevice] = useState<{
+    id: string;
+    fromHeight: boolean;
+  } | null>(null);
   const [probeInputCheck, setProbeInputCheck] =
     useState<ProbeInputCheck | null>(null);
   const probeInputRestore = useRef<string | null>(null);
   const rackProbe = useMemo(
-    () => (probeRackDevice ? coolingProbeForDevice(probeRackDevice) : null),
+    () => (probeRackDevice ? coolingProbeForDevice(probeRackDevice.id) : null),
     [probeRackDevice],
   );
   useEffect(() => {
@@ -4806,33 +4810,50 @@ export function Workspace() {
         }}
       />
     );
+  function locateProbeDevice(id: string, source: "inputs" | "peak" | "height") {
+    if (source !== "inputs") setProbeInputCheck(null);
+    setProbeRackDevice({ id, fromHeight: source === "height" });
+    if (layoutVisit?.resourceList) {
+      setQuery("");
+      setFilter("all");
+    }
+    control({ type: "analysis", value: false });
+    focus(id, { installation: true });
+    dispatch({ type: "door", open: true });
+  }
   const probeRackInspection =
     !coolingVisit &&
     !layoutReturning &&
     layer === "overview" &&
     (round && selected === round.probe.id ? (
-      <ProbeRackInlets
-        round={round}
-        readings={spatial.readings}
-        ready={ready}
-        visitedDevice={
-          rackProbe?.probe.id === selected ? rackProbe.device.id : undefined
-        }
-        check={probeInputCheck}
-        restore={probeInputRestore}
-        onCheck={setProbeInputCheck}
-        onLocate={(id, fromInputs) => {
-          if (!fromInputs) setProbeInputCheck(null);
-          setProbeRackDevice(id);
-          if (layoutVisit?.resourceList) {
-            setQuery("");
-            setFilter("all");
+      <>
+        <ProbeRackInlets
+          round={round}
+          readings={spatial.readings}
+          ready={ready}
+          visitedDevice={
+            !probeRackDevice?.fromHeight && rackProbe?.probe.id === selected
+              ? rackProbe.device.id
+              : undefined
           }
-          control({ type: "analysis", value: false });
-          focus(id, { installation: true });
-          dispatch({ type: "door", open: true });
-        }}
-      />
+          check={probeInputCheck}
+          restore={probeInputRestore}
+          onCheck={setProbeInputCheck}
+          onLocate={(id, fromInputs) =>
+            locateProbeDevice(id, fromInputs ? "inputs" : "peak")
+          }
+        />
+        <ProbeElevation
+          round={round}
+          ready={ready}
+          visited={
+            probeRackDevice?.fromHeight && rackProbe?.probe.id === selected
+              ? rackProbe.device.id
+              : undefined
+          }
+          onLocate={(id) => locateProbeDevice(id, "height")}
+        />
+      </>
     ) : rackProbe &&
       (state.level === "rack" || state.level === "device") &&
       selected === rackProbe.device.id ? (
