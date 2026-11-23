@@ -1,3 +1,4 @@
+import type { PduMountInspection } from "./pdu-mounts.ts";
 import definition from "../assets/public/scenes/room-01.json" with { type: "json" };
 import {
   devices,
@@ -13,6 +14,7 @@ import {
   pdus,
   pduById,
   pduName,
+  pduOutletOffsetY,
   powerLinks,
   powerSettings,
   inletPart,
@@ -30,6 +32,7 @@ export type PowerLabel = {
 };
 export type PowerScene = {
   closeUp?: boolean;
+  mount?: PduMountInspection;
   unconnectedOutlet?: true;
   rackId: string;
   deviceId: string;
@@ -53,8 +56,7 @@ export const pduPosition = (id: string) => {
 export function pduOutletPosition(id: string, outlet: number): PowerPoint {
   return add(pduPosition(id), [
     0,
-    (outlet - 1 - (powerSettings.outletsPerPdu - 1) / 2) *
-      powerSettings.layout.outletPitch,
+    pduOutletOffsetY(outlet),
     powerSettings.layout.outletOffsetZ,
   ]);
 }

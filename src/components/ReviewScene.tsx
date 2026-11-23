@@ -61,6 +61,7 @@ import {
   powerViewPoints,
   type PowerViewCommand,
 } from "../power-view";
+import { mountSettings, pduMountInspection } from "../pdu-mounts";
 import { PowerViewActions } from "./PowerViewActions";
 import type { NetworkView, NetworkViewCommand } from "../network-view";
 import type { SliceViewCommand } from "../slice-view";
@@ -138,7 +139,12 @@ import {
 import { MaintenanceGeometry } from "../scene/maintenance";
 import { powerScene } from "../power-paths";
 import { PowerGeometry } from "../scene/power";
-import { pduById, powerSettings } from "../power-config";
+import {
+  pduById,
+  pduName,
+  pduOutletOffsetY,
+  powerSettings,
+} from "../power-config";
 import { temperatureColor, powerColor } from "../scene/metric-color";
 import { budgetPercent, budgetRatio, budgetStateText } from "../power-budget";
 import { alarmCurrentStatus } from "../alarm-queue";
@@ -232,6 +238,7 @@ export function ReviewScene({
   crossingCommand,
   onCrossingChange,
   onReturnCrossing,
+  initialPduMount,
   powerViewCommand,
   powerViewActive,
   powerViewPaired,
@@ -289,6 +296,7 @@ export function ReviewScene({
   crossingCommand: CrossingViewCommand | null;
   onCrossingChange: (pair: FixtureCrossing | null) => void;
   onReturnCrossing: () => void;
+  initialPduMount: number | null;
   powerViewCommand: PowerViewCommand | null;
   powerViewActive: boolean;
   powerViewPaired: boolean;
@@ -624,12 +632,48 @@ export function ReviewScene({
       isolatedPartId,
     ],
   );
+  const mountIndex =
+    powerViewActive && typeof powerViewCommand?.action === "object"
+      ? powerViewCommand.action.mount
+      : undefined;
+  const mount = useMemo(
+    () =>
+      mountIndex === undefined
+        ? null
+        : pduMountInspection(state, selectedId, mountIndex),
+    [state.level, state.deviceId, selectedId, mountIndex],
+  );
+  const mountOutlet =
+    mount && pduInspection?.pduId === selectedId ? pduInspection.outlet : null;
+  const outletRise =
+    mount && mountOutlet !== null
+      ? pduOutletOffsetY(mountOutlet) - mountSettings.heightOffsets[mount.index]
+      : null;
   const supply = useMemo(
     () =>
-      powerViewPaired && supplyBase
-        ? pairedPowerScene(state, selectedId, powerLinkId)
-        : focusedPowerScene(supplyBase, powerViewActive),
-    [supplyBase, powerViewActive, powerViewPaired],
+      mount && supplyBase
+        ? {
+            ...supplyBase,
+            mount,
+            paths: [],
+            caption: pduName(selectedId) + " · 侧壁安装",
+            labels: [
+              {
+                id: "power-mount",
+                point: mount.spacer.center,
+                title: "侧壁垫块",
+              },
+              {
+                id: "power-mount-plate",
+                point: mount.plate.center,
+                title: `支架 ${mount.index + 1} · 固定片`,
+              },
+            ],
+          }
+        : powerViewPaired && supplyBase
+          ? pairedPowerScene(state, selectedId, powerLinkId)
+          : focusedPowerScene(supplyBase, powerViewActive),
+    [supplyBase, powerViewActive, powerViewPaired, mount, selectedId],
   );
   const [showPowerInputs, setShowPowerInputs] = useState(false);
   useEffect(
@@ -1543,6 +1587,9 @@ export function ReviewScene({
         selectedId,
         powerLinkId,
         powerViewCommand.action === "observe-pair",
+        typeof powerViewCommand.action === "object"
+          ? powerViewCommand.action.mount
+          : undefined,
       );
     }
     setView(active.currentView);
@@ -1579,10 +1626,8 @@ export function ReviewScene({
     return () => cancelAnimationFrame(frame);
   }, [powerViewActive]);
   useEffect(() => {
-    engine.current?.updatePowerView(
-      selectedId,
-      layer === "power" && !isolatedPartId ? powerLinkId : null,
-    );
+    if (layer !== "power" || isolatedPartId) engine.current?.clearPowerView();
+    else engine.current?.updatePowerView(selectedId, powerLinkId);
   }, [supply, layer, selectedId, isolatedPartId, shotRevision, retry]);
   useEffect(() => {
     const active = engine.current;
@@ -2161,6 +2206,7 @@ export function ReviewScene({
               hidden
               aria-hidden="true"
               data-anchor={label.id}
+              data-hotspot={mount ? "center" : undefined}
               data-anchor-part={label.partId}
               data-anchor-kind={label.partId ? "power-part" : "position"}
               data-anchor-level={state.level}
@@ -3117,15 +3163,18 @@ export function ReviewScene({
                             : "简化柜体"}
                       </small>
                     )}
-                  {powerViewPoints(state, selectedId, supply.traceId).length ===
-                    2 && (
+                  {(initialPduMount !== null ||
+                    (supply.traceId &&
+                      powerViewPoints(state, selectedId, supply.traceId)
+                        .length === 2)) && (
                     <PowerViewActions
                       active={powerViewActive}
                       paired={powerViewPaired}
                       ready={sceneSettled}
-                      onObserve={() => onPowerView("observe")}
-                      onObservePair={() => onPowerView("observe-pair")}
-                      onReturn={() => onPowerView("return")}
+                      canTrace={!!supply.traceId}
+                      initialMount={initialPduMount}
+                      mountIndex={mount?.index}
+                      onView={onPowerView}
                     />
                   )}
                   {!powerViewActive &&
@@ -3163,18 +3212,30 @@ export function ReviewScene({
                   {(state.level === "rack" ||
                     (powerViewActive && state.level === "room")) && (
                     <span>
-                      {state.level === "room"
-                        ? "所查柜后侧观察剖切"
-                        : state.rearDoorOpen
-                          ? "后立柱观察剖切"
-                          : "后侧观察剖切"}
+                      {mount
+                        ? "侧板局部剖切 · 柜后侧观察"
+                        : state.level === "room"
+                          ? "所查柜后侧观察剖切"
+                          : state.rearDoorOpen
+                            ? "后立柱观察剖切"
+                            : "后侧观察剖切"}
                     </span>
                   )}
                   <small>
-                    {supply.unconnectedOutlet
-                      ? "配置空位 · 可用容量未定义"
-                      : "线型区分配置支路 · 支路功耗未计量"}
+                    {mount
+                      ? `距柜底原点 ${mount.localHeight.toFixed(3)} m · 垫块宽 ${(mount.width * 1000).toFixed(1)} mm`
+                      : supply.unconnectedOutlet
+                        ? "配置空位 · 可用容量未定义"
+                        : "线型区分配置支路 · 支路功耗未计量"}
                   </small>
+                  {outletRise !== null && (
+                    <small>
+                      插座 {String(mountOutlet).padStart(2, "0")} 相对支架中心{" "}
+                      {outletRise > 0 ? "+" : ""}
+                      {(outletRise * 1000).toFixed(1)} mm
+                    </small>
+                  )}
+                  {mount && <small>安装位置取自配置 · 实际走线未登记</small>}
                 </div>
               )}
               {foldPowerScale && powerScale && (

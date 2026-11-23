@@ -11,7 +11,7 @@ import definition from "../../assets/public/scenes/room-01.json" with { type: "j
 import { createEquipmentAssembly } from "./equipment-model";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 import { buildRoomShell } from "./room";
-import { powerSettings, pdus } from "../power-config.ts";
+import { powerSettings, pduOutletOffsetY, pdus } from "../power-config.ts";
 
 export type SceneModel = ReturnType<typeof buildModels>;
 const materials = new Map<string, THREE.MeshStandardMaterial>();
@@ -249,7 +249,7 @@ export function buildModels() {
       [x, rh / 2 + 0.05, 0],
       "#24272b",
       0.45,
-    );
+    ).name = x < 0 ? "rack-wall-negative-x" : "rack-wall-positive-x";
   rack.add(createRackRearDoors());
   for (let u = 1; u <= definition.rack.units; u++) {
     const y = definition.rack.unitOrigin + u * definition.rack.unitPitch;
@@ -378,12 +378,7 @@ export function buildModels() {
       box(
         pdu,
         [0.021, 0.035, 0.004],
-        [
-          0,
-          (i - (powerSettings.outletsPerPdu - 1) / 2) *
-            powerSettings.layout.outletPitch,
-          -0.021,
-        ],
+        [0, pduOutletOffsetY(i + 1), -0.021],
         "#394149",
         0.3,
       );
@@ -391,12 +386,7 @@ export function buildModels() {
         box(
           pdu,
           [0.003, 0.014, 0.002],
-          [
-            dx,
-            (i - (powerSettings.outletsPerPdu - 1) / 2) *
-              powerSettings.layout.outletPitch,
-            -0.024,
-          ],
+          [dx, pduOutletOffsetY(i + 1), -0.024],
           "#10171b",
           0.1,
         );

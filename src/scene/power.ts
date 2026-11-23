@@ -41,7 +41,22 @@ export class PowerGeometry {
   );
   outlets = [this.outlet, this.outlet.clone()];
   inputs = [this.input, this.input.clone()];
+  mountFace = new THREE.LineLoop(
+    new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(-0.5, -0.5, 0),
+      new THREE.Vector3(0.5, -0.5, 0),
+      new THREE.Vector3(0.5, 0.5, 0),
+      new THREE.Vector3(-0.5, 0.5, 0),
+    ]),
+    this.outlet.material,
+  );
+  plateFace = this.mountFace.clone();
   constructor() {
+    for (const face of [this.mountFace, this.plateFace]) {
+      face.raycast = () => {};
+      face.rotation.y = Math.PI / 2;
+      this.root.add(face);
+    }
     this.root.add(this.bands, this.dots, ...this.outlets, ...this.inputs);
     for (const endpoint of [...this.outlets, ...this.inputs]) {
       endpoint.raycast = () => {};
@@ -60,6 +75,18 @@ export class PowerGeometry {
     this.root.visible = !!snapshot;
     for (const endpoint of [...this.outlets, ...this.inputs])
       endpoint.visible = false;
+    const mount = snapshot?.mount;
+    this.mountFace.visible = this.plateFace.visible = !!mount;
+    if (mount) {
+      for (const [outline, face] of [
+        [this.mountFace, mount.spacer],
+        [this.plateFace, mount.plate],
+      ] as const) {
+        outline.position.fromArray(face.center);
+        outline.position.x += mount.side * 0.0001;
+        outline.scale.set(face.depth, mount.height, 1);
+      }
+    }
     let band = 0,
       dot = 0,
       outletIndex = 0,
@@ -96,7 +123,7 @@ export class PowerGeometry {
       }
     }
     for (const label of snapshot?.labels ?? []) {
-      if (!label.point) continue;
+      if (!label.point || mount) continue;
       if (label.kind === "outlet") {
         const outlet = this.outlets[outletIndex++];
         if (!outlet) continue;
@@ -146,6 +173,7 @@ export class PowerGeometry {
     if (this.dots.instanceColor) this.dots.instanceColor.needsUpdate = true;
   }
   dispose() {
+    this.mountFace.geometry.dispose();
     this.input.geometry.dispose();
     this.input.material.dispose();
     this.outlet.geometry.dispose();

@@ -125,6 +125,8 @@ import {
   deviceHeight,
   installedFrontZ,
 } from "../installation";
+import { PduMountWindow } from "./rack-enclosure.ts";
+import { pduMountInspection, type PduMountInspection } from "../pdu-mounts.ts";
 import * as THREE from "three";
 import { observationFrame } from "../observation-frame";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
@@ -1150,7 +1152,9 @@ export class SceneEngine {
     this.restoreObservationView(previous);
   }
   onPowerView: (active: boolean) => void = () => {};
+  private pduMountWindow = new PduMountWindow();
   private powerObservation?: {
+    mount?: PduMountInspection;
     paired: boolean;
     sourceId: string;
     targets: THREE.Vector3[];
@@ -1163,15 +1167,27 @@ export class SceneEngine {
     this.moving = false;
     this.onPowerView(false);
   }
-  observePower(selected: string, linkId: string | null, paired = false) {
+  observePower(
+    selected: string,
+    linkId: string | null,
+    paired = false,
+    mountIndex?: number,
+  ) {
     this.clearCrossingView();
     this.clearLeakView();
     this.clearEntranceView();
     this.clearEnvironmentView();
     this.clearInletView();
     this.clearMaintenanceView();
-    const targets = powerViewPoints(this.state, selected, linkId, paired);
-    const sourceId = powerViewSource(linkId);
+    const targets = powerViewPoints(
+      this.state,
+      selected,
+      linkId,
+      paired,
+      mountIndex,
+    );
+    const sourceId =
+      mountIndex === undefined ? powerViewSource(linkId) : selected;
     if (!targets.length || !sourceId || this.moving) return;
     const previous =
       this.powerObservation?.previous ?? this.captureObservationView();
@@ -1181,6 +1197,10 @@ export class SceneEngine {
     this.clearRangeView();
     this.panelViewport = undefined;
     this.powerObservation = {
+      mount:
+        mountIndex === undefined
+          ? undefined
+          : (pduMountInspection(this.state, selected, mountIndex) ?? undefined),
       paired,
       sourceId,
       targets,
@@ -1193,7 +1213,7 @@ export class SceneEngine {
     this.controls.minAzimuthAngle = -Infinity;
     this.controls.maxAzimuthAngle = Infinity;
     this.controls.maxPolarAngle = Math.PI / 2 - 0.03;
-    this.controls.minDistance = 0.5;
+    this.controls.minDistance = mountIndex === undefined ? 0.5 : 0.18;
     this.autoOrbit = false;
     this.framePower();
     this.onPowerView(true);
@@ -1205,10 +1225,12 @@ export class SceneEngine {
       selected,
       linkId,
       this.powerObservation.paired,
+      this.powerObservation.mount?.index,
     );
     if (
       !targets.length ||
-      powerViewSource(linkId) !== this.powerObservation.sourceId
+      (!this.powerObservation.mount ? powerViewSource(linkId) : selected) !==
+        this.powerObservation.sourceId
     ) {
       this.clearPowerView();
       return;
@@ -1227,6 +1249,7 @@ export class SceneEngine {
       width,
       height,
       rect,
+      this.powerObservation.mount?.side,
     );
     this.targetPosition.copy(fit.position);
     this.targetLook.copy(fit.target);
@@ -3167,8 +3190,11 @@ export class SceneEngine {
       this.controls.update();
       this.adaptDeviceOrbit();
     }
+    this.pduMountWindow.update(this.models.rack, this.powerObservation?.mount);
     const observedPowerRack =
-      this.powerObservation && this.state.level === "room"
+      this.powerObservation &&
+      !this.powerObservation.mount &&
+      this.state.level === "room"
         ? rackForDevice(this.powerObservation.sourceId).id
         : null;
     const patchCutaway =

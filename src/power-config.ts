@@ -3,6 +3,9 @@ import { devices, rackById } from "./installation.ts";
 import type { SpatialReading } from "./spatial.ts";
 
 export const powerSettings = definition.installation.powerDistribution;
+export const pduOutletOffsetY = (outlet: number) =>
+  (outlet - 1 - (powerSettings.outletsPerPdu - 1) / 2) *
+  powerSettings.layout.outletPitch;
 export type PowerFeed = "A" | "B";
 export const pdus = powerSettings.pdus.map((pdu) => ({
   ...pdu,

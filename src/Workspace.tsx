@@ -184,6 +184,7 @@ import {
   type FixtureCrossing,
   type CrossingViewCommand,
 } from "./fixture-crossing";
+import { nearestPduMount } from "./pdu-mounts";
 import type { PowerViewCommand } from "./power-view";
 import {
   emptyPeakProcess,
@@ -1123,6 +1124,14 @@ export function Workspace() {
   const [pduInspection, setPduInspection] = useState<PduInspection | null>(
     null,
   );
+  const initialPduMount =
+    state.level === "rack" &&
+    layer === "power" &&
+    pduById(selected)?.rackId === rackForDevice(state.deviceId).id
+      ? nearestPduMount(
+          pduInspection?.pduId === selected ? pduInspection.outlet : null,
+        )
+      : null;
   const [pduReturning, setPduReturning] = useState(false);
   useEffect(() => {
     if (
@@ -6148,6 +6157,7 @@ export function Workspace() {
             aisle={aisle}
             networkLinkId={activeNetworkLink}
             showNetworkPatch={patchActive}
+            initialPduMount={initialPduMount}
             powerViewCommand={powerViewCommand}
             powerViewActive={powerViewActive}
             powerViewPaired={powerViewPaired}
@@ -8483,6 +8493,11 @@ export function Workspace() {
                     {(layer === "power" || powerFacility) && (
                       <PowerConnections
                         paired={powerViewPaired}
+                        onInspectMount={
+                          initialPduMount === null
+                            ? undefined
+                            : () => requestPowerView({ mount: initialPduMount })
+                        }
                         onOpenFeeders={
                           state.level === "room" &&
                           !(nav && navigationView === "feeders")

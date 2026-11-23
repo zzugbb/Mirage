@@ -1,7 +1,11 @@
 import * as THREE from "three";
 import { rearDoorAngle } from "../mechanics.ts";
 import definition from "../../assets/public/scenes/room-01.json" with { type: "json" };
-import { powerSettings } from "../power-config.ts";
+import {
+  mountSettings,
+  pduMountBoxes,
+  type PduMountInspection,
+} from "../pdu-mounts.ts";
 
 const settings = definition.rack.enclosure;
 const [width, height, depth] = definition.rack.size;
@@ -207,38 +211,68 @@ export function createRackRoof() {
 export function createPduMounts() {
   const group = new THREE.Group();
   group.name = "rack-pdu-mounts";
-  const s = settings.pduMount;
   const material = new THREE.MeshStandardMaterial({
-    color: s.color,
+    color: mountSettings.color,
     metalness: 0.65,
     roughness: 0.6,
   });
   for (const feed of ["A", "B"] as const) {
-    const [x, y, z] = powerSettings.layout.positions[feed];
-    const [pw, , pd] = powerSettings.layout.size;
-    const side = Math.sign(x);
-    const outer = Math.abs(x) + pw / 2;
-    const inner = Math.abs(x) - pw / 2;
-    for (const dy of s.heightOffsets) {
-      solid(
-        group,
-        `pdu-mount-${feed}`,
-        [s.sideInnerX - inner, s.height, s.thickness],
-        [
-          (side * (inner + s.sideInnerX)) / 2,
-          y + dy,
-          z + pd / 2 + s.thickness / 2,
-        ],
-        material,
-      );
+    for (const offset of mountSettings.heightOffsets) {
+      const { plate, spacer } = pduMountBoxes(feed, offset);
+      solid(group, `pdu-mount-${feed}`, plate.size, plate.position, material);
       solid(
         group,
         `pdu-spacer-${feed}`,
-        [s.sideInnerX - outer, s.height, pd],
-        [(side * (outer + s.sideInnerX)) / 2, y + dy, z],
+        spacer.size,
+        spacer.position,
         material,
       );
     }
   }
   return group;
+}
+
+/** 柜外斜看时，只在所查支架处剖开一段侧板。截面以外沿用原板的几何与材质。 */
+export class PduMountWindow {
+  private panel?: THREE.Mesh;
+  private pieces = new THREE.Group();
+  private current?: PduMountInspection;
+  update(rack: THREE.Group, mount?: PduMountInspection) {
+    if (mount === this.current) return;
+    if (this.panel) this.panel.visible = true;
+    this.pieces.removeFromParent();
+    this.pieces.clear();
+    this.panel = undefined;
+    this.current = mount;
+    if (!mount) return;
+    const panel = rack.getObjectByName(
+      mount.side < 0 ? "rack-wall-negative-x" : "rack-wall-positive-x",
+    ) as THREE.Mesh;
+    panel.geometry.computeBoundingBox();
+    const bounds = panel.geometry
+      .boundingBox!.clone()
+      .translate(panel.position);
+    const { min, max } = bounds;
+    const low = Math.max(min.y, mount.localHeight - mount.height * 3);
+    const high = Math.min(max.y, mount.localHeight + mount.height * 3);
+    const front = Math.min(max.z, mount.localZ + mount.spacer.depth * 3);
+    const slab = (y0: number, y1: number, z0: number, z1: number) => {
+      if (y1 <= y0 || z1 <= z0) return;
+      const piece = panel.clone(false);
+      piece.name = "pdu-inspection-wall";
+      piece.scale.set(
+        1,
+        (y1 - y0) / (max.y - min.y),
+        (z1 - z0) / (max.z - min.z),
+      );
+      piece.position.set(panel.position.x, (y0 + y1) / 2, (z0 + z1) / 2);
+      this.pieces.add(piece);
+    };
+    slab(min.y, low, min.z, max.z);
+    slab(high, max.y, min.z, max.z);
+    slab(low, high, front, max.z);
+    panel.parent!.add(this.pieces);
+    this.panel = panel;
+    panel.visible = false;
+  }
 }

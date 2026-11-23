@@ -6,10 +6,19 @@ import { powerSettings, pdus } from "./power-config.ts";
 import { pduOutletPosition, pduPosition } from "./power-paths.ts";
 import {
   createPduMounts,
+  PduMountWindow,
   createRackRearDoors,
   createRackRoof,
   poseRackRearDoors,
 } from "./scene/rack-enclosure.ts";
+import { createState } from "./domain.ts";
+import { devices, rackById } from "./installation.ts";
+import {
+  mountSettings,
+  nearestPduMount,
+  pduMountInspection,
+} from "./pdu-mounts.ts";
+import { powerViewFrame, powerViewPoints } from "./power-view.ts";
 import { maintenanceAreas } from "./maintenance.ts";
 
 const [width, height, depth] = definition.rack.size;
@@ -172,4 +181,75 @@ test("PDU位于侧板内侧，支架连接PDU与侧壁且避让插座；全16台
       near(point[2] - base[2], powerSettings.layout.outletOffsetZ);
     }
   }
+});
+
+test("16 台 PDU 各三处支架的两面取景、侧板局部剖切与复原", () => {
+  const rack = new THREE.Group();
+  rack.add(createPduMounts());
+  const panels = [-1, 1].map((side) => {
+    const panel = new THREE.Mesh(
+      new THREE.BoxGeometry(0.025, height - 0.1, depth - 0.05),
+    );
+    panel.name = side < 0 ? "rack-wall-negative-x" : "rack-wall-positive-x";
+    panel.position.set((side * width) / 2, height / 2 + 0.05, 0);
+    rack.add(panel);
+    return panel;
+  });
+  for (const feed of ["A", "B"] as const) {
+    const body = new THREE.Mesh(
+      new THREE.BoxGeometry(...powerSettings.layout.size),
+    );
+    body.position.fromArray(powerSettings.layout.positions[feed]);
+    rack.add(body);
+  }
+  const window = new PduMountWindow();
+  for (const pdu of pdus) {
+    const state = {
+      ...createState(),
+      level: "rack" as const,
+      deviceId: devices.find((row) => row.rackId === pdu.rackId)!.id,
+    };
+    rack.position.fromArray(rackById(pdu.rackId)!.position);
+    for (const index of mountSettings.heightOffsets.keys()) {
+      const mount = pduMountInspection(state, pdu.id, index)!;
+      window.update(rack, mount);
+      rack.updateMatrixWorld(true);
+      const meshes: THREE.Mesh[] = [];
+      rack.traverseVisible((o) => {
+        if (o instanceof THREE.Mesh) meshes.push(o);
+      });
+      const points = powerViewPoints(state, pdu.id, null, false, index);
+      assert.equal(points.length, 2);
+      const { position } = powerViewFrame(
+        points,
+        744,
+        704,
+        { left: 290, right: 704, top: 100, bottom: 656 },
+        mount.side,
+      );
+      for (const [i, name] of ["mount", "spacer"].entries()) {
+        const hit = new THREE.Raycaster(
+          position,
+          points[i].clone().sub(position).normalize(),
+        ).intersectObjects(meshes, false)[0];
+        assert.equal(hit?.object.name, `pdu-${name}-${pdu.feed}`);
+        near(hit.point.distanceTo(points[i]), 0);
+      }
+      assert.equal(panels.filter((panel) => panel.visible).length, 1);
+    }
+    window.update(rack);
+    assert.ok(panels.every((panel) => panel.visible));
+    assert.equal(rack.getObjectByName("pdu-inspection-wall"), undefined);
+  }
+});
+
+test("按所选插座高度进入最近支架，未选插座从中部核对，越界和跨柜不取景", () => {
+  assert.deepEqual([1, 3, 12, 24, null].map(nearestPduMount), [0, 0, 1, 2, 1]);
+  const state = { ...createState(), level: "rack" as const };
+  assert.equal(pduMountInspection(state, "pdu-b04-b", 0), null);
+  assert.equal(pduMountInspection(state, "pdu-a01-a", 3), null);
+  assert.equal(
+    pduMountInspection({ ...state, level: "device" }, "pdu-a01-a", 0),
+    null,
+  );
 });

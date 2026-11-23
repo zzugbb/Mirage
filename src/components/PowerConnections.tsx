@@ -38,8 +38,10 @@ export function PowerConnections({
   onTrace,
   onInspect,
   paired,
+  onInspectMount,
 }: {
   paired: boolean;
+  onInspectMount?: () => void;
   pduInspection: PduInspection | null;
   onPduChange: (visit: PduInspection) => void;
   onLocateOutlet: (link: PowerLink) => void;
@@ -341,6 +343,11 @@ export function PowerConnections({
           <button disabled={!ready} onClick={() => onLocate(pdu.id)}>
             定位 PDU 后侧
           </button>
+          {onInspectMount && (
+            <button disabled={!ready} onClick={onInspectMount}>
+              核对侧壁支架
+            </button>
+          )}
           <PduOutlets
             key={pdu.id}
             pduId={pdu.id}

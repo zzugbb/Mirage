@@ -1,4 +1,5 @@
 import { Vector3 } from "three";
+import { pduMountInspection } from "./pdu-mounts.ts";
 import { powerScene, type PowerScene } from "./power-paths.ts";
 import { powerLinkById } from "./power-trace.ts";
 import { powerLinks } from "./power-config.ts";
@@ -11,7 +12,17 @@ export function powerViewPoints(
   selected: string,
   linkId: string | null,
   paired = false,
+  mountIndex?: number,
 ) {
+  if (mountIndex !== undefined) {
+    const mount = pduMountInspection(state, selected, mountIndex);
+    return mount
+      ? [
+          new Vector3(...mount.plate.center),
+          new Vector3(...mount.spacer.center),
+        ]
+      : [];
+  }
   if (!linkId || state.level === "device") return [];
   if (paired) {
     const scene = pairedPowerScene(state, selected, linkId);
@@ -69,7 +80,19 @@ export function powerViewFrame(
   width: number,
   height: number,
   rect: FrameRect,
+  mountSide?: number,
 ) {
+  if (mountSide)
+    return observationFrame(
+      points,
+      new Vector3(mountSide, 0.32, -0.78),
+      width,
+      height,
+      rect,
+      0.27,
+      0.055,
+    );
+
   const context = points.flatMap((point) => [
     point.clone().add(new Vector3(-0.18, 0, 0)),
     point.clone().add(new Vector3(0.18, 0, 0)),
@@ -109,5 +132,5 @@ export function focusedPowerScene(
 }
 export type PowerViewCommand = {
   revision: number;
-  action: "observe" | "observe-pair" | "return";
+  action: "observe" | "observe-pair" | "return" | { mount: number };
 };
