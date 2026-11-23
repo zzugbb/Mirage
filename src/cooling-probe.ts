@@ -1,5 +1,13 @@
-import { coolingRelations, coolingSource } from "./cooling.ts";
-import { environmentRounds } from "./environment-rounds.ts";
+import {
+  coolingDeviceIds,
+  coolingSummary,
+  coolingRelations,
+  coolingSource,
+} from "./cooling.ts";
+import {
+  environmentRounds,
+  type EnvironmentRound,
+} from "./environment-rounds.ts";
 import { deviceById } from "./installation.ts";
 import type { SpatialReading } from "./spatial.ts";
 import type { EnvironmentChannel } from "./environment-monitoring.ts";
@@ -38,4 +46,24 @@ export function compareCoolingTemperatures(
   if (device.observedAt !== probe.observedAt)
     return { difference: null, reason: "采样时刻不同" };
   return { difference: device.temperature - probe.value, reason: "同秒采样" };
+}
+
+/** 柜排来自探头巡检配置。分母只计制冷服务已登记的整机。 */
+export function coolingRackPeaks(
+  round: EnvironmentRound,
+  readings: Map<string, SpatialReading>,
+) {
+  return round.racks.map((rack) => {
+    const { coverage, count, hottestId, maximum } = coolingSummary(
+      coolingDeviceIds(rack.id),
+      readings,
+    );
+    return {
+      rack,
+      coverage,
+      count,
+      device: hottestId ? deviceById(hottestId) : undefined,
+      maximum,
+    };
+  });
 }

@@ -339,6 +339,7 @@ import {
   switchRole,
 } from "./network";
 import { coolingProbeForDevice } from "./cooling-probe";
+import { ProbeRackInlets } from "./components/ProbeRackInlets";
 import { CoolingProbeCheck } from "./components/CoolingProbeCheck";
 import { CoolingConnections } from "./components/CoolingConnections";
 import {
@@ -1802,6 +1803,20 @@ export function Workspace() {
   useEffect(() => {
     if (openRound && openRound !== round?.row.id) setOpenRound(null);
   }, [round, openRound]);
+  const [probeRackDevice, setProbeRackDevice] = useState<string | null>(null);
+  const rackProbe = useMemo(
+    () => (probeRackDevice ? coolingProbeForDevice(probeRackDevice) : null),
+    [probeRackDevice],
+  );
+  useEffect(() => {
+    if (
+      rackProbe &&
+      (layoutReturning ||
+        layer !== "overview" ||
+        (selected !== rackProbe.device.id && selected !== rackProbe.probe.id))
+    )
+      setProbeRackDevice(null);
+  }, [rackProbe, selected, layer, layoutReturning]);
   const pairedEnvironment =
     environmentPairVisit &&
     layer === "environment" &&
@@ -4439,6 +4454,7 @@ export function Workspace() {
     setGrilleVisit(null);
     setGrilleReturning(false);
     setGrilleRack({});
+    setProbeRackDevice(null);
     setCoolingRangeState(initialCoolingRange());
     setCoolingRangeOpen(false);
     setCoolingVisit(null);
@@ -4607,9 +4623,18 @@ export function Workspace() {
         context={coolingProbe}
         reading={spatial.readings.get(coolingProbe.device.id)!}
         time={state.time}
-        atProbe={atCoolingProbe}
+        active={atCoolingProbe}
+        actionLabel={
+          atCoolingProbe
+            ? "返回 " + coolingProbe.device.name + " 气流"
+            : "定位同排" + coolingProbe.probe.name
+        }
         ready={ready}
-        onProbe={() => {
+        onLocate={() => {
+          if (atCoolingProbe) {
+            showAirflow(coolingProbe.device.id);
+            return;
+          }
           setCoolingVisit({
             ...coolingVisit,
             locatedEndpoint: {
@@ -4622,9 +4647,45 @@ export function Workspace() {
           control({ type: "layer", layer: "overview" });
           control({ type: "analysis", value: false });
         }}
-        onDevice={() => showAirflow(coolingProbe.device.id)}
       />
     );
+  const probeRackInspection =
+    !coolingVisit &&
+    !layoutReturning &&
+    layer === "overview" &&
+    (round && selected === round.probe.id ? (
+      <ProbeRackInlets
+        round={round}
+        readings={spatial.readings}
+        ready={ready}
+        active={rackProbe?.probe.id === selected}
+        onLocate={(id) => {
+          setProbeRackDevice(id);
+          if (layoutVisit?.resourceList) {
+            setQuery("");
+            setFilter("all");
+          }
+          control({ type: "analysis", value: false });
+          focus(id, { installation: true });
+          dispatch({ type: "door", open: true });
+        }}
+      />
+    ) : rackProbe &&
+      (state.level === "rack" || state.level === "device") &&
+      selected === rackProbe.device.id ? (
+      <CoolingProbeCheck
+        context={rackProbe}
+        reading={spatial.readings.get(selected)!}
+        time={state.time}
+        active
+        ready={ready}
+        actionLabel={"返回" + rackProbe.probe.name}
+        onLocate={() => {
+          control({ type: "analysis", value: false });
+          focus(rackProbe.probe.id);
+        }}
+      />
+    ) : null);
   const airflowInspector = airflow && (
     <AirflowDetails
       view={airflowStageView}
@@ -8359,6 +8420,7 @@ export function Workspace() {
                     }
                   />
                 </div>
+                {probeRackInspection}
                 {atCoolingProbe && coolingProbeCheck}
                 {slicePlaneInspector}
                 {sliceInspector}
@@ -8531,6 +8593,7 @@ export function Workspace() {
               </>
             ) : (
               <>
+                {probeRackInspection}
                 {coolingProbeCheck}
                 {airflowInspector}
                 {slicePlaneInspector}

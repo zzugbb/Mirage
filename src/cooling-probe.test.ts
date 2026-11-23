@@ -3,10 +3,12 @@ import { test } from "node:test";
 import { coolingRelations } from "./cooling.ts";
 import {
   coolingProbeForDevice,
+  coolingRackPeaks,
   compareCoolingTemperatures,
 } from "./cooling-probe.ts";
 import { environmentObservation } from "./environment-monitoring.ts";
 import { spatialSnapshot } from "./spatial.ts";
+import { environmentRounds } from "./environment-rounds.ts";
 import { rackById } from "./installation.ts";
 
 test("服务设备按本柜所在排找到登记探头，制冷柜、柜与未知对象不借用设备身份", () => {
@@ -60,5 +62,56 @@ test("进风减探头温度仅取同秒有效样本，保留零值，分开处�
     compareCoolingTemperatures(device, { ...probe, observedAt: null })
       .difference,
     null,
+  );
+});
+
+test("探头按登记柜排列出各柜制冷服务设备，在回看时刻重新确定最高来源与有效数", () => {
+  const [a, b] = environmentRounds;
+  const at40 = spatialSnapshot(40).readings;
+  const at100 = spatialSnapshot(100).readings;
+  for (const round of [a, b]) {
+    const rows = coolingRackPeaks(round, at40);
+    assert.deepEqual(
+      rows.map((r) => r.rack.id),
+      round.row.rackIds,
+    );
+    for (const { rack, device, maximum } of rows) {
+      assert.equal(device?.rackId, rack.id);
+      assert.equal(at40.get(device!.id)?.temperature, maximum);
+    }
+  }
+  const storage = coolingRackPeaks(b, at40).at(-1)!;
+  assert.deepEqual(
+    [storage.device?.id, storage.coverage, storage.count],
+    ["sto-04", 11, 12],
+  );
+  assert.equal(coolingRackPeaks(b, at100).at(-1)?.device?.id, "sw-15");
+  assert.equal(coolingRackPeaks(a, at40)[1].device?.id, "srv-13");
+  assert.equal(coolingRackPeaks(a, at100)[1].device?.id, "srv-14");
+});
+
+test("无有效进风时保留配置分母，同柜有效零值可定位，其他柜的高值不参与", () => {
+  const row = environmentRounds[1],
+    readings = new Map(spatialSnapshot(40).readings);
+  for (const id of readings.keys())
+    if (coolingProbeForDevice(id)?.device.rackId === row.racks[3].id)
+      readings.delete(id);
+  const empty = coolingRackPeaks(row, readings)[3];
+  assert.deepEqual(
+    [empty.maximum, empty.coverage, empty.count, empty.device],
+    [null, 0, 12, undefined],
+  );
+  const original = spatialSnapshot(40).readings.get("sto-04")!;
+  readings.set(original.id, { ...original, temperature: 0 });
+  readings.set("sw-15", {
+    ...original,
+    id: "sw-15",
+    temperature: 99,
+    quality: "stale",
+  });
+  const only = coolingRackPeaks(row, readings)[3];
+  assert.deepEqual(
+    [only.maximum, only.coverage, only.device?.id],
+    [0, 1, "sto-04"],
   );
 });

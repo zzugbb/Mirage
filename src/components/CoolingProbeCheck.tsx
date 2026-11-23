@@ -14,18 +14,18 @@ export function CoolingProbeCheck({
   context,
   reading,
   time,
-  atProbe,
+  active,
+  actionLabel,
   ready,
-  onProbe,
-  onDevice,
+  onLocate,
 }: {
   context: NonNullable<ReturnType<typeof coolingProbeForDevice>>;
   reading: SpatialReading;
   time: number;
-  atProbe: boolean;
+  active: boolean;
+  actionLabel: string;
   ready: boolean;
-  onProbe: () => void;
-  onDevice: () => void;
+  onLocate: () => void;
 }) {
   const { device, probe, row } = context;
   const observation = environmentObservation(probe.id, time);
@@ -45,7 +45,7 @@ export function CoolingProbeCheck({
       className="cooling-probe-check"
       title="进风与同排环境"
       summary={row.name + " · " + device.name}
-      active={atProbe}
+      active={active}
     >
       <dl>
         <dt>{device.name} 进风</dt>
@@ -73,8 +73,8 @@ export function CoolingProbeCheck({
             reason}
       </p>
       <small>同排巡检点 · 模拟温度。探头只代表安装位置。</small>
-      <button disabled={!ready} onClick={atProbe ? onDevice : onProbe}>
-        {atProbe ? "返回 " + device.name + " 气流" : "定位同排" + probe.name} ↗
+      <button disabled={!ready} onClick={onLocate}>
+        {actionLabel} ↗
       </button>
     </ConnectionSection>
   );
