@@ -557,7 +557,8 @@ export function ReviewScene({
     ((maintenanceView?.view === "doors" && layer === "overview") ||
       (coolingRangeObservation && !!flowView && layer === "airflow") ||
       (layer === "overview" &&
-        (crossing?.kind === "roof-entry" ||
+        (crossing?.kind === "tray-support" ||
+          crossing?.kind === "roof-entry" ||
           crossing?.kind === "lighting-round" ||
           crossing?.kind === "light-tray")));
   const [stageCutaway, setStageCutaway] = useState(true);
@@ -2326,6 +2327,7 @@ export function ReviewScene({
               aria-hidden="true"
               data-anchor={marker.id}
               data-hotspot={
+                crossing.kind === "tray-support" ||
                 crossing.kind === "lighting-round" ||
                 crossing.kind === "roof-entry"
                   ? "center"
@@ -2749,7 +2751,9 @@ export function ReviewScene({
             >
               <strong>{crossing.title}</strong>
               <span>
-                {crossing.kind === "roof-entry" ? (
+                {crossing.kind === "tray-support" ? (
+                  `端部伸出 ${(crossing.horizontal * 1000).toFixed(1)} mm`
+                ) : crossing.kind === "roof-entry" ? (
                   `Z 向投影间距 ${(crossing.horizontal * 1000).toFixed(1)} mm`
                 ) : (
                   <>

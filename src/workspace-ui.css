@@ -2483,6 +2483,11 @@
   overflow-wrap: anywhere;
   color: #d4dfe3;
 }
+.workspace-ui .tray-end-actions {
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+}
 .workspace-ui .fixture-details > small {
   color: #7f929f;
 }

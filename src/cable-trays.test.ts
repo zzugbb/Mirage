@@ -9,6 +9,7 @@ import {
   rackTrayRelations,
   trayOuterWidth,
 } from "./cable-trays.ts";
+import { trayEndSupport } from "./fixture-crossing.ts";
 import { fixtureById, fixtureSightOffsets } from "./fixtures.ts";
 import { createRackRoof } from "./scene/rack-enclosure.ts";
 import { buildCableTray } from "./scene/cable-trays.ts";
@@ -180,4 +181,45 @@ test("定位长桥架检查远端遮挡并保护自身，关闭建筑剖切恢�
   cut.enabled = false;
   assert.equal(cut.update(camera, targets, true, tray), 0);
   assert.equal(obstruction.visible, true);
+});
+
+test("两排桥架两端的尺线命中端帽与最近横托，端柜从所属柜排按位置选取", () => {
+  const root = new THREE.Group();
+  buildCableTray(root);
+  const caps = instanceBounds(
+    root.getObjectByName("tray-ladder") as THREE.InstancedMesh,
+  );
+  const supports = instanceBounds(
+    root.getObjectByName("tray-supports") as THREE.InstancedMesh,
+  );
+  for (const row of s.rows) {
+    const origin = new THREE.Vector3().fromArray(
+      fixtureById(row.fixtureId)!.position,
+    );
+    for (const side of [-1, 1] as const) {
+      const pair = trayEndSupport(row.fixtureId, side)!;
+      const [cap, support] = pair.points.map((p) => p.clone().sub(origin));
+      const touching = (box: THREE.Box3, point: THREE.Vector3) =>
+        box.distanceToPoint(point) < 1e-6;
+      assert.ok(
+        caps.some(
+          (b) =>
+            touching(b, cap) &&
+            Math.abs(b.max.x - b.min.x - s.capLength) < 1e-6,
+        ),
+      );
+      assert.ok(
+        supports.some(
+          (b) =>
+            touching(b, support) &&
+            Math.abs(b.max.z - b.min.z - s.supportWidth) < 1e-6,
+        ),
+      );
+      assert.ok(Math.abs(pair.horizontal - 0.3225) < 1e-6);
+      assert.ok(Math.abs(pair.toAxis - 0.35) < 1e-6);
+      assert.ok(row.rackIds.includes(pair.rack.id));
+      assert.match(pair.rack.name, side === 1 ? /04 机柜$/ : /01 机柜$/);
+    }
+  }
+  assert.equal(trayEndSupport("room-01", 1), null);
 });

@@ -196,6 +196,7 @@ import { LightingRoundDetails } from "./components/LightingRoundDetails";
 import {
   lightingRound,
   fixtureCrossing,
+  trayEndSupport,
   smokeTrayPlacement,
   smokeLightInspection,
   type FixtureCrossing,
@@ -1135,8 +1136,8 @@ export function Workspace() {
     if (!pair) crossingReturning.current = true;
     const control = document.activeElement;
     crossingInspectPending.current =
-      pair?.kind === "smoke-light" &&
-      crossing?.kind === "smoke-light" &&
+      ((pair?.kind === "smoke-light" && crossing?.kind === "smoke-light") ||
+        (pair?.kind === "tray-support" && crossing?.kind === "tray-support")) &&
       control instanceof HTMLSelectElement &&
       control.closest(".crossing-details")
         ? control
@@ -8327,7 +8328,8 @@ export function Workspace() {
             {crossing &&
               !(
                 review.analysis &&
-                (crossing.kind === "lighting-round" ||
+                (crossing.kind === "tray-support" ||
+                  crossing.kind === "lighting-round" ||
                   crossing.kind === "roof-entry")
               ) && (
                 <section
@@ -8344,6 +8346,7 @@ export function Workspace() {
                 >
                   <strong>{crossing.title} · 配置</strong>
                   {crossing.kind !== "lighting-round" &&
+                    crossing.kind !== "tray-support" &&
                     crossing.kind !== "roof-entry" && (
                       <>
                         <div>
@@ -8372,6 +8375,63 @@ export function Workspace() {
                         </p>
                       </>
                     )}
+                  {!review.analysis && crossing.kind === "tray-support" && (
+                    <div className="roof-entry-details">
+                      <label>
+                        {crossing.upper.name}端部
+                        <select
+                          aria-label="桥架端部"
+                          disabled={!ready}
+                          value={crossing.side}
+                          onChange={(e) =>
+                            requestCrossing(
+                              trayEndSupport(
+                                crossing.upper.id,
+                                e.target.value === "1" ? 1 : -1,
+                              ),
+                            )
+                          }
+                        >
+                          <option value="-1">−X 端</option>
+                          <option value="1">+X 端</option>
+                        </select>
+                      </label>
+                      <p>
+                        沿桥架长轴，端帽外端距最近横托外边{" "}
+                        <b>{(crossing.horizontal * 1000).toFixed(1)} mm</b>
+                        ，距该组吊杆轴线 {(crossing.toAxis * 1000).toFixed(
+                          1,
+                        )}{" "}
+                        mm。
+                      </p>
+                      <p>
+                        同排相邻端柜为{crossing.rack.name}
+                        。尺寸取自支吊布置，现场锚固、承载和施工净距待核实。
+                      </p>
+                      <button
+                        disabled={!ready}
+                        onClick={() =>
+                          requestCrossing(
+                            fixtureCrossing(
+                              crossing.upper.id,
+                              crossing.rack.id,
+                            ),
+                          )
+                        }
+                      >
+                        核对{crossing.rack.name}柜顶 ↗
+                      </button>
+                      <button
+                        disabled={!ready}
+                        onClick={() => {
+                          focus(crossing.rack.id);
+                          analyze();
+                        }}
+                      >
+                        回看{crossing.rack.name}设备汇总 ↗
+                      </button>
+                    </div>
+                  )}
                   {!review.analysis && crossing.kind === "smoke-tray" && (
                     <button
                       disabled={!ready}
@@ -8765,6 +8825,12 @@ export function Workspace() {
                 ) : fixture ? (
                   <FixtureDetails
                     fixture={fixture}
+                    onInspectSupport={
+                      layer === "overview" && state.level === "room"
+                        ? (side) =>
+                            requestCrossing(trayEndSupport(fixture.id, side))
+                        : undefined
+                    }
                     onInspectEntrance={
                       layer === "overview" && state.level === "room"
                         ? () => requestEntranceView("all")

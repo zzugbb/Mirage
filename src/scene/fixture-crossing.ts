@@ -22,7 +22,12 @@ export class CrossingGeometry {
     if (!pair) return;
     const [top, bottom] = pair.points;
     const points: THREE.Vector3[] = [];
-    if (pair.kind === "roof-entry") {
+    if (pair.kind === "tray-support") {
+      const z = Math.max(top.z, bottom.z) + 0.07;
+      const a = new THREE.Vector3(top.x, bottom.y, z);
+      const b = new THREE.Vector3(bottom.x, bottom.y, z);
+      points.push(top, a, a, b, b, bottom);
+    } else if (pair.kind === "roof-entry") {
       // 尺线移到板面稍上方以避开孔边压条；量取的 X/Z 坐标仍来自配置。
       const edge = bottom.clone();
       edge.y += 0.009;

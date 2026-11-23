@@ -26,6 +26,7 @@ import {
 export function FixtureDetails({
   fixture,
   grilleRelations,
+  onInspectSupport,
   onInspectEntrance,
   onInspectLeak,
   onCompare,
@@ -36,6 +37,7 @@ export function FixtureDetails({
 }: {
   fixture: RoomFixture;
   grilleRelations?: ReactNode;
+  onInspectSupport?: (side: -1 | 1) => void;
   onInspectEntrance?: () => void;
   onInspectLeak?: () => void;
   onCompare?: (id: string) => void;
@@ -169,7 +171,18 @@ export function FixtureDetails({
             {trayEndpoints(fixture.id).map((point, i) => (
               <div key={i}>
                 <dt>{i ? "+X 端" : "−X 端"}</dt>
-                <dd>{point.map((v) => v.toFixed(2)).join(" / ")} m</dd>
+                <dd className="tray-end-actions">
+                  {point.map((v) => v.toFixed(2)).join(" / ")} m
+                  {onInspectSupport && (
+                    <button
+                      disabled={!comparisonReady}
+                      aria-label={`核对${i ? "+X" : "−X"} 端支吊架`}
+                      onClick={() => onInspectSupport(i ? 1 : -1)}
+                    >
+                      核对支吊架 ↗
+                    </button>
+                  )}
+                </dd>
               </div>
             ))}
           </dl>

@@ -10,7 +10,11 @@ import {
   lightProfile,
   type CeilingLight,
 } from "./ceiling-lights.ts";
-import { cableTraySettings } from "./cable-trays.ts";
+import {
+  cableTraySettings,
+  traySupportCenterY,
+  trayOuterWidth,
+} from "./cable-trays.ts";
 import { observationFrame, type FrameRect } from "./observation-frame.ts";
 
 /** 水平投影交叉处的配置表面高差，不代表构件最小净距或安全结论。 */
@@ -42,6 +46,52 @@ export function fixtureCrossing(first: string, second: string) {
     ],
   };
 }
+/** 沿桥架长轴量取端帽外端到最近横托外边；端柜只在本排登记的机柜中选择。 */
+export function trayEndSupport(trayId: string, side: -1 | 1) {
+  const tray = definition.room.fixtures.find(
+    (f) => f.kind === "cable-tray" && f.id === trayId,
+  );
+  const row = trayRow(trayId);
+  if (!tray || !row) return null;
+  const s = cableTraySettings;
+  const endX = (side * s.length) / 2;
+  const supportX = [...s.supportXs].sort(
+    (a, b) => Math.abs(a - endX) - Math.abs(b - endX),
+  )[0];
+  const worldX = tray.position[0] + endX;
+  const rack = row.rackIds
+    .map(rackById)
+    .filter((r) => !!r)
+    .sort(
+      (a, b) =>
+        Math.abs(a.position[0] - worldX) - Math.abs(b.position[0] - worldX),
+    )[0];
+  if (supportX === undefined || !rack) return null;
+  const [x, y, z] = tray.position;
+  const cap = new Vector3(worldX, y + s.railCenterY, z + trayOuterWidth / 2);
+  const support = new Vector3(
+    x + supportX + (side * s.supportDepth) / 2,
+    y + traySupportCenterY,
+    z + s.supportWidth / 2,
+  );
+  return {
+    kind: "tray-support" as const,
+    id: trayId + ":support:" + side,
+    title: "桥架端部支吊核对",
+    side,
+    rack,
+    upper: { id: trayId, name: tray.name, surface: "端帽外端" },
+    lower: { id: trayId, name: tray.name, surface: "横托外边" },
+    horizontal: Math.abs(cap.x - support.x),
+    toAxis: Math.abs(endX - supportX),
+    points: [cap, support],
+    markers: [
+      { id: "tray-end-cap", title: "① 端帽外端", point: cap },
+      { id: "tray-end-support", title: "② 横托外边", point: support },
+    ],
+  };
+}
+
 /** 只核对已登记柜排对应；上端必须落在实际横档，下端位于实心柜顶板。 */
 function rackTrayCrossing(first: string, second: string) {
   const rack = rackById(first) ?? rackById(second);
@@ -275,11 +325,13 @@ export function lightingRound(lightId: string, trayId: string, rackId: string) {
   };
 }
 export const crossingObjectIds = (pair: FixtureCrossing) =>
-  pair.kind === "smoke-light"
-    ? [pair.round.points[0].id, pair.round.points[1].id, pair.light.id]
-    : pair.kind === "lighting-round"
-      ? [pair.source.light.id, pair.upper.id, pair.lower.id]
-      : [pair.upper.id, pair.lower.id];
+  pair.kind === "tray-support"
+    ? [pair.upper.id]
+    : pair.kind === "smoke-light"
+      ? [pair.round.points[0].id, pair.round.points[1].id, pair.light.id]
+      : pair.kind === "lighting-round"
+        ? [pair.source.light.id, pair.upper.id, pair.lower.id]
+        : [pair.upper.id, pair.lower.id];
 type RackRoofOverview =
   | NonNullable<ReturnType<typeof lightingRound>>
   | NonNullable<ReturnType<typeof rackTrayCrossing>>;
@@ -291,6 +343,7 @@ export type RackRoofView =
 export type FixtureCrossing =
   | RackRoofView
   | SmokeLightInspection
+  | NonNullable<ReturnType<typeof trayEndSupport>>
   | NonNullable<ReturnType<typeof fixtureCrossing>>
   | ReturnType<typeof smokeTrayPlacement>;
 
@@ -309,6 +362,8 @@ export type CrossingViewCommand = {
   dismiss?: boolean;
 };
 export function crossingDirection(pair: FixtureCrossing) {
+  if (pair.kind === "tray-support")
+    return new Vector3(pair.side * 0.34, 0.12, 1);
   if (pair.kind === "roof-entry") return new Vector3(0.15, 1, -0.36);
   if (pair.kind === "smoke-light") {
     // 从开敞一侧略向上观察，避开后墙及同排桥架。

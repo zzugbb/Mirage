@@ -1,6 +1,10 @@
 import definition from "../assets/public/scenes/room-01.json" with { type: "json" };
 
 export const cableTraySettings = definition.room.cableTrays;
+export const traySupportCenterY =
+  cableTraySettings.railCenterY -
+  cableTraySettings.railSize[1] / 2 -
+  cableTraySettings.supportHeight / 2;
 export const trayOuterWidth =
   cableTraySettings.railSpacing +
   cableTraySettings.railSize[0] +
