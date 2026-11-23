@@ -1,6 +1,7 @@
 import { createRackBlanking } from "./rack-blanking";
 import {
   createPduMounts,
+  createPatchGuides,
   createRackRearDoors,
   createRackRoof,
 } from "./rack-enclosure";
@@ -226,7 +227,8 @@ export function buildModels() {
       box(rack, [0.016, 0.035, 0.016], [x, 0.09, z], "#8b939c", 0.8);
     }
 
-  rack.add(createRackRoof(), createPduMounts());
+  const patchGuides = createPatchGuides();
+  rack.add(createRackRoof(), createPduMounts(), patchGuides);
   const rearShell = new THREE.Group();
   rearShell.name = "rack-rear-shell";
   rack.add(rearShell);
@@ -416,6 +418,7 @@ export function buildModels() {
     rack,
     rackDoor,
     rackRightSide,
+    patchGuides,
     rackSlide,
     bench,
     benchContact,

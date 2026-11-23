@@ -157,6 +157,8 @@ import {
   networkPatch,
   patchSections,
   patchSectionOffsetMm,
+  isPatchGuide,
+  sideGuides,
 } from "../network-patch";
 import { NetworkGeometry } from "../scene/network";
 
@@ -740,8 +742,14 @@ export function ReviewScene({
     patch,
     isolatedPartId,
   ]);
+  const patchGuide =
+    patch && isPatchGuide(networkView) ? sideGuides[networkView] : null;
   const patchSection =
-    patch && networkView && networkView !== "observe" ? networkView : undefined;
+    patch && networkView && networkView !== "observe"
+      ? isPatchGuide(networkView)
+        ? "side"
+        : networkView
+      : undefined;
   const visibleNetworkMarkers = useMemo(() => {
     if (!patchSection) return network;
     if (patchSection === "side") return [];
@@ -2769,10 +2777,23 @@ export function ReviewScene({
                         {section.label}
                       </option>
                     ))}
+                    {(["lower", "upper"] as const).map((key) => (
+                      <option key={key} value={key}>
+                        {sideGuides[key].label} · U{sideGuides[key].unit}
+                      </option>
+                    ))}
                   </select>
                 </label>
               )}
-              {patch && patchSection && (
+              {patchGuide && (
+                <small>
+                  {rackForDevice(networkLink.source).name} · 右壁 U
+                  {patchGuide.unit} 高度
+                  <br />
+                  原创理线布置 · 现场扎点与线长未登记
+                </small>
+              )}
+              {patch && patchSection && !patchGuide && (
                 <small>
                   {patchSections[patchSection].measure}{" "}
                   {patchSectionOffsetMm(patch, patchSection).toFixed(1)} mm ·

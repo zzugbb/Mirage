@@ -7,6 +7,8 @@ import {
   type PduMountInspection,
 } from "../pdu-mounts.ts";
 
+import { patchGuideCenter, sideGuides } from "../network-patch.ts";
+
 const settings = definition.rack.enclosure;
 const [width, height, depth] = definition.rack.size;
 
@@ -204,6 +206,51 @@ export function createRackRoof() {
     }
   }
   slab(start, width / 2, rear, front);
+  return group;
+}
+
+/** 两只水平理线环靠两端安装脚连接右侧壁，开口留给纵向跳线。 */
+export function createPatchGuides() {
+  const group = new THREE.Group();
+  group.name = "rack-patch-guides";
+  const metal = new THREE.MeshStandardMaterial({
+    color: sideGuides.color,
+    metalness: 0.48,
+    roughness: 0.52,
+  });
+  const { wallX, innerEdgeX, openingDepth, stock } = sideGuides;
+  const width = wallX - innerEdgeX;
+  for (const key of ["lower", "upper"] as const) {
+    const ring = new THREE.Group();
+    ring.name = `patch-guide-${key}`;
+    ring.position.copy(patchGuideCenter(key));
+    group.add(ring);
+    for (const side of [-1, 1]) {
+      const z = (side * (openingDepth + stock)) / 2;
+      solid(ring, "guide-arm", [width, stock * 2, stock], [0, 0, z], metal);
+      solid(
+        ring,
+        "guide-foot",
+        [stock, stock * 5, stock * 2],
+        [(width - stock) / 2, 0, z],
+        metal,
+      );
+    }
+    solid(
+      ring,
+      "guide-mount",
+      [stock, stock * 2, openingDepth - stock],
+      [(width - stock) / 2, 0, 0],
+      metal,
+    );
+    solid(
+      ring,
+      "guide-bridge",
+      [stock, stock * 2, openingDepth],
+      [-(width - stock) / 2, 0, 0],
+      metal,
+    );
+  }
   return group;
 }
 

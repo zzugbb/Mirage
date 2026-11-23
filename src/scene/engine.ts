@@ -59,7 +59,13 @@ import {
   networkViewSource,
   type NetworkView,
 } from "../network-view";
-import { patchSections } from "../network-patch";
+import {
+  isPatchGuide,
+  patchGuideCenter,
+  patchSections,
+  sideGuides,
+  type PatchGuide,
+} from "../network-patch";
 import { slicePlanePoints, slicePlaneFrame } from "../slice-plane-view";
 import type { TemperatureSlice } from "../temperature-slice";
 import { sliceViewPoints, sliceViewFrame } from "../slice-view";
@@ -1096,7 +1102,10 @@ export class SceneEngine {
     if (this.patchPoints) {
       const view = this.networkObservation.view;
       if (view === "observe") this.frameNetworkPatch(this.patchPoints, "iso");
-      else {
+      else if (isPatchGuide(view)) {
+        const center = patchGuideCenter(view).add(this.models.rack.position);
+        this.frameNetworkPatch([center], view);
+      } else {
         const { start, end } = patchSections[view];
         this.frameNetworkPatch(this.patchPoints.slice(start, end + 1), view);
       }
@@ -1118,12 +1127,14 @@ export class SceneEngine {
   }
   private frameNetworkPatch(
     points: THREE.Vector3[],
-    view: "iso" | "front" | "rear" | "side",
+    view: "iso" | "front" | "rear" | "side" | PatchGuide,
   ) {
     const { width, height, rect, legendRect } = this.observationViewport();
-    this.currentView = view === "side" ? "right" : view;
-    const direction =
-      view === "iso"
+    const guide = isPatchGuide(view);
+    this.currentView = guide || view === "side" ? "right" : view;
+    const direction = guide
+      ? new THREE.Vector3(1, 0.78, -0.65)
+      : view === "iso"
         ? new THREE.Vector3(1.05, 0.32, 1)
         : view === "side"
           ? new THREE.Vector3(1, 0.14, 0.15)
@@ -1141,12 +1152,12 @@ export class SceneEngine {
           legendRect ? legendRect.top - 12 : rect.bottom,
         ),
       },
-      1.55,
-      0.18,
+      guide ? 0.32 : 1.55,
+      guide ? 0.045 : 0.18,
     );
     this.targetPosition.copy(fit.position);
     this.targetLook.copy(fit.target);
-    this.controls.minDistance = 0.5;
+    this.controls.minDistance = guide ? 0.22 : 0.5;
     this.moving = true;
     this.invalidate();
   }
@@ -1973,6 +1984,7 @@ export class SceneEngine {
     if (this.models.rack.userData.entityId !== rack.id)
       this.presentation.resetRearDoor();
     this.models.rack.position.fromArray(rack.position);
+    this.models.patchGuides.visible = sideGuides.rackIds.includes(rack.id);
     this.models.bench.position.set(
       rack.position[0],
       0,

@@ -17,6 +17,21 @@ import { Vector3 } from "three";
 
 export const patchSettings = networkSettings.patchIllustration;
 
+export const sideGuides = patchSettings.sideGuides;
+export type PatchGuide = "lower" | "upper";
+export function isPatchGuide(view: string | null): view is PatchGuide {
+  return view === "lower" || view === "upper";
+}
+
+export function patchGuideCenter(guide: PatchGuide) {
+  return new Vector3(
+    (sideGuides.innerEdgeX + sideGuides.wallX) / 2,
+    definition.rack.unitOrigin +
+      sideGuides[guide].unit * definition.rack.unitPitch,
+    sideGuides.centerZ,
+  );
+}
+
 // 相邻观察段共用同一折点。尺寸取自当前分支的示意中心线。
 export const patchSections = {
   rear: { label: "柜后引出", start: 0, end: 2, axis: "x", measure: "柜后横移" },

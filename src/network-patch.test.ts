@@ -15,8 +15,12 @@ import {
   networkPatch,
   patchSectionOffsetMm,
   patchSettings,
+  patchGuideCenter,
+  sideGuides,
 } from "./network-patch.ts";
 import { NetworkGeometry } from "./scene/network.ts";
+
+import { createPatchGuides } from "./scene/rack-enclosure.ts";
 
 const rack = { ...createState(), level: "rack" as const, deviceId: "sw-14" };
 const assets = initialModelLoads();
@@ -254,4 +258,47 @@ test("B04 的 STO-03 仅启用两条同柜接入，复用 B03 在各装配状态
       }
     }
   }
+});
+
+test("两柜上下理线环固定在右壁，四条分支在精简两种外观下均从环内穿过", () => {
+  const group = createPatchGuides();
+  const branches = networkLinks.filter((link) =>
+    patchSettings.sourceIds.includes(link.source),
+  );
+  assert.deepEqual(
+    new Set(branches.map((link) => rackForDevice(link.source).id)),
+    new Set(sideGuides.rackIds),
+  );
+  for (const link of branches) {
+    const origin = new Vector3(...rackForDevice(link.source).position);
+    for (const load of ["ready", "failed"] as const) {
+      const points = networkPatch({ ...rack, deviceId: link.source }, link, {
+        ...assets,
+        "storage-4u": load,
+        "switch-1u": load,
+      })!;
+      const [from, to] = points.slice(2, 4).map((p) => p.clone().sub(origin));
+      assert.equal(from.x, to.x);
+      assert.equal(from.z, to.z);
+      for (const key of ["lower", "upper"] as const) {
+        const ring = group.getObjectByName(`patch-guide-${key}`)!;
+        const center = patchGuideCenter(key);
+        assert.deepEqual(ring.position.toArray(), center.toArray());
+        assert.ok(
+          from.y + patchSettings.bendRadius < center.y &&
+            center.y < to.y - patchSettings.bendRadius,
+        );
+        const cable = new Vector3(from.x, center.y, from.z);
+        const bounds = new Box3().setFromObject(ring);
+        assert.ok(bounds.containsPoint(cable));
+        assert.ok(Math.abs(bounds.max.x - sideGuides.wallX) < 1e-8);
+        for (const metal of ring.children)
+          assert.ok(
+            new Box3().setFromObject(metal).distanceToPoint(cable) >
+              patchSettings.cableRadius,
+          );
+      }
+    }
+  }
+  assert.ok(patchGuideCenter("upper").y > patchGuideCenter("lower").y);
 });

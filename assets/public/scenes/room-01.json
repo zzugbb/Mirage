@@ -5649,6 +5649,17 @@
       "patchIllustration": {
         "sourceIds": ["sto-01", "sto-03"],
         "description": "柜前看右侧理线示意，端点仅定位控制器区域与接入口组",
+        "sideGuides": {
+          "rackIds": ["rack-a07", "rack-a08"],
+          "lower": { "unit": 30, "label": "下理线环" },
+          "upper": { "unit": 35, "label": "上理线环" },
+          "centerZ": -0.248,
+          "openingDepth": 0.04,
+          "innerEdgeX": 0.249,
+          "wallX": 0.2875,
+          "stock": 0.004,
+          "color": "#bb9871"
+        },
         "sideX": 0.269,
         "postBypassX": 0.242,
         "rearClearance": 0.047,
