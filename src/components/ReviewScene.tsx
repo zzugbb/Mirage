@@ -2724,7 +2724,9 @@ export function ReviewScene({
                   `Z 向投影间距 ${(crossing.horizontal * 1000).toFixed(1)} mm`
                 ) : (
                   <>
-                    {crossing.kind === "smoke-tray"
+                    {crossing.kind === "smoke-tray" ||
+                    (crossing.kind === "smoke-light" &&
+                      crossing.view === "housing")
                       ? `水平间距 ${crossing.horizontal.toFixed(2)}`
                       : crossing.kind === "lighting-round"
                         ? `沿桥架 X 向间距 ${Math.abs(crossing.alongX).toFixed(2)}`

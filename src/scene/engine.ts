@@ -1309,7 +1309,9 @@ export class SceneEngine {
     this.controls.minAzimuthAngle = -Infinity;
     this.controls.maxAzimuthAngle = Infinity;
     this.controls.maxPolarAngle =
-      pair.kind === "smoke-tray" ? Math.PI * 0.65 : Math.PI / 2 - 0.03;
+      pair.kind === "smoke-tray" || pair.kind === "smoke-light"
+        ? Math.PI * 0.65
+        : Math.PI / 2 - 0.03;
     this.controls.minDistance = 0.5;
     this.autoOrbit = false;
     this.onCrossingView(pair);

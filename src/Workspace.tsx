@@ -97,6 +97,7 @@ import {
   type AlarmSeverity,
   type AlarmVisit,
 } from "./alarm-queue";
+import { SmokeLightDetails } from "./components/SmokeLightDetails";
 import { EnvironmentRoundDetails } from "./components/EnvironmentRoundDetails";
 import { environmentRoundFor } from "./environment-rounds";
 import { FixtureRoster } from "./components/FixtureRoster";
@@ -190,6 +191,7 @@ import {
   lightingRound,
   fixtureCrossing,
   smokeTrayPlacement,
+  smokeLightInspection,
   type FixtureCrossing,
   type CrossingViewCommand,
 } from "./fixture-crossing";
@@ -1091,7 +1093,7 @@ export function Workspace() {
     null,
   );
   const crossingReturning = useRef(false);
-  const crossingInspectPending = useRef(false);
+  const crossingInspectPending = useRef<boolean | HTMLSelectElement>(false);
   const requestCrossing = (pair: FixtureCrossing | null) => {
     if (pair && !crossing) {
       const element = document.activeElement as HTMLElement;
@@ -1102,7 +1104,14 @@ export function Workspace() {
       };
     }
     if (!pair) crossingReturning.current = true;
-    crossingInspectPending.current = !!pair;
+    const control = document.activeElement;
+    crossingInspectPending.current =
+      pair?.kind === "smoke-light" &&
+      crossing?.kind === "smoke-light" &&
+      control instanceof HTMLSelectElement &&
+      control.closest(".crossing-details")
+        ? control
+        : !!pair;
     takeover();
     setCrossingCommand((current) => ({
       pair,
@@ -2585,7 +2594,17 @@ export function Workspace() {
       ?.focus({ preventScroll: target !== "port" });
   }, [selected, activeNetworkLink, ready, portCheck]);
   useEffect(() => {
-    if (!crossingInspectPending.current || !crossing || !ready) return;
+    const pending = crossingInspectPending.current;
+    if (!pending || !crossing || !ready) return;
+    if (pending instanceof HTMLSelectElement && pending.isConnected) {
+      if (
+        document.activeElement === document.body ||
+        document.activeElement === pending
+      )
+        pending.focus({ preventScroll: true });
+      crossingInspectPending.current = false;
+      return;
+    }
     const details = document.querySelector<HTMLElement>(".crossing-details");
     if (!details) return;
     const panel = details.closest<HTMLElement>(".study-inspector");
@@ -8100,6 +8119,38 @@ export function Workspace() {
                         </p>
                       </>
                     )}
+                  {!review.analysis && crossing.kind === "smoke-tray" && (
+                    <button
+                      disabled={!ready}
+                      onClick={() => {
+                        const next = smokeLightInspection(crossing.round);
+                        if (next) requestCrossing(next);
+                      }}
+                    >
+                      沿本排桥架核对顶灯 ↗
+                    </button>
+                  )}
+                  {!review.analysis && crossing.kind === "smoke-light" && (
+                    <SmokeLightDetails
+                      pair={crossing}
+                      ready={ready}
+                      onInspect={(id, view) => {
+                        const next = smokeLightInspection(
+                          crossing.round,
+                          id,
+                          view,
+                        );
+                        if (!next) return;
+                        if (selected === crossing.light.id && selected !== id)
+                          pick(crossing.round.points[0].id);
+                        requestCrossing(next);
+                      }}
+                      onProbe={() => {
+                        focus(crossing.round.points[2].id);
+                        analyze();
+                      }}
+                    />
+                  )}
                   {!review.analysis &&
                     (crossing.kind === "lighting-round" ||
                       crossing.kind === "light-tray") && (

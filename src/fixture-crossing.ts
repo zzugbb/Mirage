@@ -3,7 +3,13 @@ import type { EnvironmentRound } from "./environment-rounds.ts";
 import { rackById } from "./installation.ts";
 import { trayRow, trayRungBottom, trayRungXs } from "./cable-trays.ts";
 import { Vector3 } from "three";
-import { lightTrayCrossings, diffuserBottom } from "./ceiling-lights.ts";
+import {
+  lightTrayCrossings,
+  diffuserBottom,
+  housingLength,
+  lightProfile,
+  type CeilingLight,
+} from "./ceiling-lights.ts";
 import { cableTraySettings } from "./cable-trays.ts";
 import { observationFrame, type FrameRect } from "./observation-frame.ts";
 
@@ -156,6 +162,7 @@ export function smokeTrayPlacement(round: EnvironmentRound) {
   const axis = new Vector3().fromArray(round.trayReference);
   return {
     kind: "smoke-tray" as const,
+    round,
     id: `${smoke.id}:${tray.id}`,
     title: "烟感与桥架位置",
     upper: { id: smoke.id, name: smoke.name, surface: "烟感中心" },
@@ -170,6 +177,74 @@ export function smokeTrayPlacement(round: EnvironmentRound) {
     ],
   };
 }
+/** 按灯壳底面矩形取水平最近点，烟感使用配置中心。 */
+export function nearestHousingPoint(position: number[], light: CeilingLight) {
+  const [x, y, z] = light.position;
+  const dx = lightProfile.bodyWidth / 2,
+    dz = housingLength(light) / 2;
+  return new Vector3(
+    Math.max(x - dx, Math.min(x + dx, position[0])),
+    y + lightProfile.bodyCenterY - lightProfile.bodyHeight / 2,
+    Math.max(z - dz, Math.min(z + dz, position[2])),
+  );
+}
+
+export function smokeLightInspection(
+  round: EnvironmentRound,
+  lightId?: string,
+  view: "housing" | "crossing" = "housing",
+) {
+  const [smoke, tray] = round.points;
+  const center = new Vector3().fromArray(smoke.position);
+  const candidates = lightTrayCrossings
+    .filter((c) => c.tray.id === tray.id)
+    .map(({ light }) => {
+      const edge = nearestHousingPoint(smoke.position, light);
+      return {
+        light,
+        edge,
+        horizontal: Math.hypot(center.x - edge.x, center.z - edge.z),
+      };
+    })
+    .sort((a, b) => a.horizontal - b.horizontal);
+  const target =
+    lightId === undefined
+      ? candidates[0]
+      : candidates.find((c) => c.light.id === lightId);
+  if (!target) return null;
+  const { light, edge, horizontal } = target;
+  const source = fixtureCrossing(light.id, tray.id);
+  if (source?.kind !== "light-tray") return null;
+  const measurement =
+    view === "crossing"
+      ? source
+      : {
+          upper: { id: light.id, name: light.name, surface: "灯壳底面近缘" },
+          lower: { id: smoke.id, name: smoke.name, surface: "烟感中心" },
+          points: [edge, center],
+          markers: [
+            { id: "smoke-light-edge", title: "① 灯壳近缘", point: edge },
+            { id: "smoke-light-center", title: "② 烟感中心", point: center },
+          ],
+          difference: edge.y - center.y,
+          boundary: "烟感信号未接入，现场净距与探测范围未实测。",
+        };
+  return {
+    ...measurement,
+    kind: "smoke-light" as const,
+    id: smoke.id + ":" + source.id + ":" + view,
+    title: view === "crossing" ? "本排灯桥交叉高度" : "烟感与顶灯位置",
+    round,
+    light,
+    view,
+    candidates,
+    horizontal,
+  };
+}
+export type SmokeLightInspection = NonNullable<
+  ReturnType<typeof smokeLightInspection>
+>;
+
 /** 同一桥架上的两处独立取样，保留各自的水平位置与高度基准。 */
 export function lightingRound(lightId: string, trayId: string, rackId: string) {
   const source = fixtureCrossing(lightId, trayId);
@@ -200,9 +275,11 @@ export function lightingRound(lightId: string, trayId: string, rackId: string) {
   };
 }
 export const crossingObjectIds = (pair: FixtureCrossing) =>
-  pair.kind === "lighting-round"
-    ? [pair.source.light.id, pair.upper.id, pair.lower.id]
-    : [pair.upper.id, pair.lower.id];
+  pair.kind === "smoke-light"
+    ? [pair.round.points[0].id, pair.round.points[1].id, pair.light.id]
+    : pair.kind === "lighting-round"
+      ? [pair.source.light.id, pair.upper.id, pair.lower.id]
+      : [pair.upper.id, pair.lower.id];
 type RackRoofOverview =
   | NonNullable<ReturnType<typeof lightingRound>>
   | NonNullable<ReturnType<typeof rackTrayCrossing>>;
@@ -213,6 +290,7 @@ export type RackRoofView =
     });
 export type FixtureCrossing =
   | RackRoofView
+  | SmokeLightInspection
   | NonNullable<ReturnType<typeof fixtureCrossing>>
   | ReturnType<typeof smokeTrayPlacement>;
 
@@ -232,6 +310,13 @@ export type CrossingViewCommand = {
 };
 export function crossingDirection(pair: FixtureCrossing) {
   if (pair.kind === "roof-entry") return new Vector3(0.15, 1, -0.36);
+  if (pair.kind === "smoke-light") {
+    // 从开敞一侧略向上观察，避开后墙及同排桥架。
+    if (pair.view === "crossing") return new Vector3(0.45, -0.14, 1);
+    return pair.round.points[0].position[2] < 0
+      ? new Vector3(0, -0.2, 1)
+      : new Vector3(0.15, -0.1, 1);
+  }
   if (pair.kind === "smoke-tray") return new Vector3(0.85, -0.34, -0.9);
   if (pair.kind === "lighting-round" || pair.kind === "light-tray") {
     const tray = pair.kind === "lighting-round" ? pair.source.tray : pair.tray;

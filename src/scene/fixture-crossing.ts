@@ -7,6 +7,7 @@ export class CrossingGeometry {
   material = new THREE.LineBasicMaterial({
     color: "#b9d5cb",
     toneMapped: false,
+    transparent: true,
     depthWrite: false,
   });
   geometry = new THREE.BufferGeometry();
@@ -31,7 +32,10 @@ export class CrossingGeometry {
       outline.forEach((p, i) =>
         points.push(p, outline[(i + 1) % outline.length]),
       );
-    } else if (pair.kind === "smoke-tray") {
+    } else if (
+      pair.kind === "smoke-tray" ||
+      (pair.kind === "smoke-light" && pair.view === "housing")
+    ) {
       const foot = top.clone().setY(bottom.y);
       points.push(top, foot, foot, bottom);
     } else {
