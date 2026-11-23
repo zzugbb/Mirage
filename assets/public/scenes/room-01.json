@@ -467,6 +467,48 @@
         }
       ]
     },
+    "condensate": {
+      "sourceId": "cooling-01",
+      "sensingCableId": "leak-cable-01",
+      "pipe": {
+        "id": "condensate-pipe-01",
+        "name": "冷凝水排水管",
+        "location": "制冷单元东侧 · 柜侧至斗口上方",
+        "focus": {
+          "direction": [
+            0.95,
+            0.38,
+            0.48
+          ],
+          "distance": 1.4
+        }
+      },
+      "receiver": {
+        "id": "condensate-receiver-01",
+        "name": "冷凝水接水斗",
+        "location": "制冷单元东侧 · 感应线内侧地面",
+        "focus": {
+          "direction": [
+            0.84,
+            0.48,
+            0.52
+          ],
+          "distance": 1.05
+        }
+      },
+      "outletHeight": 0.54,
+      "offsetZ": 0,
+      "run": 0.45,
+      "fall": 0.018,
+      "mouthHeight": 0.34,
+      "pipeRadius": 0.022,
+      "rimHeight": 0.22,
+      "rimRadius": 0.103,
+      "stemRadius": 0.032,
+      "bowlDepth": 0.075,
+      "sideReach": 0.07,
+      "sleeveInset": 0.29
+    },
     "leakDetection": {
       "controllerId": "leak-controller-01",
       "cableId": "leak-cable-01",

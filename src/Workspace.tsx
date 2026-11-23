@@ -1,3 +1,9 @@
+import {
+  condensate,
+  isCondensate,
+  nearestCondensateSensing,
+} from "./condensate";
+import { CondensateDetails } from "./components/CondensateDetails";
 import { racewayById } from "./panel-raceway";
 import { PatchPanelDetails } from "./components/PatchPanelDetails";
 import { patchPanelById, type PanelPort } from "./patch-panels";
@@ -3165,6 +3171,23 @@ export function Workspace() {
     control({ type: "analysis", value: false });
     setPanelPort(port);
   };
+  const condensateDetails = layer === "overview" &&
+    state.level === "room" &&
+    (isCondensate(selected) ||
+      selected === condensate.sourceId ||
+      selected === condensate.sensingCableId) && (
+      <CondensateDetails
+        id={selected}
+        ready={ready}
+        onLocate={focus}
+        onSense={() => {
+          pick(condensate.sensingCableId);
+          requestLeakView("floor", {
+            fromJoint: nearestCondensateSensing.fromJoint,
+          });
+        }}
+      />
+    );
   const captureLayoutOrigin = () => ({
     camera: captureTaskView.current?.("room") ?? null,
     inspector,
@@ -6333,6 +6356,7 @@ export function Workspace() {
                                   roomResourceList &&
                                   (patchPanelById(row.id) ||
                                     racewayById(row.id) ||
+                                    isCondensate(row.id) ||
                                     entranceViewIncludes(row.id) ||
                                     environmentRoundFor(row.id) ||
                                     isLeakFixture(row.id) ||
@@ -8867,6 +8891,7 @@ export function Workspace() {
                     }
                     onPreview={pick}
                     onLocate={focus}
+                    condensateDetails={condensateDetails}
                     showRaceway={layer === "overview" && state.level === "room"}
                     panelPorts={
                       fixture.kind === "patch-panel" &&
@@ -8989,6 +9014,7 @@ export function Workspace() {
                       onLocateSource={() => pick(coolingSource.id, true)}
                       onViewAirflow={() => showAirflow(selected, "details")}
                     />
+                    {condensateDetails}
                     <FixtureRelations
                       title="邻近检漏设施"
                       relations={leakRelations(selected)}

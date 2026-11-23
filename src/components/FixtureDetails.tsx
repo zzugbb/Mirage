@@ -27,6 +27,7 @@ import {
 export function FixtureDetails({
   fixture,
   panelPorts,
+  condensateDetails,
   showRaceway = false,
   grilleRelations,
   onInspectSupport,
@@ -40,6 +41,7 @@ export function FixtureDetails({
 }: {
   fixture: RoomFixture;
   panelPorts?: ReactNode;
+  condensateDetails?: ReactNode;
   showRaceway?: boolean;
   grilleRelations?: ReactNode;
   onInspectSupport?: (side: -1 | 1) => void;
@@ -64,6 +66,7 @@ export function FixtureDetails({
   return (
     <section className="fixture-details" aria-label="设施布置">
       {panelPorts}
+      {condensateDetails}
       {racewayLinks.length > 0 && showRaceway && (
         <section className="panel-port-details" aria-label="线槽布置">
           <strong>
@@ -105,7 +108,11 @@ export function FixtureDetails({
                     ? "灯罩底高"
                     : fixture.kind === "leak-cable"
                       ? "敷设高度"
-                      : "中心高度"}
+                      : fixture.kind === "condensate-pipe"
+                        ? "弯头中心高"
+                        : fixture.kind === "condensate-receiver"
+                          ? "斗口标高"
+                          : "中心高度"}
           </dt>
           <dd>
             {(isEntrance

@@ -129,8 +129,11 @@ export function resourceCatalog(deviceId: string): Resource[] {
       kind: "facility" as const,
       location: `01号机房 / ${fixture.location}`,
       detail: `${fixture.location} · ${environmentProbe(fixture.id) ? "温湿度模拟" : fixture.dataStatus === "not-applicable" ? "结构示意" : "未接入"}`,
-      group:
-        fixture.dataStatus === "not-applicable" ? "建筑与布线" : "环境与安全",
+      group: fixture.kind.startsWith("condensate-")
+        ? "制冷与排水"
+        : fixture.dataStatus === "not-applicable"
+          ? "建筑与布线"
+          : "环境与安全",
     })),
     ...pdus.map((pdu) => ({
       id: pdu.id,

@@ -1,3 +1,4 @@
+import { buildCondensate } from "./condensate.ts";
 import { floorGrilleSettings } from "../floor-grilles.ts";
 import definition from "../../assets/public/scenes/room-01.json" with { type: "json" };
 import {
@@ -34,7 +35,9 @@ export function buildRoomFixtures(
     group.userData = { entityId: fixture.id, dataStatus: fixture.dataStatus };
     fixtures.set(fixture.id, group);
     mounts.get(fixture.mountId)!.add(group);
-    if ("sectionSize" in fixture) {
+    if (fixture.kind.startsWith("condensate-")) {
+      buildCondensate(group, fixture.id);
+    } else if ("sectionSize" in fixture) {
       const [w, h, d] = fixture.sectionSize;
       const cover = racewayCoverThickness;
       box(group, [w, h, d - cover], [0, 0, -cover / 2], "#596d76", 0.35);

@@ -1,3 +1,12 @@
+import {
+  condensate,
+  mouthGap,
+  rim,
+  condensateFloorY,
+  nearestCondensateSensing,
+} from "./condensate.ts";
+import { leakDetection } from "./leak-detection.ts";
+import { leakInspection } from "./leak-view.ts";
 import { racewayNeighbors } from "./panel-raceway.ts";
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -44,8 +53,8 @@ function makeFixtures() {
 
 test("机房布置设施的身份、安装对象与场景位置一致，几何可射线选择", () => {
   const { mounts, fixtures } = makeFixtures();
-  assert.equal(fixtures.size, 20);
-  assert.equal(new Set(roomFixtures.map((f) => f.id)).size, 20);
+  assert.equal(fixtures.size, 22);
+  assert.equal(new Set(roomFixtures.map((f) => f.id)).size, 22);
   for (const f of roomFixtures) {
     assert.equal(entityById(f.id)?.kind, "facility");
     assert.equal(entityById(f.id)?.parent, "room-01");
@@ -57,6 +66,8 @@ test("机房布置设施的身份、安装对象与场景位置一致，几何�
       [
         "patch-panel",
         "wall-raceway",
+        "condensate-pipe",
+        "condensate-receiver",
         "cable-tray",
         "entrance",
         "ceiling-light",
@@ -269,4 +280,62 @@ test("后墙线槽沿安装面相接，两处竖段落在各自箱顶且可双�
   near(horizontal.min.x, Math.min(...dropBoxes.map((b) => b.min.x)));
   near(horizontal.max.x, Math.max(...dropBoxes.map((b) => b.max.x)));
   assert.deepEqual(racewayNeighbors("srv-01"), []);
+});
+
+test("冷凝水管口与接水斗同轴且留有配置间隔，斗口与管口均保持敞开", () => {
+  const { fixtures } = makeFixtures();
+  const pipe = fixtures.get(condensate.pipe.id)!;
+  const receiver = fixtures.get(condensate.receiver.id)!;
+  const pipeBox = new THREE.Box3().setFromObject(pipe);
+  const bowlBox = new THREE.Box3().setFromObject(receiver);
+  assert.ok(Math.abs(pipeBox.min.y - bowlBox.max.y - mouthGap) < 1e-6);
+  assert.ok(Math.abs(condensateFloorY - bowlBox.min.y) < 1e-6);
+  const center = receiver.position.clone();
+  const axis = new THREE.Vector3(0, 1, 0);
+  const bore = new THREE.Raycaster(center, axis, 0, mouthGap + 0.03);
+  assert.equal(bore.intersectObject(pipe, true).length, 0);
+  bore.ray.origin.x += condensate.pipeRadius * 0.9;
+  const lip = bore.intersectObject(pipe, true)[0];
+  assert.equal(lip.object.name, "condensate-mouth");
+  assert.ok(Math.abs(lip.distance - mouthGap) < 1e-6);
+  const down = axis.negate();
+  const through = new THREE.Raycaster(center.clone(), down);
+  assert.equal(through.intersectObject(receiver, true).length, 0);
+  through.ray.origin.x += condensate.rimRadius * 0.8;
+  assert.equal(
+    through.intersectObject(receiver, true)[0].object.name,
+    "condensate-receiver",
+  );
+});
+
+test("接水斗轴线投影定位到已登记感应段的最近点，实际布置留出该点的俯视视线", () => {
+  const { fixtures } = makeFixtures();
+  const near = nearestCondensateSensing;
+  const floor = leakInspection("floor", { fromJoint: near.fromJoint }).floor!;
+  assert.equal(condensate.sensingCableId, leakDetection.cableId);
+  assert.equal(condensate.sourceId, leakDetection.nearbyFacilityId);
+  assert.equal(floor.index + 1, near.segment);
+  const perpendicular = floor.point
+    .clone()
+    .sub(new THREE.Vector3().fromArray(rim));
+  perpendicular.y = 0;
+  assert.ok(Math.abs(perpendicular.length() - near.distance) < 1e-9);
+  assert.ok(
+    Math.abs(perpendicular.dot(floor.end.clone().sub(floor.start))) < 1e-9,
+  );
+  assert.ok(near.distance > condensate.rimRadius + leakDetection.sensingRadius);
+  const ray = new THREE.Raycaster(
+    floor.point.clone().add(new THREE.Vector3(0, 2, 0)),
+    new THREE.Vector3(0, -1, 0),
+  );
+  const scene = [
+    condensate.pipe.id,
+    condensate.receiver.id,
+    condensate.sensingCableId,
+  ].map((id) => fixtures.get(id)!);
+  for (const group of scene) group.updateWorldMatrix(true, true);
+  assert.equal(
+    ray.intersectObjects(scene, true)[0].object.parent?.name,
+    "leak-sensing",
+  );
 });
