@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { environmentRounds } from "./environment-rounds.ts";
-import { probeElevation } from "./probe-elevation.ts";
+import { rackUnitAtHeight } from "./rack-installation.ts";
 import definition from "../assets/public/scenes/room-01.json" with { type: "json" };
 
 test("两排探头的标高分别对应本排四柜 U29 的配置设备", () => {
   const result = environmentRounds.flatMap(({ racks, probe }) =>
     racks.map((rack) => {
-      const projected = probeElevation(rack.id, probe.position[1])!;
+      const projected = rackUnitAtHeight(rack.id, probe.position[1])!;
       assert.equal(projected.unit, 29);
       assert.ok(projected.fraction > 0 && projected.fraction < 1);
       return projected.segment?.id;
@@ -29,13 +29,13 @@ test("标高落到盲板、柜外和缺少配置时不产生设备对端", () =>
   const { unitOrigin, unitPitch } = definition.rack;
   const id = environmentRounds[0].racks[0].id;
   assert.equal(
-    probeElevation(id, unitOrigin + unitPitch)?.segment?.kind,
+    rackUnitAtHeight(id, unitOrigin + unitPitch)?.segment?.kind,
     "blanking",
   );
-  assert.equal(probeElevation(id, 0)?.segment, undefined);
-  assert.equal(probeElevation(id, 3)?.segment, undefined);
-  assert.equal(probeElevation("unknown", 1.5), null);
-  assert.equal(probeElevation(id, NaN), null);
+  assert.equal(rackUnitAtHeight(id, 0)?.segment, undefined);
+  assert.equal(rackUnitAtHeight(id, 3)?.segment, undefined);
+  assert.equal(rackUnitAtHeight("unknown", 1.5), null);
+  assert.equal(rackUnitAtHeight(id, NaN), null);
 });
 
 test("相邻安装位共用的边界归入上方 U 位", () => {
@@ -43,7 +43,7 @@ test("相邻安装位共用的边界归入上方 U 位", () => {
   const id = environmentRounds[0].racks[0].id;
   for (let u = 1; u <= units; u++) {
     const edge = unitOrigin + (u + 0.5) * unitPitch;
-    assert.equal(probeElevation(id, edge)?.unit, u + 1);
-    assert.equal(probeElevation(id, edge - 1e-8)?.unit, u);
+    assert.equal(rackUnitAtHeight(id, edge)?.unit, u + 1);
+    assert.equal(rackUnitAtHeight(id, edge - 1e-8)?.unit, u);
   }
 });

@@ -7765,3 +7765,31 @@
   inset-inline: -4px;
   border-bottom: 2px solid #f2c06c;
 }
+
+.pdu-elevation {
+  padding: 6px 0;
+  border-block-start: 1px solid #34454f;
+}
+.pdu-elevation summary {
+  font-size: 12px;
+  cursor: pointer;
+}
+.pdu-elevation-body {
+  display: grid;
+  grid-template-columns: 62px 1fr;
+  gap: 8px;
+  align-items: center;
+}
+.pdu-elevation-body > div {
+  display: grid;
+  gap: 3px;
+  font-size: 11px;
+}
+.pdu-elevation-body strong {
+  margin-block-start: 5px;
+}
+.pdu-elevation > small {
+  display: block;
+  color: var(--study-muted);
+  margin-top: 5px;
+}

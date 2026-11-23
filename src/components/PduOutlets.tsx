@@ -1,3 +1,4 @@
+import { PduElevation } from "./PduElevation";
 import type { FeederEnergyInterval } from "../feeder-energy";
 import { useLayoutEffect, useRef } from "react";
 import {
@@ -97,6 +98,7 @@ export function PduOutlets({
         {rows.map((row) => (
           <button
             key={row.outlet}
+            data-outlet={row.outlet}
             data-match={row.matches}
             data-connected={!!row.link}
             aria-pressed={row.outlet === current.outlet}
@@ -126,6 +128,30 @@ export function PduOutlets({
               清除标记
             </button>
           </header>
+          <PduElevation
+            pduId={pduId}
+            outlet={chosen.outlet}
+            ready={ready}
+            onSelect={(outlet, restoreScroll) => {
+              const host = list.current;
+              const previous = host?.scrollTop ?? 0;
+              onSelect(outlet);
+              if (!host) return previous;
+              const row = host.querySelector<HTMLElement>(
+                `[data-outlet="${outlet}"]`,
+              );
+              if (restoreScroll !== undefined) host.scrollTop = restoreScroll;
+              else if (row) {
+                const box = host.getBoundingClientRect();
+                const target = row.getBoundingClientRect();
+                if (target.top < box.top)
+                  host.scrollTop += target.top - box.top;
+                else if (target.bottom > box.bottom)
+                  host.scrollTop += target.bottom - box.bottom;
+              }
+              return previous;
+            }}
+          />
           {chosen.link && chosen.device && (
             <>
               <small>

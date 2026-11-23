@@ -108,3 +108,20 @@ export function installationMetric(
       layer === "environment" ? "整机进风 · 模拟读数" : "整机输入 · 模拟读数",
   };
 }
+
+/** 按柜底与配置节距将世界标高投影到安装位。 */
+export function rackUnitAtHeight(rackId: string, height: number) {
+  const layout = rackInstallation(rackId);
+  if (!layout || !Number.isFinite(height)) return null;
+  const { unitOrigin, unitPitch } = definition.rack;
+  const origin = layout.rack.position[1] + unitOrigin;
+  const bottom = origin + unitPitch / 2;
+  const fraction = (height - bottom) / (layout.units * unitPitch);
+  // 与场景按同一公式比较 U 位上边界，避免除法舍入将边界分给下方 U 位。
+  const lower = Math.floor((height - origin) / unitPitch);
+  const unit = height >= origin + (lower + 0.5) * unitPitch ? lower + 1 : lower;
+  const segment = layout.segments.find(
+    (s) => unit >= s.first && unit <= s.last,
+  );
+  return { layout, fraction, unit, segment };
+}

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
 import type { EnvironmentRound } from "../environment-rounds";
-import { probeElevation } from "../probe-elevation";
+import { rackUnitAtHeight } from "../rack-installation";
 import { ConnectionSection } from "./ConnectionSection";
 
 export function ProbeElevation({
@@ -16,7 +16,8 @@ export function ProbeElevation({
 }) {
   const height = round.probe.position[1];
   const racks = useMemo(
-    () => round.racks.flatMap((rack) => probeElevation(rack.id, height) ?? []),
+    () =>
+      round.racks.flatMap((rack) => rackUnitAtHeight(rack.id, height) ?? []),
     [round, height],
   );
   const returning = useRef(visited);

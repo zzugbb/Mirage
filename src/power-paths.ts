@@ -6,6 +6,7 @@ import {
   rackById,
   rackForDevice,
   deviceHeight,
+  installedFrontZ,
 } from "./installation.ts";
 import { modelForDevice, partsForDevice } from "./catalog.ts";
 import { entityById } from "./domain.ts";
@@ -18,6 +19,7 @@ import {
   powerLinks,
   powerSettings,
   inletPart,
+  type PowerLink,
 } from "./power-config.ts";
 import type { PowerFeed } from "./power-config.ts";
 import { powerLinksForContext, powerLinkById } from "./power-trace.ts";
@@ -59,6 +61,19 @@ export function pduOutletPosition(id: string, outlet: number): PowerPoint {
     pduOutletOffsetY(outlet),
     powerSettings.layout.outletOffsetZ,
   ]);
+}
+
+/** 机箱归位时，按电源部件配置投影至机箱背面的接入标记。 */
+export function installedPowerEndpoint(link: PowerLink): PowerPoint {
+  const rack = rackForDevice(link.deviceId);
+  const model = modelForDevice(link.deviceId);
+  const partId = inletPart(model.id, link.inlet);
+  const psu = partsForDevice(link.deviceId).find((part) => part.id === partId)!;
+  return [
+    rack.position[0] + psu.position[0],
+    deviceHeight(link.deviceId) + psu.position[1],
+    rack.position[2] + installedFrontZ - model.depth,
+  ];
 }
 
 /** 只画已配置的代表支路；A/B 实虚区分接入身份，不表示电流、分流比例或冗余。 */
@@ -162,19 +177,13 @@ export function powerScene(
         ],
       });
     const outlet = pduOutletPosition(targetPdu.id, link.outlet);
-    const psu = partsForDevice(device.id).find((part) => part.id === partId)!;
-    const endpoint: PowerPoint = [
-      rack.position[0] + psu.position[0],
-      deviceHeight(device.id) + psu.position[1],
-      rack.position[2] +
-        0.555 -
-        model.depth +
-        (state.level === "rack" &&
-        state.trayExtended &&
-        device.id === state.deviceId
-          ? definition.rack.motion.trayTravel
-          : 0),
-    ];
+    const endpoint = installedPowerEndpoint(link);
+    if (
+      state.level === "rack" &&
+      state.trayExtended &&
+      device.id === state.deviceId
+    )
+      endpoint[2] += definition.rack.motion.trayTravel;
     paths.push({
       feed,
       points: [
