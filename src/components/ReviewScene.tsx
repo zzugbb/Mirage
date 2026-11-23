@@ -70,7 +70,7 @@ import { EnvironmentProbeList } from "./EnvironmentDetails";
 import type { RackUnitRange } from "../rack-space";
 import { type AirflowInspection } from "../airflow-inspection";
 import { pduInspectionScene, type PduInspection } from "../pdu-outlets";
-import { airflowStage } from "../airflow-stage";
+import { airflowStage, showAirflowEndpoint } from "../airflow-stage";
 import { ModelLoadNotice } from "./ModelLoadNotice";
 import { initialModelLoads, type ModelAssetId } from "../model-loading";
 import { TemperatureDisclosure } from "./TemperatureDisclosure";
@@ -179,6 +179,7 @@ export function ReviewScene({
   alarmOriginId,
   airflow,
   onExplainAirflow,
+  terminalViewRequest,
   onAirflowViewChange,
   frameRoomAirflow,
   coolingRangeObservation,
@@ -324,6 +325,7 @@ export function ReviewScene({
   alarmOriginId?: string;
   airflowVisit: AirflowInspection | null;
   airflow: AirflowSnapshot | null;
+  terminalViewRequest: number;
   onExplainAirflow: () => void;
   onAirflowViewChange: (
     view: import("../airflow-view").AirflowView | null,
@@ -533,7 +535,10 @@ export function ReviewScene({
     observer.observe(legend);
     return () => observer.disconnect();
   }, [flowView, airflowWorkspace.panel]);
-  const stage = airflowStage(flowView);
+  useEffect(() => {
+    if (terminalViewRequest && airflow?.routes[0] && layer === "airflow")
+      airflowWorkspace.observe(airflow.routes[0], "terminals");
+  }, [terminalViewRequest]);
   const sliceControls =
     layer === "airflow"
       ? {
@@ -1848,7 +1853,7 @@ export function ReviewScene({
       data-slice-row={slice?.rowId}
       data-slice-position={slice ? (slice.height ?? slice.distance) : undefined}
       data-airflow-view={flowView ?? ""}
-      data-airflow-stage={stage?.kind ?? ""}
+      data-airflow-stage={airflowStage(flowView)?.kinds.join(" ") ?? ""}
       data-slice-visible={sliceVisible && !!slice}
       data-airflow-inspection={airflowVisit?.deviceId ?? ""}
       data-airflow-targets={visibleAirflow?.routes
@@ -2101,8 +2106,8 @@ export function ReviewScene({
           ))}
           {visibleAirflow?.routes.flatMap((route) =>
             route.endpoints
-              .filter(
-                (endpoint) => !stage || stage.endpoints.includes(endpoint.kind),
+              .filter((endpoint) =>
+                showAirflowEndpoint(flowView, endpoint.kind),
               )
               .map((endpoint) => (
                 <div
@@ -2114,7 +2119,11 @@ export function ReviewScene({
                   data-anchor-position={endpoint.point.join(",")}
                   className={`review-flow-anchor review-airflow-endpoint flow-${endpoint.kind} ${route.animated ? "" : "is-static"}`}
                 >
-                  <b>{endpoint.label}</b>
+                  <b>
+                    {flowView === "terminals" && endpoint.kind === "supply"
+                      ? "柜端送风"
+                      : endpoint.label}
+                  </b>
                 </div>
               )),
           )}
@@ -2387,9 +2396,8 @@ export function ReviewScene({
             ))}
             {visibleAirflow?.routes.flatMap((route) =>
               route.endpoints
-                .filter(
-                  (endpoint) =>
-                    !stage || stage.endpoints.includes(endpoint.kind),
+                .filter((endpoint) =>
+                  showAirflowEndpoint(flowView, endpoint.kind),
                 )
                 .map((endpoint) => (
                   <line
@@ -2689,6 +2697,7 @@ export function ReviewScene({
               {layer === "airflow" && (
                 <AirflowPanel
                   snapshot={airflow}
+                  coolingModel={assets["cooling-01"]}
                   view={flowView}
                   visit={airflowVisit}
                   ready={sceneSettled}

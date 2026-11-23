@@ -20,7 +20,7 @@ export const airflowSettings = definition.airflow;
 export type FlowPoint = [number, number, number];
 export type FlowKind = "supply" | "through" | "return";
 export type FlowEndpoint = {
-  kind: "supply" | "floor" | "intake" | "return";
+  kind: "supply" | "floor" | "intake" | "return" | "receiver";
   point: FlowPoint;
   title: string;
   label: string;
@@ -207,9 +207,9 @@ export function airflowSnapshot(
         {
           kind: "supply",
           point: outlet,
-          title: "送风 · 逻辑端点",
+          title: "制冷柜逻辑送风端",
           label: `送风 · ${Math.round(coolingCapacityAt(time))}%`,
-          detail: `${source.name} · 冷却输入 ${Math.round(coolingCapacityAt(time))}%`,
+          detail: `${source.name} · 配置高度 ${outlet[1].toFixed(2)} m · 模拟冷却输入 ${Math.round(coolingCapacityAt(time))}%`,
         },
         {
           kind: "floor",
@@ -231,6 +231,13 @@ export function airflowSnapshot(
           title: "回风假设",
           label: "回风假设",
           detail: `柜后 → ${source.name} · 无排风测点`,
+        },
+        {
+          kind: "receiver",
+          point: inlet,
+          title: "制冷柜逻辑回风端",
+          label: "柜端回风",
+          detail: `${source.name} · 配置高度 ${inlet[1].toFixed(2)} m · 回风温度未配置`,
         },
       ],
       segments: [

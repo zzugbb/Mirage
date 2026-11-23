@@ -52,15 +52,17 @@ test("气流代表路径绑定已登记冷却关系，选中设备与机柜排�
     );
 });
 
-test("四个气流端点对应已配置设施、格栅与设备，读数不扩展为环境或排风测点", () => {
+test("五处气流端点对应已配置设施、格栅与设备，读数不扩展为环境或排风测点", () => {
   for (const device of devices) {
     const readings = spatialSnapshot(60).readings;
     const route = airflowSnapshot(60, readings, device.id).routes[0];
-    const [supply, floor, intake, returning] = route.endpoints;
+    const [supply, floor, intake, returning, receiver] = route.endpoints;
     assert.deepEqual(
       route.endpoints.map((endpoint) => endpoint.kind),
-      ["supply", "floor", "intake", "return"],
+      ["supply", "floor", "intake", "return", "receiver"],
     );
+    assert.deepEqual(receiver.point, route.segments[2].points.at(-1));
+    assert.notDeepEqual(receiver.point, returning.point);
     assert.deepEqual(supply.point, route.segments[0].points[0]);
     assert.deepEqual(intake.point, route.segments[1].points[0]);
     const row = definition.temperatureSlice.vertical.rows.find((row) =>

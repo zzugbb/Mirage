@@ -1,3 +1,4 @@
+import type { ModelStatus } from "../model-loading";
 import { useRef, type ReactNode, type RefObject } from "react";
 import type { AirflowSnapshot } from "../airflow";
 import { airflowViews, type AirflowView } from "../airflow-view";
@@ -7,6 +8,7 @@ import { deviceById } from "../installation";
 
 export function AirflowPanel({
   snapshot,
+  coolingModel,
   view,
   visit,
   ready,
@@ -22,6 +24,7 @@ export function AirflowPanel({
   onOpenInstallation,
   analysisControl,
 }: {
+  coolingModel: ModelStatus;
   snapshot: AirflowSnapshot | null;
   view: AirflowView | null;
   visit: AirflowInspection | null;
@@ -84,6 +87,25 @@ export function AirflowPanel({
               ))}
             </select>
           </div>
+          {view === "terminals" && (
+            <small className="airflow-cabinet-evidence">
+              {entityById(route.sourceId)?.name} ·{" "}
+              {coolingModel === "ready"
+                ? "贡献模型外观"
+                : coolingModel === "failed"
+                  ? "加载失败 · 简化柜体"
+                  : "简化柜体"}
+              <br />
+              {route.endpoints
+                .filter((e) => e.kind === "supply" || e.kind === "receiver")
+                .map(
+                  (e) =>
+                    `${e.kind === "supply" ? "送风" : "回风"} ${e.point[1].toFixed(2)} m`,
+                )
+                .join(" / ")}{" "}
+              · 配置高度
+            </small>
+          )}
           {route.animated ? (
             <div className="airflow-path-key" aria-label="路径图例">
               <span>送风</span>

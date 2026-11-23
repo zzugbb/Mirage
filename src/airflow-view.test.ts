@@ -1,3 +1,4 @@
+import definition from "../assets/public/scenes/room-01.json" with { type: "json" };
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
@@ -19,7 +20,7 @@ import {
 import { spatialSnapshot } from "./spatial.ts";
 import { racks } from "./installation.ts";
 
-test("四种气流观察按现有路径取点，进风同时保留格栅和前后柜面", () => {
+test("气流分段按现有路径取点，进风同时保留格栅和前后柜面", () => {
   const route = airflowSnapshot(60, spatialSnapshot(60).readings).routes[0];
   assert.deepEqual(
     airflowViewPoints(route, "supply"),
@@ -154,4 +155,34 @@ test("长直路径中部的背景障碍可剖切，取消自动剖切后恢复",
   assert.equal(group.visible, true);
   mesh.geometry.dispose();
   mesh.material.dispose();
+});
+
+test("制冷柜观察按服务源包围柜体和配置端点，设备切换与回看保留柜端位置", () => {
+  for (const [time, target] of [
+    [60, "srv-55"],
+    [40, "srv-01"],
+  ] as const) {
+    const route = airflowSnapshot(time, spatialSnapshot(time).readings, target)
+      .routes[0];
+    const source = definition.facilities.find((f) => f.id === route.sourceId)!;
+    const points = airflowViewPoints(route, "terminals");
+    assert.equal(points.length, 10);
+    for (let axis = 0; axis < 3; axis++) {
+      const corners = points.slice(0, 8).map((p) => p[axis]);
+      assert.equal(
+        Math.min(...corners),
+        source.position[axis] - source.size[axis] / 2,
+      );
+      assert.equal(
+        Math.max(...corners),
+        source.position[axis] + source.size[axis] / 2,
+      );
+    }
+    assert.deepEqual(
+      points.slice(-2),
+      [definition.airflow.supplyOffset, definition.airflow.returnOffset].map(
+        (offset) => source.position.map((coord, i) => coord + offset[i]),
+      ),
+    );
+  }
 });

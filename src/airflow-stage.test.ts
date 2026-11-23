@@ -1,6 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { airflowStage, airflowStageEmphasis } from "./airflow-stage.ts";
+import {
+  airflowStage,
+  airflowStageEmphasis,
+  showAirflowEndpoint,
+} from "./airflow-stage.ts";
 import { AirflowGeometry } from "./scene/airflow.ts";
 import { airflowSnapshot } from "./airflow.ts";
 import { spatialSnapshot } from "./spatial.ts";
@@ -11,7 +15,7 @@ test("分段观察沿现有送风、穿柜、回风分界，只强调当前段",
     ["intake", "through"],
     ["return", "return"],
   ] as const) {
-    assert.equal(airflowStage(view)!.kind, kind);
+    assert.deepEqual(airflowStage(view)!.kinds, [kind]);
     for (const segment of ["supply", "through", "return"] as const)
       assert.equal(
         airflowStageEmphasis(view, segment),
@@ -92,5 +96,34 @@ test("过期、离线和停机的分段观察只保留静态方向，切回有�
   );
   geometry.update(null);
   assert.equal(geometry.root.visible, false);
+  geometry.dispose();
+});
+
+test("制冷柜近景只标出支路两端，切回全景隐藏柜端回风，停机路径仍无粒子", () => {
+  const geometry = new AirflowGeometry();
+  for (const id of ["srv-55", "srv-63"]) {
+    const snapshot = airflowSnapshot(40, spatialSnapshot(40).readings, id);
+    const route = snapshot.routes[0];
+    const cabinet = route.endpoints.filter((e) =>
+      showAirflowEndpoint("terminals", e.kind),
+    );
+    assert.deepEqual(
+      cabinet.map((e) => e.kind),
+      ["supply", "receiver"],
+    );
+    assert.equal(showAirflowEndpoint("return", "receiver"), true);
+    assert.match(cabinet[1].detail, /回风温度未配置/);
+    geometry.update(snapshot, "terminals");
+    geometry.animate(40);
+    assert.equal(geometry.endpoints.count, 3);
+    for (const batch of geometry.batches)
+      assert.equal(
+        batch.sparks.count > 0,
+        route.animated && batch.kind !== "through",
+      );
+    geometry.update(snapshot, "all");
+    assert.equal(geometry.endpoints.count, 2);
+    assert.equal(showAirflowEndpoint("all", "receiver"), false);
+  }
   geometry.dispose();
 });

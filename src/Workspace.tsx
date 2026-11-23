@@ -1593,6 +1593,7 @@ export function Workspace() {
   const [airflowStageView, setAirflowStageView] = useState<AirflowView | null>(
     null,
   );
+  const [terminalViewRequest, setTerminalViewRequest] = useState(0);
   const [airflowExplanation, setAirflowExplanation] = useState<
     "summary" | "endpoint" | null
   >(null);
@@ -2945,7 +2946,7 @@ export function Workspace() {
       setAisleCommand({ rackId: null });
     }
   }, [aisleVisit, roomAisles, selected]);
-  const locateRoundFromList = (id: string, button: HTMLButtonElement) => {
+  const locateFacilityFromList = (id: string, button: HTMLButtonElement) => {
     const scroll = button.closest(".study-resource-list")?.scrollTop ?? 0;
     setLayoutVisit({
       id,
@@ -3768,6 +3769,8 @@ export function Workspace() {
   const returnCoolingRange = () => {
     if (!coolingVisit || !ready) return;
     const origin = coolingVisit;
+    setAirflowVisit(null);
+    setAirflowResponse(null);
     coolingRangeRestore.current = origin.position;
     setCoolingRangeState(origin.range);
     setRackView(origin.rackView);
@@ -4244,6 +4247,13 @@ export function Workspace() {
       ready={ready}
       endpointKind={airflowEndpoint}
       onRead={setAirflowEndpoint}
+      onTerminals={() => {
+        const route = airflow.routes[0];
+        if (!route || !ready) return;
+        if (selected !== route.sourceId)
+          previewAirflowEndpoint(route, route.sourceId);
+        setTerminalViewRequest((value) => value + 1);
+      }}
       onExplained={() => setAirflowExplanation(null)}
       revealRequested={airflowExplanation}
       onPreview={previewAirflowEndpoint}
@@ -4413,6 +4423,11 @@ export function Workspace() {
                   disabled={!ready || layoutReturning}
                   onClick={() => {
                     setLayoutReturning(true);
+                    if (layoutVisit.id === coolingSource.id && coolingVisit) {
+                      setCoolingVisit(null);
+                      setAirflowVisit(null);
+                      setAirflowResponse(null);
+                    }
                     // 先退出当前设施核对，再恢复布置图选择。
                     if (
                       state.level !== "room" ||
@@ -5770,9 +5785,10 @@ export function Workspace() {
                               onClick={(event) => {
                                 if (
                                   roomResourceList &&
-                                  environmentRoundFor(row.id)
+                                  (environmentRoundFor(row.id) ||
+                                    isCoolingSource(row.id))
                                 ) {
-                                  locateRoundFromList(
+                                  locateFacilityFromList(
                                     row.id,
                                     event.currentTarget,
                                   );
@@ -6016,6 +6032,7 @@ export function Workspace() {
               alarmQueueVisible ? (alarmVisit ?? alarmReturned)?.id : undefined
             }
             airflow={airflow}
+            terminalViewRequest={terminalViewRequest}
             onAirflowViewChange={setAirflowStageView}
             onExplainAirflow={() => {
               takeover();

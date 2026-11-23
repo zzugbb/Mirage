@@ -22,6 +22,7 @@ test("全部设备气流端点只关联既有制冷单元、格栅排和本机�
     assert.equal(ids[0], route.sourceId);
     assert.equal(ids[2], device.id);
     assert.equal(ids[3], route.sourceId);
+    assert.equal(ids[4], route.sourceId);
     assert.ok(ids[1].startsWith("grilles-row-"));
     for (const id of ids) assert.ok(entityById(id));
   }
@@ -46,7 +47,7 @@ test("连续端点预览保持首次对象与面板状态，同一设备支路�
       airflowEndpointObject(route, "floor").id,
       origin,
     )!;
-    for (const kind of ["supply", "intake", "return"] as const) {
+    for (const kind of ["supply", "intake", "return", "receiver"] as const) {
       const target = airflowEndpointObject(route, kind).id;
       visit = beginAirflowInspection(visit, route, target, {
         ...origin,

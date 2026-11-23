@@ -9,7 +9,8 @@ const endpointNames = {
   supply: "送风",
   floor: "格栅",
   intake: "进风",
-  return: "回风",
+  return: "柜后回风",
+  receiver: "柜端回风",
 } satisfies Record<FlowEndpoint["kind"], string>;
 
 export function AirflowDetails({
@@ -19,6 +20,7 @@ export function AirflowDetails({
   ready,
   endpointKind,
   onRead,
+  onTerminals,
   onExplained,
   revealRequested,
   onPreview,
@@ -31,6 +33,7 @@ export function AirflowDetails({
   onExplained: () => void;
   revealRequested: "summary" | "endpoint" | null;
   endpointKind: FlowEndpoint["kind"] | null;
+  onTerminals: () => void;
   onRead: (kind: FlowEndpoint["kind"]) => void;
   onPreview: (route: AirflowRoute, id: string) => void;
   onLocate: (id: string) => void;
@@ -119,6 +122,12 @@ export function AirflowDetails({
           >
             预览{object.name}
           </button>
+          {(kind === "return" || kind === "receiver" || kind === "supply") &&
+            view !== "terminals" && (
+              <button disabled={!ready} onClick={onTerminals}>
+                核对制冷柜送回风 ↗
+              </button>
+            )}
           {kind !== "return" && (
             <button disabled={!ready} onClick={() => onLocate(object.id)}>
               {object.locate}

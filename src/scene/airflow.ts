@@ -3,7 +3,7 @@ import { floorGrilleSettings as grille } from "../floor-grilles.ts";
 import * as THREE from "three";
 import { airflowSettings, flowPoint } from "../airflow.ts";
 import type { AirflowSnapshot, FlowKind, FlowPoint } from "../airflow.ts";
-import { airflowStageEmphasis } from "../airflow-stage.ts";
+import { airflowStageEmphasis, showAirflowEndpoint } from "../airflow-stage.ts";
 import type { AirflowView } from "../airflow-view.ts";
 import { sliceRackRows } from "../temperature-slice.ts";
 
@@ -229,6 +229,12 @@ export class AirflowGeometry {
       }
       for (const endpoint of route.endpoints) {
         if (endpoint.kind === "floor" || endpoint.kind === "intake") continue;
+        if (
+          endpoint.kind === "receiver" &&
+          !showAirflowEndpoint(view, endpoint.kind)
+        )
+          continue;
+        const kind = endpoint.kind === "receiver" ? "return" : endpoint.kind;
         this.transform.position.fromArray(endpoint.point);
         this.transform.scale.setScalar(1);
         this.transform.rotation.set(0, 0, 0);
@@ -238,9 +244,9 @@ export class AirflowGeometry {
           endpointIndex++,
           new THREE.Color(
             route.animated
-              ? airflowSettings.colors[endpoint.kind]
+              ? airflowSettings.colors[kind]
               : airflowSettings.colors.unknown,
-          ).multiplyScalar(airflowStageEmphasis(view, endpoint.kind)),
+          ).multiplyScalar(airflowStageEmphasis(view, kind)),
         );
       }
     }

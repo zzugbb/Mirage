@@ -16,7 +16,7 @@ export function airflowEndpointObject(
     return { id: route.deviceId, name: "进风设备", locate: "定位安装位" };
   return {
     id: route.sourceId,
-    name: kind === "supply" ? "制冷单元" : "回风关联",
+    name: kind === "return" ? "回风关联" : "制冷单元",
     locate: "定位制冷单元",
   };
 }

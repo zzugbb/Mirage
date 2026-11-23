@@ -72,7 +72,8 @@ export function CoolingRange({
       button ??
       host.current.querySelector<HTMLButtonElement>("[aria-expanded='true']");
     target?.focus({ preventScroll: true });
-    if (position.focusKey) target?.scrollIntoView({ block: "nearest" });
+    if (position.focusKey && !button)
+      target?.scrollIntoView({ block: "nearest" });
     setRowMissing(!!position.focusKey && !button);
   });
   const visit = (

@@ -1,3 +1,4 @@
+import definition from "../assets/public/scenes/room-01.json" with { type: "json" };
 import { Vector3 } from "three";
 import { observationFrame, type FrameRect } from "./observation-frame.ts";
 export type { FrameRect } from "./observation-frame.ts";
@@ -8,6 +9,7 @@ export const airflowViews = [
   { id: "supply", name: "送风与格栅", direction: [-0.25, 1, 1] },
   { id: "intake", name: "设备进风", direction: [0.35, 0.75, 1] },
   { id: "return", name: "柜后回风", direction: [-0.35, 0.9, -1] },
+  { id: "terminals", name: "制冷柜送回风", direction: [0.32, 0.22, 1] },
 ] as const;
 export type AirflowView = (typeof airflowViews)[number]["id"];
 
@@ -16,6 +18,24 @@ export function airflowViewPoints(
   route: AirflowRoute,
   view: AirflowView,
 ): FlowPoint[] {
+  if (view === "terminals") {
+    const source = definition.facilities.find(
+      (item) => item.id === route.sourceId,
+    )!;
+    const [x, y, z] = source.position,
+      [width, height, depth] = source.size;
+    const corners: FlowPoint[] = [];
+    for (const dx of [-width / 2, width / 2])
+      for (const dy of [-height / 2, height / 2])
+        for (const dz of [-depth / 2, depth / 2])
+          corners.push([x + dx, y + dy, z + dz]);
+    return [
+      ...corners,
+      ...route.endpoints
+        .filter((e) => e.kind === "supply" || e.kind === "receiver")
+        .map((e) => e.point),
+    ];
+  }
   if (view === "intake")
     return [
       route.floorGrille.position,

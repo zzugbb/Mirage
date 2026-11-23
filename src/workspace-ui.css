@@ -641,6 +641,7 @@
 .review-flow-anchor.flow-intake {
   border-color: var(--flow-through);
 }
+.review-flow-anchor.flow-receiver,
 .review-flow-anchor.flow-return {
   border-color: var(--flow-return);
 }
@@ -5544,7 +5545,8 @@
   border-bottom: 1px solid var(--study-line);
 }
 .workspace-ui .airflow-endpoint-picker button {
-  flex: 1;
+  flex: 1 1 auto;
+  white-space: nowrap;
   padding: 4px;
   border-radius: 0;
   border-bottom: 2px solid transparent;
