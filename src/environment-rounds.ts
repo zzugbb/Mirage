@@ -11,7 +11,7 @@ export const environmentRounds = definition.room.environmentRounds.map(
     const points = [smokeId, trayId, probeId].map((id) =>
       definition.room.fixtures.find((f) => f.id === id)!,
     );
-    const [smoke, tray] = points;
+    const [smoke, tray, probe] = points;
     const [start, end] = trayEndpoints(tray.id);
     // 将烟感中心投影到已登记的水平桥架中心线段，端部以外取最近端点。
     const nearestX = Math.max(start[0], Math.min(end[0], smoke.position[0]));
@@ -19,6 +19,7 @@ export const environmentRounds = definition.room.environmentRounds.map(
       row,
       racks: row.rackIds.map((id) => rackById(id)!),
       points,
+      probe,
       trayReference: [nearestX, tray.position[1], tray.position[2]],
       smokeOffset: Math.hypot(
         smoke.position[0] - nearestX,

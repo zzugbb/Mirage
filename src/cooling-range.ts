@@ -18,6 +18,7 @@ export type CoolingRangeState = {
   query: string;
   filter: CoolingRangeFilter;
   rackId: string | null;
+  selectedDeviceId?: string;
 };
 export const initialCoolingRange = (): CoolingRangeState => ({
   query: "",

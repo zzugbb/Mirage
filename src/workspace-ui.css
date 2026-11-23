@@ -7262,3 +7262,26 @@
 .network-power-inputs .network-endpoint-picker {
   margin: 5px 0 8px;
 }
+
+.cooling-probe-check dl {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  gap: 6px;
+  margin: 0;
+}
+.cooling-probe-check dd {
+  margin: 0;
+  text-align: right;
+}
+.cooling-probe-check dd small {
+  display: block;
+}
+.cooling-probe-check .connection-content > button {
+  display: block;
+  margin-top: 8px;
+}
+.cooling-range-device > button[aria-pressed="true"] {
+  background: var(--raised);
+  box-shadow: inset 2px 0 #a6d8d8;
+}

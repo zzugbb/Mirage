@@ -338,6 +338,8 @@ import {
   networkMarkers,
   switchRole,
 } from "./network";
+import { coolingProbeForDevice } from "./cooling-probe";
+import { CoolingProbeCheck } from "./components/CoolingProbeCheck";
 import { CoolingConnections } from "./components/CoolingConnections";
 import {
   coolingSource,
@@ -1011,6 +1013,18 @@ export function Workspace() {
     onlyAlarms: boolean;
   } | null>(null);
   const [coolingReturning, setCoolingReturning] = useState(false);
+  const coolingProbe = useMemo(
+    () =>
+      coolingVisit?.deviceId
+        ? coolingProbeForDevice(coolingVisit.deviceId)
+        : null,
+    [coolingVisit?.deviceId],
+  );
+  const atCoolingProbe =
+    layer === "overview" &&
+    !!coolingProbe &&
+    coolingVisit?.locatedEndpoint?.id === selected &&
+    selected === coolingProbe.probe.id;
   const locatedCoolingDevice =
     layer === "airflow" && coolingVisit?.locatedEndpoint?.id === selected
       ? coolingVisit.locatedEndpoint.deviceId
@@ -1019,6 +1033,7 @@ export function Workspace() {
     if (
       coolingVisit &&
       !locatedCoolingDevice &&
+      !atCoolingProbe &&
       !coolingReturning &&
       !(
         activeAirflowVisit &&
@@ -1039,6 +1054,7 @@ export function Workspace() {
     state.deviceId,
     activeAirflowVisit,
     locatedCoolingDevice,
+    atCoolingProbe,
   ]);
   const [doorReference, setDoorReference] = useState<DoorReference>("peak");
   const [maintenanceView, setMaintenanceView] =
@@ -4110,7 +4126,10 @@ export function Workspace() {
     setAirflowVisit(null);
     setAirflowResponse(null);
     coolingRangeRestore.current = origin.position;
-    setCoolingRangeState(origin.range);
+    setCoolingRangeState({
+      ...origin.range,
+      selectedDeviceId: origin.deviceId ?? undefined,
+    });
     setRackView(origin.rackView);
     setCoolingReturning(true);
     pick(coolingSource.id, state.level !== "room");
@@ -4578,6 +4597,34 @@ export function Workspace() {
       });
     focus(id, { installation: entityById(id)?.kind === "device" });
   };
+  const coolingProbeCheck = coolingVisit &&
+    coolingProbe &&
+    !coolingReturning &&
+    state.level === "room" &&
+    (atCoolingProbe ||
+      (layer === "airflow" && airflowSelection === coolingProbe.device.id)) && (
+      <CoolingProbeCheck
+        context={coolingProbe}
+        reading={spatial.readings.get(coolingProbe.device.id)!}
+        time={state.time}
+        atProbe={atCoolingProbe}
+        ready={ready}
+        onProbe={() => {
+          setCoolingVisit({
+            ...coolingVisit,
+            locatedEndpoint: {
+              id: coolingProbe.probe.id,
+              deviceId: coolingProbe.device.id,
+            },
+          });
+          setAirflowResponse(null);
+          focus(coolingProbe.probe.id);
+          control({ type: "layer", layer: "overview" });
+          control({ type: "analysis", value: false });
+        }}
+        onDevice={() => showAirflow(coolingProbe.device.id)}
+      />
+    );
   const airflowInspector = airflow && (
     <AirflowDetails
       view={airflowStageView}
@@ -8312,6 +8359,7 @@ export function Workspace() {
                     }
                   />
                 </div>
+                {atCoolingProbe && coolingProbeCheck}
                 {slicePlaneInspector}
                 {sliceInspector}
                 {(fixture || pairedInlet) && sourceInspector}
@@ -8483,6 +8531,7 @@ export function Workspace() {
               </>
             ) : (
               <>
+                {coolingProbeCheck}
                 {airflowInspector}
                 {slicePlaneInspector}
                 {sliceInspector}

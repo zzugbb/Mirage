@@ -106,7 +106,11 @@ export function CoolingRange({
           onChange={(e) => {
             if (host.current) host.current.scrollTop = 0;
             setRowMissing(false);
-            onChange({ ...value, query: e.target.value });
+            onChange({
+              ...value,
+              selectedDeviceId: undefined,
+              query: e.target.value,
+            });
           }}
         />
       </label>
@@ -120,6 +124,7 @@ export function CoolingRange({
             setRowMissing(false);
             onChange({
               ...value,
+              selectedDeviceId: undefined,
               filter: e.target.value as CoolingRangeFilter,
             });
           }}
@@ -135,7 +140,11 @@ export function CoolingRange({
           {singleRack && value.rackId !== singleRack.id && (
             <button
               onClick={() => {
-                onChange({ ...value, rackId: singleRack.id });
+                onChange({
+                  ...value,
+                  selectedDeviceId: undefined,
+                  rackId: singleRack.id,
+                });
                 const toggle = host.current?.querySelector<HTMLButtonElement>(
                   `[aria-controls="cooling-range-${singleRack.id}"]`,
                 );
@@ -161,6 +170,7 @@ export function CoolingRange({
                 setRowMissing(false);
                 onChange({
                   ...value,
+                  selectedDeviceId: undefined,
                   rackId: value.rackId === rack.id ? null : rack.id,
                 });
               }}
@@ -216,6 +226,7 @@ export function CoolingRange({
                   return (
                     <div className="cooling-range-device" key={device.id}>
                       <button
+                        aria-pressed={device.id === value.selectedDeviceId}
                         data-cooling-action={device.id + ":preview"}
                         onClick={() => visit(device.id, rack.id)}
                         aria-label={`预览 ${device.name}服务范围设备`}
@@ -265,7 +276,12 @@ export function CoolingRange({
           <button
             onClick={() => {
               setRowMissing(false);
-              onChange({ ...value, query: "", filter: "all" });
+              onChange({
+                ...value,
+                selectedDeviceId: undefined,
+                query: "",
+                filter: "all",
+              });
             }}
           >
             清除查找与筛选
