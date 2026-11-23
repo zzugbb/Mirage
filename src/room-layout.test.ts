@@ -159,8 +159,8 @@ test("三维机房俯视与布置图同向，桌面可用画幅容纳配置边�
   }
 });
 
-test("环境与安全层仅复用七处配置中心、位置和高度，不生成占地或覆盖", () => {
-  assert.equal(roomLayoutFixtures.length, 7);
+test("环境与安全层仅复用九处配置中心、位置和高度，不生成占地或覆盖", () => {
+  assert.equal(roomLayoutFixtures.length, 9);
   assert.equal(roomLayoutScopeItems("fixtures"), roomLayoutFixtures);
   assert.equal(roomLayoutScopeItems("equipment"), roomLayoutItems);
   for (const item of roomLayoutFixtures) {

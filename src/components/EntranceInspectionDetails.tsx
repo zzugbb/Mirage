@@ -18,21 +18,32 @@ export function EntranceInspectionDetails({
   ready: boolean;
   onProbeHistory: (id: string) => void;
 }) {
-  const [peer] = entranceRelations(selectedId);
+  const peers = entranceRelations(selectedId);
   const { view } = inspection;
   return (
     <section className="entrance-view-details" aria-label="入口布置核对">
       <strong>
-        {inspection.jamb
-          ? "读卡器与洞口侧缘"
-          : view === "opening"
-            ? "洞口外缘"
-            : view === "access"
-              ? "相对机房地面的高度"
-              : "入口配置"}
+        {view === "lintel"
+          ? "出口标志与门楣"
+          : view === "lights"
+            ? "标志与应急灯"
+            : inspection.jamb
+              ? "读卡器与洞口侧缘"
+              : view === "opening"
+                ? "洞口外缘"
+                : view === "access"
+                  ? "相对机房地面的高度"
+                  : "入口配置"}
       </strong>
       <dl>
-        {inspection.jamb ? (
+        {"measure" in inspection ? (
+          <div>
+            <dt>
+              {view === "lintel" ? "标志下缘至门框上缘" : "两箱体中心水平间距"}
+            </dt>
+            <dd>{inspection.measure.toFixed(3)} m</dd>
+          </div>
+        ) : inspection.jamb ? (
           <>
             <div>
               <dt>读卡器中心至洞口{inspection.jamb.side}缘</dt>
@@ -87,8 +98,13 @@ export function EntranceInspectionDetails({
           方向量取，两端对应读卡器中心和洞口外缘。门状态和刷卡记录未接入。
         </small>
       )}
-      {peer && (
-        <div className="entrance-view-peer">
+      {"measure" in inspection && (
+        <small>
+          按样板安装位置量取。标志面板和灯头均为静态示意，供电、照度及应急自检未接入。
+        </small>
+      )}
+      {peers.map((peer) => (
+        <div key={peer.id} className="entrance-view-peer">
           <span>{peer.name}</span>
           <button
             aria-label={`预览${peer.name}`}
@@ -104,8 +120,8 @@ export function EntranceInspectionDetails({
             定位 ↗
           </button>
         </div>
-      )}
-      {inspection.jamb && (
+      ))}
+      {(inspection.jamb || "measure" in inspection) && (
         <details className="entrance-history">
           <summary>回看同机房环境探头</summary>
           <small>曲线来自各探头安装位置的模拟采样。</small>

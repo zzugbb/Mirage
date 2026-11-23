@@ -20,6 +20,8 @@ test("设施名单与环境安全布置图使用同一组点位，采样资格�
   );
   assert.deepEqual(ids(fixtureRosterRows("layout", "")), [
     "access-reader-01",
+    "emergency-light-01",
+    "exit-sign-01",
     "leak-cable-01",
     "leak-controller-01",
     "smoke-01",

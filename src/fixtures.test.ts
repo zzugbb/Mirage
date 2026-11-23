@@ -53,8 +53,8 @@ function makeFixtures() {
 
 test("机房布置设施的身份、安装对象与场景位置一致，几何可射线选择", () => {
   const { mounts, fixtures } = makeFixtures();
-  assert.equal(fixtures.size, 22);
-  assert.equal(new Set(roomFixtures.map((f) => f.id)).size, 22);
+  assert.equal(fixtures.size, 24);
+  assert.equal(new Set(roomFixtures.map((f) => f.id)).size, 24);
   for (const f of roomFixtures) {
     assert.equal(entityById(f.id)?.kind, "facility");
     assert.equal(entityById(f.id)?.parent, "room-01");
@@ -66,6 +66,7 @@ test("机房布置设施的身份、安装对象与场景位置一致，几何�
       [
         "patch-panel",
         "wall-raceway",
+        "exit-sign",
         "condensate-pipe",
         "condensate-receiver",
         "cable-tray",

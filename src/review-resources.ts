@@ -131,7 +131,8 @@ export function resourceCatalog(deviceId: string): Resource[] {
       detail: `${fixture.location} · ${environmentProbe(fixture.id) ? "温湿度模拟" : fixture.dataStatus === "not-applicable" ? "结构示意" : "未接入"}`,
       group: fixture.kind.startsWith("condensate-")
         ? "制冷与排水"
-        : fixture.dataStatus === "not-applicable"
+        : fixture.dataStatus === "not-applicable" &&
+            fixture.kind !== "exit-sign"
           ? "建筑与布线"
           : "环境与安全",
     })),

@@ -23,7 +23,7 @@ export class EntranceViewGeometry {
     const points: THREE.Vector3[] = [];
     for (const path of inspection.paths)
       for (let i = 1; i < path.length; i++) points.push(path[i - 1], path[i]);
-    const radius = inspection.jamb ? 0.018 : 0.055;
+    const radius = inspection.jamb || "measure" in inspection ? 0.018 : 0.055;
     for (const marker of inspection.markers) {
       const center = marker.point;
       for (let i = 0; i < 24; i++)

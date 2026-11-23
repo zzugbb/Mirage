@@ -8881,7 +8881,14 @@ export function Workspace() {
                     }
                     onInspectEntrance={
                       layer === "overview" && state.level === "room"
-                        ? () => requestEntranceView("all")
+                        ? () =>
+                            requestEntranceView(
+                              fixture.kind === "exit-sign"
+                                ? "lintel"
+                                : fixture.kind === "emergency-light"
+                                  ? "lights"
+                                  : "all",
+                            )
                         : undefined
                     }
                     onInspectLeak={

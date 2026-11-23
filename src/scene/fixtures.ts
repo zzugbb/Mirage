@@ -1,3 +1,4 @@
+import { buildEntranceLighting } from "./entrance-lighting.ts";
 import { buildCondensate } from "./condensate.ts";
 import { floorGrilleSettings } from "../floor-grilles.ts";
 import definition from "../../assets/public/scenes/room-01.json" with { type: "json" };
@@ -104,6 +105,11 @@ export function buildRoomFixtures(
         );
     } else if (fixture.kind === "patch-panel") {
       buildPatchPanel(group, fixture.name.split(" ")[0]);
+    } else if (
+      fixture.kind === "exit-sign" ||
+      fixture.kind === "emergency-light"
+    ) {
+      buildEntranceLighting(group, fixture.kind === "exit-sign");
     } else if (fixture.kind === "entrance") {
       buildEntrance(group);
     } else if (fixture.kind === "cable-tray") {

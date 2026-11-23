@@ -18,15 +18,26 @@ export const entranceLeaf = {
   bottom: -s.openingHeight / 2 + s.floorGap,
   pivotZ: s.frameDepth / 2,
 };
-/** 仅关联入口旁的已登记读卡器，不推断门锁接线或访问控制状态。 */
+export const exitSign = definition.room.fixtures.find(
+  (f) => f.id === s.lighting.signId,
+)!;
+export const emergencyLight = definition.room.fixtures.find(
+  (f) => f.id === s.lighting.lampId,
+)!;
+// 配对只用于门区位置核对。门锁接线与灯具供电未登记。
+const pairs = [
+  [s.fixtureId, s.readerId, "入口布置对应"],
+  [s.fixtureId, exitSign.id, "门楣与标志"],
+  [exitSign.id, emergencyLight.id, "同墙安装"],
+];
 export function entranceRelations(id: string) {
-  if (![s.fixtureId, s.readerId].includes(id)) return [];
-  const counterpart = definition.room.fixtures.find(
-    (fixture) => fixture.id === (id === s.fixtureId ? s.readerId : s.fixtureId),
-  )!;
-  return [
-    { id: counterpart.id, name: counterpart.name, relation: "入口布置对应" },
-  ];
+  return pairs.flatMap(([a, b, relation]) => {
+    if (a !== id && b !== id) return [];
+    const peer = definition.room.fixtures.find(
+      (f) => f.id === (a === id ? b : a),
+    )!;
+    return [{ id: peer.id, name: peer.name, relation }];
+  });
 }
 /** 覆盖门框和展开门扇；所有坐标相对于入口中心，不随模拟时间变化。 */
 export function entranceSightOffsets() {

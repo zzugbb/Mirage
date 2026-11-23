@@ -9,6 +9,8 @@ const types: Partial<Record<string, { name: string; signal: string }>> = {
   "leak-controller": { name: "检漏", signal: "漏水信号未接入" },
   "leak-cable": { name: "检漏", signal: "漏水信号未接入" },
   smoke: { name: "烟感", signal: "烟感信号未接入" },
+  "exit-sign": { name: "门区标志", signal: "标志安装布置" },
+  "emergency-light": { name: "门区照明", signal: "灯具状态与照度未接入" },
   access: { name: "门禁", signal: "刷卡记录与门状态未接入" },
 };
 /** 名单与布置图共用登记的点位，是否提供模拟读数由采样配置决定。 */

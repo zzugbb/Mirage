@@ -40,7 +40,7 @@ test("入口门、门洞与读卡器共用登记位置，只建立布置对应",
   const reader = fixtureById(s.readerId)!;
   assert.deepEqual(
     entranceRelations(fixture.id).map((r) => r.id),
-    [reader.id],
+    [reader.id, s.lighting.signId],
   );
   assert.deepEqual(
     entranceRelations(reader.id).map((r) => r.id),

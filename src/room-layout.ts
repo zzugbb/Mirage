@@ -143,6 +143,8 @@ export const roomLayoutFixtures: RoomLayoutItem[] = fixtureRoster.map(
     id: item.id,
     name: item.name,
     short: item.name
+      .replace("门上出口标志", "出口标志")
+      .replace("门区应急灯", "应急灯")
       .replace("环境探头", "环境")
       .replace("门禁读卡器", "门禁")
       .replace("漏水检测控制器", "检漏控制")
@@ -155,15 +157,21 @@ export const roomLayoutFixtures: RoomLayoutItem[] = fixtureRoster.map(
     height: item.position[1],
     location: item.location,
     labelOffset:
-      item.kind === "environment"
-        ? [40, 20]
-        : item.kind === "leak-controller"
-          ? [70, -15]
-          : item.kind === "leak-cable"
-            ? [70, 18]
-            : item.id === "smoke-01"
-              ? [52, 16]
-              : [0, 16],
+      item.kind === "exit-sign"
+        ? [-4, -17]
+        : item.kind === "emergency-light"
+          ? [28, 18]
+          : item.kind === "access"
+            ? [-20, 17]
+            : item.kind === "environment"
+              ? [40, 20]
+              : item.kind === "leak-controller"
+                ? [70, -15]
+                : item.kind === "leak-cable"
+                  ? [70, 18]
+                  : item.id === "smoke-01"
+                    ? [52, 16]
+                    : [0, 16],
   }),
 );
 export const roomLayoutLeakPath = {

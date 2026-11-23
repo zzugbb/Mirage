@@ -4,6 +4,8 @@ import {
   entranceFixture,
   entranceLeaf,
   entranceOpening,
+  emergencyLight,
+  exitSign,
 } from "./entrance.ts";
 import { fixtureById } from "./fixtures.ts";
 import { observationFrame, type FrameRect } from "./observation-frame.ts";
@@ -12,6 +14,8 @@ export const entranceViews = [
   { id: "all", label: "入口全貌" },
   { id: "opening", label: "洞口尺寸" },
   { id: "access", label: "读卡器与把手" },
+  { id: "lintel", label: "出口标志与门楣" },
+  { id: "lights", label: "标志与应急灯" },
   { id: "jamb", label: "读卡器与洞口侧缘" },
 ] as const;
 export type EntranceView = (typeof entranceViews)[number]["id"];
@@ -20,7 +24,7 @@ export type EntranceViewCommand = {
   view: EntranceView | null;
 };
 export const entranceViewIncludes = (id: string) =>
-  [s.fixtureId, s.readerId].includes(id);
+  [s.fixtureId, s.readerId, exitSign.id, emergencyLight.id].includes(id);
 
 /** 把手轴沿用门扇局部坐标与静态展示角；高度为机房坐标，不是从洞口底部重算的安装规范。 */
 export function entranceHandlePoint() {
@@ -45,6 +49,70 @@ export function entranceInspection(view: EntranceView) {
     handleHeight: handle.y,
     openingBottom: opening.bottom,
   };
+  if (view === "lintel" || view === "lights") {
+    const sign = new Vector3().fromArray(exitSign.position);
+    const lamp = new Vector3().fromArray(emergencyLight.position);
+    const [w, h, d] = s.lighting.signSize;
+    const [lw, lh, ld] = s.lighting.lampBodySize;
+    const bottom = sign.y - h / 2;
+    const signFront = sign.z + d / 2 + 0.001;
+    const lintel = view === "lintel";
+    const measure = lintel ? bottom - opening.top : Math.abs(lamp.x - sign.x);
+    const dimZ = Math.max(z, signFront, lamp.z + ld / 2) + 0.015;
+    const lineY =
+      Math.max(sign.y + h / 2, lamp.y + lh / 2 + s.lighting.headRadius * 2.55) +
+      0.065;
+    const dimX = sign.x - w / 2 - 0.06;
+    const line = lintel
+      ? [opening.top, bottom].map((y) => new Vector3(dimX, y, dimZ))
+      : [sign.x, lamp.x].map((x) => new Vector3(x, lineY, dimZ));
+    const tick = lintel ? new Vector3(0.029, 0, 0) : new Vector3(0, 0.029, 0);
+    const markers = lintel
+      ? [
+          {
+            id: "entrance-sign",
+            title: exitSign.name,
+            point: new Vector3(sign.x + w * 0.4, bottom + 0.008, signFront),
+          },
+          {
+            id: "entrance-head",
+            title: "门框上缘",
+            point: corner(sign.x, opening.top - 0.008),
+          },
+        ]
+      : [
+          {
+            id: "entrance-sign",
+            title: exitSign.name,
+            point: new Vector3(sign.x + w * 0.44, sign.y, signFront),
+          },
+          {
+            id: "entrance-light",
+            title: emergencyLight.name,
+            point: new Vector3(lamp.x, lamp.y, lamp.z + ld / 2 + 0.001),
+          },
+        ];
+    const paths = [
+      line,
+      ...line.map((p) => [p.clone().sub(tick), p.clone().add(tick)]),
+    ];
+    const points = [
+      ...paths.flat(),
+      ...markers.map((m) => m.point),
+      new Vector3(sign.x - w / 2, bottom, signFront),
+      new Vector3(sign.x + w / 2, sign.y + h / 2, signFront),
+      ...(lintel
+        ? [
+            corner(opening.left, opening.top - 0.2),
+            corner(opening.right, opening.top),
+          ]
+        : [
+            new Vector3(lamp.x + lw / 2, lamp.y - lh / 2, lamp.z + ld / 2),
+            new Vector3(lamp.x - lw / 2, lineY, lamp.z),
+          ]),
+    ];
+    return { view, jamb: null, measure, paths, markers, points, ...heights };
+  }
   if (view === "jamb") {
     const left = reader.x <= entranceFixture.position[0];
     const x = left ? opening.left : opening.right;
@@ -180,11 +248,17 @@ export function entranceViewFrame(
 ) {
   return observationFrame(
     inspection.points,
-    inspection.jamb ? new Vector3(0, 0.05, 1) : new Vector3(0.3, 0.12, 1),
+    inspection.jamb || "measure" in inspection
+      ? new Vector3(0, 0.05, 1)
+      : new Vector3(0.3, 0.12, 1),
     width,
     height,
     rect,
-    inspection.jamb ? 1.6 : inspection.view === "access" ? 2.4 : 4.2,
+    inspection.jamb || "measure" in inspection
+      ? 1.6
+      : inspection.view === "access"
+        ? 2.4
+        : 4.2,
     0.15,
   );
 }

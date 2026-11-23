@@ -12,6 +12,8 @@ import {
 import definition from "../assets/public/scenes/room-01.json" with { type: "json" };
 import {
   entranceFixture,
+  exitSign,
+  emergencyLight,
   entranceOpening,
   entranceSettings,
 } from "./entrance.ts";
@@ -22,12 +24,18 @@ import {
   entranceViews,
   entranceViewIncludes,
 } from "./entrance-view.ts";
+import { buildEntranceLighting } from "./scene/entrance-lighting.ts";
 import { buildEntrance } from "./scene/entrance.ts";
 import { EntranceViewGeometry } from "./scene/entrance-view.ts";
 
-test("入口核对仅延续门与读卡器，洞口与高度来自既有配置且不修改静态门扇", () => {
+test("入口核对沿用门区已登记设施，洞口与高度来自既有配置且不修改静态门扇", () => {
   const before = JSON.stringify(definition.room);
-  for (const id of [entranceSettings.fixtureId, entranceSettings.readerId])
+  for (const id of [
+    entranceSettings.fixtureId,
+    entranceSettings.readerId,
+    entranceSettings.lighting.signId,
+    entranceSettings.lighting.lampId,
+  ])
     assert.equal(entranceViewIncludes(id), true);
   for (const id of ["room-01", "power-01", "rack-a08", "smoke-01", "unknown"])
     assert.equal(entranceViewIncludes(id), false);
@@ -210,4 +218,41 @@ test("入口轮廓与端点切换不残留，保留深度遮挡并独立释放",
   assert.equal(drawing.root.visible, false);
   drawing.dispose();
   assert.equal(parent.children.length, 0);
+});
+
+test("门上标志与应急灯贴合内墙，两个核对范围的尺寸线取实际外壳与门框", () => {
+  const door = new Group();
+  door.position.fromArray(entranceFixture.position);
+  buildEntrance(door);
+  door.updateMatrixWorld(true);
+  const head = new Box3().setFromObject(door.getObjectByName("entrance-head")!);
+  const cases = [exitSign, emergencyLight].map((f) => {
+    const group = new Group();
+    group.position.fromArray(f.position);
+    buildEntranceLighting(group, f.id === exitSign.id);
+    group.updateMatrixWorld(true);
+    return new Box3().setFromObject(
+      group.getObjectByName(
+        f.id === exitSign.id ? "exit-sign-case" : "emergency-light-case",
+      )!,
+    );
+  });
+  const [sign, lamp] = cases;
+  const wallFace =
+    -definition.room.size[2] / 2 + definition.room.wallThickness / 2;
+  const close = (a: number, b: number) =>
+    assert.ok(Math.abs(a - b) < 1e-6, `${a} / ${b}`);
+  for (const body of cases) close(body.min.z, wallFace);
+  assert.ok(sign.min.y > head.max.y && sign.max.x < lamp.min.x);
+  const lintel = entranceInspection("lintel"),
+    lights = entranceInspection("lights");
+  assert.ok("measure" in lintel && "measure" in lights);
+  close(lintel.measure, sign.min.y - head.max.y);
+  close(lintel.paths[0][0].y, head.max.y);
+  close(lintel.paths[0][1].y, sign.min.y);
+  close(
+    lights.measure,
+    lamp.getCenter(new Vector3()).x - sign.getCenter(new Vector3()).x,
+  );
+  close(lights.paths[0][0].distanceTo(lights.paths[0][1]), lights.measure);
 });
