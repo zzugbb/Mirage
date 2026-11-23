@@ -23,6 +23,7 @@ import {
   patchGuideCenter,
   patchGuideKeys,
   guidesOnPatch,
+  linksThroughPatchGuide,
   sideGuides,
 } from "./network-patch.ts";
 import { NetworkGeometry } from "./scene/network.ts";
@@ -441,4 +442,36 @@ test("跨柜连接、未知设备和同柜非交换机对端不显示柜内跳�
   for (const target of ["sw-01", "srv-03", "missing"])
     assert.equal(supportsNetworkPatch({ ...link, target }), false);
   assert.equal(supportsNetworkPatch({ ...link, source: "missing" }), false);
+});
+
+test("同环名单限当前柜与实际穿过的环口，分别保留服务器和存储的 A/B 对端", () => {
+  for (const load of ["ready", "failed"] as const) {
+    const models = {
+      ...assets,
+      "storage-4u": load,
+      "server-1u": load,
+      "server-2u": load,
+      "switch-1u": load,
+    };
+    for (const guide of patchGuideKeys) {
+      const list = linksThroughPatchGuide(rack, guide, models);
+      const expected = networkLinks.filter((link) => {
+        if (rackForDevice(link.source).id !== rackForDevice(rack.deviceId).id)
+          return false;
+        const start = deviceById(link.source)!.startUnit;
+        return (
+          guide === "outlet" || (guide === "upper" ? start < 35 : start < 30)
+        );
+      });
+      assert.deepEqual(list, expected);
+      assert.deepEqual(
+        list.filter((l) => l.source === "sto-01").map((l) => l.target),
+        ["sw-13", "sw-14"],
+      );
+    }
+    assert.deepEqual(
+      linksThroughPatchGuide({ ...rack, trayExtended: true }, "upper", models),
+      [],
+    );
+  }
 });

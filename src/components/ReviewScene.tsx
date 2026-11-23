@@ -158,7 +158,9 @@ import {
   patchSections,
   patchSectionOffsetMm,
   isPatchGuide,
+  type PatchGuide,
   guidesOnPatch,
+  linksThroughPatchGuide,
   sideGuides,
 } from "../network-patch";
 import { NetworkGeometry } from "../scene/network";
@@ -257,6 +259,7 @@ export function ReviewScene({
   networkView,
   onNetworkViewChange,
   onNetworkView,
+  onGuideBranch,
   powerLinkId = null,
   pduInspection = null,
   onClearPower,
@@ -317,6 +320,7 @@ export function ReviewScene({
   networkViewCommand: NetworkViewCommand | null;
   networkView: NetworkView | null;
   onNetworkViewChange: (view: NetworkView | null) => void;
+  onGuideBranch: (id: string, guide: PatchGuide) => void;
   onNetworkView: (action: NetworkViewCommand["action"]) => void;
   sliceViewCommand: SliceViewCommand | null;
   slicePlaneActive: boolean;
@@ -747,6 +751,20 @@ export function ReviewScene({
     patch && isPatchGuide(networkView)
       ? sideGuides.positions[networkView]
       : null;
+  const guideLinks = useMemo(
+    () =>
+      patchGuide && isPatchGuide(networkView)
+        ? linksThroughPatchGuide(state, networkView, assets)
+        : [],
+    [
+      patchGuide,
+      networkView,
+      state.deviceId,
+      state.level,
+      state.trayExtended,
+      assets,
+    ],
+  );
   const patchSection =
     patch && networkView && networkView !== "observe"
       ? isPatchGuide(networkView)
@@ -1723,6 +1741,15 @@ export function ReviewScene({
     else engine.current?.updatePowerView(selectedId, powerLinkId);
   }, [supply, layer, selectedId, isolatedPartId, shotRevision, retry]);
   useEffect(() => {
+    networkGeometry.current?.update(
+      visibleNetworkMarkers,
+      network.length ? patch : null,
+      selectedId,
+      patchSection,
+    );
+    if (engine.current) engine.current.patchPoints = patch;
+  }, [network, visibleNetworkMarkers, patch, selectedId, patchSection, retry]);
+  useEffect(() => {
     const active = engine.current;
     if (!active || !networkViewCommand) return;
     if (networkViewCommand.action === "return") {
@@ -1738,15 +1765,6 @@ export function ReviewScene({
     }
     setView(active.currentView);
   }, [networkViewCommand?.revision]);
-  useEffect(() => {
-    networkGeometry.current?.update(
-      visibleNetworkMarkers,
-      network.length ? patch : null,
-      selectedId,
-      patchSection,
-    );
-    if (engine.current) engine.current.patchPoints = patch;
-  }, [network, visibleNetworkMarkers, patch, selectedId, patchSection, retry]);
   useEffect(() => {
     engine.current?.updateNetworkView(
       selectedId,
@@ -2784,6 +2802,27 @@ export function ReviewScene({
                       <option key={key} value={key}>
                         {sideGuides.positions[key].label} · U
                         {sideGuides.positions[key].unit}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              {isPatchGuide(networkView) && guideLinks.length > 0 && (
+                <label className="network-patch-section">
+                  同环分支（{guideLinks.length}）
+                  <select
+                    aria-label="穿过当前理线环的配置分支"
+                    value={networkLink.id}
+                    disabled={!sceneSettled}
+                    onChange={(event) =>
+                      onGuideBranch(event.target.value, networkView)
+                    }
+                  >
+                    {guideLinks.map((link) => (
+                      <option key={link.id} value={link.id}>
+                        {deviceById(link.source)?.name} →{" "}
+                        {deviceById(link.target)?.name} /{" "}
+                        {String(link.targetPort).padStart(2, "0")}
                       </option>
                     ))}
                   </select>

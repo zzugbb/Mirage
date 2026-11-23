@@ -6404,6 +6404,11 @@ export function Workspace() {
             networkView={networkView}
             onNetworkViewChange={setNetworkView}
             onNetworkView={requestNetworkView}
+            onGuideBranch={(id, guide) => {
+              setPortCheck(null);
+              changeNetworkTrace(id);
+              requestNetworkView(guide);
+            }}
             powerLinkId={activePowerLink}
             pduInspection={pduInspection}
             sliceViewCommand={sliceViewCommand}

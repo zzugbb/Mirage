@@ -1,5 +1,5 @@
 import definition from "../assets/public/scenes/room-01.json" with { type: "json" };
-import { partsForDevice, modelForDevice } from "./catalog.ts";
+import { partsForDevice, modelForDevice, networkLinks } from "./catalog.ts";
 import {
   deviceHeight,
   installedFrontZ,
@@ -201,4 +201,16 @@ export function networkPatch(
     point(accessBankX, ty, fz),
     point(accessBankX, ty, tz),
   ];
+}
+
+// 只列当前安装视图中穿过同一环口的示意路径，两路接入分别核对。
+export function linksThroughPatchGuide(
+  state: AppState,
+  guide: PatchGuide,
+  assets: ModelLoadState,
+) {
+  return networkLinks.filter((link) => {
+    const points = networkPatch(state, link, assets);
+    return points && guidesOnPatch(points, link.source).includes(guide);
+  });
 }

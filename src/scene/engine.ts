@@ -1052,6 +1052,18 @@ export class SceneEngine {
         !guidesOnPatch(this.patchPoints, sourceId).includes(view))
     )
       return;
+    const current = this.networkObservation;
+    if (
+      isPatchGuide(view) &&
+      current?.view === view &&
+      rackForDevice(current.sourceId).id === rackForDevice(sourceId).id
+    ) {
+      // 同一实体环位换线只替换分支，保留近景和进入核查前的镜头。
+      current.sourceId = sourceId;
+      current.targets = targets;
+      current.key = JSON.stringify(this.patchPoints);
+      return;
+    }
     const previous =
       this.networkObservation?.previous ?? this.captureObservationView();
     this.clearAirflowView();
