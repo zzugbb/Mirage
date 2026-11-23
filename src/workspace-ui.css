@@ -4939,6 +4939,19 @@
   summary {
   cursor: pointer;
 }
+.leak-floor-segment {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.leak-floor-segment select {
+  color: inherit;
+  background: var(--raised);
+  border: 1px solid var(--study-line);
+  border-radius: 4px;
+  padding: 4px 8px;
+}
 .entrance-view-peer,
 .leak-view-preview,
 .leak-view-preview label,

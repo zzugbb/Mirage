@@ -1,4 +1,9 @@
-import { leakDetection } from "../leak-detection";
+import {
+  leakDetection,
+  nearbyCooling,
+  leakCable,
+  leakController,
+} from "../leak-detection";
 import type { LeakInspection } from "../leak-view";
 
 export function LeakInspectionDetails({
@@ -7,12 +12,16 @@ export function LeakInspectionDetails({
   onPreview,
   onLocate,
   ready,
+  onSegment,
+  onHistory,
 }: {
   inspection: LeakInspection;
   selectedId: string;
   onPreview: (id: string) => void;
   onLocate: (id: string) => void;
   ready: boolean;
+  onSegment: (index: number) => void;
+  onHistory: () => void;
 }) {
   const { view, markers, leadLength, sensingLength } = inspection;
   const coordinates = (
@@ -33,7 +42,46 @@ export function LeakInspectionDetails({
   );
   return (
     <section className="leak-view-details" aria-label="检漏布置核对">
-      {view === "end" ? (
+      {inspection.floor ? (
+        <>
+          <strong>{leakCable.location}</strong>
+          <label className="leak-floor-segment">
+            核对感应段
+            <select
+              aria-label="核对感应段"
+              value={inspection.floor.index}
+              disabled={!ready}
+              onChange={(e) => onSegment(Number(e.target.value))}
+            >
+              {leakDetection.sensingPoints.slice(1).map((_, i) => (
+                <option key={i} value={i}>
+                  第 {i + 1} 段
+                </option>
+              ))}
+            </select>
+          </label>
+          <dl>
+            <div>
+              <dt>柜旁位置（机房坐标）</dt>
+              <dd>{inspection.floor.side}</dd>
+            </div>
+            <div>
+              <dt>本段配置长度</dt>
+              <dd>{inspection.floor.length.toFixed(2)} m</dd>
+            </div>
+            <div>
+              <dt>段中至柜体投影</dt>
+              <dd>{inspection.floor.distance.toFixed(3)} m</dd>
+            </div>
+          </dl>
+          <small>
+            虚线框为柜体配置投影，尺寸线从所选段中点量至框边。检漏信号未接入，探测范围未登记。
+          </small>
+          <button disabled={!ready} onClick={onHistory}>
+            回看{nearbyCooling.name}输入 ↗
+          </button>
+        </>
+      ) : view === "end" ? (
         <>
           <strong>封接位置</strong>
           {coordinates}
@@ -69,20 +117,26 @@ export function LeakInspectionDetails({
             value={selectedId}
             onChange={(event) => onPreview(event.target.value)}
           >
-            <option value={leakDetection.controllerId}>检漏控制器</option>
-            <option value={leakDetection.cableId}>感应线</option>
-            <option value={leakDetection.nearbyFacilityId}>邻近制冷单元</option>
+            <option value={leakDetection.controllerId}>
+              {leakController.name}
+            </option>
+            <option value={leakDetection.cableId}>{leakCable.name}</option>
+            <option value={leakDetection.nearbyFacilityId}>
+              邻近{nearbyCooling.name}
+            </option>
           </select>
         </label>
         <button disabled={!ready} onClick={() => onLocate(selectedId)}>
           定位 ↗
         </button>
       </div>
-      <small>
-        {selectedId === leakDetection.nearbyFacilityId
-          ? "制冷单元与感应线相邻，监测覆盖未登记。"
-          : "检漏路径为配置布置，未接入漏水信号。"}
-      </small>
+      {!inspection.floor && (
+        <small>
+          {selectedId === leakDetection.nearbyFacilityId
+            ? "制冷单元与感应线相邻，监测覆盖未登记。"
+            : "检漏路径为配置布置，未接入漏水信号。"}
+        </small>
+      )}
     </section>
   );
 }

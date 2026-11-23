@@ -1496,9 +1496,11 @@ export class SceneEngine {
     this.onLeakView(null);
     this.invalidate();
   }
-  observeLeak(view: LeakView) {
-    const pair = leakInspection(view);
-    if (this.state.level !== "room" || this.moving) return;
+  observeLeak(view: LeakView, segment?: number) {
+    // 同一次观察内允许改选目标段，保留首次镜头并接续尚未结束的取景。
+    if (this.state.level !== "room" || (this.moving && !this.leakObservation))
+      return;
+    const pair = leakInspection(view, segment);
     this.clearEntranceView();
     this.clearEnvironmentView();
     this.clearInletView();
@@ -1513,7 +1515,8 @@ export class SceneEngine {
     this.clearAirflowView();
     this.panelViewport = undefined;
     this.leakObservation = { pair, previous };
-    this.currentView = view === "all" || view === "sensing" ? "top" : "iso";
+    this.currentView =
+      view === "all" || view === "sensing" || view === "floor" ? "top" : "iso";
     this.currentFocus = false;
     this.interior = false;
     this.controls.minAzimuthAngle = -Infinity;

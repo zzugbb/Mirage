@@ -62,10 +62,73 @@ test("检漏观察只沿已登记引线、感应线与封端，不补闭环或�
     assert.equal(leakViewIncludes(id), false);
 });
 
+test("柜旁三段分别取配置端点、机房方位及段中到柜体投影的水平距离", () => {
+  const before = JSON.stringify(definition);
+  for (const [index, length, distance, side] of [
+    [0, 1.5, 0.375, "+Z 侧"],
+    [1, 1.35, 0.225, "+X 侧"],
+    [2, 1.5, 0.325, "−Z 侧"],
+  ] as const) {
+    const inspection = leakInspection("floor", index);
+    const floor = inspection.floor!;
+    assert.equal(floor.index, index);
+    assert.deepEqual(
+      arrays(inspection.paths[0]),
+      leakDetection.sensingPoints.slice(index, index + 2),
+    );
+    assert.ok(Math.abs(floor.length - length) < 1e-10);
+    assert.equal(floor.side, side);
+    assert.ok(Math.abs(floor.distance - distance) < 1e-10);
+    assert.equal(floor.middle.y, floor.edge.y);
+    assert.deepEqual(
+      inspection.markers.map((m) => m.objectId),
+      [leakDetection.cableId, leakDetection.nearbyFacilityId],
+    );
+    assert.deepEqual(
+      arrays(inspection.points.slice(0, 4)),
+      leakDetection.sensingPoints,
+    );
+    assert.equal(floor.corners.length, 8);
+    floor.start.set(0, 0, 0);
+  }
+  for (const invalid of [-1, 3, 0.5, NaN])
+    assert.equal(leakInspection("floor", invalid).floor!.index, 0);
+  assert.equal(JSON.stringify(definition), before);
+});
+
+test("地面尺寸线只标当前段，换段后重画两端刻线", () => {
+  const drawing = new LeakViewGeometry();
+  const line = drawing.root.children[0] as LineSegments;
+  for (const index of [0, 2, 1]) {
+    const inspection = leakInspection("floor", index);
+    drawing.update(inspection);
+    const positions = line.geometry.getAttribute("position");
+    const floor = inspection.floor!;
+    const footprint = floor.footprint;
+    let vertex = 8;
+    footprint.forEach((start, i) => {
+      const end = footprint[(i + 1) % footprint.length];
+      const dashes = Math.ceil(start.distanceTo(end) / 0.13);
+      const first = new Vector3().fromBufferAttribute(positions, vertex);
+      first.y -= 0.018;
+      assert.ok(first.distanceTo(start) < 1e-6);
+      vertex += 2 * dashes;
+    });
+    assert.equal(positions.count, vertex);
+    const measured = [floor.start, floor.end, floor.middle, floor.edge];
+    measured.forEach((expected, i) => {
+      const position = new Vector3().fromBufferAttribute(positions, i);
+      position.y -= 0.018;
+      assert.ok(position.distanceTo(expected) < 1e-6);
+    });
+  }
+  drawing.dispose();
+});
+
 test("检漏观察的剖切采样覆盖每个转折和直段，间隔不超过 0.3 米", () => {
   for (const { id } of leakViews) {
     const inspection = leakInspection(id);
-    for (const point of inspection.points)
+    for (const point of inspection.paths.flat())
       assert.ok(
         inspection.sightPoints.some((p) => p.distanceTo(point) < 1e-10),
       );

@@ -242,7 +242,12 @@ import { rackBlankingUnits, unitRanges } from "./rack-blanking";
 import { fixtureById } from "./fixtures";
 import { powerContextIncludes, powerLinkById } from "./power-trace";
 import { rackTrayRelations } from "./cable-trays";
-import { leakRelations } from "./leak-detection";
+import {
+  isLeakFixture,
+  leakRelations,
+  leakCable,
+  nearbyCooling,
+} from "./leak-detection";
 import { FixtureDetails, FixtureRelations } from "./components/FixtureDetails";
 import { entityById, getPath, presentationKey } from "./domain";
 import type { Action } from "./domain";
@@ -1031,10 +1036,11 @@ export function Workspace() {
   const [leakView, setLeakView] = useState<LeakInspection | null>(null);
   const [leakViewCommand, setLeakViewCommand] =
     useState<LeakViewCommand | null>(null);
-  const requestLeakView = (view: LeakView | null) => {
+  const requestLeakView = (view: LeakView | null, segment?: number) => {
     takeover();
     setLeakViewCommand((current) => ({
       view,
+      segment,
       revision: (current?.revision ?? 0) + 1,
     }));
   };
@@ -5775,7 +5781,8 @@ export function Workspace() {
                                 >
                                   {data
                                     ? style.icon
-                                    : isCoolingSource(row.id) ||
+                                    : isLeakFixture(row.id) ||
+                                        isCoolingSource(row.id) ||
                                         environmentProbe(row.id)
                                       ? "◇"
                                       : "—"}
@@ -5835,6 +5842,7 @@ export function Workspace() {
                                 if (
                                   roomResourceList &&
                                   (environmentRoundFor(row.id) ||
+                                    isLeakFixture(row.id) ||
                                     isCoolingSource(row.id) ||
                                     row.id === powerSettings.sourceId)
                                 ) {
@@ -7934,6 +7942,11 @@ export function Workspace() {
                 ) : leakView ? (
                   <LeakInspectionDetails
                     inspection={leakView}
+                    onSegment={(index) => requestLeakView("floor", index)}
+                    onHistory={() => {
+                      pick(nearbyCooling.id);
+                      analyze();
+                    }}
                     selectedId={selected}
                     onPreview={pick}
                     onLocate={focus}
@@ -8077,7 +8090,20 @@ export function Workspace() {
                       relations={leakRelations(selected)}
                       onPreview={pick}
                       onLocate={focus}
-                    />
+                    >
+                      {layer === "overview" &&
+                        state.level === "room" &&
+                        selected === nearbyCooling.id && (
+                          <div className="leak-view-entry">
+                            <button
+                              disabled={!ready}
+                              onClick={() => requestLeakView("floor")}
+                            >
+                              核对{leakCable.location} ↗
+                            </button>
+                          </div>
+                        )}
+                    </FixtureRelations>
                   </>
                 ) : reading ? (
                   <>

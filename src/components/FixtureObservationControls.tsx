@@ -5,8 +5,10 @@ export function FixtureObservationControls<T extends string>({
   value,
   ready,
   onView,
+  note,
 }: {
   title: string;
+  note?: string;
   subject: string;
   views: readonly { id: T; label: string }[];
   value: T;
@@ -42,6 +44,7 @@ export function FixtureObservationControls<T extends string>({
           ))}
         </select>
       </label>
+      {note && <small>{note}</small>}
       <button disabled={!ready} onClick={() => onView(null)}>
         返回原视角
       </button>

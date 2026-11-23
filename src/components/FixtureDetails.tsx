@@ -248,6 +248,7 @@ export function FixtureDetails({
 
 export function FixtureRelations({
   relations,
+  children,
   title = "布置关系",
   onCompare,
   compareLabel = "核对交叉高度",
@@ -255,6 +256,7 @@ export function FixtureRelations({
   onPreview,
   onLocate,
 }: {
+  children?: ReactNode;
   relations: { id: string; name: string; relation: string }[];
   title?: string;
   onCompare?: (id: string) => void;
@@ -300,6 +302,7 @@ export function FixtureRelations({
           )}
         </div>
       ))}
+      {children}
     </details>
   );
 }

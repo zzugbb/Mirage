@@ -1437,9 +1437,9 @@ export function ReviewScene({
       active.restoreLeakView();
     } else if (layer === "overview") {
       fixtureReturnEntry.current = null;
-      fixtureRangeFocus.current = true;
+      fixtureRangeFocus.current = leakViewCommand.segment === undefined;
       setOrbit(false);
-      active.observeLeak(leakViewCommand.view);
+      active.observeLeak(leakViewCommand.view, leakViewCommand.segment);
     }
     setView(active.currentView);
   }, [leakViewCommand?.revision]);
@@ -2036,6 +2036,7 @@ export function ReviewScene({
               hidden
               aria-hidden="true"
               data-anchor={marker.id}
+              data-hotspot={leakView.floor ? "center" : undefined}
               data-anchor-kind="position"
               data-anchor-position={marker.point.toArray().join(",")}
               className="review-flow-anchor review-crossing-anchor"
@@ -2429,6 +2430,11 @@ export function ReviewScene({
           {leakView && (
             <FixtureObservationControls
               title="检漏路径"
+              note={
+                leakView.floor
+                  ? `制冷单元 · ${assets["cooling-01"] === "ready" ? "贡献模型外观" : assets["cooling-01"] === "failed" ? "加载失败 · 简化柜体" : "简化柜体"}`
+                  : undefined
+              }
               subject="检漏"
               views={leakViews}
               value={leakView.view}
