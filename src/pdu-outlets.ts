@@ -1,4 +1,10 @@
-import { pduById, pduName, powerLinks, powerSettings } from "./power-config.ts";
+import {
+  pduById,
+  pduName,
+  powerLinks,
+  powerSettings,
+  type PowerLink,
+} from "./power-config.ts";
 import { deviceById, rackForDevice } from "./installation.ts";
 import { unitLabel, partsForDevice, subpartsForDevice } from "./catalog.ts";
 import {
@@ -6,14 +12,75 @@ import {
   powerScene,
   type PowerScene,
 } from "./power-paths.ts";
+import { powerPairLinks } from "./power-view.ts";
 import type { AppState } from "./domain.ts";
 
-export type PduInspection = {
+type OutletPosition = {
   pduId: string;
   outlet: number | null;
   query: string;
   scroll: number;
 };
+
+export type PduInspection = OutletPosition & { peer?: OutletPosition };
+
+export function peerOutlet(link: PowerLink) {
+  const peer = powerPairLinks(link.id).find(
+    (candidate) => candidate.id !== link.id,
+  );
+  if (!peer) return null;
+  const from = pduOutletPosition(link.pduId, link.outlet);
+  const to = pduOutletPosition(peer.pduId, peer.outlet);
+  const rack = rackForDevice(link.deviceId);
+  const side = (x: number) =>
+    x > rack.position[0]
+      ? "柜后左侧"
+      : x < rack.position[0]
+        ? "柜后右侧"
+        : "柜后中央";
+  return {
+    link: peer,
+    fromSide: side(from[0]),
+    toSide: side(to[0]),
+    lateral: Math.abs(to[0] - from[0]),
+    heightDifference: Math.abs(to[1] - from[1]),
+  };
+}
+
+/** 两侧各记自己的插座查找和滚动；换设备或选择空位后重新开始。 */
+export function locatePduOutlet(
+  current: PduInspection | null,
+  link: PowerLink,
+): PduInspection {
+  const target = {
+    pduId: link.pduId,
+    outlet: link.outlet,
+    query: "",
+    scroll: 0,
+  };
+  if (!current) return target;
+  if (current.pduId === link.pduId && current.outlet === link.outlet)
+    return current;
+  const origin = pduOutlet(current.pduId, current.outlet)?.link;
+  if (
+    !origin ||
+    origin.deviceId !== link.deviceId ||
+    origin.inlet === link.inlet
+  )
+    return target;
+  const saved = current.peer;
+  return {
+    ...(saved?.pduId === link.pduId && saved.outlet === link.outlet
+      ? saved
+      : target),
+    peer: {
+      pduId: current.pduId,
+      outlet: current.outlet,
+      query: current.query,
+      scroll: current.scroll,
+    },
+  };
+}
 
 export function pduOutlet(pduId: string, outlet: number | null) {
   if (

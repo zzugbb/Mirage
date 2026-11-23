@@ -1,7 +1,12 @@
 import type { FeederEnergyInterval } from "../feeder-energy";
 import { useLayoutEffect, useRef } from "react";
-import { pduOutlets, pduOutlet, type PduInspection } from "../pdu-outlets";
-import { pduName, inletPart } from "../power-config";
+import {
+  peerOutlet,
+  pduOutlets,
+  pduOutlet,
+  type PduInspection,
+} from "../pdu-outlets";
+import { pduById, pduName, inletPart, type PowerLink } from "../power-config";
 import { unitLabel } from "../catalog";
 import { entityById } from "../domain";
 import { FeederDeviceHistory } from "./FeederDeviceHistory";
@@ -13,6 +18,7 @@ export function PduOutlets({
   readings,
   ready,
   inScene,
+  onLocateOutlet,
   onChange,
   onSelect,
   onPreview,
@@ -25,6 +31,7 @@ export function PduOutlets({
   readings: Map<string, SpatialReading>;
   ready: boolean;
   inScene: boolean;
+  onLocateOutlet: (link: PowerLink) => void;
   onChange: (visit: PduInspection) => void;
   onSelect: (outlet: number) => void;
   onPreview: (id: string) => void;
@@ -51,6 +58,7 @@ export function PduOutlets({
   }, [current.query]);
   const rows = pduOutlets(pduId, current.query),
     chosen = pduOutlet(pduId, current.outlet);
+  const peer = chosen?.link && peerOutlet(chosen.link);
   return (
     <section
       className="pdu-outlets"
@@ -128,6 +136,32 @@ export function PduOutlets({
                   )!.name
                 }
               </small>
+              {peer && (
+                <section
+                  className="pdu-peer-outlet"
+                  aria-label="同一整机的另一路插座"
+                >
+                  <strong>
+                    {chosen.device.name} · 输入 {chosen.link.inlet} → 输入{" "}
+                    {peer.link.inlet}
+                  </strong>
+                  <small>
+                    {pduById(chosen.link.pduId)!.sourcePort} · {peer.fromSide} →{" "}
+                    {pduById(peer.link.pduId)!.sourcePort} · {peer.toSide}
+                  </small>
+                  <small>
+                    两插座中心横向相距 {peer.lateral.toFixed(3)} m，高差{" "}
+                    {peer.heightDifference.toFixed(3)} m（配置）
+                  </small>
+                  <button
+                    disabled={!ready}
+                    onClick={() => onLocateOutlet(peer.link)}
+                  >
+                    定位 {pduName(peer.link.pduId)} · 插座{" "}
+                    {String(peer.link.outlet).padStart(2, "0")} ↗
+                  </button>
+                </section>
+              )}
               <FeederDeviceHistory
                 interval={interval}
                 deviceId={chosen.device.id}

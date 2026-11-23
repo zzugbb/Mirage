@@ -327,6 +327,7 @@ import {
 import {
   pduOutlet,
   pduInspectionIncludes,
+  locatePduOutlet,
   type PduInspection,
 } from "./pdu-outlets";
 import { PowerConnections } from "./components/PowerConnections";
@@ -2571,7 +2572,10 @@ export function Workspace() {
       if (section) section.open = true;
       row.closest(".pdu-outlets")?.scrollIntoView({ block: "start" });
       row.focus({ preventScroll: true });
-      row.scrollIntoView({ block: "nearest" });
+      const bounds = row.parentElement!.getBoundingClientRect();
+      const button = row.getBoundingClientRect();
+      if (button.bottom <= bounds.top || button.top >= bounds.bottom)
+        row.scrollIntoView({ block: "nearest" });
     }
     setPduReturning(false);
   }, [
@@ -9125,14 +9129,20 @@ export function Workspace() {
                           if (visit.outlet === null) setPowerLinkId(null);
                         }}
                         onLocateOutlet={(link) => {
+                          if (
+                            state.level === "room" &&
+                            layoutVisit?.resourceList
+                          ) {
+                            setQuery("");
+                            setFilter("all");
+                            setOnlyAlarms(false);
+                          }
                           setPduReturning(true);
                           focus(link.pduId);
-                          setPduInspection({
-                            pduId: link.pduId,
-                            outlet: link.outlet,
-                            query: "",
-                            scroll: 0,
-                          });
+                          setPduInspection((current) =>
+                            locatePduOutlet(current, link),
+                          );
+                          if (powerViewPaired) requestPowerView("observe");
                           setPowerLinkId(link.id);
                         }}
                         onPduSelect={(pduId, outlet) => {

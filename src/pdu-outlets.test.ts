@@ -5,6 +5,8 @@ import {
   pduOutlet,
   pduInspectionIncludes,
   pduInspectionScene,
+  peerOutlet,
+  locatePduOutlet,
 } from "./pdu-outlets.ts";
 import { pdus, powerLinks, inletPart } from "./power-config.ts";
 import { deviceById, rackForDevice } from "./installation.ts";
@@ -118,5 +120,61 @@ test("已连接插座沿用同一配置支路，回看不改变端点；查询�
       pduInspectionIncludes(visit, "environment-01", link.deviceId),
       false,
     );
+  }
+});
+
+test("168 条输入均按整机找到另一路，柜后安装方位与两侧场景标记一致", () => {
+  for (const link of powerLinks) {
+    const peer = peerOutlet(link)!;
+    assert.equal(peer.link.deviceId, link.deviceId);
+    assert.notEqual(peer.link.inlet, link.inlet);
+    assert.equal(peerOutlet(peer.link)!.link.id, link.id);
+    assert.equal(
+      pduOutlet(peer.link.pduId, peer.link.outlet)?.device?.id,
+      link.deviceId,
+    );
+    const a = pduOutletPosition(link.pduId, link.outlet),
+      b = pduOutletPosition(peer.link.pduId, peer.link.outlet);
+    assert.equal(peer.lateral, Math.abs(a[0] - b[0]));
+    assert.equal(peer.heightDifference, Math.abs(a[1] - b[1]));
+    assert.deepEqual(
+      [peer.fromSide, peer.toSide],
+      a[0] < b[0] ? ["柜后右侧", "柜后左侧"] : ["柜后左侧", "柜后右侧"],
+    );
+  }
+});
+
+test("同设备跨侧往返各自恢复原插座的查询与滚动，空位或不同设备不携带原行", () => {
+  const a = pduOutlet("pdu-b04-a", 3)!.link!,
+    b = peerOutlet(a)!.link;
+  const visit = {
+    pduId: a.pduId,
+    outlet: a.outlet,
+    query: "SRV-59",
+    scroll: 417,
+  };
+  const other = locatePduOutlet(visit, b);
+  assert.deepEqual(other, {
+    pduId: b.pduId,
+    outlet: b.outlet,
+    query: "",
+    scroll: 0,
+    peer: visit,
+  });
+  const changed = { ...other, query: "03", scroll: 601 };
+  const back = locatePduOutlet(changed, a);
+  assert.equal(back.query, visit.query);
+  assert.equal(back.scroll, visit.scroll);
+  assert.equal(locatePduOutlet(back, b).query, changed.query);
+  assert.equal(locatePduOutlet(back, b).scroll, changed.scroll);
+  assert.equal(locatePduOutlet(back, a), back);
+  for (const origin of [null, { ...visit, outlet: 24 }, back]) {
+    const different = pduOutlet("pdu-b04-b", 4)!.link!;
+    assert.deepEqual(locatePduOutlet(origin, different), {
+      pduId: different.pduId,
+      outlet: 4,
+      query: "",
+      scroll: 0,
+    });
   }
 });

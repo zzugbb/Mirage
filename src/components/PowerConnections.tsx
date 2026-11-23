@@ -146,6 +146,10 @@ export function PowerConnections({
               </button>
             ))}
           </div>
+          <button disabled={!ready} onClick={() => onLocateOutlet(activeLink)}>
+            定位 {pduName(activeLink.pduId)} · 插座{" "}
+            {String(activeLink.outlet).padStart(2, "0")} ↗
+          </button>
           <button
             className="power-inspect-input"
             disabled={!ready}
@@ -362,6 +366,7 @@ export function PowerConnections({
             </button>
           )}
           <PduOutlets
+            onLocateOutlet={onLocateOutlet}
             interval={interval}
             key={pdu.id}
             pduId={pdu.id}
