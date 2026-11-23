@@ -525,7 +525,8 @@ export function ReviewScene({
     state.level === "room" &&
     ((coolingRangeObservation && !!flowView && layer === "airflow") ||
       (layer === "overview" &&
-        (crossing?.kind === "lighting-round" ||
+        (crossing?.kind === "roof-entry" ||
+          crossing?.kind === "lighting-round" ||
           crossing?.kind === "light-tray")));
   const [stageCutaway, setStageCutaway] = useState(true);
   useEffect(() => {
@@ -2074,7 +2075,10 @@ export function ReviewScene({
               aria-hidden="true"
               data-anchor={marker.id}
               data-hotspot={
-                crossing.kind === "lighting-round" ? "center" : undefined
+                crossing.kind === "lighting-round" ||
+                crossing.kind === "roof-entry"
+                  ? "center"
+                  : undefined
               }
               data-anchor-kind="position"
               data-anchor-position={marker.point.toArray().join(",")}
@@ -2481,12 +2485,19 @@ export function ReviewScene({
             >
               <strong>{crossing.title}</strong>
               <span>
-                {crossing.kind === "smoke-tray"
-                  ? `水平间距 ${crossing.horizontal.toFixed(2)}`
-                  : crossing.kind === "lighting-round"
-                    ? `沿桥架 X 向间距 ${Math.abs(crossing.alongX).toFixed(2)}`
-                    : `表面高差 ${Math.abs(crossing.difference).toFixed(2)}`}{" "}
-                m · 配置
+                {crossing.kind === "roof-entry" ? (
+                  `Z 向投影间距 ${(crossing.horizontal * 1000).toFixed(1)} mm`
+                ) : (
+                  <>
+                    {crossing.kind === "smoke-tray"
+                      ? `水平间距 ${crossing.horizontal.toFixed(2)}`
+                      : crossing.kind === "lighting-round"
+                        ? `沿桥架 X 向间距 ${Math.abs(crossing.alongX).toFixed(2)}`
+                        : `表面高差 ${Math.abs(crossing.difference).toFixed(2)}`}{" "}
+                    m
+                  </>
+                )}{" "}
+                · 配置
               </span>
               <button disabled={!sceneSettled} onClick={onReturnCrossing}>
                 ← 返回核对前视角

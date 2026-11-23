@@ -80,6 +80,75 @@ function rackTrayCrossing(first: string, second: string) {
       "只比较当前配置横档底面与柜顶板表面的高度，不含线缆、吊装附件或其他障碍物；不是最小净距、施工或安全结论，也不表示桥架与机柜已接线。",
   };
 }
+export const rackRoof = definition.rack.enclosure.roof;
+
+/** 在开口中心的 X 截面比较 Z 坐标。矩形表示开口配置，折线只量取投影。 */
+export function roofEntryPlacement(
+  trayId: string,
+  rackId: string,
+  index: number,
+) {
+  const rack = rackById(rackId);
+  const tray = definition.room.fixtures.find(
+    (f) => f.id === trayId && f.kind === "cable-tray",
+  );
+  const offset = rackRoof.entryXs[index];
+  if (
+    !rack ||
+    !tray ||
+    !trayRow(trayId)?.rackIds.includes(rackId) ||
+    offset === undefined
+  )
+    return null;
+  const x = rack.position[0] + offset;
+  const fromEnd = cableTraySettings.length / 2 - Math.abs(x - tray.position[0]);
+  if (fromEnd < 0) return null;
+  const z = rack.position[2] + rackRoof.entryZ;
+  const side = z < tray.position[2] ? -1 : 1;
+  const halfWidth =
+    (cableTraySettings.railSpacing + cableTraySettings.railSize[0]) / 2 +
+    (fromEnd <= cableTraySettings.capLength
+      ? cableTraySettings.capOverhang
+      : 0);
+  const rail = new Vector3(
+    x,
+    tray.position[1] +
+      cableTraySettings.railCenterY +
+      cableTraySettings.railSize[1] / 2,
+    tray.position[2] + side * halfWidth,
+  );
+  const roofY =
+    rack.position[1] + definition.rack.size[1] + rackRoof.thickness / 2;
+  const edge = new Vector3(x, roofY, z - (side * rackRoof.entryDepth) / 2);
+  const outline = [
+    [-1, -1],
+    [1, -1],
+    [1, 1],
+    [-1, 1],
+  ].map(
+    ([dx, dz]) =>
+      new Vector3(
+        x + (dx * rackRoof.entryWidth) / 2,
+        roofY,
+        z + (dz * rackRoof.entryDepth) / 2,
+      ),
+  );
+  return {
+    kind: "roof-entry" as const,
+    id: tray.id + ":" + rack.id + ":entry-" + index,
+    title: "桥架与柜顶进线口",
+    index,
+    outline,
+    upper: { id: tray.id, name: tray.name, surface: "侧梁外缘" },
+    lower: { id: rack.id, name: rack.name, surface: "进线口近缘" },
+    points: [rail, edge],
+    horizontal: Math.abs(edge.z - rail.z),
+    markers: [
+      { id: "roof-entry-rail", title: "① 侧梁外缘", point: rail },
+      { id: "roof-entry-mouth", title: "② 进线口近缘", point: edge },
+    ],
+  };
+}
 /** 配置中心与水平轴线的相对位置。两点不在同一铅垂线上。 */
 export function smokeTrayPlacement(round: EnvironmentRound) {
   const [smoke, tray] = round.points;
@@ -137,13 +206,15 @@ export const crossingObjectIds = (pair: FixtureCrossing) =>
 export type FixtureCrossing =
   | NonNullable<ReturnType<typeof lightingRound>>
   | NonNullable<ReturnType<typeof fixtureCrossing>>
-  | ReturnType<typeof smokeTrayPlacement>;
+  | ReturnType<typeof smokeTrayPlacement>
+  | NonNullable<ReturnType<typeof roofEntryPlacement>>;
 export type CrossingViewCommand = {
   revision: number;
   pair: FixtureCrossing | null;
   dismiss?: boolean;
 };
 export function crossingDirection(pair: FixtureCrossing) {
+  if (pair.kind === "roof-entry") return new Vector3(0.15, 1, -0.36);
   if (pair.kind === "smoke-tray") return new Vector3(0.85, -0.34, -0.9);
   if (pair.kind === "lighting-round" || pair.kind === "light-tray") {
     const tray = pair.kind === "lighting-round" ? pair.source.tray : pair.tray;

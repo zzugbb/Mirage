@@ -1,7 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as THREE from "three";
-import { fixtureCrossing, crossingViewFrame } from "./fixture-crossing.ts";
+import {
+  fixtureCrossing,
+  crossingViewFrame,
+  roofEntryPlacement,
+  rackRoof,
+} from "./fixture-crossing.ts";
 import {
   cableTraySettings,
   trayRungXs,
@@ -136,4 +141,60 @@ test("未登记柜排、设备和任意设施不会被推断为桥架连接", ()
     ["rack-a01", "rack-a02"],
   ])
     assert.equal(fixtureCrossing(a, b), null);
+});
+
+test("八柜的两处进线口落在各自孔边，投影从同一 X 截面的侧梁外缘量取", () => {
+  for (const row of cableTraySettings.rows) {
+    const fixture = fixtureById(row.fixtureId)!;
+    const tray = new THREE.Group();
+    tray.position.fromArray(fixture.position);
+    buildCableTray(tray);
+    tray.updateMatrixWorld(true);
+    const ladder = tray.getObjectByName("tray-ladder") as THREE.InstancedMesh;
+    const bounds = new THREE.Box3().setFromBufferAttribute(
+      ladder.geometry.getAttribute("position") as THREE.BufferAttribute,
+    );
+    const railMatrix = new THREE.Matrix4();
+    // 首段是 −Z 侧梁，当前样板开口都在该侧。
+    ladder.getMatrixAt(0, railMatrix);
+    bounds.applyMatrix4(railMatrix).applyMatrix4(ladder.matrixWorld);
+    for (const rackId of row.rackIds) {
+      const rack = rackById(rackId)!;
+      const roof = createRackRoof();
+      roof.position.add(new THREE.Vector3(...rack.position));
+      roof.updateMatrixWorld(true);
+      const entries = roof.children.filter(
+        (o) => o.name === "roof-brush-entry",
+      );
+      for (const [i, entry] of entries.entries()) {
+        const q = roofEntryPlacement(row.fixtureId, rackId, i)!;
+        const [rail, edge] = q.points;
+        const center = entry.getWorldPosition(new THREE.Vector3());
+        assert.equal(q.lower.id, rackId);
+        assert.equal(q.upper.id, row.fixtureId);
+        assert.ok(
+          Math.abs(rail.x - center.x) < 1e-8 &&
+            Math.abs(edge.x - center.x) < 1e-8,
+        );
+        assert.ok(
+          Math.abs(rail.z - bounds.min.z) < 1e-6 &&
+            Math.abs(rail.y - bounds.max.y) < 1e-6,
+        );
+        assert.ok(Math.abs(edge.z - center.z - rackRoof.entryDepth / 2) < 1e-8);
+        assert.equal(edge.y, center.y);
+        const size = new THREE.Box3()
+          .setFromPoints(q.outline)
+          .getSize(new THREE.Vector3());
+        assert.ok(
+          Math.abs(size.x - rackRoof.entryWidth) < 1e-8 &&
+            Math.abs(size.z - rackRoof.entryDepth) < 1e-8,
+        );
+        assert.ok(Math.abs(q.horizontal - 0.0825) < 1e-8);
+      }
+      dispose(roof);
+    }
+    dispose(tray);
+  }
+  assert.equal(roofEntryPlacement("cable-tray-a", "rack-a07", 0), null);
+  assert.equal(roofEntryPlacement("cable-tray-a", "rack-a03", 2), null);
 });

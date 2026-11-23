@@ -21,7 +21,17 @@ export class CrossingGeometry {
     if (!pair) return;
     const [top, bottom] = pair.points;
     const points: THREE.Vector3[] = [];
-    if (pair.kind === "smoke-tray") {
+    if (pair.kind === "roof-entry") {
+      // 尺线移到板面稍上方以避开孔边压条；量取的 X/Z 坐标仍来自配置。
+      const edge = bottom.clone();
+      edge.y += 0.009;
+      const foot = top.clone().setY(edge.y);
+      points.push(top, foot, foot, edge);
+      const outline = pair.outline.map((p) => p.clone().setY(edge.y));
+      outline.forEach((p, i) =>
+        points.push(p, outline[(i + 1) % outline.length]),
+      );
+    } else if (pair.kind === "smoke-tray") {
       const foot = top.clone().setY(bottom.y);
       points.push(top, foot, foot, bottom);
     } else {

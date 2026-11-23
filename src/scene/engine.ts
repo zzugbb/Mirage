@@ -1251,7 +1251,7 @@ export class SceneEngine {
     this.clearAirflowView();
     this.panelViewport = undefined;
     this.crossingObservation = { pair, previous };
-    this.currentView = "front";
+    this.currentView = pair.kind === "roof-entry" ? "top" : "front";
     this.currentFocus = false;
     this.interior = false;
     this.controls.minAzimuthAngle = -Infinity;

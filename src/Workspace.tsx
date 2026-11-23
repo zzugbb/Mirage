@@ -174,6 +174,7 @@ import {
 } from "./environment-pair";
 import type { EnvironmentMetric } from "./environment-monitoring";
 import { EnvironmentPairAnalysis } from "./components/EnvironmentPairAnalysis";
+import { RoofEntryDetails } from "./components/RoofEntryDetails";
 import { LightingRoundDetails } from "./components/LightingRoundDetails";
 import {
   lightingRound,
@@ -7705,7 +7706,11 @@ export function Workspace() {
                 </div>
               )}
             {crossing &&
-              !(review.analysis && crossing.kind === "lighting-round") && (
+              !(
+                review.analysis &&
+                (crossing.kind === "lighting-round" ||
+                  crossing.kind === "roof-entry")
+              ) && (
                 <section
                   className="crossing-details"
                   aria-label={crossing.title}
@@ -7719,34 +7724,48 @@ export function Workspace() {
                   }}
                 >
                   <strong>{crossing.title} · 配置</strong>
-                  {crossing.kind !== "lighting-round" && (
-                    <>
-                      <div>
-                        <button onClick={() => pick(crossing.upper.id)}>
-                          ① {crossing.upper.name}
-                        </button>
-                        <span>
-                          {crossing.upper.surface}{" "}
-                          {crossing.points[0].y.toFixed(3)} m
-                        </span>
-                      </div>
-                      <div>
-                        <button onClick={() => pick(crossing.lower.id)}>
-                          ② {crossing.lower.name}
-                        </button>
-                        <span>
-                          {crossing.lower.surface}{" "}
-                          {crossing.points[1].y.toFixed(3)} m
-                        </span>
-                      </div>
-                      <p>
-                        {crossing.upper.surface}比{crossing.lower.surface}
-                        {crossing.difference >= 0 ? "高" : "低"}{" "}
-                        <b>{Math.abs(crossing.difference).toFixed(2)} m</b>。
-                        {crossing.boundary}
-                      </p>
-                    </>
-                  )}
+                  {crossing.kind !== "lighting-round" &&
+                    crossing.kind !== "roof-entry" && (
+                      <>
+                        <div>
+                          <button onClick={() => pick(crossing.upper.id)}>
+                            ① {crossing.upper.name}
+                          </button>
+                          <span>
+                            {crossing.upper.surface}{" "}
+                            {crossing.points[0].y.toFixed(3)} m
+                          </span>
+                        </div>
+                        <div>
+                          <button onClick={() => pick(crossing.lower.id)}>
+                            ② {crossing.lower.name}
+                          </button>
+                          <span>
+                            {crossing.lower.surface}{" "}
+                            {crossing.points[1].y.toFixed(3)} m
+                          </span>
+                        </div>
+                        <p>
+                          {crossing.upper.surface}比{crossing.lower.surface}
+                          {crossing.difference >= 0 ? "高" : "低"}{" "}
+                          <b>{Math.abs(crossing.difference).toFixed(2)} m</b>。
+                          {crossing.boundary}
+                        </p>
+                      </>
+                    )}
+                  {!review.analysis &&
+                    (crossing.kind === "rack-tray" ||
+                      crossing.kind === "roof-entry") && (
+                      <RoofEntryDetails
+                        crossing={crossing}
+                        ready={ready}
+                        onInspect={requestCrossing}
+                        onHistory={(id) => {
+                          focus(id);
+                          analyze();
+                        }}
+                      />
+                    )}
                   {!review.analysis &&
                     (crossing.kind === "lighting-round" ||
                       crossing.kind === "light-tray") && (
