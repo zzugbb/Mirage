@@ -2,6 +2,18 @@
 export function frameDistance(size: number, aspect: number, minimum: number) {
   return Math.max(minimum, (size * 1.55) / Math.min(1, Math.max(0.2, aspect)));
 }
+/** 还原检视前的距离，画幅收窄时留出原视野，同时遵循原轨道的缩放范围。 */
+export function inspectionReturnDistance(
+  distance: number,
+  previousAspect: number,
+  aspect: number,
+  minimum: number,
+  maximum: number,
+) {
+  const fit = distance * Math.max(1, previousAspect / aspect);
+  return Math.min(maximum, Math.max(minimum, fit));
+}
+
 export type CameraView =
   "iso" | "top" | "front" | "rear" | "right" | "interior";
 export const cameraMinimumDistance = {

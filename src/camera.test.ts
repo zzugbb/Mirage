@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   frameDistance,
+  inspectionReturnDistance,
   boundsFrameDistance,
   pointsFrameDistance,
   cameraMinimumDistance,
@@ -177,5 +178,31 @@ test("展开整机从后侧转至斜侧时按当前投影留出上下操作区",
             );
           }
     }
+  }
+});
+
+test("单件返回原视角时保留缩放，换窄画幅后的目标仍能在原轨道到达", () => {
+  for (const [initial, aspect, expected] of [
+    [3, 2, 3],
+    [2, 0.8, 3],
+    [5, 0.8, 5],
+    [0.1, 1.2, 0.35],
+  ]) {
+    const camera = new PerspectiveCamera(40, aspect, 0.01, 150);
+    const controls = new OrbitControls(camera, null);
+    controls.minDistance = 0.35;
+    controls.maxDistance = 5;
+    const distance = inspectionReturnDistance(
+      initial,
+      1.2,
+      aspect,
+      controls.minDistance,
+      controls.maxDistance,
+    );
+    assert.ok(Math.abs(distance - expected) < 1e-9);
+    const target = new Vector3(1, 1, 2).setLength(distance);
+    camera.position.copy(target);
+    controls.update();
+    assert.ok(camera.position.distanceTo(target) < 1e-9);
   }
 });

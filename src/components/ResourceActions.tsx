@@ -16,6 +16,7 @@ export function ResourceActions({
   phase,
   pendingId,
   dispatch,
+  onDeviceStructure,
   onOpen,
   onExtract,
   onIsolation,
@@ -26,6 +27,9 @@ export function ResourceActions({
   phase: PresentationPhase;
   pendingId: string | null;
   dispatch: (action: Action) => void;
+  onDeviceStructure: (
+    action: Extract<Action, { type: "cover" | "explode" }>,
+  ) => void;
   onOpen: (id: string) => void;
   onExtract: (id: string) => void;
   onIsolation: () => void;
@@ -177,7 +181,7 @@ export function ResourceActions({
             <button
               disabled={!ready}
               onClick={() =>
-                dispatch({ type: "explode", amount: expanded ? 0 : 1 })
+                onDeviceStructure({ type: "explode", amount: expanded ? 0 : 1 })
               }
             >
               {progress || (expanded ? restoreLabel : expandLabel)}
@@ -192,21 +196,25 @@ export function ResourceActions({
             {!exteriorOnly && (
               <button
                 disabled={!ready}
-                onClick={() => dispatch({ type: "cover", open: !coverRaised })}
+                onClick={() =>
+                  onDeviceStructure({ type: "cover", open: !coverRaised })
+                }
               >
                 {coverRaised ? "合上上盖" : "打开上盖"}
               </button>
             )}
             <button
               disabled={!ready || state.explosion === 1}
-              onClick={() => dispatch({ type: "explode", amount: 1 })}
+              onClick={() => onDeviceStructure({ type: "explode", amount: 1 })}
             >
               完全展开
             </button>
             {entity.kind === "part" && (
               <button
                 disabled={!ready || !expanded}
-                onClick={() => dispatch({ type: "explode", amount: 0 })}
+                onClick={() =>
+                  onDeviceStructure({ type: "explode", amount: 0 })
+                }
               >
                 {restoreLabel}
               </button>

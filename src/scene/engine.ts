@@ -131,6 +131,7 @@ import { entityById, parts, presentationKey } from "../domain";
 import type { AppState, Level } from "../domain";
 import {
   frameDistance,
+  inspectionReturnDistance,
   boundsFrameDistance,
   pointsFrameDistance,
   cameraMinimumDistance,
@@ -232,15 +233,7 @@ export class SceneEngine {
   partInspection: {
     deviceId: string;
     targetId: string;
-    previous: {
-      position: THREE.Vector3;
-      target: THREE.Vector3;
-      view: View;
-      focus: boolean;
-      minDistance: number;
-      maxDistance: number;
-      aspect: number;
-    };
+    previous: ObservationMemory & { aspect: number };
   } | null = null;
   unitGuide = new RackUnitGuide((label) =>
     text(new THREE.Group(), label, [0, 0, 0], 0.075),
@@ -2921,12 +2914,7 @@ export class SceneEngine {
           deviceId: this.state.deviceId,
           targetId: "",
           previous: {
-            position: this.camera.position.clone(),
-            target: this.controls.target.clone(),
-            view: this.currentView,
-            focus: this.currentFocus,
-            minDistance: this.controls.minDistance,
-            maxDistance: this.controls.maxDistance,
+            ...this.captureObservationView(),
             aspect: this.camera.aspect,
           },
         };
@@ -2948,18 +2936,18 @@ export class SceneEngine {
           this.host.dataset.isolatedPart = "";
           return;
         }
-        this.currentView = previous.view;
-        this.currentFocus = previous.focus;
-        this.controls.minDistance = previous.minDistance;
-        this.controls.maxDistance = previous.maxDistance;
-        this.targetLook.copy(previous.target);
+        this.restoreObservationView(previous);
+        const distance = inspectionReturnDistance(
+          previous.position.distanceTo(previous.target),
+          previous.aspect,
+          this.camera.aspect,
+          previous.minDistance,
+          previous.maxDistance,
+        );
         this.targetPosition
-          .copy(previous.position)
           .sub(previous.target)
-          .multiplyScalar(Math.max(1, previous.aspect / this.camera.aspect))
+          .setLength(distance)
           .add(previous.target);
-        this.moving = true;
-        this.invalidate();
       }
     }
     this.host.dataset.isolatedPart = applied ? id! : "";

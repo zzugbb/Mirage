@@ -1784,6 +1784,7 @@ export function Workspace() {
     rearRow,
     rearLayer,
     rearLayout,
+    pathVisit,
     assembly,
     ready,
   ]);
@@ -3127,8 +3128,7 @@ export function Workspace() {
       setInspectionDevice(null);
       const open = !state.coverOpen || state.explosion > 0;
       pick(options.cover.id);
-      if (selected !== options.cover.id)
-        setStructureReturn({ deviceId: state.deviceId, tool });
+      setStructureReturn({ deviceId: state.deviceId, tool });
       if (state.explosion > 0) dispatch({ type: "explode", amount: 0 });
       dispatch({ type: "cover", open });
       return;
@@ -6919,6 +6919,10 @@ export function Workspace() {
                 </div>
               ) : state.level !== "room" ? (
                 <ResourceActions
+                  onDeviceStructure={(action) => {
+                    partSequenceFocus.current = "isolate";
+                    dispatch(action);
+                  }}
                   onIsolation={() => {
                     takeover();
                     partSequenceFocus.current = "heading";
