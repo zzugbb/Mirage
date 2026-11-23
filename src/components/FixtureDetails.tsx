@@ -1,3 +1,4 @@
+import { racewayNeighbors } from "../panel-raceway";
 import { entranceViewIncludes } from "../entrance-view";
 import type { ReactNode } from "react";
 import { floorGrilleSettings, grilleRowRelations } from "../floor-grilles";
@@ -26,6 +27,7 @@ import {
 export function FixtureDetails({
   fixture,
   panelPorts,
+  showRaceway = false,
   grilleRelations,
   onInspectSupport,
   onInspectEntrance,
@@ -38,6 +40,7 @@ export function FixtureDetails({
 }: {
   fixture: RoomFixture;
   panelPorts?: ReactNode;
+  showRaceway?: boolean;
   grilleRelations?: ReactNode;
   onInspectSupport?: (side: -1 | 1) => void;
   onInspectEntrance?: () => void;
@@ -50,6 +53,7 @@ export function FixtureDetails({
 }) {
   const light = "length" in fixture ? fixture : null;
   const grilleRow = "span" in fixture ? fixture : null;
+  const racewayLinks = racewayNeighbors(fixture.id);
   const isEntrance = fixture.kind === "entrance";
   const isTray = fixture.kind === "cable-tray";
   const relations = grilleRow
@@ -60,6 +64,30 @@ export function FixtureDetails({
   return (
     <section className="fixture-details" aria-label="设施布置">
       {panelPorts}
+      {racewayLinks.length > 0 && showRaceway && (
+        <section className="panel-port-details" aria-label="线槽布置">
+          <strong>
+            {fixture.kind === "patch-panel" ? "箱顶入口" : "相接位置"}
+          </strong>
+          {"sectionSize" in fixture && (
+            <p>
+              {fixture.sectionSize[0] > fixture.sectionSize[1]
+                ? `横段外缘跨度 ${fixture.sectionSize[0].toFixed(3)} m`
+                : `箱顶至横槽下缘 ${fixture.sectionSize[1].toFixed(3)} m`}{" "}
+              · 样板配置
+            </p>
+          )}
+          {racewayLinks.map((peer) => (
+            <button
+              key={peer.id}
+              disabled={!comparisonReady}
+              onClick={() => onLocate(peer.id)}
+            >
+              核对{peer.name}
+            </button>
+          ))}
+        </section>
+      )}
       <dl>
         <div>
           <dt>安装位置</dt>

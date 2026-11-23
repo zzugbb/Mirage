@@ -303,6 +303,50 @@
         "referenceRackId": "rack-a08"
       }
     ],
+    "panelRaceway": {
+      "mountId": "shell-back-wall",
+      "width": 0.09,
+      "depth": 0.048,
+      "coverThickness": 0.006,
+      "trunkCenterY": 2.48,
+      "trunk": {
+        "id": "raceway-horizontal",
+        "name": "后墙横向线槽",
+        "location": "后墙中段 · 两处入盒线槽之间",
+        "focus": {
+          "direction": [
+            0,
+            0.055,
+            1
+          ],
+          "distance": 4.6
+        }
+      },
+      "drops": [
+        {
+          "id": "raceway-west",
+          "name": "西段入盒线槽",
+          "location": "后墙西段 · 箱体顶部",
+          "panelId": "patch-panel-01",
+          "offsetX": 0.12
+        },
+        {
+          "id": "raceway-east",
+          "name": "东段入盒线槽",
+          "location": "后墙东段 · 箱体顶部",
+          "panelId": "patch-panel-02",
+          "offsetX": -0.12
+        }
+      ],
+      "dropFocus": {
+        "direction": [
+          0.09,
+          0.075,
+          1
+        ],
+        "distance": 1.9
+      }
+    },
     "patchPanels": {
       "description": "原创壁挂样板配线架。孔位按正面逐行从左到右编号，跨架端接仅按本表登记。邻近端柜供位置参照与模拟回看。",
       "size": [

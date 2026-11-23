@@ -1,3 +1,4 @@
+import { racewayNeighbors } from "./panel-raceway.ts";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as THREE from "three";
@@ -43,8 +44,8 @@ function makeFixtures() {
 
 test("机房布置设施的身份、安装对象与场景位置一致，几何可射线选择", () => {
   const { mounts, fixtures } = makeFixtures();
-  assert.equal(fixtures.size, 17);
-  assert.equal(new Set(roomFixtures.map((f) => f.id)).size, 17);
+  assert.equal(fixtures.size, 20);
+  assert.equal(new Set(roomFixtures.map((f) => f.id)).size, 20);
   for (const f of roomFixtures) {
     assert.equal(entityById(f.id)?.kind, "facility");
     assert.equal(entityById(f.id)?.parent, "room-01");
@@ -55,6 +56,7 @@ test("机房布置设施的身份、安装对象与场景位置一致，几何�
       group.userData.dataStatus,
       [
         "patch-panel",
+        "wall-raceway",
         "cable-tray",
         "entrance",
         "ceiling-light",
@@ -215,4 +217,56 @@ test("三条顶灯与两段桥架的投影逐一相交，灯体和吊杆均避�
       assert.ok(Math.abs(hit.point.y - bounds.min.y) < 1e-6);
     }
   }
+});
+
+test("后墙线槽沿安装面相接，两处竖段落在各自箱顶且可双向查回", () => {
+  const { fixtures } = makeFixtures();
+  const { drops, trunk, width, depth } = definition.room.panelRaceway;
+  const bounds = (id: string) =>
+    new THREE.Box3().setFromObject(fixtures.get(id)!);
+  const horizontal = bounds(trunk.id);
+  // 在横槽两端和中点沿配置视线检查 B 排桥架，避免取景正好打在桥架侧梁上。
+  const tray = bounds("cable-tray-b");
+  const sight = new THREE.Vector3()
+    .fromArray(trunk.focus.direction)
+    .normalize();
+  for (const fraction of [0.01, 0.5, 0.99]) {
+    const point = horizontal.getCenter(new THREE.Vector3());
+    point.x = THREE.MathUtils.lerp(
+      horizontal.min.x,
+      horizontal.max.x,
+      fraction,
+    );
+    assert.equal(new THREE.Ray(point, sight).intersectsBox(tray), false);
+  }
+  const near = (a: number, b: number) =>
+    assert.ok(Math.abs(a - b) < 1e-6, `${a} / ${b}`);
+  assert.deepEqual(
+    racewayNeighbors(trunk.id).map((s) => s.id),
+    drops.map((d) => d.id),
+  );
+  for (const drop of drops) {
+    const panel = bounds(drop.panelId);
+    const vertical = bounds(drop.id);
+    near(vertical.min.y, panel.max.y);
+    near(vertical.max.y, horizontal.min.y);
+    near(vertical.min.z, panel.min.z);
+    near(vertical.min.z, horizontal.min.z);
+    assert.ok(vertical.min.x > panel.min.x && vertical.max.x < panel.max.x);
+    assert.ok(vertical.max.z <= panel.max.z);
+    near(vertical.max.x - vertical.min.x, width);
+    near(horizontal.max.z - horizontal.min.z, depth + 0.004);
+    assert.deepEqual(
+      racewayNeighbors(drop.id).map((s) => s.id),
+      [drop.panelId, trunk.id],
+    );
+    assert.deepEqual(
+      racewayNeighbors(drop.panelId).map((s) => s.id),
+      [drop.id],
+    );
+  }
+  const dropBoxes = drops.map((drop) => bounds(drop.id));
+  near(horizontal.min.x, Math.min(...dropBoxes.map((b) => b.min.x)));
+  near(horizontal.max.x, Math.max(...dropBoxes.map((b) => b.max.x)));
+  assert.deepEqual(racewayNeighbors("srv-01"), []);
 });

@@ -1,3 +1,4 @@
+import { racewayById } from "./panel-raceway";
 import { PatchPanelDetails } from "./components/PatchPanelDetails";
 import { patchPanelById, type PanelPort } from "./patch-panels";
 import {
@@ -6331,6 +6332,7 @@ export function Workspace() {
                                 if (
                                   roomResourceList &&
                                   (patchPanelById(row.id) ||
+                                    racewayById(row.id) ||
                                     entranceViewIncludes(row.id) ||
                                     environmentRoundFor(row.id) ||
                                     isLeakFixture(row.id) ||
@@ -8865,6 +8867,7 @@ export function Workspace() {
                     }
                     onPreview={pick}
                     onLocate={focus}
+                    showRaceway={layer === "overview" && state.level === "room"}
                     panelPorts={
                       fixture.kind === "patch-panel" &&
                       layer === "overview" &&
