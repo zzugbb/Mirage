@@ -641,6 +641,16 @@ export function createEquipmentAssembly(modelId: string): Assembly {
   box(root, [0.44, 0.002, depth], [0, -h / 2, 0], "#78838b", 0.75);
   for (const x of [-0.222, 0.222])
     box(root, [0.003, h, depth], [x, 0, 0], "#86919a", 0.8);
+  // 机壳两侧的折边承托上盖，盖底与折边上表面齐平。
+  for (const side of [-1, 1]) {
+    box(
+      root,
+      [0.009, 0.001, depth - 0.004],
+      [side * 0.217, h / 2 - 0.0015, 0],
+      "#86919a",
+      0.8,
+    ).name = "cover-support-ledge";
+  }
   for (const x of [-0.237, 0.237]) {
     box(root, [0.025, h, 0.012], [x, 0, depth / 2], "#9da8af", 0.8);
     box(
@@ -859,6 +869,7 @@ export function createEquipmentAssembly(modelId: string): Assembly {
     buildRtcMount(
       groups,
       positions,
+      modelId,
       new THREE.Box3().setFromObject(plate).max.y,
       box,
     );
@@ -919,7 +930,13 @@ export function completeServerAssembly(
     positions.set(part.id, group.position.clone());
   }
   replaceRtcProxy(groups.get(model.rtcMount!.boardId)!);
-  buildRtcMount(groups, positions, model.rtcMount!.boardPoint[1], box);
+  buildRtcMount(
+    groups,
+    positions,
+    model.id,
+    model.rtcMount!.boardPoint[1],
+    box,
+  );
   buildStorageHarness(groups, positions, box);
   registerServerRearMounts(groups, model.id, box);
   buildServerFanMounts(groups, model.id);

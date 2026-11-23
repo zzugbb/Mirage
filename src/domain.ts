@@ -263,7 +263,7 @@ export function transition(state: AppState, action: Action): AppState {
     }
     case "cover":
       return state.level === "device" &&
-        modelForDevice(state.deviceId).category === "server"
+        partsForDevice(state.deviceId).some((part) => part.node === "lid")
         ? {
             ...state,
             coverOpen: action.open,
@@ -272,7 +272,14 @@ export function transition(state: AppState, action: Action): AppState {
         : state;
     case "explode":
       return state.level === "device" && Number.isFinite(action.amount)
-        ? { ...state, explosion: Math.max(0, Math.min(1, action.amount)) }
+        ? {
+            ...state,
+            explosion: Math.max(0, Math.min(1, action.amount)),
+            // 整体配置示意沿用自己的展开量，“复原外观”须能收回单独移开的示意上盖。
+            coverOpen:
+              state.coverOpen &&
+              modelForDevice(state.deviceId).category === "server",
+          }
         : state;
     case "door":
       return state.level === "rack"

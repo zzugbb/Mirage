@@ -42,10 +42,10 @@ export function createExteriorAssembly(
 }
 
 /** “展开示意”是明确的表达方式切换，复原后重新呈现原始外观。 */
-export function poseExterior(assembly: Assembly, explosion: number) {
+export function poseExterior(assembly: Assembly, explosion: number, cover = 0) {
   if (!assembly.representations) return;
   assembly.representations.exterior.visible =
-    explosion <= internalStructureThreshold;
+    explosion <= internalStructureThreshold && cover === 0;
   assembly.representations.schematic.visible =
-    explosion > internalStructureThreshold;
+    !assembly.representations.exterior.visible;
 }

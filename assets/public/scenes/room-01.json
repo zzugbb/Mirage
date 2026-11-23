@@ -6964,6 +6964,11 @@
         "cables-01",
         "io-01"
       ],
+      "rtcMount": {
+        "boardId": "board-01", "batteryId": "battery-01", "boardNode": "compact_mainboard",
+        "boardPoint": [-0.18, -0.01315, -0.122], "lift": 0.014,
+        "focusDirection": [-0.45, 0.82, 1]
+      },
       "dimms": 8,
       "compactDrive": {
         "caseSize": [0.06985, 0.007, 0.10045],

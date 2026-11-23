@@ -761,9 +761,11 @@ export function ReviewScene({
           : state.coverOpen
             ? "内部装配 · 上盖已移开"
             : "完整装配 · 可单独开盖"
-        : state.explosion === 0
-          ? "外观模型 · 展开可看配置示意"
-          : "内部配置示意";
+        : state.coverOpen && state.explosion === 0
+          ? "内部配置示意 · 上盖已移开"
+          : state.explosion === 0
+            ? "外观模型 · 展开可看配置示意"
+            : "内部配置示意";
   useEffect(() => {
     let active: SceneEngine | null = null;
     setAssets(initialModelLoads());

@@ -93,6 +93,47 @@ test("精细 1U 模型保留内嵌贴图和材质，维护部件仍与八内存�
     assert.equal(material.metalness, metalness);
     assert.equal(material.roughness, roughness);
   }
+  await t.test(
+    "时钟电池贴在 M1 两种板面的可用安装区，反复抬起只移动电池",
+    () => {
+      for (const variant of [assembly, createEquipmentAssembly("server-1u")]) {
+        const check = assemblyChecks("srv-44", "battery-01").find(
+          (c) => c.tool === "rtc-mount",
+        )!;
+        const { primary, companion } = check.pairs[0];
+        assert.deepEqual(primary.explode, companion.explode);
+        const battery = variant.groups.get(primary.id)!,
+          board = variant.groups.get(companion.id)!;
+        const box = (name: string) =>
+          new THREE.Box3().setFromObject(battery.getObjectByName(name)!, true);
+        const foot = box("rtc-holder-base");
+        const center = foot.getCenter(new THREE.Vector3());
+        for (const dx of [-0.009, 0, 0.009])
+          for (const dz of [-0.009, 0, 0.009]) {
+            const hit = new THREE.Raycaster(
+              new THREE.Vector3(center.x + dx, 0.1, center.z + dz),
+              new THREE.Vector3(0, -1, 0),
+            ).intersectObject(board, true)[0];
+            assert.ok(
+              hit && Math.abs(hit.point.y - foot.min.y) < 1e-6,
+              JSON.stringify([dx, dz, hit?.point.y, foot.min.y]),
+            );
+          }
+        for (const lifted of [false, true, false, true, false]) {
+          poseAssemblyLayer(battery, lifted);
+          battery.updateMatrixWorld(true);
+          assert.ok(
+            Math.abs(
+              box("rtc-cell-can").min.y -
+                box("rtc-floor-contact").max.y -
+                (lifted ? 0.014 : 0),
+            ) < 1e-6,
+          );
+          assert.ok(foot.equals(box("rtc-holder-base")));
+        }
+      }
+    },
+  );
   const expected = [...partsForDevice("srv-08"), ...subpartsForDevice("srv-08")]
     .map((p) => p.id)
     .sort();
@@ -445,7 +486,7 @@ test("精细 1U 模型保留内嵌贴图和材质，维护部件仍与八内存�
       )!;
       const { primary: card, companion: board } = check.pairs[0];
       assert.deepEqual([card.slot, board.slot], ["RAID", "MB-01"]);
-      assert.deepEqual(assemblyChecks("srv-53", board.id), [check]);
+      assert.ok(assemblyChecks("srv-53", board.id).includes(check));
       assert.deepEqual(
         assemblyChecks("srv-53", card.id)
           .map((item) => item.tool)

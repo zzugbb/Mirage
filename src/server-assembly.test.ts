@@ -356,7 +356,7 @@ test("M2 原主板电池外形只替换一次，简模与详细板面均承托 R
   replaceRtcProxy(scene); // 同一几何可由多台安装实例复用。
   assert.equal(
     before - detailed.geometry.index!.count,
-    mount.proxyTriangles.count * 3,
+    mount.proxyTriangles!.count * 3,
   );
   for (const dx of [-0.01, 0, 0.01])
     for (const dz of [-0.01, 0, 0.01])

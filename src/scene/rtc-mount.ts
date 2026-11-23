@@ -3,16 +3,15 @@ import { modelById, partsForModel } from "../catalog.ts";
 import { registerLayer } from "./assembly-layer.ts";
 import type { Assembly, Box } from "./equipment-model.ts";
 
-const mount = modelById("server-2u").rtcMount!;
-
 // 贡献主板将电池外形烘入同一网格。只替换登记的三角面，保留板面和纹理。
 export function replaceRtcProxy(board: THREE.Object3D) {
+  const mount = modelById("server-2u").rtcMount!;
   const node = board.getObjectByName(mount.boardNode);
   const index = node instanceof THREE.Mesh ? node.geometry.getIndex() : null;
   if (!(node instanceof THREE.Mesh) || !index)
     throw Error("M2 主板缺少已登记的 RTC 几何");
   if (node.geometry.userData.rtcProxyRemoved) return;
-  const { first, count } = mount.proxyTriangles;
+  const { first, count } = mount.proxyTriangles!;
   const start = first * 3,
     end = (first + count) * 3;
   if (end > index.count) throw Error("M2 电池外形超出主板索引");
@@ -26,13 +25,13 @@ export function replaceRtcProxy(board: THREE.Object3D) {
 export function buildRtcMount(
   groups: Assembly["groups"],
   positions: Assembly["positions"],
+  modelId: string,
   boardSurfaceY: number,
   box: Box,
 ) {
+  const mount = modelById(modelId).rtcMount!;
   const root = groups.get(mount.batteryId)!;
-  const part = partsForModel("server-2u").find(
-    (p) => p.id === mount.batteryId,
-  )!;
+  const part = partsForModel(modelId).find((p) => p.id === mount.batteryId)!;
   const radius = part.size[0] / 2,
     height = part.size[1];
   const floor = 0.0012,

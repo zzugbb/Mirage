@@ -95,6 +95,8 @@ export function mapCompactServer(root: THREE.Group) {
     if (groups.has(id)) continue;
     const group = supplement.groups.get(id)!;
     root.attach(group);
+    if (id === model.rtcMount!.batteryId)
+      group.position.y = model.rtcMount!.boardPoint[1];
     if (id === "io-01") {
       // 贡献外观和简模的机箱深度不同，以已映射网卡的机后面为共同基准。
       const rear = new THREE.Box3().setFromObject(groups.get("nic-01")!).min.z;

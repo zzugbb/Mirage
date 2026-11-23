@@ -1,3 +1,4 @@
+import { structureOptions } from "./structure-options";
 import { FrontCageControls } from "./components/FrontCageControls";
 import { switchCageSelection } from "./switch-cages";
 import type { RearRowPose } from "./scene/rear-module-seats";
@@ -36,7 +37,6 @@ import {
 import { FanInspection } from "./components/FanInspection";
 import {
   fanAssembly,
-  fanInspectionContext,
   activeFanInspection,
   type FanInspection as FanVisit,
 } from "./fan-inspection";
@@ -48,7 +48,6 @@ import { StorageSlots } from "./components/StorageSlots";
 import {
   activeStorageSlots,
   storageSlots,
-  storageSlotContext,
   storageDriveGroup,
   type StorageSlotInspection,
 } from "./storage-slots";
@@ -459,10 +458,14 @@ export function Workspace() {
     [deviceModel],
   );
   const selectedDimm = dimms.find((part) => part.id === selected);
-  const memoryContext =
-    state.level === "device" &&
-    dimms.length > 0 &&
-    (selected === state.deviceId || selected === "memory-01" || !!selectedDimm);
+  const options = useMemo(
+    () =>
+      state.level === "device"
+        ? structureOptions(state.deviceId, selected)
+        : undefined,
+    [state.level, state.deviceId, selected],
+  );
+  const memoryContext = !!options?.memory;
   const activeMemory =
     memoryDevice === state.deviceId &&
     memoryContext &&
@@ -484,8 +487,7 @@ export function Workspace() {
     layerPose?: LayerPose;
     rearRow?: { supplyId: string; pose: RearRowPose; fromPair: boolean };
   } | null>(null);
-  const pairTools =
-    state.level === "device" ? assemblyChecks(state.deviceId, selected) : [];
+  const pairTools = options?.assemblies ?? [];
   const pathVisit =
     pairVisit?.deviceId === state.deviceId && state.level === "device"
       ? pairVisit.storagePath
@@ -698,7 +700,8 @@ export function Workspace() {
       structureReturn &&
       (state.level !== "device" ||
         state.deviceId !== structureReturn.deviceId ||
-        selected !== structureReturn.deviceId)
+        (selected !== structureReturn.deviceId &&
+          structureReturn.tool !== "cover"))
     )
       setStructureReturn(null);
   }, [structureReturn, state.level, state.deviceId, selected]);
@@ -3079,6 +3082,17 @@ export function Workspace() {
   const startStructureTool = (tool: StructureTool) => {
     if (!ready || state.level !== "device") return;
     setStructureReturn(null);
+    if (tool === "cover") {
+      if (!options?.cover) return;
+      setInspectionDevice(null);
+      const open = !state.coverOpen || state.explosion > 0;
+      pick(options.cover.id);
+      if (selected !== options.cover.id)
+        setStructureReturn({ deviceId: state.deviceId, tool });
+      if (state.explosion > 0) dispatch({ type: "explode", amount: 0 });
+      dispatch({ type: "cover", open });
+      return;
+    }
     if (tool === "memory") {
       if (!memoryContext) return;
       setInspectionDevice(null);
@@ -8045,26 +8059,28 @@ export function Workspace() {
                       (memoryContext ||
                         pairTools.length > 0 ||
                         compactBayContext ||
-                        fanInspectionContext(state.deviceId, selected) ||
-                        storageSlotContext(state.deviceId, selected)) && (
+                        options?.cover ||
+                        !!options?.fans ||
+                        !!options?.slots) && (
                         <StructureTools
                           assemblies={pairTools}
-                          memory={memoryContext ? dimms.length : 0}
+                          cover={
+                            options?.cover
+                              ? state.coverOpen && state.explosion === 0
+                                ? "open"
+                                : "seated"
+                              : undefined
+                          }
+                          memory={options?.memory ?? 0}
                           key={`${revision}:${state.deviceId}:${compactBayContext ? "bays" : selected}`}
                           showSelection={
-                            compactBayContext && selected !== state.deviceId
+                            (compactBayContext &&
+                              selected !== state.deviceId) ||
+                            (state.coverOpen && options?.cover?.id === selected)
                           }
                           hasFanDuct={!!deviceModel.fanDuctLayout}
-                          fans={
-                            fanInspectionContext(state.deviceId, selected)
-                              ? fanAssembly(state.deviceId)!.fans.length
-                              : 0
-                          }
-                          slots={
-                            storageSlotContext(state.deviceId, selected)
-                              ? storageSlots(state.deviceId).length
-                              : 0
-                          }
+                          fans={options?.fans ?? 0}
+                          slots={options?.slots ?? 0}
                           ready={ready}
                           restore={
                             structureReturn?.deviceId === state.deviceId
@@ -8347,7 +8363,9 @@ export function Workspace() {
                                     : assembly?.tool === "drive-tray"
                                       ? "八个竖装盘位按托架编号与模型位置对应。盘内板、四柱、导热件和盘尾触面为原创装配示意，读数沿用硬盘模型。"
                                       : assembly?.tool === "rtc-mount"
-                                        ? "RTC 位置取自主板外观。电池座、触片与抬起间距为装配示意，电池电压和电量未接入。"
+                                        ? compactServer
+                                          ? "M1 的 RTC 身份来自配置。电池座按贡献主板空余板面定位，固定座、触片和拆装行程为原创示意。电池电压和电量未接入。"
+                                          : "RTC 位置取自主板外观。电池座、触片与抬起间距为装配示意，电池电压和电量未接入。"
                                         : assembly?.tool === "expansion-bay"
                                           ? "机后面板分区按 M2 配置定位。网卡装在 01 架，02 架为空架。管理接口板、罩脚与贯通孔、支架及行程为装配示意。A/B 两路逻辑接入归属双口网卡。"
                                           : assembly?.tool === "rear-interfaces"

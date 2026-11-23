@@ -57,7 +57,16 @@ test("独立开盖不移动其他部件；切换图层、回看和重播保留�
     level: "device",
     id: "sw-01",
   });
-  assert.equal(transition(network, { type: "cover", open: true }), network);
+  const openNetwork = transition(network, { type: "cover", open: true });
+  assert.equal(openNetwork.coverOpen, true);
+  const expandedNetwork = transition(openNetwork, {
+    type: "explode",
+    amount: 1,
+  });
+  assert.equal(expandedNetwork.coverOpen, false);
+  const restored = transition(expandedNetwork, { type: "explode", amount: 0 });
+  assert.equal(restored.coverOpen, false);
+  assert.equal(restored.explosion, 0);
 });
 
 test("自动取盖在先、展开在后；部件复原后再合盖，连续反向操作保持归位", () => {

@@ -2069,7 +2069,9 @@ export class SceneEngine {
       this.assemblyModel,
     )?.representations;
     const exterior =
-      representations && this.state.explosion <= internalStructureThreshold;
+      representations &&
+      !this.state.coverOpen &&
+      this.state.explosion <= internalStructureThreshold;
     const body = representations
       ? exterior
         ? representations.exterior
@@ -2100,8 +2102,9 @@ export class SceneEngine {
         assemblyPartPosition(
           { ...part, position: base },
           this.state.explosion,
-          modelForDevice(this.state.deviceId).category === "server" &&
-            (this.state.coverOpen || this.state.explosion > 0)
+          this.state.coverOpen ||
+            (modelForDevice(this.state.deviceId).category === "server" &&
+              this.state.explosion > 0)
             ? 1
             : 0,
         ),
@@ -2756,7 +2759,7 @@ export class SceneEngine {
   poseParts() {
     this.rearModuleSeats.restoreModule();
     const assembly = this.assemblies.get(this.assemblyModel);
-    if (assembly) poseExterior(assembly, this.explosion);
+    if (assembly) poseExterior(assembly, this.explosion, this.cover);
     this.guidePositions.fill(0);
     for (const [index, part] of partsForDevice(this.state.deviceId).entries()) {
       const base = this.partBases.get(part.id)?.toArray() ?? part.position;
@@ -3008,7 +3011,10 @@ export class SceneEngine {
     this.inspectionLight.intensity = this.state.level === "room" ? 0 : 3 * near;
     const explosionTarget =
       this.state.level === "device" && frame.ready ? this.state.explosion : 0;
-    const hasCover = modelForDevice(this.state.deviceId).category === "server";
+    const hasCover =
+      modelForDevice(this.state.deviceId).category === "server" ||
+      this.state.coverOpen ||
+      this.cover > 0;
     const coverTarget =
       hasCover &&
       this.state.level === "device" &&

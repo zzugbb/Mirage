@@ -3,13 +3,14 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { AssemblyCheck } from "../assembly-pairs";
 
 export type StructureTool =
-  "fans" | "storage" | "memory" | AssemblyCheck["tool"];
+  "cover" | "fans" | "storage" | "memory" | AssemblyCheck["tool"];
 
 /** 未开始的核对工具按需展开；明确结束后才恢复入口，不跟随回看抢焦点。 */
 export function StructureTools({
   children,
   showSelection = false,
   assemblies,
+  cover,
   memory,
   fans,
   hasFanDuct,
@@ -22,6 +23,7 @@ export function StructureTools({
   children?: React.ReactNode;
   showSelection?: boolean;
   assemblies: readonly AssemblyCheck[];
+  cover?: "seated" | "open";
   memory: number;
   fans: number;
   hasFanDuct: boolean;
@@ -86,6 +88,7 @@ export function StructureTools({
             ...assemblies.map((check) =>
               "summary" in check ? check.summary : check.name,
             ),
+            cover ? "上盖安装位" : "",
             memory ? "内存组" : "",
             fans ? "风扇组" : "",
             slots ? "盘位" : "",
@@ -109,6 +112,23 @@ export function StructureTools({
             <small>{assembly.detail}</small>
           </button>
         ))}
+        {cover && (
+          <button
+            data-structure-tool="cover"
+            disabled={!ready}
+            onClick={() => onStart("cover")}
+          >
+            <strong>
+              {cover === "open" ? "合回机箱上盖" : "核对上盖安装位"}{" "}
+              <span>↗</span>
+            </strong>
+            <small>
+              {cover === "open"
+                ? "沿原路径对回机箱两侧"
+                : "其余部件归位，单独移开上盖查看机箱安装边"}
+            </small>
+          </button>
+        )}
         {memory > 0 && (
           <button
             data-structure-tool="memory"
