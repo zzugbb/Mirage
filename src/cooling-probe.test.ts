@@ -115,3 +115,52 @@ test("无有效进风时保留配置分母，同柜有效零值可定位，其�
     [0, 1, "sto-04"],
   );
 });
+
+test("同排八柜各自列全制冷服务输入，已计入首行与柜内最高值同源", () => {
+  const at40 = spatialSnapshot(40).readings;
+  for (const round of environmentRounds) {
+    for (const {
+      rack,
+      inputs,
+      device,
+      coverage,
+      count,
+      maximum,
+    } of coolingRackPeaks(round, at40)) {
+      const ids = coolingRelations
+        .map((r) => r.target)
+        .filter((id) => coolingProbeForDevice(id)?.device.rackId === rack.id);
+      assert.deepEqual(new Set(inputs.map((row) => row.id)), new Set(ids));
+      assert.equal(inputs.length, count);
+      assert.equal(inputs.filter((row) => row.included).length, coverage);
+      assert.equal(inputs[0].value, maximum);
+      assert.equal(inputs[0].id, device?.id);
+    }
+  }
+});
+
+test("停机、离线、未配置和过期进风分别说明；回到最后采样秒后设备重新计入", () => {
+  const snapshot = (t: number) =>
+    environmentRounds.flatMap((round) =>
+      coolingRackPeaks(round, spatialSnapshot(t).readings),
+    );
+  const at60 = snapshot(60);
+  const excluded = at60
+    .flatMap((r) => r.inputs)
+    .filter((input) => !input.included);
+  const reasons = Object.fromEntries(excluded.map((i) => [i.id, i.reason]));
+  assert.deepEqual(reasons, {
+    "srv-25": "设备离线",
+    "srv-56": "未配置观测",
+    "srv-59": "数据过期",
+    "srv-63": "停机 · 无进风值",
+  });
+  assert.ok(excluded.every((row) => row.value === null));
+  const stale = excluded.find((i) => i.id === "srv-59")!;
+  assert.match(stale.detail, /最后观测 44 秒 · 26\.2 °C/);
+  const recovered = snapshot(44)
+    .flatMap((r) => r.inputs)
+    .find((i) => i.id === stale.id)!;
+  assert.equal(recovered.value, 26.2);
+  assert.equal(recovered.included, true);
+});

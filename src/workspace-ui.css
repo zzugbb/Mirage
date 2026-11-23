@@ -7310,3 +7310,37 @@
   display: block;
   margin-top: 6px;
 }
+
+.probe-rack-inlet .probe-rack-coverage {
+  display: grid;
+  justify-content: start;
+}
+.probe-inputs {
+  grid-column: 1 / -1;
+  padding: 6px 8px;
+  border-left: 2px solid #52727c;
+}
+.probe-input-filters {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.probe-input-filters [aria-pressed="true"] {
+  background: var(--raised);
+  color: #cdf0ed;
+}
+.probe-input-list {
+  max-height: 200px;
+  overflow: auto;
+}
+.probe-input-list button {
+  width: 100%;
+  border-top: 1px solid #34454f;
+}
+.probe-input-list [aria-current="true"] {
+  background: var(--raised);
+  box-shadow: inset 2px 0 #a6d8d8;
+}
+.probe-input-list small {
+  width: 100%;
+}

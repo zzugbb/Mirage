@@ -18,6 +18,7 @@ export function CoolingProbeCheck({
   actionLabel,
   ready,
   onLocate,
+  onSeekSample,
 }: {
   context: NonNullable<ReturnType<typeof coolingProbeForDevice>>;
   reading: SpatialReading;
@@ -26,6 +27,7 @@ export function CoolingProbeCheck({
   actionLabel: string;
   ready: boolean;
   onLocate: () => void;
+  onSeekSample?: (time: number) => void;
 }) {
   const { device, probe, row } = context;
   const observation = environmentObservation(probe.id, time);
@@ -40,6 +42,10 @@ export function CoolingProbeCheck({
           ? "停机"
           : "无有效进风"
         : reading.temperature.toFixed(1) + " °C";
+  const lastSample =
+    reading.quality === "stale" && Number.isFinite(reading.temperature)
+      ? reading.observedAt
+      : null;
   return (
     <ConnectionSection
       className="cooling-probe-check"
@@ -73,6 +79,11 @@ export function CoolingProbeCheck({
             reason}
       </p>
       <small>同排巡检点 · 模拟温度。探头只代表安装位置。</small>
+      {onSeekSample && lastSample !== null && (
+        <button disabled={!ready} onClick={() => onSeekSample(lastSample)}>
+          回看第 {lastSample} 秒有效进风 ↗
+        </button>
+      )}
       <button disabled={!ready} onClick={onLocate}>
         {actionLabel} ↗
       </button>

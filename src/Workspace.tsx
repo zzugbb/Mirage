@@ -339,7 +339,10 @@ import {
   switchRole,
 } from "./network";
 import { coolingProbeForDevice } from "./cooling-probe";
-import { ProbeRackInlets } from "./components/ProbeRackInlets";
+import {
+  ProbeRackInlets,
+  type ProbeInputCheck,
+} from "./components/ProbeRackInlets";
 import { CoolingProbeCheck } from "./components/CoolingProbeCheck";
 import { CoolingConnections } from "./components/CoolingConnections";
 import {
@@ -1804,6 +1807,9 @@ export function Workspace() {
     if (openRound && openRound !== round?.row.id) setOpenRound(null);
   }, [round, openRound]);
   const [probeRackDevice, setProbeRackDevice] = useState<string | null>(null);
+  const [probeInputCheck, setProbeInputCheck] =
+    useState<ProbeInputCheck | null>(null);
+  const probeInputRestore = useRef<string | null>(null);
   const rackProbe = useMemo(
     () => (probeRackDevice ? coolingProbeForDevice(probeRackDevice) : null),
     [probeRackDevice],
@@ -1817,6 +1823,20 @@ export function Workspace() {
     )
       setProbeRackDevice(null);
   }, [rackProbe, selected, layer, layoutReturning]);
+  useEffect(() => {
+    if (
+      probeInputCheck &&
+      (layoutReturning ||
+        !(
+          (round?.probe.id === selected &&
+            round.row.rackIds.includes(probeInputCheck.rackId)) ||
+          rackProbe?.device.rackId === probeInputCheck.rackId
+        ))
+    ) {
+      setProbeInputCheck(null);
+      probeInputRestore.current = null;
+    }
+  }, [probeInputCheck, selected, round, rackProbe, layoutReturning]);
   const pairedEnvironment =
     environmentPairVisit &&
     layer === "environment" &&
@@ -4455,6 +4475,8 @@ export function Workspace() {
     setGrilleReturning(false);
     setGrilleRack({});
     setProbeRackDevice(null);
+    setProbeInputCheck(null);
+    probeInputRestore.current = null;
     setCoolingRangeState(initialCoolingRange());
     setCoolingRangeOpen(false);
     setCoolingVisit(null);
@@ -4658,8 +4680,14 @@ export function Workspace() {
         round={round}
         readings={spatial.readings}
         ready={ready}
-        active={rackProbe?.probe.id === selected}
-        onLocate={(id) => {
+        visitedDevice={
+          rackProbe?.probe.id === selected ? rackProbe.device.id : undefined
+        }
+        check={probeInputCheck}
+        restore={probeInputRestore}
+        onCheck={setProbeInputCheck}
+        onLocate={(id, fromInputs) => {
+          if (!fromInputs) setProbeInputCheck(null);
           setProbeRackDevice(id);
           if (layoutVisit?.resourceList) {
             setQuery("");
@@ -4679,9 +4707,20 @@ export function Workspace() {
         time={state.time}
         active
         ready={ready}
+        onSeekSample={(time) => {
+          control({ type: "analysis", value: true });
+          dispatch({ type: "seek", time });
+        }}
         actionLabel={"返回" + rackProbe.probe.name}
         onLocate={() => {
           control({ type: "analysis", value: false });
+          if (probeInputCheck) {
+            setProbeInputCheck({
+              rackId: rackProbe.device.rackId,
+              included: currentTemperature !== null,
+            });
+            probeInputRestore.current = selected;
+          }
           focus(rackProbe.probe.id);
         }}
       />

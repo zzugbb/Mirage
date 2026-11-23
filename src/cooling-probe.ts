@@ -1,6 +1,5 @@
 import {
   coolingDeviceIds,
-  coolingSummary,
   coolingRelations,
   coolingSource,
 } from "./cooling.ts";
@@ -8,6 +7,7 @@ import {
   environmentRounds,
   type EnvironmentRound,
 } from "./environment-rounds.ts";
+import { deviceSourceRows } from "./reading-sources.ts";
 import { deviceById } from "./installation.ts";
 import type { SpatialReading } from "./spatial.ts";
 import type { EnvironmentChannel } from "./environment-monitoring.ts";
@@ -54,16 +54,19 @@ export function coolingRackPeaks(
   readings: Map<string, SpatialReading>,
 ) {
   return round.racks.map((rack) => {
-    const { coverage, count, hottestId, maximum } = coolingSummary(
+    const inputs = deviceSourceRows(
       coolingDeviceIds(rack.id),
+      "temperature",
       readings,
     );
+    const peak = inputs[0];
     return {
       rack,
-      coverage,
-      count,
-      device: hottestId ? deviceById(hottestId) : undefined,
-      maximum,
+      inputs,
+      coverage: inputs.filter((input) => input.included).length,
+      count: inputs.length,
+      device: peak?.included ? deviceById(peak.id) : undefined,
+      maximum: peak?.value ?? null,
     };
   });
 }

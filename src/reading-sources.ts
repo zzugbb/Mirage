@@ -38,21 +38,12 @@ export const sourceValue = (value: number | null, metric: SourceMetric) =>
     ? "—"
     : `${value.toFixed(1)} ${metric === "temperature" ? "°C" : "W"}`;
 
-/** 汇总只追溯整机输入；设施关系按设备去重，不包含部件分项或 A/B 拆分。 */
-export function readingSources(
-  id: string,
+/** 保留已配置但缺少读数的整机；按有效值和身份稳定排序。 */
+export function deviceSourceRows(
+  ids: string[],
   metric: SourceMetric,
   readings: Map<string, SpatialReading>,
 ) {
-  if (!sourceMetrics(id).includes(metric)) return null;
-  const ids =
-    id === "room-01"
-      ? devices.map((d) => d.id)
-      : rackById(id)
-        ? devices.filter((d) => d.rackId === id).map((d) => d.id)
-        : isCoolingSource(id)
-          ? coolingDeviceIds(id)
-          : powerDeviceIds(id);
   const rows = [...new Set(ids)].map((deviceId) => {
     const device = deviceById(deviceId)!,
       reading = readings.get(deviceId),
@@ -99,6 +90,25 @@ export function readingSources(
       (a.included && b.included ? b.value! - a.value! : 0) ||
       a.id.localeCompare(b.id),
   );
+  return rows;
+}
+
+/** 汇总只追溯整机输入；设施关系按设备去重，不包含部件分项或 A/B 拆分。 */
+export function readingSources(
+  id: string,
+  metric: SourceMetric,
+  readings: Map<string, SpatialReading>,
+) {
+  if (!sourceMetrics(id).includes(metric)) return null;
+  const ids =
+    id === "room-01"
+      ? devices.map((d) => d.id)
+      : rackById(id)
+        ? devices.filter((d) => d.rackId === id).map((d) => d.id)
+        : isCoolingSource(id)
+          ? coolingDeviceIds(id)
+          : powerDeviceIds(id);
+  const rows = deviceSourceRows(ids, metric, readings);
   const included = rows.filter((r) => r.included);
   const budget = metric === "power" ? powerBudget(rows) : null;
   const scopeReading = readings.get(id);
