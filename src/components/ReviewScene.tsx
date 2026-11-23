@@ -1846,19 +1846,24 @@ export function ReviewScene({
   useEffect(() => {
     airflowGeometry.current?.update(visibleAirflow, flowView);
   }, [visibleAirflow, flowView, retry]);
+  const grilleFront =
+    crossing?.kind === "grille-seat" ? crossing.front : undefined;
   useEffect(() => {
     maintenanceGeometry.current?.update(
-      frontService
-        ? [frontService.area]
-        : serviceArea
-          ? [serviceArea]
-          : maintenance,
+      grilleFront
+        ? [grilleFront.area]
+        : frontService
+          ? [frontService.area]
+          : serviceArea
+            ? [serviceArea]
+            : maintenance,
       comparison,
-      grilleSweep ? undefined : maintenanceView?.overlap,
+      grilleFront || grilleSweep ? undefined : maintenanceView?.overlap,
     );
     maintenanceGeometry.current?.showFrontService(frontService);
     if (engine.current) engine.current.comparedAisle = comparison;
   }, [
+    grilleFront,
     maintenance,
     comparison,
     maintenanceView,
@@ -1875,10 +1880,11 @@ export function ReviewScene({
           ? maintenanceView?.sweeps
           : undefined,
       openRearService ? "open" : doorReference,
-      inspecting ? grilleSweep : null,
+      grilleFront?.sweep ?? (inspecting ? grilleSweep : null),
     );
     engine.current?.invalidate();
   }, [
+    grilleFront,
     inspecting,
     maintenanceView,
     doorReference,
@@ -2013,6 +2019,7 @@ export function ReviewScene({
     (entranceView?.view ?? "") +
     (leakView?.view ?? "") +
     (crossing?.id ?? "") +
+    (crossing?.markers.map((marker) => marker.id).join(":") ?? "") +
     (selectedFixture?.id ?? "") +
     labels.map((r) => r.id).join(":") +
     (visibleAirflow?.routes.map((route) => route.id).join(":") ?? "") +

@@ -1,5 +1,6 @@
 import {
-  aisleDoorSweeps,
+  maintenanceDoorSweep,
+  type DoorSweep,
   doorSector,
   type DoorReference,
 } from "./door-sweep.ts";
@@ -34,7 +35,14 @@ export function grilleDoorSweep(
   grille: FloorGrille,
   reference: DoorReference,
 ) {
-  const sweep = aisleDoorSweeps(aisle)[0];
+  return frontGrilleSweep(maintenanceDoorSweep(aisle.front), grille, reference);
+}
+
+export function frontGrilleSweep(
+  sweep: DoorSweep,
+  grille: FloorGrille,
+  reference: DoorReference,
+) {
   const angle = sweep[reference].angle;
   const leaf = sweep.leaves[0];
   const sector = doorSector(leaf, angle, 1);
@@ -67,7 +75,7 @@ export function grilleDoorSweep(
     frame,
     patch: area > 1e-12 ? patch : [],
     area: area > 1e-12 ? area : 0,
-    y: aisle.front.position[1] + 0.012,
+    y: sweep.area.position[1] + 0.012,
   };
 }
 

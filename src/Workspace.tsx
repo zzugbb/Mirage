@@ -8473,9 +8473,15 @@ export function Workspace() {
                     <GrilleSeatDetails
                       seat={crossing}
                       ready={ready}
-                      onView={(index, removed) =>
+                      onView={(index, removed, reference, rackId) =>
                         requestCrossing(
-                          grilleSeatInspection(crossing.row.id, index, removed),
+                          grilleSeatInspection(
+                            crossing.row.id,
+                            index,
+                            removed,
+                            reference,
+                            rackId,
+                          ),
                         )
                       }
                       onHistory={(id) => {
