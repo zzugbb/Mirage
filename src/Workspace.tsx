@@ -1,5 +1,7 @@
 import { grilleSeatInspection } from "./grille-seat";
 import { GrilleSeatDetails } from "./components/GrilleSeatDetails";
+import { grilleIntakeInspection } from "./grille-intake";
+import { GrilleIntakeDetails } from "./components/GrilleIntakeDetails";
 import { emergencyLight, entranceFixture } from "./entrance";
 import { condensate, isCondensate } from "./condensate";
 import { drainJointInspection } from "./condensate-joint";
@@ -8639,6 +8641,7 @@ export function Workspace() {
               !(
                 review.analysis &&
                 (crossing.kind === "grille-seat" ||
+                  crossing.kind === "grille-intake" ||
                   crossing.kind === "tray-bay" ||
                   crossing.kind === "light-hanger" ||
                   crossing.kind === "probe-height" ||
@@ -8665,6 +8668,7 @@ export function Workspace() {
                 >
                   <strong>{crossing.title} · 配置</strong>
                   {crossing.kind !== "grille-seat" &&
+                    crossing.kind !== "grille-intake" &&
                     crossing.kind !== "lighting-round" &&
                     crossing.kind !== "tray-support" &&
                     crossing.kind !== "tray-bay" &&
@@ -8732,6 +8736,9 @@ export function Workspace() {
                     <GrilleSeatDetails
                       seat={crossing}
                       ready={ready}
+                      onIntake={() =>
+                        requestCrossing(grilleIntakeInspection(crossing))
+                      }
                       onView={(index, removed, reference, rackId) =>
                         requestCrossing(
                           grilleSeatInspection(
@@ -8746,6 +8753,17 @@ export function Workspace() {
                       onHistory={(id) => {
                         focus(id);
                         analyze();
+                      }}
+                    />
+                  )}
+                  {crossing.kind === "grille-intake" && (
+                    <GrilleIntakeDetails
+                      check={crossing}
+                      ready={ready}
+                      onSeat={() => requestCrossing(crossing.seat)}
+                      onLocate={(id) => {
+                        focus(id, { installation: true });
+                        dispatch({ type: "door", open: true });
                       }}
                     />
                   )}

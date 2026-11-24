@@ -51,6 +51,7 @@ import {
 } from "../fixture-crossing.ts";
 import { rearWallCrossingFrame } from "../rear-wall.ts";
 import { probeHeightViewFrame } from "../probe-height-scene.ts";
+import { grilleIntakeViewFrame } from "../grille-intake.ts";
 import { racewayCornerViewFrame } from "../panel-raceway.ts";
 import { showRacewayCorner } from "./raceway.ts";
 import { drainJointFrame } from "../condensate-joint.ts";
@@ -1327,8 +1328,9 @@ export class SceneEngine {
     previous: ObservationMemory;
   };
   private applyCrossingAppearance(pair?: FixtureCrossing) {
+    const grille = pair?.kind === "grille-intake" ? pair.seat : pair;
     this.models.grilles.setRemovedFace(
-      pair?.kind === "grille-seat" && pair.removed ? pair.instance : -1,
+      grille?.kind === "grille-seat" && grille.removed ? grille.instance : -1,
     );
     showRacewayCorner(
       this.models.fixtures,
@@ -1421,14 +1423,17 @@ export class SceneEngine {
           : pair.kind === "drain-joint"
             ? drainJointFrame(pair, width, height, rect)
             : lightHangerViewFrame(pair, width, height, rect);
-    } else if (pair.kind === "probe-height") {
+    } else if (pair.kind === "probe-height" || pair.kind === "grille-intake") {
       rect.left = 44;
       if (legendRect)
         rect.bottom = Math.max(
           rect.top + 120,
           Math.min(rect.bottom, legendRect.top - 22),
         );
-      fit = probeHeightViewFrame(pair, width, height, rect);
+      fit =
+        pair.kind === "probe-height"
+          ? probeHeightViewFrame(pair, width, height, rect)
+          : grilleIntakeViewFrame(pair, width, height, rect);
     } else if (pair.kind === "raceway-corner") {
       fit = racewayCornerViewFrame(pair, width, height, rect);
     } else if (pair.kind === "roof-pdu") {

@@ -1,4 +1,5 @@
 import type { GrilleSeat } from "./grille-seat.ts";
+import type { GrilleIntakeInspection } from "./grille-intake.ts";
 import definition from "../assets/public/scenes/room-01.json" with { type: "json" };
 import type { EnvironmentRound } from "./environment-rounds.ts";
 import { rackById } from "./installation.ts";
@@ -575,22 +576,24 @@ export function lightingRound(lightId: string, trayId: string, rackId: string) {
   };
 }
 export const crossingObjectIds = (pair: FixtureCrossing) =>
-  pair.kind === "raceway-corner"
-    ? racewaySections.map(({ id }) => id)
-    : pair.kind === "drain-joint"
-      ? drainJointObjectIds
-      : pair.kind === "grille-seat" ||
-          pair.kind === "light-hanger" ||
-          pair.kind === "tray-support" ||
-          pair.kind === "tray-bay"
-        ? [pair.upper.id]
-        : pair.kind === "smoke-light"
-          ? [pair.round.points[0].id, pair.round.points[1].id, pair.light.id]
-          : pair.kind === "lighting-round"
-            ? [pair.source.light.id, pair.upper.id, pair.lower.id]
-            : pair.kind === "roof-pdu"
-              ? [pair.upper.id, pair.lower.id, pair.pdu.id]
-              : [pair.upper.id, pair.lower.id];
+  pair.kind === "grille-intake"
+    ? [pair.upper.id, pair.lower.id, pair.route.deviceId]
+    : pair.kind === "raceway-corner"
+      ? racewaySections.map(({ id }) => id)
+      : pair.kind === "drain-joint"
+        ? drainJointObjectIds
+        : pair.kind === "grille-seat" ||
+            pair.kind === "light-hanger" ||
+            pair.kind === "tray-support" ||
+            pair.kind === "tray-bay"
+          ? [pair.upper.id]
+          : pair.kind === "smoke-light"
+            ? [pair.round.points[0].id, pair.round.points[1].id, pair.light.id]
+            : pair.kind === "lighting-round"
+              ? [pair.source.light.id, pair.upper.id, pair.lower.id]
+              : pair.kind === "roof-pdu"
+                ? [pair.upper.id, pair.lower.id, pair.pdu.id]
+                : [pair.upper.id, pair.lower.id];
 type RackRoofOverview =
   | NonNullable<ReturnType<typeof lightingRound>>
   | NonNullable<ReturnType<typeof rackTrayCrossing>>;
@@ -603,6 +606,7 @@ export type RoofPduView = NonNullable<ReturnType<typeof roofPduPlacement>>;
 export type RackRoofView = RackRoofOverview | RoofEntryView | RoofPduView;
 export type FixtureCrossing =
   | GrilleSeat
+  | GrilleIntakeInspection
   | RearWallCrossing
   | DrainJointInspection
   | ProbeHeightScene

@@ -12,6 +12,7 @@ type GrilleDetailsProps = {
     rackId?: string,
   ) => void;
   onHistory: (id: string) => void;
+  onIntake?: () => void;
 };
 
 export function GrilleSeatDetails({
@@ -19,6 +20,7 @@ export function GrilleSeatDetails({
   ready,
   onView,
   onHistory,
+  onIntake,
 }: GrilleDetailsProps) {
   const { branch, front, reference } = seat;
   return (
@@ -151,9 +153,19 @@ export function GrilleSeatDetails({
             </div>
           </dl>
           {branch ? (
-            <button disabled={!ready} onClick={() => onHistory(branch.rack.id)}>
-              回看{branch.rack.name}设备汇总 ↗
-            </button>
+            <>
+              {onIntake && (
+                <button disabled={!ready} onClick={onIntake}>
+                  核对落点与进风位置 ↗
+                </button>
+              )}
+              <button
+                disabled={!ready}
+                onClick={() => onHistory(branch.rack.id)}
+              >
+                回看{branch.rack.name}设备汇总 ↗
+              </button>
+            </>
           ) : (
             <small>
               此块未用作代表气流落点。编号旁标有机柜的格栅可回看对应设备汇总。

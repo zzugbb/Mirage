@@ -38,6 +38,20 @@ export class CrossingGeometry {
     const points: THREE.Vector3[] = [];
     if (pair.kind === "grille-seat") {
       pair.outline.forEach((p, i) => points.push(p, pair.outline[(i + 1) % 4]));
+    } else if (pair.kind === "grille-intake") {
+      for (const outline of [pair.seat.outline, pair.faceOutline])
+        outline.forEach((p, i) =>
+          points.push(p, outline[(i + 1) % outline.length]),
+        );
+      const [grille, projected] = pair.plan;
+      const [low, high] = pair.heightRuler;
+      dashSegment(points, grille, projected, 0.085);
+      points.push(projected, low, low, high, high, pair.intake);
+      for (const end of [low, high])
+        points.push(
+          end.clone().setX(end.x - 0.025),
+          end.clone().setX(end.x + 0.025),
+        );
     } else if (pair.kind === "raceway-corner") {
       if (pair.opened)
         pair.opening.forEach((p, i, opening) =>
