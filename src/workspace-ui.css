@@ -2483,7 +2483,7 @@
   overflow-wrap: anywhere;
   color: #d4dfe3;
 }
-.workspace-ui .panel-port-details {
+.workspace-ui .panel-port-details:not([hidden]) {
   display: grid;
   gap: 8px;
   padding-bottom: 14px;

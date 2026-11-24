@@ -368,6 +368,7 @@
       "width": 0.09,
       "depth": 0.048,
       "coverThickness": 0.006,
+      "wallThickness": 0.004,
       "trunkCenterY": 2.48,
       "trunk": {
         "id": "raceway-horizontal",

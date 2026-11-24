@@ -1,4 +1,5 @@
 import scene from "../assets/public/scenes/room-01.json" with { type: "json" };
+import { Vector3 } from "three";
 import {
   panelSettings,
   patchPanelById,
@@ -6,6 +7,7 @@ import {
   portAtPanel,
   type PanelPort,
 } from "./patch-panels.ts";
+import { observationFrame, type FrameRect } from "./observation-frame.ts";
 
 const layout = scene.room.panelRaceway;
 const { width, depth, trunkCenterY } = layout;
@@ -44,6 +46,103 @@ export const racewaySections = [...drops, trunk];
 export const racewayById = (id: string) =>
   racewaySections.find((s) => s.id === id);
 export const racewayCoverThickness = layout.coverThickness;
+export const racewayWallThickness = layout.wallThickness;
+const cornerWidth = width - 2 * racewayWallThickness;
+export const racewayTrunkOpenings = drops
+  .map((drop) => ({
+    left: drop.position[0] - cornerWidth / 2,
+    right: drop.position[0] + cornerWidth / 2,
+  }))
+  .sort((a, b) => a.left - b.left);
+
+/** 竖槽内口与横槽下壁开口共用槽壁和盖板配置。 */
+export function racewayCornerInspection(sectionId: string, opened = false) {
+  const drop =
+    sectionId === trunk.id
+      ? [...drops].sort((a, b) => a.position[0] - b.position[0])[0]
+      : drops.find((item) => item.id === sectionId);
+  if (!drop) return null;
+  const [x, trunkY, z] = [
+    drop.position[0],
+    trunk.position[1],
+    trunk.position[2],
+  ];
+  const junction = trunkY - width / 2;
+  const front = z + depth / 2;
+  const innerBack = z - depth / 2 + racewayWallThickness;
+  const innerFront = front - racewayCoverThickness;
+  const towards = Math.sign(trunk.position[0] - x);
+  const trunkMarker = new Vector3(x + towards * 0.136, trunkY, front + 0.001);
+  const dropMarker = new Vector3(x, junction - 0.15, front + 0.001);
+  const backTrunk = trunkMarker.clone().setZ(innerBack + 0.001);
+  const backDrop = dropMarker.clone().setZ(innerBack + 0.001);
+  const opening = [-cornerWidth / 2, cornerWidth / 2].flatMap((dx, i) =>
+    (i === 0 ? [innerBack, innerFront] : [innerFront, innerBack]).map(
+      (depthZ) => new Vector3(x + dx, junction, depthZ),
+    ),
+  );
+  return {
+    kind: "raceway-corner" as const,
+    id: `${trunk.id}:corner:${drop.id}`,
+    title: "后墙线槽转角核对",
+    drop,
+    trunk,
+    panel: patchPanelById(drop.panelId)!,
+    opened,
+    openingWidth: cornerWidth,
+    clearDepth: innerFront - innerBack,
+    opening,
+    upper: {
+      id: trunk.id,
+      name: trunk.name,
+      surface: opened ? "横槽内背板" : "横槽盖板",
+    },
+    lower: {
+      id: drop.id,
+      name: drop.name,
+      surface: opened ? "竖槽内背板" : "竖槽盖板",
+    },
+    points: [...opening, trunkMarker, dropMarker, backTrunk, backDrop],
+    markers: [
+      {
+        id: "raceway-corner-trunk",
+        title: opened ? "横槽内背板" : "横槽盖板",
+        point: opened ? backTrunk : trunkMarker,
+      },
+      {
+        id: "raceway-corner-drop",
+        title: opened ? "竖槽内背板" : "竖槽盖板",
+        point: opened ? backDrop : dropMarker,
+      },
+    ],
+  };
+}
+
+export type RacewayCornerInspection = NonNullable<
+  ReturnType<typeof racewayCornerInspection>
+>;
+
+export function racewayCornerViewFrame(
+  pair: RacewayCornerInspection,
+  width: number,
+  height: number,
+  rect: FrameRect,
+) {
+  const direction = new Vector3(
+    Math.sign(pair.trunk.position[0] - pair.drop.position[0]) * 0.22,
+    0.24,
+    1,
+  );
+  return observationFrame(
+    pair.points,
+    direction,
+    width,
+    height,
+    rect,
+    0.76,
+    0.067,
+  );
+}
 
 export function racewayNeighbors(id: string) {
   if (id === trunk.id) return drops;

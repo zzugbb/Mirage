@@ -51,6 +51,8 @@ import {
 } from "../fixture-crossing.ts";
 import { rearWallCrossingFrame } from "../rear-wall.ts";
 import { probeHeightViewFrame } from "../probe-height-scene.ts";
+import { racewayCornerViewFrame } from "../panel-raceway.ts";
+import { showRacewayCorner } from "./raceway.ts";
 import { drainJointFrame } from "../condensate-joint.ts";
 import { SceneLoop } from "../scene-loop.ts";
 import { AnchorProjection } from "../anchor-projection.ts";
@@ -1324,9 +1326,18 @@ export class SceneEngine {
     pair: FixtureCrossing;
     previous: ObservationMemory;
   };
+  private applyCrossingAppearance(pair?: FixtureCrossing) {
+    this.models.grilles.setRemovedFace(
+      pair?.kind === "grille-seat" && pair.removed ? pair.instance : -1,
+    );
+    showRacewayCorner(
+      this.models.fixtures,
+      pair?.kind === "raceway-corner" ? pair : undefined,
+    );
+  }
   clearCrossingView() {
     if (!this.crossingObservation) return;
-    this.models.grilles.setRemovedFace(-1);
+    this.applyCrossingAppearance();
     this.crossingObservation = undefined;
     this.moving = false;
     this.onCrossingView(null);
@@ -1338,6 +1349,18 @@ export class SceneEngine {
       (this.moving && !this.crossingObservation)
     )
       return;
+    const active = this.crossingObservation;
+    if (
+      pair.kind === "raceway-corner" &&
+      active?.pair.kind === "raceway-corner" &&
+      active.pair.id === pair.id
+    ) {
+      this.crossingObservation = { pair, previous: active.previous };
+      this.applyCrossingAppearance(pair);
+      this.onCrossingView(pair);
+      this.invalidate();
+      return;
+    }
     this.clearMaintenanceView();
     this.clearLeakView();
     this.clearEntranceView();
@@ -1351,9 +1374,7 @@ export class SceneEngine {
     this.clearRangeView();
     this.clearAirflowView();
     this.panelViewport = undefined;
-    this.models.grilles.setRemovedFace(
-      pair.kind === "grille-seat" && pair.removed ? pair.instance : -1,
-    );
+    this.applyCrossingAppearance(pair);
     this.crossingObservation = { pair, previous };
     this.currentView =
       pair.kind === "roof-pdu"
@@ -1408,6 +1429,8 @@ export class SceneEngine {
           Math.min(rect.bottom, legendRect.top - 22),
         );
       fit = probeHeightViewFrame(pair, width, height, rect);
+    } else if (pair.kind === "raceway-corner") {
+      fit = racewayCornerViewFrame(pair, width, height, rect);
     } else if (pair.kind === "roof-pdu") {
       fit = roofPduViewFrame(pair, width, height, rect);
     } else if (pair.kind === "grille-seat" || pair.kind === "light-rod") {
@@ -2012,12 +2035,7 @@ export class SceneEngine {
     this.view(saved.camera.view, saved.camera.focus);
     Object.assign(this, saved.observations);
     this.applyEntrancePose();
-    const crossing = this.crossingObservation?.pair;
-    this.models.grilles.setRemovedFace(
-      crossing?.kind === "grille-seat" && crossing.removed
-        ? crossing.instance
-        : -1,
-    );
+    this.applyCrossingAppearance(this.crossingObservation?.pair);
     this.restoreObservationView(saved.camera);
     this.camera.position.copy(saved.camera.position);
     this.controls.target.copy(saved.camera.target);

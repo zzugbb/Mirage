@@ -25,6 +25,10 @@ import { observationFrame, type FrameRect } from "./observation-frame.ts";
 import type { RearWallCrossing } from "./rear-wall.ts";
 import type { ProbeHeightScene } from "./probe-height-scene.ts";
 import {
+  racewaySections,
+  type RacewayCornerInspection,
+} from "./panel-raceway.ts";
+import {
   drainJointObjectIds,
   type DrainJointInspection,
 } from "./condensate-joint.ts";
@@ -571,20 +575,22 @@ export function lightingRound(lightId: string, trayId: string, rackId: string) {
   };
 }
 export const crossingObjectIds = (pair: FixtureCrossing) =>
-  pair.kind === "drain-joint"
-    ? drainJointObjectIds
-    : pair.kind === "grille-seat" ||
-        pair.kind === "light-hanger" ||
-        pair.kind === "tray-support" ||
-        pair.kind === "tray-bay"
-      ? [pair.upper.id]
-      : pair.kind === "smoke-light"
-        ? [pair.round.points[0].id, pair.round.points[1].id, pair.light.id]
-        : pair.kind === "lighting-round"
-          ? [pair.source.light.id, pair.upper.id, pair.lower.id]
-          : pair.kind === "roof-pdu"
-            ? [pair.upper.id, pair.lower.id, pair.pdu.id]
-            : [pair.upper.id, pair.lower.id];
+  pair.kind === "raceway-corner"
+    ? racewaySections.map(({ id }) => id)
+    : pair.kind === "drain-joint"
+      ? drainJointObjectIds
+      : pair.kind === "grille-seat" ||
+          pair.kind === "light-hanger" ||
+          pair.kind === "tray-support" ||
+          pair.kind === "tray-bay"
+        ? [pair.upper.id]
+        : pair.kind === "smoke-light"
+          ? [pair.round.points[0].id, pair.round.points[1].id, pair.light.id]
+          : pair.kind === "lighting-round"
+            ? [pair.source.light.id, pair.upper.id, pair.lower.id]
+            : pair.kind === "roof-pdu"
+              ? [pair.upper.id, pair.lower.id, pair.pdu.id]
+              : [pair.upper.id, pair.lower.id];
 type RackRoofOverview =
   | NonNullable<ReturnType<typeof lightingRound>>
   | NonNullable<ReturnType<typeof rackTrayCrossing>>;
@@ -600,6 +606,7 @@ export type FixtureCrossing =
   | RearWallCrossing
   | DrainJointInspection
   | ProbeHeightScene
+  | RacewayCornerInspection
   | LightHangerInspection
   | NonNullable<ReturnType<typeof lightRodInspection>>
   | RackRoofView

@@ -13,19 +13,27 @@ export function PanelRacewayDetails({
   ready,
   onLocate,
   onRegister,
+  onCorner,
+  inspectingCorner = false,
 }: {
   fixture: RoomFixture;
   origin: PanelPort | null;
   ready: boolean;
   onLocate: (id: string) => void;
   onRegister: (entry: HTMLButtonElement) => void;
+  onCorner?: () => void;
+  inspectingCorner?: boolean;
 }) {
   const neighbors = racewayNeighbors(fixture.id);
   if (!neighbors.length) return null;
   const termination = origin && panelTermination(origin);
   const atSection = "sectionSize" in fixture;
   return (
-    <section className="panel-port-details" aria-label="线槽布置">
+    <section
+      className="panel-port-details"
+      aria-label="线槽布置"
+      hidden={inspectingCorner}
+    >
       <strong>{atSection ? "相接位置" : "箱顶入口"}</strong>
       {atSection && (
         <p>
@@ -44,6 +52,11 @@ export function PanelRacewayDetails({
           {termination && <span>对端　{panelPortLabel(termination.peer)}</span>}
           <small>槽内敷线待核实</small>
         </div>
+      )}
+      {atSection && onCorner && (
+        <button disabled={!ready} onClick={onCorner}>
+          核对转角与槽盖 ↗
+        </button>
       )}
       <button
         data-start-panel-register

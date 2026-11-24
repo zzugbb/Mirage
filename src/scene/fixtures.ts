@@ -9,7 +9,7 @@ import {
   lightHangerAxis,
   lightHangerSides,
 } from "../ceiling-lights.ts";
-import { racewayCoverThickness } from "../panel-raceway.ts";
+import { buildRaceway } from "./raceway.ts";
 import { buildPatchPanel } from "./patch-panels.ts";
 import { buildEntrance } from "./entrance.ts";
 import { buildLeakCable } from "./leak-detection.ts";
@@ -41,29 +41,7 @@ export function buildRoomFixtures(
     if (fixture.kind.startsWith("condensate-")) {
       buildCondensate(group, fixture.id);
     } else if ("sectionSize" in fixture) {
-      const [w, h, d] = fixture.sectionSize;
-      const cover = racewayCoverThickness;
-      box(group, [w, h, d - cover], [0, 0, -cover / 2], "#596d76", 0.35);
-      const cap = box(
-        group,
-        [w - 0.004, h - 0.004, cover],
-        [0, 0, (d - cover) / 2],
-        "#afbab9",
-        0.35,
-      );
-      cap.name = "raceway-cover";
-      // 接缝压条随槽盖转向。底端压条紧邻入盒处，横段两端压条标出转折。
-      const horizontal = w > h;
-      for (const side of [-1, 1]) {
-        const along = side * ((horizontal ? w : h) / 2 - 0.044);
-        box(
-          group,
-          horizontal ? [0.022, h, 0.004] : [w, 0.022, 0.004],
-          horizontal ? [along, 0, d / 2 + 0.002] : [0, along, d / 2 + 0.002],
-          "#7a898f",
-          0.4,
-        );
-      }
+      buildRaceway(group, fixture, box);
     } else if ("span" in fixture) {
       // 可见几何仍由地面实例批次统一绘制；此包围体只用于整排取景和选中角标。
       const bounds = box(

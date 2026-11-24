@@ -8,11 +8,13 @@ import { DrainJointDetails } from "./components/DrainJointDetails";
 import { PanelRegisterDetails } from "./components/PanelRegisterDetails";
 import {
   racewayById,
+  racewayCornerInspection,
   racewayRegisterStart,
   panelEntryPlacement,
 } from "./panel-raceway";
 import { PatchPanelDetails } from "./components/PatchPanelDetails";
 import { PanelRacewayDetails } from "./components/PanelRacewayDetails";
+import { RacewayCornerDetails } from "./components/RacewayCornerDetails";
 import { patchPanelById, portAtPanel, type PanelPort } from "./patch-panels";
 import {
   frontServiceInspection,
@@ -1231,6 +1233,8 @@ export function Workspace() {
         (pair?.kind === "tray-support" && crossing?.kind === "tray-support") ||
         (pair?.kind === "light-hanger" && crossing?.kind === "light-hanger") ||
         (pair?.kind === "probe-height" && crossing?.kind === "probe-height") ||
+        (pair?.kind === "raceway-corner" &&
+          crossing?.kind === "raceway-corner") ||
         (pair?.kind === "light-rod" && crossing?.kind === "light-rod") ||
         (pair?.kind === "tray-bay" && crossing?.kind === "tray-bay") ||
         (pair?.kind === "roof-pdu" && crossing?.kind === "roof-pdu") ||
@@ -8634,6 +8638,7 @@ export function Workspace() {
                   crossing.kind === "tray-bay" ||
                   crossing.kind === "light-hanger" ||
                   crossing.kind === "probe-height" ||
+                  crossing.kind === "raceway-corner" ||
                   crossing.kind === "light-rod" ||
                   crossing.kind === "tray-support" ||
                   crossing.kind === "lighting-round" ||
@@ -8661,6 +8666,7 @@ export function Workspace() {
                     crossing.kind !== "tray-bay" &&
                     crossing.kind !== "light-hanger" &&
                     crossing.kind !== "probe-height" &&
+                    crossing.kind !== "raceway-corner" &&
                     crossing.kind !== "light-rod" &&
                     crossing.kind !== "roof-entry" &&
                     crossing.kind !== "roof-pdu" &&
@@ -8905,6 +8911,31 @@ export function Workspace() {
                         )
                       }
                       onLocate={(id) => locateProbeDevice(id, "height")}
+                    />
+                  )}
+                  {crossing.kind === "raceway-corner" && (
+                    <RacewayCornerDetails
+                      check={crossing}
+                      ready={ready}
+                      onEnd={(id) =>
+                        requestCrossing(
+                          racewayCornerInspection(id, crossing.opened),
+                        )
+                      }
+                      onCover={(opened) =>
+                        requestCrossing(
+                          racewayCornerInspection(crossing.drop.id, opened),
+                        )
+                      }
+                      onPanel={() => {
+                        const start =
+                          inspectionOrigin ??
+                          racewayRegisterStart(crossing.drop.id);
+                        const endpoint =
+                          start && portAtPanel(start, crossing.panel.id);
+                        if (endpoint) inspectPanelPort(endpoint);
+                        else focus(crossing.panel.id);
+                      }}
                     />
                   )}
                   {!review.analysis && crossing.kind === "light-rod" && (
@@ -9478,6 +9509,15 @@ export function Workspace() {
                           fixture={fixture}
                           origin={inspectionOrigin}
                           ready={ready}
+                          inspectingCorner={crossing?.kind === "raceway-corner"}
+                          onCorner={
+                            racewayById(fixture.id)
+                              ? () =>
+                                  requestCrossing(
+                                    racewayCornerInspection(fixture.id),
+                                  )
+                              : undefined
+                          }
                           onLocate={(id) => {
                             const port =
                               inspectionOrigin &&

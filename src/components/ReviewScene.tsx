@@ -581,6 +581,7 @@ export function ReviewScene({
           crossing?.kind === "lighting-round" ||
           crossing?.kind === "light-hanger" ||
           crossing?.kind === "probe-height" ||
+          crossing?.kind === "raceway-corner" ||
           crossing?.kind === "light-rod" ||
           crossing?.kind === "light-tray")));
   const [stageCutaway, setStageCutaway] = useState(true);
@@ -2396,6 +2397,7 @@ export function ReviewScene({
                 crossing.kind === "tray-support" ||
                 crossing.kind === "light-hanger" ||
                 crossing.kind === "probe-height" ||
+                crossing.kind === "raceway-corner" ||
                 crossing.kind === "light-rod" ||
                 crossing.kind === "lighting-round" ||
                 crossing.kind === "rear-wall" ||
@@ -2834,6 +2836,12 @@ export function ReviewScene({
                   `吊杆长 ${crossing.drop.toFixed(3)} m`
                 ) : crossing.kind === "probe-height" ? (
                   `探头标高 ${crossing.height.toFixed(3)} m`
+                ) : crossing.kind === "raceway-corner" ? (
+                  crossing.opened ? (
+                    "槽盖已移开"
+                  ) : (
+                    "槽盖就位"
+                  )
                 ) : crossing.kind === "light-rod" ? (
                   crossing.gap >= 0 ? (
                     `X 向间距 ${(crossing.gap * 1000).toFixed(1)} mm`
