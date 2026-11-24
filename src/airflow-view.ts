@@ -14,6 +14,7 @@ export const airflowViews = [
   { id: "terminals", name: "制冷柜送回风", direction: [0.32, 0.22, 1] },
 ] as const;
 export type AirflowView = (typeof airflowViews)[number]["id"];
+export type AirflowViewRequest = { view: AirflowView; deviceId: string };
 
 /** 沿既有代表路径取景，进风近景同时包含格栅及前后柜面，保持位置上下文。 */
 export function airflowViewPoints(

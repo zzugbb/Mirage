@@ -138,7 +138,7 @@ import { FixtureRoster } from "./components/FixtureRoster";
 import { fixtureRoster, type FixtureSource } from "./fixture-roster";
 import { RoomLayout } from "./components/RoomLayout";
 import { roomLayoutCrossings, type RoomLayoutScope } from "./room-layout";
-import type { AirflowView } from "./airflow-view";
+import type { AirflowView, AirflowViewRequest } from "./airflow-view";
 import {
   airflowSnapshot,
   representativeAirflowDevice,
@@ -304,7 +304,7 @@ import { RackInstallation } from "./components/RackInstallation";
 import { rackBlankingUnits, unitRanges } from "./rack-blanking";
 import { fixtureById } from "./fixtures";
 import { powerContextIncludes, powerLinkById } from "./power-trace";
-import { rackTrayRelations, trayRelations } from "./cable-trays";
+import { rackTrayRelations, trayRelations, trayRow } from "./cable-trays";
 import {
   isLeakFixture,
   leakRelations,
@@ -313,6 +313,7 @@ import {
   nearbyCooling,
 } from "./leak-detection";
 import { FixtureDetails, FixtureRelations } from "./components/FixtureDetails";
+import { TrayReturnBranches } from "./components/TrayReturnBranches";
 import { entityById, getPath, presentationKey } from "./domain";
 import type { Action } from "./domain";
 import {
@@ -1911,7 +1912,8 @@ export function Workspace() {
   const [airflowStageView, setAirflowStageView] = useState<AirflowView | null>(
     null,
   );
-  const [terminalViewRequest, setTerminalViewRequest] = useState(0);
+  const [airflowViewRequest, setAirflowViewRequest] =
+    useState<AirflowViewRequest | null>(null);
   const [airflowExplanation, setAirflowExplanation] = useState<
     "summary" | "endpoint" | null
   >(null);
@@ -3550,8 +3552,7 @@ export function Workspace() {
     pduInspection,
     state.deviceId,
   ]);
-  const locateFacilityFromList = (id: string, button: HTMLButtonElement) => {
-    const scroll = button.closest(".study-resource-list")?.scrollTop ?? 0;
+  const rememberFacilityList = (id: string, scroll: number) => {
     setLayoutVisit({
       id,
       layer,
@@ -3565,6 +3566,12 @@ export function Workspace() {
           : undefined,
     });
     setLayoutReturning(false);
+  };
+  const locateFacilityFromList = (id: string, button: HTMLButtonElement) => {
+    rememberFacilityList(
+      id,
+      button.closest(".study-resource-list")?.scrollTop ?? 0,
+    );
     setOpenRound(null);
     control({ type: "analysis", value: false });
     focus(id);
@@ -4165,6 +4172,22 @@ export function Workspace() {
     setInspector(!rememberCloseUp);
     if (!rememberCloseUp && matchMedia("(max-width: 1099px)").matches)
       setNav(false);
+  };
+  const openTrayReturnBranch = (trayId: string, deviceId: string) => {
+    if (!ready) return;
+    if (!layoutVisit) {
+      if (roomResourceList)
+        rememberFacilityList(
+          trayId,
+          navigationRef.current?.querySelector(".study-resource-list")
+            ?.scrollTop ?? 0,
+        );
+      else rememberLayoutSelection(trayId);
+    }
+    setAirflowResponse(null);
+    control({ type: "analysis", value: false });
+    showAirflow(deviceId);
+    setAirflowViewRequest({ view: "return-tray", deviceId });
   };
   const visitSource = (id: string) => {
     if (!sourceCheck) return;
@@ -5063,7 +5086,7 @@ export function Workspace() {
         if (!route || !ready) return;
         if (selected !== route.sourceId)
           previewAirflowEndpoint(route, route.sourceId);
-        setTerminalViewRequest((value) => value + 1);
+        setAirflowViewRequest({ view: "terminals", deviceId: route.deviceId });
       }}
       onExplained={() => setAirflowExplanation(null)}
       revealRequested={airflowExplanation}
@@ -6666,6 +6689,7 @@ export function Workspace() {
                                     racewayById(row.id) ||
                                     isCondensate(row.id) ||
                                     grilleRowById(row.id) ||
+                                    trayRow(row.id) ||
                                     entranceViewIncludes(row.id) ||
                                     environmentRoundFor(row.id) ||
                                     fixtureById(row.id)?.kind ===
@@ -6919,7 +6943,7 @@ export function Workspace() {
               alarmQueueVisible ? (alarmVisit ?? alarmReturned)?.id : undefined
             }
             airflow={airflow}
-            terminalViewRequest={terminalViewRequest}
+            airflowViewRequest={airflowViewRequest}
             onAirflowViewChange={setAirflowStageView}
             onExplainAirflow={() => {
               takeover();
@@ -9534,6 +9558,18 @@ export function Workspace() {
                   <FixtureDetails
                     fixture={fixture}
                     inspectingHanger={crossing?.kind === "light-hanger"}
+                    returnBranches={
+                      fixture.kind === "cable-tray" &&
+                      layer === "overview" &&
+                      state.level === "room" && (
+                        <TrayReturnBranches
+                          key={fixture.id}
+                          trayId={fixture.id}
+                          ready={ready}
+                          onOpen={(id) => openTrayReturnBranch(fixture.id, id)}
+                        />
+                      )
+                    }
                     onInspectHangers={
                       fixture.kind === "ceiling-light" &&
                       layer === "overview" &&

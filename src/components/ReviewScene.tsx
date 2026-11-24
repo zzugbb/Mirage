@@ -87,6 +87,7 @@ import type { RackUnitRange } from "../rack-space";
 import { type AirflowInspection } from "../airflow-inspection";
 import { pduInspectionScene, type PduInspection } from "../pdu-outlets";
 import { airflowStage, showAirflowEndpoint } from "../airflow-stage";
+import type { AirflowView, AirflowViewRequest } from "../airflow-view";
 import { airflowReturnTray } from "../airflow-return-tray";
 import { ModelLoadNotice } from "./ModelLoadNotice";
 import { initialModelLoads, type ModelAssetId } from "../model-loading";
@@ -210,7 +211,7 @@ export function ReviewScene({
   alarmOriginId,
   airflow,
   onExplainAirflow,
-  terminalViewRequest,
+  airflowViewRequest,
   onAirflowViewChange,
   frameRoomAirflow,
   coolingRangeObservation,
@@ -374,11 +375,9 @@ export function ReviewScene({
   alarmOriginId?: string;
   airflowVisit: AirflowInspection | null;
   airflow: AirflowSnapshot | null;
-  terminalViewRequest: number;
+  airflowViewRequest: AirflowViewRequest | null;
   onExplainAirflow: () => void;
-  onAirflowViewChange: (
-    view: import("../airflow-view").AirflowView | null,
-  ) => void;
+  onAirflowViewChange: (view: AirflowView | null) => void;
   frameRoomAirflow: boolean;
   coolingRangeObservation: boolean;
   onShowRoomAirflow: () => void;
@@ -571,7 +570,9 @@ export function ReviewScene({
   const localCutaway =
     state.level === "room" &&
     ((maintenanceView?.view === "doors" && layer === "overview") ||
-      (coolingRangeObservation && !!flowView && layer === "airflow") ||
+      (layer === "airflow" &&
+        (flowView === "return-tray" ||
+          (coolingRangeObservation && !!flowView))) ||
       (layer === "overview" &&
         (crossing?.kind === "tray-bay" ||
           crossing?.kind === "smoke-mount" ||
@@ -601,10 +602,6 @@ export function ReviewScene({
     observer.observe(legend);
     return () => observer.disconnect();
   }, [flowView, airflowWorkspace.panel]);
-  useEffect(() => {
-    if (terminalViewRequest && airflow?.routes[0] && layer === "airflow")
-      airflowWorkspace.observe(airflow.routes[0], "terminals");
-  }, [terminalViewRequest]);
   const sliceControls =
     layer === "airflow"
       ? {
@@ -1885,6 +1882,20 @@ export function ReviewScene({
     shotRevision,
     retry,
   ]);
+  const handledAirflowView = useRef<AirflowViewRequest | null>(null);
+  useEffect(() => {
+    const route = airflow?.routes[0];
+    if (
+      !airflowViewRequest ||
+      handledAirflowView.current === airflowViewRequest ||
+      layer !== "airflow" ||
+      route?.deviceId !== airflowViewRequest.deviceId ||
+      !engine.current
+    )
+      return;
+    handledAirflowView.current = airflowViewRequest;
+    airflowWorkspace.observe(route, airflowViewRequest.view);
+  }, [airflowViewRequest, airflow?.routes[0]?.deviceId, layer, retry]);
   useEffect(() => {
     airflowGeometry.current?.update(visibleAirflow, flowView);
   }, [visibleAirflow, flowView, retry]);

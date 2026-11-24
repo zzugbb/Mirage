@@ -2521,6 +2521,22 @@
 .workspace-ui .fixture-relations {
   margin-bottom: 20px;
 }
+.tray-return-branches ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.tray-return-branches li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--study-line);
+}
+.tray-return-branches li button {
+  flex-shrink: 0;
+}
 .workspace-ui .study-inspector > .fixture-relations {
   margin: 0;
   padding: 0 22px;

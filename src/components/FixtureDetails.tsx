@@ -29,6 +29,7 @@ export function FixtureDetails({
   condensateDetails,
   racewayDetails,
   grilleRelations,
+  returnBranches,
   onInspectHangers,
   inspectingHanger = false,
   onInspectSupport,
@@ -46,6 +47,7 @@ export function FixtureDetails({
   condensateDetails?: ReactNode;
   racewayDetails?: ReactNode;
   grilleRelations?: ReactNode;
+  returnBranches?: ReactNode;
   onInspectHangers?: () => void;
   inspectingHanger?: boolean;
   onInspectSupport?: (side: -1 | 1) => void;
@@ -187,6 +189,7 @@ export function FixtureDetails({
           </div>
         )}
       </dl>
+      {returnBranches}
       {light && onInspectHangers && (
         <div className="light-hanger-entry" hidden={inspectingHanger}>
           <button disabled={!comparisonReady} onClick={onInspectHangers}>
