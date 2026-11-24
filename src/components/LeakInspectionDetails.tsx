@@ -14,6 +14,8 @@ import {
 } from "../leak-detection";
 import { useEffect, useRef, useState } from "react";
 import type { LeakInspection, LeakFloorTarget } from "../leak-view";
+import type { LeakFittingId } from "../leak-fittings";
+import { LeakFittingDetails } from "./LeakFittingDetails";
 
 function LeakDistanceInput({
   position,
@@ -109,6 +111,7 @@ export function LeakInspectionDetails({
   ready,
   onPosition,
   onRoute,
+  onFitting,
   onDrainFixture,
   onHistory,
 }: {
@@ -119,16 +122,26 @@ export function LeakInspectionDetails({
   ready: boolean;
   onPosition: (target: LeakFloorTarget) => void;
   onRoute: (target: number | { fromController: number }) => void;
+  onFitting: (id: LeakFittingId, opened: boolean) => void;
   onDrainFixture: (id: string, segment: number) => void;
   onHistory: () => void;
 }) {
-  const { view, route, markers, leadLength, sensingLength } = inspection;
+  const { view, route, markers, leadLength, sensingLength, fitting } =
+    inspection;
   const closest =
     inspection.floor && condensateSensingSegments[inspection.floor.index];
   const floor = inspection.floor;
   const stand = floor?.stand;
   const footNearest =
     stand && floor ? standSensingSegments(stand)[floor.index] : null;
+  const initialFitting =
+    view === "end" || (route && route.station === route.total)
+      ? "end"
+      : view === "lead" ||
+          route?.station === 0 ||
+          (view === "all" && selectedId === leakController.id)
+        ? "controller"
+        : "joint";
   const positionFloor = (target: LeakFloorTarget) => {
     if (!stand) return onPosition(target);
     onPosition({
@@ -162,7 +175,18 @@ export function LeakInspectionDetails({
   );
   return (
     <section className="leak-view-details" aria-label="检漏布置核对">
-      {route ? (
+      {fitting ? (
+        <LeakFittingDetails
+          fitting={fitting}
+          ready={ready}
+          onFitting={onFitting}
+          onRoute={() => {
+            pendingFocus.current = "route";
+            onRoute({ fromController: fitting.station });
+          }}
+          onCooling={() => onLocate(nearbyCooling.id)}
+        />
+      ) : route ? (
         <>
           <strong>整支路里程 · {route.label}</strong>
           <RouteScale route={route} leadLength={leadLength} />
@@ -430,27 +454,37 @@ export function LeakInspectionDetails({
           </details>
         </>
       )}
-      <div className="leak-view-preview">
-        <label>
-          预览对象
-          <select
-            value={selectedId}
-            onChange={(event) => onPreview(event.target.value)}
-          >
-            <option value={leakDetection.controllerId}>
-              {leakController.name}
-            </option>
-            <option value={leakDetection.cableId}>{leakCable.name}</option>
-            <option value={leakDetection.nearbyFacilityId}>
-              邻近{nearbyCooling.name}
-            </option>
-          </select>
-        </label>
-        <button disabled={!ready} onClick={() => onLocate(selectedId)}>
-          定位 ↗
+      {!fitting && !floor && (
+        <button
+          disabled={!ready}
+          onClick={() => onFitting(initialFitting, false)}
+        >
+          核对线端装配 ↗
         </button>
-      </div>
-      {!inspection.floor && (
+      )}
+      {!fitting && (
+        <div className="leak-view-preview">
+          <label>
+            预览对象
+            <select
+              value={selectedId}
+              onChange={(event) => onPreview(event.target.value)}
+            >
+              <option value={leakDetection.controllerId}>
+                {leakController.name}
+              </option>
+              <option value={leakDetection.cableId}>{leakCable.name}</option>
+              <option value={leakDetection.nearbyFacilityId}>
+                邻近{nearbyCooling.name}
+              </option>
+            </select>
+          </label>
+          <button disabled={!ready} onClick={() => onLocate(selectedId)}>
+            定位 ↗
+          </button>
+        </div>
+      )}
+      {!floor && !fitting && (
         <small>
           {selectedId === leakDetection.nearbyFacilityId
             ? "制冷单元与感应线相邻，监测覆盖未登记。"

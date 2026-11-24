@@ -20,6 +20,10 @@ export class LeakViewGeometry {
   update(inspection: LeakInspection | null) {
     this.root.visible = !!inspection;
     if (!inspection) return;
+    if (inspection.fitting) {
+      this.setPoints(inspection.guides.flat());
+      return;
+    }
     const points: THREE.Vector3[] = [];
     const lifted = (p: THREE.Vector3) =>
       p.clone().add(new THREE.Vector3(0, 0.018, 0));
@@ -67,6 +71,9 @@ export class LeakViewGeometry {
               ),
           );
     }
+    this.setPoints(points);
+  }
+  private setPoints(points: THREE.Vector3[]) {
     // 观察段顶点数量不同，替换缓冲前释放旧 GPU 数据，避免残留上段线条。
     this.geometry.dispose();
     this.geometry.setAttribute(

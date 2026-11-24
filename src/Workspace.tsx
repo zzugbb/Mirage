@@ -9395,6 +9395,9 @@ export function Workspace() {
                     inspection={leakView}
                     onPosition={(target) => requestLeakView("floor", target)}
                     onRoute={(target) => requestLeakView("route", target)}
+                    onFitting={(fitting, opened) =>
+                      requestLeakView("fitting", { fitting, opened })
+                    }
                     onHistory={() => {
                       pick(nearbyCooling.id);
                       analyze();

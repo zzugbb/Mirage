@@ -2378,7 +2378,9 @@ export function ReviewScene({
               aria-hidden="true"
               data-anchor={marker.id}
               data-hotspot={
-                leakView.floor || leakView.route ? "center" : undefined
+                leakView.floor || leakView.route || leakView.fitting
+                  ? "center"
+                  : undefined
               }
               data-anchor-kind="position"
               data-anchor-position={marker.point.toArray().join(",")}
@@ -2804,9 +2806,13 @@ export function ReviewScene({
             <FixtureObservationControls
               title="检漏路径"
               note={
-                leakView.floor
-                  ? `制冷单元 · ${assets["cooling-01"] === "ready" ? "贡献模型外观" : assets["cooling-01"] === "failed" ? "加载失败 · 简化柜体" : "简化柜体"}`
-                  : undefined
+                leakView.fitting
+                  ? leakView.fitting.opened
+                    ? "局部剖面 · 配置"
+                    : "外壳合拢 · 配置"
+                  : leakView.floor
+                    ? `制冷单元 · ${assets["cooling-01"] === "ready" ? "贡献模型外观" : assets["cooling-01"] === "failed" ? "加载失败 · 简化柜体" : "简化柜体"}`
+                    : undefined
               }
               subject="检漏"
               views={leakViews}

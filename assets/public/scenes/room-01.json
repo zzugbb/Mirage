@@ -599,6 +599,13 @@
       "sensingRadius": 0.007,
       "leadColor": "#47515a",
       "sensingColor": "#9a9180",
+      "fittings": {
+        "controller": { "length": 0.036, "diameter": 0.026 },
+        "joint": { "length": 0.05, "diameter": 0.028 },
+        "end": { "length": 0.05, "diameter": 0.028 },
+        "wallThickness": 0.003,
+        "endPlugLength": 0.014
+      },
       "leadPoints": [
         [
           -6.82,

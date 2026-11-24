@@ -8,6 +8,11 @@ import {
   leakCable,
 } from "./leak-detection.ts";
 import { observationFrame, type FrameRect } from "./observation-frame.ts";
+import {
+  leakFitting,
+  leakFittingObservation,
+  type LeakFittingId,
+} from "./leak-fittings.ts";
 
 export const leakViews = [
   { id: "all", label: "完整布置" },
@@ -15,12 +20,16 @@ export const leakViews = [
   { id: "lead", label: "控制器与引线" },
   { id: "sensing", label: "感应线路径" },
   { id: "end", label: "末端封接" },
+  { id: "fitting", label: "线端装配" },
   { id: "floor", label: leakCable.location },
 ] as const;
 export type LeakView = (typeof leakViews)[number]["id"];
 export type LeakFloorTarget =
   number | { fromJoint?: number; segment?: number; standId?: string };
-export type LeakTarget = LeakFloorTarget | { fromController: number };
+export type LeakTarget =
+  | LeakFloorTarget
+  | { fromController: number }
+  | { fitting: LeakFittingId; opened?: boolean };
 export type LeakViewCommand = {
   revision: number;
   view: LeakView | null;
@@ -69,7 +78,9 @@ function pathPosition(
 
 function leakFloorSegment(sensing: Vector3[], target: LeakTarget) {
   const choice =
-    typeof target === "object" && !("fromController" in target)
+    typeof target === "object" &&
+    !("fromController" in target) &&
+    !("fitting" in target)
       ? target
       : undefined;
   const stand = drainStands.find((s) => s.id === choice?.standId);
@@ -243,12 +254,18 @@ function inspectionSection(
 export function leakInspection(view: LeakView, target: LeakTarget = 0) {
   const lead = leakDetection.leadPoints.map(vector);
   const sensing = leakDetection.sensingPoints.map(vector);
-  const { route, floor, paths, points, markers } = inspectionSection(
-    view,
-    target,
-    lead,
-    sensing,
-  );
+  const fittingTarget =
+    typeof target === "object" && "fitting" in target ? target : undefined;
+  const fitting =
+    view === "fitting"
+      ? leakFitting(
+          fittingTarget?.fitting ?? "controller",
+          fittingTarget?.opened,
+        )
+      : null;
+  const { route, floor, paths, points, markers, guides } = fitting
+    ? { ...leakFittingObservation(fitting), route: null, floor: null }
+    : { ...inspectionSection(view, target, lead, sensing), guides: [] };
   // 剖切沿长直段补点，不让中途桥架或灯具遮住被核对路径。
   const sightPoints = (floor ? [sensing] : paths).flatMap((path) =>
     path.flatMap((point, i) => {
@@ -267,6 +284,8 @@ export function leakInspection(view: LeakView, target: LeakTarget = 0) {
     sightPoints,
     route,
     floor,
+    fitting,
+    guides,
     markers,
     leadLength: configuredPathLength(leakDetection.leadPoints),
     sensingLength: configuredPathLength(leakDetection.sensingPoints),
@@ -280,6 +299,18 @@ export function leakViewFrame(
   height: number,
   rect: FrameRect,
 ) {
+  if (inspection.fitting) {
+    const { direction, id } = inspection.fitting;
+    return observationFrame(
+      inspection.points,
+      direction,
+      width,
+      height,
+      rect,
+      id === "controller" ? 0.34 : 0.29,
+      0.02,
+    );
+  }
   // 整段从上方核对，避免邻近制冷柜遮住其后方地面感应线；封端从后侧近看。
   const direction = inspection.route
     ? inspection.route.isLead

@@ -35,6 +35,7 @@ import {
   type LeakView,
   type LeakTarget,
 } from "../leak-view.ts";
+import { showLeakFitting } from "./leak-detection.ts";
 import {
   maintenanceInspection,
   maintenanceViewFrame,
@@ -1698,6 +1699,7 @@ export class SceneEngine {
   clearLeakView() {
     if (!this.leakObservation) return;
     this.leakObservation = undefined;
+    showLeakFitting(this.models.fixtures);
     this.moving = false;
     this.onLeakView(null);
     this.invalidate();
@@ -1721,6 +1723,7 @@ export class SceneEngine {
     this.clearAirflowView();
     this.panelViewport = undefined;
     this.leakObservation = { pair, previous };
+    showLeakFitting(this.models.fixtures, pair.fitting);
     this.currentView =
       view === "all" ||
       view === "sensing" ||
@@ -1733,7 +1736,7 @@ export class SceneEngine {
     this.controls.minAzimuthAngle = -Infinity;
     this.controls.maxAzimuthAngle = Infinity;
     this.controls.maxPolarAngle = Math.PI / 2 - 0.03;
-    this.controls.minDistance = 0.5;
+    this.controls.minDistance = pair.fitting ? 0.18 : 0.5;
     this.autoOrbit = false;
     this.onLeakView(pair);
     this.frameLeak();
@@ -2041,6 +2044,7 @@ export class SceneEngine {
     Object.assign(this, saved.observations);
     this.applyEntrancePose();
     this.applyCrossingAppearance(this.crossingObservation?.pair);
+    showLeakFitting(this.models.fixtures, this.leakObservation?.pair.fitting);
     this.restoreObservationView(saved.camera);
     this.camera.position.copy(saved.camera.position);
     this.controls.target.copy(saved.camera.target);
