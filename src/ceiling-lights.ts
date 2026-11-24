@@ -13,7 +13,7 @@ export const housingLength = (light: CeilingLight) =>
 export const lightHangerSides = [-1, 1] as const;
 export type LightHangerSide = (typeof lightHangerSides)[number];
 
-/** 吊杆两端均使用灯具局部坐标，便于和装配几何共用。 */
+/** 吊点在灯具局部坐标中从灯壳顶面量至机房顶板参考面。 */
 export function lightHangerAxis(light: CeilingLight, side: LightHangerSide) {
   const bottom = lightProfile.bodyCenterY + lightProfile.bodyHeight / 2;
   const top = definition.room.size[1] - light.position[1];
@@ -22,6 +22,26 @@ export function lightHangerAxis(light: CeilingLight, side: LightHangerSide) {
     bottom,
     z: side * (light.length / 2 - lightProfile.hangerInset),
     drop: top - bottom,
+  };
+}
+
+/** 底座、接续座和吊杆沿同一局部坐标轴从顶板向下装配。 */
+export function lightCeilingMount(light: CeilingLight, side: LightHangerSide) {
+  const { top, bottom, z } = lightHangerAxis(light, side);
+  const { plateSize, socketSize } = lightProfile.ceilingMount;
+  const plateBottom = top - plateSize[1];
+  const rodTop = plateBottom - socketSize[1];
+  return {
+    plate: {
+      size: [...plateSize] as [number, number, number],
+      position: [0, (plateBottom + top) / 2, z] as [number, number, number],
+    },
+    socket: {
+      size: [...socketSize] as [number, number, number],
+      position: [0, (rodTop + plateBottom) / 2, z] as [number, number, number],
+    },
+    rodTop,
+    rodLength: rodTop - bottom,
   };
 }
 

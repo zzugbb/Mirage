@@ -2923,7 +2923,11 @@ export function ReviewScene({
                 ) : crossing.kind === "tray-bay" ? (
                   `横托轴距 ${crossing.horizontal.toFixed(3)} m`
                 ) : crossing.kind === "light-hanger" ? (
-                  `吊杆长 ${crossing.drop.toFixed(3)} m`
+                  crossing.mount ? (
+                    `安装座高 ${(crossing.mount.height * 1000).toFixed(1)} mm`
+                  ) : (
+                    `顶板至灯壳 ${crossing.drop.toFixed(3)} m`
+                  )
                 ) : crossing.kind === "probe-height" ? (
                   `探头标高 ${crossing.height.toFixed(3)} m`
                 ) : crossing.kind === "probe-mount" ? (

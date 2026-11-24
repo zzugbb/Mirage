@@ -1283,6 +1283,7 @@ export function Workspace() {
         (pair?.kind === "raceway-axis" &&
           control instanceof HTMLInputElement) ||
         ((pair?.kind === "grille-seat" ||
+          pair?.kind === "light-hanger" ||
           pair?.kind === "roof-pdu" ||
           pair?.kind === "smoke-mount" ||
           pair?.kind === "raceway-axis" ||
@@ -9191,7 +9192,20 @@ export function Workspace() {
                       ready={ready}
                       onSide={(side) =>
                         requestCrossing(
-                          lightHangerInspection(crossing.light.id, side),
+                          lightHangerInspection(
+                            crossing.light.id,
+                            side,
+                            crossing.mount ? "mount" : "hanger",
+                          ),
+                        )
+                      }
+                      onMount={() =>
+                        requestCrossing(
+                          lightHangerInspection(
+                            crossing.light.id,
+                            crossing.side,
+                            crossing.mount ? "hanger" : "mount",
+                          ),
                         )
                       }
                       onCrossing={() => {

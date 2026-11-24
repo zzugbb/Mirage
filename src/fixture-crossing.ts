@@ -13,6 +13,7 @@ import {
   lightTrayCrossings,
   diffuserBottom,
   housingLength,
+  lightCeilingMount,
   lightHangerAxis,
   lightProfile,
   type CeilingLight,
@@ -114,15 +115,73 @@ export function fixtureCrossing(first: string, second: string) {
   };
 }
 
+function lightMountView(light: CeilingLight, side: LightHangerSide) {
+  const { plate, socket, rodTop, rodLength } = lightCeilingMount(light, side);
+  const [x, y, z] = light.position;
+  const insideX = x > 0 ? -1 : 1;
+  const ceilingY = y + plate.position[1] + plate.size[1] / 2;
+  const jointY = y + rodTop;
+  const point = (height: number, dx = 0, dz = 0) =>
+    new Vector3(x + dx, height, z + plate.position[2] + side * dz);
+  const markers = [
+    {
+      id: "light-mount-plate",
+      title: "顶板底座",
+      point: point(y + plate.position[1], (insideX * plate.size[0]) / 2),
+    },
+    {
+      id: "light-mount-socket",
+      title: "接续座",
+      point: point(y + socket.position[1], (insideX * socket.size[0]) / 2),
+    },
+    {
+      id: "light-mount-rod",
+      title: "吊杆上端",
+      point: point(jointY - 0.035, (insideX * lightProfile.hangerWidth) / 2),
+    },
+  ];
+  const rulerX = insideX * 0.051;
+  // 给接续座标签留出空间，量尺仍沿 Y 轴取原接合面与顶板标高。
+  const rulerZ = plate.size[2] / 2 + 0.095;
+  const ruler = [jointY, ceilingY].map((height) =>
+    point(height, rulerX, rulerZ),
+  );
+  const ticks = ruler.map((end) => [
+    point(end.y, rulerX, rulerZ - 0.007),
+    point(end.y, rulerX, rulerZ + 0.007),
+  ]);
+  const ceiling = [
+    [-0.065, -0.04],
+    [0.065, -0.04],
+    [0.065, 0.04],
+    [-0.065, 0.04],
+  ].map(([dx, dz]) => point(ceilingY, dx, dz));
+  return {
+    ceilingY,
+    jointY,
+    rodLength,
+    plateSize: plate.size,
+    socketSize: socket.size,
+    height: ceilingY - jointY,
+    markers,
+    ruler,
+    ticks,
+    ceiling,
+    points: [...ruler, ...ticks.flat(), ...ceiling, point(jointY - 0.14)],
+  };
+}
+
 /** 同一顶灯两端独立观察，近桥架仅在与该灯投影相交的已登记桥架中选择。 */
 export function lightHangerInspection(
   lightId: string,
   side: LightHangerSide = -1,
+  view: "hanger" | "mount" = "hanger",
 ) {
   const light = ceilingLights.find((item) => item.id === lightId);
   if (!light) return null;
   const [x, y, z] = light.position;
   const axis = lightHangerAxis(light, side);
+  const mount = view === "mount" ? lightMountView(light, side) : null;
   const top = new Vector3(x, y + axis.top, z + axis.z);
   const bottom = new Vector3(x, y + axis.bottom, z + axis.z);
   const insideX = x > 0 ? -1 : 1;
@@ -144,7 +203,7 @@ export function lightHangerInspection(
       point: bottom.clone().setX(x + (insideX * lightProfile.bodyWidth) / 4),
     },
   ];
-  // 顶面虚框是标高参考，未配置施工锚具。两把尺分别沿 Y 与 Z 量取。
+  // 顶面虚框是配置标高参考。两把尺分别沿 Y 与 Z 量取。
   const topReference = [
     [-1, -1],
     [1, -1],
@@ -160,14 +219,22 @@ export function lightHangerInspection(
   ];
   return {
     kind: "light-hanger" as const,
-    id: `${light.id}:hanger:${side < 0 ? "negative" : "positive"}`,
-    title: "顶灯吊点核对",
+    id: `${light.id}:hanger:${side < 0 ? "negative" : "positive"}${mount ? ":mount" : ""}`,
+    title: mount ? "顶灯顶板安装核对" : "顶灯吊点核对",
     light,
     side,
+    mount,
     upper: { id: light.id, name: light.name, surface: "机房顶标高" },
     lower: { id: light.id, name: light.name, surface: "灯壳顶面" },
-    points: [top, bottom, end, ...dropRuler, ...insetRuler, ...topReference],
-    markers,
+    points: mount?.points ?? [
+      top,
+      bottom,
+      end,
+      ...dropRuler,
+      ...insetRuler,
+      ...topReference,
+    ],
+    markers: mount?.markers ?? markers,
     drop: axis.drop,
     inset: Math.abs(end.z - bottom.z),
     nearestCrossing,
@@ -861,8 +928,8 @@ export function crossingDirection(pair: FixtureCrossing) {
   if (pair.kind === "light-hanger")
     return new Vector3(
       pair.light.position[0] > 0 ? -1 : 1,
-      -0.08,
-      pair.side * 0.29,
+      pair.mount ? -0.24 : -0.08,
+      pair.side * (pair.mount ? 0.37 : 0.29),
     );
   if (pair.kind === "light-rod") {
     // 从吊杆一侧看向截面，避免长灯壳挡住端部紧邻的细吊杆。
@@ -912,8 +979,8 @@ export function lightHangerViewFrame(
     width,
     height,
     rect,
-    0.96,
-    0.075,
+    pair.mount ? 0.48 : 0.96,
+    pair.mount ? 0.04 : 0.075,
   );
 }
 export function roofPduViewFrame(

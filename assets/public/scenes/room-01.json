@@ -691,7 +691,8 @@
     },
     "lightProfile": {
       "bodyWidth": 0.16, "bodyHeight": 0.07, "bodyCenterY": 0.025, "endAllowance": 0.12,
-      "diffuserWidth": 0.105, "diffuserHeight": 0.008, "hangerInset": 0.35, "hangerWidth": 0.018
+      "diffuserWidth": 0.105, "diffuserHeight": 0.008, "hangerInset": 0.35, "hangerWidth": 0.018,
+      "ceilingMount": { "plateSize": [0.068, 0.010, 0.052], "socketSize": [0.032, 0.026, 0.032] }
     },
     "lights": [
       {
