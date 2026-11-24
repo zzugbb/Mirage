@@ -309,6 +309,7 @@ import {
   isLeakFixture,
   leakRelations,
   leakCable,
+  leakController,
   nearbyCooling,
 } from "./leak-detection";
 import { FixtureDetails, FixtureRelations } from "./components/FixtureDetails";
@@ -9488,9 +9489,7 @@ export function Workspace() {
                     inspection={leakView}
                     onPosition={(target) => requestLeakView("floor", target)}
                     onRoute={(target) => requestLeakView("route", target)}
-                    onFitting={(fitting, opened) =>
-                      requestLeakView("fitting", { fitting, opened })
-                    }
+                    onFitting={(target) => requestLeakView("fitting", target)}
                     onHistory={() => {
                       pick(nearbyCooling.id);
                       analyze();
@@ -9564,6 +9563,17 @@ export function Workspace() {
                     onInspectLeak={
                       layer === "overview" && state.level === "room"
                         ? () => requestLeakView("all")
+                        : undefined
+                    }
+                    onInspectLeakOutlet={
+                      fixture.id === leakController.id &&
+                      layer === "overview" &&
+                      state.level === "room"
+                        ? () =>
+                            requestLeakView("fitting", {
+                              fitting: "controller",
+                              outlet: true,
+                            })
                         : undefined
                     }
                     onPreview={pick}

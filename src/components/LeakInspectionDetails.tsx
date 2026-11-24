@@ -13,8 +13,11 @@ import {
   leakController,
 } from "../leak-detection";
 import { useEffect, useRef, useState } from "react";
-import type { LeakInspection, LeakFloorTarget } from "../leak-view";
-import type { LeakFittingId } from "../leak-fittings";
+import type {
+  LeakInspection,
+  LeakFittingTarget,
+  LeakFloorTarget,
+} from "../leak-view";
 import { LeakFittingDetails } from "./LeakFittingDetails";
 
 function LeakDistanceInput({
@@ -122,7 +125,7 @@ export function LeakInspectionDetails({
   ready: boolean;
   onPosition: (target: LeakFloorTarget) => void;
   onRoute: (target: number | { fromController: number }) => void;
-  onFitting: (id: LeakFittingId, opened: boolean) => void;
+  onFitting: (target: LeakFittingTarget) => void;
   onDrainFixture: (id: string, segment: number) => void;
   onHistory: () => void;
 }) {
@@ -150,10 +153,12 @@ export function LeakInspectionDetails({
     });
   };
   const sectionSelect = useRef<HTMLSelectElement>(null);
-  const pendingFocus = useRef<"route" | "floor" | null>(null);
+  const fittingSelect = useRef<HTMLSelectElement>(null);
+  const pendingFocus = useRef<"route" | "floor" | "fitting" | null>(null);
   useEffect(() => {
     if (ready && pendingFocus.current === view) {
-      sectionSelect.current?.focus({ preventScroll: true });
+      const select = view === "fitting" ? fittingSelect : sectionSelect;
+      select.current?.focus({ preventScroll: true });
       pendingFocus.current = null;
     }
   }, [ready, view]);
@@ -180,6 +185,7 @@ export function LeakInspectionDetails({
           fitting={fitting}
           ready={ready}
           onFitting={onFitting}
+          stateSelect={fittingSelect}
           onRoute={() => {
             pendingFocus.current = "route";
             onRoute({ fromController: fitting.station });
@@ -256,6 +262,17 @@ export function LeakInspectionDetails({
               </button>
             ))}
           </div>
+          {route.station === 0 && (
+            <button
+              disabled={!ready}
+              onClick={() => {
+                pendingFocus.current = "fitting";
+                onFitting({ fitting: "controller", outlet: true });
+              }}
+            >
+              核对控制器出线口 ↗
+            </button>
+          )}
           {route.fromJoint !== null && (
             <button
               disabled={!ready}
@@ -457,7 +474,7 @@ export function LeakInspectionDetails({
       {!fitting && !floor && (
         <button
           disabled={!ready}
-          onClick={() => onFitting(initialFitting, false)}
+          onClick={() => onFitting({ fitting: initialFitting })}
         >
           核对线端装配 ↗
         </button>

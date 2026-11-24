@@ -26,10 +26,13 @@ export const leakViews = [
 export type LeakView = (typeof leakViews)[number]["id"];
 export type LeakFloorTarget =
   number | { fromJoint?: number; segment?: number; standId?: string };
+export type LeakFittingTarget = {
+  fitting: LeakFittingId;
+  opened?: boolean;
+  outlet?: boolean;
+};
 export type LeakTarget =
-  | LeakFloorTarget
-  | { fromController: number }
-  | { fitting: LeakFittingId; opened?: boolean };
+  LeakFloorTarget | { fromController: number } | LeakFittingTarget;
 export type LeakViewCommand = {
   revision: number;
   view: LeakView | null;
@@ -261,6 +264,7 @@ export function leakInspection(view: LeakView, target: LeakTarget = 0) {
       ? leakFitting(
           fittingTarget?.fitting ?? "controller",
           fittingTarget?.opened,
+          fittingTarget?.outlet,
         )
       : null;
   const { route, floor, paths, points, markers, guides } = fitting

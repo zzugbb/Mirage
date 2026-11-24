@@ -34,6 +34,7 @@ export function FixtureDetails({
   onInspectSupport,
   onInspectEntrance,
   onInspectLeak,
+  onInspectLeakOutlet,
   onCompare,
   onCompareRack,
   comparisonReady = false,
@@ -50,6 +51,7 @@ export function FixtureDetails({
   onInspectSupport?: (side: -1 | 1) => void;
   onInspectEntrance?: () => void;
   onInspectLeak?: () => void;
+  onInspectLeakOutlet?: () => void;
   onCompare?: (id: string) => void;
   onCompareRack?: (id: string) => void;
   comparisonReady?: boolean;
@@ -232,8 +234,21 @@ export function FixtureDetails({
       )}
       {isLeakFixture(fixture.id) && (
         <div className="leak-view-entry">
+          {onInspectLeakOutlet && (
+            <button
+              className="leak-outlet-entry"
+              disabled={!comparisonReady}
+              onClick={onInspectLeakOutlet}
+            >
+              核对控制器出线口 ↗
+            </button>
+          )}
           {onInspectLeak ? (
-            <button disabled={!comparisonReady} onClick={onInspectLeak}>
+            <button
+              className="leak-path-entry"
+              disabled={!comparisonReady}
+              onClick={onInspectLeak}
+            >
               核对检漏路径 ↗
             </button>
           ) : (

@@ -13,10 +13,10 @@ import { buildRaceway } from "./raceway.ts";
 import { buildPatchPanel } from "./patch-panels.ts";
 import { buildEntrance } from "./entrance.ts";
 import { buildLeakCable, buildLeakFitting } from "./leak-detection.ts";
+import { buildLeakControllerOutlet } from "./leak-controller-outlet.ts";
 import { buildSmokeMount } from "./smoke-mount.ts";
 import { buildProbeMount } from "./probe-mount.ts";
 import { buildCableTray } from "./cable-trays.ts";
-import { leakDetection } from "../leak-detection.ts";
 import * as THREE from "three";
 import { roomFixtures } from "../fixtures.ts";
 type Box = (
@@ -95,14 +95,7 @@ export function buildRoomFixtures(
     } else if (fixture.kind === "leak-cable") {
       buildLeakCable(group);
     } else if (fixture.kind === "leak-controller") {
-      box(
-        group,
-        leakDetection.controllerSize,
-        [0, 0, 0],
-        "#68757b",
-        0.25,
-      ).name = "leak-controller-body";
-      box(group, [0.008, 0.08, 0.12], [0.053, 0.02, 0], "#2c3840", 0.1);
+      buildLeakControllerOutlet(group, box);
       buildLeakFitting(group, "controller");
     } else if (fixture.kind === "smoke") {
       buildSmokeMount(group, box);

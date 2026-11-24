@@ -5152,6 +5152,11 @@
 :is(.entrance-view-entry, .leak-view-entry, .light-hanger-entry) {
   margin: 16px 0;
 }
+.leak-view-entry {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
 :is(.entrance-view-entry, .leak-view-entry, .light-hanger-entry) button,
 .entrance-view-peer button,
 .entrance-history button,

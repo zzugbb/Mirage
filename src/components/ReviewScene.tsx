@@ -1691,7 +1691,11 @@ export function ReviewScene({
     const active = engine.current;
     if (!active || !leakViewCommand) return;
     if (!leakViewCommand.view) {
-      fixtureReturnEntry.current = leakView ? ".leak-view-entry button" : null;
+      fixtureReturnEntry.current = leakView?.fitting?.outlet
+        ? ".leak-outlet-entry"
+        : leakView
+          ? ".leak-path-entry"
+          : null;
       closeDisplayMenu();
       active.restoreLeakView();
     } else if (layer === "overview") {
@@ -2055,6 +2059,7 @@ export function ReviewScene({
     (entranceView?.view ?? "") +
     (entranceView?.markers.map((marker) => marker.id).join(":") ?? "") +
     (leakView?.view ?? "") +
+    (leakView?.markers.map((marker) => marker.id).join(":") ?? "") +
     (crossing?.id ?? "") +
     (crossing?.markers.map((marker) => marker.id).join(":") ?? "") +
     (selectedFixture?.id ?? "") +
@@ -2813,7 +2818,7 @@ export function ReviewScene({
           )}
           {leakView && (
             <FixtureObservationControls
-              title="检漏路径"
+              title={leakView.fitting?.outlet ? "控制器出线口" : "检漏路径"}
               note={
                 leakView.fitting
                   ? leakView.fitting.opened

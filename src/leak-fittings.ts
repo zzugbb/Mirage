@@ -1,5 +1,9 @@
 import { Vector3 } from "three";
 import {
+  leakControllerOutletDirection,
+  leakControllerOutletObservation,
+} from "./leak-controller-outlet.ts";
+import {
   configuredPathLength,
   leakController,
   leakDetection,
@@ -22,8 +26,13 @@ export const leakFittingShells = {
 } satisfies Record<LeakFittingId, string>;
 
 /** 装配与观察共用线路端点和样板尺寸。管壳造型只用于辨认局部结构。 */
-export function leakFitting(id: LeakFittingId, opened = false) {
+export function leakFitting(
+  id: LeakFittingId,
+  opened = false,
+  inspectOutlet = false,
+) {
   const { label } = leakFittingChoices.find((choice) => choice.id === id)!;
+  const outlet = id === "controller" && inspectOutlet;
   const { length, diameter } = fittings[id];
   const { wallThickness, endPlugLength } = fittings;
   const point = new Vector3().fromArray(
@@ -44,15 +53,15 @@ export function leakFitting(id: LeakFittingId, opened = false) {
   if (id === "end") axis.negate();
   const center = point.clone();
   if (id === "controller") center.addScaledVector(axis, length / 2);
-  const direction =
+  const fittingDirection =
     id === "controller"
       ? new Vector3(0.73, 0.21, 1)
       : id === "joint"
         ? new Vector3(0.08, 1, 0.92)
         : new Vector3(0.08, 1, -0.88);
-  const radial = direction
+  const radial = fittingDirection
     .clone()
-    .addScaledVector(axis, -direction.dot(axis))
+    .addScaledVector(axis, -fittingDirection.dot(axis))
     .normalize();
   const leadLength = configuredPathLength(leadPoints);
   const station =
@@ -74,6 +83,7 @@ export function leakFitting(id: LeakFittingId, opened = false) {
   return {
     id,
     opened,
+    outlet,
     label,
     station,
     length,
@@ -87,7 +97,7 @@ export function leakFitting(id: LeakFittingId, opened = false) {
     neighbor,
     axis,
     center,
-    direction,
+    direction: outlet ? leakControllerOutletDirection : fittingDirection,
     radial,
     plug,
   };
@@ -96,6 +106,7 @@ export function leakFitting(id: LeakFittingId, opened = false) {
 export type LeakFitting = ReturnType<typeof leakFitting>;
 
 export function leakFittingObservation(fitting: LeakFitting) {
+  if (fitting.outlet) return leakControllerOutletObservation(fitting.opened);
   const { id, opened, center, axis, radial, diameter, length, objectId } =
     fitting;
   const half = length / 2;

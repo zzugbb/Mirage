@@ -118,8 +118,17 @@ export function buildLeakFitting(root: THREE.Group, id: LeakFittingId) {
 
 export function showLeakFitting(
   fixtures: Map<string, THREE.Group>,
-  selected?: LeakFitting | null,
+  selected?: (LeakFitting & { outlet?: boolean }) | null,
 ) {
+  const cover = fixtures
+    .get(leakDetection.controllerId)
+    ?.getObjectByName("leak-controller-cover");
+  if (cover)
+    cover.visible = !(
+      selected?.id === "controller" &&
+      selected.outlet &&
+      selected.opened
+    );
   for (const { id } of leakFittingChoices) {
     const fixture = fixtures.get(
       id === "controller" ? leakDetection.controllerId : leakDetection.cableId,

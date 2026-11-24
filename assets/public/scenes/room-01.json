@@ -625,6 +625,14 @@
       "sensingRadius": 0.007,
       "leadColor": "#47515a",
       "sensingColor": "#9a9180",
+      "controllerOutlet": {
+        "wallThickness": 0.004,
+        "bottomThickness": 0.008,
+        "boreDiameter": 0.016,
+        "guideOuterDiameter": 0.027,
+        "guideHeight": 0.006,
+        "innerLeadLength": 0.018
+      },
       "fittings": {
         "controller": { "length": 0.036, "diameter": 0.026 },
         "joint": { "length": 0.05, "diameter": 0.028 },
