@@ -8,6 +8,7 @@ import {
 
 import type { EntranceInspection, EntranceView } from "../entrance-view";
 import { EntranceSweepDetails } from "./EntranceSweepDetails";
+import { EntranceFrameSectionDetails } from "./EntranceFrameSectionDetails";
 
 type CabinetPlacement = Extract<
   EntranceInspection,
@@ -107,6 +108,19 @@ export function EntranceInspectionDetails({
         onSample={onSample}
         onPreview={onPreview}
         onHistory={onHistory}
+      />
+    );
+  if (inspection.view === "section")
+    return (
+      <EntranceFrameSectionDetails
+        section={inspection.section}
+        ready={ready}
+        onSample={onSample}
+        onView={onView}
+        onReader={() => {
+          onPreview(entranceSettings.readerId);
+          onView("jamb");
+        }}
       />
     );
   if (inspection.view === "hinges") {
@@ -311,6 +325,13 @@ export function EntranceInspectionDetails({
         )}
       </dl>
       {view === "opening" && <small>尺寸包含门框与五金所占空间。</small>}
+      {view === "opening" && (
+        <div className="entrance-view-peer">
+          <button disabled={!ready} onClick={() => onView("section")}>
+            核对框内截面 ↗
+          </button>
+        </div>
+      )}
       {inspection.jamb && (
         <small>
           间距沿机房 X

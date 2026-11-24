@@ -428,10 +428,10 @@ test("入口各段取景适配桌面侧栏和分析画幅，已登记机柜及�
       [1024, 704],
     ]) {
       const rect = {
-        left: 264,
+        left: id === "section" ? 52 : 264,
         right: width - 40,
         top: 100,
-        bottom: height - 48,
+        bottom: height - (id === "section" ? 105 : 48),
       };
       const inspection = entranceInspection(id),
         fit = entranceViewFrame(inspection, width, height, rect);

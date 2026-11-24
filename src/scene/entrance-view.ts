@@ -27,6 +27,7 @@ export class EntranceViewGeometry {
       inspection.jamb ||
       "measure" in inspection ||
       inspection.view === "heads" ||
+      inspection.view === "section" ||
       inspection.view === "hinges"
         ? 0.018
         : 0.055;

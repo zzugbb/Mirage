@@ -19,6 +19,10 @@ import {
   entranceHingeFrame,
   entranceHingeInspection,
 } from "./entrance-hinges.ts";
+import {
+  entranceFrameSectionInspection,
+  entranceFrameSectionViewFrame,
+} from "./entrance-frame-section.ts";
 
 export const entranceViews = [
   { id: "all", label: "入口全貌" },
@@ -26,6 +30,7 @@ export const entranceViews = [
   { id: "sweep", label: "门扇扫掠与配电柜" },
   { id: "hinges", label: "门轴与铰链" },
   { id: "opening", label: "洞口尺寸" },
+  { id: "section", label: "框内截面" },
   { id: "access", label: "读卡器与把手" },
   { id: "lintel", label: "出口标志与门楣" },
   { id: "lights", label: "标志与应急灯" },
@@ -41,7 +46,7 @@ export type EntranceViewCommand = {
 export const entranceViewIncludes = (id: string, view?: EntranceView) =>
   view === "heads"
     ? id === emergencyLight.id
-    : view === "hinges"
+    : view === "hinges" || view === "section"
       ? id === s.fixtureId
       : view === "sweep"
         ? id === s.fixtureId || id === entranceCabinet.id
@@ -94,6 +99,14 @@ export function entranceInspection(view: EntranceView, sample?: number) {
   }
   if (view === "hinges") {
     return { view, jamb: null, ...entranceHingeInspection(sample), ...heights };
+  }
+  if (view === "section") {
+    return {
+      view,
+      jamb: null,
+      ...entranceFrameSectionInspection(sample),
+      ...heights,
+    };
   }
   if (view === "lintel" || view === "lights") {
     const sign = new Vector3().fromArray(exitSign.position);
@@ -297,6 +310,8 @@ export function entranceViewFrame(
 ) {
   if (inspection.view === "hinges")
     return entranceHingeFrame(inspection, width, height, rect);
+  if (inspection.view === "section")
+    return entranceFrameSectionViewFrame(inspection, width, height, rect);
   if (inspection.view === "heads")
     return observationFrame(
       inspection.points,

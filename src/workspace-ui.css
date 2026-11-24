@@ -5100,12 +5100,16 @@
   border-radius: 4px;
   padding: 4px 8px;
 }
-.entrance-cabinet-plan {
+.entrance-cabinet-plan,
+.entrance-frame-plan {
   display: block;
   width: 100%;
   height: 118px;
   background: var(--panel-deep, #111f2b);
   border-radius: 4px;
+}
+.entrance-frame-plan {
+  height: 88px;
 }
 .entrance-sweep-angle {
   display: grid;
@@ -5128,13 +5132,15 @@
   background: var(--raised);
   border-color: #82bdb8;
 }
-.entrance-hinge-position {
+.entrance-hinge-position,
+.entrance-section-position {
   display: grid;
   gap: 5px;
   margin-top: 8px;
   font-size: 12px;
 }
-.entrance-hinge-position select {
+.entrance-hinge-position select,
+.entrance-section-position select {
   padding: 5px 6px;
   border: 1px solid var(--line);
   background: var(--raised);

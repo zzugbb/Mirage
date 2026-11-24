@@ -2370,6 +2370,7 @@ export function ReviewScene({
               data-hotspot={
                 entranceView.jamb ||
                 entranceView.view === "hinges" ||
+                entranceView.view === "section" ||
                 entranceView.view === "heads" ||
                 entranceView.view === "cabinet" ||
                 entranceView.view === "sweep"
