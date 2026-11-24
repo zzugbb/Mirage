@@ -29,6 +29,7 @@ import type { ProbeHeightScene } from "./probe-height-scene.ts";
 import type { ProbeMountInspection } from "./probe-mount.ts";
 import type { SmokeMountInspection } from "./smoke-mount.ts";
 import { smokeTrayGap } from "./smoke-tray-gap.ts";
+import { trayMountGeometry } from "./tray-mount.ts";
 import {
   racewaySections,
   racewayPanels,
@@ -169,6 +170,7 @@ export function trayEndSupport(trayId: string, side: -1 | 1) {
     id: trayId + ":support:" + side,
     title: "桥架端部支吊核对",
     side,
+    station: traySupportStations.indexOf(supportX),
     rack,
     upper: { id: trayId, name: tray.name, surface: "端帽外端" },
     lower: { id: trayId, name: tray.name, surface: "横托外边" },
@@ -253,6 +255,39 @@ export function traySupportBay(trayId: string, index: number) {
 type TraySupportSection = NonNullable<
   ReturnType<typeof trayEndSupport> | ReturnType<typeof traySupportBay>
 >;
+
+export function trayMountInspection(
+  source: TraySupportSection,
+  requestedStation?: number,
+  requestedSide?: -1 | 1,
+) {
+  const tray = definition.room.fixtures.find((f) => f.id === source.upper.id)!;
+  const stations =
+    source.kind === "tray-bay"
+      ? [source.index, source.index + 1]
+      : [source.station];
+  const station =
+    stations.find((candidate) => candidate === requestedStation) ?? stations[0];
+  const side = requestedSide ?? (tray.position[2] < 0 ? -1 : 1);
+  const geometry = trayMountGeometry(
+    tray.position,
+    traySupportStations[station],
+    side,
+  );
+  return {
+    ...geometry,
+    kind: "tray-mount" as const,
+    id: `${tray.id}:mount:${station}:${side}`,
+    title: "桥架吊杆顶板安装",
+    upper: { id: tray.id, name: tray.name, surface: "顶板参考面" },
+    lower: { id: tray.id, name: tray.name, surface: "吊杆上端" },
+    source,
+    stations,
+    station,
+    side,
+    points: geometry.framePoints,
+  };
+}
 
 function lightSupportSection(trayId: string, offset: number) {
   if (offset < traySupportStations[0]) return trayEndSupport(trayId, -1);
@@ -622,6 +657,7 @@ export const crossingObjectIds = (pair: FixtureCrossing) =>
             pair.kind === "smoke-mount" ||
             pair.kind === "light-hanger" ||
             pair.kind === "tray-support" ||
+            pair.kind === "tray-mount" ||
             pair.kind === "tray-bay"
           ? [pair.upper.id]
           : pair.kind === "smoke-light"
@@ -656,6 +692,7 @@ export type FixtureCrossing =
   | SmokeMountInspection
   | NonNullable<ReturnType<typeof traySupportBay>>
   | NonNullable<ReturnType<typeof trayEndSupport>>
+  | ReturnType<typeof trayMountInspection>
   | NonNullable<ReturnType<typeof fixtureCrossing>>
   | ReturnType<typeof smokeTrayPlacement>;
 
@@ -771,6 +808,7 @@ export type CrossingViewCommand = {
 };
 export function crossingDirection(pair: FixtureCrossing) {
   if (pair.kind === "smoke-mount") return pair.direction;
+  if (pair.kind === "tray-mount") return pair.direction;
   if (pair.kind === "grille-seat") return new Vector3(0.04, 1, 0.38);
   if (pair.kind === "light-hanger")
     return new Vector3(

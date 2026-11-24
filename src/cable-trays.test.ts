@@ -130,7 +130,8 @@ test("桥架用两个实例批次表达，横档接合侧梁，吊杆接合承�
   const rails = [pieces[0], pieces[3]];
   for (const rung of pieces.slice(6))
     for (const rail of rails) assert.ok(rung.intersectsBox(rail));
-  for (let i = 0; i < beams.length; i += 5) {
+  for (const [station] of s.supportXs.entries()) {
+    const i = station * 5;
     for (const rail of rails) {
       assert.ok(
         Math.abs(beams[i].max.y - rail.min.y) < 1e-6,

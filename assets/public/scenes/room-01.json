@@ -538,6 +538,10 @@
       "rodSize": 0.018,
       "nutSize": [0.035, 0.012, 0.035],
       "rodTopY": 0.77,
+      "ceilingMount": {
+        "plateSize": [0.072, 0.012, 0.064],
+        "neckWidth": 0.036
+      },
       "rows": [
         {
           "fixtureId": "cable-tray-a",

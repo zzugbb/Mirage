@@ -578,6 +578,7 @@ export function ReviewScene({
           crossing?.kind === "smoke-mount" ||
           crossing?.kind === "grille-intake" ||
           crossing?.kind === "tray-support" ||
+          crossing?.kind === "tray-mount" ||
           crossing?.kind === "roof-entry" ||
           crossing?.kind === "roof-pdu" ||
           crossing?.kind === "drain-joint" ||
@@ -2442,6 +2443,7 @@ export function ReviewScene({
                 crossing.kind === "grille-intake" ||
                 crossing.kind === "tray-bay" ||
                 crossing.kind === "tray-support" ||
+                crossing.kind === "tray-mount" ||
                 crossing.kind === "light-hanger" ||
                 crossing.kind === "probe-height" ||
                 crossing.kind === "probe-mount" ||
@@ -2936,6 +2938,8 @@ export function ReviewScene({
                   )
                 ) : crossing.kind === "tray-support" ? (
                   `端部伸出 ${(crossing.horizontal * 1000).toFixed(1)} mm`
+                ) : crossing.kind === "tray-mount" ? (
+                  `安装座高 ${(crossing.mountHeight * 1000).toFixed(1)} mm`
                 ) : crossing.kind === "roof-entry" ? (
                   `Z 向投影间距 ${(crossing.horizontal * 1000).toFixed(1)} mm`
                 ) : crossing.kind === "roof-pdu" ? (

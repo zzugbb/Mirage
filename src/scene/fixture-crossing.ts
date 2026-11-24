@@ -84,7 +84,7 @@ export class CrossingGeometry {
       pair.unitOutline.forEach((p, i, outline) =>
         points.push(p, outline[(i + 1) % outline.length]),
       );
-    } else if (pair.kind === "drain-joint") {
+    } else if (pair.kind === "drain-joint" || pair.kind === "tray-mount") {
       for (const path of pair.paths)
         for (let i = 1; i < path.length; i++) points.push(path[i - 1], path[i]);
     } else if (pair.kind === "rear-wall") {

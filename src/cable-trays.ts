@@ -9,6 +9,25 @@ export const trayOuterWidth =
   cableTraySettings.railSpacing +
   cableTraySettings.railSize[0] +
   cableTraySettings.capOverhang * 2;
+
+/** 安装座贴合原吊杆上端与机房顶板参考面，返回桥架局部坐标。 */
+export function trayCeilingMount(trayY: number, station: number, side: -1 | 1) {
+  const { ceilingMount, rodOffsetZ, rodTopY } = cableTraySettings;
+  const { plateSize, neckWidth } = ceilingMount;
+  const ceiling = definition.room.size[1] - trayY;
+  const plateBottom = ceiling - plateSize[1];
+  const z = side * rodOffsetZ;
+  return {
+    plate: {
+      size: plateSize,
+      position: [station, (plateBottom + ceiling) / 2, z],
+    },
+    neck: {
+      size: [neckWidth, plateBottom - rodTopY, neckWidth],
+      position: [station, (rodTopY + plateBottom) / 2, z],
+    },
+  };
+}
 /** 横档位置与实际生成模型共用，避免把空隙当成可核对表面。 */
 export function trayRungXs() {
   const steps = Math.floor(
@@ -68,12 +87,19 @@ export function trayEndpoints(id: string) {
 }
 /** 局部坐标覆盖长边和吊装位置，选中桥架自身不参与剖切。 */
 export function traySightOffsets(id: string) {
-  if (!trayRow(id)) return [];
+  const fixture = definition.room.fixtures.find(
+    (f) => f.id === id && f.kind === "cable-tray",
+  );
+  if (!fixture || !trayRow(id)) return [];
   const s = cableTraySettings;
   return [
     ...[-s.length / 2, 0, s.length / 2].flatMap((x) =>
       [-s.railSpacing / 2, s.railSpacing / 2].map((z) => [x, 0, z]),
     ),
-    ...s.supportXs.map((x) => [x, s.rodTopY, 0]),
+    ...s.supportXs.flatMap((x) =>
+      ([-1, 1] as const).map(
+        (side) => trayCeilingMount(fixture.position[1], x, side).plate.position,
+      ),
+    ),
   ];
 }

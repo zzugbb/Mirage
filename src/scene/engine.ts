@@ -1421,7 +1421,8 @@ export class SceneEngine {
     this.controls.maxPolarAngle =
       pair.kind === "smoke-tray" ||
       pair.kind === "smoke-light" ||
-      pair.kind === "light-hanger"
+      pair.kind === "light-hanger" ||
+      pair.kind === "tray-mount"
         ? Math.PI * 0.65
         : Math.PI / 2 - 0.03;
     this.controls.minDistance = 0.5;
@@ -1439,6 +1440,7 @@ export class SceneEngine {
       pair.kind === "rear-wall" ||
       pair.kind === "drain-joint" ||
       pair.kind === "light-hanger" ||
+      pair.kind === "tray-mount" ||
       pair.kind === "smoke-mount" ||
       pair.kind === "probe-mount"
     ) {
@@ -1455,6 +1457,16 @@ export class SceneEngine {
         fit = drainJointFrame(pair, width, height, rect);
       else if (pair.kind === "light-hanger")
         fit = lightHangerViewFrame(pair, width, height, rect);
+      else if (pair.kind === "tray-mount")
+        fit = observationFrame(
+          pair.framePoints,
+          direction,
+          width,
+          height,
+          rect,
+          0.55,
+          0.048,
+        );
       else if (pair.kind === "smoke-mount")
         fit = smokeMountViewFrame(pair, width, height, rect);
       else fit = probeMountViewFrame(pair, width, height, rect);

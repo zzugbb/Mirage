@@ -2,6 +2,7 @@ import * as THREE from "three";
 import definition from "../../assets/public/scenes/room-01.json" with { type: "json" };
 import {
   cableTraySettings as s,
+  trayCeilingMount,
   trayRungXs,
   traySupportCenterY,
 } from "../cable-trays.ts";
@@ -51,6 +52,12 @@ export function buildCableTray(root: THREE.Group) {
           side * s.rodOffsetZ,
         ],
       });
+    }
+  }
+  for (const station of s.supportXs) {
+    for (const side of [-1, 1] as const) {
+      const { neck, plate } = trayCeilingMount(root.position.y, station, side);
+      supports.push(neck, plate);
     }
   }
   const geometry = new THREE.BoxGeometry(1, 1, 1);

@@ -223,6 +223,7 @@ import type { EnvironmentMetric } from "./environment-monitoring";
 import { EnvironmentPairAnalysis } from "./components/EnvironmentPairAnalysis";
 import { RoofEntryDetails } from "./components/RoofEntryDetails";
 import { LightHangerDetails } from "./components/LightHangerDetails";
+import { TrayMountDetails } from "./components/TrayMountDetails";
 import { LightRodDetails } from "./components/LightRodDetails";
 import { RearWallCrossingDetails } from "./components/RearWallCrossingDetails";
 import { rearWallCrossing } from "./rear-wall";
@@ -231,6 +232,7 @@ import {
   lightingRound,
   fixtureCrossing,
   trayEndSupport,
+  trayMountInspection,
   lightHangerInspection,
   lightRodInspection,
   sectionLights,
@@ -1264,6 +1266,7 @@ export function Workspace() {
         (pair?.kind === "smoke-tray" && crossing?.kind === "smoke-tray") ||
         (pair?.kind === "smoke-light" && crossing?.kind === "smoke-light") ||
         (pair?.kind === "tray-support" && crossing?.kind === "tray-support") ||
+        (pair?.kind === "tray-mount" && crossing?.kind === "tray-mount") ||
         (pair?.kind === "light-hanger" && crossing?.kind === "light-hanger") ||
         (pair?.kind === "probe-height" && crossing?.kind === "probe-height") ||
         (pair?.kind === "probe-mount" && crossing?.kind === "probe-mount") ||
@@ -8839,6 +8842,7 @@ export function Workspace() {
                   crossing.kind === "raceway-corner" ||
                   crossing.kind === "light-rod" ||
                   crossing.kind === "tray-support" ||
+                  crossing.kind === "tray-mount" ||
                   crossing.kind === "lighting-round" ||
                   crossing.kind === "roof-entry" ||
                   crossing.kind === "roof-pdu" ||
@@ -8883,6 +8887,7 @@ export function Workspace() {
                     crossing.kind !== "smoke-mount" &&
                     crossing.kind !== "lighting-round" &&
                     crossing.kind !== "tray-support" &&
+                    crossing.kind !== "tray-mount" &&
                     crossing.kind !== "tray-bay" &&
                     crossing.kind !== "light-hanger" &&
                     crossing.kind !== "probe-height" &&
@@ -9127,6 +9132,30 @@ export function Workspace() {
                       ))}
                       <small>样板布置。现场锚固、承载与敷线待核实。</small>
                     </div>
+                  )}
+                  {!review.analysis &&
+                    (crossing.kind === "tray-bay" ||
+                      crossing.kind === "tray-support") && (
+                      <button
+                        disabled={!ready}
+                        onClick={() =>
+                          requestCrossing(trayMountInspection(crossing))
+                        }
+                      >
+                        核对吊杆顶板安装 ↗
+                      </button>
+                    )}
+                  {!review.analysis && crossing.kind === "tray-mount" && (
+                    <TrayMountDetails
+                      mount={crossing}
+                      ready={ready}
+                      onMount={(station, side) =>
+                        requestCrossing(
+                          trayMountInspection(crossing.source, station, side),
+                        )
+                      }
+                      onReturn={() => requestCrossing(crossing.source)}
+                    />
                   )}
                   {!review.analysis &&
                     (crossing.kind === "tray-bay" ||
