@@ -127,3 +127,46 @@ test("制冷柜近景只标出支路两端，切回全景隐藏柜端回风，�
   }
   geometry.dispose();
 });
+
+test("送回风柜面量尺与回风侧梁量尺各自切换，保留原支路端点", () => {
+  const geometry = new AirflowGeometry();
+  const snapshot = airflowSnapshot(40, spatialSnapshot(40).readings, "srv-13");
+  const face = geometry.root.getObjectByName("airflow-terminal-face-measures")!;
+  const outline = geometry.root.getObjectByName(
+    "airflow-terminal-face-outline",
+  )!;
+  const tray = geometry.root.getObjectByName("airflow-return-tray-measures")!;
+  assert.deepEqual(
+    snapshot.routes[0].endpoints
+      .filter(({ kind }) => showAirflowEndpoint("terminal-face", kind))
+      .map(({ kind }) => kind),
+    ["supply", "receiver"],
+  );
+  geometry.update(snapshot, "terminal-face");
+  geometry.animate(40);
+  assert.equal(face.visible, true);
+  assert.equal(outline.visible, true);
+  assert.equal(tray.visible, false);
+  assert.equal(geometry.endpoints.count, 2);
+  for (const { band, arrows, sparks } of geometry.batches) {
+    assert.equal(band.visible, false);
+    assert.equal(arrows.visible, false);
+    assert.equal(sparks.visible, false);
+  }
+  geometry.update(snapshot, "return-tray");
+  assert.equal(face.visible, false);
+  assert.equal(outline.visible, false);
+  assert.equal(tray.visible, true);
+  for (const { band, arrows, sparks } of geometry.batches) {
+    assert.equal(band.visible, true);
+    assert.equal(arrows.visible, true);
+    assert.equal(sparks.visible, true);
+  }
+  geometry.update(snapshot, "terminal-face");
+  assert.equal(face.visible, true);
+  assert.equal(tray.visible, false);
+  geometry.update(null);
+  assert.equal(face.visible, false);
+  assert.equal(tray.visible, false);
+  geometry.dispose();
+});

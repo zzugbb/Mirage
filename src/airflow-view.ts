@@ -4,6 +4,7 @@ import { observationFrame, type FrameRect } from "./observation-frame.ts";
 export type { FrameRect } from "./observation-frame.ts";
 import type { AirflowRoute, FlowPoint } from "./airflow.ts";
 import { airflowReturnTray } from "./airflow-return-tray.ts";
+import { coolingTerminalFace } from "./cooling-terminal-face.ts";
 import { rackById, racks } from "./installation.ts";
 
 export const airflowViews = [
@@ -13,6 +14,7 @@ export const airflowViews = [
   { id: "return", name: "柜后回风", direction: [-0.35, 0.9, -1] },
   { id: "return-tray", name: "回风与桥架", direction: [-1, 0.55, 1] },
   { id: "terminals", name: "制冷柜送回风", direction: [0.32, 0.22, 1] },
+  { id: "terminal-face", name: "送回风与柜面", direction: [0.58, 0.22, 1] },
 ] as const;
 export type AirflowView = (typeof airflowViews)[number]["id"];
 export type AirflowViewRequest = { view: AirflowView; deviceId: string };
@@ -27,6 +29,13 @@ export function airflowViewPoints(
     return points.length
       ? points.map((point) => point.toArray())
       : airflowViewPoints(route, "return");
+  }
+  if (view === "terminal-face") {
+    const face = coolingTerminalFace(route);
+    return [
+      ...airflowViewPoints(route, "terminals"),
+      ...(face?.points.map((point) => point.toArray()) ?? []),
+    ];
   }
   if (view === "terminals") {
     const source = definition.facilities.find(

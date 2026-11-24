@@ -5226,12 +5226,12 @@ export function Workspace() {
       endpointKind={airflowEndpoint}
       onRead={setAirflowEndpoint}
       onDrain={terminalDrainLink ? openCoolingDrain : undefined}
-      onTerminals={() => {
+      onTerminals={(view) => {
         const route = airflow.routes[0];
         if (!route || !ready) return;
         if (selected !== route.sourceId)
           previewAirflowEndpoint(route, route.sourceId);
-        setAirflowViewRequest({ view: "terminals", deviceId: route.deviceId });
+        setAirflowViewRequest({ view, deviceId: route.deviceId });
       }}
       onExplained={() => setAirflowExplanation(null)}
       revealRequested={airflowExplanation}

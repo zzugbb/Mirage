@@ -42,6 +42,12 @@ const stages: Record<Exclude<AirflowView, "all">, Stage> = {
       "两个逻辑端点按制冷柜位置和场景偏移布置。模型外观用于辨认柜体，实际风口、送回风温度与风量均未配置。",
     endpoints: ["supply", "receiver"],
   },
+  "terminal-face": {
+    kinds: ["supply", "return"],
+    direction: "沿 Z 轴量取两个逻辑端点距 +Z 配置柜面的偏移",
+    boundary: "按制冷单元登记外廓和逻辑端点量取，实际风口位置待核实。",
+    endpoints: ["supply", "receiver"],
+  },
 };
 
 export function airflowStage(view: AirflowView | null): Stage | null {

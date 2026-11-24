@@ -572,6 +572,7 @@ export function ReviewScene({
     ((maintenanceView?.view === "doors" && layer === "overview") ||
       (layer === "airflow" &&
         (flowView === "return-tray" ||
+          flowView === "terminal-face" ||
           (coolingRangeObservation && !!flowView))) ||
       (layer === "overview" &&
         (crossing?.kind === "tray-bay" ||
@@ -2537,12 +2538,17 @@ export function ReviewScene({
                   hidden
                   aria-hidden="true"
                   data-anchor={`${route.id}-${endpoint.kind}`}
+                  data-hotspot={
+                    flowView === "terminal-face" ? "center" : undefined
+                  }
                   data-anchor-kind="position"
                   data-anchor-position={endpoint.point.join(",")}
                   className={`review-flow-anchor review-airflow-endpoint flow-${endpoint.kind} ${route.animated ? "" : "is-static"}`}
                 >
                   <b>
-                    {flowView === "terminals" && endpoint.kind === "supply"
+                    {(flowView === "terminals" ||
+                      flowView === "terminal-face") &&
+                    endpoint.kind === "supply"
                       ? "柜端送风"
                       : endpoint.label}
                   </b>

@@ -87,7 +87,7 @@ export function AirflowPanel({
               ))}
             </select>
           </div>
-          {view === "terminals" && (
+          {(view === "terminals" || view === "terminal-face") && (
             <small className="airflow-cabinet-evidence">
               {entityById(route.sourceId)?.name} ·{" "}
               {coolingModel === "ready"
@@ -106,15 +106,16 @@ export function AirflowPanel({
               · 配置高度
             </small>
           )}
-          {route.animated ? (
-            <div className="airflow-path-key" aria-label="路径图例">
-              <span>送风</span>
-              <span>穿柜</span>
-              <span>回风假设</span>
-            </div>
-          ) : (
-            <small>{route.status}</small>
-          )}
+          {view !== "terminal-face" &&
+            (route.animated ? (
+              <div className="airflow-path-key" aria-label="路径图例">
+                <span>送风</span>
+                <span>穿柜</span>
+                <span>回风假设</span>
+              </div>
+            ) : (
+              <small>{route.status}</small>
+            ))}
           {visit && (
             <div className="airflow-inspection-return">
               <button

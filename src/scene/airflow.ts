@@ -1,14 +1,19 @@
 import { createAnnotationGroup } from "./annotations.ts";
 import { floorGrilleSettings as grille } from "../floor-grilles.ts";
 import * as THREE from "three";
+import { LineMaterial } from "three/addons/lines/LineMaterial.js";
+import { LineSegments2 } from "three/addons/lines/LineSegments2.js";
+import { LineSegmentsGeometry } from "three/addons/lines/LineSegmentsGeometry.js";
 import { airflowSettings, flowPoint } from "../airflow.ts";
 import type { AirflowSnapshot, FlowKind, FlowPoint } from "../airflow.ts";
 import { airflowStageEmphasis, showAirflowEndpoint } from "../airflow-stage.ts";
 import type { AirflowView } from "../airflow-view.ts";
 import { sliceRackRows } from "../temperature-slice.ts";
 import { airflowReturnTray } from "../airflow-return-tray.ts";
+import { coolingTerminalFace } from "../cooling-terminal-face.ts";
 
 const kinds: FlowKind[] = ["supply", "through", "return"];
+const measureViews = ["return-tray", "terminal-face"] as const;
 const maximumRoutes = sliceRackRows.length;
 type CachedPath = {
   points: FlowPoint[];
@@ -16,18 +21,37 @@ type CachedPath = {
   index: number;
   color: THREE.Color;
 };
-/** 少量实例化箭头和粒子；柜面轮廓与柜外方向标保留真实遮挡，不参与拾取。 */
-export class AirflowGeometry {
-  root = createAnnotationGroup("airflow");
-  private trayMeasures = new THREE.LineSegments(
+function measureLines(name: string, color: string) {
+  const lines = new THREE.LineSegments(
     new THREE.BufferGeometry(),
     new THREE.LineBasicMaterial({
-      color: "#d2e4de",
+      color,
       depthWrite: false,
       toneMapped: false,
     }),
   );
-  private trayMeasureKey = "";
+  lines.name = name;
+  lines.visible = false;
+  lines.raycast = () => {};
+  return { lines, routeId: "" };
+}
+/** 少量实例化箭头和粒子；柜面轮廓与柜外方向标保留真实遮挡，不参与拾取。 */
+export class AirflowGeometry {
+  root = createAnnotationGroup("airflow");
+  private measures = {
+    "return-tray": measureLines("airflow-return-tray-measures", "#d2e4de"),
+    "terminal-face": measureLines("airflow-terminal-face-outline", "#31a0a8"),
+  };
+  private terminalRulers = new LineSegments2(
+    new LineSegmentsGeometry(),
+    new LineMaterial({
+      color: 0x0f9ba8,
+      linewidth: 2.6,
+      depthTest: false,
+      depthWrite: false,
+      toneMapped: false,
+    }),
+  );
   cone = new THREE.ConeGeometry(0.065, 0.19, 8);
   sphere = new THREE.SphereGeometry(0.055, 8, 6);
   ribbon = new THREE.CylinderGeometry(1, 1, 1, 6);
@@ -112,9 +136,6 @@ export class AirflowGeometry {
   view: AirflowView | null = null;
   constructor() {
     this.root.visible = false;
-    this.trayMeasures.name = "airflow-return-tray-measures";
-    this.trayMeasures.visible = false;
-    this.trayMeasures.raycast = () => {};
     this.endpoints.count = 0;
     this.endpoints.raycast = () => {};
     this.endpoints.frustumCulled = false;
@@ -129,12 +150,18 @@ export class AirflowGeometry {
       mesh.frustumCulled = false;
       mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     }
+    this.terminalRulers.name = "airflow-terminal-face-measures";
+    this.terminalRulers.visible = false;
+    this.terminalRulers.raycast = () => {};
+    // 尺线呈现配置投影，置于柜体外观上方。柜面虚线仍按场景深度遮挡。
+    this.terminalRulers.renderOrder = 50;
     this.root.add(
       this.endpoints,
       this.floorFrames,
       this.deviceFrames,
       this.faceArrows,
-      this.trayMeasures,
+      this.terminalRulers,
+      ...measureViews.map((stage) => this.measures[stage].lines),
     );
   }
   at(path: CachedPath, t: number, target: THREE.Vector3) {
@@ -148,30 +175,56 @@ export class AirflowGeometry {
     this.view = view;
     this.enabled = !!snapshot?.routes.length;
     this.root.visible = this.enabled;
+    const faceView = view === "terminal-face";
+    this.floorFrames.visible =
+      this.deviceFrames.visible =
+      this.faceArrows.visible =
+        !faceView;
+    for (const { band, arrows, sparks } of this.batches) {
+      band.visible = arrows.visible = sparks.visible = !faceView;
+    }
+    const route = snapshot?.routes[0];
+    for (const stage of measureViews) {
+      const measure = this.measures[stage];
+      const { lines } = measure;
+      if (view !== stage || !route) {
+        lines.visible = false;
+        continue;
+      }
+      if (measure.routeId !== route.id) {
+        measure.routeId = route.id;
+        const face =
+          stage === "terminal-face" ? coolingTerminalFace(route) : null;
+        const paths =
+          stage === "return-tray"
+            ? airflowReturnTray(route)?.paths
+            : face?.outline;
+        const points = paths?.flat() ?? [];
+        if (face) {
+          this.terminalRulers.geometry.dispose();
+          this.terminalRulers.geometry.setPositions(
+            face.rulers.flat().flatMap((point) => point.toArray()),
+          );
+        }
+        lines.geometry.dispose();
+        lines.geometry.setAttribute(
+          "position",
+          new THREE.Float32BufferAttribute(
+            points.flatMap((point) => point.toArray()),
+            3,
+          ),
+        );
+        lines.geometry.setDrawRange(0, points.length);
+        lines.geometry.computeBoundingSphere();
+      }
+      lines.visible = lines.geometry.drawRange.count > 0;
+    }
+    this.terminalRulers.visible = this.measures["terminal-face"].lines.visible;
     if (!snapshot) {
       this.endpoints.count = this.floorFrames.count = 0;
       this.deviceFrames.count = this.faceArrows.count = 0;
-      this.trayMeasures.visible = false;
       return;
     }
-    const trayRoute = view === "return-tray" ? snapshot.routes[0] : undefined;
-    if (trayRoute && this.trayMeasureKey !== trayRoute.id) {
-      this.trayMeasureKey = trayRoute.id;
-      const { paths } = airflowReturnTray(trayRoute);
-      const points = paths.flat();
-      this.trayMeasures.geometry.dispose();
-      this.trayMeasures.geometry.setAttribute(
-        "position",
-        new THREE.Float32BufferAttribute(
-          points.flatMap((point) => point.toArray()),
-          3,
-        ),
-      );
-      this.trayMeasures.geometry.setDrawRange(0, points.length);
-      this.trayMeasures.geometry.computeBoundingSphere();
-    }
-    this.trayMeasures.visible =
-      !!trayRoute && this.trayMeasures.geometry.drawRange.count > 0;
     let endpointIndex = 0,
       frameIndex = 0,
       deviceFrameIndex = 0,
@@ -263,13 +316,13 @@ export class AirflowGeometry {
       for (const endpoint of route.endpoints) {
         if (endpoint.kind === "floor" || endpoint.kind === "intake") continue;
         if (
-          endpoint.kind === "receiver" &&
+          (faceView || endpoint.kind === "receiver") &&
           !showAirflowEndpoint(view, endpoint.kind)
         )
           continue;
         const kind = endpoint.kind === "receiver" ? "return" : endpoint.kind;
         this.transform.position.fromArray(endpoint.point);
-        this.transform.scale.setScalar(1);
+        this.transform.scale.setScalar(faceView ? 0.24 : 1);
         this.transform.rotation.set(0, 0, 0);
         this.transform.updateMatrix();
         this.endpoints.setMatrixAt(endpointIndex, this.transform.matrix);
@@ -386,7 +439,7 @@ export class AirflowGeometry {
   }
   animate(time: number, reducedMotion = false, roomReady = true) {
     this.root.visible = this.enabled && roomReady;
-    if (!this.root.visible) return;
+    if (!this.root.visible || this.view === "terminal-face") return;
     for (const batch of this.batches) {
       batch.sparks.visible = !reducedMotion;
       let count = 0;
@@ -426,8 +479,12 @@ export class AirflowGeometry {
     }
   }
   dispose() {
-    this.trayMeasures.geometry.dispose();
-    this.trayMeasures.material.dispose();
+    this.terminalRulers.geometry.dispose();
+    this.terminalRulers.material.dispose();
+    for (const { lines } of Object.values(this.measures)) {
+      lines.geometry.dispose();
+      lines.material.dispose();
+    }
     this.cone.dispose();
     this.sphere.dispose();
     this.ribbon.dispose();

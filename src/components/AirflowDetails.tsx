@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import type { AirflowSnapshot, AirflowRoute, FlowEndpoint } from "../airflow";
 import { airflowEndpointObject } from "../airflow-inspection";
 import { airflowReturnTray } from "../airflow-return-tray";
+import { coolingTerminalFace } from "../cooling-terminal-face";
 import { entityById } from "../domain";
 
 const endpointNames = {
@@ -35,7 +36,7 @@ export function AirflowDetails({
   onExplained: () => void;
   revealRequested: "summary" | "endpoint" | null;
   endpointKind: FlowEndpoint["kind"] | null;
-  onTerminals: () => void;
+  onTerminals: (view: "terminals" | "terminal-face") => void;
   onDrain?: () => void;
   onRead: (kind: FlowEndpoint["kind"]) => void;
   onPreview: (route: AirflowRoute, id: string) => void;
@@ -78,6 +79,7 @@ export function AirflowDetails({
   if (!endpoint) return null;
   const object = airflowEndpointObject(route, kind);
   const tray = view === "return-tray" ? airflowReturnTray(route) : null;
+  const face = view === "terminal-face" ? coolingTerminalFace(route) : null;
   return (
     <section
       className="airflow-details slice-evidence-details"
@@ -110,6 +112,40 @@ export function AirflowDetails({
           <small>
             在平面交点的位置，用侧梁底面标高减去代表回风中心线标高。实际敷设、净距与回风状态待核实。
           </small>
+        </div>
+      )}
+      {face && (
+        <div className="airflow-face-details">
+          <strong>送回风与柜面 · 配置</strong>
+          <dl>
+            <div>
+              <dt>+Z 配置柜面</dt>
+              <dd>Z = {face.faceZ.toFixed(3)} m</dd>
+            </div>
+            {face.terminals.map(({ kind, offset, heightAboveFloor }) => (
+              <div key={kind}>
+                <dt>{kind === "supply" ? "送风" : "回风"} · 距柜面 / 离地</dt>
+                <dd>
+                  {offset >= 0 ? "+" : "−"}
+                  {(Math.abs(offset) * 1000).toFixed(1)} mm /{" "}
+                  {heightAboveFloor.toFixed(4)} m
+                </dd>
+              </div>
+            ))}
+            <div>
+              <dt>两端标高差</dt>
+              <dd>{face.separation.toFixed(3)} m</dd>
+            </div>
+          </dl>
+          <small>
+            虚线标出 +Z 配置柜面，实线沿 Z 轴量取偏移。离地高度以配置地面顶面{" "}
+            {face.floorY.toFixed(4)} m 为基准。实际风口位置待核实。
+          </small>
+          <div className="airflow-endpoint-actions">
+            <button disabled={!ready} onClick={() => onTerminals("terminals")}>
+              返回制冷柜送回风
+            </button>
+          </div>
         </div>
       )}
       <details
@@ -154,8 +190,12 @@ export function AirflowDetails({
             预览{object.name}
           </button>
           {(kind === "return" || kind === "receiver" || kind === "supply") &&
-            view !== "terminals" && (
-              <button disabled={!ready} onClick={onTerminals}>
+            view !== "terminals" &&
+            view !== "terminal-face" && (
+              <button
+                disabled={!ready}
+                onClick={() => onTerminals("terminals")}
+              >
                 核对制冷柜送回风 ↗
               </button>
             )}
@@ -165,11 +205,19 @@ export function AirflowDetails({
             </button>
           )}
         </div>
-        {view === "terminals" && onDrain && (
+        {view === "terminals" && (
           <div className="airflow-endpoint-actions">
-            <button disabled={!ready} onClick={onDrain}>
-              核对同柜排水接合 ↗
+            <button
+              disabled={!ready}
+              onClick={() => onTerminals("terminal-face")}
+            >
+              核对送回风与柜面 ↗
             </button>
+            {onDrain && (
+              <button disabled={!ready} onClick={onDrain}>
+                核对同柜排水接合 ↗
+              </button>
+            )}
           </div>
         )}
         <details className="airflow-boundary">
