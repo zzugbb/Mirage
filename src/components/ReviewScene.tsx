@@ -2437,6 +2437,7 @@ export function ReviewScene({
               data-hotspot={
                 crossing.kind === "grille-seat" ||
                 crossing.kind === "smoke-mount" ||
+                (crossing.kind === "smoke-tray" && crossing.gap) ||
                 crossing.kind === "grille-intake" ||
                 crossing.kind === "tray-bay" ||
                 crossing.kind === "tray-support" ||
@@ -2906,6 +2907,8 @@ export function ReviewScene({
                   ) : (
                     "本体就位"
                   )
+                ) : crossing.kind === "smoke-tray" && crossing.gap ? (
+                  `水平投影间距 ${(crossing.horizontal * 1000).toFixed(1)} mm`
                 ) : crossing.kind === "tray-bay" ? (
                   `横托轴距 ${crossing.horizontal.toFixed(3)} m`
                 ) : crossing.kind === "light-hanger" ? (

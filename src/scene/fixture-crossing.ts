@@ -187,6 +187,14 @@ export class CrossingGeometry {
           0.056,
         );
       });
+    } else if (pair.kind === "smoke-tray" && pair.gap) {
+      const { housingEdge, railEdge } = pair.gap;
+      const projected = housingEdge.clone().setY(railEdge.y);
+      dashSegment(points, housingEdge, projected, 0.035);
+      points.push(projected, railEdge);
+      const tick = new THREE.Vector3(0, 0.012, 0);
+      for (const end of [projected, railEdge])
+        points.push(end.clone().sub(tick), end.clone().add(tick));
     } else if (
       pair.kind === "smoke-tray" ||
       (pair.kind === "smoke-light" && pair.view === "housing")

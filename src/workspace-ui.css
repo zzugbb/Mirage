@@ -4686,6 +4686,20 @@
   display: grid;
   gap: 4px;
 }
+.smoke-tray-reference {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+.smoke-tray-reference select {
+  background: var(--raised);
+  color: inherit;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 5px 6px;
+}
 .drain-joint-details label,
 .drain-joint-details dl {
   display: grid;

@@ -1228,6 +1228,7 @@ export function Workspace() {
     }));
   };
   const [crossing, setCrossing] = useState<FixtureCrossing | null>(null);
+  const smokeTrayEdges = crossing?.kind === "smoke-tray" && crossing.gap;
   const crossingOverview =
     crossing?.kind === "roof-entry" || crossing?.kind === "roof-pdu"
       ? crossing.overview
@@ -1260,6 +1261,7 @@ export function Workspace() {
     crossingInspectPending.current =
       ((pair?.kind === "grille-seat" && crossing?.kind === "grille-seat") ||
         (pair?.kind === "smoke-mount" && crossing?.kind === "smoke-mount") ||
+        (pair?.kind === "smoke-tray" && crossing?.kind === "smoke-tray") ||
         (pair?.kind === "smoke-light" && crossing?.kind === "smoke-light") ||
         (pair?.kind === "tray-support" && crossing?.kind === "tray-support") ||
         (pair?.kind === "light-hanger" && crossing?.kind === "light-hanger") ||
@@ -8856,6 +8858,26 @@ export function Workspace() {
                   }}
                 >
                   <strong>{crossing.title} · 配置</strong>
+                  {crossing.kind === "smoke-tray" && !review.analysis && (
+                    <label className="smoke-tray-reference">
+                      量取基准
+                      <select
+                        disabled={!ready}
+                        value={crossing.reference}
+                        onChange={(event) =>
+                          requestCrossing(
+                            smokeTrayPlacement(
+                              crossing.round,
+                              event.target.value === "edges" ? "edges" : "axis",
+                            ),
+                          )
+                        }
+                      >
+                        <option value="axis">中心与轴线</option>
+                        <option value="edges">圆壳与近侧梁</option>
+                      </select>
+                    </label>
+                  )}
                   {crossing.kind !== "grille-seat" &&
                     crossing.kind !== "grille-intake" &&
                     crossing.kind !== "smoke-mount" &&
@@ -8878,7 +8900,10 @@ export function Workspace() {
                           </button>
                           <span>
                             {crossing.upper.surface}{" "}
-                            {crossing.points[0].y.toFixed(3)} m
+                            {crossing.points[0].y.toFixed(
+                              smokeTrayEdges ? 4 : 3,
+                            )}{" "}
+                            m
                           </span>
                         </div>
                         <div>
@@ -8887,13 +8912,31 @@ export function Workspace() {
                           </button>
                           <span>
                             {crossing.lower.surface}{" "}
-                            {crossing.points[1].y.toFixed(3)} m
+                            {crossing.points[1].y.toFixed(
+                              smokeTrayEdges ? 4 : 3,
+                            )}{" "}
+                            m
                           </span>
                         </div>
                         <p>
                           {crossing.upper.surface}比{crossing.lower.surface}
                           {crossing.difference >= 0 ? "高" : "低"}{" "}
-                          <b>{Math.abs(crossing.difference).toFixed(2)} m</b>。
+                          <b>
+                            {smokeTrayEdges
+                              ? `${(Math.abs(crossing.difference) * 1000).toFixed(1)} mm`
+                              : `${Math.abs(crossing.difference).toFixed(2)} m`}
+                          </b>
+                          。
+                          {smokeTrayEdges && (
+                            <>
+                              水平投影间距{" "}
+                              <b>
+                                {(smokeTrayEdges.horizontal * 1000).toFixed(1)}{" "}
+                                mm
+                              </b>
+                              。
+                            </>
+                          )}
                           {crossing.boundary}
                         </p>
                       </>

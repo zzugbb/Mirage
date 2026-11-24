@@ -1458,6 +1458,24 @@ export class SceneEngine {
       else if (pair.kind === "smoke-mount")
         fit = smokeMountViewFrame(pair, width, height, rect);
       else fit = probeMountViewFrame(pair, width, height, rect);
+    } else if (pair.kind === "smoke-tray" && pair.gap) {
+      rect.left = 36;
+      if (legendRect)
+        rect.bottom = Math.max(
+          rect.top + 120,
+          Math.min(rect.bottom, legendRect.top - 22),
+        );
+      const mount = pair.gap.housingEdge.clone();
+      mount.y += 0.32;
+      fit = observationFrame(
+        [...pair.points, pair.gap.housingEdge, mount],
+        direction,
+        width,
+        height,
+        rect,
+        1.35,
+        0.1,
+      );
     } else if (pair.kind === "probe-height" || pair.kind === "grille-intake") {
       rect.left = 44;
       if (legendRect)

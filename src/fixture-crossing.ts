@@ -28,6 +28,7 @@ import type { RearWallCrossing } from "./rear-wall.ts";
 import type { ProbeHeightScene } from "./probe-height-scene.ts";
 import type { ProbeMountInspection } from "./probe-mount.ts";
 import type { SmokeMountInspection } from "./smoke-mount.ts";
+import { smokeTrayGap } from "./smoke-tray-gap.ts";
 import {
   racewaySections,
   racewayPanels,
@@ -460,26 +461,53 @@ export function roofEntryPlacement(
     ],
   };
 }
-/** 配置中心与水平轴线的相对位置。两点不在同一铅垂线上。 */
-export function smokeTrayPlacement(round: EnvironmentRound) {
+export type SmokeTrayReference = "axis" | "edges";
+
+/** 同一巡检组内的中心轴线和构件外缘两组量取基准。 */
+export function smokeTrayPlacement(
+  round: EnvironmentRound,
+  reference: SmokeTrayReference = "axis",
+) {
   const [smoke, tray] = round.points;
   const center = new Vector3().fromArray(smoke.position);
   const axis = new Vector3().fromArray(round.trayReference);
+  const gap = reference === "edges" ? smokeTrayGap(round) : null;
   return {
     kind: "smoke-tray" as const,
     round,
+    reference,
+    gap,
     id: `${smoke.id}:${tray.id}`,
     title: "烟感与桥架位置",
-    upper: { id: smoke.id, name: smoke.name, surface: "烟感中心" },
-    lower: { id: tray.id, name: tray.name, surface: "桥架轴线" },
-    difference: center.y - axis.y,
-    horizontal: round.smokeOffset,
-    boundary: "距离按布置中心计算，构件外缘净距和烟感探测范围未配置。",
-    points: [center, axis],
-    markers: [
-      { id: "placement-smoke", title: "① 烟感中心", point: center },
-      { id: "placement-tray", title: "② 桥架轴线", point: axis },
-    ],
+    upper: {
+      id: smoke.id,
+      name: smoke.name,
+      surface: gap ? "圆壳下缘" : "烟感中心",
+    },
+    lower: {
+      id: tray.id,
+      name: tray.name,
+      surface: gap ? "近侧梁顶面" : "桥架轴线",
+    },
+    difference: gap?.difference ?? center.y - axis.y,
+    horizontal: gap?.horizontal ?? round.smokeOffset,
+    boundary: gap
+      ? "水平值按圆壳最宽处与侧梁的 X/Z 投影量取。烟感探测范围未登记。"
+      : "距离按样板布置中心计算。烟感探测范围未登记。",
+    points: gap ? [gap.housingBottom, gap.railEdge] : [center, axis],
+    markers: gap
+      ? [
+          {
+            id: "smoke-tray-housing",
+            title: "① 烟感圆壳",
+            point: gap.housingMarker,
+          },
+          { id: "smoke-tray-rail", title: "② 近侧侧梁", point: gap.railMarker },
+        ]
+      : [
+          { id: "placement-smoke", title: "① 烟感中心", point: center },
+          { id: "placement-tray", title: "② 桥架轴线", point: axis },
+        ],
   };
 }
 /** 按灯壳底面矩形取水平最近点，烟感使用配置中心。 */
@@ -770,7 +798,15 @@ export function crossingDirection(pair: FixtureCrossing) {
       ? new Vector3(0, -0.2, 1)
       : new Vector3(0.15, -0.1, 1);
   }
-  if (pair.kind === "smoke-tray") return new Vector3(0.85, -0.34, -0.9);
+  if (pair.kind === "smoke-tray") {
+    if (!pair.gap) return new Vector3(0.85, -0.34, -0.9);
+    const { housingBottom, railEdge } = pair.gap;
+    return new Vector3(
+      housingBottom.x < 0 ? 1 : -1,
+      -0.16,
+      Math.sign(housingBottom.z - railEdge.z) * 0.52,
+    );
+  }
   if (pair.kind === "lighting-round" || pair.kind === "light-tray") {
     const tray = pair.kind === "lighting-round" ? pair.source.tray : pair.tray;
     // 从当前柜排的外侧看向桥架，保持少量俯角以兼容轨道相机的极角限制。
