@@ -55,6 +55,8 @@ import {
 } from "../fixture-crossing.ts";
 import { rearWallCrossingFrame } from "../rear-wall.ts";
 import { probeHeightViewFrame } from "../probe-height-scene.ts";
+import { probeMountViewFrame } from "../probe-mount.ts";
+import { showProbeMount } from "./probe-mount.ts";
 import { grilleIntakeViewFrame } from "../grille-intake.ts";
 import { racewayCornerViewFrame } from "../panel-raceway.ts";
 import { showRacewayCorner } from "./raceway.ts";
@@ -1348,6 +1350,10 @@ export class SceneEngine {
       this.models.fixtures,
       pair?.kind === "drain-joint" && pair.stage === "receiver",
     );
+    showProbeMount(
+      this.models.fixtures,
+      pair?.kind === "probe-mount" ? pair : undefined,
+    );
   }
   clearCrossingView() {
     if (!this.crossingObservation) return;
@@ -1365,7 +1371,9 @@ export class SceneEngine {
       return;
     const active = this.crossingObservation;
     if (
-      (pair.kind === "raceway-corner" || pair.kind === "smoke-mount") &&
+      (pair.kind === "raceway-corner" ||
+        pair.kind === "smoke-mount" ||
+        pair.kind === "probe-mount") &&
       active?.pair.kind === pair.kind &&
       active.pair.id === pair.id
     ) {
@@ -1421,7 +1429,8 @@ export class SceneEngine {
       pair.kind === "rear-wall" ||
       pair.kind === "drain-joint" ||
       pair.kind === "light-hanger" ||
-      pair.kind === "smoke-mount"
+      pair.kind === "smoke-mount" ||
+      pair.kind === "probe-mount"
     ) {
       // 保留横向观察空间，在下沿为核对工具让出高度。
       rect.left = 36;
@@ -1436,7 +1445,9 @@ export class SceneEngine {
         fit = drainJointFrame(pair, width, height, rect);
       else if (pair.kind === "light-hanger")
         fit = lightHangerViewFrame(pair, width, height, rect);
-      else fit = smokeMountViewFrame(pair, width, height, rect);
+      else if (pair.kind === "smoke-mount")
+        fit = smokeMountViewFrame(pair, width, height, rect);
+      else fit = probeMountViewFrame(pair, width, height, rect);
     } else if (pair.kind === "probe-height" || pair.kind === "grille-intake") {
       rect.left = 44;
       if (legendRect)

@@ -25,6 +25,7 @@ import {
 import { observationFrame, type FrameRect } from "./observation-frame.ts";
 import type { RearWallCrossing } from "./rear-wall.ts";
 import type { ProbeHeightScene } from "./probe-height-scene.ts";
+import type { ProbeMountInspection } from "./probe-mount.ts";
 import type { SmokeMountInspection } from "./smoke-mount.ts";
 import {
   racewaySections,
@@ -588,6 +589,7 @@ export const crossingObjectIds = (pair: FixtureCrossing) =>
       : pair.kind === "drain-joint"
         ? drainJointObjectIds
         : pair.kind === "grille-seat" ||
+            pair.kind === "probe-mount" ||
             pair.kind === "smoke-mount" ||
             pair.kind === "light-hanger" ||
             pair.kind === "tray-support" ||
@@ -616,6 +618,7 @@ export type FixtureCrossing =
   | RearWallCrossing
   | DrainJointInspection
   | ProbeHeightScene
+  | ProbeMountInspection
   | RacewayCornerInspection
   | LightHangerInspection
   | NonNullable<ReturnType<typeof lightRodInspection>>

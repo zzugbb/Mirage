@@ -62,6 +62,15 @@ export class CrossingGeometry {
           points.push(p, opening[(i + 1) % opening.length]),
         );
       }
+    } else if (pair.kind === "probe-mount") {
+      const [wall, back, moved] = pair.rulerEnds;
+      points.push(wall, back);
+      if (moved) dashSegment(points, back, moved, 0.021);
+      for (const end of pair.rulerEnds)
+        points.push(
+          end.clone().setY(end.y - 0.008),
+          end.clone().setY(end.y + 0.008),
+        );
     } else if (pair.kind === "probe-height") {
       const [probe, corner, projected, front] = pair.ruler;
       dashSegment(points, probe, corner, 0.19);

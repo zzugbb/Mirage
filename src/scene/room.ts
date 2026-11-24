@@ -8,6 +8,11 @@ import { buildRoomFixtures } from "./fixtures.ts";
 import * as THREE from "three";
 import definition from "../../assets/public/scenes/room-01.json" with { type: "json" };
 import { createRoomFloor } from "./room-surfaces.ts";
+import {
+  leftWallId,
+  leftWallColumnCenters,
+  leftWallColumnSize,
+} from "../room-structure.ts";
 type Box = (
   parent: THREE.Object3D,
   size: number[],
@@ -62,12 +67,17 @@ export function buildRoomShell(
     const { color, metalness, roughness } = definition.rendering.shell[kind];
     return box(parent, size, position, color, metalness, roughness);
   };
-  const leftWall = structure("shell-left-wall");
+  const leftWall = structure(leftWallId);
   // 左墙窗洞：上下梁与四个立柱围出三扇玻璃窗。
   surface(leftWall, [0.16, 0.95, depth], [left, 0.475, 0], "wall");
   surface(leftWall, [0.16, 1.25, depth], [left, height - 0.625, 0], "wall");
-  for (const z of [back + 0.1, -2, 2, depth / 2 - 0.1])
-    surface(leftWall, [0.18, 2, 0.18], [left, 1.95, z], "frame");
+  // 保留立柱各自的安装参照面，避免墙面合批丢失具名几何与中心。
+  const columns = new THREE.Group();
+  columns.name = "room-left-columns";
+  leftWall.add(columns);
+  for (const center of leftWallColumnCenters)
+    surface(columns, leftWallColumnSize, center, "frame").name =
+      "room-left-column";
   const glassMaterial = new THREE.MeshPhysicalMaterial({
     color: "#8ba0b5",
     transparent: true,

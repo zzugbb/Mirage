@@ -33,6 +33,22 @@
       12
     ],
     "wallThickness": 0.16,
+    "leftWallColumns": {
+      "size": [0.18, 2, 0.18],
+      "centerHeight": 1.95,
+      "interiorZ": [-2, 2],
+      "endInset": 0.1
+    },
+    "environmentProbeMount": {
+      "bodySize": [0.065, 0.16, 0.11],
+      "plateFaceSize": [0.196, 0.148],
+      "ventSize": [0.008, 0.008, 0.07],
+      "ventX": 0.036,
+      "firstVentY": -0.04,
+      "ventPitch": 0.025,
+      "ventCount": 4,
+      "inspectionTravel": 0.09
+    },
     "maintenance": {
       "description": "当前同向机柜的维护范围预留示意，非实测净距或工程校核",
       "frontDepth": 1.2,

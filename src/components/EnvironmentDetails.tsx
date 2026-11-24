@@ -1,6 +1,6 @@
 import { EnvironmentComparison } from "./EnvironmentComparison";
 import { EnvironmentProcess } from "./EnvironmentProcess";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import {
   environmentHistories,
   environmentObservation,
@@ -69,6 +69,7 @@ export function EnvironmentDetails({
   onPreview,
   onLocate,
   onAnalyzePair,
+  mountAction,
 }: {
   fixture: RoomFixture;
   time: number;
@@ -80,6 +81,7 @@ export function EnvironmentDetails({
   onPreview: (id: string) => void;
   onLocate: (id: string) => void;
   onAnalyzePair: (id: string) => void;
+  mountAction?: ReactNode;
 }) {
   const [previewMetric, setPreviewMetric] = useState<
     "ambientTemperature" | "humidity"
@@ -172,6 +174,7 @@ export function EnvironmentDetails({
           回看温湿度与露点 →
         </button>
       )}
+      {mountAction}
       {analysis && (
         <p className="environment-boundary">
           曲线只绘制已发生的观测；空缺表示没有可用值。悬停核对同一秒，点击或拖动回看。未定义环境阈值，不生成告警或凝露风险判断。

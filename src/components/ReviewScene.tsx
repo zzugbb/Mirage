@@ -583,6 +583,7 @@ export function ReviewScene({
           crossing?.kind === "lighting-round" ||
           crossing?.kind === "light-hanger" ||
           crossing?.kind === "probe-height" ||
+          crossing?.kind === "probe-mount" ||
           crossing?.kind === "raceway-corner" ||
           crossing?.kind === "light-rod" ||
           crossing?.kind === "light-tray")));
@@ -2409,6 +2410,7 @@ export function ReviewScene({
                 crossing.kind === "tray-support" ||
                 crossing.kind === "light-hanger" ||
                 crossing.kind === "probe-height" ||
+                crossing.kind === "probe-mount" ||
                 crossing.kind === "raceway-corner" ||
                 crossing.kind === "light-rod" ||
                 crossing.kind === "lighting-round" ||
@@ -2860,6 +2862,12 @@ export function ReviewScene({
                   `吊杆长 ${crossing.drop.toFixed(3)} m`
                 ) : crossing.kind === "probe-height" ? (
                   `探头标高 ${crossing.height.toFixed(3)} m`
+                ) : crossing.kind === "probe-mount" ? (
+                  crossing.opened ? (
+                    "本体已移开"
+                  ) : (
+                    "本体就位"
+                  )
                 ) : crossing.kind === "raceway-corner" ? (
                   crossing.opened ? (
                     "槽盖已移开"

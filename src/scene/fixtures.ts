@@ -14,6 +14,7 @@ import { buildPatchPanel } from "./patch-panels.ts";
 import { buildEntrance } from "./entrance.ts";
 import { buildLeakCable, buildLeakFitting } from "./leak-detection.ts";
 import { buildSmokeMount } from "./smoke-mount.ts";
+import { buildProbeMount } from "./probe-mount.ts";
 import { buildCableTray } from "./cable-trays.ts";
 import { leakDetection } from "../leak-detection.ts";
 import * as THREE from "three";
@@ -116,14 +117,7 @@ export function buildRoomFixtures(
       box(group, [0.085, 0.07, 0.008], [0, 0.04, 0.031], "#7d9697");
       box(group, [0.045, 0.045, 0.009], [0, -0.055, 0.032], "#131e23");
     } else {
-      box(group, [0.065, 0.16, 0.11], [0, 0, 0], "#ccd4d0");
-      for (let k = 0; k < 4; k++)
-        box(
-          group,
-          [0.008, 0.008, 0.07],
-          [0.036, -0.04 + k * 0.025, 0],
-          "#52686e",
-        );
+      buildProbeMount(group, box);
     }
   }
   return fixtures;

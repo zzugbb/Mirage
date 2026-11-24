@@ -5,11 +5,13 @@ export function ProbeHeightDetails({
   ready,
   onRack,
   onLocate,
+  onHistory,
 }: {
   check: ProbeHeightScene;
   ready: boolean;
   onRack: (id: string) => void;
   onLocate: (id: string) => void;
+  onHistory: () => void;
 }) {
   const {
     round,
@@ -78,6 +80,9 @@ export function ProbeHeightDetails({
           定位同高设备 {segment.name} ↗
         </button>
       )}
+      <button disabled={!ready} onClick={onHistory}>
+        回看{round.probe.name} ↗
+      </button>
     </div>
   );
 }

@@ -387,6 +387,8 @@ import { coolingProbeForDevice } from "./cooling-probe";
 import { ProbeElevation } from "./components/ProbeElevation";
 import { ProbeHeightDetails } from "./components/ProbeHeightDetails";
 import { probeHeightScene } from "./probe-height-scene";
+import { probeMountInspection } from "./probe-mount";
+import { ProbeMountDetails } from "./components/ProbeMountDetails";
 import {
   ProbeRackInlets,
   type ProbeInputCheck,
@@ -1238,6 +1240,7 @@ export function Workspace() {
         (pair?.kind === "tray-support" && crossing?.kind === "tray-support") ||
         (pair?.kind === "light-hanger" && crossing?.kind === "light-hanger") ||
         (pair?.kind === "probe-height" && crossing?.kind === "probe-height") ||
+        (pair?.kind === "probe-mount" && crossing?.kind === "probe-mount") ||
         (pair?.kind === "raceway-corner" &&
           crossing?.kind === "raceway-corner") ||
         (pair?.kind === "light-rod" && crossing?.kind === "light-rod") ||
@@ -1245,7 +1248,9 @@ export function Workspace() {
         (pair?.kind === "roof-pdu" && crossing?.kind === "roof-pdu") ||
         (pair?.kind === "drain-joint" && crossing?.kind === "drain-joint")) &&
       (control instanceof HTMLSelectElement ||
-        ((pair?.kind === "grille-seat" || pair?.kind === "smoke-mount") &&
+        ((pair?.kind === "grille-seat" ||
+          pair?.kind === "smoke-mount" ||
+          pair?.kind === "probe-mount") &&
           control instanceof HTMLButtonElement)) &&
       control.closest(".crossing-details")
         ? control
@@ -8650,6 +8655,7 @@ export function Workspace() {
                   crossing.kind === "tray-bay" ||
                   crossing.kind === "light-hanger" ||
                   crossing.kind === "probe-height" ||
+                  crossing.kind === "probe-mount" ||
                   crossing.kind === "raceway-corner" ||
                   crossing.kind === "light-rod" ||
                   crossing.kind === "tray-support" ||
@@ -8680,6 +8686,7 @@ export function Workspace() {
                     crossing.kind !== "tray-bay" &&
                     crossing.kind !== "light-hanger" &&
                     crossing.kind !== "probe-height" &&
+                    crossing.kind !== "probe-mount" &&
                     crossing.kind !== "raceway-corner" &&
                     crossing.kind !== "light-rod" &&
                     crossing.kind !== "roof-entry" &&
@@ -8944,6 +8951,24 @@ export function Workspace() {
                         )
                       }
                       onLocate={(id) => locateProbeDevice(id, "height")}
+                      onHistory={() => {
+                        focus(crossing.round.probe.id);
+                        analyze();
+                      }}
+                    />
+                  )}
+                  {crossing.kind === "probe-mount" && (
+                    <ProbeMountDetails
+                      check={crossing}
+                      ready={ready}
+                      onToggle={() =>
+                        requestCrossing(
+                          probeMountInspection(crossing.id, !crossing.opened),
+                        )
+                      }
+                      onHeight={() =>
+                        requestCrossing(probeHeightScene(crossing.id))
+                      }
                     />
                   )}
                   {crossing.kind === "raceway-corner" && (
@@ -9490,6 +9515,21 @@ export function Workspace() {
                     onAnalyze={analyze}
                     onPreview={pick}
                     onLocate={focus}
+                    mountAction={
+                      layer === "overview" &&
+                      state.level === "room" && (
+                        <div className="probe-height-entry" hidden={!!crossing}>
+                          <button
+                            disabled={!ready}
+                            onClick={() =>
+                              requestCrossing(probeMountInspection(fixture.id))
+                            }
+                          >
+                            核对探头安装 ↗
+                          </button>
+                        </div>
+                      )
+                    }
                   />
                 ) : fixture ? (
                   <FixtureDetails

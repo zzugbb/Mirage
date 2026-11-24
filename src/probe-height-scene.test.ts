@@ -110,6 +110,7 @@ test("两档透视下各柜面与墙上探头无遮挡，量尺仍保留深度�
   for (const rack of definition.installation.racks) {
     const group = new Group();
     group.name = rack.id;
+    group.userData.entityId = rack.id;
     group.position.fromArray(rack.position);
     world.add(group);
     box(group, size, [0, size[1] / 2, 0]);
@@ -156,7 +157,10 @@ test("两档透视下各柜面与墙上探头无遮挡，量尺仍保留深度�
               fit.position,
               point.clone().sub(fit.position).normalize(),
             );
-            return ray.intersectObject(world)[0]?.object.parent?.name;
+            let owner: Object3D | null | undefined =
+              ray.intersectObject(world)[0]?.object;
+            while (owner && !owner.userData.entityId) owner = owner.parent;
+            return owner?.userData.entityId;
           },
         );
         assert.deepEqual(targets, [probe.id, rack.id]);
