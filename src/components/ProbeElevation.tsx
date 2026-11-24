@@ -8,11 +8,15 @@ export function ProbeElevation({
   ready,
   visited,
   onLocate,
+  onInspect,
+  inspecting = false,
 }: {
   round: EnvironmentRound;
   ready: boolean;
   visited?: string;
   onLocate: (id: string) => void;
+  onInspect?: () => void;
+  inspecting?: boolean;
 }) {
   const height = round.probe.position[1];
   const racks = useMemo(
@@ -76,6 +80,13 @@ export function ProbeElevation({
       <small>
         横线为探头中心标高。点设备可定位同高安装位。监测范围待核实。
       </small>
+      {onInspect && (
+        <div className="probe-height-entry" hidden={inspecting}>
+          <button disabled={!ready} onClick={onInspect}>
+            在三维中核对标高 ↗
+          </button>
+        </div>
+      )}
     </ConnectionSection>
   );
 }

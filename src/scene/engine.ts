@@ -50,6 +50,7 @@ import {
   type FixtureCrossing,
 } from "../fixture-crossing.ts";
 import { rearWallCrossingFrame } from "../rear-wall.ts";
+import { probeHeightViewFrame } from "../probe-height-scene.ts";
 import { drainJointFrame } from "../condensate-joint.ts";
 import { SceneLoop } from "../scene-loop.ts";
 import { AnchorProjection } from "../anchor-projection.ts";
@@ -1399,6 +1400,14 @@ export class SceneEngine {
           : pair.kind === "drain-joint"
             ? drainJointFrame(pair, width, height, rect)
             : lightHangerViewFrame(pair, width, height, rect);
+    } else if (pair.kind === "probe-height") {
+      rect.left = 44;
+      if (legendRect)
+        rect.bottom = Math.max(
+          rect.top + 120,
+          Math.min(rect.bottom, legendRect.top - 22),
+        );
+      fit = probeHeightViewFrame(pair, width, height, rect);
     } else if (pair.kind === "roof-pdu") {
       fit = roofPduViewFrame(pair, width, height, rect);
     } else if (pair.kind === "grille-seat" || pair.kind === "light-rod") {

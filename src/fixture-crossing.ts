@@ -23,6 +23,7 @@ import {
 } from "./cable-trays.ts";
 import { observationFrame, type FrameRect } from "./observation-frame.ts";
 import type { RearWallCrossing } from "./rear-wall.ts";
+import type { ProbeHeightScene } from "./probe-height-scene.ts";
 import {
   drainJointObjectIds,
   type DrainJointInspection,
@@ -598,6 +599,7 @@ export type FixtureCrossing =
   | GrilleSeat
   | RearWallCrossing
   | DrainJointInspection
+  | ProbeHeightScene
   | LightHangerInspection
   | NonNullable<ReturnType<typeof lightRodInspection>>
   | RackRoofView

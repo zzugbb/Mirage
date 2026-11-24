@@ -38,6 +38,19 @@ export class CrossingGeometry {
     const points: THREE.Vector3[] = [];
     if (pair.kind === "grille-seat") {
       pair.outline.forEach((p, i) => points.push(p, pair.outline[(i + 1) % 4]));
+    } else if (pair.kind === "probe-height") {
+      const [probe, corner, projected, front] = pair.ruler;
+      dashSegment(points, probe, corner, 0.19);
+      dashSegment(points, corner, projected, 0.27);
+      points.push(projected, front);
+      for (const end of [probe, corner, projected])
+        points.push(
+          end.clone().setY(end.y - 0.024),
+          end.clone().setY(end.y + 0.024),
+        );
+      pair.unitOutline.forEach((p, i, outline) =>
+        points.push(p, outline[(i + 1) % outline.length]),
+      );
     } else if (pair.kind === "drain-joint") {
       for (const path of pair.paths)
         for (let i = 1; i < path.length; i++) points.push(path[i - 1], path[i]);

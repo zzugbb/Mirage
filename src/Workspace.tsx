@@ -379,6 +379,8 @@ import {
 } from "./network";
 import { coolingProbeForDevice } from "./cooling-probe";
 import { ProbeElevation } from "./components/ProbeElevation";
+import { ProbeHeightDetails } from "./components/ProbeHeightDetails";
+import { probeHeightScene } from "./probe-height-scene";
 import {
   ProbeRackInlets,
   type ProbeInputCheck,
@@ -1228,6 +1230,7 @@ export function Workspace() {
         (pair?.kind === "smoke-light" && crossing?.kind === "smoke-light") ||
         (pair?.kind === "tray-support" && crossing?.kind === "tray-support") ||
         (pair?.kind === "light-hanger" && crossing?.kind === "light-hanger") ||
+        (pair?.kind === "probe-height" && crossing?.kind === "probe-height") ||
         (pair?.kind === "light-rod" && crossing?.kind === "light-rod") ||
         (pair?.kind === "tray-bay" && crossing?.kind === "tray-bay") ||
         (pair?.kind === "roof-pdu" && crossing?.kind === "roof-pdu") ||
@@ -4983,12 +4986,18 @@ export function Workspace() {
         <ProbeElevation
           round={round}
           ready={ready}
+          inspecting={crossing?.kind === "probe-height"}
           visited={
             probeRackDevice?.fromHeight && rackProbe?.probe.id === selected
               ? rackProbe.device.id
               : undefined
           }
           onLocate={(id) => locateProbeDevice(id, "height")}
+          onInspect={
+            state.level === "room" && !review.analysis
+              ? () => requestCrossing(probeHeightScene(round.probe.id))
+              : undefined
+          }
         />
       </>
     ) : rackProbe &&
@@ -8624,6 +8633,7 @@ export function Workspace() {
                 (crossing.kind === "grille-seat" ||
                   crossing.kind === "tray-bay" ||
                   crossing.kind === "light-hanger" ||
+                  crossing.kind === "probe-height" ||
                   crossing.kind === "light-rod" ||
                   crossing.kind === "tray-support" ||
                   crossing.kind === "lighting-round" ||
@@ -8650,6 +8660,7 @@ export function Workspace() {
                     crossing.kind !== "tray-support" &&
                     crossing.kind !== "tray-bay" &&
                     crossing.kind !== "light-hanger" &&
+                    crossing.kind !== "probe-height" &&
                     crossing.kind !== "light-rod" &&
                     crossing.kind !== "roof-entry" &&
                     crossing.kind !== "roof-pdu" &&
@@ -8882,6 +8893,18 @@ export function Workspace() {
                         if (crossing.nearestCrossing)
                           requestCrossing(crossing.nearestCrossing);
                       }}
+                    />
+                  )}
+                  {crossing.kind === "probe-height" && (
+                    <ProbeHeightDetails
+                      check={crossing}
+                      ready={ready}
+                      onRack={(id) =>
+                        requestCrossing(
+                          probeHeightScene(crossing.round.probe.id, id),
+                        )
+                      }
+                      onLocate={(id) => locateProbeDevice(id, "height")}
                     />
                   )}
                   {!review.analysis && crossing.kind === "light-rod" && (

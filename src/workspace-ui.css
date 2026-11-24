@@ -4703,6 +4703,7 @@
   background: var(--raised);
 }
 .lighting-resume button,
+.probe-height-entry button,
 .crossing-details button,
 .crossing-scene-key button {
   cursor: pointer;
@@ -7842,6 +7843,9 @@
   position: absolute;
   inset-inline: -4px;
   border-bottom: 2px solid #f2c06c;
+}
+.probe-height-entry {
+  margin-top: 8px;
 }
 
 .pdu-elevation {
