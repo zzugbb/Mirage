@@ -2,6 +2,20 @@ import * as THREE from "three";
 import type { FixtureCrossing } from "../fixture-crossing.ts";
 import { createAnnotationGroup } from "./annotations.ts";
 
+function dashSegment(
+  points: THREE.Vector3[],
+  a: THREE.Vector3,
+  b: THREE.Vector3,
+  pitch: number,
+) {
+  const segments = Math.ceil(a.distanceTo(b) / pitch);
+  for (let i = 0; i < segments; i++)
+    points.push(
+      a.clone().lerp(b, (i + 0.18) / segments),
+      a.clone().lerp(b, (i + 0.82) / segments),
+    );
+}
+
 export class CrossingGeometry {
   root = createAnnotationGroup("fixture-crossing");
   material = new THREE.LineBasicMaterial({
@@ -39,12 +53,7 @@ export class CrossingGeometry {
           end.clone().add(tick),
         );
       // 虚线是同一立面上的投影量距。短引线指回构件表面。
-      const segments = Math.ceil(pair.distance / 0.075);
-      for (let i = 0; i < segments; i++)
-        points.push(
-          a.clone().lerp(b, (i + 0.18) / segments),
-          a.clone().lerp(b, (i + 0.82) / segments),
-        );
+      dashSegment(points, a, b, 0.075);
     } else if (pair.kind === "light-rod") {
       const offset = new THREE.Vector3(0, 0.14, pair.toward * 0.035);
       const a = top.clone().add(offset);
@@ -70,6 +79,33 @@ export class CrossingGeometry {
       outline.forEach((p, i) =>
         points.push(p, outline[(i + 1) % outline.length]),
       );
+    } else if (pair.kind === "roof-pdu") {
+      const outline = pair.entry.outline.map((p) =>
+        p.clone().setY(p.y + 0.009),
+      );
+      outline.forEach((p, i) =>
+        points.push(p, outline[(i + 1) % outline.length]),
+      );
+      for (const {
+        axis,
+        ends: [a, b],
+      } of pair.dimensions) {
+        const tick = new THREE.Vector3();
+        tick[axis === "x" ? "z" : "x"] = 0.013;
+        for (const end of [a, b])
+          points.push(end.clone().sub(tick), end.clone().add(tick));
+        dashSegment(points, a, b, 0.055);
+      }
+      // 短括线只圈出配置输入参考点，与外侧标尺保持间隔。
+      for (const side of [-1, 1]) {
+        const mark = pair.inlet
+          .clone()
+          .add(new THREE.Vector3(side * 0.022, 0, 0));
+        points.push(
+          mark.clone().add(new THREE.Vector3(0, -0.018, 0)),
+          mark.clone().add(new THREE.Vector3(0, 0.018, 0)),
+        );
+      }
     } else if (
       pair.kind === "smoke-tray" ||
       (pair.kind === "smoke-light" && pair.view === "housing")

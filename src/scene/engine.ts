@@ -45,6 +45,7 @@ import {
   crossingDirection,
   crossingObjectIds,
   crossingViewFrame,
+  roofPduViewFrame,
   type FixtureCrossing,
 } from "../fixture-crossing.ts";
 import { rearWallCrossingFrame } from "../rear-wall.ts";
@@ -1352,9 +1353,11 @@ export class SceneEngine {
     );
     this.crossingObservation = { pair, previous };
     this.currentView =
-      pair.kind === "roof-entry" || pair.kind === "grille-seat"
-        ? "top"
-        : "front";
+      pair.kind === "roof-pdu"
+        ? "rear"
+        : pair.kind === "roof-entry" || pair.kind === "grille-seat"
+          ? "top"
+          : "front";
     this.currentFocus = false;
     this.interior = false;
     this.controls.minAzimuthAngle = -Infinity;
@@ -1383,6 +1386,8 @@ export class SceneEngine {
           Math.min(rect.bottom, legendRect.top - 22),
         );
       fit = rearWallCrossingFrame(pair, width, height, rect);
+    } else if (pair.kind === "roof-pdu") {
+      fit = roofPduViewFrame(pair, width, height, rect);
     } else if (pair.kind === "grille-seat" || pair.kind === "light-rod") {
       fit = observationFrame(
         pair.points,
@@ -3377,25 +3382,32 @@ export class SceneEngine {
       this.state.level === "room"
         ? rackForDevice(this.powerObservation.sourceId).id
         : null;
+    const crossing = this.crossingObservation?.pair;
+    const roofPduRack =
+      crossing?.kind === "roof-pdu" ? crossing.lower.id : null;
+    const rearCutawayRack = observedPowerRack ?? roofPduRack;
+    const activeRack = rackForDevice(this.state.deviceId).id;
     const patchCutaway =
       !!this.patchPoints && this.state.level === "rack" && !frame.busy;
     this.models.rackRightSide.visible = !patchCutaway;
     const rearObservation =
       (this.state.level === "rack" &&
         (!!pduById(this.state.selected) || this.telemetry.mode === "power")) ||
-      observedPowerRack === rackForDevice(this.state.deviceId).id;
+      rearCutawayRack === activeRack;
     for (const [id, rack] of this.installation.racks) {
-      rack.getObjectByName("rack-rear-shell")!.visible =
-        id !== observedPowerRack;
-      rack.getObjectByName("rack-rear-doors")!.visible =
-        id !== observedPowerRack;
+      rack.getObjectByName("rack-rear-shell")!.visible = id !== rearCutawayRack;
+      rack.getObjectByName("rack-rear-doors")!.visible = id !== rearCutawayRack;
+      rack.getObjectByName("rack-label")!.visible = id !== roofPduRack;
     }
+    this.models.rack.getObjectByName("rack-label")!.visible =
+      this.state.level === "room" && activeRack !== roofPduRack;
     this.models.rack.getObjectByName("rack-rear-shell")!.visible =
       !rearObservation;
     this.models.rack.getObjectByName("rack-rear-doors")!.visible =
-      (!rearObservation && !patchCutaway) ||
-      this.state.rearDoorOpen ||
-      this.presentation.rearDoor > 0;
+      roofPduRack !== activeRack &&
+      ((!rearObservation && !patchCutaway) ||
+        this.state.rearDoorOpen ||
+        this.presentation.rearDoor > 0);
     this.host.dataset.rearObservation = String(rearObservation);
     this.host.dataset.rearDoorProgress = String(this.presentation.rearDoor);
     const selectedFixture =

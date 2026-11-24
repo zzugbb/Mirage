@@ -3,10 +3,13 @@ import assert from "node:assert/strict";
 import * as THREE from "three";
 import {
   fixtureCrossing,
+  crossingObjectIds,
   crossingViewFrame,
   roofEntryPlacement,
+  roofPduViewFrame,
   lightingRound,
   selectRoofView,
+  selectRoofPduView,
   rackRoof,
 } from "./fixture-crossing.ts";
 import {
@@ -16,6 +19,9 @@ import {
 } from "./cable-trays.ts";
 import { fixtureById } from "./fixtures.ts";
 import { rackById } from "./installation.ts";
+import { pdus, powerSettings } from "./power-config.ts";
+import { pduInletPosition, pduPosition, powerScene } from "./power-paths.ts";
+import { createState } from "./domain.ts";
 import { lightTrayCrossings } from "./ceiling-lights.ts";
 import { buildCableTray } from "./scene/cable-trays.ts";
 import { createRackRoof } from "./scene/rack-enclosure.ts";
@@ -225,4 +231,131 @@ test("八柜的两处进线口落在各自孔边，投影从同一 X 截面的�
   }
   assert.equal(roofEntryPlacement("cable-tray-a", "rack-a07", 0), null);
   assert.equal(roofEntryPlacement("cable-tray-a", "rack-a03", 2), null);
+});
+
+test("八柜的16个开口按平面距离关联同柜 PDU，逻辑出线和原供电示意输入保持一致", () => {
+  const visited = new Set<string>();
+  for (const row of cableTraySettings.rows) {
+    for (const id of row.rackIds) {
+      const overview = fixtureCrossing(row.fixtureId, id);
+      assert.ok(overview?.kind === "rack-tray");
+      assert.equal(selectRoofPduView(overview, true), null);
+      for (const index of [0, 1]) {
+        const entry = selectRoofView(overview, index);
+        assert.ok(entry?.kind === "roof-entry");
+        const pair = selectRoofPduView(entry, true);
+        assert.ok(pair?.kind === "roof-pdu");
+        visited.add(pair.pdu.id);
+        assert.equal(pair.pdu.feed, index === 0 ? "A" : "B");
+        assert.equal(pair.pdu.rackId, id);
+        assert.equal(pair.entry, entry);
+        assert.equal(pair.overview, overview);
+        assert.equal(selectRoofPduView(pair, false), entry);
+        assert.equal(selectRoofView(pair, null), overview);
+        assert.equal(selectRoofView(pair, 2), null);
+        const next = selectRoofView(pair, 1 - index);
+        assert.ok(next?.kind === "roof-pdu" && next.pdu.id !== pair.pdu.id);
+        assert.equal(next.entry.index, 1 - index);
+        assert.equal(next.overview, overview);
+        assert.deepEqual(crossingObjectIds(pair), [
+          row.fixtureId,
+          id,
+          pair.pdu.id,
+        ]);
+        assert.equal(
+          pair.offsets.x.toFixed(3),
+          index === 0 ? "-0.065" : "0.065",
+        );
+        assert.equal(pair.offsets.z.toFixed(3), "-0.115");
+        assert.equal(pair.offsets.height.toFixed(4), "0.2625");
+        assert.equal(pair.offsets.planar.toFixed(4), "0.1321");
+        for (const {
+          axis,
+          ends: [a, b],
+        } of pair.dimensions)
+          assert.ok(
+            Math.abs(
+              a.distanceTo(b) -
+                Math.abs(
+                  axis === "y" ? pair.offsets.height : pair.offsets[axis],
+                ),
+            ) < 1e-12,
+          );
+        assert.deepEqual(pair.inlet.toArray(), pduInletPosition(pair.pdu.id));
+        const roomPath = powerScene(createState(), pair.pdu.id);
+        assert.deepEqual(
+          roomPath?.paths[0].points.at(-1),
+          pair.inlet.toArray(),
+        );
+        assert.ok(pair.pdu.sourcePort.startsWith("QF-"));
+      }
+    }
+  }
+  assert.deepEqual([...visited].sort(), pdus.map(({ id }) => id).sort());
+});
+
+test("柜后近景的开口标记与 PDU 输入标记可分别命中刷条和 PDU 外廓", () => {
+  for (const row of cableTraySettings.rows) {
+    for (const id of row.rackIds) {
+      const overview = fixtureCrossing(row.fixtureId, id);
+      assert.ok(overview?.kind === "rack-tray");
+      const roof = createRackRoof();
+      roof.position.add(new THREE.Vector3(...rackById(id)!.position));
+      roof.updateMatrixWorld(true);
+      for (const index of [0, 1]) {
+        const entry = selectRoofView(overview, index);
+        assert.ok(entry?.kind === "roof-entry");
+        const pair = selectRoofPduView(entry, true);
+        assert.ok(pair?.kind === "roof-pdu");
+        const body = new THREE.Mesh(
+          new THREE.BoxGeometry(...powerSettings.layout.size),
+        );
+        body.name = pair.pdu.id;
+        body.position.fromArray(pduPosition(pair.pdu.id));
+        body.updateMatrixWorld(true);
+        for (const [width, height] of [
+          [732, 836],
+          [644, 704],
+        ]) {
+          const rect = {
+            left: width * 0.42,
+            right: width - 40,
+            top: 100,
+            bottom: height - 48,
+          };
+          const fit = roofPduViewFrame(pair, width, height, rect);
+          const camera = new THREE.PerspectiveCamera(
+            40,
+            width / height,
+            0.01,
+            100,
+          );
+          camera.position.copy(fit.position);
+          camera.lookAt(fit.target);
+          camera.updateMatrixWorld(true);
+          const targets: (string | undefined)[] = pair.markers.map(
+            ({ point }) => {
+              const screen = point.clone().project(camera);
+              const x = ((screen.x + 1) * width) / 2;
+              const y = ((1 - screen.y) * height) / 2;
+              assert.ok(
+                x > rect.left &&
+                  x < rect.right &&
+                  y > rect.top &&
+                  y < rect.bottom,
+              );
+              const ray = new THREE.Raycaster(
+                camera.position,
+                point.clone().sub(camera.position).normalize(),
+              );
+              return ray.intersectObjects([roof, body])[0]?.object.name;
+            },
+          );
+          assert.deepEqual(targets, ["entry-brush", pair.pdu.id]);
+        }
+        dispose(body);
+      }
+      dispose(roof);
+    }
+  }
 });

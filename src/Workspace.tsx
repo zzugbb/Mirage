@@ -1190,7 +1190,9 @@ export function Workspace() {
   };
   const [crossing, setCrossing] = useState<FixtureCrossing | null>(null);
   const crossingOverview =
-    crossing?.kind === "roof-entry" ? crossing.overview : crossing;
+    crossing?.kind === "roof-entry" || crossing?.kind === "roof-pdu"
+      ? crossing.overview
+      : crossing;
   const crossingOriginId =
     crossingOverview?.kind === "lighting-round" ||
     crossingOverview?.kind === "light-rod"
@@ -1221,7 +1223,8 @@ export function Workspace() {
         (pair?.kind === "smoke-light" && crossing?.kind === "smoke-light") ||
         (pair?.kind === "tray-support" && crossing?.kind === "tray-support") ||
         (pair?.kind === "light-rod" && crossing?.kind === "light-rod") ||
-        (pair?.kind === "tray-bay" && crossing?.kind === "tray-bay")) &&
+        (pair?.kind === "tray-bay" && crossing?.kind === "tray-bay") ||
+        (pair?.kind === "roof-pdu" && crossing?.kind === "roof-pdu")) &&
       (control instanceof HTMLSelectElement ||
         (pair?.kind === "grille-seat" &&
           control instanceof HTMLButtonElement)) &&
@@ -8611,6 +8614,7 @@ export function Workspace() {
                   crossing.kind === "tray-support" ||
                   crossing.kind === "lighting-round" ||
                   crossing.kind === "roof-entry" ||
+                  crossing.kind === "roof-pdu" ||
                   crossing.kind === "rear-wall")
               ) && (
                 <section
@@ -8632,6 +8636,7 @@ export function Workspace() {
                     crossing.kind !== "tray-bay" &&
                     crossing.kind !== "light-rod" &&
                     crossing.kind !== "roof-entry" &&
+                    crossing.kind !== "roof-pdu" &&
                     crossing.kind !== "rear-wall" && (
                       <>
                         <div>
@@ -8945,11 +8950,13 @@ export function Workspace() {
                   {!review.analysis &&
                     (crossing.kind === "lighting-round" ||
                       crossing.kind === "rack-tray" ||
-                      crossing.kind === "roof-entry") && (
+                      crossing.kind === "roof-entry" ||
+                      crossing.kind === "roof-pdu") && (
                       <RoofEntryDetails
                         crossing={crossing}
                         ready={ready}
                         onInspect={requestCrossing}
+                        onLocate={focus}
                         onHistory={(id) => {
                           focus(id);
                           analyze();

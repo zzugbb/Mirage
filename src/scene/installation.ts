@@ -54,7 +54,7 @@ export class InstallationScene {
       this.racks.set(rack.id, group);
       for (const child of [...group.children])
         if (child instanceof THREE.Sprite) group.remove(child);
-      text(group, rack.name.slice(0, 3), [0, 2.36, 0], 0.1);
+      text(group, rack.name.slice(0, 3), [0, 2.36, 0], 0.1).name = "rack-label";
       for (const child of group.children)
         if (child.name === "rack-door") child.rotation.y = 0;
     }

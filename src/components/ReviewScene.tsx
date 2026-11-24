@@ -575,6 +575,7 @@ export function ReviewScene({
         (crossing?.kind === "tray-bay" ||
           crossing?.kind === "tray-support" ||
           crossing?.kind === "roof-entry" ||
+          crossing?.kind === "roof-pdu" ||
           crossing?.kind === "rear-wall" ||
           crossing?.kind === "lighting-round" ||
           crossing?.kind === "light-rod" ||
@@ -1357,8 +1358,6 @@ export function ReviewScene({
   useEffect(() => {
     const active = engine.current;
     active?.update(state);
-    const rackLabel = active?.models.rack.getObjectByName("rack-label");
-    if (rackLabel) rackLabel.visible = state.level === "room";
     if (
       active &&
       state.level === "rack" &&
@@ -2389,6 +2388,7 @@ export function ReviewScene({
                 crossing.kind === "light-rod" ||
                 crossing.kind === "lighting-round" ||
                 crossing.kind === "rear-wall" ||
+                crossing.kind === "roof-pdu" ||
                 crossing.kind === "roof-entry"
                   ? "center"
                   : undefined
@@ -2828,6 +2828,8 @@ export function ReviewScene({
                   `端部伸出 ${(crossing.horizontal * 1000).toFixed(1)} mm`
                 ) : crossing.kind === "roof-entry" ? (
                   `Z 向投影间距 ${(crossing.horizontal * 1000).toFixed(1)} mm`
+                ) : crossing.kind === "roof-pdu" ? (
+                  `柜后剖切 · 水平偏移 ${(crossing.offsets.planar * 1000).toFixed(1)} mm`
                 ) : crossing.kind === "rear-wall" ? (
                   `立面投影间距 ${crossing.distance.toFixed(3)} m`
                 ) : (

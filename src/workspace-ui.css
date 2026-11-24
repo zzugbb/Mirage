@@ -4632,6 +4632,21 @@
   gap: 5px;
   font-size: 12px;
 }
+.roof-pdu-offsets {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  font-size: 12px;
+}
+.roof-pdu-offsets div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.roof-pdu-offsets dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
 .panel-register select,
 .roof-entry-details select,
 .lighting-round select {

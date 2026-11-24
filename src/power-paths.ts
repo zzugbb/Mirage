@@ -55,6 +55,9 @@ export const pduPosition = (id: string) => {
     powerSettings.layout.positions[pdu.feed],
   );
 };
+export function pduInletPosition(id: string): PowerPoint {
+  return add(pduPosition(id), powerSettings.layout.inletOffset);
+}
 export function pduOutletPosition(id: string, outlet: number): PowerPoint {
   return add(pduPosition(id), [
     0,
@@ -154,10 +157,7 @@ export function powerScene(
       });
       continue;
     }
-    const inlet = add(
-      pduPosition(targetPdu.id),
-      powerSettings.layout.inletOffset,
-    );
+    const inlet = pduInletPosition(targetPdu.id);
     const rearZ =
       rack.position[2] -
       definition.rack.size[2] / 2 -
