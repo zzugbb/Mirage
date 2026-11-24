@@ -7,6 +7,7 @@ import { trayRow, trayRungBottom, trayRungXs } from "./cable-trays.ts";
 import { Vector3 } from "three";
 import { pdus, pduName } from "./power-config.ts";
 import { pduInletPosition } from "./power-paths.ts";
+import { roofPduSupport } from "./roof-pdu-support.ts";
 import {
   ceilingLights,
   lightTrayCrossings,
@@ -642,13 +643,15 @@ export function selectRoofView(
   const entry = roofEntryPlacement(overview.upper.id, overview.lower.id, index);
   if (!entry) return null;
   const roofEntry = { ...entry, overview };
-  return current.kind === "roof-pdu" ? roofPduPlacement(roofEntry) : roofEntry;
+  return current.kind === "roof-pdu"
+    ? roofPduPlacement(roofEntry, !!current.support)
+    : roofEntry;
 }
 
 type RoofPduDimension = { axis: "x" | "y" | "z"; ends: [Vector3, Vector3] };
 
 /** 只按柜顶开口中心与同柜登记输入参考点的 X/Z 投影选择最近者。 */
-function roofPduPlacement(entry: RoofEntryView) {
+function roofPduPlacement(entry: RoofEntryView, inspectSupport = false) {
   const center = entry.outline[0].clone().lerp(entry.outline[2], 0.5);
   const nearest = pdus
     .filter((pdu) => pdu.rackId === entry.lower.id)
@@ -663,6 +666,7 @@ function roofPduPlacement(entry: RoofEntryView) {
     .sort((a, b) => a.planar - b.planar)[0];
   if (!nearest) return null;
   const { pdu, inlet, planar } = nearest;
+  const support = inspectSupport ? roofPduSupport(pdu.id) : null;
   const x = inlet.x - center.x;
   const z = inlet.z - center.z;
   const height = center.y - inlet.y;
@@ -696,8 +700,8 @@ function roofPduPlacement(entry: RoofEntryView) {
   ];
   return {
     kind: "roof-pdu" as const,
-    id: `${entry.id}:pdu:${pdu.id}`,
-    title: "柜顶进线口与 PDU 输入",
+    id: `${entry.id}:pdu:${pdu.id}${support ? ":support" : ""}`,
+    title: support ? "PDU 输入与侧壁支架" : "柜顶进线口与 PDU 输入",
     entry,
     overview: entry.overview,
     index: entry.index,
@@ -706,15 +710,16 @@ function roofPduPlacement(entry: RoofEntryView) {
     pdu,
     center,
     inlet,
+    support,
     offsets: { x, z, height, planar },
-    dimensions,
-    points: [
+    dimensions: support?.dimensions ?? dimensions,
+    points: support?.points ?? [
       center,
       inlet,
       ...dimensions.flatMap((item) => item.ends),
       ...entry.outline,
     ],
-    markers,
+    markers: support?.markers ?? markers,
   };
 }
 
@@ -726,6 +731,11 @@ export function selectRoofPduView(
   if (entry.kind !== "roof-entry") return null;
   return within ? roofPduPlacement(entry) : entry;
 }
+
+export function selectRoofSupportView(current: RoofPduView, active: boolean) {
+  return roofPduPlacement(current.entry, active);
+}
+
 export type CrossingViewCommand = {
   revision: number;
   pair: FixtureCrossing | null;
@@ -749,7 +759,10 @@ export function crossingDirection(pair: FixtureCrossing) {
   if (pair.kind === "tray-support")
     return new Vector3(pair.side * 0.34, 0.12, 1);
   if (pair.kind === "roof-entry") return new Vector3(0.15, 1, -0.36);
-  if (pair.kind === "roof-pdu") return new Vector3(0, 0.52, -1);
+  if (pair.kind === "roof-pdu")
+    return pair.support
+      ? new Vector3(-pair.support.side * 0.14, 0.22, -1)
+      : new Vector3(0, 0.52, -1);
   if (pair.kind === "smoke-light") {
     // 从开敞一侧略向上观察，避开后墙及同排桥架。
     if (pair.view === "crossing") return new Vector3(0.45, -0.14, 1);
@@ -793,8 +806,8 @@ export function roofPduViewFrame(
     width,
     height,
     rect,
-    1.15,
-    0.11,
+    pair.support ? 0.82 : 1.15,
+    pair.support ? 0.075 : 0.11,
   );
 }
 export function crossingViewFrame(

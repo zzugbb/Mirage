@@ -1273,6 +1273,7 @@ export function Workspace() {
         (pair?.kind === "drain-joint" && crossing?.kind === "drain-joint")) &&
       (control instanceof HTMLSelectElement ||
         ((pair?.kind === "grille-seat" ||
+          pair?.kind === "roof-pdu" ||
           pair?.kind === "smoke-mount" ||
           pair?.kind === "probe-mount") &&
           control instanceof HTMLButtonElement)) &&

@@ -10,6 +10,7 @@ import {
   lightingRound,
   selectRoofView,
   selectRoofPduView,
+  selectRoofSupportView,
   rackRoof,
 } from "./fixture-crossing.ts";
 import {
@@ -292,6 +293,33 @@ test("八柜的16个开口按平面距离关联同柜 PDU，逻辑出线和原�
     }
   }
   assert.deepEqual([...visited].sort(), pdus.map(({ id }) => id).sort());
+});
+
+test("在侧壁支架近景换开口时跟随同柜 PDU，折返保留对应刷条和桥架", () => {
+  for (const row of cableTraySettings.rows) {
+    for (const rackId of row.rackIds) {
+      const overview = fixtureCrossing(row.fixtureId, rackId);
+      assert.ok(overview?.kind === "rack-tray");
+      const entry = selectRoofView(overview, 0)!;
+      const original = selectRoofPduView(entry, true);
+      assert.ok(original?.kind === "roof-pdu");
+      const close = selectRoofSupportView(original, true);
+      assert.ok(close?.support);
+      assert.equal(close.pdu.id, original.pdu.id);
+      assert.equal(close.entry, entry);
+      assert.deepEqual(close.markers, close.support.markers);
+      const other = selectRoofView(close, 1);
+      assert.ok(other?.kind === "roof-pdu" && other.support);
+      assert.equal(other.pdu.rackId, rackId);
+      assert.equal(other.pdu.feed, "B");
+      assert.equal(other.entry.index, 1);
+      assert.deepEqual(other.inlet.toArray(), other.support.inlet.toArray());
+      const reversed = selectRoofSupportView(other, false);
+      assert.ok(reversed && !reversed.support);
+      assert.deepEqual(selectRoofPduView(reversed, false), other.entry);
+      assert.equal(selectRoofView(reversed, null), overview);
+    }
+  }
 });
 
 test("柜后近景的开口标记与 PDU 输入标记可分别命中刷条和 PDU 外廓", () => {

@@ -2935,7 +2935,11 @@ export function ReviewScene({
                 ) : crossing.kind === "roof-entry" ? (
                   `Z 向投影间距 ${(crossing.horizontal * 1000).toFixed(1)} mm`
                 ) : crossing.kind === "roof-pdu" ? (
-                  `柜后剖切 · 水平偏移 ${(crossing.offsets.planar * 1000).toFixed(1)} mm`
+                  crossing.support ? (
+                    `柜后剖切 · 输入减支架 ${(crossing.support.heightDifference * 1000).toFixed(1)} mm`
+                  ) : (
+                    `柜后剖切 · 水平偏移 ${(crossing.offsets.planar * 1000).toFixed(1)} mm`
+                  )
                 ) : crossing.kind === "rear-wall" ? (
                   `立面投影间距 ${crossing.distance.toFixed(3)} m`
                 ) : crossing.kind === "drain-joint" ? (

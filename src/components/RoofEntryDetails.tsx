@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import {
   selectRoofPduView,
+  selectRoofSupportView,
   selectRoofView,
   rackRoof,
   type FixtureCrossing,
@@ -28,6 +29,13 @@ export function RoofEntryDetails({
   const overview = entry.kind === "roof-entry" ? entry.overview : entry;
   const otherView = useMemo(
     () => selectRoofPduView(crossing, crossing.kind !== "roof-pdu"),
+    [crossing],
+  );
+  const supportView = useMemo(
+    () =>
+      crossing.kind === "roof-pdu"
+        ? selectRoofSupportView(crossing, !crossing.support)
+        : null,
     [crossing],
   );
   return (
@@ -91,31 +99,64 @@ export function RoofEntryDetails({
           <strong>
             {pduName(crossing.pdu.id)} · 逻辑出线 {crossing.pdu.sourcePort}
           </strong>
-          <dl className="roof-pdu-offsets">
-            <div>
-              <dt>X 向偏移</dt>
-              <dd>{signedMillimeters(crossing.offsets.x)}</dd>
-            </div>
-            <div>
-              <dt>Z 向偏移</dt>
-              <dd>{signedMillimeters(crossing.offsets.z)}</dd>
-            </div>
-            <div>
-              <dt>开口减输入高差</dt>
-              <dd>{signedMillimeters(crossing.offsets.height)}</dd>
-            </div>
-          </dl>
-          <p>
-            按开口中心在地面的投影选同柜最近的配置输入点。X、Z
-            向偏移从开口量至输入点。柜后局部剖切，实际穿线与回路计量未登记。
-          </p>
+          {crossing.support ? (
+            <>
+              <dl className="roof-pdu-offsets">
+                <div>
+                  <dt>输入参考点标高</dt>
+                  <dd>{crossing.inlet.y.toFixed(3)} m</dd>
+                </div>
+                <div>
+                  <dt>支架 {crossing.support.index + 1} 中心标高</dt>
+                  <dd>{crossing.support.supportHeight.toFixed(3)} m</dd>
+                </div>
+                <div>
+                  <dt>输入减支架高差</dt>
+                  <dd>
+                    {signedMillimeters(crossing.support.heightDifference)}
+                  </dd>
+                </div>
+              </dl>
+              <p>
+                按标高选距输入参考点最近的本侧支架。支架及标尺沿用样板安装配置，实际固定与穿线待核实。
+              </p>
+            </>
+          ) : (
+            <>
+              <dl className="roof-pdu-offsets">
+                <div>
+                  <dt>X 向偏移</dt>
+                  <dd>{signedMillimeters(crossing.offsets.x)}</dd>
+                </div>
+                <div>
+                  <dt>Z 向偏移</dt>
+                  <dd>{signedMillimeters(crossing.offsets.z)}</dd>
+                </div>
+                <div>
+                  <dt>开口减输入高差</dt>
+                  <dd>{signedMillimeters(crossing.offsets.height)}</dd>
+                </div>
+              </dl>
+              <p>
+                按开口中心在地面的投影选同柜最近的配置输入点。X、Z
+                向偏移从开口量至输入点。柜后局部剖切，实际穿线与回路计量未登记。
+              </p>
+            </>
+          )}
+          {supportView && (crossing.support || supportView.support) && (
+            <button disabled={!ready} onClick={() => onInspect(supportView)}>
+              {crossing.support
+                ? "← 返回柜顶与 PDU 输入"
+                : "核对输入与侧壁支架 ↗"}
+            </button>
+          )}
           <button disabled={!ready} onClick={() => onLocate(crossing.pdu.id)}>
             定位 {pduName(crossing.pdu.id)} ↗
           </button>
           <button disabled={!ready} onClick={() => onHistory(crossing.pdu.id)}>
             回看 {pduName(crossing.pdu.id)} 关联输入 ↗
           </button>
-          {otherView && (
+          {!crossing.support && otherView && (
             <button disabled={!ready} onClick={() => onInspect(otherView)}>
               ← 返回刷条外侧
             </button>

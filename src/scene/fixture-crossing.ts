@@ -146,12 +146,14 @@ export class CrossingGeometry {
         points.push(p, outline[(i + 1) % outline.length]),
       );
     } else if (pair.kind === "roof-pdu") {
-      const outline = pair.entry.outline.map((p) =>
-        p.clone().setY(p.y + 0.009),
-      );
-      outline.forEach((p, i) =>
-        points.push(p, outline[(i + 1) % outline.length]),
-      );
+      if (!pair.support) {
+        const outline = pair.entry.outline.map((p) =>
+          p.clone().setY(p.y + 0.009),
+        );
+        outline.forEach((p, i) =>
+          points.push(p, outline[(i + 1) % outline.length]),
+        );
+      }
       for (const {
         axis,
         ends: [a, b],
