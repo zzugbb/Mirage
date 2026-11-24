@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { entranceHandles, entranceSettings } from "../entrance.ts";
 import type { EntranceInspection } from "../entrance-view.ts";
 import { createAnnotationGroup } from "./annotations.ts";
 
@@ -24,17 +25,26 @@ export class EntranceViewGeometry {
     for (const path of inspection.paths)
       for (let i = 1; i < path.length; i++) points.push(path[i - 1], path[i]);
     const radius =
-      inspection.jamb ||
-      "measure" in inspection ||
-      inspection.view === "heads" ||
-      inspection.view === "section" ||
-      inspection.view === "hinges"
-        ? 0.018
-        : inspection.view === "head-boundary"
-          ? 0.12
-          : 0.055;
+      inspection.view === "handles"
+        ? 0.012
+        : inspection.jamb ||
+            "measure" in inspection ||
+            inspection.view === "heads" ||
+            inspection.view === "section" ||
+            inspection.view === "hinges"
+          ? 0.018
+          : inspection.view === "head-boundary"
+            ? 0.12
+            : 0.055;
     const up = new THREE.Vector3(0, 1, 0);
     const forward = new THREE.Vector3(0, 0, 1);
+    const handleNormal =
+      inspection.view === "handles"
+        ? forward
+            .clone()
+            .applyAxisAngle(up, entranceSettings.displayAngle)
+            .multiplyScalar(entranceHandles[inspection.handles.selected].side)
+        : null;
     for (const [index, marker] of inspection.markers.entries()) {
       if (
         inspection.view === "hinges" &&
@@ -54,7 +64,9 @@ export class EntranceViewGeometry {
         ? head.face.clone().addScaledVector(head.direction, 0.002)
         : inspection.view === "hinges"
           ? marker.point.clone().addScaledVector(forward, 0.005)
-          : marker.point;
+          : handleNormal
+            ? marker.point.clone().addScaledVector(handleNormal, 0.0015)
+            : marker.point;
       for (let i = 0; i < 24; i++)
         for (const a of [i, i + 1]) {
           const offset = new THREE.Vector3(
@@ -67,6 +79,8 @@ export class EntranceViewGeometry {
               offset.applyAxisAngle(up, inspection.sweep.pose.angle);
             else offset.set(offset.x, 0, offset.y);
           }
+          if (handleNormal)
+            offset.applyAxisAngle(up, entranceSettings.displayAngle);
           if (surface === "east" || surface === "west")
             offset.set(0, offset.y, offset.x);
           if (surface === "floor" || surface === "ceiling")

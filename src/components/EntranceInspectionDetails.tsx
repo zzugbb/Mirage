@@ -147,6 +147,69 @@ export function EntranceInspectionDetails({
         }}
       />
     );
+  if (inspection.view === "handles") {
+    const { handles } = inspection;
+    return (
+      <section className="entrance-view-details" aria-label="入口布置核对">
+        <strong>双面把手装配 · 配置</strong>
+        <label className="entrance-handle-position">
+          把手侧面
+          <select
+            value={handles.selected}
+            disabled={!ready}
+            onChange={(event) => onSample(Number(event.target.value))}
+          >
+            {handles.sides.map(({ index, label }) => (
+              <option key={index} value={index}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <dl>
+          <div>
+            <dt>把手轴距洞口底边</dt>
+            <dd>{handles.heightFromOpening.toFixed(3)} m</dd>
+          </div>
+          <div>
+            <dt>门面至把手外缘</dt>
+            <dd>{(handles.faceToBar * 1000).toFixed(1)} mm</dd>
+          </div>
+          <div>
+            <dt>把手长度</dt>
+            <dd>{(handles.barLength * 1000).toFixed(0)} mm</dd>
+          </div>
+          <div>
+            <dt>固定板宽 × 高</dt>
+            <dd>
+              {handles.plateSize
+                .slice(0, 2)
+                .map((size) => (size * 1000).toFixed(0))
+                .join(" × ")}{" "}
+              mm
+            </dd>
+          </div>
+        </dl>
+        <small>
+          按所选门面的法线量取外伸。把手、轴座和固定板共用样板尺寸及门扇展示角。
+        </small>
+        <div className="entrance-view-peer entrance-handle-actions">
+          <button disabled={!ready} onClick={() => onView("access")}>
+            返回读卡器与把手
+          </button>
+          <button
+            disabled={!ready}
+            onClick={() => {
+              onPreview(entranceSettings.readerId);
+              onView("jamb");
+            }}
+          >
+            核对读卡器与洞口侧缘 ↗
+          </button>
+        </div>
+      </section>
+    );
+  }
   if (inspection.view === "hinges") {
     const { joints, selected, spacing, diameter, length } = inspection.hinges;
     const joint = selected === null ? null : joints[selected];
@@ -386,6 +449,13 @@ export function EntranceInspectionDetails({
         )}
       </dl>
       {view === "opening" && <small>尺寸包含门框与五金所占空间。</small>}
+      {view === "access" && (
+        <div className="entrance-view-peer">
+          <button disabled={!ready} onClick={() => onView("handles")}>
+            核对双面把手装配 ↗
+          </button>
+        </div>
+      )}
       {view === "opening" && (
         <div className="entrance-view-peer">
           <button disabled={!ready} onClick={() => onView("section")}>

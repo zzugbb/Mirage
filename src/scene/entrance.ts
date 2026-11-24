@@ -2,6 +2,7 @@ import * as THREE from "three";
 import {
   entranceSettings as s,
   entranceLeaf as leaf,
+  entranceHandles,
   entranceHinges,
 } from "../entrance.ts";
 
@@ -79,31 +80,9 @@ export function buildEntrance(root: THREE.Group) {
     hinge.castShadow = true;
     root.add(hinge);
   }
-  for (const side of [-1, 1]) {
-    const handleX = leaf.width - s.handleInset;
-    const handleY = s.handleHeight - s.openingHeight / 2;
-    const faceZ = ((side - 1) * s.leafThickness) / 2;
-    box(
-      pivot,
-      `entrance-handle-plate-${side}`,
-      s.handlePlateSize,
-      [handleX, handleY, faceZ + (side * s.handlePlateSize[2]) / 2],
-      metal,
-    );
-    box(
-      pivot,
-      `entrance-handle-stem-${side}`,
-      [s.handleSize[1], s.handleSize[1], s.handleStandOff],
-      [handleX, handleY, faceZ + (side * s.handleStandOff) / 2],
-      metal,
-    );
-    box(
-      pivot,
-      `entrance-handle-${side}`,
-      s.handleSize,
-      [handleX - s.handleSize[0] / 2, handleY, faceZ + side * s.handleStandOff],
-      metal,
-    );
+  for (const { side, faceZ, parts } of entranceHandles.toReversed()) {
+    for (const { name, size, position } of Object.values(parts))
+      box(pivot, name, size, position, metal);
     box(
       pivot,
       `entrance-kick-${side}`,

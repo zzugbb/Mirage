@@ -18,6 +18,35 @@ export const entranceLeaf = {
   bottom: -s.openingHeight / 2 + s.floorGap,
   pivotZ: s.frameDepth / 2,
 };
+/** 门扇局部坐标。两面的底板、轴座和握杆使用同一组配置。 */
+export const entranceHandles = ([1, -1] as const).map((side, index) => {
+  const x = entranceLeaf.width - s.handleInset;
+  const y = s.handleHeight - s.openingHeight / 2;
+  const faceZ = side === 1 ? 0 : -s.leafThickness;
+  return {
+    side,
+    index,
+    label: side === 1 ? "室内侧" : "室外侧",
+    faceZ,
+    parts: {
+      plate: {
+        name: `entrance-handle-plate-${side}`,
+        size: s.handlePlateSize,
+        position: [x, y, faceZ + (side * s.handlePlateSize[2]) / 2],
+      },
+      stem: {
+        name: `entrance-handle-stem-${side}`,
+        size: [s.handleSize[1], s.handleSize[1], s.handleStandOff],
+        position: [x, y, faceZ + (side * s.handleStandOff) / 2],
+      },
+      bar: {
+        name: `entrance-handle-${side}`,
+        size: s.handleSize,
+        position: [x - s.handleSize[0] / 2, y, faceZ + side * s.handleStandOff],
+      },
+    },
+  };
+});
 export const entranceHinges = s.hingeHeights.map((fromBottom, index) => ({
   index,
   name: `entrance-hinge-${index}`,

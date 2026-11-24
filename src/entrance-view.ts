@@ -7,6 +7,7 @@ import { Vector3 } from "three";
 import {
   entranceSettings as s,
   entranceFixture,
+  entranceHandles,
   entranceLeaf,
   entranceOpening,
   emergencyLight,
@@ -24,6 +25,10 @@ import {
   entranceFrameSectionInspection,
   entranceFrameSectionViewFrame,
 } from "./entrance-frame-section.ts";
+import {
+  entranceHandleInspection,
+  entranceHandleViewFrame,
+} from "./entrance-handles.ts";
 
 export const entranceViews = [
   { id: "all", label: "入口全貌" },
@@ -33,6 +38,7 @@ export const entranceViews = [
   { id: "opening", label: "洞口尺寸" },
   { id: "section", label: "框内截面" },
   { id: "access", label: "读卡器与把手" },
+  { id: "handles", label: "双面把手装配" },
   { id: "lintel", label: "出口标志与门楣" },
   { id: "lights", label: "标志与应急灯" },
   { id: "heads", label: "应急灯头朝向" },
@@ -48,7 +54,7 @@ export type EntranceViewCommand = {
 export const entranceViewIncludes = (id: string, view?: EntranceView) =>
   view === "heads" || view === "head-boundary"
     ? id === emergencyLight.id
-    : view === "hinges" || view === "section"
+    : view === "hinges" || view === "section" || view === "handles"
       ? id === s.fixtureId
       : view === "sweep"
         ? id === s.fixtureId || id === entranceCabinet.id
@@ -59,11 +65,8 @@ export const entranceViewIncludes = (id: string, view?: EntranceView) =>
 
 /** 把手轴沿用门扇局部坐标与静态展示角；高度为机房坐标，不是从洞口底部重算的安装规范。 */
 export function entranceHandlePoint() {
-  return new Vector3(
-    entranceLeaf.width - s.handleInset,
-    s.handleHeight - s.openingHeight / 2,
-    s.handleStandOff,
-  )
+  const { stem, bar } = entranceHandles[0].parts;
+  return new Vector3(stem.position[0], stem.position[1], bar.position[2])
     .applyAxisAngle(new Vector3(0, 1, 0), s.displayAngle)
     .add(new Vector3(entranceLeaf.pivotX, 0, entranceLeaf.pivotZ))
     .add(new Vector3().fromArray(entranceFixture.position));
@@ -115,6 +118,14 @@ export function entranceInspection(view: EntranceView, sample?: number) {
       view,
       jamb: null,
       ...entranceFrameSectionInspection(sample),
+      ...heights,
+    };
+  }
+  if (view === "handles") {
+    return {
+      view,
+      jamb: null,
+      ...entranceHandleInspection(sample),
       ...heights,
     };
   }
@@ -322,6 +333,8 @@ export function entranceViewFrame(
     return entranceHingeFrame(inspection, width, height, rect);
   if (inspection.view === "section")
     return entranceFrameSectionViewFrame(inspection, width, height, rect);
+  if (inspection.view === "handles")
+    return entranceHandleViewFrame(inspection, width, height, rect);
   if (inspection.view === "heads")
     return observationFrame(
       inspection.points,

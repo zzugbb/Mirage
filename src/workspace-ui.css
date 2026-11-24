@@ -5163,18 +5163,23 @@
   border-color: #82bdb8;
 }
 .entrance-hinge-position,
-.entrance-section-position {
+.entrance-section-position,
+.entrance-handle-position {
   display: grid;
   gap: 5px;
   margin-top: 8px;
   font-size: 12px;
 }
 .entrance-hinge-position select,
-.entrance-section-position select {
+.entrance-section-position select,
+.entrance-handle-position select {
   padding: 5px 6px;
   border: 1px solid var(--line);
   background: var(--raised);
   color: inherit;
+}
+.entrance-handle-actions {
+  flex-wrap: wrap;
 }
 
 .entrance-view-peer,
