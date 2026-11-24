@@ -67,6 +67,7 @@ test("两块面板逐孔拾取命中登记实例，切换对端与清除只影�
   const groups = new Map<string, THREE.Group>();
   for (const p of patchPanels) {
     const g = new THREE.Group();
+    g.name = p.id;
     buildPatchPanel(g, p.name);
     g.position.fromArray(p.position);
     g.updateMatrixWorld(true);

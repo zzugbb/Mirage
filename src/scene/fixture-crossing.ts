@@ -53,10 +53,15 @@ export class CrossingGeometry {
           end.clone().setX(end.x + 0.025),
         );
     } else if (pair.kind === "raceway-corner") {
-      if (pair.opened)
-        pair.opening.forEach((p, i, opening) =>
+      if (pair.opened) {
+        const opening =
+          pair.joint === "panel"
+            ? pair.opening.map((point) => point.clone().setY(point.y + 0.0015))
+            : pair.opening;
+        opening.forEach((p, i) =>
           points.push(p, opening[(i + 1) % opening.length]),
         );
+      }
     } else if (pair.kind === "probe-height") {
       const [probe, corner, projected, front] = pair.ruler;
       dashSegment(points, probe, corner, 0.19);

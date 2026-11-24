@@ -6,6 +6,7 @@ import {
   panelPortCenter,
   type PanelPort,
 } from "../patch-panels.ts";
+import { panelEntryPlacement } from "../panel-raceway.ts";
 
 // 编号印在对应孔位上方，与面板共同受深度遮挡。
 function printFace(root: THREE.Group, code: string) {
@@ -57,12 +58,45 @@ function printFace(root: THREE.Group, code: string) {
 
 export function buildPatchPanel(root: THREE.Group, code: string) {
   const [width, height, depth] = s.size;
+  const placement = panelEntryPlacement(root.name);
+  const recess = placement?.recessDepth ?? 0;
+  const caseMaterial = new THREE.MeshStandardMaterial({
+    color: "#414b52",
+    roughness: 0.65,
+  });
   const body = new THREE.Mesh(
-    new THREE.BoxGeometry(width, height, depth),
-    new THREE.MeshStandardMaterial({ color: "#414b52", roughness: 0.65 }),
+    new THREE.BoxGeometry(width, height - recess, depth),
+    caseMaterial,
   );
   body.name = "panel-case";
+  body.position.y = -recess / 2;
   root.add(body);
+  if (placement) {
+    const [x, , z] = placement.panel.position;
+    const shape = new THREE.Shape([
+      new THREE.Vector2(-width / 2, -depth / 2),
+      new THREE.Vector2(width / 2, -depth / 2),
+      new THREE.Vector2(width / 2, depth / 2),
+      new THREE.Vector2(-width / 2, depth / 2),
+    ]);
+    shape.holes.push(
+      new THREE.Path(
+        placement.opening.map(
+          (point) => new THREE.Vector2(point.x - x, z - point.z),
+        ),
+      ),
+    );
+    const top = new THREE.Mesh(
+      new THREE.ExtrudeGeometry(shape, {
+        depth: recess,
+        bevelEnabled: false,
+      }).rotateX(-Math.PI / 2),
+      caseMaterial,
+    );
+    top.name = "panel-top-inlet";
+    top.position.y = placement.top - recess;
+    root.add(top);
+  }
   printFace(root, code);
   const [w, h, d] = s.bezelSize;
   const [iw, ih] = s.apertureSize;

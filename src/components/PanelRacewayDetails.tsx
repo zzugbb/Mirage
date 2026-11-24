@@ -14,6 +14,7 @@ export function PanelRacewayDetails({
   onLocate,
   onRegister,
   onCorner,
+  onPanelInlet,
   inspectingCorner = false,
 }: {
   fixture: RoomFixture;
@@ -22,6 +23,7 @@ export function PanelRacewayDetails({
   onLocate: (id: string) => void;
   onRegister: (entry: HTMLButtonElement) => void;
   onCorner?: () => void;
+  onPanelInlet?: () => void;
   inspectingCorner?: boolean;
 }) {
   const neighbors = racewayNeighbors(fixture.id);
@@ -56,6 +58,11 @@ export function PanelRacewayDetails({
       {atSection && onCorner && (
         <button disabled={!ready} onClick={onCorner}>
           核对转角与槽盖 ↗
+        </button>
+      )}
+      {onPanelInlet && (
+        <button disabled={!ready} onClick={onPanelInlet}>
+          核对箱顶入盒接合 ↗
         </button>
       )}
       <button

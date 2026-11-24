@@ -47,6 +47,7 @@ export const racewayById = (id: string) =>
   racewaySections.find((s) => s.id === id);
 export const racewayCoverThickness = layout.coverThickness;
 export const racewayWallThickness = layout.wallThickness;
+const panelInletRecessDepth = 0.016;
 const cornerWidth = width - 2 * racewayWallThickness;
 export const racewayTrunkOpenings = drops
   .map((drop) => ({
@@ -55,34 +56,49 @@ export const racewayTrunkOpenings = drops
   }))
   .sort((a, b) => a.left - b.left);
 
+function dropOpening(drop: (typeof drops)[number], height: number) {
+  const [x, , z] = drop.position;
+  const front = z + depth / 2;
+  const innerBack = z - depth / 2 + racewayWallThickness;
+  const innerFront = front - racewayCoverThickness;
+  const opening = [-cornerWidth / 2, cornerWidth / 2].flatMap((dx, i) =>
+    (i === 0 ? [innerBack, innerFront] : [innerFront, innerBack]).map(
+      (depthZ) => new Vector3(x + dx, height, depthZ),
+    ),
+  );
+  return {
+    front,
+    innerBack,
+    innerFront,
+    opening,
+    clearDepth: innerFront - innerBack,
+  };
+}
+
 /** 竖槽内口与横槽下壁开口共用槽壁和盖板配置。 */
-export function racewayCornerInspection(sectionId: string, opened = false) {
+export function racewayCornerInspection(
+  sectionId: string,
+  opened = false,
+  joint: "turn" | "panel" = "turn",
+) {
+  if (joint === "panel") return panelInletInspection(sectionId, opened);
   const drop =
     sectionId === trunk.id
       ? [...drops].sort((a, b) => a.position[0] - b.position[0])[0]
       : drops.find((item) => item.id === sectionId);
   if (!drop) return null;
-  const [x, trunkY, z] = [
-    drop.position[0],
-    trunk.position[1],
-    trunk.position[2],
-  ];
+  const x = drop.position[0];
+  const trunkY = trunk.position[1];
   const junction = trunkY - width / 2;
-  const front = z + depth / 2;
-  const innerBack = z - depth / 2 + racewayWallThickness;
-  const innerFront = front - racewayCoverThickness;
+  const { front, innerBack, opening, clearDepth } = dropOpening(drop, junction);
   const towards = Math.sign(trunk.position[0] - x);
   const trunkMarker = new Vector3(x + towards * 0.136, trunkY, front + 0.001);
   const dropMarker = new Vector3(x, junction - 0.15, front + 0.001);
   const backTrunk = trunkMarker.clone().setZ(innerBack + 0.001);
   const backDrop = dropMarker.clone().setZ(innerBack + 0.001);
-  const opening = [-cornerWidth / 2, cornerWidth / 2].flatMap((dx, i) =>
-    (i === 0 ? [innerBack, innerFront] : [innerFront, innerBack]).map(
-      (depthZ) => new Vector3(x + dx, junction, depthZ),
-    ),
-  );
   return {
     kind: "raceway-corner" as const,
+    joint: "turn" as const,
     id: `${trunk.id}:corner:${drop.id}`,
     title: "后墙线槽转角核对",
     drop,
@@ -90,7 +106,7 @@ export function racewayCornerInspection(sectionId: string, opened = false) {
     panel: patchPanelById(drop.panelId)!,
     opened,
     openingWidth: cornerWidth,
-    clearDepth: innerFront - innerBack,
+    clearDepth,
     opening,
     upper: {
       id: trunk.id,
@@ -118,6 +134,58 @@ export function racewayCornerInspection(sectionId: string, opened = false) {
   };
 }
 
+function panelInletInspection(sectionId: string, opened: boolean) {
+  const placement = panelEntryPlacement(sectionId);
+  if (!placement) return null;
+  const { panel, drop, top, opening, clearDepth, recessDepth } = placement;
+  const x = drop.position[0];
+  const height = panel.position[1] + top;
+  const panelTop = new Vector3(x, height, opening[1].z + 0.022);
+  const cover = new Vector3(
+    x,
+    height + 0.1,
+    drop.position[2] + depth / 2 + 0.001,
+  );
+  const backplate = cover.clone().setZ(opening[0].z + 0.001);
+  const towards = Math.sign(panel.position[0] - x);
+  return {
+    kind: "raceway-corner" as const,
+    joint: "panel" as const,
+    id: `${panel.id}:inlet:${drop.id}`,
+    title: "配线架箱顶入盒接合",
+    drop,
+    trunk,
+    panel,
+    opened,
+    openingWidth: cornerWidth,
+    clearDepth,
+    recessDepth,
+    opening,
+    upper: {
+      id: drop.id,
+      name: drop.name,
+      surface: opened ? "竖槽内背板" : "竖槽盖板",
+    },
+    lower: { id: panel.id, name: panel.name, surface: "箱顶入盒边" },
+    points: [
+      ...opening,
+      cover,
+      backplate,
+      panelTop,
+      panelTop.clone().add(new Vector3(towards * 0.1, -0.025, 0.025)),
+      cover.clone().setY(height + 0.145),
+    ],
+    markers: [
+      { id: "raceway-inlet-panel", title: "箱顶入盒边", point: panelTop },
+      {
+        id: "raceway-inlet-drop",
+        title: opened ? "竖槽内背板" : "竖槽盖板",
+        point: opened ? backplate : cover,
+      },
+    ],
+  };
+}
+
 export type RacewayCornerInspection = NonNullable<
   ReturnType<typeof racewayCornerInspection>
 >;
@@ -128,6 +196,18 @@ export function racewayCornerViewFrame(
   height: number,
   rect: FrameRect,
 ) {
+  if (pair.joint === "panel") {
+    const towards = Math.sign(pair.panel.position[0] - pair.drop.position[0]);
+    return observationFrame(
+      pair.points,
+      new Vector3(towards * 0.18, 0.56, 1),
+      width,
+      height,
+      rect,
+      0.57,
+      0.032,
+    );
+  }
   const direction = new Vector3(
     Math.sign(pair.trunk.position[0] - pair.drop.position[0]) * 0.22,
     0.24,
@@ -188,11 +268,16 @@ export function panelEntryPlacement(id: string) {
   const drop = drops.find((d) => d.id === id || d.panelId === id);
   if (!drop) return null;
   const panel = patchPanelById(drop.panelId)!;
+  const top = panelSettings.size[1] / 2;
+  const { opening, clearDepth } = dropOpening(drop, panel.position[1] + top);
   return {
     panel,
     drop,
     entryX: drop.position[0] - panel.position[0],
-    top: panelSettings.size[1] / 2,
+    top,
+    opening,
+    clearDepth,
+    recessDepth: panelInletRecessDepth,
   };
 }
 

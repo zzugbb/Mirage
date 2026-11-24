@@ -28,6 +28,7 @@ import type { ProbeHeightScene } from "./probe-height-scene.ts";
 import type { SmokeMountInspection } from "./smoke-mount.ts";
 import {
   racewaySections,
+  racewayPanels,
   type RacewayCornerInspection,
 } from "./panel-raceway.ts";
 import {
@@ -580,7 +581,10 @@ export const crossingObjectIds = (pair: FixtureCrossing) =>
   pair.kind === "grille-intake"
     ? [pair.upper.id, pair.lower.id, pair.route.deviceId]
     : pair.kind === "raceway-corner"
-      ? racewaySections.map(({ id }) => id)
+      ? [
+          ...racewaySections.map(({ id }) => id),
+          ...(pair.joint === "panel" ? racewayPanels.map(({ id }) => id) : []),
+        ]
       : pair.kind === "drain-joint"
         ? drainJointObjectIds
         : pair.kind === "grille-seat" ||

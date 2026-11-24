@@ -8952,12 +8952,39 @@ export function Workspace() {
                       ready={ready}
                       onEnd={(id) =>
                         requestCrossing(
-                          racewayCornerInspection(id, crossing.opened),
+                          racewayCornerInspection(
+                            id,
+                            crossing.opened,
+                            crossing.joint,
+                          ),
                         )
                       }
+                      onJoint={(joint) => {
+                        if (joint === "turn" && patchPanelById(selected)) {
+                          pick(crossing.drop.id);
+                          if (inspectionOrigin)
+                            setPanelInspection({
+                              fixtureId: crossing.drop.id,
+                              origin: inspectionOrigin,
+                              register,
+                              entryView,
+                            });
+                        }
+                        requestCrossing(
+                          racewayCornerInspection(
+                            crossing.drop.id,
+                            crossing.opened,
+                            joint,
+                          ),
+                        );
+                      }}
                       onCover={(opened) =>
                         requestCrossing(
-                          racewayCornerInspection(crossing.drop.id, opened),
+                          racewayCornerInspection(
+                            crossing.drop.id,
+                            opened,
+                            crossing.joint,
+                          ),
                         )
                       }
                       onPanel={() => {
@@ -9581,6 +9608,18 @@ export function Workspace() {
                               ? () =>
                                   requestCrossing(
                                     racewayCornerInspection(fixture.id),
+                                  )
+                              : undefined
+                          }
+                          onPanelInlet={
+                            panelEntryPlacement(fixture.id)
+                              ? () =>
+                                  requestCrossing(
+                                    racewayCornerInspection(
+                                      fixture.id,
+                                      false,
+                                      "panel",
+                                    ),
                                   )
                               : undefined
                           }

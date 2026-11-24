@@ -89,11 +89,15 @@ export function showRacewayCorner(
   fixtures: Map<string, Group>,
   pair?: RacewayCornerInspection,
 ) {
-  const visible = pair?.opened ? [pair.drop.id, pair.trunk.id] : [];
   for (const section of racewaySections) {
     const cover = fixtures
       .get(section.id)
       ?.getObjectByName("raceway-cover-assembly");
-    if (cover) cover.visible = !visible.includes(section.id);
+    if (cover)
+      cover.visible = !(
+        pair?.opened &&
+        (section.id === pair.drop.id ||
+          (pair.joint === "turn" && section.id === pair.trunk.id))
+      );
   }
 }
