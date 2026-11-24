@@ -24,6 +24,11 @@ export class CrossingGeometry {
     const points: THREE.Vector3[] = [];
     if (pair.kind === "grille-seat") {
       pair.outline.forEach((p, i) => points.push(p, pair.outline[(i + 1) % 4]));
+    } else if (pair.kind === "light-rod") {
+      const offset = new THREE.Vector3(0, 0.14, pair.toward * 0.035);
+      const a = top.clone().add(offset);
+      const b = bottom.clone().add(offset);
+      points.push(top, a, a, b, b, bottom);
     } else if (pair.kind === "tray-bay") {
       const offset = new THREE.Vector3(0, -0.1, pair.toward * 0.1);
       const a = top.clone().add(offset);

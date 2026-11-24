@@ -16,6 +16,10 @@ import {
   nearestHousingPoint,
   crossingObjectIds,
   fixtureCrossing,
+  lightRodInspection,
+  sectionLights,
+  traySupportBay,
+  traySupportStations,
   crossingViewFrame,
 } from "./fixture-crossing.ts";
 
@@ -180,4 +184,62 @@ test("灯壳水平投影覆盖中心时保留零距离，端部外侧取配置�
       y + lightProfile.bodyCenterY - lightProfile.bodyHeight / 2,
     );
   }
+});
+
+test("灯壳侧面与桥架吊杆采用同一截面的配置外缘，支吊段可双向找到灯具", () => {
+  const s = cableTraySettings;
+  const expectedGroups = [[0], [1, 2], [3]];
+  const expectedGaps = [11, 1361, 11];
+  const drawing = new CrossingGeometry();
+  for (const [i, { light, tray }] of lightTrayCrossings.entries()) {
+    const lightIndex = Math.floor(i / s.rows.length);
+    const pair = lightRodInspection(light.id, tray.id);
+    assert.ok(pair);
+    assert.deepEqual(pair.stations, expectedGroups[lightIndex]);
+    assert.deepEqual(crossingObjectIds(pair), [light.id, tray.id]);
+    assert.deepEqual(
+      sectionLights(pair.section).map(({ id }) => id),
+      [light.id],
+    );
+    if (lightIndex === 1) {
+      assert.equal(pair.section.kind, "tray-bay");
+      for (const index of [0, 2])
+        assert.deepEqual(sectionLights(traySupportBay(tray.id, index)!), []);
+    } else assert.equal(pair.section.kind, "tray-support");
+    assert.deepEqual(lightRodInspection(light.id, tray.id, 42), pair);
+    for (const index of pair.stations) {
+      const view = lightRodInspection(light.id, tray.id, index)!;
+      assert.equal(view.index, index);
+      assert.equal(
+        Number((view.gap * 1000).toFixed(1)),
+        expectedGaps[lightIndex],
+      );
+      assert.ok(
+        view.racks.every((rack) =>
+          s.rows
+            .find((row) => row.fixtureId === tray.id)!
+            .rackIds.includes(rack.id),
+        ),
+      );
+      const [housing, rod] = view.points;
+      assert.equal(housing.y, light.position[1] + lightProfile.bodyCenterY);
+      assert.deepEqual([housing.y, housing.z], [rod.y, rod.z]);
+      assert.equal(rod.z, tray.position[2] + view.toward * s.rodOffsetZ);
+      assert.ok(
+        Math.abs(
+          Math.abs(housing.x - light.position[0]) - lightProfile.bodyWidth / 2,
+        ) < 1e-9,
+      );
+      assert.ok(
+        Math.abs(
+          Math.abs(rod.x - tray.position[0] - traySupportStations[index]) -
+            s.rodSize / 2,
+        ) < 1e-9,
+      );
+      drawing.update(view);
+      assert.equal(drawing.geometry.drawRange.count, 6);
+    }
+  }
+  assert.equal(lightRodInspection("unknown", "cable-tray-a"), null);
+  drawing.dispose();
 });

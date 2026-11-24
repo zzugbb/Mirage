@@ -1373,14 +1373,14 @@ export class SceneEngine {
     const { pair } = this.crossingObservation;
     const direction = crossingDirection(pair);
     const fit =
-      pair.kind === "grille-seat"
+      pair.kind === "grille-seat" || pair.kind === "light-rod"
         ? observationFrame(
             pair.points,
             direction,
             width,
             height,
             rect,
-            0.95,
+            pair.kind === "light-rod" ? 1.35 : 0.95,
             0.12,
           )
         : crossingViewFrame(pair.points, width, height, rect, direction);

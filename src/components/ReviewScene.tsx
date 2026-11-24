@@ -576,6 +576,7 @@ export function ReviewScene({
           crossing?.kind === "tray-support" ||
           crossing?.kind === "roof-entry" ||
           crossing?.kind === "lighting-round" ||
+          crossing?.kind === "light-rod" ||
           crossing?.kind === "light-tray")));
   const [stageCutaway, setStageCutaway] = useState(true);
   useEffect(() => {
@@ -2384,6 +2385,7 @@ export function ReviewScene({
                 crossing.kind === "grille-seat" ||
                 crossing.kind === "tray-bay" ||
                 crossing.kind === "tray-support" ||
+                crossing.kind === "light-rod" ||
                 crossing.kind === "lighting-round" ||
                 crossing.kind === "roof-entry"
                   ? "center"
@@ -2814,6 +2816,12 @@ export function ReviewScene({
                   " 号"
                 ) : crossing.kind === "tray-bay" ? (
                   `横托轴距 ${crossing.horizontal.toFixed(3)} m`
+                ) : crossing.kind === "light-rod" ? (
+                  crossing.gap >= 0 ? (
+                    `X 向间距 ${(crossing.gap * 1000).toFixed(1)} mm`
+                  ) : (
+                    "X 向投影重叠"
+                  )
                 ) : crossing.kind === "tray-support" ? (
                   `端部伸出 ${(crossing.horizontal * 1000).toFixed(1)} mm`
                 ) : crossing.kind === "roof-entry" ? (

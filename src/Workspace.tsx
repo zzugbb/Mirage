@@ -213,11 +213,14 @@ import {
 import type { EnvironmentMetric } from "./environment-monitoring";
 import { EnvironmentPairAnalysis } from "./components/EnvironmentPairAnalysis";
 import { RoofEntryDetails } from "./components/RoofEntryDetails";
+import { LightRodDetails } from "./components/LightRodDetails";
 import { LightingRoundDetails } from "./components/LightingRoundDetails";
 import {
   lightingRound,
   fixtureCrossing,
   trayEndSupport,
+  lightRodInspection,
+  sectionLights,
   traySupportBay,
   traySupportStations,
   smokeTrayPlacement,
@@ -1187,7 +1190,8 @@ export function Workspace() {
   const crossingOverview =
     crossing?.kind === "roof-entry" ? crossing.overview : crossing;
   const crossingOriginId =
-    crossingOverview?.kind === "lighting-round"
+    crossingOverview?.kind === "lighting-round" ||
+    crossingOverview?.kind === "light-rod"
       ? crossingOverview.source.id
       : crossingOverview?.id;
   const [crossingCommand, setCrossingCommand] =
@@ -1214,6 +1218,7 @@ export function Workspace() {
       ((pair?.kind === "grille-seat" && crossing?.kind === "grille-seat") ||
         (pair?.kind === "smoke-light" && crossing?.kind === "smoke-light") ||
         (pair?.kind === "tray-support" && crossing?.kind === "tray-support") ||
+        (pair?.kind === "light-rod" && crossing?.kind === "light-rod") ||
         (pair?.kind === "tray-bay" && crossing?.kind === "tray-bay")) &&
       (control instanceof HTMLSelectElement ||
         (pair?.kind === "grille-seat" &&
@@ -6501,6 +6506,8 @@ export function Workspace() {
                                     grilleRowById(row.id) ||
                                     entranceViewIncludes(row.id) ||
                                     environmentRoundFor(row.id) ||
+                                    fixtureById(row.id)?.kind ===
+                                      "ceiling-light" ||
                                     isLeakFixture(row.id) ||
                                     isCoolingSource(row.id) ||
                                     row.id === powerSettings.sourceId)
@@ -8491,6 +8498,7 @@ export function Workspace() {
                 review.analysis &&
                 (crossing.kind === "grille-seat" ||
                   crossing.kind === "tray-bay" ||
+                  crossing.kind === "light-rod" ||
                   crossing.kind === "tray-support" ||
                   crossing.kind === "lighting-round" ||
                   crossing.kind === "roof-entry")
@@ -8512,6 +8520,7 @@ export function Workspace() {
                     crossing.kind !== "lighting-round" &&
                     crossing.kind !== "tray-support" &&
                     crossing.kind !== "tray-bay" &&
+                    crossing.kind !== "light-rod" &&
                     crossing.kind !== "roof-entry" && (
                       <>
                         <div>
@@ -8682,6 +8691,68 @@ export function Workspace() {
                       <small>样板布置。现场锚固、承载与敷线待核实。</small>
                     </div>
                   )}
+                  {!review.analysis &&
+                    (crossing.kind === "tray-bay" ||
+                      crossing.kind === "tray-support") &&
+                    sectionLights(crossing).map((light) => {
+                      const next = lightRodInspection(
+                        light.id,
+                        crossing.upper.id,
+                      );
+                      return (
+                        next && (
+                          <button
+                            key={light.id}
+                            disabled={!ready}
+                            onClick={() => requestCrossing(next)}
+                          >
+                            核对{light.name}与吊杆 ↗
+                          </button>
+                        )
+                      );
+                    })}
+                  {!review.analysis && crossing.kind === "light-rod" && (
+                    <LightRodDetails
+                      pair={crossing}
+                      ready={ready}
+                      onStation={(station) =>
+                        requestCrossing(
+                          lightRodInspection(
+                            crossing.upper.id,
+                            crossing.lower.id,
+                            station,
+                          ),
+                        )
+                      }
+                      onCrossing={() => requestCrossing(crossing.source)}
+                      onSection={() => {
+                        pick(crossing.lower.id);
+                        requestCrossing(crossing.section);
+                      }}
+                      onHistory={(id) => {
+                        focus(id);
+                        analyze();
+                      }}
+                    />
+                  )}
+                  {!review.analysis &&
+                    crossing.kind === "light-tray" &&
+                    (() => {
+                      const next = lightRodInspection(
+                        crossing.light.id,
+                        crossing.tray.id,
+                      );
+                      return (
+                        next && (
+                          <button
+                            disabled={!ready}
+                            onClick={() => requestCrossing(next)}
+                          >
+                            核对灯壳与相邻吊杆 ↗
+                          </button>
+                        )
+                      );
+                    })()}
                   {!review.analysis && crossing.kind === "smoke-tray" && (
                     <button
                       disabled={!ready}

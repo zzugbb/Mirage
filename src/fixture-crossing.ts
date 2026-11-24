@@ -161,6 +161,104 @@ export function traySupportBay(trayId: string, index: number) {
   };
 }
 
+type TraySupportSection = NonNullable<
+  ReturnType<typeof trayEndSupport> | ReturnType<typeof traySupportBay>
+>;
+
+function lightSupportSection(trayId: string, offset: number) {
+  if (offset < traySupportStations[0]) return trayEndSupport(trayId, -1);
+  const index =
+    traySupportStations.findIndex((station) => station > offset) - 1;
+  const last = traySupportStations.length - 1;
+  if (offset > traySupportStations[last]) return trayEndSupport(trayId, 1);
+  return traySupportBay(trayId, index < 0 ? last - 1 : index);
+}
+
+export function sectionLights(section: TraySupportSection) {
+  return lightTrayCrossings
+    .filter(
+      ({ tray, light }) =>
+        tray.id === section.upper.id &&
+        lightSupportSection(tray.id, light.position[0] - tray.position[0])
+          ?.id === section.id,
+    )
+    .map(({ light }) => light);
+}
+
+/** 在灯壳与吊杆同高、同 Z 的截面量两者沿 X 的配置外缘。 */
+export function lightRodInspection(
+  lightId: string,
+  trayId: string,
+  station?: number,
+) {
+  const source = fixtureCrossing(lightId, trayId);
+  if (source?.kind !== "light-tray") return null;
+  const { light, tray } = source;
+  const s = cableTraySettings;
+  const [x, centerY, centerZ] = light.position;
+  const offset = x - tray.position[0];
+  const section = lightSupportSection(trayId, offset);
+  if (!section) return null;
+  const stations =
+    section.kind === "tray-bay"
+      ? [section.index, section.index + 1]
+      : [section.side < 0 ? 0 : traySupportStations.length - 1];
+  const y0 = Math.max(
+    centerY + lightProfile.bodyCenterY - lightProfile.bodyHeight / 2,
+    tray.position[1] + traySupportCenterY,
+  );
+  const y1 = Math.min(
+    centerY + lightProfile.bodyCenterY + lightProfile.bodyHeight / 2,
+    tray.position[1] + s.rodTopY,
+  );
+  const toward = Math.sign(tray.position[2]) || 1;
+  const z = tray.position[2] + toward * s.rodOffsetZ;
+  if (y1 <= y0 || Math.abs(z - centerZ) > housingLength(light) / 2) return null;
+
+  const nearest = stations.reduce((best, index) =>
+    Math.abs(offset - traySupportStations[index]) <
+    Math.abs(offset - traySupportStations[best])
+      ? index
+      : best,
+  );
+  const index =
+    station !== undefined && stations.includes(station) ? station : nearest;
+  const rod = tray.position[0] + traySupportStations[index];
+  const side = rod < x ? -1 : 1;
+  const y = (y0 + y1) / 2;
+  const housingEdge = new Vector3(
+    x + (side * lightProfile.bodyWidth) / 2,
+    y,
+    z,
+  );
+  const rodEdge = new Vector3(rod - (side * s.rodSize) / 2, y, z);
+  const gap = side * (rodEdge.x - housingEdge.x);
+  const racks = section.kind === "tray-bay" ? section.racks : [section.rack];
+  return {
+    kind: "light-rod" as const,
+    title: "灯壳与桥架吊杆",
+    id: source.id + ":rod:" + index,
+    source,
+    section,
+    index,
+    stations,
+    racks,
+    toward,
+    gap,
+    upper: { id: light.id, name: light.name, surface: "灯壳侧面" },
+    lower: { id: tray.id, name: tray.name, surface: "吊杆侧面" },
+    points: [housingEdge, rodEdge],
+    markers: [
+      { id: "light-rod-housing", title: "灯壳侧面", point: housingEdge },
+      {
+        id: "light-rod-support",
+        title: "第 " + (index + 1) + " 组外侧吊杆",
+        point: rodEdge,
+      },
+    ],
+  };
+}
+
 /** 只核对已登记柜排对应；上端必须落在实际横档，下端位于实心柜顶板。 */
 function rackTrayCrossing(first: string, second: string) {
   const rack = rackById(first) ?? rackById(second);
@@ -413,6 +511,7 @@ export type RackRoofView =
     });
 export type FixtureCrossing =
   | GrilleSeat
+  | NonNullable<ReturnType<typeof lightRodInspection>>
   | RackRoofView
   | SmokeLightInspection
   | NonNullable<ReturnType<typeof traySupportBay>>
@@ -436,6 +535,11 @@ export type CrossingViewCommand = {
 };
 export function crossingDirection(pair: FixtureCrossing) {
   if (pair.kind === "grille-seat") return new Vector3(0.04, 1, 0.38);
+  if (pair.kind === "light-rod") {
+    // 从吊杆一侧看向截面，避免长灯壳挡住端部紧邻的细吊杆。
+    const side = Math.sign(pair.points[1].x - pair.source.light.position[0]);
+    return new Vector3(side * 0.34, 0.12, pair.toward);
+  }
   if (pair.kind === "tray-bay") return new Vector3(0, 0.19, pair.toward);
   if (pair.kind === "tray-support")
     return new Vector3(pair.side * 0.34, 0.12, 1);
