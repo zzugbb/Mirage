@@ -7,11 +7,14 @@ import { Vector3 } from "three";
 import { pdus, pduName } from "./power-config.ts";
 import { pduInletPosition } from "./power-paths.ts";
 import {
+  ceilingLights,
   lightTrayCrossings,
   diffuserBottom,
   housingLength,
+  lightHangerAxis,
   lightProfile,
   type CeilingLight,
+  type LightHangerSide,
 } from "./ceiling-lights.ts";
 import {
   cableTraySettings,
@@ -54,6 +57,74 @@ export function fixtureCrossing(first: string, second: string) {
     ],
   };
 }
+
+/** 同一顶灯两端独立观察，近桥架仅在与该灯投影相交的已登记桥架中选择。 */
+export function lightHangerInspection(
+  lightId: string,
+  side: LightHangerSide = -1,
+) {
+  const light = ceilingLights.find((item) => item.id === lightId);
+  if (!light) return null;
+  const [x, y, z] = light.position;
+  const axis = lightHangerAxis(light, side);
+  const top = new Vector3(x, y + axis.top, z + axis.z);
+  const bottom = new Vector3(x, y + axis.bottom, z + axis.z);
+  const insideX = x > 0 ? -1 : 1;
+  const end = new Vector3(x, y + diffuserBottom, z + (side * light.length) / 2);
+  const nearTray = lightTrayCrossings
+    .filter((entry) => entry.light.id === light.id)
+    .sort(
+      (a, b) =>
+        Math.abs(a.tray.position[2] - top.z) -
+        Math.abs(b.tray.position[2] - top.z),
+    )[0]?.tray;
+  const crossing = nearTray ? fixtureCrossing(light.id, nearTray.id) : null;
+  const nearestCrossing = crossing?.kind === "light-tray" ? crossing : null;
+  const markers = [
+    { id: "light-hanger-top", title: "机房顶标高", point: top },
+    {
+      id: "light-hanger-bottom",
+      title: "灯壳顶面",
+      point: bottom.clone().setX(x + (insideX * lightProfile.bodyWidth) / 4),
+    },
+  ];
+  // 顶面虚框是标高参考，未配置施工锚具。两把尺分别沿 Y 与 Z 量取。
+  const topReference = [
+    [-1, -1],
+    [1, -1],
+    [1, 1],
+    [-1, 1],
+  ].map(([sx, sz]) => top.clone().add(new Vector3(sx * 0.09, 0, sz * 0.09)));
+  const offset = new Vector3(insideX * 0.065, 0, -side * 0.14);
+  const dropRuler = [top.clone().add(offset), bottom.clone().add(offset)];
+  const insetOffset = insideX * (lightProfile.bodyWidth / 2 + 0.045);
+  const insetRuler = [
+    new Vector3(x + insetOffset, end.y, bottom.z),
+    end.clone().setX(x + insetOffset),
+  ];
+  return {
+    kind: "light-hanger" as const,
+    id: `${light.id}:hanger:${side < 0 ? "negative" : "positive"}`,
+    title: "顶灯吊点核对",
+    light,
+    side,
+    upper: { id: light.id, name: light.name, surface: "机房顶标高" },
+    lower: { id: light.id, name: light.name, surface: "灯壳顶面" },
+    points: [top, bottom, end, ...dropRuler, ...insetRuler, ...topReference],
+    markers,
+    drop: axis.drop,
+    inset: Math.abs(end.z - bottom.z),
+    nearestCrossing,
+    alongZ: nearTray ? Math.abs(nearTray.position[2] - top.z) : null,
+    topReference,
+    dropRuler,
+    insetRuler,
+  };
+}
+
+export type LightHangerInspection = NonNullable<
+  ReturnType<typeof lightHangerInspection>
+>;
 /** 沿桥架长轴量取端帽外端到最近横托外边；端柜只在本排登记的机柜中选择。 */
 export function trayEndSupport(trayId: string, side: -1 | 1) {
   const tray = definition.room.fixtures.find(
@@ -502,6 +573,7 @@ export const crossingObjectIds = (pair: FixtureCrossing) =>
   pair.kind === "drain-joint"
     ? drainJointObjectIds
     : pair.kind === "grille-seat" ||
+        pair.kind === "light-hanger" ||
         pair.kind === "tray-support" ||
         pair.kind === "tray-bay"
       ? [pair.upper.id]
@@ -526,6 +598,7 @@ export type FixtureCrossing =
   | GrilleSeat
   | RearWallCrossing
   | DrainJointInspection
+  | LightHangerInspection
   | NonNullable<ReturnType<typeof lightRodInspection>>
   | RackRoofView
   | SmokeLightInspection
@@ -637,6 +710,12 @@ export type CrossingViewCommand = {
 };
 export function crossingDirection(pair: FixtureCrossing) {
   if (pair.kind === "grille-seat") return new Vector3(0.04, 1, 0.38);
+  if (pair.kind === "light-hanger")
+    return new Vector3(
+      pair.light.position[0] > 0 ? -1 : 1,
+      -0.08,
+      pair.side * 0.29,
+    );
   if (pair.kind === "light-rod") {
     // 从吊杆一侧看向截面，避免长灯壳挡住端部紧邻的细吊杆。
     const side = Math.sign(pair.points[1].x - pair.source.light.position[0]);
@@ -661,6 +740,22 @@ export function crossingDirection(pair: FixtureCrossing) {
     return new Vector3(0.25, 0.1, Math.sign(tray.position[2]) || 1);
   }
   return new Vector3(0.55, 0.08, 1);
+}
+export function lightHangerViewFrame(
+  pair: LightHangerInspection,
+  width: number,
+  height: number,
+  rect: FrameRect,
+) {
+  return observationFrame(
+    pair.points,
+    crossingDirection(pair),
+    width,
+    height,
+    rect,
+    0.96,
+    0.075,
+  );
 }
 export function roofPduViewFrame(
   pair: RoofPduView,

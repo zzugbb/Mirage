@@ -5136,10 +5136,10 @@
   align-items: center;
   gap: 6px;
 }
-:is(.entrance-view-entry, .leak-view-entry) {
+:is(.entrance-view-entry, .leak-view-entry, .light-hanger-entry) {
   margin: 16px 0;
 }
-:is(.entrance-view-entry, .leak-view-entry) button,
+:is(.entrance-view-entry, .leak-view-entry, .light-hanger-entry) button,
 .entrance-view-peer button,
 .entrance-history button,
 .leak-view-preview button,

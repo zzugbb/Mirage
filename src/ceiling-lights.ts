@@ -10,6 +10,20 @@ export const diffuserBottom =
   lightProfile.diffuserHeight;
 export const housingLength = (light: CeilingLight) =>
   light.length + lightProfile.endAllowance;
+export const lightHangerSides = [-1, 1] as const;
+export type LightHangerSide = (typeof lightHangerSides)[number];
+
+/** 吊杆两端均使用灯具局部坐标，便于和装配几何共用。 */
+export function lightHangerAxis(light: CeilingLight, side: LightHangerSide) {
+  const bottom = lightProfile.bodyCenterY + lightProfile.bodyHeight / 2;
+  const top = definition.room.size[1] - light.position[1];
+  return {
+    top,
+    bottom,
+    z: side * (light.length / 2 - lightProfile.hangerInset),
+    drop: top - bottom,
+  };
+}
 
 export function lightSightOffsets(light: CeilingLight) {
   const half = housingLength(light) / 2;
@@ -17,11 +31,10 @@ export function lightSightOffsets(light: CeilingLight) {
     [0, diffuserBottom, -half],
     [0, diffuserBottom, 0],
     [0, diffuserBottom, half],
-    ...[-1, 1].map((side) => [
-      0,
-      definition.room.size[1] - light.position[1],
-      side * (light.length / 2 - lightProfile.hangerInset),
-    ]),
+    ...lightHangerSides.map((side) => {
+      const { top, z } = lightHangerAxis(light, side);
+      return [0, top, z];
+    }),
   ];
 }
 

@@ -215,6 +215,7 @@ import {
 import type { EnvironmentMetric } from "./environment-monitoring";
 import { EnvironmentPairAnalysis } from "./components/EnvironmentPairAnalysis";
 import { RoofEntryDetails } from "./components/RoofEntryDetails";
+import { LightHangerDetails } from "./components/LightHangerDetails";
 import { LightRodDetails } from "./components/LightRodDetails";
 import { RearWallCrossingDetails } from "./components/RearWallCrossingDetails";
 import { rearWallCrossing } from "./rear-wall";
@@ -223,6 +224,7 @@ import {
   lightingRound,
   fixtureCrossing,
   trayEndSupport,
+  lightHangerInspection,
   lightRodInspection,
   sectionLights,
   traySupportBay,
@@ -1225,6 +1227,7 @@ export function Workspace() {
       ((pair?.kind === "grille-seat" && crossing?.kind === "grille-seat") ||
         (pair?.kind === "smoke-light" && crossing?.kind === "smoke-light") ||
         (pair?.kind === "tray-support" && crossing?.kind === "tray-support") ||
+        (pair?.kind === "light-hanger" && crossing?.kind === "light-hanger") ||
         (pair?.kind === "light-rod" && crossing?.kind === "light-rod") ||
         (pair?.kind === "tray-bay" && crossing?.kind === "tray-bay") ||
         (pair?.kind === "roof-pdu" && crossing?.kind === "roof-pdu") ||
@@ -8620,6 +8623,7 @@ export function Workspace() {
                 review.analysis &&
                 (crossing.kind === "grille-seat" ||
                   crossing.kind === "tray-bay" ||
+                  crossing.kind === "light-hanger" ||
                   crossing.kind === "light-rod" ||
                   crossing.kind === "tray-support" ||
                   crossing.kind === "lighting-round" ||
@@ -8645,6 +8649,7 @@ export function Workspace() {
                     crossing.kind !== "lighting-round" &&
                     crossing.kind !== "tray-support" &&
                     crossing.kind !== "tray-bay" &&
+                    crossing.kind !== "light-hanger" &&
                     crossing.kind !== "light-rod" &&
                     crossing.kind !== "roof-entry" &&
                     crossing.kind !== "roof-pdu" &&
@@ -8864,6 +8869,21 @@ export function Workspace() {
                         )
                       );
                     })}
+                  {crossing.kind === "light-hanger" && (
+                    <LightHangerDetails
+                      hanger={crossing}
+                      ready={ready}
+                      onSide={(side) =>
+                        requestCrossing(
+                          lightHangerInspection(crossing.light.id, side),
+                        )
+                      }
+                      onCrossing={() => {
+                        if (crossing.nearestCrossing)
+                          requestCrossing(crossing.nearestCrossing);
+                      }}
+                    />
+                  )}
                   {!review.analysis && crossing.kind === "light-rod" && (
                     <LightRodDetails
                       pair={crossing}
@@ -8895,15 +8915,32 @@ export function Workspace() {
                         crossing.light.id,
                         crossing.tray.id,
                       );
-                      return (
-                        next && (
-                          <button
-                            disabled={!ready}
-                            onClick={() => requestCrossing(next)}
-                          >
-                            核对灯壳与相邻吊杆 ↗
-                          </button>
+                      const hanger = ([-1, 1] as const)
+                        .map((side) =>
+                          lightHangerInspection(crossing.light.id, side),
                         )
+                        .find(
+                          (item) => item?.nearestCrossing?.id === crossing.id,
+                        );
+                      return (
+                        <>
+                          {hanger && (
+                            <button
+                              disabled={!ready}
+                              onClick={() => requestCrossing(hanger)}
+                            >
+                              核对相邻端的顶灯吊点 ↗
+                            </button>
+                          )}
+                          {next && (
+                            <button
+                              disabled={!ready}
+                              onClick={() => requestCrossing(next)}
+                            >
+                              核对灯壳与相邻吊杆 ↗
+                            </button>
+                          )}
+                        </>
                       );
                     })()}
                   {!review.analysis && crossing.kind === "smoke-tray" && (
@@ -9310,6 +9347,15 @@ export function Workspace() {
                 ) : fixture ? (
                   <FixtureDetails
                     fixture={fixture}
+                    inspectingHanger={crossing?.kind === "light-hanger"}
+                    onInspectHangers={
+                      fixture.kind === "ceiling-light" &&
+                      layer === "overview" &&
+                      state.level === "room"
+                        ? () =>
+                            requestCrossing(lightHangerInspection(fixture.id))
+                        : undefined
+                    }
                     onInspectSupport={
                       layer === "overview" && state.level === "room"
                         ? (side) =>

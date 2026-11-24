@@ -62,6 +62,23 @@ export class CrossingGeometry {
       const a = top.clone().add(offset);
       const b = bottom.clone().add(offset);
       points.push(top, a, a, b, b, bottom);
+    } else if (pair.kind === "light-hanger") {
+      const [above, below] = pair.dropRuler;
+      points.push(top, above, above, below, below, bottom);
+      const [from, to] = pair.insetRuler;
+      points.push(from, to);
+      for (const end of [from, to])
+        points.push(
+          end.clone().setY(end.y - 0.018),
+          end.clone().setY(end.y + 0.018),
+        );
+      for (const [i, a] of pair.topReference.entries())
+        dashSegment(
+          points,
+          a,
+          pair.topReference[(i + 1) % pair.topReference.length],
+          0.058,
+        );
     } else if (pair.kind === "tray-bay") {
       const offset = new THREE.Vector3(0, -0.1, pair.toward * 0.1);
       const a = top.clone().add(offset);

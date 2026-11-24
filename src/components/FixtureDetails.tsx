@@ -29,6 +29,8 @@ export function FixtureDetails({
   condensateDetails,
   racewayDetails,
   grilleRelations,
+  onInspectHangers,
+  inspectingHanger = false,
   onInspectSupport,
   onInspectEntrance,
   onInspectLeak,
@@ -43,6 +45,8 @@ export function FixtureDetails({
   condensateDetails?: ReactNode;
   racewayDetails?: ReactNode;
   grilleRelations?: ReactNode;
+  onInspectHangers?: () => void;
+  inspectingHanger?: boolean;
   onInspectSupport?: (side: -1 | 1) => void;
   onInspectEntrance?: () => void;
   onInspectLeak?: () => void;
@@ -181,6 +185,13 @@ export function FixtureDetails({
           </div>
         )}
       </dl>
+      {light && onInspectHangers && (
+        <div className="light-hanger-entry" hidden={inspectingHanger}>
+          <button disabled={!comparisonReady} onClick={onInspectHangers}>
+            核对顶灯吊点 ↗
+          </button>
+        </div>
+      )}
       {isTray && (
         <details className="fixture-relations">
           <summary>

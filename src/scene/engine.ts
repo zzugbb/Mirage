@@ -45,6 +45,7 @@ import {
   crossingDirection,
   crossingObjectIds,
   crossingViewFrame,
+  lightHangerViewFrame,
   roofPduViewFrame,
   type FixtureCrossing,
 } from "../fixture-crossing.ts";
@@ -1364,7 +1365,9 @@ export class SceneEngine {
     this.controls.minAzimuthAngle = -Infinity;
     this.controls.maxAzimuthAngle = Infinity;
     this.controls.maxPolarAngle =
-      pair.kind === "smoke-tray" || pair.kind === "smoke-light"
+      pair.kind === "smoke-tray" ||
+      pair.kind === "smoke-light" ||
+      pair.kind === "light-hanger"
         ? Math.PI * 0.65
         : Math.PI / 2 - 0.03;
     this.controls.minDistance = 0.5;
@@ -1378,8 +1381,12 @@ export class SceneEngine {
     const { pair } = this.crossingObservation;
     const direction = crossingDirection(pair);
     let fit;
-    if (pair.kind === "rear-wall" || pair.kind === "drain-joint") {
-      // 工具栏在下沿，横向尽量留给后墙的长量距。
+    if (
+      pair.kind === "rear-wall" ||
+      pair.kind === "drain-joint" ||
+      pair.kind === "light-hanger"
+    ) {
+      // 保留横向观察空间，在下沿为核对工具让出高度。
       rect.left = 36;
       if (legendRect)
         rect.bottom = Math.max(
@@ -1389,7 +1396,9 @@ export class SceneEngine {
       fit =
         pair.kind === "rear-wall"
           ? rearWallCrossingFrame(pair, width, height, rect)
-          : drainJointFrame(pair, width, height, rect);
+          : pair.kind === "drain-joint"
+            ? drainJointFrame(pair, width, height, rect)
+            : lightHangerViewFrame(pair, width, height, rect);
     } else if (pair.kind === "roof-pdu") {
       fit = roofPduViewFrame(pair, width, height, rect);
     } else if (pair.kind === "grille-seat" || pair.kind === "light-rod") {

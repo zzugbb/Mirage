@@ -6,6 +6,8 @@ import {
   lightProfile as lamp,
   housingLength,
   diffuserBottom,
+  lightHangerAxis,
+  lightHangerSides,
 } from "../ceiling-lights.ts";
 import { racewayCoverThickness } from "../panel-raceway.ts";
 import { buildPatchPanel } from "./patch-panels.ts";
@@ -82,27 +84,23 @@ export function buildRoomFixtures(
         [0, lamp.bodyCenterY, 0],
         "#8391a0",
         0.55,
-      );
+      ).name = "light-housing";
       glow(
         group,
         [lamp.diffuserWidth, lamp.diffuserHeight, fixture.length],
         [0, diffuserBottom + lamp.diffuserHeight / 2, 0],
         "#d9e7f3",
-      );
-      const housingTop = lamp.bodyCenterY + lamp.bodyHeight / 2;
-      const drop = definition.room.size[1] - fixture.position[1] - housingTop;
-      for (const side of [-1, 1])
+      ).name = "light-diffuser";
+      for (const side of lightHangerSides) {
+        const { bottom, drop, z } = lightHangerAxis(fixture, side);
         box(
           group,
           [lamp.hangerWidth, drop, lamp.hangerWidth],
-          [
-            0,
-            housingTop + drop / 2,
-            side * (fixture.length / 2 - lamp.hangerInset),
-          ],
+          [0, bottom + drop / 2, z],
           "#74818b",
           0.45,
-        );
+        ).name = side < 0 ? "light-hanger-negative" : "light-hanger-positive";
+      }
     } else if (fixture.kind === "patch-panel") {
       buildPatchPanel(group, fixture.name.split(" ")[0]);
     } else if (
