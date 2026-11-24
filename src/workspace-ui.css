@@ -4111,7 +4111,8 @@
   gap: 7px;
   margin: 12px 0 6px;
 }
-.pdu-outlet-search input {
+.pdu-outlet-search input,
+.pdu-outlet-search select {
   width: 100%;
   min-width: 0;
   padding: 8px;

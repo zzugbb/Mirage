@@ -1511,20 +1511,32 @@ export function Workspace() {
     portCheck.port === networkTrace.targetPort &&
     networkDeviceId(selected, state.deviceId) === portCheck.switchId;
 
+  const [outletNetworkVisit, setOutletNetworkVisit] = useState<{
+    outlet: PduInspection;
+    input: PowerLink;
+    branchId: string;
+  } | null>(null);
+  const outletBranch = networkLinkById(outletNetworkVisit?.branchId ?? null);
   const visitedPowerBranch = networkLinkById(
-    networkMapVisit?.powerBranchId ?? null,
+    networkMapVisit?.powerBranchId ?? outletNetworkVisit?.branchId ?? null,
   );
   const tracedInput = powerLinkById(activePowerLink);
   const inspectingNetworkPower =
     layer === "power" &&
     visitedPowerBranch &&
     tracedInput &&
-    [visitedPowerBranch.source, visitedPowerBranch.target].includes(
+    networkContextIncludes(
       tracedInput.deviceId,
+      tracedInput.deviceId,
+      visitedPowerBranch.id,
     );
+  const outletNetworkActive =
+    outletBranch &&
+    ((layer === "overview" && networkTrace?.id === outletBranch.id) ||
+      (inspectingNetworkPower && visitedPowerBranch?.id === outletBranch.id));
   const supplyBranch = inspectingNetworkPower
     ? visitedPowerBranch
-    : networkMapVisit && (!portCheck || portOwnsTrace)
+    : (networkMapVisit || outletNetworkActive) && (!portCheck || portOwnsTrace)
       ? networkTrace
       : undefined;
   const [pendingNetworkOutlet, setPendingNetworkOutlet] = useState<
@@ -2339,9 +2351,14 @@ export function Workspace() {
   }, [portVisit, portCheck, ready, selected, review.analysis]);
 
   useEffect(() => {
+    if (ready && outletNetworkVisit && !outletNetworkActive)
+      setOutletNetworkVisit(null);
+  }, [ready, outletNetworkVisit, outletNetworkActive]);
+  useEffect(() => {
     if (
       powerOverviewVisit &&
       !powerOverviewReturning &&
+      !outletNetworkActive &&
       ready &&
       !powerOverviewIncludes(powerOverviewVisit.id, selected, state.deviceId)
     )
@@ -2349,6 +2366,7 @@ export function Workspace() {
   }, [
     powerOverviewVisit,
     powerOverviewReturning,
+    outletNetworkActive,
     ready,
     selected,
     state.deviceId,
@@ -2675,7 +2693,9 @@ export function Workspace() {
       if (section) section.open = true;
       row.closest(".pdu-outlets")?.scrollIntoView({ block: "start" });
       row.focus({ preventScroll: true });
-      const bounds = row.parentElement!.getBoundingClientRect();
+      const list = row.parentElement!;
+      list.scrollTop = pduInspection.scroll;
+      const bounds = list.getBoundingClientRect();
       const button = row.getBoundingClientRect();
       if (button.bottom <= bounds.top || button.top >= bounds.bottom)
         row.scrollIntoView({ block: "nearest" });
@@ -3881,6 +3901,43 @@ export function Workspace() {
     )
       rememberNetworkMap(networkTrace.source, networkTrace.id);
   };
+  const openOutletNetwork = (
+    outlet: PduInspection,
+    input: PowerLink,
+    branchId: string,
+  ) => {
+    if (
+      !ready ||
+      !networkContextIncludes(input.deviceId, input.deviceId, branchId)
+    )
+      return;
+    setOutletNetworkVisit({ outlet, input, branchId });
+    setNetworkMapVisit(null);
+    setPortCheck(null);
+    setPortVisit(null);
+    setPowerLinkId(null);
+    control({ type: "analysis", value: false });
+    control({ type: "layer", layer: "overview" });
+    focus(input.deviceId, { installation: true });
+    setNetworkLinkId(branchId);
+    networkControlFocus.current = "branch";
+  };
+  const returnOutletNetwork = () => {
+    if (!ready || !outletNetworkVisit) return;
+    const { input, outlet } = outletNetworkVisit;
+    setOutletNetworkVisit(null);
+    setPendingNetworkOutlet(null);
+    setNetworkLinkId(null);
+    setPortCheck(null);
+    setPortVisit(null);
+    setPduReturning(true);
+    control({ type: "analysis", value: false });
+    control({ type: "layer", layer: "power" });
+    focus(input.pduId);
+    setPduInspection(outlet);
+    setPowerLinkId(input.id);
+    if (powerViewPaired) requestPowerView("observe");
+  };
   const changeNetworkTrace = (id: string | null) => {
     const link = networkLinkById(id);
     if (link && !networkContextIncludes(selected, state.deviceId, id))
@@ -3889,6 +3946,18 @@ export function Workspace() {
           ? link.target
           : link.source,
       );
+    setOutletNetworkVisit((current) => {
+      if (!current || !link) return null;
+      const previous = networkLinkById(current.branchId);
+      return link.source === previous?.source ||
+        networkContextIncludes(
+          current.input.deviceId,
+          current.input.deviceId,
+          link.id,
+        )
+        ? { ...current, branchId: link.id }
+        : null;
+    });
     setNetworkLinkId(id);
     if (!id) setNetworkMapVisit(null);
   };
@@ -4619,6 +4688,7 @@ export function Workspace() {
     powerScroll.current = 0;
     setPowerRestore(0);
     setPowerOverviewVisit(null);
+    setOutletNetworkVisit(null);
     setPowerOverviewReturning(false);
     setPortCheck(null);
     setPortVisit(null);
@@ -5152,7 +5222,26 @@ export function Workspace() {
             )}
           </div>
         )}
-        {pduInspection?.outlet != null &&
+        {outletNetworkActive && outletNetworkVisit && (
+          <div
+            className="study-task-return"
+            role="group"
+            aria-label="插座与网络往返"
+          >
+            <button disabled={!ready} onClick={returnOutletNetwork}>
+              ← 返回原插座 · {pduName(outletNetworkVisit.input.pduId)} ·{" "}
+              {String(outletNetworkVisit.input.outlet).padStart(2, "0")}
+            </button>
+            <button
+              aria-label="结束插座与网络往返"
+              onClick={() => setOutletNetworkVisit(null)}
+            >
+              ×
+            </button>
+          </div>
+        )}
+        {!outletNetworkActive &&
+          pduInspection?.outlet != null &&
           (selected !== pduInspection.pduId ||
             review.analysis ||
             pduReturning ||
@@ -5333,6 +5422,7 @@ export function Workspace() {
             <button
               disabled={!ready || powerOverviewReturning}
               onClick={() => {
+                setOutletNetworkVisit(null);
                 setPowerOverviewReturning(true);
                 if (state.level !== "room")
                   control({ type: "open-resource", id: "room-01" });
@@ -9670,6 +9760,7 @@ export function Workspace() {
                           setPduInspection(visit);
                           if (visit.outlet === null) setPowerLinkId(null);
                         }}
+                        onOutletNetwork={openOutletNetwork}
                         onLocateOutlet={(link) => {
                           if (
                             state.level === "room" &&

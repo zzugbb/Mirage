@@ -1,3 +1,4 @@
+import { OutletNetworkBranches } from "./OutletNetworkBranches";
 import { PduElevation } from "./PduElevation";
 import type { FeederEnergyInterval } from "../feeder-energy";
 import { useLayoutEffect, useRef } from "react";
@@ -20,6 +21,7 @@ export function PduOutlets({
   ready,
   inScene,
   onLocateOutlet,
+  onNetwork,
   onChange,
   onSelect,
   onPreview,
@@ -32,6 +34,7 @@ export function PduOutlets({
   readings: Map<string, SpatialReading>;
   ready: boolean;
   inScene: boolean;
+  onNetwork: (visit: PduInspection, input: PowerLink, branchId: string) => void;
   onLocateOutlet: (link: PowerLink) => void;
   onChange: (visit: PduInspection) => void;
   onSelect: (outlet: number) => void;
@@ -188,6 +191,21 @@ export function PduOutlets({
                   </button>
                 </section>
               )}
+              <OutletNetworkBranches
+                key={chosen.link.id}
+                deviceId={chosen.device.id}
+                ready={ready}
+                onOpen={(branchId) =>
+                  onNetwork(
+                    {
+                      ...current,
+                      scroll: list.current?.scrollTop ?? current.scroll,
+                    },
+                    chosen.link!,
+                    branchId,
+                  )
+                }
+              />
               <FeederDeviceHistory
                 interval={interval}
                 deviceId={chosen.device.id}

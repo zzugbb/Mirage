@@ -28,6 +28,7 @@ export function PowerConnections({
   onPduChange,
   onPduSelect,
   onLocateOutlet,
+  onOutletNetwork,
   selectedId,
   readings,
   ready,
@@ -50,6 +51,11 @@ export function PowerConnections({
   onInspectMount?: () => void;
   pduInspection: PduInspection | null;
   onPduChange: (visit: PduInspection) => void;
+  onOutletNetwork: (
+    visit: PduInspection,
+    input: PowerLink,
+    branchId: string,
+  ) => void;
   onLocateOutlet: (link: PowerLink) => void;
   onPduSelect: (pduId: string, outlet: number) => void;
   state: AppState;
@@ -366,6 +372,7 @@ export function PowerConnections({
             </button>
           )}
           <PduOutlets
+            onNetwork={onOutletNetwork}
             onLocateOutlet={onLocateOutlet}
             interval={interval}
             key={pdu.id}
