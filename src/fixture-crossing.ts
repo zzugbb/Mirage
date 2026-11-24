@@ -30,6 +30,8 @@ import type { ProbeMountInspection } from "./probe-mount.ts";
 import type { SmokeMountInspection } from "./smoke-mount.ts";
 import { smokeTrayGap } from "./smoke-tray-gap.ts";
 import { trayMountGeometry } from "./tray-mount.ts";
+import { racewayAxisPosition } from "./raceway-axis.ts";
+import type { PanelPort } from "./patch-panels.ts";
 import {
   racewaySections,
   racewayPanels,
@@ -39,6 +41,48 @@ import {
   drainJointObjectIds,
   type DrainJointInspection,
 } from "./condensate-joint.ts";
+
+export function racewayAxisInspection(
+  origin: PanelPort,
+  sourceId: string,
+  base = origin.panelId,
+  station?: number,
+) {
+  const start = racewayAxisPosition(base, station);
+  const segment = start.segments.find((item) => item.section.id === sourceId);
+  const axis =
+    station === undefined && segment
+      ? racewayAxisPosition(base, segment.center)
+      : start;
+  const { projectedPoint, marker } = axis;
+  const tick = new Vector3(
+    axis.index === 1 ? 0 : 0.034,
+    axis.index === 1 ? 0.034 : 0,
+    0,
+  );
+  const paths = [
+    axis.projected,
+    [projectedPoint.clone().sub(tick), projectedPoint.clone().add(tick)],
+  ];
+  if (!projectedPoint.equals(marker)) paths.push([projectedPoint, marker]);
+  return {
+    kind: "raceway-axis" as const,
+    id: `raceway-axis:${axis.fromWest}`,
+    title: "后墙线槽轴线里程",
+    origin,
+    sourceId,
+    axis,
+    paths,
+    points: [marker, ...paths[1]],
+    markers: [
+      {
+        id: "raceway-axis-station",
+        title: `${axis.section.name} · ${axis.station.toFixed(3)} m`,
+        point: marker,
+      },
+    ],
+  };
+}
 
 /** 水平投影交叉处的配置表面高差，不代表构件最小净距或安全结论。 */
 export function fixtureCrossing(first: string, second: string) {
@@ -645,10 +689,12 @@ export function lightingRound(lightId: string, trayId: string, rackId: string) {
 export const crossingObjectIds = (pair: FixtureCrossing) =>
   pair.kind === "grille-intake"
     ? [pair.upper.id, pair.lower.id, pair.route.deviceId]
-    : pair.kind === "raceway-corner"
+    : pair.kind === "raceway-axis" || pair.kind === "raceway-corner"
       ? [
           ...racewaySections.map(({ id }) => id),
-          ...(pair.joint === "panel" ? racewayPanels.map(({ id }) => id) : []),
+          ...(pair.kind === "raceway-axis" || pair.joint === "panel"
+            ? racewayPanels.map(({ id }) => id)
+            : []),
         ]
       : pair.kind === "drain-joint"
         ? drainJointObjectIds
@@ -685,6 +731,7 @@ export type FixtureCrossing =
   | ProbeHeightScene
   | ProbeMountInspection
   | RacewayCornerInspection
+  | ReturnType<typeof racewayAxisInspection>
   | LightHangerInspection
   | NonNullable<ReturnType<typeof lightRodInspection>>
   | RackRoofView
@@ -807,6 +854,7 @@ export type CrossingViewCommand = {
   dismiss?: boolean;
 };
 export function crossingDirection(pair: FixtureCrossing) {
+  if (pair.kind === "raceway-axis") return new Vector3(0, 0.1, 1);
   if (pair.kind === "smoke-mount") return pair.direction;
   if (pair.kind === "tray-mount") return pair.direction;
   if (pair.kind === "grille-seat") return new Vector3(0.04, 1, 0.38);

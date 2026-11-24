@@ -34,6 +34,9 @@ export class CrossingGeometry {
   update(pair: FixtureCrossing | null) {
     this.root.visible = !!pair;
     if (!pair) return;
+    this.material.color.set(
+      pair.kind === "raceway-axis" ? "#29535b" : "#b9d5cb",
+    );
     const [top, bottom] = pair.points;
     const points: THREE.Vector3[] = [];
     if (pair.kind === "grille-seat") {
@@ -84,7 +87,11 @@ export class CrossingGeometry {
       pair.unitOutline.forEach((p, i, outline) =>
         points.push(p, outline[(i + 1) % outline.length]),
       );
-    } else if (pair.kind === "drain-joint" || pair.kind === "tray-mount") {
+    } else if (
+      pair.kind === "drain-joint" ||
+      pair.kind === "tray-mount" ||
+      pair.kind === "raceway-axis"
+    ) {
       for (const path of pair.paths)
         for (let i = 1; i < path.length; i++) points.push(path[i - 1], path[i]);
     } else if (pair.kind === "rear-wall") {

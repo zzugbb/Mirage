@@ -4671,6 +4671,16 @@
   border: 1px solid var(--line);
   padding: 4px;
 }
+.raceway-axis-distance {
+  margin-block: 6px;
+}
+.raceway-axis-distance input {
+  width: 7em;
+  padding: 4px;
+  color: inherit;
+  background: var(--raised);
+  border: 1px solid var(--line);
+}
 .lighting-locations {
   display: flex;
   flex-wrap: wrap;

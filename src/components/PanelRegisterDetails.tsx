@@ -23,7 +23,9 @@ export function PanelRegisterDetails({
   selected,
   ready,
   entryView,
+  hidden,
   onEntryView,
+  onAxis,
   onChoose,
   onLocate,
   onHistory,
@@ -33,7 +35,9 @@ export function PanelRegisterDetails({
   selected: string;
   ready: boolean;
   entryView: boolean;
+  hidden?: boolean;
   onEntryView: (id: string, enabled: boolean) => void;
+  onAxis: () => void;
   onChoose: (port: PanelPort) => void;
   onLocate: (port: PanelPort) => void;
   onHistory: (id: string) => void;
@@ -48,6 +52,7 @@ export function PanelRegisterDetails({
     <section
       className="panel-port-details panel-register"
       aria-label="双端孔位核对"
+      hidden={hidden}
     >
       <label>
         跨架端接登记
@@ -85,12 +90,17 @@ export function PanelRegisterDetails({
         {entryView ? "返回所选孔位" : "核对箱顶与横槽"}
       </button>
       {entryView ? (
-        <PanelEntryDetails
-          target={target}
-          selected={selected}
-          ready={ready}
-          onLocate={(id) => onEntryView(id, true)}
-        />
+        <>
+          <button disabled={!ready} onClick={onAxis}>
+            核对线槽轴线里程 ↗
+          </button>
+          <PanelEntryDetails
+            target={target}
+            selected={selected}
+            ready={ready}
+            onLocate={(id) => onEntryView(id, true)}
+          />
+        </>
       ) : (
         <>
           {racewayPanels.map((p) => {

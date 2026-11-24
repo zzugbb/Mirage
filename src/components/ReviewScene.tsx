@@ -588,6 +588,7 @@ export function ReviewScene({
           crossing?.kind === "probe-height" ||
           crossing?.kind === "probe-mount" ||
           crossing?.kind === "raceway-corner" ||
+          crossing?.kind === "raceway-axis" ||
           crossing?.kind === "light-rod" ||
           crossing?.kind === "light-tray")));
   const [stageCutaway, setStageCutaway] = useState(true);
@@ -2448,6 +2449,7 @@ export function ReviewScene({
                 crossing.kind === "probe-height" ||
                 crossing.kind === "probe-mount" ||
                 crossing.kind === "raceway-corner" ||
+                crossing.kind === "raceway-axis" ||
                 crossing.kind === "light-rod" ||
                 crossing.kind === "lighting-round" ||
                 crossing.kind === "rear-wall" ||
@@ -2930,6 +2932,8 @@ export function ReviewScene({
                   ) : (
                     "槽盖就位"
                   )
+                ) : crossing.kind === "raceway-axis" ? (
+                  `沿轴 ${crossing.axis.station.toFixed(3)} m`
                 ) : crossing.kind === "light-rod" ? (
                   crossing.gap >= 0 ? (
                     `X 向间距 ${(crossing.gap * 1000).toFixed(1)} mm`
@@ -2976,7 +2980,9 @@ export function ReviewScene({
                 ←{" "}
                 {crossing.kind === "rear-wall"
                   ? "返回后墙立面"
-                  : "返回核对前视角"}
+                  : crossing.kind === "raceway-axis"
+                    ? "返回箱顶与横槽"
+                    : "返回核对前视角"}
               </button>
             </div>
           )}

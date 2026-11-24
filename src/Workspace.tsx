@@ -9,6 +9,7 @@ import { CondensateDetails } from "./components/CondensateDetails";
 import { coolingDrainIncludes, coolingDrainLink } from "./cooling-drain";
 import { DrainJointDetails } from "./components/DrainJointDetails";
 import { PanelRegisterDetails } from "./components/PanelRegisterDetails";
+import { RacewayAxisDetails } from "./components/RacewayAxisDetails";
 import {
   racewayById,
   racewayCornerInspection,
@@ -233,6 +234,7 @@ import {
   fixtureCrossing,
   trayEndSupport,
   trayMountInspection,
+  racewayAxisInspection,
   lightHangerInspection,
   lightRodInspection,
   sectionLights,
@@ -1247,7 +1249,7 @@ export function Workspace() {
   );
   const crossingReturning = useRef(false);
   const crossingInspectPending = useRef<
-    boolean | HTMLSelectElement | HTMLButtonElement
+    boolean | HTMLSelectElement | HTMLButtonElement | HTMLInputElement
   >(false);
   const requestCrossing = (pair: FixtureCrossing | null) => {
     if (pair && !crossing) {
@@ -1272,14 +1274,18 @@ export function Workspace() {
         (pair?.kind === "probe-mount" && crossing?.kind === "probe-mount") ||
         (pair?.kind === "raceway-corner" &&
           crossing?.kind === "raceway-corner") ||
+        (pair?.kind === "raceway-axis" && crossing?.kind === "raceway-axis") ||
         (pair?.kind === "light-rod" && crossing?.kind === "light-rod") ||
         (pair?.kind === "tray-bay" && crossing?.kind === "tray-bay") ||
         (pair?.kind === "roof-pdu" && crossing?.kind === "roof-pdu") ||
         (pair?.kind === "drain-joint" && crossing?.kind === "drain-joint")) &&
       (control instanceof HTMLSelectElement ||
+        (pair?.kind === "raceway-axis" &&
+          control instanceof HTMLInputElement) ||
         ((pair?.kind === "grille-seat" ||
           pair?.kind === "roof-pdu" ||
           pair?.kind === "smoke-mount" ||
+          pair?.kind === "raceway-axis" ||
           pair?.kind === "probe-mount") &&
           control instanceof HTMLButtonElement)) &&
       control.closest(".crossing-details")
@@ -8840,6 +8846,7 @@ export function Workspace() {
                   crossing.kind === "probe-height" ||
                   crossing.kind === "probe-mount" ||
                   crossing.kind === "raceway-corner" ||
+                  crossing.kind === "raceway-axis" ||
                   crossing.kind === "light-rod" ||
                   crossing.kind === "tray-support" ||
                   crossing.kind === "tray-mount" ||
@@ -8893,6 +8900,7 @@ export function Workspace() {
                     crossing.kind !== "probe-height" &&
                     crossing.kind !== "probe-mount" &&
                     crossing.kind !== "raceway-corner" &&
+                    crossing.kind !== "raceway-axis" &&
                     crossing.kind !== "light-rod" &&
                     crossing.kind !== "roof-entry" &&
                     crossing.kind !== "roof-pdu" &&
@@ -9443,13 +9451,32 @@ export function Workspace() {
                         }}
                       />
                     )}
+                  {crossing.kind === "raceway-axis" && (
+                    <RacewayAxisDetails
+                      inspection={crossing}
+                      ready={ready}
+                      onPosition={(base, station) =>
+                        requestCrossing(
+                          racewayAxisInspection(
+                            crossing.origin,
+                            crossing.sourceId,
+                            base,
+                            station,
+                          ),
+                        )
+                      }
+                    />
+                  )}
                   {crossing.kind !== "rear-wall" &&
                     layoutVisit?.crossing?.id !== crossingOriginId && (
                       <button
                         disabled={!ready}
                         onClick={() => requestCrossing(null)}
                       >
-                        ← 返回核对前视角
+                        ←{" "}
+                        {crossing.kind === "raceway-axis"
+                          ? "返回箱顶与横槽"
+                          : "返回核对前视角"}
                       </button>
                     )}
                 </section>
@@ -9852,6 +9879,12 @@ export function Workspace() {
                           selected={selected}
                           ready={ready}
                           entryView={entryView}
+                          hidden={crossing?.kind === "raceway-axis"}
+                          onAxis={() =>
+                            requestCrossing(
+                              racewayAxisInspection(inspectionOrigin, selected),
+                            )
+                          }
                           onEntryView={(id, enabled) => {
                             focus(id);
                             setPanelInspection({

@@ -1439,6 +1439,7 @@ export class SceneEngine {
     if (
       pair.kind === "rear-wall" ||
       pair.kind === "drain-joint" ||
+      pair.kind === "raceway-axis" ||
       pair.kind === "light-hanger" ||
       pair.kind === "tray-mount" ||
       pair.kind === "smoke-mount" ||
@@ -1455,6 +1456,16 @@ export class SceneEngine {
         fit = rearWallCrossingFrame(pair, width, height, rect);
       else if (pair.kind === "drain-joint")
         fit = drainJointFrame(pair, width, height, rect);
+      else if (pair.kind === "raceway-axis")
+        fit = observationFrame(
+          pair.points,
+          direction,
+          width,
+          height,
+          rect,
+          0.95,
+          0.075,
+        );
       else if (pair.kind === "light-hanger")
         fit = lightHangerViewFrame(pair, width, height, rect);
       else if (pair.kind === "tray-mount")
