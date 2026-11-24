@@ -7495,9 +7495,20 @@
   max-height: 200px;
   overflow: auto;
 }
-.probe-input-list button {
-  width: 100%;
+.probe-input-row {
+  display: flex;
+  align-items: stretch;
   border-top: 1px solid #34454f;
+}
+.probe-input-row [data-probe-input] {
+  flex: 1;
+  min-width: 0;
+}
+.probe-input-row .probe-input-airflow {
+  align-items: center;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+  border-left: 1px solid #34454f;
 }
 .probe-input-list [aria-current="true"] {
   background: var(--raised);

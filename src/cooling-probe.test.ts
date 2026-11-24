@@ -5,6 +5,7 @@ import {
   coolingProbeForDevice,
   coolingRackPeaks,
   compareCoolingTemperatures,
+  probeAirflowForInput,
 } from "./cooling-probe.ts";
 import { environmentObservation } from "./environment-monitoring.ts";
 import { spatialSnapshot } from "./spatial.ts";
@@ -23,6 +24,28 @@ test("服务设备按本柜所在排找到登记探头，制冷柜、柜与未�
   assert.equal(probes.size, 2);
   for (const id of ["cooling-01", "rack-a01", "unknown"])
     assert.equal(coolingProbeForDevice(id), null);
+});
+
+test("从探头进风输入仅打开该排、该柜、该设备登记的气流支路", () => {
+  for (const [probeId, rackId, deviceId, grille] of [
+    ["environment-01", "rack-a02", "srv-13", "grille-row-a-07"],
+    ["environment-02", "rack-a07", "srv-55", "grille-row-b-11"],
+    ["environment-02", "rack-a07", "srv-56", "grille-row-b-11"],
+  ]) {
+    const check = probeAirflowForInput(probeId, rackId, deviceId)!;
+    assert.equal(check.probe.id, probeId);
+    assert.equal(check.route.deviceId, deviceId);
+    assert.equal(check.route.rackId, rackId);
+    assert.equal(check.route.sourceId, "cooling-01");
+    assert.equal(check.route.floorGrille.id, grille);
+  }
+  for (const [probeId, rackId, deviceId] of [
+    ["environment-01", "rack-a07", "srv-55"],
+    ["environment-02", "rack-a06", "srv-55"],
+    ["environment-02", "rack-a07", "rack-a07"],
+    ["environment-02", "rack-a07", "missing"],
+  ])
+    assert.equal(probeAirflowForInput(probeId, rackId, deviceId), null);
 });
 
 test("进风减探头温度仅取同秒有效样本，保留零值，分开处理采样不同步和不可用", () => {

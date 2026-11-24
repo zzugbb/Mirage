@@ -386,7 +386,7 @@ import {
   networkMarkers,
   switchRole,
 } from "./network";
-import { coolingProbeForDevice } from "./cooling-probe";
+import { coolingProbeForDevice, probeAirflowForInput } from "./cooling-probe";
 import { ProbeElevation } from "./components/ProbeElevation";
 import { ProbeHeightDetails } from "./components/ProbeHeightDetails";
 import { probeHeightScene } from "./probe-height-scene";
@@ -1959,6 +1959,22 @@ export function Workspace() {
   const [probeInputCheck, setProbeInputCheck] =
     useState<ProbeInputCheck | null>(null);
   const probeInputRestore = useRef<string | null>(null);
+  const [probeAirflowDevice, setProbeAirflowDevice] = useState<string | null>(
+    null,
+  );
+  const probeAirflow = useMemo(
+    () =>
+      probeAirflowDevice &&
+      probeAirflowDevice === airflowSelection &&
+      probeAirflowDevice === airflowDevice
+        ? coolingProbeForDevice(probeAirflowDevice)
+        : null,
+    [probeAirflowDevice, airflowSelection, airflowDevice],
+  );
+  useEffect(() => {
+    if (probeAirflowDevice && (!probeAirflow || layoutReturning))
+      setProbeAirflowDevice(null);
+  }, [probeAirflowDevice, probeAirflow, layoutReturning]);
   const rackProbe = useMemo(
     () => (probeRackDevice ? coolingProbeForDevice(probeRackDevice.id) : null),
     [probeRackDevice],
@@ -5040,6 +5056,25 @@ export function Workspace() {
     focus(id, { installation: true });
     dispatch({ type: "door", open: true });
   }
+  const openProbeAirflow = (rackId: string, id: string) => {
+    if (!ready || state.level !== "room" || layer !== "overview") return;
+    const linked = probeAirflowForInput(selected, rackId, id);
+    if (!linked) return;
+    if (!layoutVisit) {
+      if (roomResourceList)
+        rememberFacilityList(
+          linked.probe.id,
+          navigationRef.current?.querySelector(".study-resource-list")
+            ?.scrollTop ?? 0,
+        );
+      else rememberLayoutSelection(linked.probe.id);
+    }
+    setProbeAirflowDevice(linked.route.deviceId);
+    setAirflowResponse(null);
+    control({ type: "analysis", value: false });
+    showAirflow(linked.route.deviceId);
+    setAirflowViewRequest({ view: "intake", deviceId: linked.route.deviceId });
+  };
   const probeRackInspection =
     !coolingVisit &&
     !layoutReturning &&
@@ -5061,6 +5096,7 @@ export function Workspace() {
           onLocate={(id, fromInputs) =>
             locateProbeDevice(id, fromInputs ? "inputs" : "peak")
           }
+          onAirflow={openProbeAirflow}
         />
         <ProbeElevation
           round={round}
@@ -5106,6 +5142,15 @@ export function Workspace() {
         }}
       />
     ) : null);
+  const probeAirflowComparison = probeAirflow && (
+    <CoolingProbeCheck
+      context={probeAirflow}
+      reading={spatial.readings.get(probeAirflow.device.id)!}
+      time={state.time}
+      active={false}
+      ready={ready}
+    />
+  );
   const airflowInspector = airflow && (
     <AirflowDetails
       view={airflowStageView}
@@ -9453,12 +9498,14 @@ export function Workspace() {
                   />
                 )}
                 {airflowInspector}
+                {probeAirflowComparison}
               </>
             ) : (
               <>
                 {probeRackInspection}
                 {coolingProbeCheck}
                 {airflowInspector}
+                {probeAirflowComparison}
                 {slicePlaneInspector}
                 {sliceInspector}
                 {(!!reading?.alarm || inspectedAlarm) && !component && (

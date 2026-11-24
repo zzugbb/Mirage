@@ -4,6 +4,7 @@ import { observationFrame, type FrameRect } from "./observation-frame.ts";
 export type { FrameRect } from "./observation-frame.ts";
 import type { AirflowRoute, FlowPoint } from "./airflow.ts";
 import { airflowReturnTray } from "./airflow-return-tray.ts";
+import { rackById, racks } from "./installation.ts";
 
 export const airflowViews = [
   { id: "all", name: "全路径", direction: [1, 1.8, 0.6] },
@@ -89,6 +90,14 @@ export function airflowViewFrame(
   const direction = new Vector3(
     ...airflowViews.find((v) => v.id === view)!.direction,
   );
+  if (view === "intake") {
+    const rack = rackById(route.rackId);
+    if (rack && racks.some((item) => item.position[2] > rack.position[2])) {
+      // 排间斜看后排柜面。图例让观察区域偏右，两侧分别留出前向余量。
+      const fromWest = rack.position[0] > 0;
+      direction.set(fromWest ? -1 : 1, 0.42, fromWest ? 0.55 : 0.4);
+    }
+  }
   const fit = (bounds: FrameRect) =>
     observationFrame(
       points,

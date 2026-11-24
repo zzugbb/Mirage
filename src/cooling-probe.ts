@@ -3,6 +3,7 @@ import {
   coolingRelations,
   coolingSource,
 } from "./cooling.ts";
+import { airflowSnapshot } from "./airflow.ts";
 import {
   environmentRounds,
   type EnvironmentRound,
@@ -26,6 +27,20 @@ export function coolingProbeForDevice(id: string) {
     round.row.rackIds.includes(device.rackId),
   );
   return round && { device, row: round.row, probe: round.probe };
+}
+
+export function probeAirflowForInput(
+  probeId: string,
+  rackId: string,
+  deviceId: string,
+) {
+  const context = coolingProbeForDevice(deviceId);
+  if (context?.probe.id !== probeId || context.device.rackId !== rackId)
+    return null;
+  const route = airflowSnapshot(0, new Map(), deviceId).routes[0];
+  return route?.deviceId === deviceId && route.sourceId === coolingSource.id
+    ? { ...context, route }
+    : null;
 }
 
 export function compareCoolingTemperatures(

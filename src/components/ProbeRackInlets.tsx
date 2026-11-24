@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, type RefObject } from "react";
 import { unitLabel } from "../catalog";
-import { coolingRackPeaks } from "../cooling-probe";
+import { coolingDeviceIds } from "../cooling";
+import { coolingRackPeaks, probeAirflowForInput } from "../cooling-probe";
 import type { EnvironmentRound } from "../environment-rounds";
 import { sourceValue } from "../reading-sources";
 import type { SpatialReading } from "../spatial";
@@ -17,6 +18,7 @@ export function ProbeRackInlets({
   restore,
   onCheck,
   onLocate,
+  onAirflow,
 }: {
   round: EnvironmentRound;
   readings: Map<string, SpatialReading>;
@@ -26,10 +28,24 @@ export function ProbeRackInlets({
   restore: RefObject<string | null>;
   onCheck: (check: ProbeInputCheck | null) => void;
   onLocate: (id: string, fromInputs: boolean) => void;
+  onAirflow: (rackId: string, id: string) => void;
 }) {
   const rows = useMemo(
     () => coolingRackPeaks(round, readings),
     [round, readings],
+  );
+  const probeId = round.probe.id;
+  const checkedRack = check?.rackId;
+  const airflowIds = useMemo(
+    () =>
+      new Set(
+        checkedRack
+          ? coolingDeviceIds(checkedRack).filter((id) =>
+              probeAirflowForInput(probeId, checkedRack, id),
+            )
+          : [],
+      ),
+    [probeId, checkedRack],
   );
   const members = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -110,34 +126,45 @@ export function ProbeRackInlets({
                 </div>
                 <div className="probe-input-list">
                   {visible.map((input) => (
-                    <button
-                      key={input.id}
-                      data-probe-input={input.id}
-                      aria-current={input.id === visitedDevice || undefined}
-                      disabled={!ready}
-                      onClick={() => onLocate(input.id, true)}
-                      aria-label={`定位 ${input.name} ${unitLabel(input.id)}，${input.included ? sourceValue(input.value, "temperature") : input.reason}`}
-                      aria-describedby={
-                        input.included
-                          ? undefined
-                          : "probe-input-detail-" + input.id
-                      }
-                    >
-                      <strong>
-                        {input.name} · {unitLabel(input.id)}
-                      </strong>
-                      <span>
-                        {input.included
-                          ? sourceValue(input.value, "temperature")
-                          : input.reason}{" "}
-                        ↗
-                      </span>
-                      {!input.included && (
-                        <small id={"probe-input-detail-" + input.id}>
-                          {input.detail}
-                        </small>
+                    <div className="probe-input-row" key={input.id}>
+                      <button
+                        data-probe-input={input.id}
+                        aria-current={input.id === visitedDevice || undefined}
+                        disabled={!ready}
+                        onClick={() => onLocate(input.id, true)}
+                        aria-label={`定位 ${input.name} ${unitLabel(input.id)}，${input.included ? sourceValue(input.value, "temperature") : input.reason}`}
+                        aria-describedby={
+                          input.included
+                            ? undefined
+                            : "probe-input-detail-" + input.id
+                        }
+                      >
+                        <strong>
+                          {input.name} · {unitLabel(input.id)}
+                        </strong>
+                        <span>
+                          {input.included
+                            ? sourceValue(input.value, "temperature")
+                            : input.reason}{" "}
+                          ↗
+                        </span>
+                        {!input.included && (
+                          <small id={"probe-input-detail-" + input.id}>
+                            {input.detail}
+                          </small>
+                        )}
+                      </button>
+                      {airflowIds.has(input.id) && (
+                        <button
+                          className="probe-input-airflow"
+                          disabled={!ready}
+                          onClick={() => onAirflow(rack.id, input.id)}
+                          aria-label={`核对 ${input.name} 的气流支路`}
+                        >
+                          气流 ↗
+                        </button>
                       )}
-                    </button>
+                    </div>
                   ))}
                   {!visible.length && (
                     <p>

@@ -18,7 +18,7 @@ import {
   airflowViewSightPoints,
 } from "./airflow-view.ts";
 import { spatialSnapshot } from "./spatial.ts";
-import { racks } from "./installation.ts";
+import { devices, rackById, racks } from "./installation.ts";
 
 test("气流分段按现有路径取点，进风同时保留格栅和前后柜面", () => {
   const route = airflowSnapshot(60, spatialSnapshot(60).readings).routes[0];
@@ -100,6 +100,53 @@ test("机房气流按图例实际高度取景，展开叠片后仍能看到整�
         y = ((1 - p.y) * height) / 2;
       assert.ok(x > 20 && x < rect.right && y > rect.top && y < rect.bottom);
       assert.ok(x > rect.left || y < top - 20);
+    }
+  }
+});
+
+test("后排设备进风沿排间对准本柜前面，适应读数和图例高度变化", () => {
+  const [rackWidth, , rackDepth] = definition.rack.size;
+  const ahead = Math.max(...racks.map((rack) => rack.position[2]));
+  const oppositeRear = ahead - rackDepth / 2;
+  for (const device of devices) {
+    const rack = rackById(device.rackId)!;
+    if (rack.position[2] === ahead) continue;
+    const route = airflowSnapshot(40, new Map(), device.id).routes[0];
+    if (!route) continue;
+    const rackFront = rack.position[2] + rackDepth / 2;
+    const { point } = route.endpoints.find((end) => end.kind === "intake")!;
+    for (const [width, height] of [
+      [852, 836],
+      [744, 704],
+    ]) {
+      const rect = {
+        left: 314,
+        right: width - 40,
+        top: 80,
+        bottom: height - 48,
+      };
+      for (const top of [400, 450, 480, 521, 560, 600, 660]) {
+        const { position } = airflowViewFrame(
+          route,
+          "intake",
+          width,
+          height,
+          rect,
+          { right: 294, top },
+        );
+        assert.ok(
+          position.z > point[2] && position.z < oppositeRear,
+          device.id,
+        );
+        const xOnFace =
+          point[0] +
+          ((rackFront - point[2]) * (position.x - point[0])) /
+            (position.z - point[2]);
+        assert.ok(
+          Math.abs(xOnFace - rack.position[0]) < rackWidth / 2,
+          device.id,
+        );
+      }
     }
   }
 });

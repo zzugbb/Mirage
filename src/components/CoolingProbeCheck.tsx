@@ -24,9 +24,9 @@ export function CoolingProbeCheck({
   reading: SpatialReading;
   time: number;
   active: boolean;
-  actionLabel: string;
   ready: boolean;
-  onLocate: () => void;
+  actionLabel?: string;
+  onLocate?: () => void;
   onSeekSample?: (time: number) => void;
 }) {
   const { device, probe, row } = context;
@@ -84,9 +84,11 @@ export function CoolingProbeCheck({
           回看第 {lastSample} 秒有效进风 ↗
         </button>
       )}
-      <button disabled={!ready} onClick={onLocate}>
-        {actionLabel} ↗
-      </button>
+      {onLocate && actionLabel && (
+        <button disabled={!ready} onClick={onLocate}>
+          {actionLabel} ↗
+        </button>
+      )}
     </ConnectionSection>
   );
 }
