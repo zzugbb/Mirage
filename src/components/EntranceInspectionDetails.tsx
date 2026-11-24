@@ -6,7 +6,7 @@ import {
   entranceRelations,
 } from "../entrance";
 
-import type { EntranceInspection } from "../entrance-view";
+import type { EntranceInspection, EntranceView } from "../entrance-view";
 import { EntranceSweepDetails } from "./EntranceSweepDetails";
 
 type CabinetPlacement = Extract<
@@ -86,7 +86,7 @@ export function EntranceInspectionDetails({
   onLocate,
   ready,
   onHistory,
-  onShowSweep,
+  onView,
   onSample,
 }: {
   inspection: EntranceInspection;
@@ -95,7 +95,7 @@ export function EntranceInspectionDetails({
   onLocate: (id: string) => void;
   ready: boolean;
   onHistory: (id: string) => void;
-  onShowSweep: () => void;
+  onView: (view: EntranceView) => void;
   onSample: (index: number) => void;
 }) {
   if (inspection.view === "sweep")
@@ -108,6 +108,36 @@ export function EntranceInspectionDetails({
         onPreview={onPreview}
         onHistory={onHistory}
       />
+    );
+  if (inspection.view === "heads")
+    return (
+      <section className="entrance-view-details" aria-label="应急灯头朝向">
+        <strong>双灯头布置 · 配置</strong>
+        <dl>
+          {inspection.heads.map(({ side, azimuth, tilt }) => (
+            <div key={side}>
+              <dt>{side < 0 ? "左灯头" : "右灯头"}</dt>
+              <dd>
+                {azimuth > 0 ? "+" : ""}
+                {azimuth.toFixed(1)}° · 向下 {tilt.toFixed(1)}°
+              </dd>
+            </div>
+          ))}
+          <div>
+            <dt>灯面中心间距</dt>
+            <dd>{(inspection.spacing * 1000).toFixed(0)} mm</dd>
+          </div>
+        </dl>
+        <small>
+          偏角以机房 +Z 为基准，朝 +X
+          为正。方向线沿灯面法线绘制。灯头为原创布置示意，照度与自检未接入。
+        </small>
+        <div className="entrance-view-peer">
+          <button disabled={!ready} onClick={() => onView("lights")}>
+            返回标志与应急灯
+          </button>
+        </div>
+      </section>
     );
   const { view } = inspection;
   const peers = view === "cabinet" ? [] : entranceRelations(selectedId);
@@ -213,6 +243,13 @@ export function EntranceInspectionDetails({
           按样板安装位置量取。标志面板和灯头均为静态示意，供电、照度及应急自检未接入。
         </small>
       )}
+      {view === "lights" && (
+        <div className="entrance-view-peer">
+          <button disabled={!ready} onClick={() => onView("heads")}>
+            核对双灯头朝向 ↗
+          </button>
+        </div>
+      )}
       {view === "cabinet" && (
         <>
           <CabinetPlan placement={inspection.cabinet} />
@@ -220,7 +257,7 @@ export function EntranceInspectionDetails({
             从门板自由边的厚度中点量至柜体配置矩形。实线标出展示位及平面间距，虚线标出合拢参考位。现场通行净距待实测。
           </small>
           <div className="entrance-view-peer">
-            <button disabled={!ready} onClick={onShowSweep}>
+            <button disabled={!ready} onClick={() => onView("sweep")}>
               核对完整门扇扫掠 ↗
             </button>
           </div>

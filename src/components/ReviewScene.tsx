@@ -2357,6 +2357,7 @@ export function ReviewScene({
               data-anchor={marker.id}
               data-hotspot={
                 entranceView.jamb ||
+                entranceView.view === "heads" ||
                 entranceView.view === "cabinet" ||
                 entranceView.view === "sweep"
                   ? "center"

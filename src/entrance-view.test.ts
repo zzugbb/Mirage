@@ -370,6 +370,7 @@ test("入口轮廓与端点切换不残留，保留深度遮挡并独立释放",
     "access",
     "opening",
     "sweep",
+    "heads",
     "jamb",
     "all",
   ] as const) {
@@ -387,6 +388,67 @@ test("入口轮廓与端点切换不残留，保留深度遮挡并独立释放",
   assert.equal(drawing.root.visible, false);
   drawing.dispose();
   assert.equal(parent.children.length, 0);
+});
+
+test("应急灯朝向取两块实体镜片的世界法线，双栏与窄幅分别拾取左右镜片", () => {
+  const view = entranceInspection("heads");
+  assert.equal(view.view, "heads");
+  assert.ok(entranceViewIncludes(emergencyLight.id, view.view));
+  assert.ok(!entranceViewIncludes(exitSign.id, view.view));
+  assert.equal(view.spacing.toFixed(3), "0.195");
+  const root = new Group();
+  root.position.fromArray(emergencyLight.position);
+  buildEntranceLighting(root, false);
+  root.updateMatrixWorld(true);
+  const lenses = ["emergency-light-lens-left", "emergency-light-lens-right"];
+  for (const [i, head] of view.heads.entries()) {
+    const lens = root.getObjectByName(lenses[i])!;
+    const face = lens.getWorldPosition(new Vector3());
+    const direction = lens
+      .localToWorld(new Vector3(0, 0, 1))
+      .sub(face)
+      .normalize();
+    assert.ok(head.face.distanceTo(face) < 1e-10);
+    assert.ok(head.direction.distanceTo(direction) < 1e-10);
+    assert.ok(Math.abs(head.direction.length() - 1) < 1e-10);
+    assert.equal(head.azimuth.toFixed(2), i === 0 ? "-16.45" : "16.45");
+    assert.equal(head.tilt.toFixed(2), "12.66");
+    const [start, tip]: Vector3[] = view.paths[i * 2];
+    assert.ok(
+      start.clone().sub(face).normalize().distanceTo(direction) < 1e-10,
+    );
+    assert.ok(tip.clone().sub(start).normalize().distanceTo(direction) < 1e-10);
+  }
+  for (const [width, height] of [
+    [852, 836],
+    [744, 704],
+  ]) {
+    const rect = {
+      left: 264,
+      right: width - 40,
+      top: 100,
+      bottom: height - 48,
+    };
+    const fit = entranceViewFrame(view, width, height, rect);
+    const camera = new PerspectiveCamera(40, width / height, 0.01, 100);
+    camera.position.copy(fit.position);
+    camera.lookAt(fit.target);
+    camera.updateMatrixWorld(true);
+    const targets: (string | undefined)[] = view.markers.map(({ point }) => {
+      const screen = point.clone().project(camera);
+      const x = ((screen.x + 1) * width) / 2,
+        y = ((1 - screen.y) * height) / 2;
+      assert.ok(
+        x > rect.left && x < rect.right && y > rect.top && y < rect.bottom,
+      );
+      const ray = new Raycaster(
+        fit.position,
+        point.clone().sub(fit.position).normalize(),
+      );
+      return ray.intersectObject(root)[0]?.object.name;
+    });
+    assert.deepEqual(targets, lenses);
+  }
 });
 
 test("门上标志与应急灯贴合内墙，两个核对范围的尺寸线取实际外壳与门框", () => {

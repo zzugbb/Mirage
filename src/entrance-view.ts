@@ -14,6 +14,7 @@ import {
 } from "./entrance.ts";
 import { fixtureById } from "./fixtures.ts";
 import { observationFrame, type FrameRect } from "./observation-frame.ts";
+import { emergencyHeadInspection } from "./emergency-light.ts";
 
 export const entranceViews = [
   { id: "all", label: "入口全貌" },
@@ -23,6 +24,7 @@ export const entranceViews = [
   { id: "access", label: "读卡器与把手" },
   { id: "lintel", label: "出口标志与门楣" },
   { id: "lights", label: "标志与应急灯" },
+  { id: "heads", label: "应急灯头朝向" },
   { id: "jamb", label: "读卡器与洞口侧缘" },
 ] as const;
 export type EntranceView = (typeof entranceViews)[number]["id"];
@@ -32,10 +34,12 @@ export type EntranceViewCommand = {
   sample?: number;
 };
 export const entranceViewIncludes = (id: string, view?: EntranceView) =>
-  view === "sweep"
-    ? id === s.fixtureId || id === entranceCabinet.id
-    : (view === "cabinet" && id === entranceCabinet.id) ||
-      [s.fixtureId, s.readerId, exitSign.id, emergencyLight.id].includes(id);
+  view === "heads"
+    ? id === emergencyLight.id
+    : view === "sweep"
+      ? id === s.fixtureId || id === entranceCabinet.id
+      : (view === "cabinet" && id === entranceCabinet.id) ||
+        [s.fixtureId, s.readerId, exitSign.id, emergencyLight.id].includes(id);
 
 /** 把手轴沿用门扇局部坐标与静态展示角；高度为机房坐标，不是从洞口底部重算的安装规范。 */
 export function entranceHandlePoint() {
@@ -76,6 +80,9 @@ export function entranceInspection(view: EntranceView, sample?: number) {
   if (view === "sweep") {
     return { view, jamb: null, ...entranceCabinetSweep(sample), ...heights };
   }
+  if (view === "heads") {
+    return { view, jamb: null, ...emergencyHeadInspection(), ...heights };
+  }
   if (view === "lintel" || view === "lights") {
     const sign = new Vector3().fromArray(exitSign.position);
     const lamp = new Vector3().fromArray(emergencyLight.position);
@@ -87,8 +94,10 @@ export function entranceInspection(view: EntranceView, sample?: number) {
     const measure = lintel ? bottom - opening.top : Math.abs(lamp.x - sign.x);
     const dimZ = Math.max(z, signFront, lamp.z + ld / 2) + 0.015;
     const lineY =
-      Math.max(sign.y + h / 2, lamp.y + lh / 2 + s.lighting.headRadius * 2.55) +
-      0.065;
+      Math.max(
+        sign.y + h / 2,
+        lamp.y + lh / 2 + s.lighting.headRise + s.lighting.headRadius,
+      ) + 0.065;
     const dimX = sign.x - w / 2 - 0.06;
     const line = lintel
       ? [opening.top, bottom].map((y) => new Vector3(dimX, y, dimZ))
@@ -274,6 +283,16 @@ export function entranceViewFrame(
   height: number,
   rect: FrameRect,
 ) {
+  if (inspection.view === "heads")
+    return observationFrame(
+      inspection.points,
+      new Vector3(0, 0.31, 1),
+      width,
+      height,
+      rect,
+      0.78,
+      0.052,
+    );
   return observationFrame(
     inspection.points,
     inspection.view === "cabinet" || inspection.view === "sweep"

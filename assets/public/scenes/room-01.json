@@ -57,7 +57,10 @@
         ],
         "headRadius": 0.055,
         "headDepth": 0.055,
-        "headSpacing": 0.18
+        "headSpacing": 0.18,
+        "headRise": 0.08525,
+        "headPitch": 0.23,
+        "headYaw": 0.28
       },
       "fixtureId": "entrance-01",
       "readerId": "access-reader-01",

@@ -1,5 +1,9 @@
 import * as THREE from "three";
 import { entranceSettings } from "../entrance.ts";
+import {
+  emergencyHeadSides,
+  emergencyHeadTransform,
+} from "../emergency-light.ts";
 
 const settings = entranceSettings.lighting;
 
@@ -46,7 +50,7 @@ export function buildEntranceLighting(group: THREE.Group, sign: boolean) {
     group.add(print);
     return;
   }
-  const { headRadius: r, headDepth: depth, headSpacing } = settings;
+  const { headRadius: r, headDepth: depth } = settings;
   const lens = new THREE.MeshStandardMaterial({
     color: "#d6dad5",
     metalness: 0.12,
@@ -69,16 +73,17 @@ export function buildEntranceLighting(group: THREE.Group, sign: boolean) {
   );
   cover.position.z = d / 2 + 0.002;
   group.add(cover);
-  for (const side of [-1, 1]) {
+  for (const side of emergencyHeadSides) {
+    const transform = emergencyHeadTransform(side);
     const stem = new THREE.Mesh(
       new THREE.BoxGeometry(0.018, r * 0.8, 0.022),
       shell,
     );
-    stem.position.set((side * headSpacing) / 2, h / 2 + r * 0.36, 0);
+    stem.position.set(transform.center.x, h / 2 + r * 0.36, 0);
     group.add(stem);
     const aim = new THREE.Group();
-    aim.position.set(stem.position.x, h / 2 + r * 1.55, 0);
-    aim.rotation.set(0.23, side * 0.28, 0);
+    aim.position.copy(transform.center);
+    aim.rotation.copy(transform.rotation);
     group.add(aim);
     const head = new THREE.Mesh(
       new THREE.CylinderGeometry(r, r * 0.82, depth, 24),
@@ -87,8 +92,9 @@ export function buildEntranceLighting(group: THREE.Group, sign: boolean) {
     head.rotation.x = Math.PI / 2;
     aim.add(head);
     const face = new THREE.Mesh(new THREE.CircleGeometry(r * 0.85, 24), lens);
-    face.position.z = depth / 2 + 0.0005;
-    face.name = "emergency-light-lens";
+    face.position.z = transform.lensZ;
+    face.name =
+      side < 0 ? "emergency-light-lens-left" : "emergency-light-lens-right";
     aim.add(face);
     for (const fraction of [0.42, 0.76]) {
       const rib = new THREE.Mesh(

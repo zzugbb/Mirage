@@ -1,6 +1,6 @@
 import { grilleSeatInspection } from "./grille-seat";
 import { GrilleSeatDetails } from "./components/GrilleSeatDetails";
-import { entranceFixture } from "./entrance";
+import { emergencyLight, entranceFixture } from "./entrance";
 import { condensate, isCondensate } from "./condensate";
 import { drainJointInspection } from "./condensate-joint";
 import { CondensateDetails } from "./components/CondensateDetails";
@@ -3257,6 +3257,14 @@ export function Workspace() {
     },
     [selectObject],
   );
+  const showEntranceView = (view: EntranceView | null) => {
+    if (view === "heads") {
+      if (selected !== emergencyLight.id) pick(emergencyLight.id);
+    } else if (view && !entranceViewIncludes(selected, view)) {
+      pick(entranceFixture.id);
+    }
+    requestEntranceView(view);
+  };
   const stageRef = useRef<HTMLElement>(null);
   const focus = (
     id: string,
@@ -6969,11 +6977,7 @@ export function Workspace() {
             entranceView={entranceView}
             entranceViewCommand={entranceViewCommand}
             onEntranceViewChange={setEntranceView}
-            onEntranceView={(view) => {
-              if (view && !entranceViewIncludes(selected, view))
-                pick(entranceFixture.id);
-              requestEntranceView(view);
-            }}
+            onEntranceView={showEntranceView}
             leakView={leakView}
             panelPort={panelPort}
             onInspectPanelPort={inspectPanelPort}
@@ -9361,7 +9365,7 @@ export function Workspace() {
                     onPreview={pick}
                     onLocate={focus}
                     ready={ready}
-                    onShowSweep={() => requestEntranceView("sweep")}
+                    onView={showEntranceView}
                     onSample={(index) => requestEntranceView("sweep", index)}
                     onHistory={(id) => {
                       focus(id);
