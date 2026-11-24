@@ -1888,6 +1888,7 @@ export function ReviewScene({
     if (
       !airflowViewRequest ||
       handledAirflowView.current === airflowViewRequest ||
+      !sceneSettled ||
       layer !== "airflow" ||
       route?.deviceId !== airflowViewRequest.deviceId ||
       !engine.current
@@ -1895,7 +1896,13 @@ export function ReviewScene({
       return;
     handledAirflowView.current = airflowViewRequest;
     airflowWorkspace.observe(route, airflowViewRequest.view);
-  }, [airflowViewRequest, airflow?.routes[0]?.deviceId, layer, retry]);
+  }, [
+    airflowViewRequest,
+    airflow?.routes[0]?.deviceId,
+    layer,
+    retry,
+    sceneSettled,
+  ]);
   useEffect(() => {
     airflowGeometry.current?.update(visibleAirflow, flowView);
   }, [visibleAirflow, flowView, retry]);

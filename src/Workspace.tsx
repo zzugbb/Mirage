@@ -304,6 +304,7 @@ import { RackInstallation } from "./components/RackInstallation";
 import { rackBlankingUnits, unitRanges } from "./rack-blanking";
 import { fixtureById } from "./fixtures";
 import { powerContextIncludes, powerLinkById } from "./power-trace";
+import { outletAirflow } from "./outlet-airflow";
 import { rackTrayRelations, trayRelations, trayRow } from "./cable-trays";
 import {
   isLeakFixture,
@@ -460,6 +461,7 @@ type AirflowOriginPose = Pick<
   | "coverOpen"
   | "explosion"
 >;
+type OutletAirflowOrigin = { inspection: PduInspection; linkId: string };
 function reducer(
   state: ReviewState,
   action:
@@ -948,6 +950,7 @@ export function Workspace() {
     layer: ReviewState["layer"];
     metric: "temperature" | "power";
     entry: "scene" | "details";
+    outlet?: OutletAirflowOrigin;
     detailScroll: number;
     camera: TaskViewMemory | null;
     nav: boolean;
@@ -2391,6 +2394,7 @@ export function Workspace() {
       powerOverviewVisit &&
       !powerOverviewReturning &&
       !outletNetworkActive &&
+      !airflowOrigin?.outlet &&
       ready &&
       !powerOverviewIncludes(powerOverviewVisit.id, selected, state.deviceId)
     )
@@ -2398,6 +2402,7 @@ export function Workspace() {
   }, [
     powerOverviewVisit,
     powerOverviewReturning,
+    airflowOrigin?.outlet,
     outletNetworkActive,
     ready,
     selected,
@@ -4065,19 +4070,21 @@ export function Workspace() {
         selected === airflowOrigin.selected
       ) {
         if (!ready) return;
-        const panel = inspectorRef.current;
-        const button =
-          airflowOrigin.entry === "details"
-            ? panel?.querySelector<HTMLButtonElement>(
-                "[data-cooling-airflow-entry]",
-              )
-            : stageRef.current?.querySelector<HTMLButtonElement>(
-                ".airflow-room-entry",
-              );
-        const section = button?.closest("details");
-        if (section) section.open = true;
-        if (panel) panel.scrollTop = airflowOrigin.detailScroll;
-        button?.focus({ preventScroll: true });
+        if (!airflowOrigin.outlet) {
+          const panel = inspectorRef.current;
+          const button =
+            airflowOrigin.entry === "details"
+              ? panel?.querySelector<HTMLButtonElement>(
+                  "[data-cooling-airflow-entry]",
+                )
+              : stageRef.current?.querySelector<HTMLButtonElement>(
+                  ".airflow-room-entry",
+                );
+          const section = button?.closest("details");
+          if (section) section.open = true;
+          if (panel) panel.scrollTop = airflowOrigin.detailScroll;
+          button?.focus({ preventScroll: true });
+        }
       }
       setReturningFromAirflow(false);
       setAirflowOrigin(null);
@@ -4110,6 +4117,11 @@ export function Workspace() {
     setOnlyAlarms(airflowOrigin.onlyAlarms);
     setInspector(airflowOrigin.inspector);
     setNav(airflowOrigin.nav);
+    if (airflowOrigin.outlet) {
+      setPduInspection(airflowOrigin.outlet.inspection);
+      setPowerLinkId(airflowOrigin.outlet.linkId);
+      setPduReturning(true);
+    }
     control({
       type: "return-airflow-origin",
       pose: airflowOrigin.pose,
@@ -4118,7 +4130,11 @@ export function Workspace() {
       analysis: airflowOrigin.analysis,
     });
   };
-  const showAirflow = (id: string, entry?: "scene" | "details") => {
+  const showAirflow = (
+    id: string,
+    entry?: "scene" | "details",
+    outlet?: OutletAirflowOrigin,
+  ) => {
     const rememberCloseUp = entry && state.level !== "room";
     const target = roomAirflowTarget(id, state.deviceId);
     if (!target || !ready) return;
@@ -4148,6 +4164,7 @@ export function Workspace() {
         layer,
         metric,
         entry,
+        outlet,
         detailScroll: inspectorRef.current?.scrollTop ?? 0,
         camera: captureTaskView.current?.(level) ?? null,
         nav,
@@ -4169,9 +4186,25 @@ export function Workspace() {
     }
     setMetric("temperature");
     setOnlyAlarms(false);
-    setInspector(!rememberCloseUp);
-    if (!rememberCloseUp && matchMedia("(max-width: 1099px)").matches)
+    setInspector(!rememberCloseUp || !!outlet);
+    if (
+      (!rememberCloseUp || outlet) &&
+      matchMedia("(max-width: 1099px)").matches
+    )
       setNav(false);
+  };
+  const openOutletAirflow = (inspection: PduInspection) => {
+    if (!ready || state.level !== "rack" || selected !== inspection.pduId)
+      return;
+    const linked = outletAirflow(inspection.pduId, inspection.outlet);
+    if (!linked) return;
+    setAirflowResponse(null);
+    control({ type: "analysis", value: false });
+    showAirflow(linked.route.deviceId, "details", {
+      inspection,
+      linkId: linked.input.id,
+    });
+    setAirflowViewRequest({ view: "intake", deviceId: linked.route.deviceId });
   };
   const openTrayReturnBranch = (trayId: string, deviceId: string) => {
     if (!ready) return;
@@ -5257,9 +5290,11 @@ export function Workspace() {
               onClick={returnFromRoomAirflow}
             >
               ← 返回{" "}
-              {airflowOrigin.pose.level === "rack"
-                ? rackForDevice(airflowOrigin.pose.deviceId).name
-                : deviceById(airflowOrigin.pose.deviceId)?.name}
+              {airflowOrigin.outlet
+                ? `${pduName(airflowOrigin.outlet.inspection.pduId)} · 插座 ${String(airflowOrigin.outlet.inspection.outlet).padStart(2, "0")}`
+                : airflowOrigin.pose.level === "rack"
+                  ? rackForDevice(airflowOrigin.pose.deviceId).name
+                  : deviceById(airflowOrigin.pose.deviceId)?.name}
             </button>
           </div>
         )}
@@ -5327,6 +5362,7 @@ export function Workspace() {
           </div>
         )}
         {!outletNetworkActive &&
+          !airflowOrigin?.outlet &&
           pduInspection?.outlet != null &&
           (selected !== pduInspection.pduId ||
             review.analysis ||
@@ -7069,6 +7105,7 @@ export function Workspace() {
             coolingRangeObservation={!!coolingVisit && !coolingReturning}
             frameRoomAirflow={
               !!airflowOrigin &&
+              !airflowOrigin.outlet &&
               !returningFromAirflow &&
               ready &&
               state.level === "room" &&
@@ -10129,6 +10166,7 @@ export function Workspace() {
                           if (visit.outlet === null) setPowerLinkId(null);
                         }}
                         onOutletNetwork={openOutletNetwork}
+                        onOutletAirflow={openOutletAirflow}
                         onLocateOutlet={(link) => {
                           if (
                             state.level === "room" &&

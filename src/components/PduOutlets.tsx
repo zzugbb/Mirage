@@ -13,6 +13,7 @@ import { unitLabel } from "../catalog";
 import { entityById } from "../domain";
 import { FeederDeviceHistory } from "./FeederDeviceHistory";
 import type { SpatialReading } from "../spatial";
+import { outletAirflow } from "../outlet-airflow";
 
 export function PduOutlets({
   pduId,
@@ -22,6 +23,7 @@ export function PduOutlets({
   inScene,
   onLocateOutlet,
   onNetwork,
+  onAirflow,
   onChange,
   onSelect,
   onPreview,
@@ -35,6 +37,7 @@ export function PduOutlets({
   ready: boolean;
   inScene: boolean;
   onNetwork: (visit: PduInspection, input: PowerLink, branchId: string) => void;
+  onAirflow: (visit: PduInspection) => void;
   onLocateOutlet: (link: PowerLink) => void;
   onChange: (visit: PduInspection) => void;
   onSelect: (outlet: number) => void;
@@ -63,6 +66,7 @@ export function PduOutlets({
   const rows = pduOutlets(pduId, current.query),
     chosen = pduOutlet(pduId, current.outlet);
   const peer = chosen?.link && peerOutlet(chosen.link);
+  const hasAirflow = inScene && !!outletAirflow(pduId, current.outlet);
   return (
     <section
       className="pdu-outlets"
@@ -223,6 +227,19 @@ export function PduOutlets({
                 >
                   查看电源 {chosen.link.inlet}
                 </button>
+                {hasAirflow && (
+                  <button
+                    disabled={!ready}
+                    onClick={() =>
+                      onAirflow({
+                        ...current,
+                        scroll: list.current?.scrollTop ?? current.scroll,
+                      })
+                    }
+                  >
+                    核对对端设备气流 ↗
+                  </button>
+                )}
               </div>
             </>
           )}
