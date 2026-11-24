@@ -1086,6 +1086,7 @@ export function Workspace() {
   const [coolingReturning, setCoolingReturning] = useState(false);
   const [coolingDrainVisit, setCoolingDrainVisit] = useState<{
     link: NonNullable<ReturnType<typeof coolingDrainLink>>;
+    view: "terminals" | "terminal-face";
     revision: number;
   } | null>(null);
   const activeCoolingDrain =
@@ -1095,7 +1096,7 @@ export function Workspace() {
     layer === "overview" &&
     state.level === "room" &&
     coolingDrainIncludes(selected)
-      ? coolingDrainVisit.link
+      ? coolingDrainVisit
       : null;
   useEffect(() => {
     if (coolingDrainVisit && !activeCoolingDrain) setCoolingDrainVisit(null);
@@ -1950,7 +1951,7 @@ export function Workspace() {
   const [airflowViewRequest, setAirflowViewRequest] =
     useState<AirflowViewRequest | null>(null);
   const [airflowExplanation, setAirflowExplanation] = useState<
-    "summary" | "endpoint" | null
+    "summary" | "endpoint" | "drain" | null
   >(null);
   const [airflowEndpoint, setAirflowEndpoint] = useState<
     FlowEndpoint["kind"] | null
@@ -5187,8 +5188,12 @@ export function Workspace() {
     />
   );
   const currentAirflowRoute = airflow?.routes[0];
+  const terminalDrainView =
+    airflowStageView === "terminals" || airflowStageView === "terminal-face"
+      ? airflowStageView
+      : null;
   const terminalDrainLink =
-    airflowStageView === "terminals" &&
+    terminalDrainView &&
     currentAirflowRoute &&
     !airflowOrigin &&
     airflowSelection === currentAirflowRoute.deviceId &&
@@ -5196,8 +5201,12 @@ export function Workspace() {
       ? coolingDrainLink(currentAirflowRoute)
       : null;
   const openCoolingDrain = () => {
-    if (!ready || !terminalDrainLink) return;
-    setCoolingDrainVisit({ link: terminalDrainLink, revision });
+    if (!ready || !terminalDrainLink || !terminalDrainView) return;
+    setCoolingDrainVisit({
+      link: terminalDrainLink,
+      view: terminalDrainView,
+      revision,
+    });
     setAirflowResponse(null);
     control({ type: "analysis", value: false });
     control({ type: "layer", layer: "overview" });
@@ -5206,7 +5215,10 @@ export function Workspace() {
   };
   const returnCoolingDrainAirflow = () => {
     if (!ready || !coolingVisit || !activeCoolingDrain) return;
-    const { deviceId, sourceId } = activeCoolingDrain;
+    const {
+      link: { deviceId, sourceId },
+      view,
+    } = activeCoolingDrain;
     setCoolingDrainVisit(null);
     control({ type: "analysis", value: false });
     showAirflow(deviceId);
@@ -5215,8 +5227,8 @@ export function Workspace() {
       ...coolingVisit,
       locatedEndpoint: { id: sourceId, deviceId },
     });
-    setAirflowViewRequest({ view: "terminals", deviceId });
-    setAirflowExplanation("summary");
+    setAirflowViewRequest({ view, deviceId });
+    setAirflowExplanation("drain");
   };
   const airflowInspector = airflow && (
     <AirflowDetails
@@ -5583,8 +5595,10 @@ export function Workspace() {
             >
               {activeCoolingDrain ? (
                 <>
-                  ← 返回 {deviceById(activeCoolingDrain.deviceId)?.name}{" "}
-                  气流端点
+                  ← 返回 {deviceById(activeCoolingDrain.link.deviceId)?.name}{" "}
+                  {activeCoolingDrain.view === "terminal-face"
+                    ? "柜面核对"
+                    : "气流端点"}
                 </>
               ) : (
                 <>
@@ -8971,7 +8985,7 @@ export function Workspace() {
                       onPreview={pick}
                       onSense={openCondensateSensing}
                       onHistory={analyzeCondensateSource}
-                      coolingLink={activeCoolingDrain ?? undefined}
+                      coolingLink={activeCoolingDrain?.link}
                     />
                   )}
                   {crossing.kind === "rear-wall" && (
@@ -9784,7 +9798,9 @@ export function Workspace() {
                     onRoute={(target) => requestLeakView("route", target)}
                     onFitting={(target) => requestLeakView("fitting", target)}
                     onHistory={() => {
-                      pick(activeCoolingDrain?.sourceId ?? nearbyCooling.id);
+                      pick(
+                        activeCoolingDrain?.link.sourceId ?? nearbyCooling.id,
+                      );
                       analyze();
                     }}
                     selectedId={selected}

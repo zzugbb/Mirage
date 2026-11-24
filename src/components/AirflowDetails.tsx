@@ -34,7 +34,7 @@ export function AirflowDetails({
   selected: string;
   ready: boolean;
   onExplained: () => void;
-  revealRequested: "summary" | "endpoint" | null;
+  revealRequested: "summary" | "endpoint" | "drain" | null;
   endpointKind: FlowEndpoint["kind"] | null;
   onTerminals: (view: "terminals" | "terminal-face") => void;
   onDrain?: () => void;
@@ -43,12 +43,22 @@ export function AirflowDetails({
   onLocate: (id: string) => void;
 }) {
   const section = useRef<HTMLElement>(null);
+  const drainButton = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     if (!revealRequested) return;
     const host = section.current,
       panel = host?.closest<HTMLElement>(".study-inspector");
     if (!host || !panel) return;
     const details = host.querySelector("details");
+    if (revealRequested === "drain") {
+      const button = drainButton.current;
+      if (!ready || !button) return;
+      if (view === "terminals" && details) details.open = true;
+      button.scrollIntoView({ block: "nearest" });
+      button.focus({ preventScroll: true });
+      onExplained();
+      return;
+    }
     if (details) details.open = true;
     const bounds = host.getBoundingClientRect();
     const viewport = panel.getBoundingClientRect();
@@ -67,7 +77,7 @@ export function AirflowDetails({
         : details?.querySelector("summary");
     focusTarget?.focus({ preventScroll: true });
     onExplained();
-  }, [revealRequested, onExplained]);
+  }, [revealRequested, ready, view, onExplained]);
   const route = snapshot.routes[0];
   if (!route) return null;
   const stage = airflowStage(view);
@@ -80,6 +90,11 @@ export function AirflowDetails({
   const object = airflowEndpointObject(route, kind);
   const tray = view === "return-tray" ? airflowReturnTray(route) : null;
   const face = view === "terminal-face" ? coolingTerminalFace(route) : null;
+  const drainAction = onDrain && (
+    <button ref={drainButton} disabled={!ready} onClick={onDrain}>
+      核对同柜排水接合 ↗
+    </button>
+  );
   return (
     <section
       className="airflow-details slice-evidence-details"
@@ -142,6 +157,7 @@ export function AirflowDetails({
             {face.floorY.toFixed(4)} m 为基准。实际风口位置待核实。
           </small>
           <div className="airflow-endpoint-actions">
+            {drainAction}
             <button disabled={!ready} onClick={() => onTerminals("terminals")}>
               返回制冷柜送回风
             </button>
@@ -213,11 +229,7 @@ export function AirflowDetails({
             >
               核对送回风与柜面 ↗
             </button>
-            {onDrain && (
-              <button disabled={!ready} onClick={onDrain}>
-                核对同柜排水接合 ↗
-              </button>
-            )}
+            {drainAction}
           </div>
         )}
         <details className="airflow-boundary">
