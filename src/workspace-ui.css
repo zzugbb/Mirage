@@ -5792,6 +5792,18 @@
 .workspace-ui .airflow-details .airflow-endpoint-actions {
   flex-wrap: wrap;
 }
+.airflow-tray-details {
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--study-line);
+}
+.airflow-tray-details dt {
+  color: var(--study-muted);
+}
+.airflow-tray-details dd {
+  margin: 4px 0 8px;
+  font-variant-numeric: tabular-nums;
+}
 
 /* 布置图仅辅助查找位置，三维继续承担定位与结构检视。 */
 .room-layout-browser {

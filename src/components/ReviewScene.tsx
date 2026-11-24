@@ -87,6 +87,7 @@ import type { RackUnitRange } from "../rack-space";
 import { type AirflowInspection } from "../airflow-inspection";
 import { pduInspectionScene, type PduInspection } from "../pdu-outlets";
 import { airflowStage, showAirflowEndpoint } from "../airflow-stage";
+import { airflowReturnTray } from "../airflow-return-tray";
 import { ModelLoadNotice } from "./ModelLoadNotice";
 import { initialModelLoads, type ModelAssetId } from "../model-loading";
 import { TemperatureDisclosure } from "./TemperatureDisclosure";
@@ -959,6 +960,11 @@ export function ReviewScene({
     grilleSweep,
   ]);
   const visibleAirflow = airflow;
+  const trayRoute = visibleAirflow?.routes[0];
+  const returnTrayMarkers =
+    flowView === "return-tray" && trayRoute
+      ? airflowReturnTray(trayRoute).markers
+      : [];
   const airflowResponseControl = visibleAirflow?.routes[0] && (
     <button
       data-airflow-response-entry
@@ -2066,6 +2072,7 @@ export function ReviewScene({
     labels.map((r) => r.id).join(":") +
     (visibleAirflow?.routes.map((route) => route.id).join(":") ?? "") +
     flowView +
+    returnTrayMarkers.map((marker) => marker.id).join(":") +
     areaLabels.map((label) => label.id).join(":") +
     (supplyLabels?.map((label) => label.id).join(":") ?? "") +
     (supply?.deviceId ?? "") +
@@ -2517,6 +2524,21 @@ export function ReviewScene({
                 </div>
               )),
           )}
+          {returnTrayMarkers.map(({ id, title, point, objectId }) => (
+            <div
+              key={id}
+              hidden
+              aria-hidden="true"
+              data-anchor={id}
+              data-anchor-object={objectId}
+              data-hotspot="center"
+              data-anchor-kind="position"
+              data-anchor-position={point.toArray().join(",")}
+              className="review-flow-anchor review-crossing-anchor"
+            >
+              <b>{title}</b>
+            </div>
+          ))}
           {selectedFixture &&
             !entranceView &&
             !leakView &&
@@ -2797,6 +2819,9 @@ export function ReviewScene({
                   />
                 )),
             )}
+            {returnTrayMarkers.map(({ id }) => (
+              <line key={id} data-flow-line={id} />
+            ))}
           </svg>
         )}
         <div

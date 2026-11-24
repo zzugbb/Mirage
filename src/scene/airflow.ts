@@ -6,6 +6,7 @@ import type { AirflowSnapshot, FlowKind, FlowPoint } from "../airflow.ts";
 import { airflowStageEmphasis, showAirflowEndpoint } from "../airflow-stage.ts";
 import type { AirflowView } from "../airflow-view.ts";
 import { sliceRackRows } from "../temperature-slice.ts";
+import { airflowReturnTray } from "../airflow-return-tray.ts";
 
 const kinds: FlowKind[] = ["supply", "through", "return"];
 const maximumRoutes = sliceRackRows.length;
@@ -18,6 +19,15 @@ type CachedPath = {
 /** 少量实例化箭头和粒子；柜面轮廓与柜外方向标保留真实遮挡，不参与拾取。 */
 export class AirflowGeometry {
   root = createAnnotationGroup("airflow");
+  private trayMeasures = new THREE.LineSegments(
+    new THREE.BufferGeometry(),
+    new THREE.LineBasicMaterial({
+      color: "#d2e4de",
+      depthWrite: false,
+      toneMapped: false,
+    }),
+  );
+  private trayMeasureKey = "";
   cone = new THREE.ConeGeometry(0.065, 0.19, 8);
   sphere = new THREE.SphereGeometry(0.055, 8, 6);
   ribbon = new THREE.CylinderGeometry(1, 1, 1, 6);
@@ -102,6 +112,9 @@ export class AirflowGeometry {
   view: AirflowView | null = null;
   constructor() {
     this.root.visible = false;
+    this.trayMeasures.name = "airflow-return-tray-measures";
+    this.trayMeasures.visible = false;
+    this.trayMeasures.raycast = () => {};
     this.endpoints.count = 0;
     this.endpoints.raycast = () => {};
     this.endpoints.frustumCulled = false;
@@ -121,6 +134,7 @@ export class AirflowGeometry {
       this.floorFrames,
       this.deviceFrames,
       this.faceArrows,
+      this.trayMeasures,
     );
   }
   at(path: CachedPath, t: number, target: THREE.Vector3) {
@@ -137,8 +151,27 @@ export class AirflowGeometry {
     if (!snapshot) {
       this.endpoints.count = this.floorFrames.count = 0;
       this.deviceFrames.count = this.faceArrows.count = 0;
+      this.trayMeasures.visible = false;
       return;
     }
+    const trayRoute = view === "return-tray" ? snapshot.routes[0] : undefined;
+    if (trayRoute && this.trayMeasureKey !== trayRoute.id) {
+      this.trayMeasureKey = trayRoute.id;
+      const { paths } = airflowReturnTray(trayRoute);
+      const points = paths.flat();
+      this.trayMeasures.geometry.dispose();
+      this.trayMeasures.geometry.setAttribute(
+        "position",
+        new THREE.Float32BufferAttribute(
+          points.flatMap((point) => point.toArray()),
+          3,
+        ),
+      );
+      this.trayMeasures.geometry.setDrawRange(0, points.length);
+      this.trayMeasures.geometry.computeBoundingSphere();
+    }
+    this.trayMeasures.visible =
+      !!trayRoute && this.trayMeasures.geometry.drawRange.count > 0;
     let endpointIndex = 0,
       frameIndex = 0,
       deviceFrameIndex = 0,
@@ -393,6 +426,8 @@ export class AirflowGeometry {
     }
   }
   dispose() {
+    this.trayMeasures.geometry.dispose();
+    this.trayMeasures.material.dispose();
     this.cone.dispose();
     this.sphere.dispose();
     this.ribbon.dispose();

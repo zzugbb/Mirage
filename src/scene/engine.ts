@@ -114,6 +114,7 @@ import {
   type AirflowView,
 } from "../airflow-view";
 import type { AirflowRoute } from "../airflow";
+import { airflowReturnTray } from "../airflow-return-tray";
 import {
   ModelLoading,
   requestedModels,
@@ -719,6 +720,7 @@ export class SceneEngine {
     route: AirflowRoute;
     view: AirflowView;
     targets: THREE.Vector3[];
+    protectedFixtureIds: string[];
     previous: ObservationMemory;
   };
   clearAirflowView() {
@@ -747,6 +749,14 @@ export class SceneEngine {
       view,
       previous,
       targets: airflowViewSightPoints(route, view),
+      protectedFixtureIds:
+        view === "return-tray"
+          ? [
+              ...new Set(
+                airflowReturnTray(route).crossings.map((hit) => hit.fixtureId),
+              ),
+            ]
+          : [],
     };
     this.currentView = "iso";
     this.currentFocus = false;
@@ -3589,15 +3599,19 @@ export class SceneEngine {
                     return object ? [object] : [];
                   },
                 )
-              : selectedFixture &&
-                  !this.airflowObservation &&
-                  !this.sliceObservation &&
-                  !this.networkObservation &&
-                  !this.powerObservation
-                ? this.models.fixtures.get(
-                    fixtureMountReference(this.state.selected),
-                  )
-                : undefined,
+              : this.airflowObservation
+                ? this.airflowObservation.protectedFixtureIds.flatMap((id) => {
+                    const fixture = this.models.fixtures.get(id);
+                    return fixture ? [fixture] : [];
+                  })
+                : selectedFixture &&
+                    !this.sliceObservation &&
+                    !this.networkObservation &&
+                    !this.powerObservation
+                  ? this.models.fixtures.get(
+                      fixtureMountReference(this.state.selected),
+                    )
+                  : undefined,
     );
     this.host.dataset.fixtureTarget = selectedFixture
       ? this.state.selected

@@ -29,6 +29,12 @@ const stages: Record<Exclude<AirflowView, "all">, Stage> = {
       "分段线表示回风假设；无排风测点，不计算进排风温差，也不表示封闭热通道。",
     endpoints: ["return", "receiver"],
   },
+  "return-tray": {
+    kinds: ["return"],
+    direction: "代表回风中心线与侧梁轴线平面交会",
+    boundary: "只核对样板几何和标高，实际敷设、净距与回风状态待核实。",
+    endpoints: ["return", "receiver"],
+  },
   terminals: {
     kinds: ["supply", "return"],
     direction: "低位送出至柜前格栅，高位接回柜后回风",

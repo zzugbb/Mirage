@@ -3,6 +3,7 @@ import type { AirflowView } from "../airflow-view";
 import { useEffect, useRef } from "react";
 import type { AirflowSnapshot, AirflowRoute, FlowEndpoint } from "../airflow";
 import { airflowEndpointObject } from "../airflow-inspection";
+import { airflowReturnTray } from "../airflow-return-tray";
 import { entityById } from "../domain";
 
 const endpointNames = {
@@ -74,6 +75,7 @@ export function AirflowDetails({
   const endpoint = route.endpoints.find((item) => item.kind === kind);
   if (!endpoint) return null;
   const object = airflowEndpointObject(route, kind);
+  const tray = view === "return-tray" ? airflowReturnTray(route) : null;
   return (
     <section
       className="airflow-details slice-evidence-details"
@@ -81,6 +83,33 @@ export function AirflowDetails({
       ref={section}
       tabIndex={-1}
     >
+      {tray && (
+        <div className="airflow-tray-details">
+          <strong>回风与桥架 · 配置</strong>
+          {tray.crossings.length ? (
+            <dl>
+              {tray.crossings.map((hit) => (
+                <div key={hit.id}>
+                  <dt>
+                    {hit.fixtureName} · {hit.title}
+                  </dt>
+                  <dd>
+                    {hit.path.y.toFixed(3)} → {hit.bottom.y.toFixed(3)} m
+                    <br />
+                    高差 {hit.clearance >= 0 ? "+" : "−"}
+                    {Math.abs(hit.clearance).toFixed(3)} m
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          ) : (
+            <p>本支路的回风中心线与登记桥架侧梁没有平面交会。</p>
+          )}
+          <small>
+            在平面交点的位置，用侧梁底面标高减去代表回风中心线标高。实际敷设、净距与回风状态待核实。
+          </small>
+        </div>
+      )}
       <details
         className="review-flow-explanation"
         onKeyDown={(event) => {
