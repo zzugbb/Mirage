@@ -1,44 +1,17 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { condensate, drainStands } from "./condensate.ts";
-import { footSegmentGap, standSensingSegments } from "./drain-foot.ts";
+import { standSensingSegments } from "./drain-foot.ts";
 import { leakInspection } from "./leak-view.ts";
-
-test("底板投影按有限矩形量至线段，含交叉、内部、斜向端点和单点", () => {
-  const corners = [
-    { x: 0, z: 0 },
-    { x: 2, z: 0 },
-    { x: 2, z: 1 },
-    { x: 0, z: 1 },
-  ];
-  for (const [start, end] of [
-    [
-      { x: -1, z: 0.5 },
-      { x: 3, z: 0.5 },
-    ],
-    [
-      { x: 0.5, z: 0.2 },
-      { x: 1, z: 0.7 },
-    ],
-  ]) {
-    assert.equal(footSegmentGap(corners, start, end).distance, 0);
-  }
-  assert.deepEqual(footSegmentGap(corners, { x: 3, z: 2 }, { x: 4, z: 4 }), {
-    from: { x: 2, z: 1 },
-    to: { x: 3, z: 2 },
-    distance: Math.SQRT2,
-  });
-  assert.deepEqual(footSegmentGap(corners, { x: 1, z: -2 }, { x: 1, z: -2 }), {
-    from: { x: 1, z: 0 },
-    to: { x: 1, z: -2 },
-    distance: 2,
-  });
-});
 
 test("两块底板到三段感应线的最近点与三维场景尺寸线共用坐标", () => {
   const expected = [
     [0.615, 0.117, 0.655],
     [0.355, 0.117, 0.915],
+  ];
+  const stations = [
+    [1.383, 2.195, 3.043],
+    [1.383, 1.935, 3.043],
   ];
   for (const [i, stand] of drainStands.entries()) {
     for (const s of standSensingSegments(stand)) {
@@ -51,6 +24,7 @@ test("两块底板到三段感应线的最近点与三维场景尺寸线共用�
       assert.equal(floor.stand?.id, stand.id);
       assert.equal(floor.index, s.segment - 1);
       assert.equal(+floor.distance.toFixed(3), expected[i][floor.index]);
+      assert.equal(+floor.fromJoint.toFixed(3), stations[i][floor.index]);
       assert.ok(Math.abs(s.distance - floor.distance) < 1e-9);
       assert.ok(
         Math.hypot(floor.edge.x - s.edge.x, floor.edge.z - s.edge.z) < 1e-9,

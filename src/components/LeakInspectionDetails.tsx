@@ -12,6 +12,7 @@ import {
   leakCable,
   leakController,
 } from "../leak-detection";
+import { sensingSegmentsToFootprint } from "../leak-footprint";
 import { useEffect, useRef, useState } from "react";
 import type {
   LeakInspection,
@@ -19,6 +20,11 @@ import type {
   LeakFloorTarget,
 } from "../leak-view";
 import { LeakFittingDetails } from "./LeakFittingDetails";
+
+const coolingSegmentGaps = sensingSegmentsToFootprint(
+  nearbyCooling.position,
+  nearbyCooling.size,
+);
 
 function LeakDistanceInput({
   position,
@@ -359,6 +365,35 @@ export function LeakInspectionDetails({
               <dd>{inspection.floor.distance.toFixed(3)} m</dd>
             </div>
           </dl>
+          {!stand && (
+            <details className="drain-comparison">
+              <summary>逐段核对距柜最近位置</summary>
+              <div className="leak-route-stops leak-cabinet-stops">
+                {coolingSegmentGaps.map(({ segment, fromJoint, distance }) => (
+                  <button
+                    key={segment}
+                    type="button"
+                    disabled={!ready}
+                    aria-label={`定位第 ${segment} 段最近点，${distance.toFixed(3)} m`}
+                    aria-pressed={
+                      floor?.index === segment - 1 &&
+                      Math.abs(floor.fromJoint - fromJoint) < 1e-9
+                    }
+                    onClick={() =>
+                      positionFloor({ fromJoint, segment: segment - 1 })
+                    }
+                  >
+                    <span>第 {segment} 段</span>
+                    <span>{distance.toFixed(3)} m</span>
+                  </button>
+                ))}
+              </div>
+              <small>
+                按感应线中心线与柜体配置投影量取 X/Z
+                平面最短距离。并列时取最靠近本段中点的位置。
+              </small>
+            </details>
+          )}
           <small>
             里程只计感应线（共 {sensingLength.toFixed(3)}{" "}
             m）。尺寸线从所选点量至{stand ? stand.name + "底板" : "柜体"}

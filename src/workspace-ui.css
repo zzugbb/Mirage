@@ -7780,6 +7780,18 @@
   border-radius: 4px;
   padding: 4px 8px;
 }
+.leak-cabinet-stops {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.leak-cabinet-stops button {
+  padding-inline: 4px;
+  font-variant-numeric: tabular-nums;
+}
+.leak-cabinet-stops span,
+.leak-cabinet-stops + small {
+  display: block;
+}
 
 .leak-route-scale {
   display: block;
