@@ -6,6 +6,7 @@ import { emergencyLight, entranceFixture } from "./entrance";
 import { condensate, isCondensate } from "./condensate";
 import { drainJointInspection } from "./condensate-joint";
 import { CondensateDetails } from "./components/CondensateDetails";
+import { coolingDrainIncludes, coolingDrainLink } from "./cooling-drain";
 import { DrainJointDetails } from "./components/DrainJointDetails";
 import { PanelRegisterDetails } from "./components/PanelRegisterDetails";
 import {
@@ -1079,6 +1080,22 @@ export function Workspace() {
     onlyAlarms: boolean;
   } | null>(null);
   const [coolingReturning, setCoolingReturning] = useState(false);
+  const [coolingDrainVisit, setCoolingDrainVisit] = useState<{
+    link: NonNullable<ReturnType<typeof coolingDrainLink>>;
+    revision: number;
+  } | null>(null);
+  const activeCoolingDrain =
+    coolingDrainVisit &&
+    coolingDrainVisit.revision === revision &&
+    coolingDrainVisit.link.deviceId === coolingVisit?.deviceId &&
+    layer === "overview" &&
+    state.level === "room" &&
+    coolingDrainIncludes(selected)
+      ? coolingDrainVisit.link
+      : null;
+  useEffect(() => {
+    if (coolingDrainVisit && !activeCoolingDrain) setCoolingDrainVisit(null);
+  }, [coolingDrainVisit, activeCoolingDrain]);
   const coolingProbe = useMemo(
     () =>
       coolingVisit?.deviceId
@@ -1100,6 +1117,7 @@ export function Workspace() {
       coolingVisit &&
       !locatedCoolingDevice &&
       !atCoolingProbe &&
+      !activeCoolingDrain &&
       !coolingReturning &&
       !(
         activeAirflowVisit &&
@@ -1121,6 +1139,7 @@ export function Workspace() {
     activeAirflowVisit,
     locatedCoolingDevice,
     atCoolingProbe,
+    activeCoolingDrain,
   ]);
   const [doorReference, setDoorReference] = useState<AisleDoorPosition>("peak");
   const [maintenanceView, setMaintenanceView] =
@@ -4538,7 +4557,10 @@ export function Workspace() {
     });
     setRackView(origin.rackView);
     setCoolingReturning(true);
-    pick(coolingSource.id, state.level !== "room");
+    // 已选中制冷柜时仍要等这次镜头归位，避免名单恢复焦点后又被禁用。
+    if (state.level === "room" && selected === coolingSource.id)
+      focus(coolingSource.id);
+    else pick(coolingSource.id, state.level !== "room");
     control({ type: "layer", layer: origin.layer });
     control({ type: "analysis", value: false });
     setSliceControls(origin.slice);
@@ -5151,6 +5173,38 @@ export function Workspace() {
       ready={ready}
     />
   );
+  const currentAirflowRoute = airflow?.routes[0];
+  const terminalDrainLink =
+    airflowStageView === "terminals" &&
+    currentAirflowRoute &&
+    !airflowOrigin &&
+    airflowSelection === currentAirflowRoute.deviceId &&
+    coolingVisit?.deviceId === currentAirflowRoute.deviceId
+      ? coolingDrainLink(currentAirflowRoute)
+      : null;
+  const openCoolingDrain = () => {
+    if (!ready || !terminalDrainLink) return;
+    setCoolingDrainVisit({ link: terminalDrainLink, revision });
+    setAirflowResponse(null);
+    control({ type: "analysis", value: false });
+    control({ type: "layer", layer: "overview" });
+    pick(terminalDrainLink.sourceId);
+    requestCrossing(drainJointInspection("cabinet"));
+  };
+  const returnCoolingDrainAirflow = () => {
+    if (!ready || !coolingVisit || !activeCoolingDrain) return;
+    const { deviceId, sourceId } = activeCoolingDrain;
+    setCoolingDrainVisit(null);
+    control({ type: "analysis", value: false });
+    showAirflow(deviceId);
+    pick(sourceId);
+    setCoolingVisit({
+      ...coolingVisit,
+      locatedEndpoint: { id: sourceId, deviceId },
+    });
+    setAirflowViewRequest({ view: "terminals", deviceId });
+    setAirflowExplanation("summary");
+  };
   const airflowInspector = airflow && (
     <AirflowDetails
       view={airflowStageView}
@@ -5159,6 +5213,7 @@ export function Workspace() {
       ready={ready}
       endpointKind={airflowEndpoint}
       onRead={setAirflowEndpoint}
+      onDrain={terminalDrainLink ? openCoolingDrain : undefined}
       onTerminals={() => {
         const route = airflow.routes[0];
         if (!route || !ready) return;
@@ -5302,7 +5357,9 @@ export function Workspace() {
       control({ type: "open-resource", id: "room-01" });
   };
   const returnCrossing = () => {
-    if (crossing?.kind === "rear-wall" && layoutVisit) returnLayoutVisit();
+    if (crossing?.kind === "drain-joint" && activeCoolingDrain)
+      returnCoolingDrainAirflow();
+    else if (crossing?.kind === "rear-wall" && layoutVisit) returnLayoutVisit();
     else requestCrossing(null);
   };
   return (
@@ -5505,11 +5562,24 @@ export function Workspace() {
           >
             <button
               disabled={!ready || coolingReturning}
-              onClick={returnCoolingRange}
+              onClick={
+                activeCoolingDrain
+                  ? returnCoolingDrainAirflow
+                  : returnCoolingRange
+              }
             >
-              ← 返回服务范围 · {rackById(coolingVisit.rackId)?.name}
-              {coolingVisit.deviceId &&
-                " / " + deviceById(coolingVisit.deviceId)?.name}
+              {activeCoolingDrain ? (
+                <>
+                  ← 返回 {deviceById(activeCoolingDrain.deviceId)?.name}{" "}
+                  气流端点
+                </>
+              ) : (
+                <>
+                  ← 返回服务范围 · {rackById(coolingVisit.rackId)?.name}
+                  {coolingVisit.deviceId &&
+                    " / " + deviceById(coolingVisit.deviceId)?.name}
+                </>
+              )}
             </button>
             <button
               aria-label="结束服务范围检视往返"
@@ -8843,6 +8913,7 @@ export function Workspace() {
                       onPreview={pick}
                       onSense={openCondensateSensing}
                       onHistory={analyzeCondensateSource}
+                      coolingLink={activeCoolingDrain ?? undefined}
                     />
                   )}
                   {crossing.kind === "rear-wall" && (
@@ -9599,7 +9670,7 @@ export function Workspace() {
                     onRoute={(target) => requestLeakView("route", target)}
                     onFitting={(target) => requestLeakView("fitting", target)}
                     onHistory={() => {
-                      pick(nearbyCooling.id);
+                      pick(activeCoolingDrain?.sourceId ?? nearbyCooling.id);
                       analyze();
                     }}
                     selectedId={selected}

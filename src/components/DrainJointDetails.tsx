@@ -3,6 +3,7 @@ import type {
   DrainJointStage,
 } from "../condensate-joint";
 import { nearestCondensateSensing } from "../condensate";
+import type { coolingDrainLink } from "../cooling-drain";
 
 const mm = (value: number, precision: number) =>
   `${Number((value * 1000).toFixed(precision))} mm`;
@@ -15,6 +16,7 @@ export function DrainJointDetails({
   onPreview,
   onSense,
   onHistory,
+  coolingLink,
 }: {
   inspection: DrainJointInspection;
   selected: string;
@@ -23,6 +25,7 @@ export function DrainJointDetails({
   onPreview: (id: string) => void;
   onSense: (fromJoint: number, segment: number) => void;
   onHistory: () => void;
+  coolingLink?: NonNullable<ReturnType<typeof coolingDrainLink>>;
 }) {
   const atCabinet = inspection.stage === "cabinet";
   const atReceiver = inspection.stage === "receiver";
@@ -77,6 +80,26 @@ export function DrainJointDetails({
             ? "斗体按原样板截面剖开，配置下口止于地面。斗后管网和排水状态待现场资料。"
             : "径向余量按管口外缘向斗口内缘的平面投影计算。实际水量、水位和斗后去向待核实。"}
       </p>
+      {atCabinet && coolingLink && (
+        <details>
+          <summary>同柜气流与排水标高</summary>
+          <dl>
+            <div>
+              <dt>逻辑送风端</dt>
+              <dd>{coolingLink.supplyHeight.toFixed(3)} m</dd>
+            </div>
+            <div>
+              <dt>逻辑回风端</dt>
+              <dd>{coolingLink.returnHeight.toFixed(3)} m</dd>
+            </div>
+            <div>
+              <dt>柜侧排水套管轴</dt>
+              <dd>{coolingLink.socketHeight.toFixed(3)} m</dd>
+            </div>
+          </dl>
+          <small>标高均取机房配置。风口和排水接口待现场核实。</small>
+        </details>
+      )}
       {!atReceiver && (
         <div className="drain-joint-peers" role="group" aria-label="接合设施">
           {[inspection.upper, inspection.lower].map(({ id, name }) => (

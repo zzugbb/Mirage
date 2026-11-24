@@ -22,6 +22,7 @@ export function AirflowDetails({
   endpointKind,
   onRead,
   onTerminals,
+  onDrain,
   onExplained,
   revealRequested,
   onPreview,
@@ -35,6 +36,7 @@ export function AirflowDetails({
   revealRequested: "summary" | "endpoint" | null;
   endpointKind: FlowEndpoint["kind"] | null;
   onTerminals: () => void;
+  onDrain?: () => void;
   onRead: (kind: FlowEndpoint["kind"]) => void;
   onPreview: (route: AirflowRoute, id: string) => void;
   onLocate: (id: string) => void;
@@ -163,6 +165,13 @@ export function AirflowDetails({
             </button>
           )}
         </div>
+        {view === "terminals" && onDrain && (
+          <div className="airflow-endpoint-actions">
+            <button disabled={!ready} onClick={onDrain}>
+              核对同柜排水接合 ↗
+            </button>
+          </div>
+        )}
         <details className="airflow-boundary">
           <summary>布置假设与数据边界</summary>
           <p>
