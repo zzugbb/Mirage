@@ -4670,6 +4670,38 @@
   display: grid;
   gap: 4px;
 }
+.drain-joint-details label,
+.drain-joint-details dl {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 5px;
+  font-size: 12px;
+}
+.drain-joint-details select {
+  background: var(--raised);
+  color: inherit;
+  border: 1px solid var(--line);
+  padding: 5px 6px;
+}
+.drain-joint-details dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.drain-joint-details dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+.drain-joint-peers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-block: 5px;
+}
+.drain-joint-peers button[aria-pressed="true"] {
+  border-color: #82bdb8;
+  background: var(--raised);
+}
 .lighting-resume button,
 .crossing-details button,
 .crossing-scene-key button {

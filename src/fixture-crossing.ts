@@ -20,6 +20,10 @@ import {
 } from "./cable-trays.ts";
 import { observationFrame, type FrameRect } from "./observation-frame.ts";
 import type { RearWallCrossing } from "./rear-wall.ts";
+import {
+  drainJointObjectIds,
+  type DrainJointInspection,
+} from "./condensate-joint.ts";
 
 /** 水平投影交叉处的配置表面高差，不代表构件最小净距或安全结论。 */
 export function fixtureCrossing(first: string, second: string) {
@@ -495,17 +499,19 @@ export function lightingRound(lightId: string, trayId: string, rackId: string) {
   };
 }
 export const crossingObjectIds = (pair: FixtureCrossing) =>
-  pair.kind === "grille-seat" ||
-  pair.kind === "tray-support" ||
-  pair.kind === "tray-bay"
-    ? [pair.upper.id]
-    : pair.kind === "smoke-light"
-      ? [pair.round.points[0].id, pair.round.points[1].id, pair.light.id]
-      : pair.kind === "lighting-round"
-        ? [pair.source.light.id, pair.upper.id, pair.lower.id]
-        : pair.kind === "roof-pdu"
-          ? [pair.upper.id, pair.lower.id, pair.pdu.id]
-          : [pair.upper.id, pair.lower.id];
+  pair.kind === "drain-joint"
+    ? drainJointObjectIds
+    : pair.kind === "grille-seat" ||
+        pair.kind === "tray-support" ||
+        pair.kind === "tray-bay"
+      ? [pair.upper.id]
+      : pair.kind === "smoke-light"
+        ? [pair.round.points[0].id, pair.round.points[1].id, pair.light.id]
+        : pair.kind === "lighting-round"
+          ? [pair.source.light.id, pair.upper.id, pair.lower.id]
+          : pair.kind === "roof-pdu"
+            ? [pair.upper.id, pair.lower.id, pair.pdu.id]
+            : [pair.upper.id, pair.lower.id];
 type RackRoofOverview =
   | NonNullable<ReturnType<typeof lightingRound>>
   | NonNullable<ReturnType<typeof rackTrayCrossing>>;
@@ -519,6 +525,7 @@ export type RackRoofView = RackRoofOverview | RoofEntryView | RoofPduView;
 export type FixtureCrossing =
   | GrilleSeat
   | RearWallCrossing
+  | DrainJointInspection
   | NonNullable<ReturnType<typeof lightRodInspection>>
   | RackRoofView
   | SmokeLightInspection

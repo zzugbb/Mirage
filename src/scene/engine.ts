@@ -49,6 +49,7 @@ import {
   type FixtureCrossing,
 } from "../fixture-crossing.ts";
 import { rearWallCrossingFrame } from "../rear-wall.ts";
+import { drainJointFrame } from "../condensate-joint.ts";
 import { SceneLoop } from "../scene-loop.ts";
 import { AnchorProjection } from "../anchor-projection.ts";
 import { RenderDemand } from "../render-demand.ts";
@@ -1377,7 +1378,7 @@ export class SceneEngine {
     const { pair } = this.crossingObservation;
     const direction = crossingDirection(pair);
     let fit;
-    if (pair.kind === "rear-wall") {
+    if (pair.kind === "rear-wall" || pair.kind === "drain-joint") {
       // 工具栏在下沿，横向尽量留给后墙的长量距。
       rect.left = 36;
       if (legendRect)
@@ -1385,7 +1386,10 @@ export class SceneEngine {
           rect.top + 120,
           Math.min(rect.bottom, legendRect.top - 22),
         );
-      fit = rearWallCrossingFrame(pair, width, height, rect);
+      fit =
+        pair.kind === "rear-wall"
+          ? rearWallCrossingFrame(pair, width, height, rect)
+          : drainJointFrame(pair, width, height, rect);
     } else if (pair.kind === "roof-pdu") {
       fit = roofPduViewFrame(pair, width, height, rect);
     } else if (pair.kind === "grille-seat" || pair.kind === "light-rod") {

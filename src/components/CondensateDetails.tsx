@@ -18,6 +18,7 @@ export function CondensateDetails({
   onSegment,
   onSense,
   onHistory,
+  onInspectJoint,
 }: {
   id: string;
   ready: boolean;
@@ -26,6 +27,7 @@ export function CondensateDetails({
   onSegment: (segment: number) => void;
   onSense: (fromJoint: number, segment: number, standId?: string) => void;
   onHistory: () => void;
+  onInspectJoint: () => void;
 }) {
   const { pipe, receiver } = condensate;
   const atPipe = id === pipe.id,
@@ -44,6 +46,11 @@ export function CondensateDetails({
   return (
     <section className="panel-port-details" aria-label="冷凝水排水布置">
       <strong>冷凝水排水布置</strong>
+      {(atPipe || atReceiver || id === condensate.sourceId) && (
+        <button disabled={!ready} onClick={onInspectJoint}>
+          核对排水接合 ↗
+        </button>
+      )}
       {atPipe && (
         <p>
           管口高 {condensate.mouthHeight.toFixed(3)} m，距斗口上缘{" "}

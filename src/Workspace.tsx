@@ -2,7 +2,9 @@ import { grilleSeatInspection } from "./grille-seat";
 import { GrilleSeatDetails } from "./components/GrilleSeatDetails";
 import { entranceFixture } from "./entrance";
 import { condensate, isCondensate } from "./condensate";
+import { drainJointInspection } from "./condensate-joint";
 import { CondensateDetails } from "./components/CondensateDetails";
+import { DrainJointDetails } from "./components/DrainJointDetails";
 import { PanelRegisterDetails } from "./components/PanelRegisterDetails";
 import {
   racewayById,
@@ -1225,7 +1227,8 @@ export function Workspace() {
         (pair?.kind === "tray-support" && crossing?.kind === "tray-support") ||
         (pair?.kind === "light-rod" && crossing?.kind === "light-rod") ||
         (pair?.kind === "tray-bay" && crossing?.kind === "tray-bay") ||
-        (pair?.kind === "roof-pdu" && crossing?.kind === "roof-pdu")) &&
+        (pair?.kind === "roof-pdu" && crossing?.kind === "roof-pdu") ||
+        (pair?.kind === "drain-joint" && crossing?.kind === "drain-joint")) &&
       (control instanceof HTMLSelectElement ||
         (pair?.kind === "grille-seat" &&
           control instanceof HTMLButtonElement)) &&
@@ -3290,8 +3293,21 @@ export function Workspace() {
       entryView,
     });
   };
+  const openCondensateSensing = (
+    fromJoint: number,
+    segment: number,
+    standId?: string,
+  ) => {
+    pick(condensate.sensingCableId);
+    requestLeakView("floor", { fromJoint, segment: segment - 1, standId });
+  };
+  const analyzeCondensateSource = () => {
+    focus(condensate.sourceId);
+    analyze();
+  };
   const condensateDetails = layer === "overview" &&
     state.level === "room" &&
+    crossing?.kind !== "drain-joint" &&
     (isCondensate(selected) ||
       selected === condensate.sourceId ||
       selected === condensate.sensingCableId) && (
@@ -3303,18 +3319,15 @@ export function Workspace() {
         id={selected}
         ready={ready}
         onLocate={focus}
-        onHistory={() => {
-          focus(condensate.sourceId);
-          analyze();
-        }}
-        onSense={(fromJoint, segment, standId) => {
-          pick(condensate.sensingCableId);
-          requestLeakView("floor", {
-            fromJoint,
-            segment: segment - 1,
-            standId,
-          });
-        }}
+        onHistory={analyzeCondensateSource}
+        onSense={openCondensateSensing}
+        onInspectJoint={() =>
+          requestCrossing(
+            drainJointInspection(
+              selected === condensate.receiver.id ? "mouth" : "cabinet",
+            ),
+          )
+        }
       />
     );
   const captureLayoutOrigin = () => ({
@@ -8612,6 +8625,7 @@ export function Workspace() {
                   crossing.kind === "lighting-round" ||
                   crossing.kind === "roof-entry" ||
                   crossing.kind === "roof-pdu" ||
+                  crossing.kind === "drain-joint" ||
                   crossing.kind === "rear-wall")
               ) && (
                 <section
@@ -8634,6 +8648,7 @@ export function Workspace() {
                     crossing.kind !== "light-rod" &&
                     crossing.kind !== "roof-entry" &&
                     crossing.kind !== "roof-pdu" &&
+                    crossing.kind !== "drain-joint" &&
                     crossing.kind !== "rear-wall" && (
                       <>
                         <div>
@@ -8662,6 +8677,19 @@ export function Workspace() {
                         </p>
                       </>
                     )}
+                  {crossing.kind === "drain-joint" && (
+                    <DrainJointDetails
+                      inspection={crossing}
+                      selected={selected}
+                      ready={ready}
+                      onStage={(stage) =>
+                        requestCrossing(drainJointInspection(stage))
+                      }
+                      onPreview={pick}
+                      onSense={openCondensateSensing}
+                      onHistory={analyzeCondensateSource}
+                    />
+                  )}
                   {crossing.kind === "rear-wall" && (
                     <RearWallCrossingDetails
                       pair={crossing}

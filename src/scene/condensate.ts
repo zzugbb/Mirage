@@ -2,6 +2,10 @@ import * as THREE from "three";
 import {
   condensate as c,
   condensateFloorY,
+  condensateMouthInnerRadius,
+  condensateOpeningRadius,
+  condensateRimLip,
+  condensateSocket,
   outlet,
   mouth,
   elbow,
@@ -91,12 +95,12 @@ export function buildCondensate(root: THREE.Group, id: string) {
     tube(elbow, mouth, c.pipeRadius, "condensate-downpipe");
     tube(
       outlet,
-      [outlet[0] + 0.035, outlet[1], outlet[2]],
-      c.pipeRadius * 1.45,
+      [outlet[0] + condensateSocket.length, outlet[1], outlet[2]],
+      condensateSocket.radius,
       "condensate-socket",
     );
     const lip = add(
-      new THREE.RingGeometry(c.pipeRadius * 0.78, c.pipeRadius, 20),
+      new THREE.RingGeometry(condensateMouthInnerRadius, c.pipeRadius, 20),
       "condensate-mouth",
     );
     lip.rotation.x = Math.PI / 2;
@@ -109,10 +113,10 @@ export function buildCondensate(root: THREE.Group, id: string) {
       [c.stemRadius * 1.55, base + 0.012],
       [c.stemRadius, base + 0.012],
       [c.stemRadius, -c.bowlDepth],
-      [c.rimRadius, -0.009],
+      [c.rimRadius, -condensateRimLip.outerDepth],
       [c.rimRadius, 0],
-      [c.rimRadius - 0.006, 0],
-      [c.rimRadius - 0.006, -0.008],
+      [condensateOpeningRadius, 0],
+      [condensateOpeningRadius, -condensateRimLip.innerDepth],
       [c.stemRadius - 0.005, -c.bowlDepth],
       [c.stemRadius - 0.005, base],
     ];

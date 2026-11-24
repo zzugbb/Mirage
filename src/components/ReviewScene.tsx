@@ -576,6 +576,7 @@ export function ReviewScene({
           crossing?.kind === "tray-support" ||
           crossing?.kind === "roof-entry" ||
           crossing?.kind === "roof-pdu" ||
+          crossing?.kind === "drain-joint" ||
           crossing?.kind === "rear-wall" ||
           crossing?.kind === "lighting-round" ||
           crossing?.kind === "light-rod" ||
@@ -2395,6 +2396,7 @@ export function ReviewScene({
                 crossing.kind === "lighting-round" ||
                 crossing.kind === "rear-wall" ||
                 crossing.kind === "roof-pdu" ||
+                crossing.kind === "drain-joint" ||
                 crossing.kind === "roof-entry"
                   ? "center"
                   : undefined
@@ -2838,6 +2840,12 @@ export function ReviewScene({
                   `柜后剖切 · 水平偏移 ${(crossing.offsets.planar * 1000).toFixed(1)} mm`
                 ) : crossing.kind === "rear-wall" ? (
                   `立面投影间距 ${crossing.distance.toFixed(3)} m`
+                ) : crossing.kind === "drain-joint" ? (
+                  crossing.stage === "cabinet" ? (
+                    `柜面至转角 ${(crossing.metrics.reach * 1000).toFixed(0)} mm`
+                  ) : (
+                    `管口至斗口 ${(crossing.metrics.verticalGap * 1000).toFixed(0)} mm`
+                  )
                 ) : (
                   <>
                     {crossing.kind === "smoke-tray" ||

@@ -38,6 +38,9 @@ export class CrossingGeometry {
     const points: THREE.Vector3[] = [];
     if (pair.kind === "grille-seat") {
       pair.outline.forEach((p, i) => points.push(p, pair.outline[(i + 1) % 4]));
+    } else if (pair.kind === "drain-joint") {
+      for (const path of pair.paths)
+        for (let i = 1; i < path.length; i++) points.push(path[i - 1], path[i]);
     } else if (pair.kind === "rear-wall") {
       for (const outline of pair.outlines)
         outline.forEach((p, i) => points.push(p, outline[(i + 1) % 4]));

@@ -1,6 +1,18 @@
 import definition from "../assets/public/scenes/room-01.json" with { type: "json" };
 import { leakDetection } from "./leak-detection.ts";
 export const condensate = definition.room.condensate;
+export const condensateSocket = {
+  length: 0.035,
+  radius: condensate.pipeRadius * 1.45,
+};
+export const condensateRimLip = {
+  width: 0.006,
+  outerDepth: 0.009,
+  innerDepth: 0.008,
+};
+export const condensateOpeningRadius =
+  condensate.rimRadius - condensateRimLip.width;
+export const condensateMouthInnerRadius = condensate.pipeRadius * 0.78;
 export const condensateSource = definition.facilities.find(
   (f) => f.id === condensate.sourceId,
 )!;
