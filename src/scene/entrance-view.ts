@@ -24,19 +24,30 @@ export class EntranceViewGeometry {
     for (const path of inspection.paths)
       for (let i = 1; i < path.length; i++) points.push(path[i - 1], path[i]);
     const radius =
-      inspection.jamb || "measure" in inspection || inspection.view === "heads"
+      inspection.jamb ||
+      "measure" in inspection ||
+      inspection.view === "heads" ||
+      inspection.view === "hinges"
         ? 0.018
         : 0.055;
     const up = new THREE.Vector3(0, 1, 0);
     const forward = new THREE.Vector3(0, 0, 1);
     for (const [index, marker] of inspection.markers.entries()) {
+      if (
+        inspection.view === "hinges" &&
+        inspection.hinges.selected !== null &&
+        index > 0
+      )
+        continue;
       const head = inspection.view === "heads" ? inspection.heads[index] : null;
       const normal = head
         ? new THREE.Quaternion().setFromUnitVectors(forward, head.direction)
         : null;
       const center = head
         ? head.face.clone().addScaledVector(head.direction, 0.002)
-        : marker.point;
+        : inspection.view === "hinges"
+          ? marker.point.clone().addScaledVector(forward, 0.005)
+          : marker.point;
       for (let i = 0; i < 24; i++)
         for (const a of [i, i + 1]) {
           const offset = new THREE.Vector3(

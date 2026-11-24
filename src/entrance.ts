@@ -18,6 +18,16 @@ export const entranceLeaf = {
   bottom: -s.openingHeight / 2 + s.floorGap,
   pivotZ: s.frameDepth / 2,
 };
+export const entranceHinges = s.hingeHeights.map((fromBottom, index) => ({
+  index,
+  name: `entrance-hinge-${index}`,
+  fromBottom,
+  offset: [
+    entranceLeaf.pivotX,
+    fromBottom - s.openingHeight / 2,
+    entranceLeaf.pivotZ,
+  ],
+}));
 export const exitSign = definition.room.fixtures.find(
   (f) => f.id === s.lighting.signId,
 )!;

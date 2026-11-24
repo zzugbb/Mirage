@@ -1617,6 +1617,9 @@ export class SceneEngine {
     pair: EntranceInspection;
     previous: ObservationMemory;
   };
+  get currentEntranceView() {
+    return this.entranceObservation?.pair.view;
+  }
   private applyEntrancePose() {
     const pair = this.entranceObservation?.pair;
     const door = this.models.fixtures

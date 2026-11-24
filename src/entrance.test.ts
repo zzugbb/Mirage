@@ -68,7 +68,9 @@ test("展示门扇避开地面和门框，双面把手接合，五金随同一�
   assert.ok(bounds.max.y < entranceOpening.top - s.frameWidth);
   assert.ok(bounds.min.x > entranceOpening.left + s.frameWidth);
   assert.ok(bounds.max.x < entranceOpening.right - s.frameWidth);
-  const hinges = root.children.filter((o) => o.name === "entrance-hinge");
+  const hinges = root.children.filter((o) =>
+    o.name.startsWith("entrance-hinge-"),
+  );
   assert.equal(hinges.length, 3);
   for (const hinge of hinges) {
     assert.equal(hinge.position.x, pivot.position.x);

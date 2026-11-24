@@ -5128,6 +5128,18 @@
   background: var(--raised);
   border-color: #82bdb8;
 }
+.entrance-hinge-position {
+  display: grid;
+  gap: 5px;
+  margin-top: 8px;
+  font-size: 12px;
+}
+.entrance-hinge-position select {
+  padding: 5px 6px;
+  border: 1px solid var(--line);
+  background: var(--raised);
+  color: inherit;
+}
 
 .entrance-view-peer,
 .leak-view-preview,

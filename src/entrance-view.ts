@@ -15,11 +15,16 @@ import {
 import { fixtureById } from "./fixtures.ts";
 import { observationFrame, type FrameRect } from "./observation-frame.ts";
 import { emergencyHeadInspection } from "./emergency-light.ts";
+import {
+  entranceHingeFrame,
+  entranceHingeInspection,
+} from "./entrance-hinges.ts";
 
 export const entranceViews = [
   { id: "all", label: "入口全貌" },
   { id: "cabinet", label: "门扇与配电柜" },
   { id: "sweep", label: "门扇扫掠与配电柜" },
+  { id: "hinges", label: "门轴与铰链" },
   { id: "opening", label: "洞口尺寸" },
   { id: "access", label: "读卡器与把手" },
   { id: "lintel", label: "出口标志与门楣" },
@@ -36,10 +41,14 @@ export type EntranceViewCommand = {
 export const entranceViewIncludes = (id: string, view?: EntranceView) =>
   view === "heads"
     ? id === emergencyLight.id
-    : view === "sweep"
-      ? id === s.fixtureId || id === entranceCabinet.id
-      : (view === "cabinet" && id === entranceCabinet.id) ||
-        [s.fixtureId, s.readerId, exitSign.id, emergencyLight.id].includes(id);
+    : view === "hinges"
+      ? id === s.fixtureId
+      : view === "sweep"
+        ? id === s.fixtureId || id === entranceCabinet.id
+        : (view === "cabinet" && id === entranceCabinet.id) ||
+          [s.fixtureId, s.readerId, exitSign.id, emergencyLight.id].includes(
+            id,
+          );
 
 /** 把手轴沿用门扇局部坐标与静态展示角；高度为机房坐标，不是从洞口底部重算的安装规范。 */
 export function entranceHandlePoint() {
@@ -82,6 +91,9 @@ export function entranceInspection(view: EntranceView, sample?: number) {
   }
   if (view === "heads") {
     return { view, jamb: null, ...emergencyHeadInspection(), ...heights };
+  }
+  if (view === "hinges") {
+    return { view, jamb: null, ...entranceHingeInspection(sample), ...heights };
   }
   if (view === "lintel" || view === "lights") {
     const sign = new Vector3().fromArray(exitSign.position);
@@ -283,6 +295,8 @@ export function entranceViewFrame(
   height: number,
   rect: FrameRect,
 ) {
+  if (inspection.view === "hinges")
+    return entranceHingeFrame(inspection, width, height, rect);
   if (inspection.view === "heads")
     return observationFrame(
       inspection.points,

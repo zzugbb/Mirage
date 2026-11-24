@@ -1,5 +1,9 @@
 import * as THREE from "three";
-import { entranceSettings as s, entranceLeaf as leaf } from "../entrance.ts";
+import {
+  entranceSettings as s,
+  entranceLeaf as leaf,
+  entranceHinges,
+} from "../entrance.ts";
 
 /** 静态入口布置：门框与门扇共用洞口配置，不提供门状态或开锁控制。 */
 export function buildEntrance(root: THREE.Group) {
@@ -68,10 +72,10 @@ export function buildEntrance(root: THREE.Group) {
     s.hingeLength,
     12,
   );
-  for (const height of s.hingeHeights) {
+  for (const { name, offset } of entranceHinges) {
     const hinge = new THREE.Mesh(hingeGeometry, metal);
-    hinge.name = "entrance-hinge";
-    hinge.position.set(leaf.pivotX, height - s.openingHeight / 2, leaf.pivotZ);
+    hinge.name = name;
+    hinge.position.fromArray(offset);
     hinge.castShadow = true;
     root.add(hinge);
   }

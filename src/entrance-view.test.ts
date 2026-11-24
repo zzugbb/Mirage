@@ -9,6 +9,9 @@ import {
   PerspectiveCamera,
   Ray,
   Raycaster,
+  Sprite,
+  type Object3D,
+  Vector2,
   Vector3,
 } from "three";
 import definition from "../assets/public/scenes/room-01.json" with { type: "json" };
@@ -29,6 +32,7 @@ import {
 } from "./entrance-view.ts";
 import { buildEntranceLighting } from "./scene/entrance-lighting.ts";
 import { buildEntrance } from "./scene/entrance.ts";
+import { buildRoomShell } from "./scene/room.ts";
 import { EntranceViewGeometry } from "./scene/entrance-view.ts";
 import { entranceCabinet } from "./entrance-cabinet.ts";
 import { planarRectangleGap, type Point } from "./planar-gap.ts";
@@ -131,6 +135,105 @@ test("把手标记与实际参数化门扇的室内侧把手轴重合，不使�
         material.dispose();
     }
   });
+});
+
+test("三处铰链的机房高度、洞口底边相对标高与中心距共用配置轴线", () => {
+  const overview = entranceInspection("hinges");
+  assert.equal(overview.view, "hinges");
+  assert.equal(overview.hinges.selected, null);
+  assert.ok(entranceViewIncludes(entranceFixture.id, "hinges"));
+  for (const id of [
+    entranceSettings.readerId,
+    entranceCabinet.id,
+    emergencyLight.id,
+  ])
+    assert.equal(entranceViewIncludes(id, "hinges"), false);
+  const root = new Group();
+  root.position.fromArray(entranceFixture.position);
+  const pivot = buildEntrance(root);
+  root.updateMatrixWorld(true);
+  for (const [
+    i,
+    { index, name, center, fromBottom },
+  ] of overview.hinges.joints.entries()) {
+    assert.equal(index, i);
+    assert.equal(center.x, entranceFixture.position[0] + pivot.position.x);
+    assert.equal(center.z, entranceFixture.position[2] + pivot.position.z);
+    assert.ok(Math.abs(center.y - entranceOpening.bottom - fromBottom) < 1e-10);
+    assert.ok(Math.abs(center.y - [0.3445, 1.2945, 2.2445][i]) < 1e-10);
+    const mesh = root.getObjectByName(name)!;
+    assert.ok(center.equals(mesh.getWorldPosition(new Vector3())));
+    const bounds = new Box3().setFromObject(mesh);
+    const size = bounds.getSize(new Vector3());
+    const inspection = entranceInspection("hinges", i);
+    assert.equal(inspection.view, "hinges");
+    assert.equal(inspection.hinges.selected, i);
+    assert.ok(Math.abs(size.y - inspection.hinges.length) < 1e-8);
+    assert.ok(Math.abs(size.x - inspection.hinges.diameter) < 1e-8);
+    assert.ok(
+      Math.abs(
+        inspection.paths[0][0].distanceTo(inspection.paths[0][1]) - size.y,
+      ) < 1e-8,
+    );
+  }
+  assert.equal(overview.hinges.spacing.length, 2);
+  for (const span of overview.hinges.spacing)
+    assert.ok(Math.abs(span - 0.95) < 1e-10);
+  assert.equal(pivot.rotation.y, entranceSettings.displayAngle);
+});
+
+test("两档总览与三处铰链近景的标签经过真实门洞，拾取铰链、固定门框与门扇", () => {
+  const room = new Group();
+  const box = (parent: Object3D, size: number[], position: number[]) => {
+    const mesh = new Mesh(new BoxGeometry(...size));
+    mesh.position.fromArray(position);
+    parent.add(mesh);
+    return mesh;
+  };
+  const { fixtures } = buildRoomShell(room, box, box, () => new Sprite());
+  room.updateMatrixWorld(true);
+  const door = fixtures.get(entranceFixture.id)!;
+  for (const [width, height] of [
+    [852, 836],
+    [744, 704],
+    [644, 704],
+  ]) {
+    const rect = {
+      left: 264,
+      right: width - 40,
+      top: 100,
+      bottom: height - 48,
+    };
+    const camera = new PerspectiveCamera(40, width / height, 0.01, 100);
+    for (const sample of [undefined, 0, 1, 2]) {
+      const inspection = entranceInspection("hinges", sample);
+      const fit = entranceViewFrame(inspection, width, height, rect);
+      camera.position.copy(fit.position);
+      camera.lookAt(fit.target);
+      camera.updateMatrixWorld(true);
+      for (const [i, marker] of inspection.markers.entries()) {
+        const point = marker.point.clone().project(camera);
+        const x = ((point.x + 1) * width) / 2;
+        const y = ((1 - point.y) * height) / 2;
+        const label = `${width}/${sample}: ${marker.id}`;
+        assert.ok(
+          x > rect.left && x < rect.right && y > rect.top && y < rect.bottom,
+          label,
+        );
+        const ray = new Raycaster();
+        ray.setFromCamera(new Vector2(point.x, point.y), camera);
+        const hit = ray.intersectObject(room, true)[0];
+        const expected =
+          sample === undefined
+            ? marker.id
+            : [`entrance-hinge-${sample}`, "entrance-jamb--1", "entrance-leaf"][
+                i
+              ];
+        assert.ok(hit, label);
+        assert.equal(hit.object, door.getObjectByName(expected), label);
+      }
+    }
+  }
 });
 
 test("入口门两种姿态从门板自由边厚度中点量至配电柜配置投影", () => {

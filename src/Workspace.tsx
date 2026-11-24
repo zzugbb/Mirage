@@ -9418,7 +9418,9 @@ export function Workspace() {
                     onLocate={focus}
                     ready={ready}
                     onView={showEntranceView}
-                    onSample={(index) => requestEntranceView("sweep", index)}
+                    onSample={(index) =>
+                      requestEntranceView(entranceView.view, index)
+                    }
                     onHistory={(id) => {
                       focus(id);
                       analyze();

@@ -96,7 +96,7 @@ export function EntranceInspectionDetails({
   ready: boolean;
   onHistory: (id: string) => void;
   onView: (view: EntranceView) => void;
-  onSample: (index: number) => void;
+  onSample: (index?: number) => void;
 }) {
   if (inspection.view === "sweep")
     return (
@@ -109,6 +109,85 @@ export function EntranceInspectionDetails({
         onHistory={onHistory}
       />
     );
+  if (inspection.view === "hinges") {
+    const { joints, selected, spacing, diameter, length } = inspection.hinges;
+    const joint = selected === null ? null : joints[selected];
+    return (
+      <section className="entrance-view-details" aria-label="入口布置核对">
+        <strong>门轴与铰链 · 配置</strong>
+        <label className="entrance-hinge-position">
+          铰链位置
+          <select
+            value={selected ?? "all"}
+            disabled={!ready}
+            onChange={(event) =>
+              onSample(
+                event.target.value === "all"
+                  ? undefined
+                  : Number(event.target.value),
+              )
+            }
+          >
+            <option value="all">三处铰链总览</option>
+            {joints.map(({ index, label }) => (
+              <option key={index} value={index}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <dl>
+          {joint ? (
+            <>
+              <div>
+                <dt>中心标高</dt>
+                <dd>{joint.center.y.toFixed(4)} m</dd>
+              </div>
+              <div>
+                <dt>距洞口底边</dt>
+                <dd>{joint.fromBottom.toFixed(3)} m</dd>
+              </div>
+            </>
+          ) : (
+            <>
+              {joints.map(({ index, label, fromBottom }) => (
+                <div key={index}>
+                  <dt>{label}距洞口底边</dt>
+                  <dd>{fromBottom.toFixed(3)} m</dd>
+                </div>
+              ))}
+              <div>
+                <dt>相邻中心距 · 自下而上</dt>
+                <dd>
+                  {spacing.map((distance) => distance.toFixed(3)).join(" / ")} m
+                </dd>
+              </div>
+            </>
+          )}
+          <div>
+            <dt>轴体直径 × 长</dt>
+            <dd>
+              Ø{Math.round(diameter * 1000)} × {Math.round(length * 1000)} mm
+            </dd>
+          </div>
+        </dl>
+        <small>
+          铰链中心与门扇共用配置转轴。门框、铰链及当前门扇姿态为原创静态布置示意。
+        </small>
+        <div className="entrance-view-peer">
+          <button
+            disabled={!ready}
+            onClick={() => {
+              onPreview(entranceSettings.readerId);
+              onView("jamb");
+            }}
+          >
+            核对读卡器与洞口侧缘 ↗
+          </button>
+        </div>
+      </section>
+    );
+  }
   if (inspection.view === "heads")
     return (
       <section className="entrance-view-details" aria-label="应急灯头朝向">
@@ -247,6 +326,13 @@ export function EntranceInspectionDetails({
         <div className="entrance-view-peer">
           <button disabled={!ready} onClick={() => onView("heads")}>
             核对双灯头朝向 ↗
+          </button>
+        </div>
+      )}
+      {(view === "all" || view === "opening" || inspection.jamb) && (
+        <div className="entrance-view-peer">
+          <button disabled={!ready} onClick={() => onView("hinges")}>
+            核对门轴与铰链 ↗
           </button>
         </div>
       )}

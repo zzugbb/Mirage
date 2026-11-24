@@ -1628,13 +1628,16 @@ export function ReviewScene({
     engine.current?.frameEntrance();
   }, [entranceView?.view]);
   useEffect(() => {
+    const active = engine.current;
+    // 切换门区对象和观察范围时，以已执行命令的新范围校验对象。
+    const view = active?.currentEntranceView;
     if (
-      entranceView &&
+      view &&
       (layer !== "overview" ||
         state.level !== "room" ||
-        !entranceViewIncludes(selectedId, entranceView.view))
+        !entranceViewIncludes(selectedId, view))
     )
-      engine.current?.clearEntranceView();
+      active.clearEntranceView();
   }, [entranceView, layer, state.level, selectedId]);
   useEffect(() => {
     if (!(entranceView || leakView) || !fixtureRangeFocus.current) return;
@@ -2049,6 +2052,7 @@ export function ReviewScene({
     environmentMarkers.map((marker) => marker.id).join(":") +
     (maintenanceView?.view ?? "") +
     (entranceView?.view ?? "") +
+    (entranceView?.markers.map((marker) => marker.id).join(":") ?? "") +
     (leakView?.view ?? "") +
     (crossing?.id ?? "") +
     (crossing?.markers.map((marker) => marker.id).join(":") ?? "") +
@@ -2359,6 +2363,7 @@ export function ReviewScene({
               data-anchor={marker.id}
               data-hotspot={
                 entranceView.jamb ||
+                entranceView.view === "hinges" ||
                 entranceView.view === "heads" ||
                 entranceView.view === "cabinet" ||
                 entranceView.view === "sweep"
