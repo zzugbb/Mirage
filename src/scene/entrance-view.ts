@@ -24,21 +24,23 @@ export class EntranceViewGeometry {
     for (const path of inspection.paths)
       for (let i = 1; i < path.length; i++) points.push(path[i - 1], path[i]);
     const radius = inspection.jamb || "measure" in inspection ? 0.018 : 0.055;
+    const up = new THREE.Vector3(0, 1, 0);
     for (const marker of inspection.markers) {
       const center = marker.point;
       for (let i = 0; i < 24; i++)
-        for (const a of [i, i + 1])
-          points.push(
-            center
-              .clone()
-              .add(
-                new THREE.Vector3(
-                  Math.cos((a * Math.PI) / 12) * radius,
-                  Math.sin((a * Math.PI) / 12) * radius,
-                  0,
-                ),
-              ),
+        for (const a of [i, i + 1]) {
+          const offset = new THREE.Vector3(
+            Math.cos((a * Math.PI) / 12) * radius,
+            Math.sin((a * Math.PI) / 12) * radius,
+            0,
           );
+          if (inspection.view === "sweep") {
+            if (marker.id === "entrance-sweep-door")
+              offset.applyAxisAngle(up, inspection.sweep.pose.angle);
+            else offset.set(offset.x, 0, offset.y);
+          }
+          points.push(center.clone().add(offset));
+        }
     }
     // 观察段顶点数量不同，替换缓冲前释放旧 GPU 数据，避免残留上段线条。
     this.geometry.dispose();

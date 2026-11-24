@@ -2,11 +2,13 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   Box3,
+  BoxGeometry,
   Group,
   LineSegments,
   Mesh,
   PerspectiveCamera,
   Ray,
+  Raycaster,
   Vector3,
 } from "three";
 import definition from "../assets/public/scenes/room-01.json" with { type: "json" };
@@ -28,6 +30,8 @@ import {
 import { buildEntranceLighting } from "./scene/entrance-lighting.ts";
 import { buildEntrance } from "./scene/entrance.ts";
 import { EntranceViewGeometry } from "./scene/entrance-view.ts";
+import { entranceCabinet } from "./entrance-cabinet.ts";
+import { planarRectangleGap, type Point } from "./planar-gap.ts";
 
 test("入口核对沿用门区已登记设施，洞口与高度来自既有配置且不修改静态门扇", () => {
   const before = JSON.stringify(definition.room);
@@ -164,6 +168,134 @@ test("入口门两种姿态从门板自由边厚度中点量至配电柜配置�
   assert.equal(placement.footprint.length, 4);
 });
 
+test("门板与柜体实心矩形间距覆盖相离、接触、交叉和包含", () => {
+  const box = (
+    x: number,
+    z: number,
+    w: number,
+    d: number,
+  ): [Point, Point, Point, Point] => [
+    { x, z },
+    { x: x + w, z },
+    { x: x + w, z: z + d },
+    { x, z: z + d },
+  ];
+  const door = box(0, 0, 4, 1);
+  for (const [cabinet, expected] of [
+    [box(5, 0, 1, 1), 1],
+    [box(5, 2, 1, 1), Math.SQRT2],
+    [box(4, 0.2, 2, 0.6), 0],
+    [box(3, -1, 2, 4), 0],
+    [box(2, 0.2, 1, 0.4), 0],
+  ] as const) {
+    const first = planarRectangleGap(door, cabinet);
+    const second = planarRectangleGap(cabinet, door);
+    assert.equal(first.distance, expected);
+    assert.equal(second.distance, expected);
+    assert.equal(
+      Math.hypot(first.from.x - first.to.x, first.from.z - first.to.z),
+      expected,
+    );
+  }
+});
+
+function sweepAt(sample?: number) {
+  const inspection = entranceInspection("sweep", sample);
+  assert.equal(inspection.view, "sweep");
+  return inspection;
+}
+
+test("入口整扇门板42个参考姿态与实物角点一致，整段取景固定", () => {
+  const door = new Group();
+  door.position.fromArray(entranceFixture.position);
+  const pivot = buildEntrance(door);
+  const panel = door.getObjectByName("entrance-leaf")!;
+  const { sweep, points } = sweepAt();
+  assert.equal(sweep.count, 42);
+  assert.equal(sweep.index, 26);
+  assert.equal(sweep.pose.distance.toFixed(3), "0.611");
+  assert.equal(sweep.minimum.deg.toFixed(2), "25.43");
+  assert.equal(sweep.closed.distance.toFixed(3), "0.838");
+  assert.equal(sweep.displayed.distance.toFixed(3), "0.722");
+  assert.equal(sweepAt(-10).sweep.index, 0);
+  assert.equal(sweepAt(1000).sweep.index, sweep.count - 1);
+  assert.equal(sweepAt(NaN).sweep.index, sweep.minimum.index);
+  assert.ok(entranceViewIncludes(entranceCabinet.id, "sweep"));
+  assert.ok(entranceViewIncludes(entranceFixture.id, "sweep"));
+  assert.ok(!entranceViewIncludes(entranceSettings.readerId, "sweep"));
+  const localCorners = [
+    [-1, 1],
+    [1, 1],
+    [1, -1],
+    [-1, -1],
+  ];
+  for (let index = 0; index < sweep.count; index++) {
+    const view = sweepAt(index);
+    const { pose } = view.sweep;
+    assert.equal(pose.index, index);
+    assert.ok(pose.deg <= index && pose.distance >= sweep.minimum.distance);
+    assert.deepEqual(view.points, points);
+    assert.ok(
+      Math.abs(pose.doorPoint.distanceTo(pose.cabinetPoint) - pose.distance) <
+        1e-10,
+    );
+    assert.equal(sweep.arc[index].x, pose.leaf[2].x);
+    assert.equal(sweep.arc[index].z, pose.leaf[2].z);
+    pivot.rotation.y = pose.angle;
+    door.updateMatrixWorld(true);
+    for (const [i, [x, z]] of localCorners.entries()) {
+      const actual = panel.localToWorld(
+        new Vector3(
+          (x * entranceLeaf.width) / 2,
+          0,
+          (z * entranceSettings.leafThickness) / 2,
+        ),
+      );
+      assert.ok(actual.setY(pose.leaf[i].y).distanceTo(pose.leaf[i]) < 1e-10);
+    }
+  }
+});
+
+test("入口扫掠首末和最小姿态的标记分别命中门板和配电柜实体", () => {
+  const door = new Group();
+  door.position.fromArray(entranceFixture.position);
+  const pivot = buildEntrance(door);
+  const cabinet = new Mesh(new BoxGeometry(...entranceCabinet.size));
+  cabinet.name = "配电柜";
+  cabinet.position.fromArray(entranceCabinet.position);
+  cabinet.updateMatrixWorld(true);
+  const faces = [door, cabinet];
+  for (const sample of [0, 26, 41]) {
+    const view = sweepAt(sample);
+    pivot.rotation.y = view.sweep.pose.angle;
+    door.updateMatrixWorld(true);
+    for (const [width, height] of [
+      [852, 836],
+      [744, 704],
+    ]) {
+      const frame = {
+        left: Math.min(width * 0.48, 250),
+        right: width - 40,
+        top: 100,
+        bottom: height - 48,
+      };
+      const fit = entranceViewFrame(view, width, height, frame);
+      const hits = view.markers.map(
+        ({ point }) =>
+          new Raycaster(
+            fit.position,
+            point.clone().sub(fit.position).normalize(),
+          ).intersectObjects(faces)[0]?.object.name,
+      );
+      assert.deepEqual(
+        hits,
+        ["entrance-leaf", "配电柜"],
+        `姿态${sample}，宽度${width}`,
+      );
+    }
+  }
+});
+
 test("入口各段取景适配桌面侧栏和分析画幅，已登记机柜及设施不遮住核对位置", () => {
   const blockers = [
     ...definition.installation.racks.map((r) =>
@@ -237,6 +369,7 @@ test("入口轮廓与端点切换不残留，保留深度遮挡并独立释放",
     "jamb",
     "access",
     "opening",
+    "sweep",
     "jamb",
     "all",
   ] as const) {

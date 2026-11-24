@@ -1558,20 +1558,39 @@ export class SceneEngine {
     pair: EntranceInspection;
     previous: ObservationMemory;
   };
+  private applyEntrancePose() {
+    const pair = this.entranceObservation?.pair;
+    const door = this.models.fixtures
+      .get(entranceSettings.fixtureId)!
+      .getObjectByName("entrance-leaf-pivot")!;
+    door.rotation.y =
+      pair?.view === "sweep"
+        ? pair.sweep.pose.angle
+        : entranceSettings.displayAngle;
+  }
   clearEntranceView() {
     if (!this.entranceObservation) return;
     this.entranceObservation = undefined;
+    this.applyEntrancePose();
     this.moving = false;
     this.onEntranceView(null);
     this.invalidate();
   }
-  observeEntrance(view: EntranceView) {
+  observeEntrance(view: EntranceView, sample?: number) {
     if (
       this.state.level !== "room" ||
       (this.moving && !this.entranceObservation)
     )
       return;
-    const pair = entranceInspection(view);
+    const pair = entranceInspection(view, sample);
+    const active = this.entranceObservation;
+    if (active?.pair.view === "sweep" && pair.view === "sweep") {
+      this.entranceObservation = { pair, previous: active.previous };
+      this.applyEntrancePose();
+      this.onEntranceView(pair);
+      this.invalidate();
+      return;
+    }
     this.clearEnvironmentView();
     this.clearInletView();
     this.clearLeakView();
@@ -1586,6 +1605,7 @@ export class SceneEngine {
     this.clearAirflowView();
     this.panelViewport = undefined;
     this.entranceObservation = { pair, previous };
+    this.applyEntrancePose();
     this.currentView = "iso";
     this.currentFocus = false;
     this.interior = false;
@@ -1969,6 +1989,7 @@ export class SceneEngine {
     this.partInspection = saved.partInspection;
     this.view(saved.camera.view, saved.camera.focus);
     Object.assign(this, saved.observations);
+    this.applyEntrancePose();
     const crossing = this.crossingObservation?.pair;
     this.models.grilles.setRemovedFace(
       crossing?.kind === "grille-seat" && crossing.removed

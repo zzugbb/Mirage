@@ -1608,9 +1608,13 @@ export function ReviewScene({
       active.restoreEntranceView();
     } else if (layer === "overview") {
       fixtureReturnEntry.current = null;
-      fixtureRangeFocus.current = true;
+      if (entranceViewCommand.sample === undefined)
+        fixtureRangeFocus.current = true;
       setOrbit(false);
-      active.observeEntrance(entranceViewCommand.view);
+      active.observeEntrance(
+        entranceViewCommand.view,
+        entranceViewCommand.sample,
+      );
     }
     setView(active.currentView);
   }, [entranceViewCommand?.revision]);
@@ -2348,7 +2352,9 @@ export function ReviewScene({
               aria-hidden="true"
               data-anchor={marker.id}
               data-hotspot={
-                entranceView.jamb || entranceView.view === "cabinet"
+                entranceView.jamb ||
+                entranceView.view === "cabinet" ||
+                entranceView.view === "sweep"
                   ? "center"
                   : undefined
               }

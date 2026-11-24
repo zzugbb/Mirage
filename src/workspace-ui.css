@@ -5074,6 +5074,27 @@
   background: var(--panel-deep, #111f2b);
   border-radius: 4px;
 }
+.entrance-sweep-angle {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 5px;
+  color: #a5bac3;
+  font-size: 12px;
+}
+.entrance-sweep-angle input {
+  grid-column: 1 / -1;
+  width: 100%;
+  margin: 0;
+  accent-color: #8dd2cb;
+}
+.entrance-sweep-actions {
+  flex-wrap: wrap;
+}
+.entrance-sweep-actions button[aria-pressed="true"] {
+  background: var(--raised);
+  border-color: #82bdb8;
+}
 
 .entrance-view-peer,
 .leak-view-preview,

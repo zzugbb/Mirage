@@ -1,5 +1,6 @@
 import {
   entranceCabinetPlacement,
+  entranceCabinetSweep,
   entranceCabinet,
 } from "./entrance-cabinet.ts";
 import { Vector3 } from "three";
@@ -17,6 +18,7 @@ import { observationFrame, type FrameRect } from "./observation-frame.ts";
 export const entranceViews = [
   { id: "all", label: "入口全貌" },
   { id: "cabinet", label: "门扇与配电柜" },
+  { id: "sweep", label: "门扇扫掠与配电柜" },
   { id: "opening", label: "洞口尺寸" },
   { id: "access", label: "读卡器与把手" },
   { id: "lintel", label: "出口标志与门楣" },
@@ -27,10 +29,13 @@ export type EntranceView = (typeof entranceViews)[number]["id"];
 export type EntranceViewCommand = {
   revision: number;
   view: EntranceView | null;
+  sample?: number;
 };
 export const entranceViewIncludes = (id: string, view?: EntranceView) =>
-  (view === "cabinet" && id === entranceCabinet.id) ||
-  [s.fixtureId, s.readerId, exitSign.id, emergencyLight.id].includes(id);
+  view === "sweep"
+    ? id === s.fixtureId || id === entranceCabinet.id
+    : (view === "cabinet" && id === entranceCabinet.id) ||
+      [s.fixtureId, s.readerId, exitSign.id, emergencyLight.id].includes(id);
 
 /** 把手轴沿用门扇局部坐标与静态展示角；高度为机房坐标，不是从洞口底部重算的安装规范。 */
 export function entranceHandlePoint() {
@@ -43,7 +48,7 @@ export function entranceHandlePoint() {
     .add(new Vector3(entranceLeaf.pivotX, 0, entranceLeaf.pivotZ))
     .add(new Vector3().fromArray(entranceFixture.position));
 }
-export function entranceInspection(view: EntranceView) {
+export function entranceInspection(view: EntranceView, sample?: number) {
   const opening = entranceOpening;
   const z = entranceFixture.position[2] + s.frameDepth / 2 + 0.025;
   const corner = (x: number, y: number) => new Vector3(x, y, z);
@@ -67,6 +72,9 @@ export function entranceInspection(view: EntranceView) {
       points,
       ...heights,
     };
+  }
+  if (view === "sweep") {
+    return { view, jamb: null, ...entranceCabinetSweep(sample), ...heights };
   }
   if (view === "lintel" || view === "lights") {
     const sign = new Vector3().fromArray(exitSign.position);
@@ -259,6 +267,7 @@ export function entranceInspection(view: EntranceView) {
   };
 }
 export type EntranceInspection = ReturnType<typeof entranceInspection>;
+export type SweepInspection = Extract<EntranceInspection, { view: "sweep" }>;
 export function entranceViewFrame(
   inspection: EntranceInspection,
   width: number,
@@ -267,7 +276,7 @@ export function entranceViewFrame(
 ) {
   return observationFrame(
     inspection.points,
-    inspection.view === "cabinet"
+    inspection.view === "cabinet" || inspection.view === "sweep"
       ? new Vector3(0.03, 1, 0.22)
       : inspection.jamb || "measure" in inspection
         ? new Vector3(0, 0.05, 1)
@@ -275,11 +284,13 @@ export function entranceViewFrame(
     width,
     height,
     rect,
-    inspection.jamb || "measure" in inspection
-      ? 1.6
-      : inspection.view === "access"
-        ? 2.4
-        : 4.2,
+    inspection.view === "sweep"
+      ? 3.6
+      : inspection.jamb || "measure" in inspection
+        ? 1.6
+        : inspection.view === "access"
+          ? 2.4
+          : 4.2,
     0.15,
   );
 }

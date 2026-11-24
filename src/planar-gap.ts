@@ -39,3 +39,26 @@ export function planarSegmentGap(
     pair.distance < best.distance ? pair : best,
   );
 }
+
+type Rectangle = [Point, Point, Point, Point];
+
+/** 两个实心矩形的平面间距；边缘相交、接触或一方包含另一方时为零。 */
+export function planarRectangleGap(first: Rectangle, second: Rectangle) {
+  const edges = (rectangle: Rectangle): [Point, Point][] =>
+    rectangle.map((point, i) => [point, rectangle[(i + 1) % 4]]);
+  const inside = (point: Point, sidesOfRectangle: [Point, Point][]) => {
+    const sides = sidesOfRectangle.map(([a, b]) =>
+      cross(difference(b, a), difference(point, a)),
+    );
+    return sides.every((side) => side >= 0) || sides.every((side) => side <= 0);
+  };
+  const firstEdges = edges(first);
+  const secondEdges = edges(second);
+  if (inside(first[0], secondEdges))
+    return { from: first[0], to: first[0], distance: 0 };
+  if (inside(second[0], firstEdges))
+    return { from: second[0], to: second[0], distance: 0 };
+  return firstEdges
+    .flatMap((a) => secondEdges.map((b) => planarSegmentGap(a, b)))
+    .reduce((best, pair) => (pair.distance < best.distance ? pair : best));
+}

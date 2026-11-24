@@ -1135,10 +1135,11 @@ export function Workspace() {
   );
   const [entranceViewCommand, setEntranceViewCommand] =
     useState<EntranceViewCommand | null>(null);
-  const requestEntranceView = (view: EntranceView | null) => {
+  const requestEntranceView = (view: EntranceView | null, sample?: number) => {
     takeover();
     setEntranceViewCommand((current) => ({
       view,
+      sample,
       revision: (current?.revision ?? 0) + 1,
     }));
   };
@@ -6940,11 +6941,7 @@ export function Workspace() {
             entranceViewCommand={entranceViewCommand}
             onEntranceViewChange={setEntranceView}
             onEntranceView={(view) => {
-              if (
-                view &&
-                view !== "cabinet" &&
-                selected === powerSettings.sourceId
-              )
+              if (view && !entranceViewIncludes(selected, view))
                 pick(entranceFixture.id);
               requestEntranceView(view);
             }}
@@ -9245,6 +9242,8 @@ export function Workspace() {
                     onPreview={pick}
                     onLocate={focus}
                     ready={ready}
+                    onShowSweep={() => requestEntranceView("sweep")}
+                    onSample={(index) => requestEntranceView("sweep", index)}
                     onHistory={(id) => {
                       focus(id);
                       analyze();

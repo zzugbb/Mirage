@@ -7,6 +7,7 @@ import {
 } from "../entrance";
 
 import type { EntranceInspection } from "../entrance-view";
+import { EntranceSweepDetails } from "./EntranceSweepDetails";
 
 type CabinetPlacement = Extract<
   EntranceInspection,
@@ -85,6 +86,8 @@ export function EntranceInspectionDetails({
   onLocate,
   ready,
   onHistory,
+  onShowSweep,
+  onSample,
 }: {
   inspection: EntranceInspection;
   selectedId: string;
@@ -92,7 +95,20 @@ export function EntranceInspectionDetails({
   onLocate: (id: string) => void;
   ready: boolean;
   onHistory: (id: string) => void;
+  onShowSweep: () => void;
+  onSample: (index: number) => void;
 }) {
+  if (inspection.view === "sweep")
+    return (
+      <EntranceSweepDetails
+        sweep={inspection.sweep}
+        selectedId={selectedId}
+        ready={ready}
+        onSample={onSample}
+        onPreview={onPreview}
+        onHistory={onHistory}
+      />
+    );
   const { view } = inspection;
   const peers = view === "cabinet" ? [] : entranceRelations(selectedId);
   return (
@@ -203,6 +219,11 @@ export function EntranceInspectionDetails({
           <small>
             从门板自由边的厚度中点量至柜体配置矩形。实线标出展示位及平面间距，虚线标出合拢参考位。现场通行净距待实测。
           </small>
+          <div className="entrance-view-peer">
+            <button disabled={!ready} onClick={onShowSweep}>
+              核对完整门扇扫掠 ↗
+            </button>
+          </div>
           <div className="entrance-view-peer">
             {selectedId !== entranceFixture.id && (
               <button
