@@ -3292,7 +3292,7 @@ export function Workspace() {
     [selectObject],
   );
   const showEntranceView = (view: EntranceView | null) => {
-    if (view === "heads") {
+    if (view === "heads" || view === "head-boundary") {
       if (selected !== emergencyLight.id) pick(emergencyLight.id);
     } else if (view && !entranceViewIncludes(selected, view)) {
       pick(entranceFixture.id);

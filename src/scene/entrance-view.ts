@@ -30,7 +30,9 @@ export class EntranceViewGeometry {
       inspection.view === "section" ||
       inspection.view === "hinges"
         ? 0.018
-        : 0.055;
+        : inspection.view === "head-boundary"
+          ? 0.12
+          : 0.055;
     const up = new THREE.Vector3(0, 1, 0);
     const forward = new THREE.Vector3(0, 0, 1);
     for (const [index, marker] of inspection.markers.entries()) {
@@ -41,6 +43,10 @@ export class EntranceViewGeometry {
       )
         continue;
       const head = inspection.view === "heads" ? inspection.heads[index] : null;
+      const surface =
+        inspection.view === "head-boundary"
+          ? inspection.boundary[index]?.surface
+          : undefined;
       const normal = head
         ? new THREE.Quaternion().setFromUnitVectors(forward, head.direction)
         : null;
@@ -61,6 +67,10 @@ export class EntranceViewGeometry {
               offset.applyAxisAngle(up, inspection.sweep.pose.angle);
             else offset.set(offset.x, 0, offset.y);
           }
+          if (surface === "east" || surface === "west")
+            offset.set(0, offset.y, offset.x);
+          if (surface === "floor" || surface === "ceiling")
+            offset.set(offset.x, 0, offset.y);
           if (normal) offset.applyQuaternion(normal);
           points.push(center.clone().add(offset));
         }

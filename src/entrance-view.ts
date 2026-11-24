@@ -15,6 +15,7 @@ import {
 import { fixtureById } from "./fixtures.ts";
 import { observationFrame, type FrameRect } from "./observation-frame.ts";
 import { emergencyHeadInspection } from "./emergency-light.ts";
+import { emergencyHeadBoundaryInspection } from "./emergency-head-boundary.ts";
 import {
   entranceHingeFrame,
   entranceHingeInspection,
@@ -35,6 +36,7 @@ export const entranceViews = [
   { id: "lintel", label: "出口标志与门楣" },
   { id: "lights", label: "标志与应急灯" },
   { id: "heads", label: "应急灯头朝向" },
+  { id: "head-boundary", label: "灯头轴线与机房边界" },
   { id: "jamb", label: "读卡器与洞口侧缘" },
 ] as const;
 export type EntranceView = (typeof entranceViews)[number]["id"];
@@ -44,7 +46,7 @@ export type EntranceViewCommand = {
   sample?: number;
 };
 export const entranceViewIncludes = (id: string, view?: EntranceView) =>
-  view === "heads"
+  view === "heads" || view === "head-boundary"
     ? id === emergencyLight.id
     : view === "hinges" || view === "section"
       ? id === s.fixtureId
@@ -96,6 +98,14 @@ export function entranceInspection(view: EntranceView, sample?: number) {
   }
   if (view === "heads") {
     return { view, jamb: null, ...emergencyHeadInspection(), ...heights };
+  }
+  if (view === "head-boundary") {
+    return {
+      view,
+      jamb: null,
+      ...emergencyHeadBoundaryInspection(),
+      ...heights,
+    };
   }
   if (view === "hinges") {
     return { view, jamb: null, ...entranceHingeInspection(sample), ...heights };
@@ -321,6 +331,16 @@ export function entranceViewFrame(
       rect,
       0.78,
       0.052,
+    );
+  if (inspection.view === "head-boundary")
+    return observationFrame(
+      inspection.points,
+      new Vector3(1, 1.4, 0.65),
+      width,
+      height,
+      rect,
+      4.2,
+      0.35,
     );
   return observationFrame(
     inspection.points,

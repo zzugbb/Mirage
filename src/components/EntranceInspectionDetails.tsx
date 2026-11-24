@@ -80,6 +80,30 @@ function CabinetPlan({ placement }: { placement: CabinetPlacement }) {
   );
 }
 
+function EntranceHistory({
+  ready,
+  onHistory,
+}: {
+  ready: boolean;
+  onHistory: (id: string) => void;
+}) {
+  return (
+    <details className="entrance-history">
+      <summary>回看同机房环境探头</summary>
+      <small>曲线来自各探头安装位置的模拟采样。</small>
+      {environmentProbes.map(({ fixture }) => (
+        <button
+          key={fixture.id}
+          disabled={!ready}
+          onClick={() => onHistory(fixture.id)}
+        >
+          {fixture.name} · {fixture.location} ↗
+        </button>
+      ))}
+    </details>
+  );
+}
+
 export function EntranceInspectionDetails({
   inspection,
   selectedId,
@@ -226,10 +250,47 @@ export function EntranceInspectionDetails({
           为正。方向线沿灯面法线绘制。灯头为原创布置示意，照度与自检未接入。
         </small>
         <div className="entrance-view-peer">
+          <button disabled={!ready} onClick={() => onView("head-boundary")}>
+            核对双灯头轴线与机房边界 ↗
+          </button>
+        </div>
+        <div className="entrance-view-peer">
           <button disabled={!ready} onClick={() => onView("lights")}>
             返回标志与应急灯
           </button>
         </div>
+      </section>
+    );
+  if (inspection.view === "head-boundary")
+    return (
+      <section
+        className="entrance-view-details"
+        aria-label="应急灯头轴线与机房边界"
+      >
+        <strong>灯头轴线与机房边界 · 配置</strong>
+        <dl>
+          {inspection.boundary.map(({ side, label, point, distance }) => (
+            <div key={side}>
+              <dt>
+                {side < 0 ? "左" : "右"}灯头 · {label}
+              </dt>
+              <dd>
+                {distance.toFixed(3)} m
+                <br />
+                <small>标高 {point.y.toFixed(3)} m</small>
+              </dd>
+            </div>
+          ))}
+        </dl>
+        <small>
+          沿两块灯面法线量至各自先到的机房外廓，虚线引至地坪边缘。轴线和边界为原创布置示意，照度与应急自检未接入。
+        </small>
+        <div className="entrance-view-peer">
+          <button disabled={!ready} onClick={() => onView("heads")}>
+            返回双灯头朝向
+          </button>
+        </div>
+        <EntranceHistory ready={ready} onHistory={onHistory} />
       </section>
     );
   const { view } = inspection;
@@ -413,19 +474,7 @@ export function EntranceInspectionDetails({
         </div>
       ))}
       {(inspection.jamb || "measure" in inspection) && (
-        <details className="entrance-history">
-          <summary>回看同机房环境探头</summary>
-          <small>曲线来自各探头安装位置的模拟采样。</small>
-          {environmentProbes.map(({ fixture }) => (
-            <button
-              key={fixture.id}
-              disabled={!ready}
-              onClick={() => onHistory(fixture.id)}
-            >
-              {fixture.name} · {fixture.location} ↗
-            </button>
-          ))}
-        </details>
+        <EntranceHistory ready={ready} onHistory={onHistory} />
       )}
       <details>
         <summary>配置说明</summary>

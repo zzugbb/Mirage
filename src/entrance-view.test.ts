@@ -474,6 +474,7 @@ test("入口轮廓与端点切换不残留，保留深度遮挡并独立释放",
     "opening",
     "sweep",
     "heads",
+    "head-boundary",
     "jamb",
     "all",
   ] as const) {

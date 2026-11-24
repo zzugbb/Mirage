@@ -2397,6 +2397,7 @@ export function ReviewScene({
                 entranceView.view === "hinges" ||
                 entranceView.view === "section" ||
                 entranceView.view === "heads" ||
+                entranceView.view === "head-boundary" ||
                 entranceView.view === "cabinet" ||
                 entranceView.view === "sweep"
                   ? "center"
