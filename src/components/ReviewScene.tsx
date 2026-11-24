@@ -575,6 +575,7 @@ export function ReviewScene({
         (crossing?.kind === "tray-bay" ||
           crossing?.kind === "tray-support" ||
           crossing?.kind === "roof-entry" ||
+          crossing?.kind === "rear-wall" ||
           crossing?.kind === "lighting-round" ||
           crossing?.kind === "light-rod" ||
           crossing?.kind === "light-tray")));
@@ -2387,6 +2388,7 @@ export function ReviewScene({
                 crossing.kind === "tray-support" ||
                 crossing.kind === "light-rod" ||
                 crossing.kind === "lighting-round" ||
+                crossing.kind === "rear-wall" ||
                 crossing.kind === "roof-entry"
                   ? "center"
                   : undefined
@@ -2826,6 +2828,8 @@ export function ReviewScene({
                   `端部伸出 ${(crossing.horizontal * 1000).toFixed(1)} mm`
                 ) : crossing.kind === "roof-entry" ? (
                   `Z 向投影间距 ${(crossing.horizontal * 1000).toFixed(1)} mm`
+                ) : crossing.kind === "rear-wall" ? (
+                  `立面投影间距 ${crossing.distance.toFixed(3)} m`
                 ) : (
                   <>
                     {crossing.kind === "smoke-tray" ||
@@ -2841,7 +2845,10 @@ export function ReviewScene({
                 · 配置
               </span>
               <button disabled={!sceneSettled} onClick={onReturnCrossing}>
-                ← 返回核对前视角
+                ←{" "}
+                {crossing.kind === "rear-wall"
+                  ? "返回后墙立面"
+                  : "返回核对前视角"}
               </button>
             </div>
           )}

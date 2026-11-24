@@ -57,12 +57,14 @@ export function RearWallElevation({
   ready,
   onPreview,
   onInspect,
+  onCompare,
 }: {
   selected: string;
   query: string;
   ready: boolean;
   onPreview: (id: string) => void;
   onInspect: (origin: string, target: string) => void;
+  onCompare: (origin: string) => void;
 }) {
   const matches = rearWallItems.filter((f) => roomLayoutMatches(f, query));
   const current = matches.find((f) => f.id === selected);
@@ -181,12 +183,17 @@ export function RearWallElevation({
                   {near.peer.name}」，两处外缘在立面相距{" "}
                   {near.distance.toFixed(3)} m。
                 </p>
-                <button
-                  disabled={!ready}
-                  onClick={() => onInspect(current.id, near.peer.id)}
-                >
-                  定位{near.peer.name} ↗
-                </button>
+                <div className="wall-neighbor-actions">
+                  <button disabled={!ready} onClick={() => onCompare(f.id)}>
+                    三维核对相邻布置 ↗
+                  </button>
+                  <button
+                    disabled={!ready}
+                    onClick={() => onInspect(f.id, near.peer.id)}
+                  >
+                    定位{near.peer.name} ↗
+                  </button>
+                </div>
               </section>
             )}
           </div>

@@ -39,6 +39,7 @@ export function RoomLayout({
   onInspectCrossing,
   onInspectBranch,
   onInspectWall,
+  onCompareWall,
   onScope,
   onQuery,
   ready,
@@ -61,6 +62,7 @@ export function RoomLayout({
   crossingId: string | null;
   onPreviewCrossing: (id: string) => void;
   onInspectWall: (origin: string, target: string) => void;
+  onCompareWall: (origin: string) => void;
   onInspectBranch: (branch: GrilleBranch) => void;
   onInspectCrossing: (id: string) => void;
   onScope: (scope: RoomLayoutScope) => void;
@@ -334,6 +336,7 @@ export function RoomLayout({
           ready={ready}
           onPreview={onPreview}
           onInspect={onInspectWall}
+          onCompare={onCompareWall}
         />
       );
     return (

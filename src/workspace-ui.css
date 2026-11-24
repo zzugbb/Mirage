@@ -7568,6 +7568,15 @@
 .wall-neighbor p {
   margin: 3px 0 6px;
 }
+.wall-neighbor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.rear-wall-ends button[aria-pressed="true"] {
+  background: var(--raised);
+  border-color: #82bdb8;
+}
 .rear-wall .wall-inset {
   background: #0e1f2a;
   border-radius: 3px;

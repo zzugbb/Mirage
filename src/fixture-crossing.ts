@@ -17,6 +17,7 @@ import {
   trayOuterWidth,
 } from "./cable-trays.ts";
 import { observationFrame, type FrameRect } from "./observation-frame.ts";
+import type { RearWallCrossing } from "./rear-wall.ts";
 
 /** 水平投影交叉处的配置表面高差，不代表构件最小净距或安全结论。 */
 export function fixtureCrossing(first: string, second: string) {
@@ -511,6 +512,7 @@ export type RackRoofView =
     });
 export type FixtureCrossing =
   | GrilleSeat
+  | RearWallCrossing
   | NonNullable<ReturnType<typeof lightRodInspection>>
   | RackRoofView
   | SmokeLightInspection

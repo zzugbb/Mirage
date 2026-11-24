@@ -24,6 +24,27 @@ export class CrossingGeometry {
     const points: THREE.Vector3[] = [];
     if (pair.kind === "grille-seat") {
       pair.outline.forEach((p, i) => points.push(p, pair.outline[(i + 1) % 4]));
+    } else if (pair.kind === "rear-wall") {
+      for (const outline of pair.outlines)
+        outline.forEach((p, i) => points.push(p, outline[(i + 1) % 4]));
+      const [a, b] = pair.projected;
+      const tick = new THREE.Vector3(b.y - a.y, a.x - b.x, 0)
+        .normalize()
+        .multiplyScalar(0.022);
+      for (const [i, end] of pair.projected.entries())
+        points.push(
+          pair.ends[i],
+          end,
+          end.clone().sub(tick),
+          end.clone().add(tick),
+        );
+      // 虚线是同一立面上的投影量距。短引线指回构件表面。
+      const segments = Math.ceil(pair.distance / 0.075);
+      for (let i = 0; i < segments; i++)
+        points.push(
+          a.clone().lerp(b, (i + 0.18) / segments),
+          a.clone().lerp(b, (i + 0.82) / segments),
+        );
     } else if (pair.kind === "light-rod") {
       const offset = new THREE.Vector3(0, 0.14, pair.toward * 0.035);
       const a = top.clone().add(offset);

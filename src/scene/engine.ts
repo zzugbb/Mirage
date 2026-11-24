@@ -47,6 +47,7 @@ import {
   crossingViewFrame,
   type FixtureCrossing,
 } from "../fixture-crossing.ts";
+import { rearWallCrossingFrame } from "../rear-wall.ts";
 import { SceneLoop } from "../scene-loop.ts";
 import { AnchorProjection } from "../anchor-projection.ts";
 import { RenderDemand } from "../render-demand.ts";
@@ -1369,21 +1370,32 @@ export class SceneEngine {
   }
   frameCrossing() {
     if (!this.crossingObservation) return;
-    const { width, height, rect } = this.observationViewport();
+    const { width, height, rect, legendRect } = this.observationViewport();
     const { pair } = this.crossingObservation;
     const direction = crossingDirection(pair);
-    const fit =
-      pair.kind === "grille-seat" || pair.kind === "light-rod"
-        ? observationFrame(
-            pair.points,
-            direction,
-            width,
-            height,
-            rect,
-            pair.kind === "light-rod" ? 1.35 : 0.95,
-            0.12,
-          )
-        : crossingViewFrame(pair.points, width, height, rect, direction);
+    let fit;
+    if (pair.kind === "rear-wall") {
+      // 工具栏在下沿，横向尽量留给后墙的长量距。
+      rect.left = 36;
+      if (legendRect)
+        rect.bottom = Math.max(
+          rect.top + 120,
+          Math.min(rect.bottom, legendRect.top - 22),
+        );
+      fit = rearWallCrossingFrame(pair, width, height, rect);
+    } else if (pair.kind === "grille-seat" || pair.kind === "light-rod") {
+      fit = observationFrame(
+        pair.points,
+        direction,
+        width,
+        height,
+        rect,
+        pair.kind === "light-rod" ? 1.35 : 0.95,
+        0.12,
+      );
+    } else {
+      fit = crossingViewFrame(pair.points, width, height, rect, direction);
+    }
     this.targetPosition.copy(fit.position);
     this.targetLook.copy(fit.target);
     this.controls.maxDistance = Math.max(45, fit.distance * 1.2);

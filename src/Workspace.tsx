@@ -214,6 +214,8 @@ import type { EnvironmentMetric } from "./environment-monitoring";
 import { EnvironmentPairAnalysis } from "./components/EnvironmentPairAnalysis";
 import { RoofEntryDetails } from "./components/RoofEntryDetails";
 import { LightRodDetails } from "./components/LightRodDetails";
+import { RearWallCrossingDetails } from "./components/RearWallCrossingDetails";
+import { rearWallCrossing } from "./rear-wall";
 import { LightingRoundDetails } from "./components/LightingRoundDetails";
 import {
   lightingRound,
@@ -3331,6 +3333,7 @@ export function Workspace() {
     if (
       !layoutVisit?.resourceList &&
       layoutVisit?.id === id &&
+      layoutVisit.query === layoutQuery &&
       layoutVisit.roster?.source === roster?.source &&
       layoutVisit.roster?.query === roster?.query
     )
@@ -5121,6 +5124,33 @@ export function Workspace() {
       rackById(layoutVisit.id)?.name ??
       entityById(layoutVisit.id)?.name)
     : undefined;
+  const returnLayoutVisit = () => {
+    if (!layoutVisit) return;
+    setPanelInspection(null);
+    setLayoutReturning(true);
+    if (layoutVisit.id === coolingSource.id && coolingVisit) {
+      setCoolingVisit(null);
+      setAirflowVisit(null);
+      setAirflowResponse(null);
+    }
+    if (layoutVisit.id === powerSettings.sourceId) {
+      setPowerOverviewVisit(null);
+      setFeederRestore(null);
+    }
+    // 先退出当前设施核对，再恢复布置图选择。
+    if (
+      state.level !== "room" ||
+      layoutScope === "fixtures" ||
+      layoutScope === "wall" ||
+      !!layoutVisit.resourceList ||
+      entranceView
+    )
+      control({ type: "open-resource", id: "room-01" });
+  };
+  const returnCrossing = () => {
+    if (crossing?.kind === "rear-wall" && layoutVisit) returnLayoutVisit();
+    else requestCrossing(null);
+  };
   return (
     <div
       className="mirage-workspace workspace-ui"
@@ -5177,28 +5207,7 @@ export function Workspace() {
               <>
                 <button
                   disabled={!ready || layoutReturning}
-                  onClick={() => {
-                    setPanelInspection(null);
-                    setLayoutReturning(true);
-                    if (layoutVisit.id === coolingSource.id && coolingVisit) {
-                      setCoolingVisit(null);
-                      setAirflowVisit(null);
-                      setAirflowResponse(null);
-                    }
-                    if (layoutVisit.id === powerSettings.sourceId) {
-                      setPowerOverviewVisit(null);
-                      setFeederRestore(null);
-                    }
-                    // 先退出当前设施核对，再恢复布置图选择。
-                    if (
-                      state.level !== "room" ||
-                      layoutScope === "fixtures" ||
-                      layoutScope === "wall" ||
-                      !!layoutVisit.resourceList ||
-                      entranceView
-                    )
-                      control({ type: "open-resource", id: "room-01" });
-                  }}
+                  onClick={returnLayoutVisit}
                 >
                   ← 返回
                   {layoutVisit.resourceList
@@ -5212,6 +5221,7 @@ export function Workspace() {
                   aria-label="结束布置导览往返"
                   disabled={layoutReturning}
                   onClick={() => {
+                    if (crossing?.kind === "rear-wall") requestCrossing(null);
                     setLayoutVisit(null);
                     setLayoutReturning(false);
                   }}
@@ -6002,6 +6012,14 @@ export function Workspace() {
                 rememberLayoutSelection(origin);
                 focus(target);
               }}
+              onCompareWall={(id) => {
+                const pair = rearWallCrossing(id);
+                if (!pair || !ready) return;
+                if (crossing?.kind !== "rear-wall") rememberLayoutSelection(id);
+                pick(id);
+                control({ type: "analysis", value: false });
+                requestCrossing(pair);
+              }}
               onPreviewCrossing={(id) => {
                 const pair = roomLayoutCrossings.find((p) => p.id === id);
                 if (!pair) return;
@@ -6044,6 +6062,7 @@ export function Workspace() {
               }}
               onScope={(scope) => {
                 takeover();
+                if (crossing?.kind === "rear-wall") requestCrossing(null);
                 setLayoutScope(scope);
                 setLayoutCrossing(null);
                 setLayoutVisit(null);
@@ -6935,7 +6954,7 @@ export function Workspace() {
             crossing={crossing}
             crossingCommand={crossingCommand}
             onCrossingChange={setCrossing}
-            onReturnCrossing={() => requestCrossing(null)}
+            onReturnCrossing={returnCrossing}
             onPowerViewChange={setPowerViewActive}
             onPowerView={requestPowerView}
             networkViewCommand={networkViewCommand}
@@ -8591,7 +8610,8 @@ export function Workspace() {
                   crossing.kind === "light-rod" ||
                   crossing.kind === "tray-support" ||
                   crossing.kind === "lighting-round" ||
-                  crossing.kind === "roof-entry")
+                  crossing.kind === "roof-entry" ||
+                  crossing.kind === "rear-wall")
               ) && (
                 <section
                   className="crossing-details"
@@ -8601,7 +8621,7 @@ export function Workspace() {
                     if (event.key === "Escape" && ready) {
                       event.preventDefault();
                       event.stopPropagation();
-                      requestCrossing(null);
+                      returnCrossing();
                     }
                   }}
                 >
@@ -8611,7 +8631,8 @@ export function Workspace() {
                     crossing.kind !== "tray-support" &&
                     crossing.kind !== "tray-bay" &&
                     crossing.kind !== "light-rod" &&
-                    crossing.kind !== "roof-entry" && (
+                    crossing.kind !== "roof-entry" &&
+                    crossing.kind !== "rear-wall" && (
                       <>
                         <div>
                           <button onClick={() => pick(crossing.upper.id)}>
@@ -8639,6 +8660,18 @@ export function Workspace() {
                         </p>
                       </>
                     )}
+                  {crossing.kind === "rear-wall" && (
+                    <RearWallCrossingDetails
+                      pair={crossing}
+                      selected={selected}
+                      ready={ready}
+                      onSelect={pick}
+                      onHistory={(id) => {
+                        focus(id);
+                        analyze();
+                      }}
+                    />
+                  )}
                   {crossing.kind === "grille-seat" && (
                     <GrilleSeatDetails
                       seat={crossing}
@@ -8923,14 +8956,15 @@ export function Workspace() {
                         }}
                       />
                     )}
-                  {layoutVisit?.crossing?.id !== crossingOriginId && (
-                    <button
-                      disabled={!ready}
-                      onClick={() => requestCrossing(null)}
-                    >
-                      ← 返回核对前视角
-                    </button>
-                  )}
+                  {crossing.kind !== "rear-wall" &&
+                    layoutVisit?.crossing?.id !== crossingOriginId && (
+                      <button
+                        disabled={!ready}
+                        onClick={() => requestCrossing(null)}
+                      >
+                        ← 返回核对前视角
+                      </button>
+                    )}
                 </section>
               )}
             {review.analysis ? (
