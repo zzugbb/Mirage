@@ -103,6 +103,16 @@
       { "rowId": "row-a", "smokeId": "smoke-01", "trayId": "cable-tray-a", "probeId": "environment-01" },
       { "rowId": "row-b", "smokeId": "smoke-02", "trayId": "cable-tray-b", "probeId": "environment-02" }
     ],
+    "smokeMount": {
+      "bodyUpperRadius": 0.105,
+      "bodyLowerRadius": 0.085,
+      "bodyHeight": 0.055,
+      "seatRadius": 0.074,
+      "seatThickness": 0.022,
+      "stemWidth": 0.025,
+      "plateSize": [0.17, 0.024, 0.14],
+      "inspectionDrop": 0.18
+    },
     "fixtures": [
       {
         "id": "entrance-01",

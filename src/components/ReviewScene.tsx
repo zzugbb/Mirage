@@ -573,6 +573,7 @@ export function ReviewScene({
       (coolingRangeObservation && !!flowView && layer === "airflow") ||
       (layer === "overview" &&
         (crossing?.kind === "tray-bay" ||
+          crossing?.kind === "smoke-mount" ||
           crossing?.kind === "grille-intake" ||
           crossing?.kind === "tray-support" ||
           crossing?.kind === "roof-entry" ||
@@ -2397,6 +2398,7 @@ export function ReviewScene({
               data-anchor={marker.id}
               data-hotspot={
                 crossing.kind === "grille-seat" ||
+                crossing.kind === "smoke-mount" ||
                 crossing.kind === "grille-intake" ||
                 crossing.kind === "tray-bay" ||
                 crossing.kind === "tray-support" ||
@@ -2841,6 +2843,12 @@ export function ReviewScene({
                   " 号"
                 ) : crossing.kind === "grille-intake" ? (
                   `进风点高差 ${crossing.offsets.y.toFixed(3)} m`
+                ) : crossing.kind === "smoke-mount" ? (
+                  crossing.opened ? (
+                    "本体已下移"
+                  ) : (
+                    "本体就位"
+                  )
                 ) : crossing.kind === "tray-bay" ? (
                   `横托轴距 ${crossing.horizontal.toFixed(3)} m`
                 ) : crossing.kind === "light-hanger" ? (

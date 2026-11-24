@@ -158,6 +158,19 @@ export class CrossingGeometry {
           mark.clone().add(new THREE.Vector3(0, 0.018, 0)),
         );
       }
+    } else if (pair.kind === "smoke-mount") {
+      const [start] = pair.ruler[0];
+      const [end] = pair.ruler.at(-1)!;
+      dashSegment(points, start, end, 0.065);
+      for (const [a, b] of pair.ruler) points.push(a, b);
+      pair.ceiling.forEach((point, index, ceiling) => {
+        dashSegment(
+          points,
+          point,
+          ceiling[(index + 1) % ceiling.length],
+          0.056,
+        );
+      });
     } else if (
       pair.kind === "smoke-tray" ||
       (pair.kind === "smoke-light" && pair.view === "housing")

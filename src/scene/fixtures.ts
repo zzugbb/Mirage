@@ -13,6 +13,7 @@ import { buildRaceway } from "./raceway.ts";
 import { buildPatchPanel } from "./patch-panels.ts";
 import { buildEntrance } from "./entrance.ts";
 import { buildLeakCable, buildLeakFitting } from "./leak-detection.ts";
+import { buildSmokeMount } from "./smoke-mount.ts";
 import { buildCableTray } from "./cable-trays.ts";
 import { leakDetection } from "../leak-detection.ts";
 import * as THREE from "three";
@@ -103,13 +104,7 @@ export function buildRoomFixtures(
       box(group, [0.008, 0.08, 0.12], [0.053, 0.02, 0], "#2c3840", 0.1);
       buildLeakFitting(group, "controller");
     } else if (fixture.kind === "smoke") {
-      const shell = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.105, 0.085, 0.055, 16),
-        new THREE.MeshStandardMaterial({ color: "#d2d6d4", roughness: 0.65 }),
-      );
-      group.add(shell);
-      box(group, [0.08, 0.02, 0.06], [0, -0.035, 0], "#697577");
-      box(group, [0.025, 0.5, 0.025], [0, 0.26, 0], "#58676d", 0.5);
+      buildSmokeMount(group, box);
     } else if (fixture.kind === "access") {
       box(
         group,

@@ -130,6 +130,8 @@ import {
   type AlarmVisit,
 } from "./alarm-queue";
 import { SmokeLightDetails } from "./components/SmokeLightDetails";
+import { SmokeMountDetails } from "./components/SmokeMountDetails";
+import { smokeMountInspection } from "./smoke-mount";
 import { EnvironmentRoundDetails } from "./components/EnvironmentRoundDetails";
 import { environmentRoundFor } from "./environment-rounds";
 import { FixtureRoster } from "./components/FixtureRoster";
@@ -1231,6 +1233,7 @@ export function Workspace() {
     const control = document.activeElement;
     crossingInspectPending.current =
       ((pair?.kind === "grille-seat" && crossing?.kind === "grille-seat") ||
+        (pair?.kind === "smoke-mount" && crossing?.kind === "smoke-mount") ||
         (pair?.kind === "smoke-light" && crossing?.kind === "smoke-light") ||
         (pair?.kind === "tray-support" && crossing?.kind === "tray-support") ||
         (pair?.kind === "light-hanger" && crossing?.kind === "light-hanger") ||
@@ -1242,7 +1245,7 @@ export function Workspace() {
         (pair?.kind === "roof-pdu" && crossing?.kind === "roof-pdu") ||
         (pair?.kind === "drain-joint" && crossing?.kind === "drain-joint")) &&
       (control instanceof HTMLSelectElement ||
-        (pair?.kind === "grille-seat" &&
+        ((pair?.kind === "grille-seat" || pair?.kind === "smoke-mount") &&
           control instanceof HTMLButtonElement)) &&
       control.closest(".crossing-details")
         ? control
@@ -5158,6 +5161,7 @@ export function Workspace() {
       }
       onLocate={focus}
       onCompare={() => requestCrossing(smokeTrayPlacement(round))}
+      onSmokeMount={() => requestCrossing(smokeMountInspection(round))}
     />
   );
   const layoutReturnName = layoutVisit
@@ -8642,6 +8646,7 @@ export function Workspace() {
                 review.analysis &&
                 (crossing.kind === "grille-seat" ||
                   crossing.kind === "grille-intake" ||
+                  crossing.kind === "smoke-mount" ||
                   crossing.kind === "tray-bay" ||
                   crossing.kind === "light-hanger" ||
                   crossing.kind === "probe-height" ||
@@ -8669,6 +8674,7 @@ export function Workspace() {
                   <strong>{crossing.title} · 配置</strong>
                   {crossing.kind !== "grille-seat" &&
                     crossing.kind !== "grille-intake" &&
+                    crossing.kind !== "smoke-mount" &&
                     crossing.kind !== "lighting-round" &&
                     crossing.kind !== "tray-support" &&
                     crossing.kind !== "tray-bay" &&
@@ -9019,16 +9025,44 @@ export function Workspace() {
                         </>
                       );
                     })()}
+                  {crossing.kind === "smoke-mount" && (
+                    <SmokeMountDetails
+                      pair={crossing}
+                      ready={ready}
+                      onToggle={() =>
+                        requestCrossing(
+                          smokeMountInspection(
+                            crossing.round,
+                            !crossing.opened,
+                          ),
+                        )
+                      }
+                      onTray={() =>
+                        requestCrossing(smokeTrayPlacement(crossing.round))
+                      }
+                    />
+                  )}
                   {!review.analysis && crossing.kind === "smoke-tray" && (
-                    <button
-                      disabled={!ready}
-                      onClick={() => {
-                        const next = smokeLightInspection(crossing.round);
-                        if (next) requestCrossing(next);
-                      }}
-                    >
-                      沿本排桥架核对顶灯 ↗
-                    </button>
+                    <>
+                      <button
+                        disabled={!ready}
+                        onClick={() => {
+                          const next = smokeLightInspection(crossing.round);
+                          if (next) requestCrossing(next);
+                        }}
+                      >
+                        沿本排桥架核对顶灯 ↗
+                      </button>
+                      <button
+                        disabled={!ready}
+                        onClick={() => {
+                          focus(crossing.round.probe.id);
+                          analyze();
+                        }}
+                      >
+                        回看{crossing.round.probe.name} ↗
+                      </button>
+                    </>
                   )}
                   {!review.analysis && crossing.kind === "smoke-light" && (
                     <SmokeLightDetails

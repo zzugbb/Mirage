@@ -15,6 +15,7 @@ export function EnvironmentRoundDetails({
   onToggle,
   onLocate,
   onCompare,
+  onSmokeMount,
 }: {
   round: EnvironmentRound;
   selected: string;
@@ -25,6 +26,7 @@ export function EnvironmentRoundDetails({
   onToggle: () => void;
   onLocate: (id: string) => void;
   onCompare: () => void;
+  onSmokeMount: () => void;
 }) {
   const [smoke, tray, probe] = round.points;
   const observation = environmentObservation(probe.id, time)!;
@@ -76,6 +78,15 @@ export function EnvironmentRoundDetails({
               </li>
             ))}
           </ol>
+          {selected === smoke.id && (
+            <button
+              className="environment-round-compare"
+              disabled={!ready}
+              onClick={onSmokeMount}
+            >
+              核对烟感安装 ↗
+            </button>
+          )}
           {(selected === smoke.id || selected === tray.id) && (
             <button
               className="environment-round-compare"

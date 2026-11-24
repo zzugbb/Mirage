@@ -25,6 +25,7 @@ import {
 import { observationFrame, type FrameRect } from "./observation-frame.ts";
 import type { RearWallCrossing } from "./rear-wall.ts";
 import type { ProbeHeightScene } from "./probe-height-scene.ts";
+import type { SmokeMountInspection } from "./smoke-mount.ts";
 import {
   racewaySections,
   type RacewayCornerInspection,
@@ -583,6 +584,7 @@ export const crossingObjectIds = (pair: FixtureCrossing) =>
       : pair.kind === "drain-joint"
         ? drainJointObjectIds
         : pair.kind === "grille-seat" ||
+            pair.kind === "smoke-mount" ||
             pair.kind === "light-hanger" ||
             pair.kind === "tray-support" ||
             pair.kind === "tray-bay"
@@ -615,6 +617,7 @@ export type FixtureCrossing =
   | NonNullable<ReturnType<typeof lightRodInspection>>
   | RackRoofView
   | SmokeLightInspection
+  | SmokeMountInspection
   | NonNullable<ReturnType<typeof traySupportBay>>
   | NonNullable<ReturnType<typeof trayEndSupport>>
   | NonNullable<ReturnType<typeof fixtureCrossing>>
@@ -722,6 +725,7 @@ export type CrossingViewCommand = {
   dismiss?: boolean;
 };
 export function crossingDirection(pair: FixtureCrossing) {
+  if (pair.kind === "smoke-mount") return pair.direction;
   if (pair.kind === "grille-seat") return new Vector3(0.04, 1, 0.38);
   if (pair.kind === "light-hanger")
     return new Vector3(

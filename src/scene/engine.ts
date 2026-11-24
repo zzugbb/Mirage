@@ -36,6 +36,8 @@ import {
   type LeakTarget,
 } from "../leak-view.ts";
 import { showLeakFitting } from "./leak-detection.ts";
+import { showSmokeMount } from "./smoke-mount.ts";
+import { smokeMountViewFrame } from "../smoke-mount.ts";
 import {
   maintenanceInspection,
   maintenanceViewFrame,
@@ -1337,6 +1339,10 @@ export class SceneEngine {
       this.models.fixtures,
       pair?.kind === "raceway-corner" ? pair : undefined,
     );
+    showSmokeMount(
+      this.models.fixtures,
+      pair?.kind === "smoke-mount" ? pair : undefined,
+    );
   }
   clearCrossingView() {
     if (!this.crossingObservation) return;
@@ -1354,8 +1360,8 @@ export class SceneEngine {
       return;
     const active = this.crossingObservation;
     if (
-      pair.kind === "raceway-corner" &&
-      active?.pair.kind === "raceway-corner" &&
+      (pair.kind === "raceway-corner" || pair.kind === "smoke-mount") &&
+      active?.pair.kind === pair.kind &&
       active.pair.id === pair.id
     ) {
       this.crossingObservation = { pair, previous: active.previous };
@@ -1409,7 +1415,8 @@ export class SceneEngine {
     if (
       pair.kind === "rear-wall" ||
       pair.kind === "drain-joint" ||
-      pair.kind === "light-hanger"
+      pair.kind === "light-hanger" ||
+      pair.kind === "smoke-mount"
     ) {
       // 保留横向观察空间，在下沿为核对工具让出高度。
       rect.left = 36;
@@ -1418,12 +1425,13 @@ export class SceneEngine {
           rect.top + 120,
           Math.min(rect.bottom, legendRect.top - 22),
         );
-      fit =
-        pair.kind === "rear-wall"
-          ? rearWallCrossingFrame(pair, width, height, rect)
-          : pair.kind === "drain-joint"
-            ? drainJointFrame(pair, width, height, rect)
-            : lightHangerViewFrame(pair, width, height, rect);
+      if (pair.kind === "rear-wall")
+        fit = rearWallCrossingFrame(pair, width, height, rect);
+      else if (pair.kind === "drain-joint")
+        fit = drainJointFrame(pair, width, height, rect);
+      else if (pair.kind === "light-hanger")
+        fit = lightHangerViewFrame(pair, width, height, rect);
+      else fit = smokeMountViewFrame(pair, width, height, rect);
     } else if (pair.kind === "probe-height" || pair.kind === "grille-intake") {
       rect.left = 44;
       if (legendRect)
