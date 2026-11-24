@@ -1,7 +1,11 @@
 import { Vector3 } from "three";
 import {
   condensate,
+  condensateFloorY,
   condensateOpeningRadius,
+  condensateReceiverBaseThickness,
+  condensateReceiverOutletRadius,
+  condensateRimLip,
   condensateSocket,
   condensateSource,
   mouth,
@@ -12,7 +16,7 @@ import {
 } from "./condensate.ts";
 import { observationFrame, type FrameRect } from "./observation-frame.ts";
 
-export type DrainJointStage = "cabinet" | "mouth";
+export type DrainJointStage = "cabinet" | "mouth" | "receiver";
 export const drainJointObjectIds = [
   condensate.sourceId,
   condensate.pipe.id,
@@ -164,12 +168,83 @@ function mouthJoint() {
   };
 }
 
+function receiverJoint() {
+  const bowl = point(rim);
+  const floor = bowl.clone().setY(condensateFloorY);
+  const taper = 0.44;
+  const wallDepth =
+    condensateRimLip.innerDepth +
+    (condensate.bowlDepth - condensateRimLip.innerDepth) * taper;
+  const wallRadius =
+    condensateOpeningRadius +
+    (condensateReceiverOutletRadius - condensateOpeningRadius) * taper;
+  const depth = bowl.clone().setZ(bowl.z + condensate.rimRadius + 0.03);
+  const height = depth.clone().setZ(depth.z + 0.044);
+  const tick = new Vector3(0, 0, 0.008);
+  const paths = [
+    ...ruler(depth, depth.clone().setY(bowl.y - condensate.bowlDepth), tick),
+    ...ruler(height, height.clone().setY(floor.y), tick),
+  ];
+  const markers = [
+    {
+      id: "drain-receiver-wall",
+      title: "斗口内壁",
+      point: bowl.clone().add(new Vector3(-wallRadius, -wallDepth, 0)),
+    },
+    {
+      id: "drain-receiver-outlet",
+      title: "下口边缘",
+      point: floor
+        .clone()
+        .add(
+          new Vector3(
+            0,
+            condensateReceiverBaseThickness * 0.54,
+            condensateReceiverOutletRadius + 0.003,
+          ),
+        ),
+    },
+    {
+      id: "drain-receiver-floor",
+      title: "地坪截止",
+      point: floor,
+    },
+  ];
+  return {
+    stage: "receiver" as const,
+    upper: {
+      id: condensate.receiver.id,
+      name: condensate.receiver.name,
+      surface: "斗口内壁",
+    },
+    lower: { id: "room-01", name: "机房地坪", surface: "地坪截止" },
+    metrics: {
+      bodyHeight: bowl.y - floor.y,
+      bowlDepth: condensate.bowlDepth,
+      outletDiameter: condensateReceiverOutletRadius * 2,
+      outletHeight: floor.y,
+    },
+    points: [
+      bowl,
+      floor,
+      ...paths.flat(),
+      ...markers.map(({ point }) => point),
+    ],
+    markers,
+    paths,
+  };
+}
+
 export function drainJointInspection(stage: DrainJointStage) {
   return {
     kind: "drain-joint" as const,
     id: `${condensate.pipe.id}:joint:${stage}`,
     title: "冷凝水排水接合核对",
-    ...(stage === "cabinet" ? cabinetJoint() : mouthJoint()),
+    ...(stage === "cabinet"
+      ? cabinetJoint()
+      : stage === "mouth"
+        ? mouthJoint()
+        : receiverJoint()),
   };
 }
 
@@ -181,6 +256,16 @@ export function drainJointFrame(
   height: number,
   rect: FrameRect,
 ) {
+  if (pair.stage === "receiver")
+    return observationFrame(
+      pair.points,
+      new Vector3(1, 0.53, 0.32),
+      width,
+      height,
+      rect,
+      0.54,
+      0.028,
+    );
   const direction =
     pair.stage === "cabinet"
       ? new Vector3(0.64, 0.28, -1)

@@ -37,6 +37,25 @@ export const mouth = [elbow[0], condensate.mouthHeight, elbow[2]];
 export const rim = [mouth[0], condensate.rimHeight, mouth[2]];
 export const mouthGap = mouth[1] - rim[1];
 export const condensateFloorY = definition.rendering.floor.surfaceY;
+export const condensateReceiverBaseThickness = 0.012;
+export const condensateReceiverOutletRadius = condensate.stemRadius - 0.005;
+const receiverBaseY = condensateFloorY - condensate.rimHeight;
+/** 接水斗绕同一剖面生成完整外形与半剖，标高相对斗口。 */
+export const condensateReceiverProfile = [
+  [condensate.stemRadius * 1.55, receiverBaseY],
+  [
+    condensate.stemRadius * 1.55,
+    receiverBaseY + condensateReceiverBaseThickness,
+  ],
+  [condensate.stemRadius, receiverBaseY + condensateReceiverBaseThickness],
+  [condensate.stemRadius, -condensate.bowlDepth],
+  [condensate.rimRadius, -condensateRimLip.outerDepth],
+  [condensate.rimRadius, 0],
+  [condensateOpeningRadius, 0],
+  [condensateOpeningRadius, -condensateRimLip.innerDepth],
+  [condensateReceiverOutletRadius, -condensate.bowlDepth],
+  [condensateReceiverOutletRadius, receiverBaseY],
+];
 const fixture = { mountId: "room-01", dataStatus: "not-applicable" };
 export const drainStands = condensate.supports.stations.map((station) => {
   const axis = [

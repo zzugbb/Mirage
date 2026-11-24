@@ -2883,6 +2883,8 @@ export function ReviewScene({
                 ) : crossing.kind === "drain-joint" ? (
                   crossing.stage === "cabinet" ? (
                     `柜面至转角 ${(crossing.metrics.reach * 1000).toFixed(0)} mm`
+                  ) : crossing.stage === "receiver" ? (
+                    `斗口离地 ${(crossing.metrics.bodyHeight * 1000).toFixed(1)} mm`
                   ) : (
                     `管口至斗口 ${(crossing.metrics.verticalGap * 1000).toFixed(0)} mm`
                   )

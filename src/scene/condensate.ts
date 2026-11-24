@@ -3,8 +3,7 @@ import {
   condensate as c,
   condensateFloorY,
   condensateMouthInnerRadius,
-  condensateOpeningRadius,
-  condensateRimLip,
+  condensateReceiverProfile,
   condensateSocket,
   outlet,
   mouth,
@@ -23,8 +22,12 @@ export function buildCondensate(root: THREE.Group, id: string) {
     roughness: 0.58,
     side: THREE.DoubleSide,
   });
-  const add = (geometry: THREE.BufferGeometry, name: string) => {
-    const mesh = new THREE.Mesh(geometry, material);
+  const add = (
+    geometry: THREE.BufferGeometry,
+    name: string,
+    surface = material,
+  ) => {
+    const mesh = new THREE.Mesh(geometry, surface);
     mesh.name = name;
     mesh.castShadow = mesh.receiveShadow = true;
     root.add(mesh);
@@ -106,26 +109,41 @@ export function buildCondensate(root: THREE.Group, id: string) {
     lip.rotation.x = Math.PI / 2;
     lip.position.fromArray(mouth).sub(root.position);
   } else {
-    const base = condensateFloorY - c.rimHeight;
-    // 旋转剖面同时生成外壁、口缘与内壁，斗口保持敞开。
-    const profile = [
-      [c.stemRadius * 1.55, base],
-      [c.stemRadius * 1.55, base + 0.012],
-      [c.stemRadius, base + 0.012],
-      [c.stemRadius, -c.bowlDepth],
-      [c.rimRadius, -condensateRimLip.outerDepth],
-      [c.rimRadius, 0],
-      [condensateOpeningRadius, 0],
-      [condensateOpeningRadius, -condensateRimLip.innerDepth],
-      [c.stemRadius - 0.005, -c.bowlDepth],
-      [c.stemRadius - 0.005, base],
-    ];
-    add(
-      new THREE.LatheGeometry(
-        profile.map(([r, y]) => new THREE.Vector2(r, y)),
-        32,
-      ),
-      "condensate-receiver",
+    const profile = condensateReceiverProfile.map(
+      ([r, y]) => new THREE.Vector2(r, y),
     );
+    add(new THREE.LatheGeometry(profile, 32), "condensate-receiver");
+    // 保留 -X 的半圈。两个切面和原旋转轮廓共用坐标，在地面截止。
+    const section = add(
+      new THREE.LatheGeometry(profile, 16, Math.PI, Math.PI),
+      "condensate-receiver-section",
+    );
+    const caps = [-1, 1].map(
+      (sign) =>
+        new THREE.Shape(
+          profile.map(({ x, y }) => new THREE.Vector2(x * sign, y)),
+        ),
+    );
+    const cut = add(
+      new THREE.ShapeGeometry(caps).rotateY(-Math.PI / 2),
+      "condensate-receiver-cut",
+      new THREE.MeshStandardMaterial({
+        color: "#c7b59a",
+        roughness: 0.68,
+        side: THREE.DoubleSide,
+      }),
+    );
+    section.visible = cut.visible = false;
   }
+}
+
+export function showCondensateReceiverSection(
+  fixtures: Map<string, THREE.Group>,
+  opened: boolean,
+) {
+  const receiver = fixtures.get(c.receiver.id);
+  if (!receiver) return;
+  receiver.getObjectByName("condensate-receiver")!.visible = !opened;
+  receiver.getObjectByName("condensate-receiver-section")!.visible = opened;
+  receiver.getObjectByName("condensate-receiver-cut")!.visible = opened;
 }

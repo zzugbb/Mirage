@@ -37,6 +37,7 @@ import {
 } from "../leak-view.ts";
 import { showLeakFitting } from "./leak-detection.ts";
 import { showSmokeMount } from "./smoke-mount.ts";
+import { showCondensateReceiverSection } from "./condensate.ts";
 import { smokeMountViewFrame } from "../smoke-mount.ts";
 import {
   maintenanceInspection,
@@ -1342,6 +1343,10 @@ export class SceneEngine {
     showSmokeMount(
       this.models.fixtures,
       pair?.kind === "smoke-mount" ? pair : undefined,
+    );
+    showCondensateReceiverSection(
+      this.models.fixtures,
+      pair?.kind === "drain-joint" && pair.stage === "receiver",
     );
   }
   clearCrossingView() {

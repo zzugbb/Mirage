@@ -8718,9 +8718,14 @@ export function Workspace() {
                       inspection={crossing}
                       selected={selected}
                       ready={ready}
-                      onStage={(stage) =>
-                        requestCrossing(drainJointInspection(stage))
-                      }
+                      onStage={(stage) => {
+                        if (
+                          stage === "receiver" &&
+                          selected !== condensate.receiver.id
+                        )
+                          pick(condensate.receiver.id);
+                        requestCrossing(drainJointInspection(stage));
+                      }}
                       onPreview={pick}
                       onSense={openCondensateSensing}
                       onHistory={analyzeCondensateSource}
