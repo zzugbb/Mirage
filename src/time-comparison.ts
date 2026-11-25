@@ -27,3 +27,6 @@ export function compareTimes(
       (first.coverage !== second.coverage || first.count !== second.count),
   };
 }
+
+export const simulationClock = (time: number) =>
+  `${String(Math.floor(time / 60)).padStart(2, "0")}:${String(time % 60).padStart(2, "0")}`;

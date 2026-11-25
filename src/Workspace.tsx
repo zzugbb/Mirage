@@ -436,6 +436,8 @@ import {
 } from "./workspace-presets";
 import type { WorkspaceShot } from "./workspace-presets";
 import { tourSteps } from "./tour";
+import { simulationClock } from "./time-comparison";
+import { scenario } from "./simulation";
 import "./scene-ui.css";
 import { observationColor } from "./scene/metric-color";
 import { budgetPercent, budgetRatio, budgetStateText } from "./power-budget";
@@ -446,8 +448,6 @@ const airflowRacks = racks.map((rack) => ({
   rack,
   device: representativeAirflowDevice(rack.id),
 }));
-const clock = (time: number) =>
-  `${String(Math.floor(time / 60)).padStart(2, "0")}:${String(time % 60).padStart(2, "0")}`;
 const temperature = (value: number | null | undefined) =>
   value == null ? "—" : value.toFixed(1);
 const power = (value: number | null | undefined) =>
@@ -5861,7 +5861,9 @@ export function Workspace() {
           </button>
           <span className="study-clock-readout">
             <span>模拟</span>
-            <time dateTime={`PT${state.time}S`}>{clock(state.time)}</time>
+            <time dateTime={`PT${state.time}S`}>
+              {simulationClock(state.time)}
+            </time>
           </span>
           <button
             className="study-clock-action"
@@ -8290,7 +8292,7 @@ export function Workspace() {
                   }}
                 >
                   {environment ? (
-                    "◇ 环境测点 · 模拟，未接入真实数据"
+                    "◇ 环境测点 · 模拟"
                   ) : fixture ? (
                     fixture.dataStatus === "not-applicable" ? (
                       "— 结构布置 · 无运行数据"
@@ -9528,22 +9530,57 @@ export function Workspace() {
               )}
             {review.analysis ? (
               <>
-                <div className="study-time-control">
-                  <label htmlFor="study-review-time">回看时刻</label>
-                  <span>00:00 – 02:00</span>
-                  <input
-                    id="study-review-time"
-                    aria-label="共享模拟时间"
-                    aria-valuetext={clock(state.time)}
-                    type="range"
-                    min="0"
-                    max="120"
-                    value={state.time}
-                    onChange={(e) =>
-                      dispatch({ type: "seek", time: Number(e.target.value) })
-                    }
-                  />
-                </div>
+                {(!fixture ||
+                  environment ||
+                  activeAirflowResponse ||
+                  pairedEnvironment ||
+                  pairedInlet ||
+                  sourceInspector) && (
+                  <div className="study-time-control">
+                    <label htmlFor="study-review-time">模拟回看</label>
+                    <button
+                      className="study-time-replay"
+                      aria-label="重新播放"
+                      title="从 00:00 重新播放"
+                      onClick={() => dispatch({ type: "replay" })}
+                    >
+                      重播
+                    </button>
+                    <select
+                      aria-label="模拟播放速度"
+                      title="模拟播放速度"
+                      value={state.playbackRate}
+                      onChange={(e) =>
+                        dispatch({
+                          type: "rate",
+                          rate: Number(e.target.value) as 1 | 2 | 4,
+                        })
+                      }
+                    >
+                      {[1, 2, 4].map((rate) => (
+                        <option key={rate} value={rate}>
+                          {rate}×
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      id="study-review-time"
+                      aria-label="共享模拟时间"
+                      aria-valuetext={simulationClock(state.time)}
+                      type="range"
+                      min="0"
+                      max={scenario.duration}
+                      value={state.time}
+                      onChange={(e) =>
+                        dispatch({ type: "seek", time: Number(e.target.value) })
+                      }
+                    />
+                    <div className="study-time-ends" aria-hidden="true">
+                      <span>00:00</span>
+                      <span>{simulationClock(scenario.duration)}</span>
+                    </div>
+                  </div>
+                )}
                 {probeRackInspection}
                 {atCoolingProbe && coolingProbeCheck}
                 {slicePlaneInspector}
@@ -9558,10 +9595,7 @@ export function Workspace() {
                       activeAirflowResponse.target.deviceId,
                     )!}
                     ready={ready}
-                    playbackRate={state.playbackRate}
                     onSeek={(time) => dispatch({ type: "seek", time })}
-                    onReplay={() => dispatch({ type: "replay" })}
-                    onRate={(rate) => dispatch({ type: "rate", rate })}
                     onReturn={returnAirflowResponse}
                   />
                 ) : pairedEnvironment ? (
@@ -9594,19 +9628,11 @@ export function Workspace() {
                     onPreview={pick}
                     onLocate={focus}
                   />
-                ) : smokeVisit && isSmokeFixture(selected) ? (
-                  <p className="fixture-analysis-note">
-                    烟感信号未接入，没有历史曲线或事件。
-                  </p>
-                ) : fixture && leakView ? (
-                  <p className="fixture-analysis-note">
-                    此设施未接入漏水信号，没有历史曲线或事件。
-                  </p>
                 ) : fixture ? (
                   <p className="fixture-analysis-note">
                     {fixture.dataStatus === "not-applicable"
-                      ? "静态布置对象，没有运行曲线或事件。"
-                      : "此设施尚未接入遥测，没有历史曲线或事件。"}
+                      ? "静态布置 · 无运行曲线"
+                      : "未接入遥测 · 无历史曲线"}
                   </p>
                 ) : pairedInlet ? (
                   <InletPairAnalysis
@@ -9684,7 +9710,6 @@ export function Workspace() {
                           }
                         : undefined
                     }
-                    title={resource?.name ?? entity.name}
                     labels={{
                       temperature: reading?.temperatureLabel ?? "温度",
                       power: reading?.powerLabel ?? "功耗",
@@ -9693,7 +9718,6 @@ export function Workspace() {
                     eventHeading={eventHeading}
                     events={events}
                     time={state.time}
-                    playbackRate={state.playbackRate}
                     component={component}
                     powerOnly={powerFacility}
                     cooling={coolingHistories?.cooling}
@@ -9708,9 +9732,6 @@ export function Workspace() {
                         : undefined
                     }
                     onSeek={(time) => dispatch({ type: "seek", time })}
-                    onReplay={() => dispatch({ type: "replay" })}
-                    onRate={(rate) => dispatch({ type: "rate", rate })}
-                    onClose={returnToDetails}
                   />
                 )}
                 {airflowInspector}

@@ -67,12 +67,7 @@ export function EnvironmentPairAnalysis({
         <strong>双测点时间对照</strong>
         <button onClick={onClose}>单测点分析</button>
       </header>
-      <p>
-        {inspection === null
-          ? `场景 t+${time}s`
-          : `游标 t+${cursor}s · 场景 t+${time}s`}{" "}
-        · 固定点位模拟
-      </p>
+      <p>固定点位 · 模拟</p>
       <div
         className="environment-pair-metrics"
         role="group"

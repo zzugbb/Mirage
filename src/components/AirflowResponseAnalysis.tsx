@@ -18,10 +18,7 @@ export function AirflowResponseAnalysis({
   cycle,
   reading,
   ready,
-  playbackRate,
   onSeek,
-  onReplay,
-  onRate,
   onReturn,
 }: {
   target: AirflowResponseTarget;
@@ -29,10 +26,7 @@ export function AirflowResponseAnalysis({
   cycle: number;
   reading: SpatialReading;
   ready: boolean;
-  playbackRate: 1 | 2 | 4;
   onSeek: (time: number) => void;
-  onReplay: () => void;
-  onRate: (rate: 1 | 2 | 4) => void;
   onReturn: () => void;
 }) {
   const histories = useMemo(() => airflowResponseHistory(target)!, [target.id]);
@@ -55,8 +49,7 @@ export function AirflowResponseAnalysis({
           {coolingSource.name} → {deviceById(target.deviceId)!.name}
         </strong>
         <span>
-          {rackForDevice(target.deviceId).name} / {unitLabel(target.deviceId)} ·
-          固定当前支路
+          {rackForDevice(target.deviceId).name} / {unitLabel(target.deviceId)}
         </span>
         <small>
           当前整机：{lifecycleNames[reading.lifecycle]} ·{" "}
@@ -81,7 +74,6 @@ export function AirflowResponseAnalysis({
             onSeek={onSeek}
           />
         }
-        title="支路输入与进风"
         labels={{ temperature: "设备进风温度", power: "" }}
         histories={{ temperature: histories.temperature, power: [] }}
         cooling={histories.cooling}
@@ -89,13 +81,9 @@ export function AirflowResponseAnalysis({
         events={events}
         eventHeading={heading}
         time={time}
-        playbackRate={playbackRate}
         component={false}
         ready={ready}
         onSeek={onSeek}
-        onReplay={onReplay}
-        onRate={onRate}
-        onClose={onReturn}
         onViewDeviceAirflow={onReturn}
       />
     </section>

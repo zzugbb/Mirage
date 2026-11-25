@@ -10,7 +10,6 @@ import type { TrendMetric } from "../trend-geometry";
 import { AnalysisEvents } from "./AnalysisEvents";
 
 export function ReviewAnalysis({
-  title,
   peakProcess,
   evidence,
   labels,
@@ -18,7 +17,6 @@ export function ReviewAnalysis({
   events,
   eventHeading,
   time,
-  playbackRate,
   component,
   powerOnly = false,
   cooling,
@@ -27,9 +25,6 @@ export function ReviewAnalysis({
   onViewDeviceAirflow,
   ready,
   onSeek,
-  onReplay,
-  onRate,
-  onClose,
 }: {
   evidence?: ReactNode;
   peakProcess?: {
@@ -37,13 +32,11 @@ export function ReviewAnalysis({
     onChange: (state: PeakProcessState) => void;
     onPreview: (id: string) => void;
   };
-  title: string;
   labels: Record<ReviewMetric, string>;
   histories: Record<ReviewMetric, ReviewPoint[]>;
   events: ReviewEvent[];
   eventHeading: Ref<HTMLHeadingElement>;
   time: number;
-  playbackRate: 1 | 2 | 4;
   component: boolean;
   powerOnly?: boolean;
   cooling?: ReviewPoint[];
@@ -52,9 +45,6 @@ export function ReviewAnalysis({
   onViewDeviceAirflow: (id: string) => void;
   ready: boolean;
   onSeek: (time: number) => void;
-  onReplay: () => void;
-  onRate: (rate: 1 | 2 | 4) => void;
-  onClose: () => void;
 }) {
   const [inspection, setInspection] = useState<number | null>(null);
   const [showBudget, setShowBudget] = useState(false);
@@ -84,26 +74,6 @@ export function ReviewAnalysis({
       }));
   return (
     <section className="review-analysis" aria-label="时间分析">
-      <div className="review-analysis-head">
-        <strong>
-          {title}
-          <small>
-            {cooling
-              ? "冷却输入与关联进风"
-              : powerOnly
-                ? "关联整机输入 · 非设施计量"
-                : "温度与功耗"}
-          </small>
-        </strong>
-        <span>
-          {inspection === null
-            ? `回看 t+${time}s`
-            : `游标 t+${cursor}s · 场景 t+${time}s`}
-        </span>
-        <button aria-label="关闭时间分析" onClick={onClose}>
-          ×
-        </button>
-      </div>
       <div className="review-analysis-body">
         <div className="review-comparison">
           {series.map(({ metric, label, points }) => {
@@ -125,7 +95,7 @@ export function ReviewAnalysis({
                   ? "无有效值"
                   : point.count > 1
                     ? `有效覆盖 ${point.coverage}/${point.count}`
-                    : "有效";
+                    : null;
             const hasBudget =
               metric === "power" &&
               points.some((point) => point.budget !== undefined);
@@ -141,16 +111,12 @@ export function ReviewAnalysis({
                       : (kilo ? value / 1000 : value).toFixed(kilo ? 2 : 1)}
                     <small>{unit}</small>
                   </strong>
-                  <small>
-                    {metric === "cooling" ? "模拟输入 · 非制冷量" : status}
-                  </small>
+                  {status && <small>{status}</small>}
                 </div>
                 {metric === "temperature" && point?.peakSources && (
                   <small className="peak-source-cursor">
-                    {inspection === null
-                      ? "当前最高来源"
-                      : `游标 t+${cursor}s 来源`}{" "}
-                    · {peakNames(point.peakSources)}
+                    {cursor === time ? "当前最高来源" : "游标最高来源"} ·{" "}
+                    {peakNames(point.peakSources)}
                   </small>
                 )}
                 {hasBudget && (
@@ -163,7 +129,7 @@ export function ReviewAnalysis({
                     </button>
                     {showBudget && (
                       <>
-                        <p>实线：有效输入 · 虚线：对应设备配置预算</p>
+                        <p>实线 输入 · 虚线 配置预算</p>
                         <strong>
                           {budget === null ? "—" : `${budget.toFixed(1)} W`} ·{" "}
                           {ratio === null
@@ -218,24 +184,6 @@ export function ReviewAnalysis({
                 : "输入百分比用于驱动演示温度响应，不是风量或设施功率。最高进风仅取有效设备，覆盖变化也会影响曲线；相关事件不等于已证实根因。"}
             </details>
           )}
-          <div className="review-playback">
-            <button onClick={onReplay}>重新播放</button>
-            <label>
-              速度{" "}
-              <select
-                aria-label="模拟播放速度"
-                value={playbackRate}
-                onChange={(e) => onRate(Number(e.target.value) as 1 | 2 | 4)}
-              >
-                {[1, 2, 4].map((rate) => (
-                  <option key={rate} value={rate}>
-                    {rate}×
-                  </option>
-                ))}
-              </select>
-            </label>
-            <small>点击或横拖回看 · 空缺保留</small>
-          </div>
         </div>
         <TimeComparison
           series={series}

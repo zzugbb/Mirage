@@ -56,12 +56,7 @@ export function InletPairAnalysis({
         <strong>双设备进风对照</strong>
         <button onClick={onClose}>单对象分析</button>
       </header>
-      <p className="inlet-pair-time">
-        {inspection === null
-          ? `场景 t+${time}s`
-          : `游标 t+${cursor}s · 场景 t+${time}s`}{" "}
-        · 整机进风模拟
-      </p>
+      <p className="inlet-pair-time">整机进风 · 模拟</p>
       <div className="inlet-pair-readings">
         {[pair.first, pair.second].map((point, index) => (
           <button

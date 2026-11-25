@@ -92,12 +92,6 @@ export function EnvironmentDetails({
   const histories = environmentHistories(fixture.id)!;
   return (
     <section className="environment-details" aria-label="环境测点观测">
-      <div className="environment-time">
-        {inspection === null || !analysis
-          ? `观测 t+${time}s`
-          : `游标 t+${cursor}s · 场景 t+${time}s`}{" "}
-        · 演示序列
-      </div>
       <div className={analysis ? "review-comparison" : "environment-readings"}>
         {(
           ["ambientTemperature", "humidity", "dewPoint"] as EnvironmentMetric[]
@@ -122,8 +116,10 @@ export function EnvironmentDetails({
                   {derived
                     ? value === null
                       ? "暂不推导"
-                      : "推导值 · 非独立测点"
-                    : `${environmentQuality[channel.quality]} · ${channel.observedAt === null ? "尚无采样" : `采样 t+${channel.observedAt}s`}`}
+                      : "同次采样推导"
+                    : channel.quality === "valid"
+                      ? `采样 t+${channel.observedAt}s`
+                      : environmentQuality[channel.quality]}
                 </small>
               </div>
               {!derived &&
@@ -148,7 +144,9 @@ export function EnvironmentDetails({
           );
         })}
       </div>
-      <p className="environment-boundary">{observation.dewPoint.reason}</p>
+      {observation.dewPoint.value === null && (
+        <p className="environment-boundary">{observation.dewPoint.reason}</p>
+      )}
       {!analysis && (
         <div className="environment-preview">
           <div role="group" aria-label="环境变化趋势">
@@ -175,11 +173,6 @@ export function EnvironmentDetails({
         </button>
       )}
       {mountAction}
-      {analysis && (
-        <p className="environment-boundary">
-          曲线只绘制已发生的观测；空缺表示没有可用值。悬停核对同一秒，点击或拖动回看。未定义环境阈值，不生成告警或凝露风险判断。
-        </p>
-      )}
       {analysis && (
         <EnvironmentProcess
           key={fixture.id}
@@ -208,6 +201,7 @@ export function EnvironmentDetails({
           露点采用水面 Magnus 近似，仅在温度 0–60°C、0&lt;RH≤100%、结果不低于
           0°C 时推导。不推导霜点；没有表面温度，不能判断凝露。
         </p>
+        <p>曲线缺口表示无有效观测。环境点位未配置告警阈值。</p>
         <FixtureDetails
           fixture={fixture}
           onPreview={onPreview}

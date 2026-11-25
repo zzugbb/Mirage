@@ -3,6 +3,7 @@ import type { PointerEvent } from "react";
 import { beginTrendScrub, moveTrendScrub } from "../trend-scrub";
 import type { TrendScrub } from "../trend-scrub";
 import type { ReviewEvent, ReviewPoint } from "../review-model";
+import { simulationClock } from "../time-comparison";
 import type { TrendMetric } from "../trend-geometry";
 import {
   trendGeometry,
@@ -122,10 +123,9 @@ export function ReviewTrend({
           aria-label={
             onSeek
               ? `${seriesLabel ?? trendMetricNames[metric]}曲线时间`
-              : undefined
+              : `${seriesLabel ?? trendMetricNames[metric]}趋势`
           }
-          aria-labelledby={onSeek ? undefined : id}
-          aria-describedby={onSeek ? id : undefined}
+          aria-describedby={id}
           aria-valuemin={onSeek ? 0 : undefined}
           aria-valuemax={onSeek ? 120 : undefined}
           aria-valuenow={onSeek ? time : undefined}
@@ -185,9 +185,9 @@ export function ReviewTrend({
               : undefined
           }
         >
-          <title
+          <desc
             id={id}
-          >{`${seriesLabel ?? `所选对象${trendMetricNames[metric]}`}趋势，显示至第 ${time} 秒；空缺不按零值连线。${comparison ? `${comparison.label} 为基准虚线，两条曲线共用刻度。` : ""}${onSeek ? "点击或横向拖动回看；左右方向键逐秒移动，Shift 加速，Home/End 跳至起止。" : ""}`}</title>
+          >{`显示至第 ${time} 秒。曲线缺口表示无有效观测。${comparison ? `${comparison.label} 为虚线，两条曲线共用刻度。` : ""}${onSeek ? "点击或横向拖动回看。方向键逐秒移动，按住 Shift 加速，Home 和 End 跳至起止。" : ""}`}</desc>
           {!chart.empty && (
             <>
               {chart.ticks.map((t) => (
@@ -260,13 +260,23 @@ export function ReviewTrend({
             y2={chart.bottom}
           />
           {cursor !== time && (
-            <line
-              className="review-hover-cursor"
-              x1={chart.x(cursor)}
-              x2={chart.x(cursor)}
-              y1={chart.top}
-              y2={chart.bottom}
-            />
+            <g aria-hidden="true" pointerEvents="none">
+              <line
+                className="review-hover-cursor"
+                x1={chart.x(cursor)}
+                x2={chart.x(cursor)}
+                y1={chart.top}
+                y2={chart.bottom}
+              />
+              <text
+                className="review-cursor-label"
+                x={width - trendRight}
+                y={9}
+                textAnchor="end"
+              >
+                游标 {simulationClock(cursor)}
+              </text>
+            </g>
           )}
           {point?.quality === "valid" &&
             point.value != null &&
