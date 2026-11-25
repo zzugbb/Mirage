@@ -84,6 +84,7 @@ import {
 } from "../environment-monitoring";
 import { EnvironmentProbeList } from "./EnvironmentDetails";
 import type { RackUnitRange } from "../rack-space";
+import { spaceRangeLabel } from "../space-inspection";
 import { type AirflowInspection } from "../airflow-inspection";
 import { pduInspectionScene, type PduInspection } from "../pdu-outlets";
 import { airflowStage, showAirflowEndpoint } from "../airflow-stage";
@@ -1319,7 +1320,10 @@ export function ReviewScene({
     active.invalidate();
   }, [panelPort, layer, retry]);
   useEffect(() => {
-    if (engine.current) engine.current.unitRange = unitRange;
+    const active = engine.current;
+    if (!active) return;
+    active.unitRange = unitRange;
+    active.invalidate();
   }, [unitRange, retry]);
   useEffect(() => {
     const active = engine.current;
@@ -2743,6 +2747,9 @@ export function ReviewScene({
                       : ""}
                   </small>
                 )}
+                {state.level === "room" && unitRange?.rackId === item.id && (
+                  <span>{spaceRangeLabel(unitRange)}</span>
+                )}
                 {roomDevice && item.id === roomDevice.id && (
                   <span>
                     {rackForDevice(item.id).name} · {unitLabel(item.id)}
@@ -3124,7 +3131,8 @@ export function ReviewScene({
             </div>
           )}
           {layer === "overview" ? (
-            rackAreas.length > 0 && (inspecting || !aisleRosterVisible) ? (
+            rackAreas.length > 0 &&
+            (inspecting || (!aisleRosterVisible && !unitRange)) ? (
               <div
                 className="review-status-key aisle-legend"
                 ref={maintenanceControls}

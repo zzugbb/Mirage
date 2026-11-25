@@ -3499,8 +3499,7 @@
 }
 
 .room-space-filters,
-.room-space-options label,
-.room-space-actions {
+.room-space-options label {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -3525,13 +3524,11 @@
 .room-space-comparison .room-space-options select {
   width: 114px;
 }
-.room-space-actions button:first-child:not(:only-child) {
+.room-space-comparison .room-space-enter {
+  justify-self: start;
+  margin: 0;
   background: #314e54;
   color: #d7f6f5;
-}
-.room-space-actions button:last-child {
-  background: transparent;
-  color: #b4c4ca;
 }
 .room-space-comparison .rack-space-boundary summary {
   cursor: pointer;
@@ -3539,10 +3536,10 @@
 .room-space-key {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-  font-size: 10px;
-  color: #93a6b0;
-  margin: 16px 0 10px;
+  gap: 4px 9px;
+  font-size: 11px;
+  color: #adbdc4;
+  margin: 10px 0;
 }
 .room-space-key i {
   display: inline-block;
@@ -3580,24 +3577,36 @@
   grid-row: 1;
   margin-right: 1px;
 }
-.room-space-comparison .is-installed {
-  background: #73838d;
+[data-capacity="occupied"] {
+  --capacity-color: #a4b1bd;
 }
-.room-space-comparison .is-blanking {
+[data-capacity="reserved"] {
+  --capacity-color: #e1bd7d;
+}
+[data-capacity="unavailable"] {
+  --capacity-color: #ed9e9a;
+}
+[data-capacity="available"] {
+  --capacity-color: #86d6ce;
+}
+[data-capacity="unknown"] {
+  --capacity-color: #a0aeb6;
+}
+.room-space-comparison i[data-capacity] {
+  background: var(--capacity-color);
+}
+.room-space-comparison i[data-capacity="unknown"] {
   background: repeating-linear-gradient(
     135deg,
-    #33434d 0 2px,
-    transparent 2px 4px
+    #667883 0 1px,
+    transparent 1px 3px
   );
   border: 1px solid #53626c;
 }
-.room-space-comparison .is-candidate {
-  background: #1f363c;
-  border: 1px solid #b7e8e8;
-}
 .room-space-mark {
-  background: #b7e8e8;
+  z-index: 1;
   outline: 1px solid #e4ffff;
+  outline-offset: 1px;
 }
 .room-space-rack .room-space-totals {
   font-size: 11px;
@@ -3690,6 +3699,104 @@
 .rack-space-boundary {
   border-top: 1px solid var(--study-line);
   padding-top: 12px;
+}
+
+.room-space-comparison {
+  scroll-padding-block: 8px;
+}
+.room-space-comparison .capacity-search {
+  margin: 0 0 10px;
+}
+.room-space-comparison .capacity-search input {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.room-space-comparison .capacity-search button {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  color: #adbdc4;
+}
+.room-space-comparison .room-space-filters label {
+  flex: 1;
+  min-width: 0;
+}
+.room-space-comparison .room-space-filters select {
+  width: 100%;
+}
+.room-space-comparison button:focus-visible,
+.room-space-comparison select:focus-visible {
+  outline: 1px solid var(--study-accent);
+  outline-offset: 2px;
+}
+.capacity-identity {
+  padding-bottom: 5px;
+}
+.rack-capacity-details {
+  padding: 0 var(--inspector-inline) 18px;
+  line-height: 1.55;
+}
+.rack-capacity-details header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.rack-capacity-details h2 {
+  margin: 0;
+  color: #e2f4f7;
+  font-size: 24px;
+  font-variant-numeric: tabular-nums;
+}
+.rack-capacity-details header > strong {
+  color: var(--capacity-color, #c7d3dc);
+  font-size: 13px;
+}
+.rack-capacity-details .rack-space-note {
+  margin: 3px 0 12px;
+}
+.rack-capacity-details dl {
+  margin: 0 0 14px;
+  border-top: 1px solid var(--study-line);
+}
+.rack-capacity-details dl > div {
+  display: grid;
+  grid-template-columns: minmax(68px, 26%) 1fr;
+  align-items: start;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--study-line);
+}
+.rack-capacity-details dt {
+  display: grid;
+  gap: 2px;
+  padding-inline-start: 9px;
+  border-inline-start: 2px solid var(--capacity-color);
+  color: #dce9ee;
+  font-variant-numeric: tabular-nums;
+}
+.rack-capacity-details dt strong {
+  color: var(--capacity-color);
+  font-size: 11px;
+}
+.rack-capacity-details dd {
+  margin: 0;
+  color: #beced7;
+  font-size: 12px;
+}
+.capacity-range-ref {
+  white-space: nowrap;
+}
+.rack-capacity-details .rack-space-boundary {
+  border-top: 0;
+  padding-top: 0;
+}
+.has-nav .range-view-details.has-range-form > .range-view-actions,
+.has-nav .range-view-details.has-range-form > .range-segments,
+.has-nav .range-view-details.has-range-form > .range-segments-disclosure {
+  display: none;
 }
 
 /* 环境点位沿用温度视图入口，独立于设备进风的切片和色条。 */

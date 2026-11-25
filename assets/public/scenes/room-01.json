@@ -3963,6 +3963,102 @@
         "modelId": "storage-4u"
       }
     ],
+    "rackCapacity": {
+      "label": "样板 U 位容量配置",
+      "ranges": [
+        {
+          "rackId": "rack-a01",
+          "first": 25,
+          "last": 28,
+          "status": "available",
+          "reason": "样板扩容测试区间"
+        },
+        {
+          "rackId": "rack-a01",
+          "first": 13,
+          "last": 14,
+          "status": "reserved",
+          "reason": "样板扩容计划保留"
+        },
+        {
+          "rackId": "rack-a01",
+          "first": 42,
+          "last": 42,
+          "status": "unavailable",
+          "reason": "样板柜顶安装限制"
+        },
+        {
+          "rackId": "rack-a02",
+          "first": 25,
+          "last": 28,
+          "status": "available",
+          "reason": "样板扩容测试区间"
+        },
+        {
+          "rackId": "rack-a03",
+          "first": 24,
+          "last": 28,
+          "status": "available",
+          "reason": "样板扩容测试区间"
+        },
+        {
+          "rackId": "rack-a04",
+          "first": 35,
+          "last": 38,
+          "status": "available",
+          "reason": "样板扩容测试区间"
+        },
+        {
+          "rackId": "rack-a05",
+          "first": 24,
+          "last": 28,
+          "status": "available",
+          "reason": "样板扩容测试区间"
+        },
+        {
+          "rackId": "rack-a06",
+          "first": 30,
+          "last": 33,
+          "status": "available",
+          "reason": "样板扩容测试区间"
+        },
+        {
+          "rackId": "rack-a07",
+          "first": 31,
+          "last": 33,
+          "status": "available",
+          "reason": "样板扩容测试区间"
+        },
+        {
+          "rackId": "rack-a07",
+          "first": 20,
+          "last": 21,
+          "status": "reserved",
+          "reason": "样板扩容计划保留"
+        },
+        {
+          "rackId": "rack-a07",
+          "first": 22,
+          "last": 22,
+          "status": "unavailable",
+          "reason": "样板走线净空保留"
+        },
+        {
+          "rackId": "rack-a08",
+          "first": 31,
+          "last": 32,
+          "status": "available",
+          "reason": "样板扩容测试区间"
+        },
+        {
+          "rackId": "rack-a08",
+          "first": 12,
+          "last": 14,
+          "status": "available",
+          "reason": "样板扩容测试区间"
+        }
+      ]
+    },
     "relations": [
       {
         "id": "cooling-srv-01",

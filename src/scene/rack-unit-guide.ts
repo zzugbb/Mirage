@@ -1,7 +1,7 @@
 import { inspectRackSpace, type RackUnitRange } from "../rack-space.ts";
 import * as THREE from "three";
 import definition from "../../assets/public/scenes/room-01.json" with { type: "json" };
-import { deviceById, rackForDevice } from "../installation.ts";
+import { deviceById, rackById, rackForDevice } from "../installation.ts";
 import { modelForDevice, unitLabel } from "../catalog.ts";
 import type { AppState } from "../domain.ts";
 
@@ -10,18 +10,21 @@ export function rackUnitSpan(
   state: AppState,
   range: RackUnitRange | null = null,
 ) {
-  if (
-    state.level === "rack" &&
-    range?.rackId === rackForDevice(state.deviceId).id &&
-    inspectRackSpace(range)
-  ) {
+  const rangeRack =
+    range &&
+    (state.level === "rack"
+      ? rackForDevice(state.deviceId)
+      : state.level === "room"
+        ? rackById(state.selected)
+        : undefined);
+  if (range && rangeRack?.id === range.rackId && inspectRackSpace(range)) {
     return {
       id: `range:${range.first}:${range.last}`,
       label:
         range.first === range.last
           ? `U${range.first}`
           : `U${range.first}–${range.last}`,
-      rack: rackForDevice(state.deviceId),
+      rack: rangeRack,
       first: range.first,
       last: range.last,
       bottom:

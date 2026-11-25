@@ -313,7 +313,8 @@ export function RackSpaceInspector({
         <summary>核查依据与限制</summary>
         <p>按本柜完整安装配置计算。抽出的设备仍占原位，后置 PDU 为 0U 附件。</p>
         <p>
-          重叠范围仅供核对几何。可分配容量、预留与不可用空间、承重、深度、供电和散热余量尚未定义。
+          空段选择用于核对安装几何。提交范围后，可在右栏查阅对应的 U
+          位容量登记。
         </p>
       </details>
     </section>

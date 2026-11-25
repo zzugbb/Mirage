@@ -273,9 +273,10 @@ import {
   RackSpaceInspector,
   type SpaceFormSnapshot,
 } from "./components/RackSpaceInspector";
-import type { RackUnitRange } from "./rack-space";
+import { roomRackCapacity, type RackUnitRange } from "./rack-space";
 import { MaintenanceAisles } from "./components/MaintenanceAisles";
 import { RoomSpaceComparison } from "./components/RoomSpaceComparison";
+import { RackCapacityDetails } from "./components/RackCapacityDetails";
 import {
   canInspectPart,
   closesPartInspection,
@@ -1754,6 +1755,7 @@ export function Workspace() {
   ]);
   const [comparisonSize, setComparisonSize] = useState(2);
   const [comparisonRow, setComparisonRow] = useState("all");
+  const [comparisonQuery, setComparisonQuery] = useState("");
   const [comparisonRack, setComparisonRack] = useState<string | null>(null);
   const comparisonScroll = useRef(0);
   const [comparisonStart, setComparisonStart] = useState<number | null>(null);
@@ -1770,6 +1772,18 @@ export function Workspace() {
   } | null>(null);
   const [comparisonReturning, setComparisonReturning] = useState(false);
   const [comparisonFocus, setComparisonFocus] = useState(false);
+  const comparisonDetailsFocus = useRef(false);
+  const roomCapacity = useMemo(
+    () => roomRackCapacity(comparisonSize, comparisonRow, comparisonQuery),
+    [comparisonSize, comparisonRow, comparisonQuery],
+  );
+  const comparisonCandidates = roomCapacity.find(
+    (entry) => entry.rack.id === comparisonRack,
+  )?.candidates;
+  const roomCapacityRange =
+    comparisonCandidates?.find((range) => range.first === comparisonStart) ??
+    comparisonCandidates?.[0] ??
+    null;
   const [expanded, setExpanded] = useState<string[]>([]);
   const [resourceFilter, setFilter] = useState<ResourceFilter>("all");
   const filter = state.level === "device" ? "all" : resourceFilter;
@@ -1954,6 +1968,20 @@ export function Workspace() {
       cancelAnimationFrame(frame);
     };
   }, [review.analysis]);
+
+  useLayoutEffect(() => {
+    if (
+      !comparisonDetailsFocus.current ||
+      !comparisonVisit ||
+      state.level !== "rack"
+    )
+      return;
+    comparisonDetailsFocus.current = false;
+    if (document.activeElement === document.body)
+      inspectorRef.current
+        ?.querySelector<HTMLElement>(".study-panel-heading h2")
+        ?.focus({ preventScroll: true });
+  }, [comparisonVisit, state.level, selected]);
 
   const peakReturnFocus = useRef<{
     scopeId: string;
@@ -3055,18 +3083,36 @@ export function Workspace() {
       rackUnitQuery({ level: state.level, deviceId: state.deviceId }, query),
     [state.level, state.deviceId, query],
   );
-  const spaceRange =
-    state.level === "rack" &&
-    unitQuery &&
-    !unitQuery.error &&
-    !unitQuery.terms.length &&
-    unitQuery.rack?.id === rackForDevice(state.deviceId).id
-      ? {
-          rackId: unitQuery.rack.id,
-          first: unitQuery.first,
-          last: unitQuery.last,
-        }
+  const spaceRange = useMemo(
+    () =>
+      state.level === "rack" &&
+      unitQuery &&
+      !unitQuery.error &&
+      !unitQuery.terms.length &&
+      unitQuery.rack?.id === rackForDevice(state.deviceId).id
+        ? {
+            rackId: unitQuery.rack.id,
+            first: unitQuery.first,
+            last: unitQuery.last,
+          }
+        : null,
+    [state.level, state.deviceId, unitQuery],
+  );
+  const roomRange =
+    state.level === "room" &&
+    layer === "overview" &&
+    navigationView === "space" &&
+    spaceMode === "units" &&
+    roomCapacityRange?.rackId === selected
+      ? roomCapacityRange
       : null;
+  const capacityRange =
+    roomRange ??
+    (layer === "overview" &&
+    spaceRange?.rackId === selected &&
+    (navigationView === "space" || comparisonVisit || blankingVisit)
+      ? spaceRange
+      : null);
   useEffect(() => {
     if (!rangeReturning.current || rangeView || !ready) return;
     rangeReturning.current = false;
@@ -5065,6 +5111,8 @@ export function Workspace() {
     setNetworkMapSelection("room-01");
     networkMapScroll.current = 0;
     setComparisonRow("all");
+    setComparisonQuery("");
+    comparisonDetailsFocus.current = false;
     setComparisonRack(null);
     setComparisonStart(null);
     setComparisonVisit(null);
@@ -5469,7 +5517,7 @@ export function Workspace() {
     `${rackById(spaceVisit.range.rackId)!.name.split(" ")[0]} · ${spaceRangeLabel(spaceVisit.range)}`;
   const roomRangeName =
     comparisonVisit &&
-    `返回机房核查（${rackById(comparisonVisit.range.rackId)!.name.split(" ")[0]} · ${spaceRangeLabel(comparisonVisit.range)}）`;
+    `返回机房容量 · ${rackById(comparisonVisit.range.rackId)!.name.split(" ")[0]} ${spaceRangeLabel(comparisonVisit.range)}`;
 
   const roundDetails = round && !smokeVisit && (
     <EnvironmentRoundDetails
@@ -6154,7 +6202,7 @@ export function Workspace() {
                 aria-pressed={spaceMode === "units"}
                 onClick={() => setSpaceMode("units")}
               >
-                安装 U 位
+                U 位容量
               </button>
               <button
                 aria-pressed={spaceMode === "aisles"}
@@ -6633,12 +6681,15 @@ export function Workspace() {
             />
           ) : state.level === "room" && navigationView === "space" ? (
             <RoomSpaceComparison
+              comparison={roomCapacity}
+              query={comparisonQuery}
+              onQuery={setComparisonQuery}
               size={comparisonSize}
               rowId={comparisonRow}
               expandedId={comparisonRack}
               selected={selected}
               scroll={comparisonScroll}
-              start={comparisonStart}
+              range={roomCapacityRange}
               onStart={setComparisonStart}
               restoreFocus={comparisonFocus && nav}
               onRestored={() => setComparisonFocus(false)}
@@ -6654,8 +6705,8 @@ export function Workspace() {
               onExpand={(id) => {
                 setComparisonRack(id);
                 setComparisonStart(null);
+                if (id) selectObject(id);
               }}
-              onPreview={selectObject}
               ready={ready}
               onInspect={(range) => {
                 setComparisonVisit({
@@ -6669,9 +6720,10 @@ export function Workspace() {
                   metric,
                   inspector,
                 });
+                comparisonDetailsFocus.current = true;
                 selectObject(range.rackId, true);
                 control({ type: "layer", layer: "overview" });
-                control({ type: "analysis", value: false });
+                openObjectDetails();
                 setSpaceSize(comparisonSize);
                 setQuery(spaceRangeLabel(range));
                 setOnlyAlarms(false);
@@ -6704,6 +6756,7 @@ export function Workspace() {
                 setQuery(spaceRangeLabel(range));
                 setFilter("all");
                 setOnlyAlarms(false);
+                openObjectDetails();
               }}
               onDevice={inspectRangeDevice}
               queryMessage={
@@ -6745,8 +6798,8 @@ export function Workspace() {
                 setFilter("all");
                 setOnlyAlarms(false);
                 setQuery(`U${first}–${last}`);
-                pick(rackId);
-                control({ type: "analysis", value: false });
+                selectObject(rackId);
+                openObjectDetails();
                 requestRangeView("front", null);
               }}
               state={state}
@@ -7246,7 +7299,7 @@ export function Workspace() {
                   rackForDevice(state.deviceId).id === spaceVisit.range.rackId
                   ? spaceVisit.range
                   : spaceRange
-                : null
+                : roomRange
             }
             sliceControls={sliceControls}
             setSliceControls={setSliceControls}
@@ -7466,7 +7519,7 @@ export function Workspace() {
                         openObjectDetails();
                       }}
                     >
-                      对象详情
+                      {capacityRange ? "U 位依据" : "对象详情"}
                     </button>
                   )}
                 </div>
@@ -8394,7 +8447,12 @@ export function Workspace() {
                 ×
               </button>
             </div>
-            {activeAirflowResponse ? (
+            {capacityRange && !review.analysis ? (
+              <div className="study-identity capacity-identity">
+                <small>机柜容量核对</small>
+                <h1>{resource?.name ?? entity.name}</h1>
+              </div>
+            ) : activeAirflowResponse ? (
               <div className="study-identity">
                 <small>气流代表支路 · 模拟对照</small>
                 <h1>冷却输入与设备进风</h1>
@@ -8744,17 +8802,20 @@ export function Workspace() {
                   </div>
                 </section>
               )}
+            {capacityRange && !review.analysis && (
+              <RackCapacityDetails range={capacityRange} />
+            )}
             {rangeView && spaceRange && (
               <section
-                className={`range-view-details ${review.analysis ? "is-compact" : ""}`}
+                className={`range-view-details ${review.analysis ? "is-compact" : ""}${navigationView === "space" ? " has-range-form" : ""}`}
                 aria-label="安装范围近景"
               >
-                <strong>
-                  {rackById(spaceRange.rackId)?.name} · U{spaceRange.first}
-                  {spaceRange.last !== spaceRange.first
-                    ? `–${spaceRange.last}`
-                    : ""}
-                </strong>
+                {!capacityRange && (
+                  <strong>
+                    {rackById(spaceRange.rackId)?.name} ·{" "}
+                    {spaceRangeLabel(spaceRange)}
+                  </strong>
+                )}
                 <p>
                   {blankingVisit ? (
                     `连续 ${spaceRange.last - spaceRange.first + 1} U 前置盲板。括线标出整段安装位置，${rangeView === "front" ? "可打开前门查看封板。" : "从柜后对照同一高度，不表示有后置盲板。"}`
@@ -9870,7 +9931,7 @@ export function Workspace() {
                 {airflowInspector}
                 {probeAirflowComparison}
               </>
-            ) : (
+            ) : capacityRange ? null : (
               <>
                 {probeRackInspection}
                 {coolingProbeCheck}
