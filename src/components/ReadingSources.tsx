@@ -18,6 +18,7 @@ export function ReadingSources({
   sources,
   metrics,
   check,
+  showCollapsed,
   time,
   onChange,
   onClose,
@@ -30,6 +31,7 @@ export function ReadingSources({
   sources: Sources;
   metrics: SourceMetric[];
   check: SourceCheck | null;
+  showCollapsed: boolean;
   time: number;
   onChange: (check: SourceCheck) => void;
   onClose: () => void;
@@ -37,6 +39,7 @@ export function ReadingSources({
   onInteract: () => void;
 }) {
   const root = useRef<HTMLElement>(null);
+  const heading = useRef<HTMLButtonElement>(null);
   const opened = !!check;
   useEffect(() => {
     if (opened) {
@@ -44,6 +47,11 @@ export function ReadingSources({
       root.current?.focus({ preventScroll: true });
     }
   }, [opened]);
+  if (!showCollapsed && !opened) return null;
+  const close = () => {
+    onClose();
+    if (showCollapsed) heading.current?.focus();
+  };
   const current: SourceCheck = check ?? {
     sourceId: sources.sourceId,
     metric: sources.metric,
@@ -52,6 +60,7 @@ export function ReadingSources({
   };
   const rows = matchingSourceRows(sources, current);
   const metricName = sources.metric === "temperature" ? "进风" : "功耗";
+  const hasMetricChoice = metrics.length > 1;
   return (
     <section
       ref={root}
@@ -72,17 +81,15 @@ export function ReadingSources({
             detail.querySelector("summary")?.focus({ preventScroll: true });
             return;
           }
-          onClose();
-          root.current
-            ?.querySelector<HTMLButtonElement>(".reading-sources-heading")
-            ?.focus();
+          close();
         }
       }}
     >
       <button
+        ref={heading}
         className="reading-sources-heading"
         aria-expanded={opened}
-        onClick={() => (opened ? onClose() : onChange(current))}
+        onClick={() => (opened ? close() : onChange(current))}
       >
         <strong>输入核对</strong>
         <span>
@@ -94,18 +101,22 @@ export function ReadingSources({
         <div className="reading-sources-content">
           <div
             className="reading-source-metrics"
-            role="group"
-            aria-label="核对指标"
+            role={hasMetricChoice ? "group" : undefined}
+            aria-label={hasMetricChoice ? "核对指标" : undefined}
           >
-            {metrics.map((metric) => (
-              <button
-                key={metric}
-                aria-pressed={current.metric === metric}
-                onClick={() => onChange({ ...current, metric, query: "" })}
-              >
-                {metric === "temperature" ? "进风温度" : "输入功耗"}
-              </button>
-            ))}
+            {hasMetricChoice &&
+              metrics.map((metric) => (
+                <button
+                  key={metric}
+                  aria-pressed={current.metric === metric}
+                  onClick={() => {
+                    if (current.metric !== metric)
+                      onChange({ ...current, metric, query: "" });
+                  }}
+                >
+                  {metric === "temperature" ? "进风温度" : "输入功耗"}
+                </button>
+              ))}
             <span>第 {time} 秒</span>
           </div>
           <p className="reading-sources-total">

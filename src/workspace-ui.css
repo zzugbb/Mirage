@@ -1172,6 +1172,14 @@
 /* 两栏能同时看见时，场景让出与详情重复的摘要。 */
 @media (min-width: 1100px) {
   .has-inspector .study-room-summary[data-duplicate-detail],
+  .has-inspector:has(
+      .study-inspector
+        :is(
+          [data-reading="power"] .reading-coverage-link,
+          .reading-sources-heading
+        )
+    )
+    .power-budget-entry,
   .has-inspector:not(.has-analysis)
     .review-legend:has(
       > .crossing-scene-key[data-duplicate-detail]:only-child
@@ -1181,6 +1189,14 @@
 }
 @media (min-width: 601px) and (max-width: 1099px) {
   .has-inspector:not(.has-nav) .study-room-summary[data-duplicate-detail],
+  .has-inspector:not(.has-nav):has(
+      .study-inspector
+        :is(
+          [data-reading="power"] .reading-coverage-link,
+          .reading-sources-heading
+        )
+    )
+    .power-budget-entry,
   .has-inspector:not(.has-nav, .has-analysis)
     .review-legend:has(
       > .crossing-scene-key[data-duplicate-detail]:only-child
@@ -1241,15 +1257,18 @@
 }
 .study-inspector {
   --inspector-inline: 22px;
+  --inspector-heading-height: 58px;
   background: var(--panel);
   border-left: 1px solid #ffffff0d;
   min-width: 0;
   min-height: 0;
   overflow: auto;
+  scroll-padding-block-start: var(--inspector-heading-height);
   scrollbar-width: thin;
   scrollbar-color: #3c4955 transparent;
 }
 .study-inspector .study-panel-heading {
+  height: var(--inspector-heading-height);
   padding-inline: var(--inspector-inline);
   position: sticky;
   top: 0;
@@ -1311,8 +1330,8 @@
 .study-identity[data-alarmed] > h1 {
   margin-bottom: 0;
 }
-.study-inspector.is-analysis .study-panel-heading {
-  height: 48px;
+.study-inspector.is-analysis {
+  --inspector-heading-height: 48px;
 }
 .study-inspector.is-analysis .study-identity {
   padding-block: 12px;
@@ -3182,7 +3201,6 @@
   text-align: left;
 }
 .reading-sources {
-  scroll-margin-top: 56px;
   border-top: 1px solid var(--study-line);
   padding: 0 22px;
 }
@@ -4278,7 +4296,7 @@
   fill: #b7b9dc;
 }
 .pdu-outlets {
-  scroll-margin-top: 76px;
+  scroll-margin-top: 18px;
   margin-top: 14px;
   font-size: 11px;
 }
@@ -4472,7 +4490,7 @@
   padding-block: 10px;
   border-block: 1px solid #ffffff16;
   font-size: 11px;
-  scroll-margin-top: 76px;
+  scroll-margin-top: 18px;
 }
 .slice-evidence-details header,
 .slice-evidence-value,
@@ -4709,7 +4727,7 @@
   padding-block: 9px;
   color: #c5d8db;
   cursor: pointer;
-  scroll-margin-top: 56px;
+  scroll-margin-top: 8px;
 }
 .peak-source-process p,
 .peak-source-process small {
@@ -7411,7 +7429,7 @@
   background: #263a44;
 }
 .cooling-connections > summary {
-  scroll-margin-top: 66px;
+  scroll-margin-top: 8px;
 }
 .cooling-range-browser .cooling-range-count {
   display: flex;

@@ -5025,6 +5025,7 @@ export function Workspace() {
     [selected, sourceMetric, spatial.readings],
   );
   const [budgetReview, setBudgetReview] = useState(emptyBudgetReview);
+  const sourceTrigger = useRef<SourceMetric | null>(null);
   useEffect(() => {
     setBudgetReview(emptyBudgetReview);
   }, [selected, sourceMetric, state.replayCycle, revision]);
@@ -5035,12 +5036,19 @@ export function Workspace() {
     setSourceVisit(null);
     setSourceReturning(false);
     sourceReturnFocus.current = null;
+    sourceTrigger.current = nextMetric;
     setSourceCheck({
       sourceId: selected,
       metric: nextMetric,
       group: next.excluded ? "excluded" : "included",
       query: "",
     });
+    if (activeSourceCheck) {
+      const section =
+        inspectorRef.current?.querySelector<HTMLElement>(".reading-sources");
+      section?.scrollIntoView({ block: "nearest" });
+      section?.focus({ preventScroll: true });
+    }
   };
   const previewAirflowEndpoint = (route: AirflowRoute, id: string) => {
     const visit = beginAirflowInspection(activeAirflowVisit, route, id, {
@@ -5328,25 +5336,36 @@ export function Workspace() {
   const currentSourceRow = sourceVisit
     ? sourceInspectionRow(sourceVisit, spatial.readings)
     : null;
-  const sourceInspector = sources && (!sourceVisit || sourceReturning) && (
-    <ReadingSources
-      budgetReview={budgetReview}
-      onBudgetReview={setBudgetReview}
-      onSeek={(time) => dispatch({ type: "seek", time })}
-      sources={sources}
-      metrics={availableSourceMetrics}
-      check={activeSourceCheck}
-      time={state.time}
-      onChange={setSourceCheck}
-      onClose={() => {
-        setBudgetReview(emptyBudgetReview);
-        setSourceCheck(null);
-        setSourceVisit(null);
-      }}
-      onInteract={takeover}
-      onPreview={visitSource}
-    />
-  );
+  const renderSourceInspector = (showCollapsed: boolean) =>
+    sources &&
+    (!sourceVisit || sourceReturning) && (
+      <ReadingSources
+        budgetReview={budgetReview}
+        onBudgetReview={setBudgetReview}
+        onSeek={(time) => dispatch({ type: "seek", time })}
+        sources={sources}
+        metrics={availableSourceMetrics}
+        check={activeSourceCheck}
+        showCollapsed={showCollapsed}
+        time={state.time}
+        onChange={setSourceCheck}
+        onClose={() => {
+          if (!showCollapsed)
+            inspectorRef.current
+              ?.querySelector<HTMLElement>(
+                `[data-reading="${sourceTrigger.current ?? sources.metric}"] .reading-coverage-link`,
+              )
+              ?.focus();
+          sourceTrigger.current = null;
+          setBudgetReview(emptyBudgetReview);
+          setSourceCheck(null);
+          setSourceVisit(null);
+        }}
+        onInteract={takeover}
+        onPreview={visitSource}
+      />
+    );
+  const sourceInspector = renderSourceInspector(true);
 
   const analysisScopeId = peakVisit?.scopeId ?? sourceVisit?.check.sourceId;
   const analysisTask = peakVisit ? "最高来源" : "输入";
@@ -10180,7 +10199,7 @@ export function Workspace() {
                         对照冷却输入与温度响应 <span>↗</span>
                       </button>
                     </section>
-                    {sourceInspector}
+                    {renderSourceInspector(false)}
                     <CoolingConnections
                       range={coolingRangeBrowser}
                       rangeOpen={coolingRangeOpen}
@@ -10242,23 +10261,24 @@ export function Workspace() {
                             {temperature(currentTemperature)}
                             {currentTemperature !== null && <small>°C</small>}
                           </strong>
-                          {(reading.count > 1 ||
-                            (sources && reading.coverageTemperature !== 1)) &&
-                            (sources ? (
-                              <button
-                                className="reading-coverage-link"
-                                aria-label="核对进风温度输入"
-                                onClick={() => openSourceCheck("temperature")}
-                              >
-                                有效覆盖 {reading.coverageTemperature}/
-                                {reading.count} ↗
-                              </button>
-                            ) : (
+                          {sources &&
+                          availableSourceMetrics.includes("temperature") ? (
+                            <button
+                              className="reading-coverage-link"
+                              aria-label="核对进风温度输入"
+                              onClick={() => openSourceCheck("temperature")}
+                            >
+                              有效覆盖 {reading.coverageTemperature}/
+                              {reading.count} ↗
+                            </button>
+                          ) : (
+                            reading.count > 1 && (
                               <small>
                                 有效覆盖 {reading.coverageTemperature}/
                                 {reading.count}
                               </small>
-                            ))}
+                            )
+                          )}
                         </div>
                       )}
                       {inletComparison ? (
@@ -10408,7 +10428,7 @@ export function Workspace() {
                           )}
                         </StructureTools>
                       )}
-                    {sourceInspector}
+                    {renderSourceInspector(false)}
                     {selected === powerSettings.sourceId &&
                       layer === "overview" &&
                       state.level === "room" && (
