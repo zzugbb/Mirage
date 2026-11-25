@@ -1,3 +1,4 @@
+import { StudyReturns, type StudyReturn } from "./components/StudyReturns";
 import { grilleSeatInspection } from "./grille-seat";
 import { GrilleSeatDetails } from "./components/GrilleSeatDetails";
 import { grilleIntakeInspection } from "./grille-intake";
@@ -1234,15 +1235,6 @@ export function Workspace() {
   };
   const [crossing, setCrossing] = useState<FixtureCrossing | null>(null);
   const smokeTrayEdges = crossing?.kind === "smoke-tray" && crossing.gap;
-  const crossingOverview =
-    crossing?.kind === "roof-entry" || crossing?.kind === "roof-pdu"
-      ? crossing.overview
-      : crossing;
-  const crossingOriginId =
-    crossingOverview?.kind === "lighting-round" ||
-    crossingOverview?.kind === "light-rod"
-      ? crossingOverview.source.id
-      : crossingOverview?.id;
   const [crossingCommand, setCrossingCommand] =
     useState<CrossingViewCommand | null>(null);
   const crossingEntry = useRef<{ element: HTMLElement; scroll: number } | null>(
@@ -5387,6 +5379,402 @@ export function Workspace() {
     else if (crossing?.kind === "rear-wall" && layoutVisit) returnLayoutVisit();
     else requestCrossing(null);
   };
+  const selectedPduOutlet =
+    layer === "power" &&
+    pduInspection?.pduId === selected &&
+    pduInspection.outlet !== null;
+  const powerConnections = (layer === "power" || powerFacility) && (
+    <PowerConnections
+      interval={
+        powerOverviewVisit?.feeder && feederReference?.showEnergy
+          ? feederEnergyInterval(feederReference.time, state.time)
+          : null
+      }
+      paired={powerViewPaired}
+      onAnalyzeDevice={(id, at) => {
+        if (at !== undefined) dispatch({ type: "seek", time: at });
+        if (layoutVisit?.resourceList) {
+          setQuery("");
+          setFilter("all");
+        }
+        focus(id, { installation: true });
+        setMetric("power");
+        analyze();
+      }}
+      onInspectMount={
+        initialPduMount === null
+          ? undefined
+          : () => requestPowerView({ mount: initialPduMount })
+      }
+      onOpenFeeders={
+        state.level === "room" && !(nav && navigationView === "feeders")
+          ? openFeeders
+          : undefined
+      }
+      pduInspection={pduInspection}
+      onPduChange={(visit) => {
+        takeover();
+        setPduInspection(visit);
+        if (visit.outlet === null) setPowerLinkId(null);
+      }}
+      onOutletNetwork={openOutletNetwork}
+      onOutletAirflow={openOutletAirflow}
+      onLocateOutlet={(link) => {
+        if (state.level === "room" && layoutVisit?.resourceList) {
+          setQuery("");
+          setFilter("all");
+          setOnlyAlarms(false);
+        }
+        setPduReturning(true);
+        focus(link.pduId);
+        setPduInspection((current) => locatePduOutlet(current, link));
+        if (powerViewPaired) requestPowerView("observe");
+        setPowerLinkId(link.id);
+      }}
+      onPduSelect={(pduId, outlet) => {
+        const row = pduOutlet(pduId, outlet);
+        if (!row) return;
+        setPduInspection((current) => ({
+          pduId,
+          outlet,
+          query: current?.pduId === pduId ? current.query : "",
+          scroll: current?.pduId === pduId ? current.scroll : 0,
+        }));
+        setPowerLinkId(row.link?.id ?? null);
+        control({ type: "layer", layer: "power" });
+      }}
+      activeLinkId={layer === "power" ? activePowerLink : null}
+      onTrace={(id) => {
+        const link = powerLinkById(id);
+        if (link && !powerContextIncludes(selected, state.deviceId, id))
+          pick(link.deviceId);
+        setPowerLinkId(id);
+        if (!id)
+          setPduInspection((current) =>
+            current?.pduId === selected
+              ? { ...current, outlet: null }
+              : current,
+          );
+        if (id) control({ type: "layer", layer: "power" });
+        else takeover();
+      }}
+      onInspect={(linkId) => {
+        control({ type: "inspect-power-input", linkId });
+        setQuery("");
+        setFilter("all");
+        setNetworkLinkId(null);
+        if (matchMedia("(max-width: 1099px)").matches) setNav(false);
+      }}
+      onInteract={takeover}
+      state={state}
+      selectedId={selected}
+      readings={spatial.readings}
+      ready={ready}
+      onSelect={(id) => pick(id)}
+      onLocate={(id) => {
+        if (id === powerSettings.sourceId && activePowerLink)
+          focusFeederRoute.current = true;
+        focus(id, {
+          installation: entityById(id)?.kind === "device",
+        });
+      }}
+      onViewPower={
+        layer === "power" || state.level === "room"
+          ? undefined
+          : () => control({ type: "layer", layer: "power" })
+      }
+    />
+  );
+  const taskReturns: StudyReturn[] = [];
+  // 先放当前检视的返回，再列出此任务的上游入口。
+  if (airflowOrigin && state.level === "room" && layer === "airflow") {
+    const { outlet, pose } = airflowOrigin;
+    const destination = outlet
+      ? `${pduName(outlet.inspection.pduId)} · 插座 ${String(outlet.inspection.outlet).padStart(2, "0")}`
+      : pose.level === "rack"
+        ? rackForDevice(pose.deviceId).name
+        : deviceById(pose.deviceId)?.name;
+    taskReturns.push({
+      group: "机房气流往返",
+      label: `← 返回 ${destination}`,
+      disabled: !ready || returningFromAirflow,
+      onReturn: returnFromRoomAirflow,
+    });
+  }
+  if (blankingVisit) {
+    taskReturns.push({
+      group: "安装图封板段往返",
+      label: `← 返回 ${rackById(blankingVisit.rackId)?.name.split(" ")[0]} 安装图 · ${spaceRangeLabel(blankingVisit)} 封板段`,
+      disabled: !ready,
+      onReturn: returnBlanking,
+    });
+  }
+  if (outletNetworkActive && outletNetworkVisit) {
+    const { input } = outletNetworkVisit;
+    taskReturns.push({
+      group: "插座与网络往返",
+      label: `← 返回原插座 · ${pduName(input.pduId)} · ${String(input.outlet).padStart(2, "0")}`,
+      caption: `← 原插座 · ${pduName(input.pduId)} ${String(input.outlet).padStart(2, "0")}`,
+      disabled: !ready,
+      onReturn: returnOutletNetwork,
+      end: {
+        label: "结束插座与网络往返",
+        onClick: () => setOutletNetworkVisit(null),
+      },
+    });
+  }
+  if (
+    !outletNetworkActive &&
+    !airflowOrigin?.outlet &&
+    pduInspection?.outlet != null &&
+    (selected !== pduInspection.pduId ||
+      review.analysis ||
+      pduReturning ||
+      powerViewPaired)
+  ) {
+    const { pduId, outlet } = pduInspection;
+    taskReturns.push({
+      group: "插座核对往返",
+      label: `← 返回 ${pduName(pduId)} · 插座 ${String(outlet).padStart(2, "0")}`,
+      disabled: !ready || pduReturning,
+      onReturn: () => {
+        setPduReturning(true);
+        focus(pduId);
+        setPowerLinkId(pduOutlet(pduId, outlet)?.link?.id ?? null);
+        control({ type: "layer", layer: "power" });
+        control({ type: "analysis", value: false });
+      },
+      end: {
+        label: "结束插座核对往返",
+        disabled: pduReturning,
+        onClick: () => setPduInspection(null),
+      },
+    });
+  }
+  if (portVisit) {
+    taskReturns.push({
+      group: "端口核对往返",
+      label: `← 返回 ${deviceById(portVisit.check.switchId)!.name} · 端口 ${String(portVisit.check.port).padStart(2, "0")}`,
+      disabled: !ready || portReturning,
+      onReturn: () => {
+        setPatchEntry(null);
+        setPortReturning(true);
+        control(
+          portVisit.level === "room"
+            ? { type: "open-resource", id: "room-01" }
+            : { type: "locate-installation", id: portVisit.check.switchId },
+        );
+      },
+      end: {
+        label: "结束端口核对",
+        disabled: portReturning,
+        onClick: () => setPortVisit(null),
+      },
+    });
+  }
+  if (analysisScopeId) {
+    const metricName = sourceVisit
+      ? sourceVisit.check.metric === "temperature"
+        ? "进风"
+        : "功耗"
+      : "";
+    taskReturns.push({
+      group: `${analysisTask}核对往返`,
+      label: `← 返回${entityById(analysisScopeId)?.name} · ${metricName}${analysisTask}核对`,
+      disabled: !ready || peakReturning || sourceReturning,
+      onReturn: peakVisit ? returnPeakSource : returnSource,
+      end: {
+        label: `结束${analysisTask}检视往返`,
+        disabled: peakReturning || sourceReturning,
+        onClick: () => {
+          if (peakVisit) {
+            setPeakReview(null);
+            setPeakVisit(null);
+          } else {
+            setSourceVisit(null);
+            setSourceCheck(null);
+            sourceReturnFocus.current = null;
+          }
+        },
+      },
+    });
+  }
+  if (spaceVisit) {
+    taskReturns.push({
+      group: "安装范围核查往返",
+      label: `← 返回${rackRangeName} 核查`,
+      disabled: !ready || spaceReturning,
+      onReturn: returnSpaceInspection,
+      end: {
+        label: "结束范围占用检视",
+        disabled: spaceReturning,
+        onClick: () => setSpaceVisit(null),
+      },
+    });
+  }
+  if (grilleVisit) {
+    taskReturns.push({
+      group: "格栅气流检视往返",
+      label: `← 返回格栅布置 · ${rackById(grilleVisit.rackId)?.name}`,
+      disabled: !ready || grilleReturning,
+      onReturn: returnGrille,
+      end: {
+        label: "结束格栅气流检视往返",
+        disabled: grilleReturning,
+        onClick: () => setGrilleVisit(null),
+      },
+    });
+  }
+  if (coolingVisit) {
+    const device = coolingVisit.deviceId
+      ? deviceById(coolingVisit.deviceId)?.name
+      : undefined;
+    taskReturns.push({
+      group: "服务范围检视往返",
+      label: activeCoolingDrain
+        ? `← 返回 ${deviceById(activeCoolingDrain.link.deviceId)?.name} ${activeCoolingDrain.view === "terminal-face" ? "柜面核对" : "气流端点"}`
+        : `← 返回服务范围 · ${rackById(coolingVisit.rackId)?.name}${device ? ` / ${device}` : ""}`,
+      disabled: !ready || coolingReturning,
+      onReturn: activeCoolingDrain
+        ? returnCoolingDrainAirflow
+        : returnCoolingRange,
+      end: {
+        label: "结束服务范围检视往返",
+        disabled: coolingReturning,
+        onClick: () => setCoolingVisit(null),
+      },
+    });
+  }
+  if (pairedEnvironment) {
+    taskReturns.push({
+      group: "环境测点对照往返",
+      label: `← 返回起点 · ${environmentProbe(pairedEnvironment.firstId)!.fixture.name}`,
+      disabled: !ready,
+      onReturn: returnEnvironmentPair,
+    });
+  }
+  if (powerOverviewVisit) {
+    taskReturns.push({
+      group: "功耗对照往返",
+      label: powerOverviewVisit.feeder
+        ? `← 返回配电出线 ${pduById(powerLinkById(powerOverviewVisit.feeder.linkId)!.pduId)!.sourcePort}`
+        : "← 返回机房功耗对照",
+      disabled: !ready || powerOverviewReturning,
+      onReturn: () => {
+        setOutletNetworkVisit(null);
+        setPowerOverviewReturning(true);
+        if (state.level !== "room")
+          control({ type: "open-resource", id: "room-01" });
+      },
+      end: {
+        label: "结束功耗对照往返",
+        disabled: powerOverviewReturning,
+        onClick: () => setPowerOverviewVisit(null),
+      },
+    });
+  }
+  if (networkMapVisit || (state.level !== "room" && rackView === "network")) {
+    taskReturns.push({
+      group: "网络接入往返",
+      label: originalNetworkLink
+        ? `← 返回 ${deviceById(originalNetworkLink.source)!.name} · 接入 ${switchRole(originalNetworkLink.target)}`
+        : "← 返回机房接入图",
+      disabled: !ready || networkMapReturning,
+      onReturn: returnNetworkMap,
+    });
+  }
+  if (aisleVisit) {
+    const { front, rear } = aisleVisit.aisle;
+    taskReturns.push({
+      group: "排间通道往返",
+      label: `← 返回通道名单 · ${front.rackName.split(" ")[0]} / ${rear.rackName.split(" ")[0]}`,
+      disabled: !ready || aisleReturning,
+      onReturn: returnToAisles,
+    });
+  }
+  if (
+    inletAirflowVisit ||
+    inletInspection ||
+    inletPair ||
+    (inletSession && state.level !== "room")
+  ) {
+    taskReturns.push({
+      group: "进风对照往返",
+      label: "← 返回机房进风对照",
+      disabled: !ready || inletReturning || inletAirflowReturning,
+      escapeReturns: true,
+      onReturn: inletAirflowVisit ? returnInletAirflow : returnInletOverview,
+      end: inletAirflowVisit
+        ? {
+            label: "结束气流往返",
+            disabled: inletAirflowReturning,
+            onClick: () => setInletAirflowVisit(null),
+          }
+        : undefined,
+    });
+  }
+  if (comparisonVisit) {
+    taskReturns.push({
+      group: "机房空间核查往返",
+      label: `← ${spaceVisit ? `机房 · ${spaceRangeLabel(comparisonVisit.range)}` : roomRangeName}`,
+      disabled: !ready || comparisonReturning || spaceReturning,
+      onReturn: () => {
+        setComparisonReturning(true);
+        setSpaceVisit(null);
+        setSpaceRestore(null);
+        setBlankingVisit(null);
+        control({ type: "analysis", value: false });
+        control({ type: "open-resource", id: "room-01" });
+      },
+    });
+  }
+  if (alarmVisit) {
+    taskReturns.push({
+      group: "告警排查往返",
+      label: `← 返回告警列表 · ${deviceById(alarmVisit.id)?.name}`,
+      disabled: !ready || alarmReturning,
+      onReturn: () => {
+        setAlarmReturning(true);
+        if (state.level !== "room")
+          control({ type: "open-resource", id: "room-01" });
+      },
+      end: {
+        label: "结束告警排查",
+        disabled: alarmReturning,
+        onClick: () => setAlarmVisit(null),
+      },
+    });
+  }
+  if (layoutVisit) {
+    const destination = layoutVisit.resourceList
+      ? "机房名单"
+      : layoutVisit.roster
+        ? "设施名单"
+        : "布置图";
+    taskReturns.push({
+      group: "布置导览往返",
+      label: `← 返回${destination} · ${layoutReturnName}`,
+      disabled: !ready || layoutReturning,
+      onReturn: returnLayoutVisit,
+      end: {
+        label: "结束布置导览往返",
+        disabled: layoutReturning,
+        onClick: () => {
+          if (crossing?.kind === "rear-wall") requestCrossing(null);
+          setLayoutVisit(null);
+          setLayoutReturning(false);
+        },
+      },
+    });
+  }
+  if (state.level !== "room" && roomSearchOrigin.current) {
+    taskReturns.push({
+      group: "机房名单往返",
+      label: `← 返回机房名单 · ${deviceById(roomSearchOrigin.current.id)!.name}`,
+      disabled: !ready,
+      onReturn: () => selectObject("room-01", true),
+    });
+  }
   return (
     <div
       className="mirage-workspace workspace-ui"
@@ -5410,445 +5798,13 @@ export function Workspace() {
         <a className="study-brand" href="./" aria-label="Mirage 浮城首页">
           Mirage <span>浮城</span>
         </a>
-        {airflowOrigin && state.level === "room" && layer === "airflow" && (
-          <div className="study-task-return">
-            <button
-              disabled={!ready || returningFromAirflow}
-              onClick={returnFromRoomAirflow}
-            >
-              ← 返回{" "}
-              {airflowOrigin.outlet
-                ? `${pduName(airflowOrigin.outlet.inspection.pduId)} · 插座 ${String(airflowOrigin.outlet.inspection.outlet).padStart(2, "0")}`
-                : airflowOrigin.pose.level === "rack"
-                  ? rackForDevice(airflowOrigin.pose.deviceId).name
-                  : deviceById(airflowOrigin.pose.deviceId)?.name}
-            </button>
-          </div>
-        )}
-        {(layoutVisit || blankingVisit) && (
-          <div
-            className="study-task-return"
-            role="group"
-            aria-label={blankingVisit ? "安装图封板段往返" : "布置导览往返"}
-          >
-            {blankingVisit && (
-              <button
-                className="blanking-return"
-                disabled={!ready}
-                onClick={returnBlanking}
-              >
-                ← 返回 {rackById(blankingVisit.rackId)?.name.split(" ")[0]}{" "}
-                安装图 · {spaceRangeLabel(blankingVisit)} 封板段
-              </button>
-            )}
-            {layoutVisit && (
-              <>
-                <button
-                  disabled={!ready || layoutReturning}
-                  onClick={returnLayoutVisit}
-                >
-                  ← 返回
-                  {layoutVisit.resourceList
-                    ? "机房名单"
-                    : layoutVisit.roster
-                      ? "设施名单"
-                      : "布置图"}{" "}
-                  · {layoutReturnName}
-                </button>
-                <button
-                  aria-label="结束布置导览往返"
-                  disabled={layoutReturning}
-                  onClick={() => {
-                    if (crossing?.kind === "rear-wall") requestCrossing(null);
-                    setLayoutVisit(null);
-                    setLayoutReturning(false);
-                  }}
-                >
-                  ×
-                </button>
-              </>
-            )}
-          </div>
-        )}
-        {outletNetworkActive && outletNetworkVisit && (
-          <div
-            className="study-task-return"
-            role="group"
-            aria-label="插座与网络往返"
-          >
-            <button disabled={!ready} onClick={returnOutletNetwork}>
-              ← 返回原插座 · {pduName(outletNetworkVisit.input.pduId)} ·{" "}
-              {String(outletNetworkVisit.input.outlet).padStart(2, "0")}
-            </button>
-            <button
-              aria-label="结束插座与网络往返"
-              onClick={() => setOutletNetworkVisit(null)}
-            >
-              ×
-            </button>
-          </div>
-        )}
-        {!outletNetworkActive &&
-          !airflowOrigin?.outlet &&
-          pduInspection?.outlet != null &&
-          (selected !== pduInspection.pduId ||
-            review.analysis ||
-            pduReturning ||
-            powerViewPaired) && (
-            <div
-              className="study-task-return"
-              role="group"
-              aria-label="插座核对往返"
-            >
-              <button
-                disabled={!ready || pduReturning}
-                onClick={() => {
-                  setPduReturning(true);
-                  focus(pduInspection.pduId);
-                  setPowerLinkId(
-                    pduOutlet(pduInspection.pduId, pduInspection.outlet)?.link
-                      ?.id ?? null,
-                  );
-                  control({ type: "layer", layer: "power" });
-                  control({ type: "analysis", value: false });
-                }}
-              >
-                ← 返回 {pduName(pduInspection.pduId)} · 插座{" "}
-                {String(pduInspection.outlet).padStart(2, "0")}
-              </button>
-              <button
-                aria-label="结束插座核对往返"
-                title="结束核对，留在当前位置"
-                disabled={pduReturning}
-                onClick={() => setPduInspection(null)}
-              >
-                ×
-              </button>
-            </div>
-          )}
-        {analysisScopeId && (
-          <div
-            className="study-task-return"
-            role="group"
-            aria-label={`${analysisTask}核对往返`}
-          >
-            <button
-              disabled={!ready || peakReturning || sourceReturning}
-              onClick={peakVisit ? returnPeakSource : returnSource}
-            >
-              ← 返回{entityById(analysisScopeId)?.name} ·{" "}
-              {sourceVisit &&
-                (sourceVisit.check.metric === "temperature" ? "进风" : "功耗")}
-              {analysisTask}核对
-            </button>
-            <button
-              aria-label={`结束${analysisTask}检视往返`}
-              title="结束核对，留在当前位置"
-              disabled={peakReturning || sourceReturning}
-              onClick={() => {
-                if (peakVisit) {
-                  setPeakReview(null);
-                  setPeakVisit(null);
-                } else {
-                  setSourceVisit(null);
-                  setSourceCheck(null);
-                  sourceReturnFocus.current = null;
-                }
-              }}
-            >
-              ×
-            </button>
-          </div>
-        )}
-        {grilleVisit && (
-          <div
-            className="study-task-return"
-            role="group"
-            aria-label="格栅气流检视往返"
-          >
-            <button disabled={!ready || grilleReturning} onClick={returnGrille}>
-              ← 返回格栅布置 · {rackById(grilleVisit.rackId)?.name}
-            </button>
-            <button
-              aria-label="结束格栅气流检视往返"
-              title="结束核对，留在当前位置"
-              disabled={grilleReturning}
-              onClick={() => setGrilleVisit(null)}
-            >
-              ×
-            </button>
-          </div>
-        )}
-        {coolingVisit && (
-          <div
-            className="study-task-return"
-            role="group"
-            aria-label="服务范围检视往返"
-          >
-            <button
-              disabled={!ready || coolingReturning}
-              onClick={
-                activeCoolingDrain
-                  ? returnCoolingDrainAirflow
-                  : returnCoolingRange
-              }
-            >
-              {activeCoolingDrain ? (
-                <>
-                  ← 返回 {deviceById(activeCoolingDrain.link.deviceId)?.name}{" "}
-                  {activeCoolingDrain.view === "terminal-face"
-                    ? "柜面核对"
-                    : "气流端点"}
-                </>
-              ) : (
-                <>
-                  ← 返回服务范围 · {rackById(coolingVisit.rackId)?.name}
-                  {coolingVisit.deviceId &&
-                    " / " + deviceById(coolingVisit.deviceId)?.name}
-                </>
-              )}
-            </button>
-            <button
-              aria-label="结束服务范围检视往返"
-              title="结束核对，留在当前位置"
-              disabled={coolingReturning}
-              onClick={() => setCoolingVisit(null)}
-            >
-              ×
-            </button>
-          </div>
-        )}
-        {portVisit && (
-          <div
-            className="study-task-return"
-            role="group"
-            aria-label="端口核对往返"
-          >
-            <button
-              disabled={!ready || portReturning}
-              onClick={() => {
-                setPatchEntry(null);
-                setPortReturning(true);
-                control(
-                  portVisit.level === "room"
-                    ? { type: "open-resource", id: "room-01" }
-                    : {
-                        type: "locate-installation",
-                        id: portVisit.check.switchId,
-                      },
-                );
-              }}
-            >
-              ← 返回 {deviceById(portVisit.check.switchId)!.name} · 端口{" "}
-              {String(portVisit.check.port).padStart(2, "0")}
-            </button>
-            <button
-              aria-label="结束端口核对"
-              disabled={portReturning}
-              onClick={() => setPortVisit(null)}
-            >
-              ×
-            </button>
-          </div>
-        )}
-        {alarmVisit && (
-          <div
-            className="study-task-return"
-            role="group"
-            aria-label="告警排查往返"
-          >
-            <button
-              disabled={!ready || alarmReturning}
-              onClick={() => {
-                setAlarmReturning(true);
-                if (state.level !== "room")
-                  control({ type: "open-resource", id: "room-01" });
-              }}
-            >
-              ← 返回告警列表 · {deviceById(alarmVisit.id)?.name}
-            </button>
-            <button
-              aria-label="结束告警排查"
-              title="结束排查，留在当前位置"
-              disabled={alarmReturning}
-              onClick={() => setAlarmVisit(null)}
-            >
-              ×
-            </button>
-          </div>
-        )}
-        {powerOverviewVisit && (
-          <div
-            className="study-task-return"
-            role="group"
-            aria-label="功耗对照往返"
-          >
-            <button
-              disabled={!ready || powerOverviewReturning}
-              onClick={() => {
-                setOutletNetworkVisit(null);
-                setPowerOverviewReturning(true);
-                if (state.level !== "room")
-                  control({ type: "open-resource", id: "room-01" });
-              }}
-            >
-              {powerOverviewVisit.feeder
-                ? "← 返回配电出线 " +
-                  pduById(
-                    powerLinkById(powerOverviewVisit.feeder.linkId)!.pduId,
-                  )!.sourcePort
-                : "← 返回机房功耗对照"}
-            </button>
-            <button
-              aria-label="结束功耗对照往返"
-              disabled={powerOverviewReturning}
-              onClick={() => setPowerOverviewVisit(null)}
-            >
-              ×
-            </button>
-          </div>
-        )}
-        {(inletAirflowVisit ||
-          inletInspection ||
-          inletPair ||
-          (inletSession && state.level !== "room")) && (
-          <div
-            className="study-task-return"
-            role="group"
-            aria-label="进风对照往返"
-            onKeyDown={(event) => {
-              if (
-                event.key === "Escape" &&
-                ready &&
-                !inletReturning &&
-                !inletAirflowReturning
-              ) {
-                event.preventDefault();
-                event.stopPropagation();
-                if (inletAirflowVisit) returnInletAirflow();
-                else returnInletOverview();
-              }
-            }}
-          >
-            <button
-              disabled={!ready || inletReturning || inletAirflowReturning}
-              onClick={
-                inletAirflowVisit ? returnInletAirflow : returnInletOverview
-              }
-            >
-              ← 返回机房进风对照
-            </button>
-            {inletAirflowVisit && (
-              <button
-                aria-label="结束气流往返"
-                disabled={inletAirflowReturning}
-                onClick={() => setInletAirflowVisit(null)}
-              >
-                ×
-              </button>
-            )}
-          </div>
-        )}
-        {aisleVisit && (
-          <div className="study-task-return">
-            <button
-              disabled={!ready || aisleReturning}
-              onClick={returnToAisles}
-            >
-              ← 返回通道名单 · {aisleVisit.aisle.front.rackName.split(" ")[0]} /{" "}
-              {aisleVisit.aisle.rear.rackName.split(" ")[0]}
-            </button>
-          </div>
-        )}
-        {(spaceVisit || comparisonVisit) && (
-          <div
-            className="study-task-return"
-            role="group"
-            aria-label="空间核查往返"
-          >
-            {spaceVisit && (
-              <>
-                <button
-                  disabled={!ready || spaceReturning}
-                  aria-label={`返回${rackRangeName} 核查`}
-                  onClick={returnSpaceInspection}
-                >
-                  ← {rackRangeName} 核查
-                </button>
-                <button
-                  aria-label="结束范围占用检视"
-                  title="结束检视，留在当前位置"
-                  disabled={spaceReturning}
-                  onClick={() => setSpaceVisit(null)}
-                >
-                  ×
-                </button>
-              </>
-            )}
-            {comparisonVisit && (
-              <button
-                aria-label={roomRangeName ?? undefined}
-                title={roomRangeName ?? undefined}
-                disabled={!ready || comparisonReturning || spaceReturning}
-                onClick={() => {
-                  setComparisonReturning(true);
-                  setSpaceVisit(null);
-                  setSpaceRestore(null);
-                  setBlankingVisit(null);
-                  control({ type: "analysis", value: false });
-                  control({ type: "open-resource", id: "room-01" });
-                }}
-              >
-                ←{" "}
-                {spaceVisit
-                  ? `机房 · ${spaceRangeLabel(comparisonVisit.range)}`
-                  : roomRangeName}
-              </button>
-            )}
-          </div>
-        )}
-        {(networkMapVisit ||
-          (state.level !== "room" && rackView === "network")) && (
-          <div
-            className="study-task-return"
-            role="group"
-            aria-label="网络接入往返"
-          >
-            <button
-              disabled={!ready || networkMapReturning}
-              onClick={returnNetworkMap}
-            >
-              ← 返回
-              {originalNetworkLink
-                ? ` ${deviceById(originalNetworkLink.source)!.name} · 接入 ${switchRole(originalNetworkLink.target)}`
-                : "机房接入图"}
-            </button>
-          </div>
-        )}
-        {pairedEnvironment && (
-          <div
-            className="study-task-return"
-            role="group"
-            aria-label="环境测点对照往返"
-          >
-            <button disabled={!ready} onClick={returnEnvironmentPair}>
-              ← 返回起点 ·{" "}
-              {environmentProbe(pairedEnvironment.firstId)!.fixture.name}
-            </button>
-          </div>
-        )}
         <nav className="study-path" aria-label="空间路径">
           <div>
             {getPath(state).map((item, i) => (
               <span key={item}>
                 {i > 0 && <i>/</i>}
                 <button onClick={() => selectObject(item, true)}>
-                  {item === "room-01" &&
-                  state.level !== "room" &&
-                  roomSearchOrigin.current
-                    ? "← 返回机房名单 · " +
-                      deviceById(roomSearchOrigin.current.id)!.name
-                    : (entityById(item)?.name ?? item)}
+                  {entityById(item)?.name ?? item}
                 </button>
               </span>
             ))}
@@ -7201,7 +7157,12 @@ export function Workspace() {
             crossing={crossing}
             crossingCommand={crossingCommand}
             onCrossingChange={setCrossing}
-            onReturnCrossing={returnCrossing}
+            onReturnCrossing={
+              (crossing?.kind === "drain-joint" && activeCoolingDrain) ||
+              (crossing?.kind === "rear-wall" && layoutVisit)
+                ? undefined
+                : returnCrossing
+            }
             onPowerViewChange={setPowerViewActive}
             onPowerView={requestPowerView}
             networkViewCommand={networkViewCommand}
@@ -8148,6 +8109,7 @@ export function Workspace() {
                 className="study-room-summary"
                 role="group"
                 aria-label="机房运行概览"
+                data-duplicate-detail={selected === "room-01" || undefined}
               >
                 <div>
                   <p>
@@ -8194,17 +8156,20 @@ export function Workspace() {
               </div>
             )}
           {(!inspector || nav) && (
-            <button
-              ref={inspectorOpener}
-              className="study-show-detail"
-              onClick={() => {
-                takeover();
-                setInspector(true);
-                if (matchMedia("(max-width: 1099px)").matches) setNav(false);
-              }}
-            >
-              {review.analysis ? "时间分析" : "对象详情"}
-            </button>
+            <div className="study-stage-access">
+              <StudyReturns actions={taskReturns} />
+              <button
+                ref={inspectorOpener}
+                className="study-show-detail"
+                onClick={() => {
+                  takeover();
+                  setInspector(true);
+                  if (matchMedia("(max-width: 1099px)").matches) setNav(false);
+                }}
+              >
+                {review.analysis ? "时间分析" : "对象详情"}
+              </button>
+            </div>
           )}
         </section>
         {inspector && (
@@ -8224,8 +8189,11 @@ export function Workspace() {
             }
             aria-label={review.analysis ? "时间分析面板" : "对象详情"}
           >
-            <div className="study-panel-heading">
+            <div
+              className={`study-panel-heading${taskReturns.length ? " has-task-return" : ""}`}
+            >
               <h2 tabIndex={-1}>{review.analysis ? "时间分析" : "对象详情"}</h2>
+              <StudyReturns actions={taskReturns} />
               {review.analysis && (
                 <button
                   className="study-return-detail"
@@ -8255,7 +8223,13 @@ export function Workspace() {
                   undefined
                 }
               >
-                <small>{resource?.location}</small>
+                <small>
+                  {selected === "room-01" &&
+                  layer === "overview" &&
+                  !review.analysis
+                    ? `${room.lifecycleCounts.running} 台运行 · ${room.count} 台登记`
+                    : resource?.location}
+                </small>
                 <h1 tabIndex={-1}>{resource?.name ?? entity.name}</h1>
                 <span
                   style={{
@@ -8367,10 +8341,12 @@ export function Workspace() {
                 }}
               />
             )}
+            {selectedPduOutlet && !review.analysis && powerConnections}
             {supplyBranch && !review.analysis && state.level !== "device" && (
               <NetworkPowerInputs
                 branch={supplyBranch}
                 activeInput={inspectingNetworkPower ? activePowerLink : null}
+                prioritizeOutlet={selectedPduOutlet}
                 ready={ready}
                 onLocate={locateNetworkInput}
               />
@@ -8946,27 +8922,30 @@ export function Workspace() {
                             m
                           </span>
                         </div>
-                        <p>
-                          {crossing.upper.surface}比{crossing.lower.surface}
-                          {crossing.difference >= 0 ? "高" : "低"}{" "}
-                          <b>
-                            {smokeTrayEdges
-                              ? `${(Math.abs(crossing.difference) * 1000).toFixed(1)} mm`
-                              : `${Math.abs(crossing.difference).toFixed(2)} m`}
-                          </b>
-                          。
+                        <dl className="crossing-measures">
+                          <div>
+                            <dt>垂直高差</dt>
+                            <dd>
+                              {crossing.difference < 0 ? "−" : "+"}
+                              {smokeTrayEdges
+                                ? `${(Math.abs(crossing.difference) * 1000).toFixed(1)} mm`
+                                : `${Math.abs(crossing.difference).toFixed(2)} m`}
+                            </dd>
+                          </div>
                           {smokeTrayEdges && (
-                            <>
-                              水平投影间距{" "}
-                              <b>
+                            <div>
+                              <dt>水平投影间距</dt>
+                              <dd>
                                 {(smokeTrayEdges.horizontal * 1000).toFixed(1)}{" "}
                                 mm
-                              </b>
-                              。
-                            </>
+                              </dd>
+                            </div>
                           )}
-                          {crossing.boundary}
-                        </p>
+                        </dl>
+                        <details className="geometry-basis">
+                          <summary>量取依据</summary>
+                          <p>{crossing.boundary}</p>
+                        </details>
                       </>
                     )}
                   {crossing.kind === "drain-joint" && (
@@ -9495,18 +9474,6 @@ export function Workspace() {
                       }
                     />
                   )}
-                  {crossing.kind !== "rear-wall" &&
-                    layoutVisit?.crossing?.id !== crossingOriginId && (
-                      <button
-                        disabled={!ready}
-                        onClick={() => requestCrossing(null)}
-                      >
-                        ←{" "}
-                        {crossing.kind === "raceway-axis"
-                          ? "返回箱顶与横槽"
-                          : "返回核对前视角"}
-                      </button>
-                    )}
                 </section>
               )}
             {review.analysis ? (
@@ -9842,6 +9809,7 @@ export function Workspace() {
                 ) : fixture ? (
                   <FixtureDetails
                     fixture={fixture}
+                    inspecting={!!crossing}
                     inspectingHanger={crossing?.kind === "light-hanger"}
                     returnBranches={
                       fixture.kind === "cable-tray" &&
@@ -10345,7 +10313,6 @@ export function Workspace() {
                               selected !== state.deviceId) ||
                             (state.coverOpen && options?.cover?.id === selected)
                           }
-                          hasFanDuct={!!deviceModel.fanDuctLayout}
                           fans={options?.fans ?? 0}
                           slots={options?.slots ?? 0}
                           ready={ready}
@@ -10379,127 +10346,7 @@ export function Workspace() {
                           </button>
                         </div>
                       )}
-                    {(layer === "power" || powerFacility) && (
-                      <PowerConnections
-                        interval={
-                          powerOverviewVisit?.feeder &&
-                          feederReference?.showEnergy
-                            ? feederEnergyInterval(
-                                feederReference.time,
-                                state.time,
-                              )
-                            : null
-                        }
-                        paired={powerViewPaired}
-                        onAnalyzeDevice={(id, at) => {
-                          if (at !== undefined)
-                            dispatch({ type: "seek", time: at });
-                          if (layoutVisit?.resourceList) {
-                            setQuery("");
-                            setFilter("all");
-                          }
-                          focus(id, { installation: true });
-                          setMetric("power");
-                          analyze();
-                        }}
-                        onInspectMount={
-                          initialPduMount === null
-                            ? undefined
-                            : () => requestPowerView({ mount: initialPduMount })
-                        }
-                        onOpenFeeders={
-                          state.level === "room" &&
-                          !(nav && navigationView === "feeders")
-                            ? openFeeders
-                            : undefined
-                        }
-                        pduInspection={pduInspection}
-                        onPduChange={(visit) => {
-                          takeover();
-                          setPduInspection(visit);
-                          if (visit.outlet === null) setPowerLinkId(null);
-                        }}
-                        onOutletNetwork={openOutletNetwork}
-                        onOutletAirflow={openOutletAirflow}
-                        onLocateOutlet={(link) => {
-                          if (
-                            state.level === "room" &&
-                            layoutVisit?.resourceList
-                          ) {
-                            setQuery("");
-                            setFilter("all");
-                            setOnlyAlarms(false);
-                          }
-                          setPduReturning(true);
-                          focus(link.pduId);
-                          setPduInspection((current) =>
-                            locatePduOutlet(current, link),
-                          );
-                          if (powerViewPaired) requestPowerView("observe");
-                          setPowerLinkId(link.id);
-                        }}
-                        onPduSelect={(pduId, outlet) => {
-                          const row = pduOutlet(pduId, outlet);
-                          if (!row) return;
-                          setPduInspection((current) => ({
-                            pduId,
-                            outlet,
-                            query:
-                              current?.pduId === pduId ? current.query : "",
-                            scroll:
-                              current?.pduId === pduId ? current.scroll : 0,
-                          }));
-                          setPowerLinkId(row.link?.id ?? null);
-                          control({ type: "layer", layer: "power" });
-                        }}
-                        activeLinkId={
-                          layer === "power" ? activePowerLink : null
-                        }
-                        onTrace={(id) => {
-                          const link = powerLinkById(id);
-                          if (
-                            link &&
-                            !powerContextIncludes(selected, state.deviceId, id)
-                          )
-                            pick(link.deviceId);
-                          setPowerLinkId(id);
-                          if (!id)
-                            setPduInspection((current) =>
-                              current?.pduId === selected
-                                ? { ...current, outlet: null }
-                                : current,
-                            );
-                          if (id) control({ type: "layer", layer: "power" });
-                          else takeover();
-                        }}
-                        onInspect={(linkId) => {
-                          control({ type: "inspect-power-input", linkId });
-                          setQuery("");
-                          setFilter("all");
-                          setNetworkLinkId(null);
-                          if (matchMedia("(max-width: 1099px)").matches)
-                            setNav(false);
-                        }}
-                        onInteract={takeover}
-                        state={state}
-                        selectedId={selected}
-                        readings={spatial.readings}
-                        ready={ready}
-                        onSelect={(id) => pick(id)}
-                        onLocate={(id) => {
-                          if (id === powerSettings.sourceId && activePowerLink)
-                            focusFeederRoute.current = true;
-                          focus(id, {
-                            installation: entityById(id)?.kind === "device",
-                          });
-                        }}
-                        onViewPower={
-                          layer === "power" || state.level === "room"
-                            ? undefined
-                            : () => control({ type: "layer", layer: "power" })
-                        }
-                      />
-                    )}
+                    {!selectedPduOutlet && powerConnections}
                     {layer === "overview" && (
                       <NetworkConnections
                         portCheck={portCheck}

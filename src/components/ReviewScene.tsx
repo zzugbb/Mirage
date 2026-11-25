@@ -325,7 +325,7 @@ export function ReviewScene({
   crossing: FixtureCrossing | null;
   crossingCommand: CrossingViewCommand | null;
   onCrossingChange: (pair: FixtureCrossing | null) => void;
-  onReturnCrossing: () => void;
+  onReturnCrossing?: () => void;
   initialPduMount: number | null;
   powerViewCommand: PowerViewCommand | null;
   powerViewActive: boolean;
@@ -2895,8 +2895,13 @@ export function ReviewScene({
           {crossing && (
             <div
               className="crossing-scene-key"
+              data-duplicate-detail={!onReturnCrossing || undefined}
               onKeyDown={(event) => {
-                if (event.key === "Escape" && sceneSettled) {
+                if (
+                  event.key === "Escape" &&
+                  sceneSettled &&
+                  onReturnCrossing
+                ) {
                   event.preventDefault();
                   event.stopPropagation();
                   onReturnCrossing();
@@ -2986,14 +2991,16 @@ export function ReviewScene({
                 )}{" "}
                 · 配置
               </span>
-              <button disabled={!sceneSettled} onClick={onReturnCrossing}>
-                ←{" "}
-                {crossing.kind === "rear-wall"
-                  ? "返回后墙立面"
-                  : crossing.kind === "raceway-axis"
-                    ? "返回箱顶与横槽"
-                    : "返回核对前视角"}
-              </button>
+              {onReturnCrossing && (
+                <button disabled={!sceneSettled} onClick={onReturnCrossing}>
+                  ←{" "}
+                  {crossing.kind === "rear-wall"
+                    ? "返回后墙立面"
+                    : crossing.kind === "raceway-axis"
+                      ? "返回箱顶与横槽"
+                      : "返回核对前视角"}
+                </button>
+              )}
             </div>
           )}
           {network.length > 0 && networkLink && (
@@ -3003,10 +3010,10 @@ export function ReviewScene({
                 {state.level === "device"
                   ? "所属部件示意"
                   : patch
-                    ? "布线示意 · 柜前看右侧"
+                    ? "柜内右侧 · 布线示意"
                     : "设备位置示意"}
               </small>
-              {patch && <small>后门及右侧板剖示 · 虚线为遮挡段</small>}
+              {patch && <small>后门与右侧板剖切 · 虚线为遮挡段</small>}
               {patch && networkView && (
                 <label className="network-patch-section">
                   观察范围
@@ -3057,9 +3064,7 @@ export function ReviewScene({
               {patchGuide && (
                 <small>
                   {rackForDevice(networkLink.source).name} · 右壁 U
-                  {patchGuide.unit} 高度
-                  <br />
-                  原创理线布置 · 现场扎点与线长未登记
+                  {patchGuide.unit} · 现场扎点与线长未登记
                 </small>
               )}
               {patchSection === "rear" &&
@@ -3655,7 +3660,7 @@ export function ReviewScene({
                         : state.level === "room"
                           ? "所查柜后侧观察剖切"
                           : state.rearDoorOpen
-                            ? "后立柱观察剖切"
+                            ? "后立柱剖切"
                             : "后侧观察剖切"}
                     </span>
                   )}
@@ -3664,7 +3669,7 @@ export function ReviewScene({
                       ? `距柜底原点 ${mount.localHeight.toFixed(3)} m · 垫块宽 ${(mount.width * 1000).toFixed(1)} mm`
                       : supply.unconnectedOutlet
                         ? "配置空位 · 可用容量未定义"
-                        : "线型区分配置支路 · 支路功耗未计量"}
+                        : "配置支路 · 未计量"}
                   </small>
                   {outletRise !== null && (
                     <small>

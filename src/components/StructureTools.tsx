@@ -13,7 +13,6 @@ export function StructureTools({
   cover,
   memory,
   fans,
-  hasFanDuct,
   slots,
   ready,
   restore,
@@ -26,7 +25,6 @@ export function StructureTools({
   cover?: "seated" | "open";
   memory: number;
   fans: number;
-  hasFanDuct: boolean;
   slots: number;
   ready: boolean;
   restore: StructureTool | null;
@@ -83,19 +81,6 @@ export function StructureTools({
     >
       <summary>
         <strong>结构核对</strong>
-        <small>
-          {[
-            ...assemblies.map((check) =>
-              "summary" in check ? check.summary : check.name,
-            ),
-            cover ? "上盖安装位" : "",
-            memory ? "内存组" : "",
-            fans ? "风扇组" : "",
-            slots ? "盘位" : "",
-          ]
-            .filter(Boolean)
-            .join(" · ")}
-        </small>
       </summary>
       <div role="group" aria-label="结构核对工具">
         {children}
@@ -103,13 +88,13 @@ export function StructureTools({
           <button
             key={assembly.tool}
             data-structure-tool={assembly.tool}
+            title={assembly.detail}
             disabled={!ready}
             onClick={() => onStart(assembly.tool)}
           >
             <strong>
               {assembly.entry} <span>↗</span>
             </strong>
-            <small>{assembly.detail}</small>
           </button>
         ))}
         {cover && (
@@ -122,11 +107,6 @@ export function StructureTools({
               {cover === "open" ? "合回机箱上盖" : "核对上盖安装位"}{" "}
               <span>↗</span>
             </strong>
-            <small>
-              {cover === "open"
-                ? "沿原路径对回机箱两侧"
-                : "其余部件归位，单独移开上盖查看机箱安装边"}
-            </small>
           </button>
         )}
         {memory > 0 && (
@@ -138,7 +118,6 @@ export function StructureTools({
             <strong>
               核对内存组 · {memory} 条 <span>↗</span>
             </strong>
-            <small>按 DIMM 编号选条，可核对插槽与两端卡扣</small>
           </button>
         )}
         {fans > 0 && (
@@ -151,11 +130,6 @@ export function StructureTools({
             <strong>
               核对风扇组 · {fans} 子件 <span>↗</span>
             </strong>
-            <small>
-              {hasFanDuct
-                ? "观察前后侧、对照导风罩或单看风扇"
-                : "整组前后侧观察、逐件检视与返回"}
-            </small>
           </button>
         )}
         {slots > 0 && (
@@ -168,10 +142,8 @@ export function StructureTools({
             <strong>
               核对 {slots} 个盘位 <span>↗</span>
             </strong>
-            <small>正面盘组、单盘检视与中板接点</small>
           </button>
         )}
-        <p>沿用当前机型的维护子件与配置示意。</p>
       </div>
     </details>
   );

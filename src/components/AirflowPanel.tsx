@@ -42,6 +42,7 @@ export function AirflowPanel({
   analysisControl: ReactNode;
 }) {
   const explain = useRef<HTMLButtonElement>(null);
+  const range = useRef<HTMLSelectElement>(null);
   const route = snapshot?.routes[0];
   return (
     <section
@@ -68,6 +69,7 @@ export function AirflowPanel({
             )}
             <select
               aria-label="气流观察范围"
+              ref={range}
               value={view ?? ""}
               disabled={!ready}
               onChange={(event) => {
@@ -95,15 +97,19 @@ export function AirflowPanel({
                 : coolingModel === "failed"
                   ? "加载失败 · 简化柜体"
                   : "简化柜体"}
-              <br />
-              {route.endpoints
-                .filter((e) => e.kind === "supply" || e.kind === "receiver")
-                .map(
-                  (e) =>
-                    `${e.kind === "supply" ? "送风" : "回风"} ${e.point[1].toFixed(2)} m`,
-                )
-                .join(" / ")}{" "}
-              · 配置高度
+              {view === "terminals" && (
+                <>
+                  <br />
+                  {route.endpoints
+                    .filter((e) => e.kind === "supply" || e.kind === "receiver")
+                    .map(
+                      (e) =>
+                        `${e.kind === "supply" ? "送风" : "回风"} ${e.point[1].toFixed(2)} m`,
+                    )
+                    .join(" / ")}{" "}
+                  · 配置高度
+                </>
+              )}
             </small>
           )}
           {view !== "terminal-face" &&
@@ -120,7 +126,10 @@ export function AirflowPanel({
             <div className="airflow-inspection-return">
               <button
                 onClick={() => {
-                  explain.current?.focus({ preventScroll: true });
+                  const target = explain.current?.getClientRects().length
+                    ? explain.current
+                    : range.current;
+                  target?.focus({ preventScroll: true });
                   onReturnEndpoint();
                 }}
               >
@@ -129,7 +138,11 @@ export function AirflowPanel({
             </div>
           )}
           <div className="airflow-panel-actions">
-            <button ref={explain} onClick={onExplain}>
+            <button
+              className="airflow-explain-shortcut"
+              ref={explain}
+              onClick={onExplain}
+            >
               端点与路径依据 ↗
             </button>
             {analysisControl}

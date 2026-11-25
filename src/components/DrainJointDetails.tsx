@@ -73,16 +73,9 @@ export function DrainJointDetails({
           </div>
         ))}
       </dl>
-      <p>
-        {atCabinet
-          ? "套管轴线与转角取自样板配置，实际柜体排水接口待核实。"
-          : atReceiver
-            ? "斗体按原样板截面剖开，配置下口止于地面。斗后管网和排水状态待现场资料。"
-            : "径向余量按管口外缘向斗口内缘的平面投影计算。实际水量、水位和斗后去向待核实。"}
-      </p>
       {atCabinet && coolingLink && (
         <details>
-          <summary>同柜气流与排水标高</summary>
+          <summary>同柜气流标高</summary>
           <dl>
             <div>
               <dt>逻辑送风端</dt>
@@ -92,12 +85,7 @@ export function DrainJointDetails({
               <dt>逻辑回风端</dt>
               <dd>{coolingLink.returnHeight.toFixed(3)} m</dd>
             </div>
-            <div>
-              <dt>柜侧排水套管轴</dt>
-              <dd>{coolingLink.socketHeight.toFixed(3)} m</dd>
-            </div>
           </dl>
-          <small>标高均取机房配置。风口和排水接口待现场核实。</small>
         </details>
       )}
       {!atReceiver && (
@@ -114,22 +102,39 @@ export function DrainJointDetails({
           ))}
         </div>
       )}
-      {!atCabinet && (
+      <div className="drain-joint-actions">
+        {!atCabinet && (
+          <button
+            disabled={!ready}
+            aria-label="定位最近感应点 ↗"
+            onClick={() =>
+              onSense(
+                nearestCondensateSensing.fromJoint,
+                nearestCondensateSensing.segment,
+              )
+            }
+          >
+            最近感应点 ↗
+          </button>
+        )}
         <button
           disabled={!ready}
-          onClick={() =>
-            onSense(
-              nearestCondensateSensing.fromJoint,
-              nearestCondensateSensing.segment,
-            )
-          }
+          aria-label="回看制冷单元输入 ↗"
+          onClick={onHistory}
         >
-          定位最近感应点 ↗
+          制冷单元输入 ↗
         </button>
-      )}
-      <button disabled={!ready} onClick={onHistory}>
-        回看制冷单元输入 ↗
-      </button>
+      </div>
+      <details className="geometry-basis">
+        <summary>量取依据</summary>
+        <p>
+          {atCabinet
+            ? "套管轴线、转角和气流标高来自样板配置。实际风口和柜体排水接口待核实。"
+            : atReceiver
+              ? "斗体按原样板截面剖开，配置下口止于地面。斗后管网和排水状态待现场资料。"
+              : "径向余量按管口外缘向斗口内缘的平面投影计算。实际水量、水位和斗后去向待核实。"}
+        </p>
+      </details>
     </div>
   );
 }

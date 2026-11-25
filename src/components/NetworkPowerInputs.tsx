@@ -7,11 +7,13 @@ import type { NetworkLink } from "../network";
 export function NetworkPowerInputs({
   branch,
   activeInput,
+  prioritizeOutlet,
   ready,
   onLocate,
 }: {
   branch: NetworkLink;
   activeInput: string | null;
+  prioritizeOutlet: boolean;
   ready: boolean;
   onLocate: (input: PowerLink) => void;
 }) {
@@ -21,7 +23,7 @@ export function NetworkPowerInputs({
       title="核对两端供电"
       summary={ends.map((end) => end.name).join(" ↔ ")}
       className="network-power-inputs"
-      active={!!activeInput}
+      active={!!activeInput && !prioritizeOutlet}
     >
       {ends.map((end) => (
         <section key={end.deviceId} aria-label={end.name + " 供电输入"}>

@@ -56,6 +56,16 @@ export function PduOutlets({
     if (list.current) list.current.scrollTop = current.scroll;
   }, [pduId]);
   useLayoutEffect(() => {
+    const host = list.current;
+    const row = host?.querySelector<HTMLButtonElement>('[aria-pressed="true"]');
+    if (!host || !row) return;
+    const bounds = host.getBoundingClientRect();
+    const target = row.getBoundingClientRect();
+    if (target.bottom <= bounds.top || target.top >= bounds.bottom)
+      host.scrollTop +=
+        target.top - bounds.top - (bounds.height - target.height) / 2;
+  }, [pduId, current.outlet]);
+  useLayoutEffect(() => {
     if (previousQuery.current === current.query) return;
     previousQuery.current = current.query;
     if (current.query.trim())
@@ -67,21 +77,67 @@ export function PduOutlets({
     chosen = pduOutlet(pduId, current.outlet);
   const peer = chosen?.link && peerOutlet(chosen.link);
   const hasAirflow = inScene && !!outletAirflow(pduId, current.outlet);
+  const peerLabel = peer
+    ? `定位 ${pduName(peer.link.pduId)} · 插座 ${String(peer.link.outlet).padStart(2, "0")} ↗`
+    : null;
   return (
     <section
       className="pdu-outlets"
       aria-label={`${pduName(pduId)}插座核对`}
       tabIndex={-1}
     >
-      <header>
-        <strong>插座逐位核对</strong>
-        <small>24 高位 → 01 低位</small>
-      </header>
+      {chosen ? (
+        <div className="pdu-current-outlet" aria-label="当前插座">
+          <header>
+            <div>
+              <strong>
+                插座 {String(chosen.outlet).padStart(2, "0")} ·{" "}
+                {chosen.device?.name ?? "未连接"}
+              </strong>
+              {chosen.link && chosen.device && (
+                <small>
+                  {unitLabel(chosen.device.id)} · 输入 {chosen.link.inlet}
+                </small>
+              )}
+            </div>
+            <button
+              className="pdu-outlet-clear"
+              onClick={() => onChange({ ...current, outlet: null })}
+            >
+              清除标记
+            </button>
+          </header>
+          {chosen.link && (
+            <div className="pdu-outlet-actions">
+              <button
+                disabled={!ready}
+                onClick={() => onInspect(chosen.link!.id)}
+              >
+                查看电源 {chosen.link.inlet}
+              </button>
+              {peer && peerLabel && (
+                <button
+                  aria-label={peerLabel}
+                  title={peerLabel}
+                  disabled={!ready}
+                  onClick={() => onLocateOutlet(peer.link)}
+                >
+                  另一路 · 插座 {String(peer.link.outlet).padStart(2, "0")} ↗
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      ) : (
+        <header>
+          <strong>选择插座</strong>
+          <small>24 高位 → 01 低位</small>
+        </header>
+      )}
       <label className="pdu-outlet-search">
-        查找插座或对端
         <input
           aria-label="查找 PDU 插座或对端"
-          placeholder="编号、设备或 U 位"
+          placeholder="查找插座、设备或 U 位"
           value={current.query}
           onChange={(event) =>
             onChange({ ...current, query: event.target.value })
@@ -123,18 +179,6 @@ export function PduOutlets({
       )}
       {chosen ? (
         <div className="pdu-outlet-selected" aria-label="当前插座核对">
-          <header>
-            <strong>
-              插座 {String(chosen.outlet).padStart(2, "0")} ·{" "}
-              {chosen.device?.name ?? "未连接"}
-            </strong>
-            <button
-              className="pdu-outlet-clear"
-              onClick={() => onChange({ ...current, outlet: null })}
-            >
-              清除标记
-            </button>
-          </header>
           <PduElevation
             pduId={pduId}
             outlet={chosen.outlet}
@@ -161,39 +205,23 @@ export function PduOutlets({
           />
           {chosen.link && chosen.device && (
             <>
-              <small>
-                {unitLabel(chosen.device.id)} · 输入 {chosen.link.inlet} /{" "}
-                {
-                  entityById(
-                    inletPart(chosen.device.modelId, chosen.link.inlet),
-                  )!.name
-                }
-              </small>
               {peer && (
-                <section
+                <details
                   className="pdu-peer-outlet"
                   aria-label="同一整机的另一路插座"
                 >
-                  <strong>
-                    {chosen.device.name} · 输入 {chosen.link.inlet} → 输入{" "}
-                    {peer.link.inlet}
-                  </strong>
-                  <small>
-                    {pduById(chosen.link.pduId)!.sourcePort} · {peer.fromSide} →{" "}
-                    {pduById(peer.link.pduId)!.sourcePort} · {peer.toSide}
-                  </small>
-                  <small>
-                    两插座中心横向相距 {peer.lateral.toFixed(3)} m，高差{" "}
-                    {peer.heightDifference.toFixed(3)} m（配置）
-                  </small>
-                  <button
-                    disabled={!ready}
-                    onClick={() => onLocateOutlet(peer.link)}
-                  >
-                    定位 {pduName(peer.link.pduId)} · 插座{" "}
-                    {String(peer.link.outlet).padStart(2, "0")} ↗
-                  </button>
-                </section>
+                  <summary>两路插座位置</summary>
+                  <div>
+                    <small>
+                      {pduById(chosen.link.pduId)!.sourcePort} · {peer.fromSide}{" "}
+                      → {pduById(peer.link.pduId)!.sourcePort} · {peer.toSide}
+                    </small>
+                    <small>
+                      两插座中心横向相距 {peer.lateral.toFixed(3)} m，高差{" "}
+                      {peer.heightDifference.toFixed(3)} m（配置）
+                    </small>
+                  </div>
+                </details>
               )}
               <OutletNetworkBranches
                 key={chosen.link.id}
@@ -210,43 +238,49 @@ export function PduOutlets({
                   )
                 }
               />
-              <FeederDeviceHistory
-                interval={interval}
-                deviceId={chosen.device.id}
-                readings={readings}
-                ready={ready}
-                onAnalyze={onAnalyzeDevice}
-              />
-              <div className="pdu-outlet-actions">
-                <button onClick={() => onPreview(chosen.device!.id)}>
-                  预览对端
-                </button>
-                <button
-                  disabled={!ready}
-                  onClick={() => onInspect(chosen.link!.id)}
-                >
-                  查看电源 {chosen.link.inlet}
-                </button>
-                {hasAirflow && (
-                  <button
-                    disabled={!ready}
-                    onClick={() =>
-                      onAirflow({
-                        ...current,
-                        scroll: list.current?.scrollTop ?? current.scroll,
-                      })
-                    }
-                  >
-                    核对对端设备气流 ↗
+              <details
+                className="pdu-outlet-related"
+                open={interval ? true : undefined}
+              >
+                <summary>对端设备与读数</summary>
+                <small>
+                  对端部件 ·{" "}
+                  {
+                    entityById(
+                      inletPart(chosen.device.modelId, chosen.link.inlet),
+                    )!.name
+                  }
+                </small>
+                <FeederDeviceHistory
+                  interval={interval}
+                  deviceId={chosen.device.id}
+                  readings={readings}
+                  ready={ready}
+                  onAnalyze={onAnalyzeDevice}
+                />
+                <div className="pdu-outlet-actions">
+                  <button onClick={() => onPreview(chosen.device!.id)}>
+                    预览对端
                   </button>
-                )}
-              </div>
+                  {hasAirflow && (
+                    <button
+                      disabled={!ready}
+                      onClick={() =>
+                        onAirflow({
+                          ...current,
+                          scroll: list.current?.scrollTop ?? current.scroll,
+                        })
+                      }
+                    >
+                      核对对端设备气流 ↗
+                    </button>
+                  )}
+                </div>
+              </details>
             </>
           )}
         </div>
-      ) : (
-        <p>选择插座以核对配置对端。</p>
-      )}
+      ) : null}
       <details className="pdu-outlet-boundary">
         <summary>插座编号与计量口径</summary>
         <p>

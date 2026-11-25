@@ -359,20 +359,6 @@ export function PowerConnections({
         </>
       ) : pdu ? (
         <>
-          <div className="power-upstream-row">
-            <button onClick={() => onSelect(powerSettings.sourceId)}>
-              配电柜 {pdu.sourcePort}
-            </button>
-            <span>→ {pduName(pdu.id)}</span>
-          </div>
-          <button disabled={!ready} onClick={() => onLocate(pdu.id)}>
-            定位 PDU 后侧
-          </button>
-          {onInspectMount && (
-            <button disabled={!ready} onClick={onInspectMount}>
-              核对侧壁支架
-            </button>
-          )}
           <PduOutlets
             onNetwork={onOutletNetwork}
             onAirflow={onOutletAirflow}
@@ -390,6 +376,24 @@ export function PowerConnections({
             onInspect={onInspect}
             onAnalyzeDevice={onAnalyzeDevice}
           />
+          <details className="pdu-outlet-related">
+            <summary>来源与安装 · {pdu.sourcePort}</summary>
+            <div className="pdu-outlet-actions">
+              <button onClick={() => onSelect(powerSettings.sourceId)}>
+                配电柜 {pdu.sourcePort}
+              </button>
+              {!powerScene(state, pdu.id) && (
+                <button disabled={!ready} onClick={() => onLocate(pdu.id)}>
+                  定位 PDU 后侧
+                </button>
+              )}
+              {onInspectMount && (
+                <button disabled={!ready} onClick={onInspectMount}>
+                  核对侧壁支架
+                </button>
+              )}
+            </div>
+          </details>
         </>
       ) : device && model ? (
         <>

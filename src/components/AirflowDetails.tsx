@@ -44,12 +44,23 @@ export function AirflowDetails({
 }) {
   const section = useRef<HTMLElement>(null);
   const drainButton = useRef<HTMLButtonElement>(null);
+  const endpoints = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    if (view !== "terminal-face" || !endpoints.current?.open) return;
+    const details = endpoints.current;
+    const focusWasInside = details.contains(document.activeElement);
+    details.open = false;
+    if (focusWasInside) {
+      const next = drainButton.current ?? details.querySelector("summary");
+      next?.focus({ preventScroll: true });
+    }
+  }, [view]);
   useEffect(() => {
     if (!revealRequested) return;
     const host = section.current,
       panel = host?.closest<HTMLElement>(".study-inspector");
     if (!host || !panel) return;
-    const details = host.querySelector("details");
+    const details = endpoints.current;
     if (revealRequested === "drain") {
       const button = drainButton.current;
       if (!ready || !button) return;
@@ -152,20 +163,21 @@ export function AirflowDetails({
               <dd>{face.separation.toFixed(3)} m</dd>
             </div>
           </dl>
-          <small>
-            虚线标出 +Z 配置柜面，实线沿 Z 轴量取偏移。离地高度以配置地面顶面{" "}
-            {face.floorY.toFixed(4)} m 为基准。实际风口位置待核实。
-          </small>
-          <div className="airflow-endpoint-actions">
-            {drainAction}
-            <button disabled={!ready} onClick={() => onTerminals("terminals")}>
-              返回制冷柜送回风
-            </button>
-          </div>
+          {drainAction && (
+            <div className="airflow-endpoint-actions">{drainAction}</div>
+          )}
+          <details className="geometry-basis">
+            <summary>量取依据</summary>
+            <p>
+              虚线标出 +Z 配置柜面，实线沿 Z 轴量取偏移。离地高度以配置地面顶面{" "}
+              {face.floorY.toFixed(4)} m 为基准。实际风口位置待核实。
+            </p>
+          </details>
         </div>
       )}
       <details
         className="review-flow-explanation"
+        ref={endpoints}
         onKeyDown={(event) => {
           if (event.key !== "Escape" || !event.currentTarget.open) return;
           const details = (event.target as HTMLElement).closest(

@@ -25,6 +25,7 @@ import {
 
 export function FixtureDetails({
   fixture,
+  inspecting = false,
   panelPorts,
   condensateDetails,
   racewayDetails,
@@ -43,6 +44,7 @@ export function FixtureDetails({
   onLocate,
 }: {
   fixture: RoomFixture;
+  inspecting?: boolean;
   panelPorts?: ReactNode;
   condensateDetails?: ReactNode;
   racewayDetails?: ReactNode;
@@ -69,126 +71,129 @@ export function FixtureDetails({
     : isTray
       ? trayRelations(fixture.id)
       : [...entranceRelations(fixture.id), ...leakRelations(fixture.id)];
+  const placement = (
+    <dl>
+      <div>
+        <dt>安装位置</dt>
+        <dd>{fixture.location}</dd>
+      </div>
+      <div>
+        <dt>
+          {grilleRow
+            ? "面框顶高"
+            : isEntrance
+              ? "门洞底高"
+              : isTray
+                ? "横档底高"
+                : light
+                  ? "灯罩底高"
+                  : fixture.kind === "leak-cable"
+                    ? "敷设高度"
+                    : fixture.kind === "condensate-pipe"
+                      ? "弯头中心高"
+                      : fixture.kind === "condensate-receiver"
+                        ? "斗口标高"
+                        : fixture.kind === "condensate-stand"
+                          ? "管夹中心标高"
+                          : "中心高度"}
+        </dt>
+        <dd>
+          {(isEntrance
+            ? entranceOpening.bottom
+            : isTray
+              ? trayRungBottom(fixture.position[1])
+              : light
+                ? light.position[1] + diffuserBottom
+                : "axis" in fixture
+                  ? fixture.axis[1]
+                  : fixture.position[1]
+          ).toFixed(
+            "axis" in fixture ? 4 : fixture.kind === "leak-cable" ? 3 : 2,
+          )}{" "}
+          <small>m</small>
+        </dd>
+      </div>
+      {grilleRow && (
+        <>
+          <div>
+            <dt>格栅数量</dt>
+            <dd>{grilleRow.count} 处</dd>
+          </div>
+          <div>
+            <dt>单处宽 × 深</dt>
+            <dd>
+              {floorGrilleSettings.width.toFixed(2)} ×{" "}
+              {floorGrilleSettings.depth.toFixed(2)} <small>m</small>
+            </dd>
+          </div>
+          <div>
+            <dt>整排外缘跨度</dt>
+            <dd>
+              {grilleRow.span.toFixed(2)} <small>m</small>
+            </dd>
+          </div>
+        </>
+      )}
+      {light && (
+        <div>
+          <dt>发光面长度</dt>
+          <dd>
+            {light.length.toFixed(2)} <small>m</small>
+          </dd>
+        </div>
+      )}
+      {isEntrance && (
+        <>
+          <div>
+            <dt>洞口宽 × 高</dt>
+            <dd>
+              {entranceSettings.openingWidth.toFixed(2)} ×{" "}
+              {entranceSettings.openingHeight.toFixed(2)} <small>m</small>
+            </dd>
+          </div>
+          <div>
+            <dt>展示姿态</dt>
+            <dd>
+              {Math.round(
+                (Math.abs(entranceSettings.displayAngle) * 180) / Math.PI,
+              )}
+              ° · 静态
+            </dd>
+          </div>
+        </>
+      )}
+      {isTray && (
+        <div>
+          <dt>长度 × 外宽</dt>
+          <dd>
+            {cableTraySettings.length.toFixed(2)} × {trayOuterWidth.toFixed(3)}{" "}
+            <small>m</small>
+          </dd>
+        </div>
+      )}
+      <div>
+        <dt>对象编号</dt>
+        <dd>{fixture.id}</dd>
+      </div>
+      {isLeakFixture(fixture.id) && (
+        <div>
+          <dt>配置段长</dt>
+          <dd>
+            感应线{" "}
+            {configuredPathLength(leakDetection.sensingPoints).toFixed(2)} m
+            <br />
+            引线 {configuredPathLength(leakDetection.leadPoints).toFixed(2)} m
+          </dd>
+        </div>
+      )}
+    </dl>
+  );
   return (
     <section className="fixture-details" aria-label="设施布置">
       {panelPorts}
       {condensateDetails}
       {racewayDetails}
-      <dl>
-        <div>
-          <dt>安装位置</dt>
-          <dd>{fixture.location}</dd>
-        </div>
-        <div>
-          <dt>
-            {grilleRow
-              ? "面框顶高"
-              : isEntrance
-                ? "门洞底高"
-                : isTray
-                  ? "横档底高"
-                  : light
-                    ? "灯罩底高"
-                    : fixture.kind === "leak-cable"
-                      ? "敷设高度"
-                      : fixture.kind === "condensate-pipe"
-                        ? "弯头中心高"
-                        : fixture.kind === "condensate-receiver"
-                          ? "斗口标高"
-                          : fixture.kind === "condensate-stand"
-                            ? "管夹中心标高"
-                            : "中心高度"}
-          </dt>
-          <dd>
-            {(isEntrance
-              ? entranceOpening.bottom
-              : isTray
-                ? trayRungBottom(fixture.position[1])
-                : light
-                  ? light.position[1] + diffuserBottom
-                  : "axis" in fixture
-                    ? fixture.axis[1]
-                    : fixture.position[1]
-            ).toFixed(
-              "axis" in fixture ? 4 : fixture.kind === "leak-cable" ? 3 : 2,
-            )}{" "}
-            <small>m</small>
-          </dd>
-        </div>
-        {grilleRow && (
-          <>
-            <div>
-              <dt>格栅数量</dt>
-              <dd>{grilleRow.count} 处</dd>
-            </div>
-            <div>
-              <dt>单处宽 × 深</dt>
-              <dd>
-                {floorGrilleSettings.width.toFixed(2)} ×{" "}
-                {floorGrilleSettings.depth.toFixed(2)} <small>m</small>
-              </dd>
-            </div>
-            <div>
-              <dt>整排外缘跨度</dt>
-              <dd>
-                {grilleRow.span.toFixed(2)} <small>m</small>
-              </dd>
-            </div>
-          </>
-        )}
-        {light && (
-          <div>
-            <dt>发光面长度</dt>
-            <dd>
-              {light.length.toFixed(2)} <small>m</small>
-            </dd>
-          </div>
-        )}
-        {isEntrance && (
-          <>
-            <div>
-              <dt>洞口宽 × 高</dt>
-              <dd>
-                {entranceSettings.openingWidth.toFixed(2)} ×{" "}
-                {entranceSettings.openingHeight.toFixed(2)} <small>m</small>
-              </dd>
-            </div>
-            <div>
-              <dt>展示姿态</dt>
-              <dd>
-                {Math.round(
-                  (Math.abs(entranceSettings.displayAngle) * 180) / Math.PI,
-                )}
-                ° · 静态
-              </dd>
-            </div>
-          </>
-        )}
-        {isTray && (
-          <div>
-            <dt>长度 × 外宽</dt>
-            <dd>
-              {cableTraySettings.length.toFixed(2)} ×{" "}
-              {trayOuterWidth.toFixed(3)} <small>m</small>
-            </dd>
-          </div>
-        )}
-        <div>
-          <dt>对象编号</dt>
-          <dd>{fixture.id}</dd>
-        </div>
-        {isLeakFixture(fixture.id) && (
-          <div>
-            <dt>配置段长</dt>
-            <dd>
-              感应线{" "}
-              {configuredPathLength(leakDetection.sensingPoints).toFixed(2)} m
-              <br />
-              引线 {configuredPathLength(leakDetection.leadPoints).toFixed(2)} m
-            </dd>
-          </div>
-        )}
-      </dl>
+      {!inspecting && placement}
       {returnBranches}
       {light && onInspectHangers && (
         <div className="light-hanger-entry" hidden={inspectingHanger}>
@@ -283,10 +288,10 @@ export function FixtureDetails({
         />
       )}
       <details className="fixture-relations">
-        <summary>配置与数据说明</summary>
+        <summary>{inspecting ? "设施位置与配置" : "配置与数据说明"}</summary>
+        {inspecting && placement}
         <p>{fixtureBoundary(fixture)}</p>
       </details>
-      <small>位置与高度为场景配置示意</small>
     </section>
   );
 }

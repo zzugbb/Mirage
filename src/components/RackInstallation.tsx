@@ -308,7 +308,12 @@ export function RackInstallation({
               {!matches.has(selected) ? " · 不匹配筛选" : ""}
             </small>
             <div>
-              <button onClick={() => onDetails(selected)}>详情</button>
+              <button
+                className="rack-installation-detail"
+                onClick={() => onDetails(selected)}
+              >
+                详情
+              </button>
               <button disabled={!ready} onClick={() => onFocus(selected)}>
                 定位安装位
               </button>
