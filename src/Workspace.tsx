@@ -1870,6 +1870,12 @@ export function Workspace() {
     setStorageFocusRevision(0);
     control({ type: "analysis", value: false });
   }, [control]);
+  const openObjectDetails = () => {
+    panelFocus.current = "heading";
+    setInspector(true);
+    control({ type: "analysis", value: false });
+    if (matchMedia("(max-width: 1099px)").matches) setNav(false);
+  };
   const collapseInspector = useCallback(() => {
     panelFocus.current = "opener";
     setInspector(false);
@@ -1884,7 +1890,7 @@ export function Workspace() {
         ?.focus({ preventScroll: true });
     else if (destination === "opener")
       inspectorOpener.current?.focus({ preventScroll: true });
-  }, [inspector, review.analysis, nav]);
+  });
   useEffect(() => {
     const medium = matchMedia("(min-width: 601px) and (max-width: 1099px)");
     let frame = 0;
@@ -3900,15 +3906,16 @@ export function Workspace() {
           },
     );
     setPowerRestore(0);
-    control({ type: "analysis", value: false });
+    if (action !== "details") control({ type: "analysis", value: false });
     setMetric("power");
     if (action === "feeder") {
       focusFeederRoute.current = true;
       setFeederRestore(null);
       focus(powerSettings.sourceId);
     } else if (action === "details" || action === "analysis") {
-      pick(id);
+      selectObject(id);
       if (action === "analysis") analyze();
+      else openObjectDetails();
     } else {
       setRackView("installation");
       setQuery("");
@@ -6463,9 +6470,7 @@ export function Workspace() {
               onDetails={(id) => {
                 rememberLayoutSelection(id);
                 selectObject(id);
-                setInspector(true);
-                control({ type: "analysis", value: false });
-                if (matchMedia("(max-width: 1099px)").matches) setNav(false);
+                openObjectDetails();
               }}
             />
           ) : state.level === "room" && navigationView === "inlet" ? (
@@ -6547,9 +6552,7 @@ export function Workspace() {
               }}
               onDetails={() => {
                 beginInletInspection(selected);
-                setInspector(true);
-                if (matchMedia("(max-width: 1099px)").matches) setNav(false);
-                control({ type: "analysis", value: false });
+                openObjectDetails();
               }}
             />
           ) : state.level === "room" && navigationView === "network" ? (
@@ -6743,7 +6746,10 @@ export function Workspace() {
               ready={ready}
               visible={nav}
               onPick={selectObject}
-              onDetails={(id) => pick(id)}
+              onDetails={(id) => {
+                selectObject(id);
+                openObjectDetails();
+              }}
               onFocus={(id) =>
                 focus(id, { installation: !pduById(id), showDetails: false })
               }
@@ -7443,10 +7449,7 @@ export function Workspace() {
                       className="study-show-detail"
                       onClick={() => {
                         takeover();
-                        panelFocus.current = "heading";
-                        setInspector(true);
-                        if (matchMedia("(max-width: 1099px)").matches)
-                          setNav(false);
+                        openObjectDetails();
                       }}
                     >
                       对象详情

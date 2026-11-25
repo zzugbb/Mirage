@@ -187,6 +187,7 @@ export function RoomLayout({
         查看安装位 ↗
       </button>
       <button
+        className="study-open-current-details"
         aria-label={`查看 ${selectedDevice.name} 详情`}
         onClick={() => onDetails(selectedDevice.id)}
       >
@@ -591,6 +592,11 @@ export function RoomLayout({
                   定位此处
                 </button>
                 <button
+                  className={
+                    current.id === selected
+                      ? "study-open-current-details"
+                      : undefined
+                  }
                   data-layout-point-details={
                     current.kind === "rack" ? undefined : current.id
                   }

@@ -386,7 +386,11 @@ export function InletOverview({
                       查看内部
                     </button>
                   )}
-                  <button disabled={!ready} onClick={onDetails}>
+                  <button
+                    className="study-open-current-details"
+                    disabled={!ready}
+                    onClick={onDetails}
+                  >
                     对象详情
                   </button>
                   <button disabled={!ready} onClick={onAnalyze}>

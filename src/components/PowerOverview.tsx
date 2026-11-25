@@ -340,7 +340,11 @@ export function PowerOverview({
                 查看内部
               </button>
             )}
-            <button disabled={!ready} onClick={() => onDetails(selected)}>
+            <button
+              className="study-open-current-details"
+              disabled={!ready}
+              onClick={() => onDetails(selected)}
+            >
               详情
             </button>
             <button disabled={!ready} onClick={() => onAnalyze(selected)}>
