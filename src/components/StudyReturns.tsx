@@ -10,7 +10,13 @@ export type StudyReturn = {
   end?: { label: string; disabled?: boolean; onClick: () => void };
 };
 
-export function StudyReturns({ actions }: { actions: StudyReturn[] }) {
+export function StudyReturns({
+  actions,
+  onEnd,
+}: {
+  actions: StudyReturn[];
+  onEnd: (finish: () => void) => void;
+}) {
   const menu = useDismissibleMenu();
   const [primary, ...otherActions] = actions;
   if (!primary) return null;
@@ -86,7 +92,7 @@ export function StudyReturns({ actions }: { actions: StudyReturn[] }) {
                 disabled={end.disabled}
                 onClick={() => {
                   close();
-                  end.onClick();
+                  onEnd(end.onClick);
                 }}
               >
                 结束当前核对

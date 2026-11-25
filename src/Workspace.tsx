@@ -1845,6 +1845,25 @@ export function Workspace() {
   const analysisOpener = useRef<HTMLButtonElement>(null);
   const stageAccessRef = useRef<HTMLDivElement>(null);
   const panelFocus = useRef<"heading" | "opener" | null>(null);
+  const focusAfterTaskEnd = useRef(false);
+  const endTask = (finish: () => void) => {
+    focusAfterTaskEnd.current = true;
+    finish();
+  };
+  useLayoutEffect(() => {
+    if (!focusAfterTaskEnd.current) return;
+    focusAfterTaskEnd.current = false;
+    const panel = inspectorRef.current;
+    const visiblePanel = panel?.getClientRects().length ? panel : null;
+    const returns = visiblePanel ?? stageAccessRef.current;
+    const next = returns?.querySelector<HTMLButtonElement>(
+      ".study-task-return > button:enabled",
+    );
+    const fallback = visiblePanel
+      ? visiblePanel.querySelector<HTMLElement>(".study-panel-heading h2")
+      : (inspectorOpener.current ?? analysisOpener.current);
+    (next ?? fallback)?.focus({ preventScroll: true });
+  });
   const returnToDetails = useCallback(() => {
     panelFocus.current = "heading";
     setFanFocusRevision(0);
@@ -8302,7 +8321,7 @@ export function Workspace() {
           {(!inspector || nav) &&
             (!review.analysis || taskReturns.length > 0) && (
               <div className="study-stage-access" ref={stageAccessRef}>
-                <StudyReturns actions={taskReturns} />
+                <StudyReturns actions={taskReturns} onEnd={endTask} />
                 {!review.analysis && (
                   <button
                     ref={inspectorOpener}
@@ -8342,7 +8361,7 @@ export function Workspace() {
               className={`study-panel-heading${taskReturns.length ? " has-task-return" : ""}`}
             >
               <h2 tabIndex={-1}>{review.analysis ? "时间分析" : "对象详情"}</h2>
-              <StudyReturns actions={taskReturns} />
+              <StudyReturns actions={taskReturns} onEnd={endTask} />
               {review.analysis && (
                 <button
                   className="study-return-detail"
