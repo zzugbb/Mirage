@@ -1842,6 +1842,8 @@ export function Workspace() {
   const [peakReturning, setPeakReturning] = useState(false);
   const inspectorRef = useRef<HTMLElement>(null);
   const inspectorOpener = useRef<HTMLButtonElement>(null);
+  const analysisOpener = useRef<HTMLButtonElement>(null);
+  const stageAccessRef = useRef<HTMLDivElement>(null);
   const panelFocus = useRef<"heading" | "opener" | null>(null);
   const returnToDetails = useCallback(() => {
     panelFocus.current = "heading";
@@ -1864,6 +1866,67 @@ export function Workspace() {
     else if (destination === "opener")
       inspectorOpener.current?.focus({ preventScroll: true });
   }, [inspector, review.analysis, nav]);
+  useEffect(() => {
+    const medium = matchMedia("(min-width: 601px) and (max-width: 1099px)");
+    let frame = 0;
+    let wasMedium = medium.matches;
+    let displaced: HTMLElement | null = null;
+    // 某些控件会在媒体查询的 change 回调之前失焦。
+    const rememberDisplacedFocus = (event: FocusEvent) => {
+      if (
+        medium.matches !== wasMedium &&
+        !event.relatedTarget &&
+        event.target instanceof HTMLElement
+      )
+        displaced = event.target;
+    };
+    const adaptFocus = () => {
+      cancelAnimationFrame(frame);
+      const active = document.activeElement;
+      const focused = active === document.body ? displaced : active;
+      displaced = null;
+      wasMedium = medium.matches;
+      if (!(focused instanceof HTMLElement)) return;
+      const fromDetails = inspectorRef.current?.contains(focused);
+      const fromStage = stageAccessRef.current?.contains(focused);
+      const fromResources = navigationRef.current?.contains(focused);
+      if (!fromDetails && !fromStage && !fromResources) return;
+      frame = requestAnimationFrame(() => {
+        const current = document.activeElement;
+        if (current !== focused && current !== document.body) return;
+        if (focused.getClientRects().length) {
+          if (current !== focused) focused.focus({ preventScroll: true });
+          return;
+        }
+        if (fromResources) {
+          navigationOpenerRef.current?.focus({ preventScroll: true });
+          return;
+        }
+        const panel = inspectorRef.current;
+        const other = fromDetails ? stageAccessRef.current : panel;
+        const returnControl =
+          focused.closest(".study-return-controls") &&
+          other?.querySelector<HTMLElement>(
+            focused.closest(".study-return-options")
+              ? ".study-return-options > summary"
+              : ".study-task-return > button:enabled",
+          );
+        const fallback = fromDetails
+          ? review.analysis
+            ? analysisOpener.current
+            : inspectorOpener.current
+          : panel?.querySelector<HTMLElement>(".study-panel-heading h2");
+        (returnControl || fallback)?.focus({ preventScroll: true });
+      });
+    };
+    document.addEventListener("focusout", rememberDisplacedFocus);
+    medium.addEventListener("change", adaptFocus);
+    return () => {
+      document.removeEventListener("focusout", rememberDisplacedFocus);
+      medium.removeEventListener("change", adaptFocus);
+      cancelAnimationFrame(frame);
+    };
+  }, [review.analysis]);
 
   const peakReturnFocus = useRef<{
     scopeId: string;
@@ -5893,6 +5956,7 @@ export function Workspace() {
             </time>
           </span>
           <button
+            ref={analysisOpener}
             className="study-clock-action"
             onClick={analyze}
             aria-label="打开时间分析"
@@ -8237,7 +8301,7 @@ export function Workspace() {
             )}
           {(!inspector || nav) &&
             (!review.analysis || taskReturns.length > 0) && (
-              <div className="study-stage-access">
+              <div className="study-stage-access" ref={stageAccessRef}>
                 <StudyReturns actions={taskReturns} />
                 {!review.analysis && (
                   <button
