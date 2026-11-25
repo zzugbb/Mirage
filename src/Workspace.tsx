@@ -1845,6 +1845,8 @@ export function Workspace() {
   const panelFocus = useRef<"heading" | "opener" | null>(null);
   const returnToDetails = useCallback(() => {
     panelFocus.current = "heading";
+    setFanFocusRevision(0);
+    setStorageFocusRevision(0);
     control({ type: "analysis", value: false });
   }, [control]);
   const collapseInspector = useCallback(() => {
@@ -3955,6 +3957,8 @@ export function Workspace() {
     setStorageFocusRevision((n) => n + 1);
   };
   const structureVisit = activeFanVisit ?? activeStorageVisit;
+  const showNetworkConnections =
+    layer === "overview" && !structureVisit && !activeMemory;
   const finishStructureCheck = () => {
     if (!ready || !(structureVisit || activePair || activeMemory)) return;
     if (inspector)
@@ -5807,6 +5811,7 @@ export function Workspace() {
     taskReturns.push({
       group: "布置导览往返",
       label: `← 返回${destination} · ${layoutReturnName}`,
+      caption: `← ${destination} · ${layoutReturnName}`,
       disabled: !ready || layoutReturning,
       onReturn: returnLayoutVisit,
       end: {
@@ -8230,23 +8235,27 @@ export function Workspace() {
                 </button>
               </div>
             )}
-          {(!inspector || nav) && (
-            <div className="study-stage-access">
-              <StudyReturns actions={taskReturns} />
-              <button
-                ref={inspectorOpener}
-                className="study-show-detail"
-                onClick={() => {
-                  takeover();
-                  panelFocus.current = "heading";
-                  setInspector(true);
-                  if (matchMedia("(max-width: 1099px)").matches) setNav(false);
-                }}
-              >
-                {review.analysis ? "时间分析" : "对象详情"}
-              </button>
-            </div>
-          )}
+          {(!inspector || nav) &&
+            (!review.analysis || taskReturns.length > 0) && (
+              <div className="study-stage-access">
+                <StudyReturns actions={taskReturns} />
+                {!review.analysis && (
+                  <button
+                    ref={inspectorOpener}
+                    className="study-show-detail"
+                    onClick={() => {
+                      takeover();
+                      panelFocus.current = "heading";
+                      setInspector(true);
+                      if (matchMedia("(max-width: 1099px)").matches)
+                        setNav(false);
+                    }}
+                  >
+                    对象详情
+                  </button>
+                )}
+              </div>
+            )}
         </section>
         {inspector && (
           <aside
@@ -10445,7 +10454,7 @@ export function Workspace() {
                         </div>
                       )}
                     {!selectedPduOutlet && powerConnections}
-                    {layer === "overview" && (
+                    {showNetworkConnections && (
                       <NetworkConnections
                         portCheck={portCheck}
                         portOwnsTrace={portOwnsTrace}

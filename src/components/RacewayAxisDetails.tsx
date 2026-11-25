@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useId, useRef } from "react";
 import type { FixtureCrossing } from "../fixture-crossing";
 import { panelPortLabel, panelTermination } from "../patch-panels";
 
@@ -15,6 +15,7 @@ export function RacewayAxisDetails({
 }) {
   const { axis, origin } = inspection;
   const record = panelTermination(origin);
+  const stationId = useId();
   const input = useRef<HTMLInputElement>(null);
   useEffect(() => {
     if (input.current) input.current.value = axis.station.toFixed(3);
@@ -77,19 +78,18 @@ export function RacewayAxisDetails({
             onPosition(axis.basePanelId, station);
         }}
       >
-        <label>
-          沿轴里程（m）
-          <input
-            ref={input}
-            type="number"
-            required
-            min="0"
-            max={Number(axis.total.toFixed(6))}
-            step="0.001"
-          />
-        </label>
-        <button disabled={!ready} type="submit">
-          按里程定位
+        <label htmlFor={stationId}>沿轴里程（m）</label>
+        <input
+          ref={input}
+          id={stationId}
+          type="number"
+          required
+          min="0"
+          max={Number(axis.total.toFixed(6))}
+          step="0.001"
+        />
+        <button disabled={!ready} type="submit" aria-label="按里程定位">
+          定位
         </button>
       </form>
       <dl>
@@ -104,9 +104,12 @@ export function RacewayAxisDetails({
           <dd>{axis.total.toFixed(3)} m</dd>
         </div>
       </dl>
-      <p>
-        尺线投到槽盖前方。里程沿两个箱顶入盒中心与横槽中线累计，转角中心归横槽。现场敷线与实际线长待核实。
-      </p>
+      <details>
+        <summary>量取依据</summary>
+        <p>
+          尺线投到槽盖前方。里程沿两个箱顶入盒中心与横槽中线累计，转角中心归横槽。现场敷线与实际线长待核实。
+        </p>
+      </details>
     </div>
   );
 }

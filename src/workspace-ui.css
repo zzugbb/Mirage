@@ -4919,14 +4919,21 @@
   padding: 4px;
 }
 .raceway-axis-distance {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: stretch;
+  gap: 6px;
   margin-block: 6px;
 }
 .raceway-axis-distance input {
-  width: 7em;
-  padding: 4px;
+  min-width: 0;
+  padding: 4px 7px;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
   color: inherit;
   background: var(--raised);
   border: 1px solid var(--line);
+  border-radius: 4px;
 }
 .lighting-locations {
   display: flex;
