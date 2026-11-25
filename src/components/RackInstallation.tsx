@@ -287,10 +287,7 @@ export function RackInstallation({
             ),
           )}
         </div>
-        <p className="rack-installation-boundary">
-          盲板仅表示安装封板。未定义预留、不可用或可分配容量；图中比例按 U
-          位，非设备外观。
-        </p>
+        <p className="rack-installation-boundary">U 位示意 · 容量未定义</p>
       </div>
       <footer className="rack-installation-selection">
         {selection ? (

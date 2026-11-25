@@ -6780,6 +6780,13 @@ export function Workspace() {
                         row.kind === "part" ||
                         row.kind === "facility" ||
                         (state.level === "device" && row.id === state.deviceId);
+                      const badge = data
+                        ? style.icon
+                        : isLeakFixture(row.id) ||
+                            isCoolingSource(row.id) ||
+                            environmentProbe(row.id)
+                          ? "◇"
+                          : null;
                       return (
                         <div
                           className={`study-resource ${row.parent ? "is-child" : ""} ${selected === row.id ? "selected" : ""}`}
@@ -6803,19 +6810,13 @@ export function Workspace() {
                           >
                             <span className="study-resource-title">
                               <strong>{text.title}</strong>
-                              {showStatus && (
+                              {showStatus && badge && (
                                 <span
                                   className="study-row-status"
                                   style={{ color: style.color }}
                                   title={rowStatus}
                                 >
-                                  {data
-                                    ? style.icon
-                                    : isLeakFixture(row.id) ||
-                                        isCoolingSource(row.id) ||
-                                        environmentProbe(row.id)
-                                      ? "◇"
-                                      : "—"}
+                                  {badge}
                                 </span>
                               )}
                             </span>
@@ -6857,7 +6858,6 @@ export function Workspace() {
                           </button>
                           <div
                             className="study-row-actions"
-                            data-installation-only={roomUnitDevice || undefined}
                             aria-label={`${row.name}操作`}
                           >
                             <button
@@ -10123,16 +10123,16 @@ export function Workspace() {
                   />
                 ) : coolingRange && coolingHistories ? (
                   <>
-                    <div className="study-metrics cooling-metrics">
-                      <div>
+                    <div className="study-metrics">
+                      <div data-reading="cooling">
                         <span>演示冷却输入</span>
                         <strong>
                           {Math.round(coolingCapacityAt(state.time))}
                           <small>%</small>
                         </strong>
-                        <small>模拟驱动 · 非风量或制冷量</small>
+                        <small>模拟驱动</small>
                       </div>
-                      <div>
+                      <div data-reading="temperature">
                         <span>关联设备最高进风</span>
                         <strong>
                           {temperature(coolingRange.maximum)}
@@ -10225,8 +10225,12 @@ export function Workspace() {
                       className={`study-metrics ${powerFacility ? "is-associated-power" : ""}`}
                     >
                       {!powerFacility && (
-                        <div>
-                          <span>{reading.temperatureLabel}</span>
+                        <div data-reading="temperature">
+                          <span>
+                            {reading.count > 1
+                              ? "最高进风温度"
+                              : reading.temperatureLabel}
+                          </span>
                           <strong
                             style={{
                               color: metricAttentionColor(
@@ -10258,7 +10262,7 @@ export function Workspace() {
                         </div>
                       )}
                       {inletComparison ? (
-                        <div>
+                        <div data-reading="temperature">
                           <span>{inletComparison.temperatureLabel}</span>
                           <strong
                             style={{
@@ -10273,7 +10277,7 @@ export function Workspace() {
                           </strong>
                         </div>
                       ) : (
-                        <div>
+                        <div data-reading="power">
                           <span
                             title={
                               powerAttention
