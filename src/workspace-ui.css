@@ -3029,9 +3029,10 @@
 }
 .rack-installation-tick {
   grid-column: 1;
-  align-self: stretch;
-  text-align: right;
-  padding: 4px 6px 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-inline-end: 6px;
   border-top: 1px solid #ffffff0b;
   font:
     10px/1.2 ui-monospace,
@@ -3045,13 +3046,19 @@
   z-index: 2;
   pointer-events: none;
 }
-.rack-installation-device,
-.rack-installation-blanking {
+.rack-installation-grid
+  :is(.rack-installation-device, .rack-installation-blanking) {
   grid-column: 2;
   min-width: 0;
+  min-height: 0;
   margin: 1px 0;
   border: 1px solid #ffffff18;
   border-radius: 2px;
+  line-height: 16px;
+}
+.rack-installation-grid
+  :is(.rack-installation-device, .rack-installation-blanking):focus-visible {
+  outline-offset: -2px;
 }
 .rack-installation-device {
   display: flex;
@@ -3061,7 +3068,6 @@
   padding: 0 7px !important;
   background: #29333c !important;
   color: #ced9df;
-  min-height: 0;
 }
 .rack-installation-device strong {
   font-size: 11px;
@@ -3091,21 +3097,17 @@
   opacity: 0.32;
 }
 .rack-installation-grid button.rack-installation-blanking {
-  border: 1px solid #ffffff18;
-  border-radius: 2px;
   padding: 0;
-  min-height: 0;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   background: repeating-linear-gradient(
-    to top,
-    #11171c 0,
-    #11171c 20px,
-    #ffffff0b 21px,
-    #11171c 22px
-  );
+      to bottom,
+      #11171c 0 calc(var(--installation-unit) - 1px),
+      #1c252c calc(var(--installation-unit) - 1px) var(--installation-unit)
+    )
+    border-box;
   color: #a2b2bc;
   font-size: 10px;
 }
@@ -6208,6 +6210,7 @@
   transform: translate(-50%, -50%);
   width: 32px;
   height: 42px;
+  min-height: 0;
   border: 1px solid transparent;
   border-radius: 3px;
   background: transparent;
@@ -6260,7 +6263,6 @@
 .room-layout-map button[data-kind="crossing"] {
   width: 25px;
   height: 25px;
-  min-height: 25px;
   border: 1px solid #789098;
   border-radius: 50%;
   background: #1b2930;
@@ -6302,7 +6304,6 @@
 .room-layout-map button[data-kind="point"] {
   width: 58px;
   height: 24px;
-  min-height: 24px;
   background: #1a262d;
 }
 .room-layout-map button[data-kind="point"] span {
@@ -7259,7 +7260,6 @@
 .room-layout-map button[data-kind="branch"] {
   width: 27px;
   height: 24px;
-  min-height: 24px;
   background: #1b2930;
   border-color: #657a83;
 }
