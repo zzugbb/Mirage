@@ -113,7 +113,7 @@ export function NetworkOverview({
             [
               ["rack", "逐柜接入图"],
               ["room", "全机房连接"],
-              ["patch", `可看走线（${patchCount}）`],
+              ["patch", "可看走线"],
             ] as const
           ).map(([value, label]) => (
             <button

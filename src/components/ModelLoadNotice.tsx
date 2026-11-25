@@ -55,9 +55,9 @@ export function ModelLoadNotice({
             : "已请求模型就绪"}
       </summary>
       <div className="model-load-body">
-        <p>
-          进入设备时加载对应细模，加载期间可操作简化结构。设备数据与告警保持原口径。
-        </p>
+        {(loading > 0 || failed > 0) && (
+          <p>简模可继续操作，模拟读数照常显示。</p>
+        )}
         <ul>
           {modelAssets.map(({ id, name }) => (
             <li key={id} data-model-id={id} data-status={state[id]}>
@@ -84,13 +84,6 @@ export function ModelLoadNotice({
             重试失败模型（{failed}）
           </button>
         )}
-        <small>
-          {loading
-            ? "加载期间保留简化结构与现有模拟数据。"
-            : failed
-              ? "重试保留当前镜头、结构与模拟时间。"
-              : "已请求模型已就绪；未查看的机型不下载。"}
-        </small>
       </div>
     </details>
   );

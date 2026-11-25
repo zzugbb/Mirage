@@ -250,8 +250,8 @@ export function RoomLayout({
             <button onClick={onOpenFixtureRoster}>设施名单</button>
           )}
           {scope !== "wall" && (
-            <button disabled={!ready} onClick={onPlan}>
-              俯看三维布置
+            <button disabled={!ready} title="俯看三维布置" onClick={onPlan}>
+              三维俯视
             </button>
           )}
         </div>

@@ -3797,44 +3797,6 @@ export function ReviewScene({
             <details ref={displayMenu}>
               <summary>{compactTools ? "显示" : "画面"}</summary>
               <div>
-                {state.level === "room" && (
-                  <div className="room-view-memory" aria-label="临时机房视角">
-                    <button
-                      disabled={!sceneSettled}
-                      onClick={() => {
-                        onTakeover();
-                        setOrbit(false);
-                        engine.current?.rememberRoomView();
-                      }}
-                    >
-                      {roomViewSaved ? "替换保存视角" : "保存当前视角"}
-                    </button>
-                    {roomViewSaved && (
-                      <>
-                        <button
-                          disabled={!sceneSettled}
-                          onClick={() => {
-                            onTakeover();
-                            setOrbit(false);
-                            if (engine.current?.restoreRoomViewMemory())
-                              setView(engine.current.currentView);
-                          }}
-                        >
-                          返回保存视角
-                        </button>
-                        <button
-                          disabled={!sceneSettled}
-                          onClick={() => engine.current?.clearRoomViewMemory()}
-                        >
-                          清除保存视角
-                        </button>
-                      </>
-                    )}
-                    <small>
-                      仅恢复镜头。离开机房、载入演示画面或视口尺寸改变后清除。
-                    </small>
-                  </div>
-                )}
                 <label title="按视线剖切挡住机柜的墙体与顶架；取消可恢复完整建筑">
                   <input
                     type="checkbox"
@@ -3876,6 +3838,44 @@ export function ReviewScene({
                   />
                   细节阴影
                 </label>
+                {state.level === "room" && (
+                  <div className="room-view-memory" aria-label="临时机房视角">
+                    <button
+                      disabled={!sceneSettled}
+                      onClick={() => {
+                        onTakeover();
+                        setOrbit(false);
+                        engine.current?.rememberRoomView();
+                      }}
+                    >
+                      {roomViewSaved ? "替换保存视角" : "保存当前视角"}
+                    </button>
+                    {roomViewSaved && (
+                      <>
+                        <button
+                          disabled={!sceneSettled}
+                          onClick={() => {
+                            onTakeover();
+                            setOrbit(false);
+                            if (engine.current?.restoreRoomViewMemory())
+                              setView(engine.current.currentView);
+                          }}
+                        >
+                          返回保存视角
+                        </button>
+                        <button
+                          disabled={!sceneSettled}
+                          onClick={() => engine.current?.clearRoomViewMemory()}
+                        >
+                          清除保存视角
+                        </button>
+                      </>
+                    )}
+                    <small>
+                      暂存镜头。离开机房、切换演示或改变视口尺寸时清除。
+                    </small>
+                  </div>
+                )}
               </div>
             </details>
           </div>

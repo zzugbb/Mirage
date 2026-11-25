@@ -937,6 +937,11 @@ export function Workspace() {
   const navigationRef = useRef<HTMLElement>(null);
   const navigationOpenerRef = useRef<HTMLButtonElement>(null);
   const previousNav = useRef(nav);
+  const restoreNavigationOpener = useRef(false);
+  const collapseNavigation = useCallback(() => {
+    restoreNavigationOpener.current = true;
+    setNav(false);
+  }, []);
   const skipNavigationSearch = useRef(false);
   useEffect(() => {
     if (previousNav.current === nav) return;
@@ -945,8 +950,14 @@ export function Workspace() {
       if (!skipNavigationSearch.current)
         navigationRef.current?.querySelector("input")?.focus();
       skipNavigationSearch.current = false;
-    } else if (navigationRef.current?.contains(document.activeElement))
-      navigationOpenerRef.current?.focus();
+    } else {
+      if (
+        restoreNavigationOpener.current ||
+        navigationRef.current?.contains(document.activeElement)
+      )
+        navigationOpenerRef.current?.focus({ preventScroll: true });
+      restoreNavigationOpener.current = false;
+    }
   }, [nav]);
   const [inspector, setInspector] = useState(false);
   const [airflowOrigin, setAirflowOrigin] = useState<{
@@ -1850,7 +1861,7 @@ export function Workspace() {
         ?.focus({ preventScroll: true });
     else if (destination === "opener")
       inspectorOpener.current?.focus({ preventScroll: true });
-  }, [inspector, review.analysis]);
+  }, [inspector, review.analysis, nav]);
 
   const peakReturnFocus = useRef<{
     scopeId: string;
@@ -3694,9 +3705,12 @@ export function Workspace() {
     }
   }, [review.analysis]);
   const analyze = () => {
+    const narrow = matchMedia("(max-width: 1099px)").matches;
+    if (!inspector || !review.analysis || (narrow && nav))
+      panelFocus.current = "heading";
     control({ type: "analysis", value: true });
     setInspector(true);
-    if (matchMedia("(max-width: 1099px)").matches) setNav(false);
+    if (narrow) setNav(false);
   };
   const beginAlarmInspection = (
     id: string,
@@ -4770,8 +4784,17 @@ export function Workspace() {
   useEffect(() => {
     document.title = "Mirage · 浮城 — 三维工作区";
     const key = (event: KeyboardEvent) => {
+      if (
+        event.defaultPrevented ||
+        event.isComposing ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.altKey ||
+        event.repeat
+      )
+        return;
+      const target = event.target instanceof Element ? event.target : null;
       if (event.key === "Escape") {
-        const target = event.target instanceof Element ? event.target : null;
         const popup =
           target?.closest<HTMLDetailsElement>("details[open]") ??
           document.querySelector<HTMLDetailsElement>(
@@ -4794,12 +4817,16 @@ export function Workspace() {
           (navigationRef.current?.contains(target) ||
             matchMedia("(max-width: 1099px)").matches)
         )
-          setNav(false);
+          collapseNavigation();
         else if (review.analysis) returnToDetails();
         else if (inspector) collapseInspector();
         else dispatch({ type: "back" });
       }
-      if ((event.target as HTMLElement).closest("input,select,textarea"))
+      if (
+        target?.closest(
+          "input, select, textarea, [contenteditable]:not([contenteditable=false])",
+        )
+      )
         return;
       if (event.key.toLowerCase() === "f") {
         control({ type: "focus-resource", id: selected });
@@ -4816,6 +4843,7 @@ export function Workspace() {
     dispatch,
     returnToDetails,
     collapseInspector,
+    collapseNavigation,
   ]);
   const load = (next: WorkspaceShot) => {
     setAirflowOrigin(null);
@@ -5775,6 +5803,7 @@ export function Workspace() {
       onReturn: () => selectObject("room-01", true),
     });
   }
+  const scenePath = getPath(state);
   return (
     <div
       className="mirage-workspace workspace-ui"
@@ -5800,45 +5829,53 @@ export function Workspace() {
         </a>
         <nav className="study-path" aria-label="空间路径">
           <div>
-            {getPath(state).map((item, i) => (
+            {scenePath.map((item, i) => (
               <span key={item}>
-                {i > 0 && <i>/</i>}
-                <button onClick={() => selectObject(item, true)}>
+                {i > 0 && <i aria-hidden="true">/</i>}
+                <button
+                  aria-current={
+                    i === scenePath.length - 1 ? "location" : undefined
+                  }
+                  onClick={() => selectObject(item, true)}
+                >
                   {entityById(item)?.name ?? item}
                 </button>
               </span>
             ))}
           </div>
         </nav>
-        <div className="study-clock">
+        <div className="study-clock" role="group" aria-label="模拟时钟">
           <button
+            className="study-clock-play"
             aria-label={state.playing ? "暂停模拟" : "播放模拟"}
             title={state.playing ? "暂停模拟" : "播放模拟"}
             onClick={() => dispatch({ type: "play" })}
           >
-            {state.playing ? "Ⅱ" : "▷"}
+            <span
+              aria-hidden="true"
+              data-playing={state.playing || undefined}
+            />
           </button>
+          <span className="study-clock-readout">
+            <span>模拟</span>
+            <time dateTime={`PT${state.time}S`}>{clock(state.time)}</time>
+          </span>
           <button
+            className="study-clock-action"
             onClick={analyze}
             aria-label="打开时间分析"
             aria-pressed={review.analysis}
-            title="查看所选对象的曲线与事件，回看同步更新场景"
+            title="查看所选对象的曲线与事件"
           >
-            <span>模拟</span>
-            <time>{clock(state.time)}</time>
-            <span className="study-clock-action">分析</span>
+            分析
           </button>
         </div>
         <details className="workspace-shots" ref={tourMenu}>
           <summary>
-            演示{" "}
-            <span>
-              {tour.mode === "playing"
-                ? "巡游中"
-                : tour.mode === "paused"
-                  ? "巡游暂停"
-                  : "自由浏览"}
-            </span>
+            演示
+            {tour.mode !== "manual" && (
+              <span>{tour.mode === "playing" ? "巡游中" : "巡游暂停"}</span>
+            )}
           </summary>
           <nav aria-label="演示画面与巡游">
             <button
@@ -5871,35 +5908,45 @@ export function Workspace() {
                 </small>
               )}
             </button>
-            {workspaceShots.map((s, i) => (
+            {workspaceShots.map((s) => (
               <button
                 key={s.id}
                 aria-pressed={shot === s.id}
                 onClick={(e) => {
                   load(s.id);
-                  e.currentTarget.closest("details")?.removeAttribute("open");
+                  const menu = e.currentTarget.closest("details");
+                  if (menu) {
+                    menu.open = false;
+                    menu
+                      .querySelector("summary")
+                      ?.focus({ preventScroll: true });
+                  }
                 }}
               >
-                <small>0{i + 1}</small>
                 {s.name}
               </button>
             ))}
             <p>载入固定画面将重置对象与时间。</p>
             <details className="study-about">
               <summary>场景与数据说明</summary>
-              <div>
-                <p>
-                  原创演示空间，运行数据来自统一的 120
-                  秒确定性模拟。设备读数为模拟，部件读数为模型推导，无真实管理接口或
-                  CFD。
-                </p>
-                <p>
-                  温度切片由设备进风局部插值，箭头表示配置的代表气流方向。两处环境探头各有温湿度模拟序列，露点由同次有效采样推导。
-                </p>
-                <p>
-                  门禁、烟感和检漏仅展示布置。交换机与存储的内部结构按配置示意。
-                </p>
-              </div>
+              <dl>
+                <div>
+                  <dt>运行数据</dt>
+                  <dd>本地 120 秒模拟，部件读数由模型推导。现场数据未接入。</dd>
+                </div>
+                <div>
+                  <dt>温度与气流</dt>
+                  <dd>
+                    温度切片取进风插值，箭头为配置方向。两处探头的露点取同次模拟采样。
+                  </dd>
+                </div>
+                <div>
+                  <dt>设施与结构</dt>
+                  <dd>
+                    门禁、烟感和检漏展示静态布置。交换机与存储内部为配置示意。
+                  </dd>
+                </div>
+              </dl>
             </details>
           </nav>
         </details>
@@ -5925,7 +5972,7 @@ export function Workspace() {
                     ? "机柜资源"
                     : "机房资源"}
             </h2>
-            <button aria-label="收起资源导航" onClick={() => setNav(false)}>
+            <button aria-label="收起资源导航" onClick={collapseNavigation}>
               ×
             </button>
           </div>
@@ -8163,6 +8210,7 @@ export function Workspace() {
                 className="study-show-detail"
                 onClick={() => {
                   takeover();
+                  panelFocus.current = "heading";
                   setInspector(true);
                   if (matchMedia("(max-width: 1099px)").matches) setNav(false);
                 }}
@@ -8224,9 +8272,7 @@ export function Workspace() {
                 }
               >
                 <small>
-                  {selected === "room-01" &&
-                  layer === "overview" &&
-                  !review.analysis
+                  {selected === "room-01" && layer === "overview"
                     ? `${room.lifecycleCounts.running} 台运行 · ${room.count} 台登记`
                     : resource?.location}
                 </small>
