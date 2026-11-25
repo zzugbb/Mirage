@@ -3,6 +3,7 @@ import type { BudgetReview } from "../budget-process";
 import { budgetRatio } from "../power-budget";
 import { PowerBudgetSummary } from "./PowerBudgetSummary";
 import { useEffect, useRef } from "react";
+import { clearSearchOnEscape } from "../search-keyboard";
 import {
   matchingSourceRows,
   sourceValue,
@@ -40,6 +41,7 @@ export function ReadingSources({
 }) {
   const root = useRef<HTMLElement>(null);
   const heading = useRef<HTMLButtonElement>(null);
+  const search = useRef<HTMLInputElement>(null);
   const opened = !!check;
   useEffect(() => {
     if (opened) {
@@ -59,6 +61,10 @@ export function ReadingSources({
     query: "",
   };
   const rows = matchingSourceRows(sources, current);
+  const clearQuery = () => {
+    search.current?.focus();
+    onChange({ ...current, query: "" });
+  };
   const metricName = sources.metric === "temperature" ? "进风" : "功耗";
   const hasMetricChoice = metrics.length > 1;
   return (
@@ -147,22 +153,15 @@ export function ReadingSources({
           </div>
           <label className="reading-source-search">
             <input
+              ref={search}
               aria-label="查找汇总输入设备"
               placeholder="设备或机柜编号"
               value={current.query}
               onChange={(e) => onChange({ ...current, query: e.target.value })}
-              onKeyDown={(event) => {
-                if (event.key !== "Escape" || !current.query) return;
-                event.preventDefault();
-                event.stopPropagation();
-                onChange({ ...current, query: "" });
-              }}
+              onKeyDown={(event) => clearSearchOnEscape(event, clearQuery)}
             />
             {current.query && (
-              <button
-                aria-label="清除输入设备搜索"
-                onClick={() => onChange({ ...current, query: "" })}
-              >
+              <button aria-label="清除输入设备搜索" onClick={clearQuery}>
                 ×
               </button>
             )}

@@ -14,6 +14,7 @@ import { entityById } from "../domain";
 import { FeederDeviceHistory } from "./FeederDeviceHistory";
 import type { SpatialReading } from "../spatial";
 import { outletAirflow } from "../outlet-airflow";
+import { clearSearchOnEscape } from "../search-keyboard";
 
 export function PduOutlets({
   pduId,
@@ -102,7 +103,14 @@ export function PduOutlets({
             </div>
             <button
               className="pdu-outlet-clear"
-              onClick={() => onChange({ ...current, outlet: null })}
+              onClick={() => {
+                list.current
+                  ?.querySelector<HTMLButtonElement>(
+                    `[data-outlet="${chosen.outlet}"]`,
+                  )
+                  ?.focus();
+                onChange({ ...current, outlet: null });
+              }}
             >
               清除标记
             </button>
@@ -141,6 +149,11 @@ export function PduOutlets({
           value={current.query}
           onChange={(event) =>
             onChange({ ...current, query: event.target.value })
+          }
+          onKeyDown={(event) =>
+            clearSearchOnEscape(event, () =>
+              onChange({ ...current, query: "" }),
+            )
           }
         />
       </label>

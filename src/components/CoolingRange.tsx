@@ -15,6 +15,7 @@ import {
 import { unitLabel } from "../catalog";
 import { lifecycleNames, qualityNames } from "../status";
 import type { SpatialReading } from "../spatial";
+import { clearSearchOnEscape } from "../search-keyboard";
 
 export function CoolingRange({
   value,
@@ -90,6 +91,11 @@ export function CoolingRange({
       focusKey: id !== rackId ? id + ":" + action : undefined,
     });
   };
+  const changeQuery = (query: string, filter = value.filter) => {
+    if (host.current) host.current.scrollTop = 0;
+    setRowMissing(false);
+    onChange({ ...value, selectedDeviceId: undefined, query, filter });
+  };
   const filtered = !!value.query.trim() || value.filter !== "all";
   const matchingRacks = rows.filter((row) => row.matching.length);
   const singleRack = matchingRacks.length === 1 ? matchingRacks[0].rack : null;
@@ -103,15 +109,10 @@ export function CoolingRange({
           aria-label="服务范围查找"
           value={value.query}
           placeholder="机柜、编号、机型或 U 位"
-          onChange={(e) => {
-            if (host.current) host.current.scrollTop = 0;
-            setRowMissing(false);
-            onChange({
-              ...value,
-              selectedDeviceId: undefined,
-              query: e.target.value,
-            });
-          }}
+          onChange={(e) => changeQuery(e.target.value)}
+          onKeyDown={(event) =>
+            clearSearchOnEscape(event, () => changeQuery(""))
+          }
         />
       </label>
       <label>
@@ -119,15 +120,9 @@ export function CoolingRange({
         <select
           aria-label="服务范围筛选"
           value={value.filter}
-          onChange={(e) => {
-            if (host.current) host.current.scrollTop = 0;
-            setRowMissing(false);
-            onChange({
-              ...value,
-              selectedDeviceId: undefined,
-              filter: e.target.value as CoolingRangeFilter,
-            });
-          }}
+          onChange={(e) =>
+            changeQuery(value.query, e.target.value as CoolingRangeFilter)
+          }
         >
           <option value="all">全部关联设备</option>
           <option value="unavailable">无当前进风</option>
@@ -275,13 +270,8 @@ export function CoolingRange({
         <p>
           <button
             onClick={() => {
-              setRowMissing(false);
-              onChange({
-                ...value,
-                selectedDeviceId: undefined,
-                query: "",
-                filter: "all",
-              });
+              search.current?.focus();
+              changeQuery("", "all");
             }}
           >
             清除查找与筛选

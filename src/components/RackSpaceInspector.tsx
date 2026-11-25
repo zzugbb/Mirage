@@ -69,6 +69,7 @@ export function RackSpaceInspector({
   onCompare?: () => void;
 }) {
   const panel = useRef<HTMLElement>(null);
+  const heightField = useRef<HTMLSelectElement>(null);
   const snapshot = restore?.range.rackId === rackId ? restore.form : null;
   const [start, setStart] = useState(
     snapshot?.start ?? String(range?.first ?? 1),
@@ -181,6 +182,7 @@ export function RackSpaceInspector({
           <label>
             核查高度
             <select
+              ref={heightField}
               aria-label="核查设备U高度"
               value={size}
               onChange={(e) => onSize(Number(e.target.value))}
@@ -297,7 +299,14 @@ export function RackSpaceInspector({
           {result.conflicts.length > 0 && (
             <small>设备旁标注完整安装跨度。</small>
           )}
-          <button onClick={onClear}>清除范围标记</button>
+          <button
+            onClick={() => {
+              heightField.current?.focus();
+              onClear();
+            }}
+          >
+            清除范围标记
+          </button>
         </section>
       )}
       <details className="rack-space-boundary" ref={boundary}>

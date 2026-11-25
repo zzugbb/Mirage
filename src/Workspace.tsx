@@ -1,4 +1,5 @@
 import { StudyReturns, type StudyReturn } from "./components/StudyReturns";
+import { clearSearchOnEscape } from "./search-keyboard";
 import { grilleSeatInspection } from "./grille-seat";
 import { GrilleSeatDetails } from "./components/GrilleSeatDetails";
 import { grilleIntakeInspection } from "./grille-intake";
@@ -935,6 +936,7 @@ export function Workspace() {
     () => matchMedia("(min-width: 1100px)").matches,
   );
   const navigationRef = useRef<HTMLElement>(null);
+  const resourceSearch = useRef<HTMLInputElement>(null);
   const navigationOpenerRef = useRef<HTMLButtonElement>(null);
   const previousNav = useRef(nav);
   const restoreNavigationOpener = useRef(false);
@@ -4901,10 +4903,10 @@ export function Workspace() {
           nav &&
           query &&
           navigationRef.current?.contains(target) &&
-          navigationRef.current.querySelector(".study-search")
+          resourceSearch.current
         ) {
           setQuery("");
-          navigationRef.current.querySelector("input")?.focus();
+          resourceSearch.current.focus();
         } else if (
           nav &&
           (navigationRef.current?.contains(target) ||
@@ -5521,6 +5523,7 @@ export function Workspace() {
     else if (crossing?.kind === "rear-wall" && layoutVisit) returnLayoutVisit();
     else requestCrossing(null);
   };
+  const selectedPdu = pduById(selected);
   const selectedPduOutlet =
     layer === "power" &&
     pduInspection?.pduId === selected &&
@@ -6168,6 +6171,7 @@ export function Workspace() {
                 <label className="study-search">
                   <span aria-hidden="true">⌕</span>
                   <input
+                    ref={resourceSearch}
                     aria-label="查找资源"
                     placeholder={
                       state.level === "device"
@@ -6176,9 +6180,18 @@ export function Workspace() {
                     }
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
+                    onKeyDown={(event) =>
+                      clearSearchOnEscape(event, () => setQuery(""))
+                    }
                   />
                   {query && (
-                    <button aria-label="清除搜索" onClick={() => setQuery("")}>
+                    <button
+                      aria-label="清除搜索"
+                      onClick={() => {
+                        resourceSearch.current?.focus();
+                        setQuery("");
+                      }}
+                    >
                       ×
                     </button>
                   )}
@@ -6755,6 +6768,7 @@ export function Workspace() {
               }
               onList={() => setRackView("list")}
               onClear={() => {
+                resourceSearch.current?.focus();
                 setQuery("");
                 setFilter("all");
                 setOnlyAlarms(false);
@@ -8512,7 +8526,7 @@ export function Workspace() {
                 }}
               />
             )}
-            {selectedPduOutlet && !review.analysis && powerConnections}
+            {selectedPdu && !review.analysis && powerConnections}
             {supplyBranch && !review.analysis && state.level !== "device" && (
               <NetworkPowerInputs
                 branch={supplyBranch}
@@ -10541,7 +10555,7 @@ export function Workspace() {
                           </button>
                         </div>
                       )}
-                    {!selectedPduOutlet && powerConnections}
+                    {!selectedPdu && powerConnections}
                     {showNetworkConnections && (
                       <NetworkConnections
                         portCheck={portCheck}

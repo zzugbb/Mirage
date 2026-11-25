@@ -11,6 +11,7 @@ import { budgetPercent, budgetRatio, budgetStateText } from "../power-budget";
 import { budgetAttentionStyle } from "../status";
 import { sourceValue } from "../reading-sources";
 import type { SpatialReading } from "../spatial";
+import { clearSearchOnEscape } from "../search-keyboard";
 
 export function PowerOverview({
   readings,
@@ -63,6 +64,7 @@ export function PowerOverview({
   const rows = powerOverviewRows(all, rackId, scope, order);
   const rackSelected = selected === current.rack.id;
   const host = useRef<HTMLDivElement>(null);
+  const search = useRef<HTMLInputElement>(null);
   const ratioText = (ratio: number | null) =>
     ratio === null ? "—" : budgetPercent(ratio, 1);
   useLayoutEffect(() => {
@@ -141,16 +143,12 @@ export function PowerOverview({
         </details>
         <label>
           <input
+            ref={search}
             aria-label="功耗对照查找"
             placeholder="查找设备、柜位或数据状态"
             value={query}
             onChange={(event) => onQuery(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Escape" && query) {
-                event.stopPropagation();
-                onQuery("");
-              }
-            }}
+            onKeyDown={(event) => clearSearchOnEscape(event, () => onQuery(""))}
           />
         </label>
         <details className="overview-list-filters">
@@ -282,6 +280,7 @@ export function PowerOverview({
             当前范围没有匹配设备；可调整范围或
             <button
               onClick={() => {
+                search.current?.focus();
                 onQuery("");
                 onFilter("all");
               }}

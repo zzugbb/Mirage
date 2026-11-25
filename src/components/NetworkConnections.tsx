@@ -5,6 +5,7 @@ import { useState } from "react";
 import type { AppState } from "../domain";
 import { deviceById, rackById } from "../installation";
 import { modelForDevice, unitLabel } from "../catalog";
+import { clearSearchOnEscape } from "../search-keyboard";
 import {
   networkLinksFor,
   networkDeviceId,
@@ -219,6 +220,9 @@ export function NetworkConnections({
               placeholder="端口号或对端编号"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(event) =>
+                clearSearchOnEscape(event, () => setQuery(""))
+              }
             />
           </div>
           <div

@@ -9,6 +9,7 @@ import {
 } from "../inlet-overview";
 import { temperatureColor } from "../scene/metric-color";
 import type { SpatialReading } from "../spatial";
+import { clearSearchOnEscape } from "../search-keyboard";
 
 const valueText = (value: number | null) =>
   value === null ? "—" : `${value.toFixed(1)} °C`;
@@ -78,6 +79,7 @@ export function InletOverview({
     .find((d) => d.id === referenceId);
   const rackSummary = useRef<HTMLDetailsElement>(null);
   const host = useRef<HTMLDivElement>(null);
+  const search = useRef<HTMLInputElement>(null);
   const pattern = useId().replace(/:/g, "");
   const focusedRevision = useRef<number | null>(null);
   useLayoutEffect(() => {
@@ -93,11 +95,9 @@ export function InletOverview({
       host.current.querySelector<HTMLElement>(
         '.inlet-device-list button[aria-pressed="true"]',
       ) ??
-      host.current.querySelector<HTMLElement>(
-        restoreRevision && selected === current.rack.id
-          ? ".inlet-rack-summary summary"
-          : '[aria-label="进风对照查找"]',
-      );
+      (restoreRevision && selected === current.rack.id
+        ? rackSummary.current?.querySelector<HTMLElement>("summary")
+        : search.current);
     target?.focus({ preventScroll: true });
     if (restoreRevision) target?.scrollIntoView({ block: "nearest" });
   }, [visible, ready, scroll, restoreRevision, selected, current.rack.id]);
@@ -188,16 +188,12 @@ export function InletOverview({
         </details>
         <label className="inlet-search">
           <input
+            ref={search}
             aria-label="进风对照查找"
             value={query}
             onChange={(e) => onQuery(e.target.value)}
             placeholder="查找设备、柜位或数据状态"
-            onKeyDown={(event) => {
-              if (event.key === "Escape" && query) {
-                event.stopPropagation();
-                onQuery("");
-              }
-            }}
+            onKeyDown={(event) => clearSearchOnEscape(event, () => onQuery(""))}
           />
         </label>
         <details className="overview-list-filters">
@@ -293,6 +289,7 @@ export function InletOverview({
             当前范围没有匹配设备。调整范围或
             <button
               onClick={() => {
+                search.current?.focus();
                 onQuery("");
                 onFilter("all");
               }}

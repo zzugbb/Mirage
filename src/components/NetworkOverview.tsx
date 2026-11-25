@@ -7,6 +7,7 @@ import {
 } from "../network-overview";
 import { supportsNetworkPatch, switchRole, type NetworkLink } from "../network";
 import { networkLinks, unitLabel } from "../catalog";
+import { clearSearchOnEscape } from "../search-keyboard";
 
 const patchCount = networkLinks.filter(supportsNetworkPatch).length;
 
@@ -59,7 +60,12 @@ export function NetworkOverview({
   );
   const current = all.find((item) => item.rack.id === rackId) ?? all[0];
   const host = useRef<HTMLElement>(null);
+  const search = useRef<HTMLInputElement>(null);
   const restorePending = useRef(true);
+  const clearQuery = () => {
+    search.current?.focus();
+    onQuery("");
+  };
   useLayoutEffect(() => {
     if (host.current) host.current.scrollTop = scroll.current;
   }, [rackId, scope, scroll]);
@@ -74,7 +80,7 @@ export function NetworkOverview({
       [
         ...host.current.querySelectorAll<HTMLElement>("[data-network-focus]"),
       ].find((el) => el.dataset.networkFocus === focusKey.current) ??
-      host.current.querySelector<HTMLElement>("input");
+      search.current;
     entry?.focus({ preventScroll: true });
     if (restoreRevision && entry) {
       const viewport = host.current.getBoundingClientRect();
@@ -143,10 +149,12 @@ export function NetworkOverview({
       <label className="network-map-search">
         查找设备或对端
         <input
+          ref={search}
           aria-label="接入图查找设备或对端"
           data-network-focus="query"
           value={query}
           onChange={(e) => onQuery(e.target.value)}
+          onKeyDown={(event) => clearSearchOnEscape(event, clearQuery)}
           placeholder="如 B04 SW-16 端口09"
         />
       </label>
@@ -186,7 +194,7 @@ export function NetworkOverview({
           {!rows.length && (
             <p role="status">
               没有匹配的配置连接。可调整分支或
-              <button onClick={() => onQuery("")}>清除查找</button>。
+              <button onClick={clearQuery}>清除查找</button>。
             </p>
           )}
           {activeLink && !rows.some(({ link }) => link.id === activeLink) && (
@@ -295,7 +303,7 @@ export function NetworkOverview({
           {!current.matching.length && (
             <p role="status">
               本柜没有匹配设备。可切换机柜或
-              <button onClick={() => onQuery("")}>清除查找</button>。
+              <button onClick={clearQuery}>清除查找</button>。
             </p>
           )}
         </>

@@ -192,6 +192,7 @@ export function AlarmQueue({
             {queue.all.length > 0 && (query || severity !== "all") && (
               <button
                 onClick={() => {
+                  search.current?.focus();
                   onQuery("");
                   onSeverity("all");
                 }}
