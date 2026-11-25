@@ -37,7 +37,7 @@ export type PowerScene = {
   mount?: PduMountInspection;
   unconnectedOutlet?: true;
   rackId: string;
-  deviceId: string;
+  deviceId: string | null;
   caption: string;
   paths: PowerPath[];
   labels: PowerLabel[];
@@ -94,6 +94,7 @@ export function powerScene(
   const pdu = pduById(selectedId),
     selectedDevice = deviceById(selectedId),
     entity = entityById(selectedId);
+  const feeder = state.level === "room" && !traced ? pdu : undefined;
   const rack = traced
     ? rackForDevice(traced.deviceId)
     : pdu
@@ -131,23 +132,19 @@ export function powerScene(
     (facility) => facility.id === powerSettings.sourceId,
   )!;
   const sourcePoint = add(source.position, powerSettings.routing.sourceOffset);
+  const sourcePort = traced
+    ? pduById(traced.pduId)!.sourcePort
+    : feeder?.sourcePort;
   if (state.level === "room")
     labels.push({
       id: "power-source",
       point: sourcePoint,
-      title: traced
-        ? `逻辑出线 ${pduById(traced.pduId)!.sourcePort}`
-        : "配电柜 · 逻辑出线",
+      title: sourcePort ? `逻辑出线 ${sourcePort}` : "配电柜 · 逻辑出线",
     });
   for (const feed of feeds) {
     const targetPdu = traced
       ? pduById(traced.pduId)!
       : pdus.find((pdu) => pdu.rackId === rack.id && pdu.feed === feed)!;
-    const link =
-      traced ??
-      powerLinks.find(
-        (link) => link.pduId === targetPdu.id && link.deviceId === device.id,
-      )!;
     const partId = inletPart(model.id, feed);
     if (state.level === "device") {
       labels.push({
@@ -176,6 +173,19 @@ export function powerScene(
           inlet,
         ],
       });
+    if (feeder) {
+      labels.push({
+        id: `power-pdu-${feed}`,
+        point: inlet,
+        title: pduName(feeder.id),
+      });
+      continue;
+    }
+    const link =
+      traced ??
+      powerLinks.find(
+        (link) => link.pduId === targetPdu.id && link.deviceId === device.id,
+      )!;
     const outlet = pduOutletPosition(targetPdu.id, link.outlet);
     const endpoint = installedPowerEndpoint(link);
     if (
@@ -210,8 +220,10 @@ export function powerScene(
   }
   return {
     rackId: rack.id,
-    deviceId: device.id,
-    caption: `${rack.name.split(" ")[0]} / ${device.name} · ${feeds.join("+")} ${traced ? `插座 ${String(traced.outlet).padStart(2, "0")}` : "接入示意"}`,
+    deviceId: feeder ? null : device.id,
+    caption: feeder
+      ? `${feeder.sourcePort} → ${pduName(feeder.id)}`
+      : `${rack.name.split(" ")[0]} / ${device.name} · ${feeds.join("+")} ${traced ? `插座 ${String(traced.outlet).padStart(2, "0")}` : "接入示意"}`,
     traceId: traced?.id ?? null,
     paths,
     labels,

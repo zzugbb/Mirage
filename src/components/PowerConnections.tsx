@@ -39,6 +39,7 @@ export function PowerConnections({
   onViewPower,
   onOpenFeeders,
   activeLinkId,
+  traceExitInScene,
   onTrace,
   onInspect,
   paired,
@@ -70,6 +71,7 @@ export function PowerConnections({
   onViewPower?: () => void;
   onOpenFeeders?: (pduId?: string) => void;
   activeLinkId: string | null;
+  traceExitInScene: boolean;
   onTrace: (id: string | null) => void;
   onInspect: (id: string) => void;
 }) {
@@ -184,12 +186,14 @@ export function PowerConnections({
           <section className="power-active-trace" aria-label="当前供电支路">
             <header>
               <strong>当前供电支路</strong>
-              <button
-                aria-label="结束当前供电支路追踪"
-                onClick={() => onTrace(null)}
-              >
-                结束追踪
-              </button>
+              {!traceExitInScene && (
+                <button
+                  aria-label="结束当前供电支路追踪"
+                  onClick={() => onTrace(null)}
+                >
+                  结束追踪
+                </button>
+              )}
             </header>
             {activeLink && selectedId === powerSettings.sourceId && (
               <section

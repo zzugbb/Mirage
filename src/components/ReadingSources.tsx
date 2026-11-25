@@ -16,7 +16,6 @@ export function ReadingSources({
   onBudgetReview,
   onSeek,
   sources,
-  sourceName,
   metrics,
   check,
   time,
@@ -29,7 +28,6 @@ export function ReadingSources({
   onBudgetReview: (state: BudgetReview) => void;
   onSeek: (time: number) => void;
   sources: Sources;
-  sourceName: string;
   metrics: SourceMetric[];
   check: SourceCheck | null;
   time: number;
@@ -66,6 +64,14 @@ export function ReadingSources({
         if (event.key === "Escape" && opened) {
           event.preventDefault();
           event.stopPropagation();
+          const detail = (
+            event.target as HTMLElement
+          ).closest<HTMLDetailsElement>("details[open]");
+          if (detail && root.current?.contains(detail)) {
+            detail.open = false;
+            detail.querySelector("summary")?.focus({ preventScroll: true });
+            return;
+          }
           onClose();
           root.current
             ?.querySelector<HTMLButtonElement>(".reading-sources-heading")
@@ -103,36 +109,13 @@ export function ReadingSources({
             <span>第 {time} 秒</span>
           </div>
           <p className="reading-sources-total">
-            <strong>{sourceValue(sources.value, sources.metric)}</strong>
             <span>
-              {sourceName} ·{" "}
               {sources.metric === "temperature"
-                ? "有效整机进风取最高值"
-                : "有效整机输入逐台求和"}
+                ? "当前最高进风"
+                : "整机输入合计"}
             </span>
+            <strong>{sourceValue(sources.value, sources.metric)}</strong>
           </p>
-          <p className="reading-sources-boundary">
-            {sources.metric === "temperature"
-              ? "整机进风为模拟读数，不含部件模型温度或设施送回风测点。"
-              : "整机输入为模拟读数；A/B 关联按设备去重，不拆分到支路，也不是设施计量。"}
-          </p>
-          {sources.budget && (
-            <PowerBudgetSummary
-              budget={sources.budget}
-              state={sources.budgetState}
-              group={current.group}
-              onGroup={(group) => onChange({ ...current, group })}
-            />
-          )}
-          {sources.budget && (
-            <BudgetProcess
-              sourceId={sources.sourceId}
-              time={time}
-              state={budgetReview}
-              onChange={onBudgetReview}
-              onSeek={onSeek}
-            />
-          )}
           <div
             className="reading-source-groups"
             role="group"
@@ -157,6 +140,12 @@ export function ReadingSources({
               placeholder="设备或机柜编号"
               value={current.query}
               onChange={(e) => onChange({ ...current, query: e.target.value })}
+              onKeyDown={(event) => {
+                if (event.key !== "Escape" || !current.query) return;
+                event.preventDefault();
+                event.stopPropagation();
+                onChange({ ...current, query: "" });
+              }}
             />
             {current.query && (
               <button
@@ -179,6 +168,7 @@ export function ReadingSources({
                   className="reading-source-row"
                   data-source-device={row.id}
                   aria-label={`预览汇总输入 ${row.name}，${row.reason}`}
+                  aria-description={row.detail}
                   onClick={() => onPreview(row.id)}
                 >
                   <span>
@@ -189,14 +179,14 @@ export function ReadingSources({
                         : "—"}
                     </b>
                   </span>
-                  <small>{row.location}</small>
-                  <small className="reading-source-reason">
-                    {row.reason}
+                  <small>
+                    {row.location}
+                    {(!row.included || row.reason === "有效零值") &&
+                      ` · ${row.reason}`}
                     {row.included &&
-                    sources.metric === "temperature" &&
-                    row.value === sources.value
-                      ? " · 当前最高"
-                      : ""}
+                      sources.metric === "temperature" &&
+                      row.value === sources.value &&
+                      " · 当前最高"}
                   </small>
                   {sources.metric === "power" && (
                     <small className="reading-source-budget">
@@ -206,7 +196,7 @@ export function ReadingSources({
                         : " · 无当前占比"}
                     </small>
                   )}
-                  <small>{row.detail}</small>
+                  {row.reason === "数据过期" && <small>{row.detail}</small>}
                 </button>
               ))
             ) : (
@@ -222,9 +212,31 @@ export function ReadingSources({
           <small className="reading-source-caption">
             {current.group === "included"
               ? `按读数从高到低排列${sources.metric === "power" ? ` · 含 ${sources.zeroCount} 台有效零值` : ""}`
-              : "未计入不等于零，也不等于设备告警"}
-            。预览保留镜头与时间。
+              : "未计入的当前值留空"}
           </small>
+          {sources.budget && (
+            <>
+              <PowerBudgetSummary
+                budget={sources.budget}
+                state={sources.budgetState}
+              />
+              <BudgetProcess
+                sourceId={sources.sourceId}
+                time={time}
+                state={budgetReview}
+                onChange={onBudgetReview}
+                onSeek={onSeek}
+              />
+            </>
+          )}
+          <details className="reading-sources-basis">
+            <summary>计入口径</summary>
+            <p>
+              {sources.metric === "temperature"
+                ? "取有效整机模拟进风的最高值。部件模型温度和设施测点另列。"
+                : "按设备汇总有效模拟功耗，A/B 去重。回路与设施未计量。"}
+            </p>
+          </details>
         </div>
       )}
     </section>

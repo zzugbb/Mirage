@@ -265,6 +265,7 @@ export function ReviewScene({
   powerViewCommand,
   powerViewActive,
   powerViewPaired,
+  powerCheckVisible,
   onPowerViewChange,
   onPowerView,
   networkViewCommand,
@@ -330,6 +331,7 @@ export function ReviewScene({
   powerViewCommand: PowerViewCommand | null;
   powerViewActive: boolean;
   powerViewPaired: boolean;
+  powerCheckVisible: boolean;
   onPowerViewChange: (active: boolean) => void;
   onPowerView: (action: PowerViewCommand["action"]) => void;
   networkViewCommand: NetworkViewCommand | null;
@@ -965,21 +967,22 @@ export function ReviewScene({
     flowView === "return-tray" && trayRoute
       ? airflowReturnTray(trayRoute).markers
       : [];
-  const airflowResponseControl = visibleAirflow?.routes[0] && (
-    <button
-      data-airflow-response-entry
-      disabled={!sceneSettled || airflowResponseActive}
-      onClick={() => {
-        const preserve = () => {
-          if (!flowView) engine.current?.preservePanelView();
-        };
-        preserve();
-        onCompareAirflow(visibleAirflow.routes[0], preserve);
-      }}
-    >
-      {airflowResponseActive ? "正在对照输入与进风" : "对照输入与进风 ↗"}
-    </button>
-  );
+  const airflowResponseControl = !airflowResponseActive &&
+    visibleAirflow?.routes[0] && (
+      <button
+        data-airflow-response-entry
+        disabled={!sceneSettled}
+        onClick={() => {
+          const preserve = () => {
+            if (!flowView) engine.current?.preservePanelView();
+          };
+          preserve();
+          onCompareAirflow(visibleAirflow.routes[0], preserve);
+        }}
+      >
+        对照输入与进风 ↗
+      </button>
+    );
 
   useEffect(() => {
     clockEpoch.current = performance.now();
@@ -2171,7 +2174,10 @@ export function ReviewScene({
       ? roomAirflowTarget(selectedId, state.deviceId)
       : null;
   const foldPowerScale =
-    powerViewActive || (pduInspection?.outlet != null && !!supply);
+    powerCheckVisible ||
+    powerViewActive ||
+    !!supply?.traceId ||
+    (pduInspection?.outlet != null && !!supply);
   const deviceAlarm =
     state.level === "device" && layer === "alarms"
       ? readings.get(state.deviceId)
@@ -2241,7 +2247,7 @@ export function ReviewScene({
       data-inlet-view={!!inletView}
       data-environment-view={!!environmentView}
       data-power-rack={supply?.rackId}
-      data-power-device={supply?.deviceId}
+      data-power-device={supply?.deviceId ?? undefined}
       data-power-trace={supply?.traceId ?? undefined}
       data-environment-probe={ambient?.id}
       data-network-patch={patch ? networkLinkId : undefined}

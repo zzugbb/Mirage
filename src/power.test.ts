@@ -20,7 +20,12 @@ import {
   reviewTransition,
 } from "./review-model.ts";
 import { findResources } from "./review-resources.ts";
-import { powerScene, pduPosition, pduOutletPosition } from "./power-paths.ts";
+import {
+  powerScene,
+  pduPosition,
+  pduInletPosition,
+  pduOutletPosition,
+} from "./power-paths.ts";
 import { PowerGeometry } from "./scene/power.ts";
 
 test("16个PDU与168个输入有独立身份和唯一端点，四机型均映射到已安装电源", () => {
@@ -168,7 +173,17 @@ test("供电场景只显示当前代表接入，路径确定，设备端点随�
   const room = powerScene(initial, "room-01")!;
   assert.equal(room.paths.length, 4);
   assert.equal(room.labels.length, 3);
-  assert.equal(powerScene(initial, "pdu-a01-a")!.paths.length, 2);
+  for (const pdu of pdus) {
+    const feeder = powerScene(initial, pdu.id)!;
+    assert.equal(feeder.deviceId, null);
+    assert.match(feeder.caption, new RegExp(pdu.sourcePort));
+    assert.equal(feeder.paths.length, 1);
+    assert.deepEqual(feeder.paths[0].points.at(-1), pduInletPosition(pdu.id));
+    assert.deepEqual(
+      feeder.labels.map((label) => label.id),
+      ["power-source", `power-pdu-${pdu.feed}`],
+    );
+  }
   const rackState = transition(initial, {
     type: "navigate",
     level: "rack",

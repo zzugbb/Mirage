@@ -5009,6 +5009,9 @@ export function Workspace() {
   const availableSourceMetrics = sourceMetrics(selected);
   const activeSourceCheck =
     sourceCheck?.sourceId === selected ? sourceCheck : null;
+  const powerCheckVisible =
+    (nav && navigationView === "feeders") ||
+    (inspector && activeSourceCheck?.metric === "power");
   const sourceMetric =
     activeSourceCheck?.metric ??
     (availableSourceMetrics.includes(mainMetric)
@@ -5331,7 +5334,6 @@ export function Workspace() {
       onBudgetReview={setBudgetReview}
       onSeek={(time) => dispatch({ type: "seek", time })}
       sources={sources}
-      sourceName={resource?.name ?? entity.name}
       metrics={availableSourceMetrics}
       check={activeSourceCheck}
       time={state.time}
@@ -5413,6 +5415,7 @@ export function Workspace() {
     pduInspection.outlet !== null;
   const powerConnections = (layer === "power" || powerFacility) && (
     <PowerConnections
+      traceExitInScene={!powerViewActive && !isolatedPartId}
       interval={
         powerOverviewVisit?.feeder && feederReference?.showEnergy
           ? feederEnergyInterval(feederReference.time, state.time)
@@ -7168,6 +7171,7 @@ export function Workspace() {
             powerViewCommand={powerViewCommand}
             powerViewActive={powerViewActive}
             powerViewPaired={powerViewPaired}
+            powerCheckVisible={powerCheckVisible}
             canStartInletPair={canStartInletPair}
             inletPair={pairedInlet}
             inletView={inletView}
@@ -7263,7 +7267,7 @@ export function Workspace() {
             }
             onShowRoomAirflow={() => showAirflow(selected, "scene")}
             onInspectBudget={
-              availableSourceMetrics.includes("power")
+              availableSourceMetrics.includes("power") && !powerCheckVisible
                 ? () => {
                     openSourceCheck("power");
                     setInspector(true);
@@ -8548,12 +8552,17 @@ export function Workspace() {
                       : ""}
                   </small>
                   <small>
-                    当时覆盖 {sourceVisit.coverage}/{sourceVisit.count} · 当前
-                    {currentSourceRow.included ? "已计入" : "未计入"}：
-                    {currentSourceRow.reason}
-                    {currentSourceRow.included
-                      ? ` · ${sourceValue(currentSourceRow.value, sourceVisit.check.metric)}`
-                      : ""}
+                    当时覆盖 {sourceVisit.coverage}/{sourceVisit.count} 台
+                    {state.time !== sourceVisit.time && (
+                      <>
+                        {" · 当前"}
+                        {currentSourceRow.included ? "已计入" : "未计入"} ·{" "}
+                        {currentSourceRow.reason}
+                        {currentSourceRow.included
+                          ? ` · ${sourceValue(currentSourceRow.value, sourceVisit.check.metric)}`
+                          : ""}
+                      </>
+                    )}
                   </small>
                   {!currentSourceRow.included && (
                     <small>{currentSourceRow.detail}</small>
@@ -8598,11 +8607,6 @@ export function Workspace() {
                       {resourceOpenLabel(state, sourceVisit.deviceId)} ↗
                     </button>
                   </div>
-                  <small>
-                    {sourceVisit.check.metric === "temperature"
-                      ? "整机进风口径；部件推导不加入汇总。"
-                      : "整机输入按设备去重；A/B 未拆分计量，预算不是剩余容量。"}
-                  </small>
                 </section>
               )}
             {rangeView && spaceRange && (

@@ -3212,24 +3212,30 @@
   color: #d3e5e9;
 }
 .reading-sources-total {
-  margin: 12px 0 5px;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 10px 0;
 }
 .reading-sources-total strong {
-  display: block;
   color: #d7e5ea;
-  font-size: 22px;
+  font-size: 17px;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
 }
 .reading-sources-total span,
-.reading-sources-boundary,
+.reading-sources-basis,
 .reading-source-caption {
-  font-size: 10px;
-  line-height: 1.7;
-  color: #91a5b0;
+  font-size: 11px;
+  line-height: 1.65;
+  color: #a2b5c0;
 }
-.reading-sources-boundary {
-  margin: 8px 0 12px;
+.reading-sources-basis {
+  margin-top: 8px;
+}
+.reading-sources-basis summary {
+  cursor: pointer;
 }
 .reading-source-search {
   display: flex;
@@ -4531,17 +4537,17 @@
   font-size: 10px;
   color: #a7bac4;
 }
-.power-budget-summary header,
+.power-budget-summary summary,
 .power-budget-summary dl > div {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
   gap: 8px;
 }
-.power-budget-summary header strong {
+.power-budget-summary summary strong {
   font-weight: 500;
 }
-.power-budget-summary header b {
+.power-budget-summary summary b {
   color: #e0e9eb;
   font-size: 19px;
   font-weight: 500;
@@ -4566,14 +4572,21 @@
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
-.workspace-ui .power-budget-summary button {
-  padding: 2px 0;
-  font-size: 10px;
-  color: #b3d7d7;
+.power-budget-summary summary {
+  cursor: pointer;
+  list-style: none;
 }
-.power-budget-summary button[aria-pressed="true"] {
-  text-decoration: underline;
-  text-underline-offset: 3px;
+.power-budget-summary summary::-webkit-details-marker {
+  display: none;
+}
+.power-budget-summary summary::after {
+  content: "+";
+}
+.power-budget-summary[open] summary::after {
+  content: "−";
+}
+.power-budget-summary summary b {
+  margin-inline-start: auto;
 }
 .power-budget-meter {
   height: 5px;
@@ -7758,6 +7771,12 @@
   width: 100%;
 }
 
+.feeder-overview .power-overview-scroll > label {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
 .feeder-input-summary {
   display: grid;
   gap: 4px;
@@ -7818,6 +7837,31 @@
   font-variant-numeric: tabular-nums;
 }
 
+.feeder-comparison-details > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 11px;
+  list-style: none;
+}
+.feeder-comparison-details > summary::-webkit-details-marker {
+  display: none;
+}
+.feeder-comparison-details > summary::after {
+  content: "+";
+}
+.feeder-comparison-details[open] > summary::after {
+  content: "−";
+}
+.feeder-difference {
+  margin-inline-start: auto;
+  font-variant-numeric: tabular-nums;
+}
+.feeder-comparison-details[open] .feeder-difference {
+  display: none;
+}
 .feeder-energy {
   display: grid;
   gap: 4px;

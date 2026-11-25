@@ -64,7 +64,7 @@ export function pairedPowerScene(
   const links = powerPairLinks(linkId);
   if (links.length !== 2) return null;
   const scenes = links.map((link) =>
-    focusedPowerScene(powerScene(state, source.deviceId, link.id), true),
+    focusedPowerScene(powerScene(state, link.deviceId, link.id), true),
   );
   if (scenes.some((scene) => !scene?.closeUp)) return null;
   return {

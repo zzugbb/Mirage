@@ -181,16 +181,29 @@ export function PowerFeeders({
             ))}
           </div>
         )}
+        <input
+          aria-label="出线核查查找设备"
+          placeholder="查找机柜或设备编号"
+          value={query}
+          onChange={(e) => onChange({ ...selection, query: e.target.value })}
+          onKeyDown={(event) => {
+            if (event.key !== "Escape" || !query) return;
+            event.preventDefault();
+            event.stopPropagation();
+            onChange({ ...selection, query: "" });
+          }}
+        />
         <section className="feeder-input-summary" aria-label="所选范围整机输入">
           <div>
-            <strong>有效整机输入合计</strong>
+            <strong>整机输入合计</strong>
             <b>{sourceValue(summary.total, "power")}</b>
           </div>
           <small>
-            第 {time} 秒 · 计入 {summary.coverage}/{summary.count} 台
+            {!reference && `第 ${time} 秒 · `}计入 {summary.coverage}/
+            {summary.count} 台
             {summary.zeros > 0 && " · 有效零值 " + summary.zeros + " 台"}
+            {" · 回路未计量"}
           </small>
-          <small>按所选范围逐台计入，查找只筛名单。回路未计量。</small>
         </section>
         <section
           className="feeder-comparison"
@@ -204,6 +217,7 @@ export function PowerFeeders({
                   time,
                   readings,
                   showEnergy: reference?.showEnergy ?? false,
+                  showDetails: reference?.showDetails,
                 })
               }
             >
@@ -233,81 +247,102 @@ export function PowerFeeders({
                   onChange={(e) => onSeek(Number(e.target.value))}
                 />
               </label>
-              <dl>
-                <div>
-                  <dt>
-                    基准合计 · {baseline.coverage}/{baseline.count} 台
-                  </dt>
-                  <dd>{sourceValue(baseline.total, "power")}</dd>
-                </div>
-                <div>
-                  <dt>合计差（当前 − 基准）</dt>
-                  <dd>{feederDifferenceText(comparison.difference)}</dd>
-                </div>
-                <div>
-                  <dt>共同有效设备变化 · {comparison.sharedCount} 台</dt>
-                  <dd>{feederDifferenceText(comparison.sharedDelta)}</dd>
-                </div>
-                <div>
-                  <dt>仅当前有效 · {comparison.currentOnlyCount} 台计入</dt>
-                  <dd>{sourceValue(comparison.currentOnlyWatts, "power")}</dd>
-                </div>
-                <div>
-                  <dt>仅基准有效 · {comparison.baselineOnlyCount} 台移出</dt>
-                  <dd>{sourceValue(comparison.baselineOnlyWatts, "power")}</dd>
-                </div>
-              </dl>
-              <button
-                className="feeder-energy-toggle"
-                aria-expanded={reference.showEnergy}
-                onClick={() =>
-                  onReference({
-                    ...reference,
-                    showEnergy: !reference.showEnergy,
-                  })
-                }
+              <details
+                className="feeder-comparison-details"
+                open={!!reference.showDetails}
+                onToggle={(event) => {
+                  const open = event.currentTarget.open;
+                  if (open !== !!reference.showDetails)
+                    onReference({ ...reference, showDetails: open });
+                }}
+                onKeyDown={(event) => {
+                  if (event.key !== "Escape" || !reference.showDetails) return;
+                  event.preventDefault();
+                  event.stopPropagation();
+                  onReference({ ...reference, showDetails: false });
+                  event.currentTarget.querySelector("summary")?.focus({
+                    preventScroll: true,
+                  });
+                }}
               >
-                核对区间电量
-              </button>
-              {interval && energy && (
-                <section
-                  className="feeder-energy"
-                  aria-label="关联整机区间电量"
+                <summary>
+                  对照明细
+                  <b className="feeder-difference">
+                    {feederDifferenceText(comparison.difference)}
+                  </b>
+                </summary>
+                <dl>
+                  <div>
+                    <dt>
+                      基准合计 · {baseline.coverage}/{baseline.count} 台
+                    </dt>
+                    <dd>{sourceValue(baseline.total, "power")}</dd>
+                  </div>
+                  <div>
+                    <dt>合计差（当前 − 基准）</dt>
+                    <dd>{feederDifferenceText(comparison.difference)}</dd>
+                  </div>
+                  <div>
+                    <dt>共同有效设备变化 · {comparison.sharedCount} 台</dt>
+                    <dd>{feederDifferenceText(comparison.sharedDelta)}</dd>
+                  </div>
+                  <div>
+                    <dt>仅当前有效 · {comparison.currentOnlyCount} 台计入</dt>
+                    <dd>{sourceValue(comparison.currentOnlyWatts, "power")}</dd>
+                  </div>
+                  <div>
+                    <dt>仅基准有效 · {comparison.baselineOnlyCount} 台移出</dt>
+                    <dd>
+                      {sourceValue(comparison.baselineOnlyWatts, "power")}
+                    </dd>
+                  </div>
+                </dl>
+                <button
+                  className="feeder-energy-toggle"
+                  aria-expanded={reference.showEnergy}
+                  onClick={() =>
+                    onReference({
+                      ...reference,
+                      showEnergy: !reference.showEnergy,
+                    })
+                  }
                 >
-                  <header>
-                    <strong>
-                      {interval.start}–{interval.end} 秒 · 已知电量
-                    </strong>
-                    <b>{energyText(energy.wattHours)}</b>
-                  </header>
-                  {interval.start === interval.end ? (
-                    <small>请移动回看时刻，选取至少 1 秒的区间。</small>
-                  ) : (
-                    <>
-                      <small>
-                        完整 {energy.complete} 台 · 部分 {energy.partial} 台 ·
-                        无有效时段 {energy.unavailable} 台
-                      </small>
-                      <small>
-                        各设备有效时长之和 {energy.covered}/{energy.possible} 秒
-                      </small>
-                      <small>
-                        由整机模拟功耗逐秒积分，只累计相邻两端均有效的时段。
-                      </small>
-                    </>
-                  )}
-                </section>
-              )}
+                  核对区间电量
+                </button>
+                {interval && energy && (
+                  <section
+                    className="feeder-energy"
+                    aria-label="关联整机区间电量"
+                  >
+                    <header>
+                      <strong>
+                        {interval.start}–{interval.end} 秒 · 已知电量
+                      </strong>
+                      <b>{energyText(energy.wattHours)}</b>
+                    </header>
+                    {interval.start === interval.end ? (
+                      <small>请移动回看时刻，选取至少 1 秒的区间。</small>
+                    ) : (
+                      <>
+                        <small>
+                          完整 {energy.complete} 台 · 部分 {energy.partial} 台 ·
+                          无有效时段 {energy.unavailable} 台
+                        </small>
+                        <small>
+                          各设备有效时长之和 {energy.covered}/{energy.possible}{" "}
+                          秒
+                        </small>
+                        <small>
+                          由整机模拟功耗逐秒积分，只累计相邻两端均有效的时段。
+                        </small>
+                      </>
+                    )}
+                  </section>
+                )}
+              </details>
             </>
           )}
         </section>
-        <input
-          aria-label="出线核查查找设备"
-          placeholder="查找机柜或设备编号"
-          value={query}
-          onChange={(e) => onChange({ ...selection, query: e.target.value })}
-        />
-        <p>点设备名核对配电柜出线，点输入可直接进柜。</p>
         {result.matching.map(({ device, rack, units, links }) => (
           <div key={device.id} className="feeder-device">
             <button
