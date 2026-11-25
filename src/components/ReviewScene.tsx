@@ -286,6 +286,7 @@ export function ReviewScene({
   tourShot,
   onTakeover,
   controls,
+  access,
   compactTools = false,
 }: {
   captureTaskView: RefObject<SceneEngine["captureTaskView"] | null>;
@@ -403,9 +404,11 @@ export function ReviewScene({
   tourShot: { revision: number; view: View; focus: boolean } | null;
   onTakeover: () => void;
   controls: ReactNode;
+  access: ReactNode;
   compactTools?: boolean;
 }) {
   const host = useRef<HTMLDivElement>(null);
+  const footer = useRef<HTMLDivElement>(null);
   const anchors = useRef<HTMLDivElement>(null);
   const flowLines = useRef<SVGSVGElement>(null);
   const engine = useRef<SceneEngine | null>(null);
@@ -437,6 +440,19 @@ export function ReviewScene({
   const previousScene = useRef(state);
   const currentState = useRef(state);
   currentState.current = state;
+  useEffect(() => {
+    const actions = footer.current;
+    const scene = actions?.closest<HTMLElement>(".review-scene");
+    if (!actions || !scene) return;
+    const observer = new ResizeObserver(([entry]) => {
+      scene.style.setProperty(
+        "--scene-footer-height",
+        `${entry.borderBoxSize[0].blockSize}px`,
+      );
+    });
+    observer.observe(actions);
+    return () => observer.disconnect();
+  }, []);
   const callbacks = useRef({
     onInspectPanelPort,
     onSelect,
@@ -3738,7 +3754,10 @@ export function ReviewScene({
         )}
       </div>
       <div className="review-scene-toolbar">
-        {controls}
+        <div className="review-scene-footer" ref={footer}>
+          {controls}
+          {access}
+        </div>
         <div
           className={
             compactTools

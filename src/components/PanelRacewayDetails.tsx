@@ -55,35 +55,39 @@ export function PanelRacewayDetails({
           <small>槽内敷线待核实</small>
         </div>
       )}
-      {atSection && onCorner && (
-        <button disabled={!ready} onClick={onCorner}>
-          核对转角与槽盖 ↗
-        </button>
-      )}
-      {onPanelInlet && (
-        <button disabled={!ready} onClick={onPanelInlet}>
-          核对箱顶入盒接合 ↗
-        </button>
-      )}
-      <button
-        data-start-panel-register
-        disabled={!ready}
-        onClick={(e) => onRegister(e.currentTarget)}
-      >
-        核对双端孔位 ↗
-      </button>
-      {neighbors.map((peer) => {
-        const port = origin && portAtPanel(origin, peer.id);
-        return (
-          <button
-            key={peer.id}
-            disabled={!ready}
-            onClick={() => onLocate(peer.id)}
-          >
-            核对{port ? panelPortLabel(port) : peer.name}
+      <div className="panel-port-actions">
+        {atSection && onCorner && (
+          <button disabled={!ready} onClick={onCorner}>
+            核对转角与槽盖 ↗
           </button>
-        );
-      })}
+        )}
+        {onPanelInlet && (
+          <button disabled={!ready} onClick={onPanelInlet}>
+            核对箱顶入盒接合 ↗
+          </button>
+        )}
+        <button
+          data-start-panel-register
+          disabled={!ready}
+          onClick={(e) => onRegister(e.currentTarget)}
+        >
+          核对双端孔位 ↗
+        </button>
+      </div>
+      <div className="panel-port-actions">
+        {neighbors.map((peer) => {
+          const port = origin && portAtPanel(origin, peer.id);
+          return (
+            <button
+              key={peer.id}
+              disabled={!ready}
+              onClick={() => onLocate(peer.id)}
+            >
+              核对{port ? panelPortLabel(port) : peer.name}
+            </button>
+          );
+        })}
+      </div>
     </section>
   );
 }

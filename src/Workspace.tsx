@@ -7432,6 +7432,29 @@ export function Workspace() {
             tourShot={tourShot}
             onTakeover={takeover}
             compactTools
+            access={
+              (!inspector || nav) &&
+              (!review.analysis || taskReturns.length > 0) && (
+                <div className="study-stage-access" ref={stageAccessRef}>
+                  <StudyReturns actions={taskReturns} onEnd={endTask} />
+                  {!review.analysis && (
+                    <button
+                      ref={inspectorOpener}
+                      className="study-show-detail"
+                      onClick={() => {
+                        takeover();
+                        panelFocus.current = "heading";
+                        setInspector(true);
+                        if (matchMedia("(max-width: 1099px)").matches)
+                          setNav(false);
+                      }}
+                    >
+                      对象详情
+                    </button>
+                  )}
+                </div>
+              )
+            }
             controls={
               smokeVisit &&
               isSmokeFixture(selected) &&
@@ -8316,27 +8339,6 @@ export function Workspace() {
                 >
                   逐台查看告警
                 </button>
-              </div>
-            )}
-          {(!inspector || nav) &&
-            (!review.analysis || taskReturns.length > 0) && (
-              <div className="study-stage-access" ref={stageAccessRef}>
-                <StudyReturns actions={taskReturns} onEnd={endTask} />
-                {!review.analysis && (
-                  <button
-                    ref={inspectorOpener}
-                    className="study-show-detail"
-                    onClick={() => {
-                      takeover();
-                      panelFocus.current = "heading";
-                      setInspector(true);
-                      if (matchMedia("(max-width: 1099px)").matches)
-                        setNav(false);
-                    }}
-                  >
-                    对象详情
-                  </button>
-                )}
               </div>
             )}
         </section>

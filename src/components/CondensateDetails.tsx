@@ -43,14 +43,15 @@ export function CondensateDetails({
         : id === condensate.sensingCableId
           ? [receiver]
           : [pipe];
+  const inspectJoint = (
+    <button disabled={!ready} onClick={onInspectJoint}>
+      核对排水接合 ↗
+    </button>
+  );
   return (
     <section className="panel-port-details" aria-label="冷凝水排水布置">
       <strong>冷凝水排水布置</strong>
-      {(atPipe || atReceiver || id === condensate.sourceId) && (
-        <button disabled={!ready} onClick={onInspectJoint}>
-          核对排水接合 ↗
-        </button>
-      )}
+      {(atPipe || atReceiver) && inspectJoint}
       {atPipe && (
         <p>
           管口高 {condensate.mouthHeight.toFixed(3)} m，距斗口上缘{" "}
@@ -113,15 +114,18 @@ export function CondensateDetails({
           />
         </details>
       )}
-      {related.map((peer) => (
-        <button
-          key={peer.id}
-          disabled={!ready}
-          onClick={() => onLocate(peer.id)}
-        >
-          定位{peer.name}
-        </button>
-      ))}
+      <div className="panel-port-actions">
+        {id === condensate.sourceId && inspectJoint}
+        {related.map((peer) => (
+          <button
+            key={peer.id}
+            disabled={!ready}
+            onClick={() => onLocate(peer.id)}
+          >
+            定位{peer.name}
+          </button>
+        ))}
+      </div>
       {stand && (
         <button disabled={!ready} onClick={onHistory}>
           回看制冷单元输入 ↗
