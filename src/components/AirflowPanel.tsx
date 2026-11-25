@@ -44,6 +44,7 @@ export function AirflowPanel({
   const explain = useRef<HTMLButtonElement>(null);
   const range = useRef<HTMLSelectElement>(null);
   const route = snapshot?.routes[0];
+  const origin = visit ? entityById(visit.originId) : null;
   return (
     <section
       ref={panelRef}
@@ -122,9 +123,11 @@ export function AirflowPanel({
             ) : (
               <small>{route.status}</small>
             ))}
-          {visit && (
-            <div className="airflow-inspection-return">
+          <div className="airflow-panel-actions">
+            {origin && (
               <button
+                className="airflow-inspection-return"
+                title={`返回${origin.name}`}
                 onClick={() => {
                   const target = explain.current?.getClientRects().length
                     ? explain.current
@@ -133,11 +136,9 @@ export function AirflowPanel({
                   onReturnEndpoint();
                 }}
               >
-                ← 返回{entityById(visit.originId)?.name}
+                ← 回到{deviceById(origin.id)?.name ?? origin.name}
               </button>
-            </div>
-          )}
-          <div className="airflow-panel-actions">
+            )}
             <button
               className="airflow-explain-shortcut"
               ref={explain}
@@ -158,7 +159,7 @@ export function AirflowPanel({
             </label>
             {view && (
               <button disabled={!ready} onClick={onReturn}>
-                返回原视角
+                恢复镜头
               </button>
             )}
           </div>

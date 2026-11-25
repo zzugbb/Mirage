@@ -14,6 +14,7 @@ export function StudyReturns({ actions }: { actions: StudyReturn[] }) {
   const menu = useDismissibleMenu();
   const [primary, ...otherActions] = actions;
   if (!primary) return null;
+  const end = primary.end;
   const close = () => {
     if (menu.current) menu.current.open = false;
   };
@@ -48,7 +49,7 @@ export function StudyReturns({ actions }: { actions: StudyReturn[] }) {
           {primary.caption ?? primary.label}
         </button>
       </div>
-      {(otherActions.length > 0 || actions.some(({ end }) => end)) && (
+      {(otherActions.length > 0 || end) && (
         <details
           className="study-return-options"
           ref={menu}
@@ -77,22 +78,19 @@ export function StudyReturns({ actions }: { actions: StudyReturn[] }) {
                 {action.label}
               </button>
             ))}
-            {actions.map(
-              ({ group, end }) =>
-                end && (
-                  <button
-                    type="button"
-                    key={group}
-                    className="study-end-return"
-                    disabled={end.disabled}
-                    onClick={() => {
-                      close();
-                      end.onClick();
-                    }}
-                  >
-                    {end.label}
-                  </button>
-                ),
+            {end && (
+              <button
+                type="button"
+                className="study-end-return"
+                title={end.label}
+                disabled={end.disabled}
+                onClick={() => {
+                  close();
+                  end.onClick();
+                }}
+              >
+                结束当前核对
+              </button>
             )}
           </div>
         </details>

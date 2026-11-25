@@ -149,6 +149,9 @@
   color: #a6b2bc;
   font-size: 11px;
 }
+.study-return-list > button + .study-end-return {
+  border-top: 1px solid var(--study-line);
+}
 .study-path {
   margin-left: 14px;
   flex: 1;
@@ -1250,6 +1253,31 @@
   font-size: 12px !important;
 }
 .has-inspector .study-stage-access {
+  display: none;
+}
+/* 场景承接任务返回时，给对象操作和返回各留一侧。 */
+@media (min-width: 950px) {
+  .study-stage-access:has(> .study-return-controls) {
+    bottom: 31px;
+  }
+  .workspace-ui
+    .study-workspace:not(.has-inspector)
+    .study-stage:has(.study-stage-access .study-return-controls)
+    .review-object-actions {
+    left: 24px;
+    transform: none;
+  }
+}
+@media (min-width: 950px) and (max-width: 1099px) {
+  .workspace-ui
+    .study-workspace.has-nav
+    .study-stage:has(.study-stage-access .study-return-controls)
+    .review-object-actions {
+    left: 24px;
+    transform: none;
+  }
+}
+.workspace-ui .study-stage:has(.power-scene-key) .rack-door-actions > small {
   display: none;
 }
 .has-inspector:not(.has-analysis) .airflow-explain-shortcut {
@@ -3177,6 +3205,14 @@
   gap: 5px;
   margin-top: 8px;
 }
+@media (min-width: 950px) {
+  .study-workspace:not(.has-analysis):has(
+      .study-stage-access .study-return-controls
+    )
+    .rack-installation-detail {
+    display: none;
+  }
+}
 @media (min-width: 1100px) {
   .has-inspector:not(.has-analysis) .rack-installation-detail {
     display: none;
@@ -3414,20 +3450,9 @@
   color: #d5e8ec;
 }
 
-.airflow-inspection-return {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: center;
-  gap: 6px;
-  font-size: 10px;
-  padding: 8px 0;
-  border-block: 1px solid #aac9d237;
-}
-.airflow-inspection-return button {
-  justify-self: start;
+.workspace-ui .airflow-panel-actions .airflow-inspection-return {
   color: #d5e8ec;
   border: 1px solid #aac9d237;
-  padding: 5px 8px;
 }
 
 .rack-space-inspector {

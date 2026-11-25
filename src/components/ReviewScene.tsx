@@ -3011,15 +3011,17 @@ export function ReviewScene({
           )}
           {network.length > 0 && networkLink && (
             <div className="network-scene-key">
-              <strong>网络接入 {switchRole(networkLink.target)}</strong>
+              <strong>
+                网络接入 {switchRole(networkLink.target)}
+                {patch && " · 柜内走线"}
+              </strong>
               <small>
                 {state.level === "device"
                   ? "所属部件示意"
                   : patch
-                    ? "柜内右侧 · 布线示意"
+                    ? "剖切示意 · 虚线表示遮挡"
                     : "设备位置示意"}
               </small>
-              {patch && <small>后门与右侧板剖切 · 虚线为遮挡段</small>}
               {patch && networkView && (
                 <label className="network-patch-section">
                   观察范围
@@ -3066,12 +3068,6 @@ export function ReviewScene({
                     ))}
                   </select>
                 </label>
-              )}
-              {patchGuide && (
-                <small>
-                  {rackForDevice(networkLink.source).name} · 右壁 U
-                  {patchGuide.unit} · 现场扎点与线长未登记
-                </small>
               )}
               {patchSection === "rear" &&
                 modelForDevice(networkLink.source).category === "server" && (

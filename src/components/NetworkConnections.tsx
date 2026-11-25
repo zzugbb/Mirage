@@ -315,7 +315,7 @@ export function NetworkConnections({
               对应两控制器各一条接入，另两口尚未配置；内部仍为配置示意。
             </p>
           )}
-        <p>标记对应设备或所属部件的代表位置，物理插口与施工布线未建模。</p>
+        <p>标记指向设备或部件的代表位置。物理插口、实际扎点与线长未登记。</p>
       </details>
     </ConnectionSection>
   );

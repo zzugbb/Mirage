@@ -5684,6 +5684,9 @@ export function Workspace() {
       label: activeCoolingDrain
         ? `← 返回 ${deviceById(activeCoolingDrain.link.deviceId)?.name} ${activeCoolingDrain.view === "terminal-face" ? "柜面核对" : "气流端点"}`
         : `← 返回服务范围 · ${rackById(coolingVisit.rackId)?.name}${device ? ` / ${device}` : ""}`,
+      caption: activeCoolingDrain
+        ? undefined
+        : `← 服务范围 · ${device ?? rackById(coolingVisit.rackId)?.name}`,
       disabled: !ready || coolingReturning,
       onReturn: activeCoolingDrain
         ? returnCoolingDrainAirflow

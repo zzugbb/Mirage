@@ -109,12 +109,7 @@ export function NetworkTrace({
               {end.ordinal} {end.side === "source" ? "设备端" : "交换机端"}
             </small>
             <strong>{end.name}</strong>
-            {patchActive && (
-              <small>
-                {unitLabel(end.deviceId)} ·{" "}
-                {end.side === "source" ? end.partName : "接入口组"}
-              </small>
-            )}
+            {patchActive && <small>{unitLabel(end.deviceId)}</small>}
           </button>
         ))}
       </div>
@@ -146,8 +141,9 @@ export function NetworkTrace({
           disabled={!ready}
           onClick={() => onInspect(current.deviceId)}
           aria-label={`查看 ${current.name} 的${current.partName}`}
+          title={current.partName}
         >
-          查看{current.partName}
+          查看部件
         </button>
       </div>
     </section>
