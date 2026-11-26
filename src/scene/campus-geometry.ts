@@ -1506,11 +1506,81 @@ function floorDeck(
   place(right, width / 2, near, far);
 }
 
+const stairRailColor = "#5c6c6d";
+const stairRailTop = 0.95;
+const stairFootThickness = 0.014;
+type StairRailPoint = readonly [x: number, z: number];
+
+function stairPost(
+  group: THREE.Group,
+  x: number,
+  z: number,
+  base: number,
+  top: number,
+  guard: boolean,
+) {
+  const width = guard ? 0.044 : 0.036;
+  const pad = guard ? 0.095 : 0.077;
+  box(
+    group,
+    [pad, stairFootThickness, pad],
+    [x, base + stairFootThickness / 2, z],
+    "#778183",
+  ).name = guard ? "stair-guard-base" : "stair-handrail-base";
+  const bottom = base + stairFootThickness;
+  box(
+    group,
+    [width, top - bottom, width],
+    [x, (bottom + top) / 2, z],
+    stairRailColor,
+  );
+}
+
+function stairGuard(
+  group: THREE.Group,
+  path: readonly StairRailPoint[],
+  surface: number,
+) {
+  const installedCorners = new Set<StairRailPoint>();
+  for (let i = 1; i < path.length; i++) {
+    const start = path[i - 1];
+    const end = path[i];
+    const [x1, z1] = start;
+    const [x2, z2] = end;
+    const length = Math.hypot(x2 - x1, z2 - z1);
+    const spaces = Math.ceil(length / 1.05);
+    const angle = Math.atan2(x2 - x1, z2 - z1);
+    for (const height of [0.48, stairRailTop])
+      box(
+        group,
+        [0.043, 0.043, length - 0.043],
+        [(x1 + x2) / 2, surface + height, (z1 + z2) / 2],
+        stairRailColor,
+      ).rotation.y = angle;
+    for (let step = 0; step <= spaces; step++) {
+      const corner = step === 0 ? start : step === spaces ? end : undefined;
+      if (corner) {
+        if (installedCorners.has(corner)) continue;
+        installedCorners.add(corner);
+      }
+      stairPost(
+        group,
+        THREE.MathUtils.lerp(x1, x2, step / spaces),
+        THREE.MathUtils.lerp(z1, z2, step / spaces),
+        surface,
+        surface + stairRailTop + 0.02,
+        true,
+      );
+    }
+  }
+}
+
 function floorStair(
   plan: THREE.Group,
   stair: FloorStair,
   corridorEdge: number,
   upper: boolean,
+  partOfBuilding: boolean,
   finish: ReturnType<typeof floorFinishes>,
 ) {
   const { left, right, near, far } = stairOpening(stair);
@@ -1527,20 +1597,36 @@ function floorStair(
   const steps = Math.ceil(rise / 0.175);
   const riser = rise / steps;
   const tread = run / steps;
+  const bevel = Math.min(tread * 0.18, 0.042);
   const shape = new THREE.Shape().moveTo(0, 0);
   for (let step = 0; step < steps; step++) {
-    shape.lineTo(step * tread, (step + 1) * riser);
-    shape.lineTo((step + 1) * tread, (step + 1) * riser);
+    const top = (step + 1) * riser;
+    shape.lineTo(step * tread, top - 0.022);
+    shape.lineTo(step * tread + bevel, top);
+    shape.lineTo((step + 1) * tread, top);
   }
   shape.lineTo(run, rise - 0.19);
   shape.lineTo(0, -0.19);
   shape.closePath();
+  const geometry = new THREE.ExtrudeGeometry(shape, {
+    depth: flightWidth,
+    bevelEnabled: false,
+  });
+  // 用同一几何的倒角面表现踏步前缘，避免在踏面上叠贴薄片。
+  const normals = geometry.getAttribute("normal");
+  const tones = new Float32Array(normals.count * 3);
+  for (let i = 0; i < normals.count; i++) {
+    const nose = normals.getX(i) < -0.12 && normals.getY(i) > 0.2;
+    tones.fill(nose ? 0.62 : 1, i * 3, i * 3 + 3);
+  }
+  geometry.setAttribute("color", new THREE.BufferAttribute(tones, 3));
   const flight = new THREE.Mesh(
-    new THREE.ExtrudeGeometry(shape, {
-      depth: flightWidth,
-      bevelEnabled: false,
+    geometry,
+    new THREE.MeshStandardMaterial({
+      color: "#929a9d",
+      roughness: 0.94,
+      vertexColors: true,
     }),
-    new THREE.MeshStandardMaterial({ color: "#929a9d", roughness: 0.94 }),
   );
   flight.name = upper ? "stair-upper-flight" : "stair-lower-flight";
   flight.position.set(center + (direction * flightWidth) / 2, startY, startZ);
@@ -1556,69 +1642,78 @@ function floorStair(
   );
   approach.name = "floor-stair-approach";
   floorSurfaceUV(approach);
-  if (!upper)
-    box(
-      plan,
-      [stair.width, 0.21, far - turn],
-      [x, surface + rise - 0.105, (far + turn) / 2],
-      "#929a9d",
-    ).name = "stair-turn-landing";
+  const platform = new THREE.Group();
+  plan.add(platform);
+  platform.visible = !upper || !partOfBuilding;
+  const landingY = startY + (upper ? 0 : rise);
+  box(
+    platform,
+    [stair.width, 0.21, far - turn],
+    [x, landingY - 0.105, (far + turn) / 2],
+    "#929a9d",
+  ).name = upper ? "stair-upper-turn-landing" : "stair-turn-landing";
+  stairGuard(
+    platform,
+    [
+      [left + 0.052, turn + 0.056],
+      [left + 0.052, far - 0.054],
+      [right - 0.052, far - 0.054],
+      [right - 0.052, turn + 0.056],
+    ],
+    landingY,
+  );
 
-  const rail = "#5c6c6d";
   for (const side of [-1, 1]) {
     const railX = center + side * (flightWidth / 2 - 0.045);
-    for (const fraction of [0.08, 0.36, 0.66, 0.94])
-      box(
+    for (const fraction of [0.08, 0.36, 0.66, 0.94]) {
+      const step = Math.round(fraction * (steps - 1));
+      const distance = (step + 0.56) * tread;
+      stairPost(
         plan,
-        [0.036, 0.94, 0.036],
-        [
-          railX,
-          startY + fraction * rise + 0.47,
-          startZ + direction * fraction * run,
-        ],
-        rail,
+        railX,
+        startZ + direction * distance,
+        startY + (step + 1) * riser,
+        startY + stairRailTop + (distance / run) * rise,
+        false,
       );
+    }
     box(
       plan,
       [0.047, 0.043, Math.hypot(run, rise)],
-      [railX, startY + rise / 2 + 0.94, startZ + (direction * run) / 2],
+      [railX, startY + rise / 2 + stairRailTop, startZ + (direction * run) / 2],
       "#879394",
       { roughness: 0.39, metalness: 0.28 },
     ).rotation.x = -direction * Math.atan2(rise, run);
   }
 
-  const guards = upper
-    ? [
-        [left, near, left, far],
-        [right, near, right, far],
-        [left, far, right, far],
-        [left, near, x, near],
-      ]
-    : [[left, far, right, far]];
-  const landingY = surface + (upper ? 0 : rise);
-  const installedPosts = new Set<string>();
-  for (const [x1, z1, x2, z2] of guards) {
-    const length = Math.hypot(x2 - x1, z2 - z1);
-    const posts = Math.ceil(length / 1.05);
-    const middle = [(x1 + x2) / 2, (z1 + z2) / 2];
-    const angle = Math.atan2(x2 - x1, z2 - z1);
-    for (const height of [0.49, 1.02])
-      box(
-        plan,
-        [0.042, 0.04, length - 0.046],
-        [middle[0], landingY + height, middle[1]],
-        rail,
-      ).rotation.y = angle;
-    for (let i = 0; i <= posts; i++) {
-      const t = i / posts;
-      const x = THREE.MathUtils.lerp(x1, x2, t);
-      const z = THREE.MathUtils.lerp(z1, z2, t);
-      const key = `${x},${z}`;
-      if (installedPosts.has(key)) continue;
-      installedPosts.add(key);
-      box(plan, [0.046, 1.035, 0.046], [x, landingY + 0.5175, z], rail);
-    }
+  if (!upper) return;
+  const rim = 0.12;
+  const edgeTop = surface + 0.003;
+  for (const [width, depth, cx, cz] of [
+    [rim, far - near, left - rim / 2, (near + far) / 2],
+    [rim, far - near, right + rim / 2, (near + far) / 2],
+    [stair.width + 2 * rim, rim, x, near - rim / 2],
+    [stair.width + 2 * rim, rim, x, far + rim / 2],
+  ]) {
+    box(
+      plan,
+      [width, 0.026, depth],
+      [cx, edgeTop - 0.013, cz],
+      "#788589",
+    ).name = "stair-shaft-edge";
   }
+  stairGuard(
+    plan,
+    [
+      [x, near - rim / 2],
+      [left - rim / 2, near - rim / 2],
+      [left - rim / 2, far + rim / 2],
+      [right + rim / 2, far + rim / 2],
+      [right + rim / 2, near - rim / 2],
+    ],
+    edgeTop,
+  );
+  return platform;
 }
 
 function buildingSection(
@@ -2325,6 +2420,7 @@ export function createCampusGeometry(
   const site = scope.kind === "campus";
   const building = scope.kind === "building";
   const floorPlan = campusFloorPlan(scope.id);
+  let stairLanding: THREE.Group | undefined;
   const floorFinish = floorPlan && floorFinishes();
   const wallContact = floorPlan && floorContactFinish();
   const upstairs = scope.kind === "floor" && scope.origin[1] > 0;
@@ -2485,11 +2581,12 @@ export function createCampusGeometry(
       width,
       0,
     );
-    floorStair(
+    stairLanding = floorStair(
       plan,
       floorPlan.stair,
       center[1] + depth / 2,
       upstairs,
+      partOfBuilding,
       floorFinish!,
     );
     const entrance =
@@ -2531,6 +2628,7 @@ export function createCampusGeometry(
     const [w, h, d] = child.size;
     let pick: THREE.Mesh<THREE.BoxGeometry, THREE.MeshStandardMaterial>;
     let floorFront: FloorFront | undefined;
+    let floorStairLanding: THREE.Group | undefined;
     let access = siteAccess.get(child.id);
     const zone = sitePlan?.zones.find(({ id }) => id === child.id);
     const area = floorPlan?.areas.find(({ id }) => id === child.id);
@@ -2553,6 +2651,7 @@ export function createCampusGeometry(
           true,
         );
         floorFront = floor.front;
+        floorStairLanding = floor.stairLanding;
         group.add(floor.plan);
         labelObstacles.push(...floor.labelObstacles);
         exposedFloorStructure(
@@ -2852,6 +2951,7 @@ export function createCampusGeometry(
       border,
       access,
       floorFront,
+      floorStairLanding,
       labelPoint,
       labelOutward: area
         ? group.localToWorld(
@@ -2877,6 +2977,8 @@ export function createCampusGeometry(
             ? depth / 2
             : (mark.floorFront?.edge ?? depth / 2);
           if (mark.floorFront) mark.floorFront.group.visible = separated;
+          if (mark.floorStairLanding)
+            mark.floorStairLanding.visible = separated;
           mark.pick.scale.z = (limit + depth / 2) / depth;
           mark.pick.position.z = (limit - depth / 2) / 2;
           mark.labelPoint.z = limit - 0.5;
@@ -2885,5 +2987,5 @@ export function createCampusGeometry(
       }
     : undefined;
   arrangeFloors?.(false);
-  return { plan, marks, labelObstacles, arrangeFloors, front };
+  return { plan, marks, labelObstacles, arrangeFloors, front, stairLanding };
 }

@@ -49,7 +49,7 @@ test("A 栋半剖保留实际标高，分层复原完整二层楼板与标签位
 
 test("楼梯两段共用转折平台，二层登记楼梯井在实绘楼板留空", () => {
   const building = campusById("building-a")!;
-  const { plan, marks } = createCampusGeometry(
+  const { plan, marks, arrangeFloors } = createCampusGeometry(
     building,
     campusChildren(building.id),
   );
@@ -85,6 +85,66 @@ test("楼梯两段共用转折平台，二层登记楼梯井在实绘楼板留�
     ).intersectObjects(solids);
   assert.equal(hitDeck(x).length, 0);
   assert.ok(hitDeck(x + 1.5).length);
+
+  const detached = plan.getObjectByName("stair-upper-turn-landing")!;
+  assert.equal(detached.parent!.visible, false);
+  arrangeFloors!(true);
+  plan.updateMatrixWorld(true);
+  assert.equal(detached.parent!.visible, true);
+  assert.ok(
+    Math.abs(
+      new Box3().setFromObject(detached).max.y -
+        upper.getWorldPosition(new Vector3()).y,
+    ) < 1e-6,
+  );
+  arrangeFloors!(false);
+  assert.equal(detached.parent!.visible, false);
+});
+
+test("踏步倒角与扶手共用踏步高度，井口护栏及平台护栏落在承托面上", () => {
+  for (const id of ["floor-a-01", "floor-a-02"]) {
+    const upper = id === "floor-a-02";
+    const { plan } = createCampusGeometry(campusById(id)!, campusChildren(id));
+    plan.updateMatrixWorld(true);
+    const flight = plan.getObjectByName(
+      upper ? "stair-upper-flight" : "stair-lower-flight",
+    ) as Mesh;
+    assert.ok(
+      flight.geometry
+        .getAttribute("color")
+        .array.some((value: number) => value < 1),
+    );
+    const platform = plan.getObjectByName(
+      upper ? "stair-upper-turn-landing" : "stair-turn-landing",
+    ) as Mesh;
+    assert.ok(platform.parent!.visible);
+    const guards: Mesh[] = [platform];
+    const supports: Mesh[] = [];
+    const handrails: Mesh[] = [];
+    plan.traverseVisible((object) => {
+      if (!(object instanceof Mesh)) return;
+      if (object.name === "stair-shaft-edge") guards.push(object);
+      if (object.name === "stair-handrail-base") handrails.push(object);
+      if (object.name === "stair-guard-base") supports.push(object);
+    });
+    const expectBearing = (base: Mesh, surfaces: Mesh[]) => {
+      const bounds = new Box3().setFromObject(base);
+      const point = bounds.getCenter(new Vector3());
+      const ray = new Raycaster(
+        new Vector3(point.x, bounds.min.y + 0.03, point.z),
+        new Vector3(0, -1, 0),
+      );
+      assert.ok(
+        Math.abs(ray.intersectObjects(surfaces)[0].point.y - bounds.min.y) <
+          1e-6,
+      );
+    };
+    assert.equal(handrails.length, 8);
+    for (const base of handrails) expectBearing(base, [flight]);
+    assert.equal(guards.length, upper ? 5 : 1);
+    assert.ok(supports.length >= 5);
+    for (const base of supports) expectBearing(base, guards);
+  }
 });
 
 test("楼层室内地坪共用灰底和分格，门洞接入面顺接走廊与房间", () => {
