@@ -6,30 +6,104 @@ import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { RectAreaLightUniformsLib } from "three/addons/lights/RectAreaLightUniformsLib.js";
 import definition from "../../assets/public/scenes/room-01.json" with { type: "json" };
 
-/** 线性纹理背景与模型经过同一色调映射，标准和后处理画质保持一致。 */
-export function createBackdrop() {
-  const stops = definition.rendering.roomBackdrop.stops.map(
-    (c) => new THREE.Color(c),
+/** 统一直出与细节阴影模式的色调映射，半浮点保留暗部渐变。 */
+export function createLinearBackdrop(
+  pixels: Uint16Array<ArrayBuffer>,
+  width: number,
+  height: number,
+) {
+  const backdrop = new THREE.DataTexture(
+    pixels,
+    width,
+    height,
+    THREE.RGBAFormat,
+    THREE.HalfFloatType,
   );
-  const pixels = new Uint8Array(128 * 4);
-  const color = new THREE.Color();
-  for (let row = 0; row < 128; row++) {
-    const t = (row / 127) * (stops.length - 1),
-      i = Math.min(stops.length - 2, Math.floor(t));
-    color
-      .lerpColors(
-        stops[i],
-        stops[i + 1],
-        THREE.MathUtils.smoothstep(t - i, 0, 1),
-      )
-      .convertLinearToSRGB();
-    pixels.set([color.r * 255, color.g * 255, color.b * 255, 255], row * 4);
-  }
-  const backdrop = new THREE.DataTexture(pixels, 1, 128);
-  backdrop.magFilter = backdrop.minFilter = THREE.LinearFilter;
-  backdrop.colorSpace = THREE.SRGBColorSpace;
+  backdrop.magFilter = THREE.LinearFilter;
+  backdrop.minFilter = THREE.LinearFilter;
+  backdrop.colorSpace = THREE.LinearSRGBColorSpace;
   backdrop.needsUpdate = true;
   return backdrop;
+}
+
+/** 与楼层画面一样，蓝灰亮部集中在场景中下部。 */
+export function createBackdrop() {
+  const { centerColor, middleColor, edgeColor } =
+    definition.rendering.roomBackdrop;
+  const stops = [centerColor, middleColor, edgeColor].map(
+    (c) => new THREE.Color(c),
+  );
+  const width = 144;
+  const height = 96;
+  const pixels = new Uint16Array(width * height * 4);
+  const half = THREE.DataUtils.toHalfFloat;
+  const opaque = half(1);
+  const color = new THREE.Color();
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const radius = Math.hypot(
+        (x / (width - 1) - 0.48) / 0.68,
+        (y / (height - 1) - 0.33) / 0.76,
+      );
+      const t = Math.min(radius, 1) * (stops.length - 1);
+      const index = Math.min(stops.length - 2, Math.floor(t));
+      color.lerpColors(stops[index], stops[index + 1], t - index);
+      pixels.set(
+        [half(color.r), half(color.g), half(color.b), opaque],
+        (y * width + x) * 4,
+      );
+    }
+  }
+  return createLinearBackdrop(pixels, width, height);
+}
+
+/** 保留机房周边的尺度参照，让远处网格融入画布。 */
+export function createRoomGrid() {
+  const [axis, line] = definition.rendering.roomBackdrop.grid.map(
+    (color) => new THREE.Color(color),
+  );
+  const positions: number[] = [];
+  const colors: number[] = [];
+  const gridY = -0.285;
+  const opacity = (row: number, offset: number) =>
+    0.15 * (1 - THREE.MathUtils.smoothstep(Math.hypot(row, offset), 7, 18));
+  for (let row = -20; row <= 20; row += 0.5) {
+    const { r, g, b } = row === 0 ? axis : line;
+    for (let start = -20; start < 20; start += 4) {
+      const end = start + 4;
+      const from = opacity(row, start);
+      const to = opacity(row, end);
+      positions.push(
+        row,
+        gridY,
+        start,
+        row,
+        gridY,
+        end,
+        start,
+        gridY,
+        row,
+        end,
+        gridY,
+        row,
+      );
+      colors.push(r, g, b, from, r, g, b, to, r, g, b, from, r, g, b, to);
+    }
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute(
+    "position",
+    new THREE.Float32BufferAttribute(positions, 3),
+  );
+  geometry.setAttribute("color", new THREE.Float32BufferAttribute(colors, 4));
+  return new THREE.LineSegments(
+    geometry,
+    new THREE.LineBasicMaterial({
+      vertexColors: true,
+      transparent: true,
+      depthWrite: false,
+    }),
+  );
 }
 
 /** 增强接触阴影；不支持浮点颜色缓冲区时保留标准渲染。 */

@@ -171,7 +171,12 @@ import type { CameraView } from "../camera";
 import { StructurePresentation } from "./presentation";
 import { ShellCutaway } from "./shell-cutaway";
 import { pdus, pduById } from "../power-config.ts";
-import { createBackdrop, createRoomLights, RenderPipeline } from "./rendering";
+import {
+  createBackdrop,
+  createRoomGrid,
+  createRoomLights,
+  RenderPipeline,
+} from "./rendering";
 import definition from "../../assets/public/scenes/room-01.json" with { type: "json" };
 import type { PresentationPhase, SceneFeedback } from "../mechanics";
 import { simulate } from "../simulation";
@@ -389,7 +394,10 @@ export class SceneEngine {
     this.rackHint.className = "rack-surface-hint";
     this.rackHint.hidden = true;
     host.append(this.renderer.domElement, this.rackHint);
-    this.scene.fog = new THREE.FogExp2("#0b0e10", 0.008);
+    this.scene.fog = new THREE.FogExp2(
+      definition.rendering.roomBackdrop.edgeColor,
+      0.008,
+    );
     this.scene.add(this.skyLight);
     const key = this.keyLight;
     key.position.set(0, 9, 4);
@@ -417,15 +425,7 @@ export class SceneEngine {
     ground.position.y = -0.3;
     ground.receiveShadow = true;
     this.roomGround.add(ground);
-    const grid = new THREE.GridHelper(
-      40,
-      80,
-      ...(definition.rendering.roomBackdrop.grid as [string, string]),
-    );
-    grid.position.y = -0.285;
-    (grid.material as THREE.Material).transparent = true;
-    (grid.material as THREE.Material).opacity = 0.2;
-    this.roomGround.add(grid);
+    this.roomGround.add(createRoomGrid());
     this.scene.add(this.roomGround);
     for (const group of [
       this.models.room,
@@ -3662,18 +3662,24 @@ export class SceneEngine {
     const studio = !this.models.surroundings.visible;
     this.models.floorGroup.visible = this.roomGround.visible = !studio;
     this.inspectionBackdrop.visible = studio;
+    const azimuth = this.controls.getAzimuthalAngle();
+    const deviceStudio = frame.relocation > 0.58;
     this.scene.background = studio
-      ? this.inspectionBackdrop.sky(
-          frame.relocation > 0.58,
-          this.controls.getAzimuthalAngle(),
-          this.explosion,
-          this.reducedMotion || this.analysisLayer,
-        )
+      ? this.inspectionBackdrop.sky({
+          device: deviceStudio,
+          azimuth,
+          explosion: this.explosion,
+          reduced: this.reducedMotion || this.analysisLayer,
+          subdued:
+            this.analysisLayer ||
+            Math.cos(azimuth) < -0.4 ||
+            (deviceStudio
+              ? this.cover > 0.05 || this.explosion > 0.05
+              : this.presentation.pose.door > 0.05 ||
+                this.presentation.rearDoor > 0.05),
+        })
       : this.roomBackdrop;
-    this.scene.backgroundIntensity = studio
-      ? (this.analysisLayer ? 0.66 : 1) *
-        (1 - 0.32 * THREE.MathUtils.smoothstep(this.explosion, 0, 0.85))
-      : 1;
+    this.scene.backgroundIntensity = studio && this.analysisLayer ? 0.9 : 1;
     this.keyLight.shadow.intensity = studio ? 0.45 : 1;
     if (studio) {
       this.inspectionBackdrop.dial.rotor.visible = !this.analysisLayer;
@@ -3681,7 +3687,7 @@ export class SceneEngine {
         frame.relocation,
         this.dockWithdrawal,
         !!this.partInspection,
-        this.controls.getAzimuthalAngle(),
+        azimuth,
         delta,
         this.reducedMotion || this.analysisLayer,
       );

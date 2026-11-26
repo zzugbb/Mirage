@@ -2107,8 +2107,10 @@
   },
   "rendering": {
     "roomBackdrop": {
-      "stops": ["#1e3546", "#294354", "#172539", "#101a29"],
-      "grid": ["#486477", "#334a5a"]
+      "centerColor": "#364756",
+      "middleColor": "#283949",
+      "edgeColor": "#202b3a",
+      "grid": ["#445867", "#344755"]
     },
     "observationColors": {
       "temperature": ["#2459bd", "#16a9cc", "#ffca45", "#fa721e", "#dd332e"],
@@ -2116,8 +2118,8 @@
     },
     "inspectionStudio": {
       "description": "机柜方位盘与设备对开托架共享浮城夜航配色",
-      "rackSky": ["#080f1e", "#193b51", "#182e41", "#080f1b"],
-      "deviceSky": ["#0a101f", "#172e41", "#122337", "#080f1b"],
+      "rackSky": ["#202b3a", "#324857", "#2c3f4e", "#23313f"],
+      "deviceSky": ["#202b3a", "#314753", "#2b3e4b", "#23313f"],
       "orientation": {"ice": "#70e2e4", "violet": "#799bea", "brass": "#ffbc73", "radiansPerSecond": 0.38},
       "deviceTraces": [
         {"fromRight": false, "height": 602, "count": 6, "pitch": 12, "elbow": 108, "rise": 91, "span": 445},
@@ -2130,50 +2132,50 @@
         [-35, 645, 246, 637, 449, 420, 660, 427],
         [1554, 410, 1683, 411, 1842, 335, 1950, 340]
       ],
-      "floor": "#1c3243",
+      "floor": "#233746",
       "softboxes": [
         {"color": "#d5f2ff", "intensity": 5, "width": 0.65, "height": 2.8, "position": [-1.8, 2.1, 1.7]},
         {"color": "#e8dccc", "intensity": 4, "width": 1.2, "height": 2.4, "position": [1.7, 1.9, -1.6]}
       ]
     },
     "contactShadows": {
-      "roomRadius": 0.18,
+      "roomRadius": 0.21,
       "deviceRadius": 0.032,
       "intensity": 0.5,
       "resolutionScale": 0.5,
       "samples": 8
     },
     "floor": {
-      "color": "#506575",
+      "color": "#69757a",
       "tileSize": 0.5,
       "thickness": 0.045,
       "surfaceY": 0.0445,
       "gap": 0.003,
-      "roughness": 0.94,
-      "metalness": 0.05,
+      "roughness": 0.98,
+      "metalness": 0.02,
       "textureSize": 256,
       "tileValue": 250,
-      "seamValue": 214,
+      "seamValue": 208,
       "grainRange": 3
     },
     "shell": {
       "wall": {
-        "color": "#657c8a",
-        "metalness": 0.04,
-        "roughness": 0.88
+        "color": "#798388",
+        "metalness": 0.02,
+        "roughness": 0.93
       },
       "frame": {
-        "color": "#465e70",
+        "color": "#52616a",
         "metalness": 0.25,
         "roughness": 0.7
       },
       "trim": {
-        "color": "#879ba8",
+        "color": "#919da1",
         "metalness": 0.4,
         "roughness": 0.62
       },
       "joint": {
-        "color": "#465c6a",
+        "color": "#58636a",
         "metalness": 0.04,
         "roughness": 0.9
       },

@@ -1,19 +1,29 @@
 import * as THREE from "three";
 import definition from "../../assets/public/scenes/room-01.json" with { type: "json" };
+import { createLinearBackdrop } from "./rendering.ts";
 
 const studio = definition.rendering.inspectionStudio;
+const channel = new THREE.Color();
+const linearChannel = Uint16Array.from({ length: 256 }, (_, value) =>
+  THREE.DataUtils.toHalfFloat(
+    channel.setRGB(value / 255, 0, 0, THREE.SRGBColorSpace).r,
+  ),
+);
 
 // 原创远景：柜层以不对称长弧勾出景深，设备层以边缘走线衬托硬件。
-export function createStudioSky(device: boolean) {
+export function createStudioSky(device: boolean, subdued: boolean) {
   const canvas = document.createElement("canvas");
-  canvas.width = 1920;
-  canvas.height = 960;
+  const designWidth = 1920;
+  const designHeight = 960;
+  canvas.width = 1024;
+  canvas.height = 512;
   const ctx = canvas.getContext("2d")!;
-  const wash = ctx.createLinearGradient(0, 0, 0, 960);
+  ctx.scale(canvas.width / designWidth, canvas.height / designHeight);
+  const wash = ctx.createLinearGradient(0, 0, 0, designHeight);
   const stops = device ? studio.deviceSky : studio.rackSky;
   [0, 0.46, 0.68, 1].forEach((at, i) => wash.addColorStop(at, stops[i]));
   ctx.fillStyle = wash;
-  ctx.fillRect(0, 0, 1920, 960);
+  ctx.fillRect(0, 0, designWidth, designHeight);
   function mist(x: number, y: number, r: number, color: string) {
     const light = ctx.createRadialGradient(x, y, 0, x, y, r);
     light.addColorStop(0, color);
@@ -21,12 +31,19 @@ export function createStudioSky(device: boolean) {
     ctx.fillStyle = light;
     ctx.fillRect(x - r, y - r, r * 2, r * 2);
   }
-  mist(220, 380, 630, "rgba(43,143,161,0.25)");
-  mist(1710, 345, 580, "rgba(101,103,182,0.25)");
+  mist(105, 395, 510, "rgba(47,132,146,0.19)");
+  mist(1840, 360, 510, "rgba(91,120,161,0.16)");
+  ctx.globalAlpha = subdued ? 0.42 : 0.72;
   if (!device) {
     for (const [i, arc] of studio.rackArcs.entries()) {
       const [x, y, cx, cy, dx, dy, endX, endY] = arc;
-      const gradient = ctx.createLinearGradient(x, y, endX, endY);
+      const horizontalScale = x < 0 ? 0.84 : 1;
+      const gradient = ctx.createLinearGradient(
+        x * horizontalScale,
+        y,
+        endX * horizontalScale,
+        endY,
+      );
       const tint = i === 3 ? "118,137,185" : "110,181,198";
       const alpha = i === 0 ? 0.53 : i === 1 ? 0.32 : 0.23;
       const nearLeft = x < 0;
@@ -34,8 +51,15 @@ export function createStudioSky(device: boolean) {
       gradient.addColorStop(0.42, `rgba(${tint},${alpha})`);
       gradient.addColorStop(nearLeft ? 1 : 0, `rgba(${tint},0)`);
       ctx.beginPath();
-      ctx.moveTo(x, y);
-      ctx.bezierCurveTo(cx, cy, dx, dy, endX, endY);
+      ctx.moveTo(x * horizontalScale, y);
+      ctx.bezierCurveTo(
+        cx * horizontalScale,
+        cy,
+        dx * horizontalScale,
+        dy,
+        endX * horizontalScale,
+        endY,
+      );
       ctx.strokeStyle = gradient;
       ctx.lineWidth = i === 0 ? 2.25 : 1.5;
       ctx.stroke();
@@ -45,7 +69,7 @@ export function createStudioSky(device: boolean) {
     for (const bank of studio.deviceTraces) {
       ctx.save();
       if (bank.fromRight) {
-        ctx.translate(canvas.width, 0);
+        ctx.translate(designWidth, 0);
         ctx.scale(-1, 1);
       }
       ctx.lineCap = "round";
@@ -95,7 +119,19 @@ export function createStudioSky(device: boolean) {
       ctx.restore();
     }
   }
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  return texture;
+  const { width, height } = canvas;
+  const source = ctx.getImageData(0, 0, width, height).data;
+  const pixels = new Uint16Array(source.length);
+  for (let y = 0; y < height; y++) {
+    let read = y * width * 4;
+    let write = (height - 1 - y) * width * 4;
+    for (let x = 0; x < width; x++) {
+      pixels[write++] = linearChannel[source[read++]];
+      pixels[write++] = linearChannel[source[read++]];
+      pixels[write++] = linearChannel[source[read++]];
+      read++;
+      pixels[write++] = linearChannel[255];
+    }
+  }
+  return createLinearBackdrop(pixels, width, height);
 }

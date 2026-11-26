@@ -64,10 +64,26 @@ function studioFloor() {
 export class InspectionBackdrop extends THREE.Group {
   readonly dial = createRackDial();
   readonly datum = createAssemblyDatum();
-  private skies: Partial<Record<"rack" | "device", THREE.Texture>> = {};
-  sky(device: boolean, azimuth: number, explosion: number, reduced: boolean) {
-    const key = device ? "device" : "rack";
-    const sky = (this.skies[key] ??= createStudioSky(device));
+  private skies = new Map<string, THREE.Texture>();
+  sky({
+    device,
+    azimuth,
+    explosion,
+    reduced,
+    subdued,
+  }: {
+    device: boolean;
+    azimuth: number;
+    explosion: number;
+    reduced: boolean;
+    subdued: boolean;
+  }) {
+    const key = `${device ? "device" : "rack"}-${subdued}`;
+    let sky = this.skies.get(key);
+    if (!sky) {
+      sky = createStudioSky(device, subdued);
+      this.skies.set(key, sky);
+    }
     if (device) {
       sky.repeat.set(0.978, 0.99);
       sky.offset.set(
@@ -78,7 +94,8 @@ export class InspectionBackdrop extends THREE.Group {
     return sky;
   }
   disposeSkies() {
-    for (const sky of Object.values(this.skies)) sky.dispose();
+    for (const sky of this.skies.values()) sky.dispose();
+    this.skies.clear();
   }
   update(
     relocation: number,
