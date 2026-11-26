@@ -2078,6 +2078,9 @@ export class SceneEngine {
     this.clearScopeTransition();
     event.preventDefault();
     this.contextAvailable = false;
+    this.controls.enabled = false;
+    this.pointerStart = null;
+    this.pickClicks = 0;
     this.loop.setEnabled(false);
     const feedback: SceneFeedback = {
       key: presentationKey(this.state),
@@ -2970,6 +2973,7 @@ export class SceneEngine {
   private pickSurface(
     event: MouseEvent | PointerEvent,
   ): { id: string; blankUnit?: number; panelPort?: number } | null {
+    if (!this.contextAvailable) return null;
     const rect = this.renderer.domElement.getBoundingClientRect();
     this.raycaster.setFromCamera(
       new THREE.Vector2(

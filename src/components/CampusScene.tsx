@@ -896,12 +896,14 @@ export function CampusScene({
     if (!error) runtime.current?.resize();
     const previous = unavailableFocus.current;
     if (!previous) return;
-    if (error) {
+    const active = document.activeElement;
+    if (error && (active === previous || active === document.body)) {
       unavailableStatus.current?.focus({ preventScroll: true });
-    } else {
-      unavailableFocus.current = null;
-      previous.focus({ preventScroll: true });
+      return;
     }
+    unavailableFocus.current = null;
+    if (!error && active === document.body && previous.checkVisibility())
+      previous.focus({ preventScroll: true });
   }, [error]);
 
   return (
