@@ -26,6 +26,21 @@ type CampusSceneControls = {
   resize: () => void;
 };
 
+type LabelRect = { left: number; right: number; top: number; bottom: number };
+type LabelLayout = "static" | "moving" | "settling";
+
+const labelSettleDelay = 150;
+const labelSettleStep = 6;
+
+function shiftLabel(rect: LabelRect, x: number, y: number): LabelRect {
+  return {
+    left: rect.left + x,
+    right: rect.right + x,
+    top: rect.top + y,
+    bottom: rect.bottom + y,
+  };
+}
+
 export function CampusScene({
   scope,
   selectedId,
@@ -141,6 +156,9 @@ export function CampusScene({
     let near: CampusCamera["near"];
     let interacting = false;
     let selected = selectedId;
+    let labelTimer: number | undefined;
+    const labelOffsets = new Map<HTMLElement, { x: number; y: number }>();
+    const revealAfter = new Map<HTMLElement, number>();
     const labelLift = scope.kind === "floor" ? 0.5 : 1.25;
     const boxes = new Map<HTMLElement, { width: number; height: number }>();
     for (const node of labelElements.values()) {
@@ -204,8 +222,9 @@ export function CampusScene({
           : [];
       });
     };
-    const render = () => {
-      renderer.render(scene, camera);
+    const layoutLabels = (layout: LabelLayout) => {
+      const now = performance.now();
+      let nextLayout = Infinity;
       const rect = host.getBoundingClientRect();
       const overlay = Array.from(
         host
@@ -232,6 +251,19 @@ export function CampusScene({
         right: rect.width,
         bottom: rect.height,
       };
+      const insideViewport = (box: LabelRect) =>
+        box.left >= 8 &&
+        box.top >= 8 &&
+        box.right <= viewport.right - 8 &&
+        box.bottom <= viewport.bottom - 8;
+      const findCollision = (box: LabelRect) =>
+        occupied.find(
+          (other) =>
+            box.left < other.right + 4 &&
+            box.right > other.left - 4 &&
+            box.top < other.bottom + 4 &&
+            box.bottom > other.top - 4,
+        );
       const active = marks.find(({ child }) => child.id === selected);
       for (const mark of active
         ? [active, ...marks.filter((item) => item !== active)]
@@ -242,26 +274,17 @@ export function CampusScene({
         const x = ((projected.x + 1) * rect.width) / 2;
         const y = ((1 - projected.y) * rect.height) / 2;
         const { width, height } = boxes.get(node)!;
-        offset.set(0, 0);
-        if (mark.labelOutward) {
-          outward.copy(mark.labelOutward).project(camera);
-          offset
-            .set(
-              (outward.x - projected.x) * rect.width,
-              (projected.y - outward.y) * rect.height,
-            )
-            .normalize();
-          offset.multiplyScalar(
-            (width * Math.abs(offset.x) + height * Math.abs(offset.y)) / 2 + 4,
-          );
-        }
-        const preferred = {
-          left: x + offset.x - width / 2,
-          right: x + offset.x + width / 2,
-          top: y + offset.y - height * labelLift,
-          bottom: y + offset.y + height * (1 - labelLift),
+        const anchor = {
+          left: x - width / 2,
+          right: x + width / 2,
+          top: y - height * labelLift,
+          bottom: y + height * (1 - labelLift),
         };
-        let label: typeof preferred | null = null;
+        const lastOffset = labelOffsets.get(node);
+        const previous = lastOffset
+          ? shiftLabel(anchor, lastOffset.x, lastOffset.y)
+          : null;
+        let label: LabelRect | null = null;
         if (
           Math.abs(projected.z) <= 1 &&
           x >= 0 &&
@@ -270,45 +293,103 @@ export function CampusScene({
           y <= rect.height &&
           !blocked(mark.child.id, mark.point)
         ) {
-          const collision = occupied.find(
-            (box) =>
-              preferred.left < box.right + 4 &&
-              preferred.right > box.left - 4 &&
-              preferred.top < box.bottom + 4 &&
-              preferred.bottom > box.top - 4,
-          );
-          if (
-            !collision &&
-            preferred.left >= 8 &&
-            preferred.top >= 8 &&
-            preferred.right <= rect.width - 8 &&
-            preferred.bottom <= rect.height - 8
-          ) {
-            label = preferred;
+          if (layout === "moving") {
+            // 镜头连续转动时保留相对锚点的位置，遇到遮挡立即让开。
+            if (
+              previous &&
+              insideViewport(previous) &&
+              !findCollision(previous)
+            )
+              label = previous;
           } else {
-            const args = [
-              x + offset.x,
-              preferred.top + height / 2,
-              width,
-              height,
-              viewport,
-              occupied,
-              offset.x < 0,
-            ] as const;
-            label =
-              placeFlowLabel(...args) ??
-              (collision && placeFlowLabel(...args, collision)) ??
-              null;
+            offset.set(0, 0);
+            if (mark.labelOutward) {
+              outward.copy(mark.labelOutward).project(camera);
+              offset
+                .set(
+                  (outward.x - projected.x) * rect.width,
+                  (projected.y - outward.y) * rect.height,
+                )
+                .normalize();
+              offset.multiplyScalar(
+                (width * Math.abs(offset.x) + height * Math.abs(offset.y)) / 2 +
+                  4,
+              );
+            }
+            const preferred = shiftLabel(anchor, offset.x, offset.y);
+            const collision = findCollision(preferred);
+            if (!collision && insideViewport(preferred)) {
+              label = preferred;
+            } else {
+              const args = [
+                x + offset.x,
+                preferred.top + height / 2,
+                width,
+                height,
+                viewport,
+                occupied,
+                offset.x < 0,
+              ] as const;
+              label =
+                placeFlowLabel(...args) ??
+                (collision && placeFlowLabel(...args, collision)) ??
+                null;
+            }
+          }
+        }
+        if (layout === "settling" && label) {
+          const ready = revealAfter.get(node) ?? now;
+          if (ready > now) {
+            nextLayout = Math.min(nextLayout, ready - now);
+            label = null;
+          } else if (previous) {
+            const dx = label.left - previous.left;
+            const dy = label.top - previous.top;
+            const distance = Math.hypot(dx, dy);
+            if (distance > labelSettleStep) {
+              const step = labelSettleStep / distance;
+              const next = shiftLabel(previous, dx * step, dy * step);
+              if (insideViewport(next) && !findCollision(next)) {
+                label = next;
+                nextLayout = Math.min(nextLayout, 16);
+              } else {
+                // 安全位置之间的直线经过设备时，先收起标签再恢复。
+                revealAfter.set(node, now + labelSettleDelay);
+                nextLayout = Math.min(nextLayout, labelSettleDelay);
+                label = null;
+              }
+            }
           }
         }
         node.hidden = !label;
         if (label) {
           occupied.push(label);
-          node.style.translate = `${label.left - (x - width / 2)}px ${label.top - (y - height * labelLift)}px`;
+          const x = label.left - anchor.left;
+          const y = label.top - anchor.top;
+          labelOffsets.set(node, { x, y });
+          revealAfter.delete(node);
+          node.style.translate = `${x}px ${y}px`;
+        } else {
+          labelOffsets.delete(node);
         }
         node.style.left = `${(projected.x + 1) * 50}%`;
         node.style.top = `${(1 - projected.y) * 50}%`;
       }
+      return nextLayout;
+    };
+    const stopLabelSettle = () => window.clearTimeout(labelTimer);
+    const settleLabels = () => {
+      const next = layoutLabels("settling");
+      if (Number.isFinite(next))
+        labelTimer = window.setTimeout(settleLabels, next);
+    };
+    const render = (layout: "static" | "moving" = "static") => {
+      stopLabelSettle();
+      renderer.render(scene, camera);
+      if (layout === "static") revealAfter.clear();
+      layoutLabels(layout);
+      if (layout === "moving")
+        labelTimer = window.setTimeout(settleLabels, labelSettleDelay);
     };
     const fit = (view: NonNullable<CampusPose["preset"]>) => {
       setPreset(view);
@@ -502,7 +583,7 @@ export function CampusScene({
     window.addEventListener("keydown", keydown);
     const update = () => {
       if (interacting) setPreset(null);
-      render();
+      render(interacting ? "moving" : "static");
       remember();
     };
     const start = () => {
@@ -521,6 +602,7 @@ export function CampusScene({
     const observer = new ResizeObserver(resize);
     const lost = (event: Event) => {
       event.preventDefault();
+      stopLabelSettle();
       const active = document.activeElement;
       if (
         active instanceof HTMLButtonElement &&
@@ -540,6 +622,7 @@ export function CampusScene({
     resize();
     return () => {
       remember();
+      stopLabelSettle();
       observer.disconnect();
       window.removeEventListener("keydown", keydown);
       runtime.current = null;
