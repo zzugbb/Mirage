@@ -706,7 +706,7 @@ export function CampusScene({
             pick.material.emissive.set(active ? "#194d53" : "#000000");
             pick.material.emissiveIntensity = 0.4;
           }
-          if (outdoor && access) {
+          if (outdoor && access && access.material !== pick.material) {
             const [paving, selectedPaving] =
               child.kind === "building"
                 ? ["#aaa797", "#9cada4"]

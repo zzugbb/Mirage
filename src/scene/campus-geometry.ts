@@ -1271,6 +1271,41 @@ function backupHousing(
 
 const yardLevel = 0.021;
 
+function yardOutline(
+  pad: THREE.Mesh<THREE.BoxGeometry>,
+  apron: THREE.Mesh<THREE.BoxGeometry>,
+) {
+  const { width, height, depth } = pad.geometry.parameters;
+  const opening = pad.worldToLocal(apron.getWorldPosition(new THREE.Vector3()));
+  const side = Math.sign(opening.x);
+  const near = (side * width) / 2;
+  const [start, end] = [-1, 1].map(
+    (sign) => opening.z + (sign * apron.geometry.parameters.depth) / 2,
+  );
+  const edge = opening.x + (side * apron.geometry.parameters.width) / 2;
+  const y = height / 2 + 0.001;
+  const outerY = y - yardLevel;
+  const points: SpacePoint[] = [
+    [near, y, -depth / 2],
+    [near, y, start],
+    [edge, outerY, start],
+    [edge, outerY, end],
+    [near, y, end],
+    [near, y, depth / 2],
+    [-near, y, depth / 2],
+    [-near, y, -depth / 2],
+  ];
+  const border = new THREE.LineLoop(
+    new THREE.BufferGeometry().setFromPoints(
+      points.map((point) => new THREE.Vector3(...point)),
+    ),
+    new THREE.LineBasicMaterial({ color: "#9ae1e7" }),
+  );
+  border.position.copy(pad.position);
+  pad.parent!.add(border);
+  return border;
+}
+
 function yardTransitCrate(
   group: THREE.Group,
   x: number,
@@ -1465,7 +1500,7 @@ function floorConcreteFinish(jointed = false) {
           Math.abs(u * 2 - Math.round(u * 2)),
           Math.abs(v * 2 - Math.round(v * 2)),
         );
-        shade -= 31 * (1 - THREE.MathUtils.smoothstep(joint, 0.0035, 0.0105));
+        shade -= 17 * (1 - THREE.MathUtils.smoothstep(joint, 0.0035, 0.0105));
       }
       return [shade, shade, shade, 255];
     },
@@ -3159,6 +3194,13 @@ export function createCampusGeometry(
         outdoorPaving,
         pavingThickness,
       );
+      if (zone.kind === "yard" && access) {
+        // 道口与场坪共用铺面和选中状态，跨接合线保持分格相位。
+        floorSurfaceUV(pick);
+        floorSurfaceUV(access);
+        access.material.dispose();
+        access.material = pick.material;
+      }
       outdoorEquipment(group, zone, w, d, shadow, labelObstacles);
     } else if (site || building) {
       if (building) {
@@ -3345,8 +3387,8 @@ export function createCampusGeometry(
             ),
           );
         if (tray) {
-          // 从半剖正面能在两组柜列之间看到贴墙台面。
-          const inspectionX = 1;
+          // 台面沿后墙靠右布置，离开大多数半剖方位的柜列投影。
+          const inspectionX = w / 2 - 1.55;
           labelObstacles.push(
             ...floorCableTray(group, tray, doorway.z + 0.095),
             floorPowerInspectionShelf(
@@ -3455,7 +3497,10 @@ export function createCampusGeometry(
         box(group, [w, 0.6, 0.16], [0, 0.3, -d / 2], interiorWallColor);
       }
     }
-    const border = outline(pick, "#9ae1e7");
+    const border =
+      zone?.kind === "yard" && access
+        ? yardOutline(pick, access)
+        : outline(pick, "#9ae1e7");
     border.visible = false;
     // 楼层名称沿柜列或工作台的外缘取空段，保留设备与通道的轮廓。
     const labelHeight = area ? 0.66 : 1.05;

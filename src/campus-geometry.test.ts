@@ -462,9 +462,38 @@ test("园区护柱避开步行入口，场坪泊位向道口开放且周转箱�
   );
   const yard = marks.find(({ child }) => child.id === "outdoor-yard")!;
   const footprint = new Box3().setFromObject(yard.pick);
+  const apron = yard.access!;
+  assert.equal(apron.material, yard.pick.material);
+  for (const surface of [apron, yard.pick]) {
+    const { position, normal, uv } = surface.geometry.attributes;
+    for (let i = 0; i < position.count; i++) {
+      if (normal.getY(i) < 0.5) continue;
+      const point = surface.localToWorld(
+        new Vector3().fromBufferAttribute(position, i),
+      );
+      assert.ok(Math.abs(uv.getX(i) * 8 - point.x) < 1e-5);
+      assert.ok(Math.abs(uv.getY(i) * 8 + point.z) < 1e-5);
+    }
+  }
   const { access: driveway } = campusSitePlan(site.id)!.zones.find(
     ({ id }) => id === yard.child.id,
   )!;
+  const curbX = driveway.center[0] - driveway.width / 2;
+  const rim = yard.border.geometry.getAttribute("position");
+  const border = Array.from({ length: rim.count }, (_, i) =>
+    yard.border.localToWorld(new Vector3().fromBufferAttribute(rim, i)),
+  );
+  assert.ok(Math.abs(Math.min(...border.map(({ x }) => x)) - curbX) < 1e-6);
+  assert.ok(
+    border.every((point, i) => {
+      const next = border[(i + 1) % border.length];
+      return (
+        Math.abs(point.x - footprint.min.x) >= 1e-6 ||
+        Math.abs(next.x - footprint.min.x) >= 1e-6 ||
+        (point.z - driveway.center[1]) * (next.z - driveway.center[1]) > 0
+      );
+    }),
+  );
   const stop = new Box3().setFromObject(
     plan.getObjectByName("campus-yard-bay-stop")!,
   );
