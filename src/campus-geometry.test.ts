@@ -326,3 +326,63 @@ test("二层柜体在登记外廓内保留各自的门板、百叶和落地安�
     }
   }
 });
+
+test("二层室内铺面由门口经过柜间再沿柜前连续铺开", () => {
+  const floor = campusById("floor-a-02")!;
+  const { plan, marks } = createCampusGeometry(floor, campusChildren(floor.id));
+  plan.updateMatrixWorld(true);
+  const area = campusFloorPlan(floor.id)!.areas[0];
+  const { pick } = marks[0];
+  const group = pick.parent!;
+  const aisle = group.getObjectByName("floor-service-aisle") as Mesh;
+  const surround = group.getObjectByName("floor-room-finish-surround") as Mesh;
+  const ups = area.equipment.find(({ kind }) => kind === "ups")!;
+  const battery = area.equipment.find(({ kind }) => kind === "battery")!;
+  const gap =
+    (ups.center[0] + ups.width / 2 + battery.center[0] - battery.width / 2) / 2;
+  const front = Math.max(
+    ...area.equipment.map(({ depth, center }) => center[1] + depth / 2),
+  );
+  const floorY = new Box3().setFromObject(pick).max.y;
+  const positionRay = (x: number, z: number) => {
+    const origin = group.localToWorld(new Vector3(x, 0.8, z));
+    return new Raycaster(origin, new Vector3(0, -1, 0));
+  };
+  const probe = (x: number, z: number) =>
+    positionRay(x, z).intersectObject(aisle)[0];
+  assert.ok(Math.abs(new Box3().setFromObject(aisle).max.y - floorY) < 1e-6);
+  assert.ok(Math.abs(new Box3().setFromObject(surround).max.y - floorY) < 1e-6);
+  assert.ok(probe(area.doorway.x, area.doorway.z + 0.1));
+  for (let z = -2; z <= front; z += 0.25) assert.ok(probe(gap, z));
+  for (const bank of area.equipment) {
+    const [x, z] = bank.center;
+    assert.equal(probe(x, z), undefined);
+    assert.ok(probe(x, front + 0.65));
+  }
+  const [width, , depth] = marks[0].child.size;
+  for (let x = -width / 2 + 0.19; x < width / 2; x += 0.37) {
+    for (let z = -depth / 2 + 0.23; z < depth / 2; z += 0.39) {
+      const hits = positionRay(x, z).intersectObjects(
+        [pick, aisle, surround],
+        false,
+      );
+      const top = new Set(
+        hits
+          .filter(({ point }) => Math.abs(point.y - floorY) < 1e-6)
+          .map(({ object }) => object),
+      );
+      assert.equal(
+        top.size,
+        1,
+        `x=${x}, z=${z}, ${[...top].map(({ name }) => name)}`,
+      );
+      assert.equal(top.has(pick), false);
+    }
+  }
+  assert.ok(area.serviceAisle!.accessWidth < area.doorway.width);
+  assert.ok(
+    campusFloorPlan("floor-a-01")!.areas.every(
+      ({ serviceAisle }) => !serviceAisle,
+    ),
+  );
+});

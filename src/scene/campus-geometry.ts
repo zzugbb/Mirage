@@ -2588,6 +2588,98 @@ function floorApproach(
   return access;
 }
 
+function floorServiceAisle(
+  group: THREE.Group,
+  floor: THREE.Mesh<THREE.BoxGeometry, THREE.MeshStandardMaterial>,
+  area: FloorArea,
+  finish: ReturnType<typeof floorFinishes>,
+) {
+  const { equipment, doorway, serviceAisle } = area;
+  if (!serviceAisle) return;
+  const ups = equipment.find(({ kind }) => kind === "ups");
+  const battery = equipment.find(({ kind }) => kind === "battery");
+  if (!ups || !battery) return;
+  const half = serviceAisle.accessWidth / 2;
+  const gap =
+    (ups.center[0] + ups.width / 2 + battery.center[0] - battery.width / 2) / 2;
+  const rear = Math.min(
+    ...equipment.map(({ center, depth }) => center[1] - depth / 2),
+  );
+  const front =
+    Math.max(...equipment.map(({ center, depth }) => center[1] + depth / 2)) +
+    0.12;
+  const left =
+    Math.min(...equipment.map(({ center, width }) => center[0] - width / 2)) -
+    0.12;
+  const right =
+    Math.max(...equipment.map(({ center, width }) => center[0] + width / 2)) +
+    0.12;
+  const turnStart = doorway.z + (rear - doorway.z) * 0.19;
+  const turnEnd = doorway.z + (rear - doorway.z) * 0.47;
+  const stop = front + serviceAisle.frontDepth;
+  const points = [
+    [doorway.x - half, doorway.z],
+    [doorway.x + half, doorway.z],
+    [doorway.x + half, turnStart],
+    [gap + half, turnEnd],
+    [gap + half, front],
+    [right, front],
+    [right, stop],
+    [left, stop],
+    [left, front],
+    [gap - half, front],
+    [gap - half, turnEnd],
+    [doorway.x - half, turnStart],
+  ];
+  const addSurface = (
+    polygon: number[][],
+    material: THREE.MeshStandardMaterial,
+    name: string,
+  ) => {
+    const shape = new THREE.Shape(
+      polygon.map(([x, z]) => new THREE.Vector2(x, -z)),
+    );
+    const mesh = new THREE.Mesh(
+      new THREE.ShapeGeometry(shape).rotateX(-Math.PI / 2),
+      material,
+    );
+    mesh.name = name;
+    mesh.position.y = floorFinishHeight;
+    group.add(mesh);
+    floorSurfaceUV(mesh);
+  };
+
+  // 两种铺面拼成同一平面。保留底板侧面供拾取和外轮廓，避免贴面盖住柜前印字。
+  const index = floor.geometry.getIndex()!.array;
+  const normals = floor.geometry.getAttribute("normal");
+  const sides: number[] = [];
+  for (let i = 0; i < index.length; i += 3) {
+    if (normals.getY(index[i]) < 0.5)
+      sides.push(index[i], index[i + 1], index[i + 2]);
+  }
+  floor.geometry.setIndex(sides);
+  floor.geometry.clearGroups();
+  const { width, depth } = floor.geometry.parameters;
+  const [start, ...boundary] = points;
+  addSurface(
+    [
+      [-width / 2, -depth / 2],
+      start,
+      ...boundary.toReversed(),
+      [width / 2, -depth / 2],
+      [width / 2, depth / 2],
+      [-width / 2, depth / 2],
+    ],
+    floor.material,
+    "floor-room-finish-surround",
+  );
+  addSurface(
+    points,
+    new THREE.MeshStandardMaterial({ ...finish, color: "#8b9598" }),
+    "floor-service-aisle",
+  );
+}
+
 function floorGrilleBands(group: THREE.Group) {
   for (const {
     position: [x, , z],
@@ -3042,6 +3134,7 @@ export function createCampusGeometry(
             new THREE.Vector3(sides[2], openingTop, doorway.z + 0.13),
           ),
         });
+        floorServiceAisle(group, pick, area, floorFinish!);
         for (const item of equipment) {
           const { kind, width, height, depth, center, name } = item;
           if (kind === "tools" || kind === "cart") {

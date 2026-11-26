@@ -152,6 +152,7 @@ type FloorEquipment = PlanFootprint & {
 };
 
 type FloorTray = PlanFootprint & { height: number };
+type FloorServiceAisle = { accessWidth: number; frontDepth: number };
 
 const supportLayout: Partial<
   Record<
@@ -160,6 +161,7 @@ const supportLayout: Partial<
       door: { x: number; width: number };
       equipment: readonly FloorEquipment[];
       tray?: FloorTray;
+      serviceAisle?: FloorServiceAisle;
     }
   >
 > = {
@@ -202,7 +204,8 @@ const supportLayout: Partial<
   },
   "support-a-02": {
     door: { x: -5.5, width: 1.8 },
-    tray: { center: [3, -6.04], width: 13.4, depth: 0.46, height: 2.06 },
+    tray: { center: [3, -6.04], width: 13.4, depth: 0.46, height: 2.4 },
+    serviceAisle: { accessWidth: 1.24, frontDepth: 1.48 },
     equipment: [
       {
         name: "UPS 柜列",
@@ -290,6 +293,7 @@ export function campusFloorPlan(id: string) {
         },
         equipment: support?.equipment ?? roomEquipment,
         tray: support?.tray,
+        serviceAisle: support?.serviceAisle,
       },
     ];
   });
