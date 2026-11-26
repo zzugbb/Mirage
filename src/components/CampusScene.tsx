@@ -377,8 +377,12 @@ export function CampusScene({
       }
       return nextLayout;
     };
-    const stopLabelSettle = () => window.clearTimeout(labelTimer);
+    const stopLabelSettle = () => {
+      window.clearTimeout(labelTimer);
+      labelTimer = undefined;
+    };
     const settleLabels = () => {
+      labelTimer = undefined;
       const next = layoutLabels("settling");
       if (Number.isFinite(next))
         labelTimer = window.setTimeout(settleLabels, next);
@@ -486,7 +490,8 @@ export function CampusScene({
         fit(preset);
         return;
       }
-      render();
+      // 切栏改变画幅时重查遮挡，保留拖动后的标签稳定过程。
+      render(labelTimer === undefined ? "static" : "moving");
     };
     let initialSize = false;
     runtime.current = {

@@ -125,7 +125,8 @@ export function CampusWorkspace({
         return;
       event.preventDefault();
       setExpanded((current) => ({ ...current, [targetId]: false }));
-      if (disclosure.contains(document.activeElement))
+      const active = document.activeElement;
+      if (active === document.body || disclosure.contains(active))
         disclosure.querySelector("summary")?.focus();
     };
     // 点击空白画布后焦点可能回到文档，仍先处理当前可见的说明。
