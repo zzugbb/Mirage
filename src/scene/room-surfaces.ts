@@ -48,22 +48,31 @@ export function roomFloorGeometry(
 }
 
 /** 共用样板机房与楼层预览的地面分格。 */
-export function createRoomFloorMap(width: number, depth: number) {
+export function createRoomFloorMap(
+  width: number,
+  depth: number,
+  jointShoulder = 0,
+) {
   const settings = definition.rendering.floor;
   const size = settings.textureSize;
   const pixels = new Uint8Array(size * size * 4);
   const halfGap = (settings.gap / settings.tileSize) * size * 0.5;
+  const shoulderPixels = (jointShoulder / settings.tileSize) * size;
   let seed = 4217;
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
       // 像素覆盖率柔化纹理边界；mipmap 让远景细缝逐渐融入表面。
       const edge = Math.min(x + 0.5, y + 0.5, size - x - 0.5, size - y - 0.5);
       const coverage = THREE.MathUtils.clamp(halfGap + 0.5 - edge, 0, 1);
+      const shoulder = shoulderPixels
+        ? 1 -
+          THREE.MathUtils.smoothstep(edge, halfGap, halfGap + shoulderPixels)
+        : 0;
       seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
       const grain = (seed >>> 24) % settings.grainRange;
       const value = Math.round(
         THREE.MathUtils.lerp(
-          settings.tileValue - grain,
+          settings.tileValue - grain - 24 * shoulder,
           settings.seamValue,
           coverage,
         ),

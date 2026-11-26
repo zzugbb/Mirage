@@ -97,6 +97,16 @@ test("楼层室内地坪共用灰底和分格，门洞接入面顺接走廊与�
     plan.updateMatrixWorld(true);
     const passage = plan.getObjectByName("floor-corridor")!;
     const passageTop = new Box3().setFromObject(passage).max.y;
+    const passageBounds = new Box3().setFromObject(passage);
+    const edge = plan.getObjectByName("floor-corridor-wall-edge")!;
+    const edgeBounds = new Box3().setFromObject(edge);
+    assert.ok(Math.abs(edgeBounds.max.z - passageBounds.min.z) < 1e-6);
+    assert.ok(Math.abs(edgeBounds.max.y - passageTop) < 1e-6);
+    const threshold = plan.getObjectByName("floor-building-threshold");
+    if (threshold) {
+      const thresholdBounds = new Box3().setFromObject(threshold);
+      assert.ok(Math.abs(thresholdBounds.max.x - passageBounds.min.x) < 1e-6);
+    }
     const stair = new Box3().setFromObject(
       plan.getObjectByName("floor-stair-approach")!,
     );
@@ -122,6 +132,17 @@ test("楼层室内地坪共用灰底和分格，门洞接入面顺接走廊与�
         ).intersectObject(access!)[0].point.y;
       assert.ok(Math.abs(probe(ramp.min.z + 0.001) - passageTop) < 1e-4);
       assert.ok(Math.abs(probe(ramp.max.z - 0.001) - floor.max.y) < 1e-4);
+      for (const surface of [pick, access!, passage as Mesh, edge as Mesh]) {
+        const { position, normal, uv } = surface.geometry.attributes;
+        for (let i = 0; i < position.count; i++) {
+          if (normal.getY(i) < 0.5) continue;
+          const point = surface.localToWorld(
+            new Vector3().fromBufferAttribute(position, i),
+          );
+          assert.ok(Math.abs(uv.getX(i) * 8 - point.x) < 1e-5);
+          assert.ok(Math.abs(uv.getY(i) * 8 + point.z) < 1e-5);
+        }
+      }
       if (child.kind === "room") {
         assert.ok(pick.parent!.getObjectByName("entrance-leaf"));
         assert.ok(pick.parent!.getObjectByName("entrance-head"));

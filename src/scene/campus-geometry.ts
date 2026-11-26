@@ -1321,6 +1321,7 @@ function exposedFloorStructure(
   // 分层图显示楼板截面和外围框架的断面。
   const thickness = front ? 0.28 : 0.54;
   const borderY = -thickness + 0.09;
+  const finish = floorConcreteFinish();
   floorDeck(
     level,
     width - 0.56,
@@ -1330,6 +1331,7 @@ function exposedFloorStructure(
     "#858b8b",
     stair,
     front,
+    finish,
   );
   const start = -depth / 2 + 0.47;
   const end = depth / 2 - 0.47;
@@ -1372,9 +1374,79 @@ const corridorFinishColor = "#8b9599";
 const interiorWallColor = "#a0a8ac";
 const floorFinishHeight = 0.05;
 const corridorFinishHeight = 0.033;
+const floorRearWallInset = 0.1;
+const floorRearWallThickness = 0.17;
 
 function floorFinishes() {
-  return { map: createRoomFloorMap(8, 8), roughness: 0.98 };
+  return { map: createRoomFloorMap(8, 8, 0.014), roughness: 0.98 };
+}
+
+function floorConcreteFinish() {
+  const map = surfaceTexture((u, v, grain) => {
+    const shade = 232 + (concreteSurface(u, v, grain) - 232) * 0.43;
+    return [shade, shade, shade, 255];
+  });
+  map.wrapS = map.wrapT = THREE.RepeatWrapping;
+  return { map, roughness: 0.96 };
+}
+
+/** 楼层坐标决定砖缝相位，分段铺面与装配剖面共用贴图尺度。 */
+function floorSurfaceUV(mesh: THREE.Mesh) {
+  const { position, normal, uv } = mesh.geometry.attributes;
+  const point = new THREE.Vector3();
+  mesh.updateWorldMatrix(true, false);
+  for (let i = 0; i < uv.count; i++) {
+    point.fromBufferAttribute(position, i).applyMatrix4(mesh.matrixWorld);
+    const horizontal = Math.abs(normal.getY(i)) > 0.5;
+    const u = Math.abs(normal.getX(i)) > 0.5 ? point.z : point.x;
+    uv.setXY(i, u / 8, (horizontal ? -point.z : point.y) / 8);
+  }
+}
+
+function floorContactFinish() {
+  const map = surfaceTexture(
+    (u, v) => {
+      const end = Math.min(u, 1 - u);
+      const fade = THREE.MathUtils.smoothstep(v, 0.04, 1);
+      return [
+        0,
+        0,
+        0,
+        Math.round(54 * fade ** 2 * THREE.MathUtils.smoothstep(end, 0, 0.045)),
+      ];
+    },
+    64,
+    64,
+  );
+  return new THREE.MeshBasicMaterial({
+    map,
+    transparent: true,
+    depthWrite: false,
+  });
+}
+
+function floorWallContact(
+  parent: THREE.Group,
+  material: THREE.MeshBasicMaterial,
+  x: number,
+  z: number,
+  height: number,
+  length: number,
+  yaw: number,
+) {
+  const spread = 0.32;
+  const shade = new THREE.Mesh(
+    new THREE.PlaneGeometry(length, spread).rotateX(-Math.PI / 2),
+    material,
+  );
+  shade.name = "floor-wall-contact";
+  shade.rotation.y = yaw;
+  shade.position.set(
+    x + (Math.sin(yaw) * spread) / 2,
+    height + 0.002,
+    z + (Math.cos(yaw) * spread) / 2,
+  );
+  parent.add(shade);
 }
 
 type FloorStair = NonNullable<ReturnType<typeof campusFloorPlan>>["stair"];
@@ -1419,16 +1491,7 @@ function floorDeck(
       finish,
     );
     deck.name = "floor-deck";
-    if (finish) {
-      const uv = deck.geometry.getAttribute("uv");
-      const points = deck.geometry.getAttribute("position");
-      for (let i = 0; i < uv.count; i++)
-        uv.setXY(
-          i,
-          (points.getX(i) + deck.position.x) / 8,
-          (points.getZ(i) + deck.position.z) / 8,
-        );
-    }
+    if (finish) floorSurfaceUV(deck);
   };
   const edge = front?.edge ?? depth / 2;
   if (front) place(-width / 2, width / 2, edge, depth / 2, front.group);
@@ -1492,7 +1555,7 @@ function floorStair(
     finish,
   );
   approach.name = "floor-stair-approach";
-  surfaceUV(approach, stair.width, near - corridorEdge);
+  floorSurfaceUV(approach);
   if (!upper)
     box(
       plan,
@@ -1649,10 +1712,15 @@ function floorEnvelope(
   front?: FloorFront,
 ) {
   const section = "#92978d";
-  const back = -depth / 2 + 0.1;
+  const back = -depth / 2 + floorRearWallInset;
   const end = depth / 2 - 0.1;
   const cut = front?.edge ?? end;
-  box(plan, [width - 0.38, 1.27, 0.17], [0, 0.6475, back], interiorWallColor);
+  box(
+    plan,
+    [width - 0.38, 1.27, floorRearWallThickness],
+    [0, 0.6475, back],
+    interiorWallColor,
+  );
   box(plan, [width - 0.42, 0.14, 0.035], [0, 0.1, back + 0.087], "#7f8a8e");
   box(plan, [width - 0.38, 0.046, 0.194], [0, 1.293, back], section);
   for (const side of [-1, 1]) {
@@ -2216,7 +2284,7 @@ function floorApproach(
     );
   access.geometry.computeVertexNormals();
   access.name = "floor-door-approach";
-  surfaceUV(access, width, length);
+  floorSurfaceUV(access);
   return access;
 }
 
@@ -2258,6 +2326,7 @@ export function createCampusGeometry(
   const building = scope.kind === "building";
   const floorPlan = campusFloorPlan(scope.id);
   const floorFinish = floorPlan && floorFinishes();
+  const wallContact = floorPlan && floorContactFinish();
   const upstairs = scope.kind === "floor" && scope.origin[1] > 0;
   const front =
     partOfBuilding && upstairs
@@ -2374,11 +2443,6 @@ export function createCampusGeometry(
     }
     labelObstacles.push(...siteAccess.values());
   } else if (floorPlan) {
-    const screed = surfaceTexture((u, v, grain) => {
-      const shade = 232 + (concreteSurface(u, v, grain) - 232) * 0.43;
-      return [shade, shade, shade, 255];
-    });
-    screed.wrapS = screed.wrapT = THREE.RepeatWrapping;
     floorDeck(
       plan,
       scope.size[0] - 0.06,
@@ -2388,7 +2452,7 @@ export function createCampusGeometry(
       "#838a8c",
       upstairs ? floorPlan.stair : undefined,
       front,
-      { map: screed, roughness: 0.96 },
+      floorConcreteFinish(),
     );
     const { center, width, depth } = floorPlan.corridor;
     const corridor = box(
@@ -2399,12 +2463,27 @@ export function createCampusGeometry(
       floorFinish ?? undefined,
     );
     corridor.name = "floor-corridor";
-    surfaceUV(corridor, width, depth);
-    box(
+    floorSurfaceUV(corridor);
+    const corridorBack = center[1] - depth / 2;
+    const wallFace =
+      -scope.size[2] / 2 + floorRearWallInset + floorRearWallThickness / 2;
+    const edgeFill = box(
       plan,
-      [width, 0.013, 0.051],
-      [center[0], 0.03, center[1] - depth / 2 + 0.102],
-      "#838c84",
+      [width, 0.025, corridorBack - wallFace],
+      [center[0], corridorFinishHeight - 0.0125, (corridorBack + wallFace) / 2],
+      corridorFinishColor,
+      floorFinish!,
+    );
+    edgeFill.name = "floor-corridor-wall-edge";
+    floorSurfaceUV(edgeFill);
+    floorWallContact(
+      plan,
+      wallContact!,
+      center[0],
+      wallFace + 0.025,
+      corridorFinishHeight,
+      width,
+      0,
     );
     floorStair(
       plan,
@@ -2431,15 +2510,16 @@ export function createCampusGeometry(
     );
     if (entrance) {
       const [edge, , z] = entrance.point;
+      const corridorEdge = center[0] - width / 2;
       const threshold = box(
         plan,
-        [0.64, 0.04, entrance.width],
-        [edge + 0.32, corridorFinishHeight - 0.02, z],
+        [corridorEdge - edge, 0.04, entrance.width],
+        [(edge + corridorEdge) / 2, corridorFinishHeight - 0.02, z],
         "#98a1a4",
         floorFinish!,
       );
       threshold.name = "floor-building-threshold";
-      surfaceUV(threshold, 0.64, entrance.width);
+      floorSurfaceUV(threshold);
       labelObstacles.push(threshold);
     }
   }
@@ -2513,7 +2593,7 @@ export function createCampusGeometry(
         floorFinish ?? undefined,
       );
       pick.name = "floor-room-finish";
-      surfaceUV(pick, w, d);
+      floorSurfaceUV(pick);
       const cutWall = (
         width: number,
         depth: number,
@@ -2543,6 +2623,18 @@ export function createCampusGeometry(
               ? [x, 0.11, z + side * (depth / 2 + 0.009)]
               : [x + side * (width / 2 + 0.009), 0.11, z],
             "#828e93",
+          );
+        }
+        if (wallContact) {
+          const side = (longX ? z : x) > 0 ? -1 : 1;
+          floorWallContact(
+            group,
+            wallContact,
+            longX ? x : x + side * (width / 2 + 0.02),
+            longX ? z + side * (depth / 2 + 0.02) : z,
+            floorFinishHeight,
+            (longX ? width : depth) - 0.04,
+            longX ? (side > 0 ? 0 : Math.PI) : (side * Math.PI) / 2,
           );
         }
         if (longX && height > 1) {
@@ -2663,13 +2755,18 @@ export function createCampusGeometry(
           const count =
             furniture || kind === "rack" ? 1 : Math.ceil(width / 0.88);
           if (count > 1) {
+            contactShadow(group, shadow, width + 0.34, depth + 0.4, [
+              center[0] + 0.06,
+              floorFinishHeight + 0.004,
+              center[1] + 0.053,
+            ]);
             floorBayCorners(
               group,
               center[0],
               center[1] + depth / 2 + 0.86,
               width + 0.14,
               1.44,
-              "#879498",
+              "#a0a9ab",
               "floor-service-area",
             );
             labelObstacles.push(
@@ -2687,11 +2784,12 @@ export function createCampusGeometry(
           for (let unit = 0; unit < count; unit++) {
             const x = center[0] + (unit - (count - 1) / 2) * pitch;
             const z = center[1];
-            contactShadow(group, shadow, pitch + 0.27, depth + 0.36, [
-              x + 0.058,
-              0.054,
-              z + 0.054,
-            ]);
+            if (count === 1)
+              contactShadow(group, shadow, pitch + 0.27, depth + 0.36, [
+                x + 0.058,
+                0.054,
+                z + 0.054,
+              ]);
             labelObstacles.push(
               furniture
                 ? floorBench(
