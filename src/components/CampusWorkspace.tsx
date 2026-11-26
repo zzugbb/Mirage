@@ -294,7 +294,7 @@ export function CampusWorkspace({
           <h1 id="campus-stage-title">{scope.name}</h1>
           <span>
             {scope.kind === "building"
-              ? "分层展示 · 标高见依据"
+              ? "建筑剖面与分层 · 标高见依据"
               : "原创样板 · 米制坐标"}
           </span>
         </div>

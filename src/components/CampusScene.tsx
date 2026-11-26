@@ -15,6 +15,7 @@ type CampusPose = {
   target: SpacePoint;
   zoom: number;
   preset: CameraPreset | { id: string } | null;
+  separated?: boolean;
 };
 export type CampusCamera = CampusPose & {
   near?: { id: string; returnTo: CampusPose };
@@ -194,7 +195,7 @@ export function CampusScene({
     const fill = new THREE.DirectionalLight("#a5bfda", 0.56);
     fill.position.set(24, 12, -17);
     scene.add(fill);
-    const { plan, marks, labelObstacles } = createCampusGeometry(
+    const { plan, marks, labelObstacles, arrangeFloors } = createCampusGeometry(
       scope,
       campusChildren(scope.id),
     );
@@ -227,15 +228,17 @@ export function CampusScene({
     }
     scene.add(plan);
     const planBounds = new THREE.Box3().setFromObject(plan);
-    const obstacleBounds = labelObstacles.map((obstacle) =>
-      obstacle instanceof THREE.Mesh
-        ? new THREE.Box3().setFromObject(obstacle)
-        : obstacle.bounds.clone().applyMatrix4(obstacle.frame.matrixWorld),
-    );
+    const readObstacleBounds = () =>
+      labelObstacles.map((obstacle) =>
+        obstacle instanceof THREE.Mesh
+          ? new THREE.Box3().setFromObject(obstacle)
+          : obstacle.bounds.clone().applyMatrix4(obstacle.frame.matrixWorld),
+      );
+    let obstacleBounds = readObstacleBounds();
     const grid = new THREE.GridHelper(200, 50, "#385266", "#2a4355");
     grid.material.transparent = true;
     grid.material.opacity = 0.18;
-    grid.position.y = -0.39;
+    grid.position.y = scope.kind === "building" ? -0.78 : -0.39;
     scene.add(grid);
     const building = marks.find(({ child }) => child.kind === "building");
     const buildingCorners = building
@@ -263,17 +266,21 @@ export function CampusScene({
     const sightDirection = new THREE.Vector3();
     const ownership = new Map<THREE.Object3D, string>();
     for (const { child, pick, access } of marks) {
-      pick.parent?.traverseVisible((object) => {
+      pick.parent?.traverse((object) => {
         if (object instanceof THREE.Mesh && !object.material.transparent)
           ownership.set(object, child.id);
       });
       if (access) ownership.set(access, child.id);
     }
-    const solidObjects: THREE.Mesh[] = [];
-    plan.traverseVisible((object) => {
-      if (object instanceof THREE.Mesh && !object.material.transparent)
-        solidObjects.push(object);
-    });
+    const readSolidObjects = () => {
+      const meshes: THREE.Mesh[] = [];
+      plan.traverseVisible((object) => {
+        if (object instanceof THREE.Mesh && !object.material.transparent)
+          meshes.push(object);
+      });
+      return meshes;
+    };
+    let solidObjects = readSolidObjects();
     const blocked = (id: string, point: THREE.Vector3) => {
       sightDirection.subVectors(point, camera.position);
       sight.far = sightDirection.length() - 0.05;
@@ -296,6 +303,17 @@ export function CampusScene({
     let labelTimer: number | undefined;
     const labelOffsets = new Map<HTMLElement, { x: number; y: number }>();
     const revealAfter = new Map<HTMLElement, number>();
+    let separated = false;
+    const showFloors = (next: boolean) => {
+      if (!arrangeFloors || separated === next) return;
+      separated = next;
+      arrangeFloors(separated);
+      plan.updateMatrixWorld(true);
+      planBounds.setFromObject(plan);
+      obstacleBounds = readObstacleBounds();
+      solidObjects = readSolidObjects();
+      labelOffsets.clear();
+    };
     const labelLift = scope.kind === "floor" ? 0.5 : 1.25;
     const boxes = new Map<HTMLElement, { width: number; height: number }>();
     for (const node of labelElements.values()) {
@@ -550,6 +568,7 @@ export function CampusScene({
         labelTimer = window.setTimeout(settleLabels, labelSettleDelay);
     };
     const fit = (view: NonNullable<CampusPose["preset"]>) => {
+      showFloors(view === "top");
       setPreset(view);
       const target =
         typeof view === "object"
@@ -565,7 +584,7 @@ export function CampusScene({
               : new THREE.Vector3(0, 1, 0.08)
             ).normalize()
           : (scope.kind === "building"
-              ? new THREE.Vector3(0.46, 0.29, 1)
+              ? new THREE.Vector3(0.4, 0.135, 1)
               : new THREE.Vector3(
                   0.72,
                   scope.kind === "campus" && view === "overview" ? 0.56 : 0.74,
@@ -607,6 +626,7 @@ export function CampusScene({
       target: controls.target.toArray(),
       zoom: camera.zoom,
       preset,
+      separated: arrangeFloors ? separated : undefined,
     });
     const remember = () => cameras.set(scope.id, { ...pose(), near });
     const restore = (saved: CampusPose) => {
@@ -614,6 +634,7 @@ export function CampusScene({
         fit(saved.preset);
         return;
       }
+      showFloors(saved.separated ?? false);
       setPreset(null);
       camera.position.set(...saved.position);
       controls.target.set(...saved.target);
@@ -906,7 +927,7 @@ export function CampusScene({
           aria-pressed={activePreset === "top"}
           onClick={() => runtime.current?.show("top")}
         >
-          {scope.kind === "building" ? "侧视" : "俯视"}
+          {scope.kind === "building" ? "分层" : "俯视"}
         </button>
         {scope.kind === "campus" && selectedId !== scope.id && (
           <button

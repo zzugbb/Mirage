@@ -140,7 +140,7 @@ type PlanFootprint = {
 type FloorEquipment = PlanFootprint & {
   name: string;
   height: number;
-  kind: "rack" | "bench" | "power";
+  kind: "rack" | "bench" | "staging" | "ups" | "battery" | "switchgear";
 };
 
 const supportLayout = {
@@ -161,7 +161,7 @@ const supportLayout = {
         width: 3.8,
         depth: 1.1,
         height: 0.78,
-        kind: "bench",
+        kind: "staging",
       },
     ],
   },
@@ -174,7 +174,7 @@ const supportLayout = {
         width: 4,
         depth: 1.15,
         height: 2.1,
-        kind: "power",
+        kind: "ups",
       },
       {
         name: "电池柜列",
@@ -182,7 +182,7 @@ const supportLayout = {
         width: 4.8,
         depth: 1.1,
         height: 2.05,
-        kind: "power",
+        kind: "battery",
       },
       {
         name: "低压配电柜列",
@@ -190,7 +190,7 @@ const supportLayout = {
         width: 4.1,
         depth: 1,
         height: 2.2,
-        kind: "power",
+        kind: "switchgear",
       },
     ],
   },
@@ -225,11 +225,16 @@ export function campusFloorPlan(id: string) {
     width: floor.size[0] - 1.2,
     depth: 2.4,
   };
-  const stair: PlanFootprint = {
+  const floors = campusChildren(floor.parent ?? "").filter(
+    ({ kind }) => kind === "floor",
+  );
+  const levels = floors.map(({ origin }) => origin[1]);
+  const stair = {
     center: [-15, -5.5],
     width: 2.2,
     depth: 6.0,
-  };
+    rise: Math.max(...levels) - Math.min(...levels),
+  } as const;
   const areas = campusChildren(id).flatMap((area) => {
     const support = supportLayout[area.id as keyof typeof supportLayout];
     const room = area.id === campusRoomId;
