@@ -312,6 +312,7 @@ export function CampusScene({
     };
     let near: CampusCamera["near"];
     let interacting = false;
+    let contextLost = false;
     let selected = selectedId;
     let labelTimer: number | undefined;
     const labelOffsets = new Map<HTMLElement, { x: number; y: number }>();
@@ -574,6 +575,7 @@ export function CampusScene({
     };
     const render = (layout: "static" | "moving" = "static") => {
       stopLabelSettle();
+      if (contextLost) return;
       renderer.render(scene, camera);
       revealAfter.clear();
       layoutLabels(layout);
@@ -746,6 +748,10 @@ export function CampusScene({
     const point = new THREE.Vector2();
     let down: { id: number; x: number; y: number } | null = null;
     const pointerDown = (event: PointerEvent) => {
+      if (contextLost) {
+        event.preventDefault();
+        return;
+      }
       down =
         event.isPrimary && event.button === 0
           ? { id: event.pointerId, x: event.clientX, y: event.clientY }
@@ -804,6 +810,7 @@ export function CampusScene({
     };
     const end = () => {
       interacting = false;
+      if (!contextLost) controls.enabled = true;
     };
     controls.addEventListener("start", start);
     controls.addEventListener("end", end);
@@ -815,6 +822,9 @@ export function CampusScene({
     const observer = new ResizeObserver(resize);
     const lost = (event: Event) => {
       event.preventDefault();
+      contextLost = true;
+      controls.enabled = false;
+      down = null;
       stopLabelSettle();
       const active = document.activeElement;
       if (
@@ -825,6 +835,9 @@ export function CampusScene({
       setError(true);
     };
     const restored = () => {
+      contextLost = false;
+      // 已被中断的拖动等松手后再恢复控制，避免沿用旧指针位置。
+      controls.enabled = !interacting;
       if (document.activeElement !== unavailableStatus.current)
         unavailableFocus.current = null;
       if (scope.kind === "campus") renderer.shadowMap.needsUpdate = true;
@@ -850,9 +863,7 @@ export function CampusScene({
       renderer.domElement.removeEventListener("webglcontextrestored", restored);
       const materials = new Set<THREE.Material>();
       scene.traverse((object) => {
-        if (!(
-          object instanceof THREE.Mesh || object instanceof THREE.LineSegments
-        ))
+        if (!(object instanceof THREE.Mesh || object instanceof THREE.Line))
           return;
         if (object instanceof THREE.InstancedMesh) object.dispose();
         object.geometry.dispose();
