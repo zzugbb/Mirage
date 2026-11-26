@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { Box3, Mesh, Raycaster, Vector3 } from "three";
+import { Box3, InstancedMesh, Mesh, Raycaster, Vector3 } from "three";
 import {
   campusById,
   campusChildren,
@@ -69,4 +69,67 @@ test("楼梯两段共用转折平台，二层登记楼梯井在实绘楼板留�
     );
   assert.equal(hitDeck(x).length, 0);
   assert.ok(hitDeck(x + 1.5).length);
+});
+
+test("两层导向贴靠实体，运维陈设与供配电桥架避开登记入口", () => {
+  for (const id of ["floor-a-01", "floor-a-02"]) {
+    const floor = campusById(id)!;
+    const { areas, stair } = campusFloorPlan(id)!;
+    const { plan, marks, labelObstacles } = createCampusGeometry(
+      floor,
+      campusChildren(id),
+    );
+    const sign = plan.getObjectByName("floor-stair-direction")!;
+    assert.equal(sign.position.x, stair.center[0]);
+    assert.ok(sign.position.z < stair.center[1] - stair.depth / 2);
+    assert.ok(labelObstacles.includes(sign as Mesh));
+    for (const { child, pick } of marks) {
+      const group = pick.parent!;
+      const area = areas.find(({ id }) => id === child.id)!;
+      const { x, width, z } = area.doorway;
+      const plaques = group.children.filter(
+        ({ name }) => name === "floor-door-plaque",
+      );
+      assert.equal(plaques.length, 2);
+      assert.ok(plaques[0].position.z < z && plaques[1].position.z > z);
+      for (const plaque of plaques) {
+        assert.ok(Math.abs(plaque.position.x - x) > width / 2 + 0.74);
+        assert.ok(labelObstacles.includes(plaque as Mesh));
+      }
+      if (child.id === "support-a-01") {
+        assert.ok(group.getObjectByName("floor-tool-cabinet"));
+        assert.ok(group.getObjectByName("floor-service-cart"));
+        const bay = group.getObjectByName("floor-cart-bay")!;
+        const cart = area.equipment.find(({ kind }) => kind === "cart")!;
+        assert.equal(bay.position.x, cart.center[0]);
+        assert.ok(cart.center[0] + cart.width / 2 < x - width / 2);
+      }
+      if (area.tray) {
+        const { center, width: span, height } = area.tray;
+        assert.ok(center[0] - span / 2 > x + width / 2);
+        assert.ok(plaques.every(({ position }) => position.x < x - width / 2));
+        assert.ok(
+          group.getObjectByName("floor-tray-rungs") instanceof InstancedMesh,
+        );
+        const rails = group.children.filter(
+          ({ name }) => name === "floor-tray-rail",
+        );
+        assert.equal(rails.length, 2);
+        assert.ok(
+          rails.every(
+            (rail) =>
+              rail.position.y === height &&
+              labelObstacles.includes(rail as Mesh),
+          ),
+        );
+        const paint = group.children.filter(
+          ({ name }) => name === "floor-cabinet-group-mark",
+        );
+        assert.deepEqual(
+          paint.map(({ position }) => position.x),
+          area.equipment.map(({ center }) => center[0]),
+        );
+      }
+    }
+  }
 });

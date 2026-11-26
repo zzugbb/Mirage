@@ -1369,6 +1369,10 @@ function floorFinishes() {
 }
 
 type FloorStair = NonNullable<ReturnType<typeof campusFloorPlan>>["stair"];
+type FloorArea = NonNullable<
+  ReturnType<typeof campusFloorPlan>
+>["areas"][number];
+type FloorEquipment = FloorArea["equipment"][number];
 type FloorFront = { edge: number; group: THREE.Group };
 
 function stairOpening({ center: [x, z], width, depth }: FloorStair) {
@@ -1662,6 +1666,278 @@ function floorEnvelope(
         section,
       );
   }
+}
+
+function floorPlaque(
+  parent: THREE.Group,
+  name: string,
+  title: string,
+  position: SpacePoint,
+  [width, height]: readonly [number, number],
+  placement: "wall" | "reverse" | "ground",
+  destinations?: string,
+) {
+  const pale = name === "floor-door-plaque";
+  const background = pale ? "#d6d5c4" : "#36494d";
+  const ink = pale ? "#24363d" : "#eceadb";
+  const rim = new THREE.MeshStandardMaterial({
+    color: background,
+    roughness: 0.82,
+  });
+  const face = rim.clone();
+  const canvas =
+    typeof document === "undefined" ? null : document.createElement("canvas");
+  if (canvas) {
+    canvas.width = 768;
+    canvas.height = Math.round((canvas.width * height) / width);
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      const w = canvas.width;
+      const h = canvas.height;
+      ctx.fillStyle = background;
+      ctx.fillRect(0, 0, w, h);
+      ctx.strokeStyle = pale ? "#999f91" : "#849990";
+      ctx.lineWidth = 3;
+      ctx.strokeRect(7, 7, w - 14, h - 14);
+      ctx.fillStyle = ink;
+      ctx.textBaseline = "middle";
+      ctx.textAlign = "center";
+      ctx.font = `600 ${Math.round(h * (destinations ? 0.64 : 0.55))}px sans-serif`;
+      ctx.fillText(title, w * (destinations ? 0.155 : 0.5), h * 0.53, w * 0.85);
+      if (destinations) {
+        ctx.beginPath();
+        ctx.moveTo(w * 0.3, h * 0.18);
+        ctx.lineTo(w * 0.3, h * 0.82);
+        ctx.stroke();
+        ctx.textAlign = "left";
+        ctx.font = `600 ${Math.round(h * 0.28)}px sans-serif`;
+        ctx.fillText("楼梯", w * 0.35, h * 0.32);
+        ctx.fillText(`${destinations} →`, w * 0.35, h * 0.72, w * 0.6);
+      }
+      const map = new THREE.CanvasTexture(canvas);
+      map.colorSpace = THREE.SRGBColorSpace;
+      face.color.set("#ffffff");
+      face.map = map;
+    }
+  }
+  // 把印字放在实体铭牌的正面材质上，避免贴片与铭牌在远处争抢深度。
+  const plaque = new THREE.Mesh(
+    new THREE.BoxGeometry(
+      width,
+      height,
+      placement === "ground" ? 0.008 : 0.026,
+    ),
+    [rim, rim, rim, rim, face, rim],
+  );
+  plaque.name = name;
+  plaque.position.set(...position);
+  if (placement === "ground") plaque.rotation.x = -Math.PI / 2;
+  if (placement === "reverse") plaque.rotation.y = Math.PI;
+  parent.add(plaque);
+  return plaque;
+}
+
+function floorToolCabinet(group: THREE.Group, item: FloorEquipment) {
+  const {
+    center: [x, z],
+    width,
+    height,
+    depth,
+  } = item;
+  const casework = box(
+    group,
+    [width, height - 0.09, depth],
+    [x, 0.14 + (height - 0.09) / 2, z],
+    "#92998a",
+  );
+  casework.name = "floor-tool-cabinet";
+  box(group, [width - 0.1, 0.09, depth - 0.075], [x, 0.095, z], "#535f59");
+  const pitch = width / 3;
+  const front = z + depth / 2;
+  for (const bay of [-1, 0, 1]) {
+    const column = x + bay * pitch;
+    const sections = bay < 1 ? 1 : 3;
+    const panelHeight = (height - 0.21) / sections;
+    for (let i = 0; i < sections; i++) {
+      const y = 0.2 + (i + 0.5) * panelHeight;
+      box(
+        group,
+        [pitch - 0.042, panelHeight - 0.027, 0.027],
+        [column, y, front + 0.008],
+        "#acaa93",
+      );
+      box(
+        group,
+        [0.13, 0.033, 0.035],
+        [column + pitch * 0.28, y + (bay < 1 ? 0.08 : 0), front + 0.034],
+        "#61675a",
+      );
+    }
+  }
+  return casework;
+}
+
+function floorServiceCart(group: THREE.Group, item: FloorEquipment) {
+  const {
+    center: [x, z],
+    width,
+    height,
+    depth,
+  } = item;
+  const cart = new THREE.Group();
+  cart.position.set(x, 0.05, z);
+  group.add(cart);
+  const bedWidth = width - 0.44;
+  const bedDepth = depth - 0.42;
+  const frame = "#636d62";
+  const paint = "#7a8578";
+  const lower = 0.23;
+  const upper = height - 0.22;
+  const shelf = box(cart, [bedWidth, 0.05, bedDepth], [0, upper, 0], paint);
+  shelf.name = "floor-service-cart";
+  box(cart, [bedWidth, 0.06, bedDepth], [0, lower, 0], frame);
+  for (const side of [-1, 1]) {
+    const sideX = side * (bedWidth / 2 - 0.075);
+    box(
+      cart,
+      [0.027, 0.034, bedDepth],
+      [side * (bedWidth / 2 - 0.015), upper + 0.033, 0],
+      paint,
+    );
+    for (const end of [-1, 1]) {
+      const endZ = end * (bedDepth / 2 - 0.072);
+      box(
+        cart,
+        [0.036, upper - lower, 0.036],
+        [sideX, (upper + lower) / 2, endZ],
+        frame,
+      );
+      box(cart, [0.047, 0.12, 0.05], [sideX, lower - 0.073, endZ], frame);
+      const wheel = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.061, 0.061, 0.041, 12),
+        new THREE.MeshStandardMaterial({ color: "#383f3c", roughness: 0.91 }),
+      );
+      wheel.position.set(sideX, 0.061, endZ);
+      wheel.rotation.z = Math.PI / 2;
+      cart.add(wheel);
+    }
+    box(
+      cart,
+      [0.038, height - upper, 0.038],
+      [
+        bedWidth / 2 - 0.045,
+        (height + upper) / 2,
+        side * (bedDepth / 2 - 0.072),
+      ],
+      frame,
+    );
+  }
+  box(
+    cart,
+    [0.045, 0.043, bedDepth - 0.114],
+    [bedWidth / 2 - 0.045, height - 0.016, 0],
+    "#4f5a52",
+  );
+
+  const marking = "#b9a779";
+  for (const side of [-1, 1])
+    for (const end of [-1, 1]) {
+      const edgeX = x + side * (width / 2 - 0.025);
+      const edgeZ = z + end * (depth / 2 - 0.035);
+      box(
+        group,
+        [0.26, 0.005, 0.036],
+        [edgeX - side * 0.12, 0.054, edgeZ],
+        marking,
+      );
+      box(
+        group,
+        [0.036, 0.005, 0.16],
+        [edgeX - side * 0.009, 0.054, edgeZ - end * 0.1],
+        marking,
+      );
+    }
+  const sign = floorPlaque(
+    group,
+    "floor-cart-bay",
+    "推车位",
+    [x, 0.053, z + depth / 2 + 0.22],
+    [0.84, 0.25],
+    "ground",
+  );
+  return [shelf, sign];
+}
+
+function floorCableTray(
+  group: THREE.Group,
+  tray: NonNullable<FloorArea["tray"]>,
+  wallFace: number,
+) {
+  const {
+    center: [x, z],
+    width,
+    height,
+    depth,
+  } = tray;
+  const rails = [-1, 1].map((side) => {
+    const rail = box(
+      group,
+      [width, 0.088, 0.042],
+      [x, height, z + side * (depth / 2 - 0.021)],
+      "#788581",
+      { metalness: 0.26, roughness: 0.68 },
+    );
+    rail.name = "floor-tray-rail";
+    return rail;
+  });
+  const spacing = 0.29;
+  const count = Math.floor(width / spacing);
+  const rungs = new THREE.InstancedMesh(
+    new THREE.BoxGeometry(0.042, 0.03, depth - 0.078),
+    new THREE.MeshStandardMaterial({
+      color: "#98a19a",
+      roughness: 0.7,
+      metalness: 0.22,
+    }),
+    count,
+  );
+  const matrix = new THREE.Matrix4();
+  for (let i = 0; i < count; i++)
+    rungs.setMatrixAt(
+      i,
+      matrix.makeTranslation(
+        x + (i - (count - 1) / 2) * spacing,
+        height - 0.025,
+        z,
+      ),
+    );
+  rungs.instanceMatrix.needsUpdate = true;
+  rungs.name = "floor-tray-rungs";
+  group.add(rungs);
+  const armDepth = z + depth / 2 - wallFace;
+  for (const fraction of [-0.46, -0.23, 0, 0.23, 0.46]) {
+    const supportX = x + fraction * width;
+    box(
+      group,
+      [0.11, 0.34, 0.045],
+      [supportX, height - 0.17, wallFace + 0.017],
+      "#707e77",
+    );
+    box(
+      group,
+      [0.082, 0.061, armDepth],
+      [supportX, height - 0.072, wallFace + armDepth / 2],
+      "#818d85",
+    );
+    const brace = box(
+      group,
+      [0.054, 0.045, Math.hypot(armDepth * 0.7, 0.21)],
+      [supportX, height - 0.191, wallFace + armDepth * 0.35],
+      "#707e77",
+    );
+    brace.rotation.x = -Math.atan2(0.21, armDepth * 0.7);
+  }
+  return rails;
 }
 
 function floorBench(
@@ -2003,6 +2279,17 @@ export function createCampusGeometry(
         ? campusBuildingEntrance(scope.parent)
         : null;
     floorEnvelope(plan, scope.size[0], scope.size[2], entrance, front);
+    labelObstacles.push(
+      floorPlaque(
+        plan,
+        "floor-stair-direction",
+        scope.name.replace(/\s*层$/u, ""),
+        [floorPlan.stair.center[0], 0.948, -scope.size[2] / 2 + 0.198],
+        [2.68, 0.63],
+        "wall",
+        children.map(({ name }) => name).join(" · "),
+      ),
+    );
     if (entrance) {
       const [edge, , z] = entrance.point;
       labelObstacles.push(
@@ -2129,7 +2416,7 @@ export function createCampusGeometry(
       cutWall(0.17, d - 0.18, -w / 2, 0);
       cutWall(0.17, d - 0.18, w / 2, 0);
       if (area) {
-        const { doorway, equipment } = area;
+        const { doorway, equipment, tray } = area;
         if (room) floorGrilleBands(group);
         const sides = [
           -w / 2,
@@ -2148,6 +2435,29 @@ export function createCampusGeometry(
           wall,
         );
         floorDoor(group, doorway.x, doorway.z, doorway.width);
+        const plaqueWidth = 1.48;
+        const jamb = doorway.width / 2 + 0.18 + plaqueWidth / 2;
+        const preferredSide = tray && tray.center[0] > doorway.x ? -1 : 1;
+        const preferredX = doorway.x + preferredSide * jamb;
+        const plaqueX =
+          Math.abs(preferredX) + plaqueWidth / 2 < w / 2
+            ? preferredX
+            : doorway.x - preferredSide * jamb;
+        for (const side of [-1, 1])
+          labelObstacles.push(
+            floorPlaque(
+              group,
+              "floor-door-plaque",
+              child.name,
+              [plaqueX, 1.68, doorway.z + side * 0.108],
+              [plaqueWidth, 0.37],
+              side === 1 ? "wall" : "reverse",
+            ),
+          );
+        if (tray)
+          labelObstacles.push(
+            ...floorCableTray(group, tray, doorway.z + 0.095),
+          );
         const { fromZ, toZ, x } = area.access;
         access = box(
           plan,
@@ -2162,10 +2472,34 @@ export function createCampusGeometry(
             new THREE.Vector3(sides[2], 2.4, doorway.z + 0.13),
           ),
         });
-        for (const { kind, width, height, depth, center } of equipment) {
+        for (const item of equipment) {
+          const { kind, width, height, depth, center, name } = item;
+          if (kind === "tools" || kind === "cart") {
+            contactShadow(group, shadow, width + 0.19, depth + 0.24, [
+              center[0] + 0.03,
+              0.054,
+              center[1] + 0.028,
+            ]);
+            if (kind === "tools")
+              labelObstacles.push(floorToolCabinet(group, item));
+            else labelObstacles.push(...floorServiceCart(group, item));
+            continue;
+          }
           const furniture = kind === "bench" || kind === "staging";
           const count =
             furniture || kind === "rack" ? 1 : Math.ceil(width / 0.88);
+          if (count > 1) {
+            labelObstacles.push(
+              floorPlaque(
+                group,
+                "floor-cabinet-group-mark",
+                name.replace(/\s*柜列$/u, ""),
+                [center[0], 0.053, center[1] + depth / 2 + 0.7],
+                [2, 0.55],
+                "ground",
+              ),
+            );
+          }
           const pitch = width / count;
           for (let unit = 0; unit < count; unit++) {
             const x = center[0] + (unit - (count - 1) / 2) * pitch;

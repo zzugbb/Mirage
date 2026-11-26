@@ -140,10 +140,29 @@ type PlanFootprint = {
 type FloorEquipment = PlanFootprint & {
   name: string;
   height: number;
-  kind: "rack" | "bench" | "staging" | "ups" | "battery" | "switchgear";
+  kind:
+    | "rack"
+    | "bench"
+    | "staging"
+    | "tools"
+    | "cart"
+    | "ups"
+    | "battery"
+    | "switchgear";
 };
 
-const supportLayout = {
+type FloorTray = PlanFootprint & { height: number };
+
+const supportLayout: Partial<
+  Record<
+    string,
+    {
+      door: { x: number; width: number };
+      equipment: readonly FloorEquipment[];
+      tray?: FloorTray;
+    }
+  >
+> = {
   "support-a-01": {
     door: { x: -1.7, width: 1.5 },
     equipment: [
@@ -163,10 +182,27 @@ const supportLayout = {
         height: 0.78,
         kind: "staging",
       },
+      {
+        name: "工具柜",
+        center: [2.65, -5.43],
+        width: 2.55,
+        depth: 0.64,
+        height: 1.83,
+        kind: "tools",
+      },
+      {
+        name: "推车停放位",
+        center: [-3.72, -3.73],
+        width: 1.72,
+        depth: 1.22,
+        height: 0.87,
+        kind: "cart",
+      },
     ],
   },
   "support-a-02": {
     door: { x: -5.5, width: 1.8 },
+    tray: { center: [3, -6.04], width: 13.4, depth: 0.46, height: 2.06 },
     equipment: [
       {
         name: "UPS 柜列",
@@ -194,13 +230,7 @@ const supportLayout = {
       },
     ],
   },
-} as const satisfies Record<
-  string,
-  {
-    door: { x: number; width: number };
-    equipment: readonly FloorEquipment[];
-  }
->;
+};
 
 const roomEntrance = roomDefinition.room.fixtures.find(
   ({ id }) => id === roomDefinition.room.entrance.fixtureId,
@@ -236,16 +266,16 @@ export function campusFloorPlan(id: string) {
     rise: Math.max(...levels) - Math.min(...levels),
   } as const;
   const areas = campusChildren(id).flatMap((area) => {
-    const support = supportLayout[area.id as keyof typeof supportLayout];
+    const support = supportLayout[area.id];
     const room = area.id === campusRoomId;
     if (!room && !support) return [];
-    const doorway = room
-      ? {
+    const doorway = support
+      ? { ...support.door, z: -area.size[2] / 2 }
+      : {
           x: roomEntrance.position[0],
           z: roomEntrance.position[2],
           width: roomDefinition.room.entrance.openingWidth,
-        }
-      : { ...support.door, z: -area.size[2] / 2 };
+        };
     const accessX = area.origin[0] + doorway.x;
     const thresholdZ = area.origin[2] + doorway.z;
     return [
@@ -258,7 +288,8 @@ export function campusFloorPlan(id: string) {
           toZ: thresholdZ,
           length: thresholdZ - corridor.center[1] - corridor.depth / 2,
         },
-        equipment: room ? roomEquipment : support.equipment,
+        equipment: support?.equipment ?? roomEquipment,
+        tray: support?.tray,
       },
     ];
   });

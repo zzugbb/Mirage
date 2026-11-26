@@ -392,6 +392,7 @@ export function CampusWorkspace({
                   ? "入口和机柜沿用机房配置，通道为样板布置。"
                   : floorArea.equipment.map(({ name }) => name).join(" · ")}
               </p>
+              {floorArea.tray && <p>沿墙桥架为样板布置，接线与回路待核实。</p>}
             </section>
           )}
           {target.kind === "floor" && (
