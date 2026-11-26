@@ -14,6 +14,7 @@ export function addRoomWallBase(
   backWall: THREE.Group,
   sideWall: THREE.Group,
   color = "#68757b",
+  sideColor = color,
 ) {
   const [width, , depth] = definition.room.size;
   const material = new THREE.MeshStandardMaterial({
@@ -42,7 +43,9 @@ export function addRoomWallBase(
   const start = -depth / 2 + roomWallThickness / 2;
   const side = new THREE.Mesh(
     new THREE.BoxGeometry(thickness, height, depth / 2 - start),
-    material,
+    sideColor === color
+      ? material
+      : new THREE.MeshStandardMaterial({ color: sideColor, roughness: 0.94 }),
   );
   side.name = "room-wall-base-left";
   side.position.set(left, y, (start + depth / 2) / 2);

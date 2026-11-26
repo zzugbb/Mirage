@@ -3395,7 +3395,8 @@ export function createCampusGeometry(
         const wallTop = room ? 3.12 : 2.69;
         if (room) {
           floorGrilleBands(group);
-          addRoomWallBase(group, group, "#828e93");
+          // 预览的灯位与机房有别，分别按墙面朝向校准收边的呈色。
+          addRoomWallBase(group, group, "#828e93", "#79858a");
           floorRoomFixtures(group, !partOfBuilding, labelObstacles);
         }
         const sides = [
