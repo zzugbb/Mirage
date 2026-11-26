@@ -22,6 +22,19 @@ const spaceKinds = {
   outdoor: "室外设施",
 } as const;
 
+function revealPanelFocus(panel: HTMLElement) {
+  const active = document.activeElement;
+  if (!active || !panel.clientHeight || !panel.contains(active)) return;
+  const heading = panel.querySelector(".study-panel-heading");
+  if (!heading || heading.contains(active)) return;
+
+  const focus = active.getBoundingClientRect();
+  const top = heading.getBoundingClientRect().bottom + 4;
+  const bottom = panel.getBoundingClientRect().bottom - 4;
+  if (focus.bottom > bottom) panel.scrollTop += focus.bottom - bottom;
+  else if (focus.top < top) panel.scrollTop += focus.top - top;
+}
+
 export function CampusWorkspace({
   scopeId,
   readings,
@@ -150,11 +163,19 @@ export function CampusWorkspace({
   useLayoutEffect(() => {
     if (!scopeId) return;
     const narrow = window.matchMedia("(max-width: 1099px)");
+    const panels = [resources.current, details.current];
+    const observer = new ResizeObserver((entries) => {
+      for (const { target } of entries)
+        if (target instanceof HTMLElement) revealPanelFocus(target);
+    });
+    for (const pane of panels) if (pane) observer.observe(pane);
+    let resizeFocusFrame = 0;
     let last: Element | null = document.activeElement;
     const remember = (event: FocusEvent) => {
       last = event.target instanceof Element ? event.target : null;
     };
     const changed = () => {
+      cancelAnimationFrame(resizeFocusFrame);
       const active = document.activeElement;
       const target = active === document.body ? last : active;
       if (!target || !root.current?.contains(target)) return;
@@ -168,15 +189,22 @@ export function CampusWorkspace({
           ?.focus({ preventScroll: true });
       }
       if (target instanceof HTMLElement && target !== active) {
-        requestAnimationFrame(() => {
-          if (document.activeElement === document.body && target.isConnected)
-            target.focus({ preventScroll: true });
+        resizeFocusFrame = requestAnimationFrame(() => {
+          if (
+            document.activeElement !== document.body ||
+            !target.checkVisibility()
+          )
+            return;
+          target.focus({ preventScroll: true });
+          for (const pane of panels) if (pane) revealPanelFocus(pane);
         });
       }
     };
     document.addEventListener("focusin", remember);
     narrow.addEventListener("change", changed);
     return () => {
+      observer.disconnect();
+      cancelAnimationFrame(resizeFocusFrame);
       document.removeEventListener("focusin", remember);
       narrow.removeEventListener("change", changed);
     };
