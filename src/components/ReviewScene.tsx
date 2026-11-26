@@ -179,6 +179,7 @@ import { NetworkGeometry } from "../scene/network";
 export function ReviewScene({
   state,
   captureTaskView,
+  suspended,
   taskReturn,
   unitRange = null,
   rangeViewCommand,
@@ -293,6 +294,7 @@ export function ReviewScene({
   compactTools = false,
 }: {
   captureTaskView: RefObject<SceneEngine["captureTaskView"] | null>;
+  suspended: boolean;
   taskReturn: { camera: TaskViewMemory | null; selected?: string } | null;
   canStartInletPair: boolean;
   inletPair: InletViewPair | null;
@@ -416,6 +418,9 @@ export function ReviewScene({
   const anchors = useRef<HTMLDivElement>(null);
   const flowLines = useRef<SVGSVGElement>(null);
   const engine = useRef<SceneEngine | null>(null);
+  const sceneSuspended = useRef(suspended);
+  sceneSuspended.current = suspended;
+
   const labelLayout = useRef<ReturnType<typeof observeLabelLayout> | null>(
     null,
   );
@@ -1228,7 +1233,7 @@ export function ReviewScene({
     const visibility = () => {
       clockEpoch.current = performance.now();
       if (active) {
-        active.paused = document.hidden;
+        active.paused = document.hidden || sceneSuspended.current;
         active.invalidate();
       }
     };
@@ -1384,6 +1389,13 @@ export function ReviewScene({
     () => (level) => engine.current?.captureTaskView(level) ?? null,
     [],
   );
+  useEffect(() => {
+    const active = engine.current;
+    if (!active) return;
+    clockEpoch.current = performance.now();
+    active.paused = document.hidden || suspended;
+    active.invalidate();
+  }, [suspended]);
   useEffect(() => {
     const active = engine.current;
     if (!active) return;

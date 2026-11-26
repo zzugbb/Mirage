@@ -74,6 +74,11 @@
 .workspace-ui p {
   margin: 0;
 }
+.study-workspace[hidden],
+.study-clock-action[hidden],
+.workspace-shots[hidden] {
+  display: none;
+}
 .study-header {
   height: 64px;
   flex: 0 0 64px;
@@ -181,6 +186,11 @@
 }
 .study-path > div {
   padding: 5px;
+}
+.campus-navigation-status:not(:empty) {
+  margin-inline-start: 10px;
+  color: var(--study-muted);
+  font-size: 11px;
 }
 .study-path i {
   font-style: normal;
@@ -8713,7 +8723,9 @@
     .review-view-controls.is-compact,
     .review-object-actions,
     .study-stage-access .study-return-controls,
-    .study-show-detail
+    .study-show-detail,
+    .campus-camera,
+    .campus-panel-switch
   ) {
   border-color: transparent;
   border-radius: 10px;
@@ -8729,7 +8741,9 @@
         .review-view-controls.is-compact,
         .review-object-actions,
         .study-stage-access .study-return-controls,
-        .study-show-detail
+        .study-show-detail,
+        .campus-camera,
+        .campus-panel-switch
       ) {
       background: var(--study-floating-fill);
       backdrop-filter: blur(12px) saturate(0.88);

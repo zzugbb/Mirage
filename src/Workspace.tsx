@@ -1,4 +1,5 @@
 import { type CSSProperties } from "react";
+import { campusById, campusPath, campusRoomId } from "./campus-layout";
 import { StudyReturns, type StudyReturn } from "./components/StudyReturns";
 import { clearSearchOnEscape } from "./search-keyboard";
 import { grilleSeatInspection } from "./grille-seat";
@@ -517,9 +518,40 @@ type PanelRegisterOrigin = {
   scroll: number;
 };
 
+type CampusWorkspaceComponent =
+  typeof import("./components/CampusWorkspace").CampusWorkspace;
+
 export function Workspace() {
   const [review, control] = useReducer(reducer, undefined, createWorkspace);
   const { scene: state, layer, tour } = review;
+  const [campusScope, setCampusScope] = useState<string | null>(null);
+  const [CampusWorkspace, setCampusWorkspace] =
+    useState<CampusWorkspaceComponent | null>(null);
+  const [campusLoadStatus, setCampusLoadStatus] = useState<
+    "loading" | "failed" | null
+  >(null);
+  const requestedCampus = useRef<string | null>(null);
+  const loadingCampusWorkspace = useRef(false);
+  const cancelCampusNavigation = useCallback(() => {
+    if (requestedCampus.current === null) return false;
+    requestedCampus.current = null;
+    setCampusLoadStatus(null);
+    return true;
+  }, []);
+  useLayoutEffect(() => {
+    if (state.level !== "room") cancelCampusNavigation();
+  }, [state.level, cancelCampusNavigation]);
+  const roomPathButton = useRef<HTMLButtonElement>(null);
+  const focusRoomPath = useRef(false);
+  useLayoutEffect(() => {
+    if (!campusScope && focusRoomPath.current) {
+      focusRoomPath.current = false;
+      const button = roomPathButton.current;
+      button?.scrollIntoView({ block: "nearest", inline: "nearest" });
+      button?.focus({ preventScroll: true });
+    }
+  }, [campusScope]);
+
   const selected = review.selectedId ?? state.selected;
   const [environmentComparisonOpen, setEnvironmentComparisonOpen] =
     useState(false);
@@ -3574,6 +3606,42 @@ export function Workspace() {
     dispatch(action);
   };
   const takeover = useCallback(() => control({ type: "takeover" }), []);
+  const navigateCampus = (id: string) => {
+    if (id === campusRoomId) {
+      focusRoomPath.current = true;
+      setCampusScope(null);
+      return;
+    }
+    if (CampusWorkspace) {
+      takeover();
+      setCampusScope(id);
+      return;
+    }
+    requestedCampus.current = id;
+    setCampusLoadStatus("loading");
+    if (loadingCampusWorkspace.current) return;
+    loadingCampusWorkspace.current = true;
+    void import("./components/CampusWorkspace").then(
+      (module) => {
+        const scope = requestedCampus.current;
+        requestedCampus.current = null;
+        loadingCampusWorkspace.current = false;
+        setCampusWorkspace(() => module.CampusWorkspace);
+        setCampusLoadStatus(null);
+        if (scope) {
+          takeover();
+          setCampusScope(scope);
+        }
+      },
+      () => {
+        const scope = requestedCampus.current;
+        requestedCampus.current = null;
+        loadingCampusWorkspace.current = false;
+        if (scope) setCampusLoadStatus("failed");
+      },
+    );
+  };
+
   const rememberRoomSearch = useCallback(
     (id: string) => {
       if (
@@ -5206,7 +5274,19 @@ export function Workspace() {
       )
         return;
       const target = event.target instanceof Element ? event.target : null;
+      if (campusScope) {
+        const parent = campusById(campusScope)?.parent;
+        if (event.key === "Escape" && parent) {
+          event.preventDefault();
+          setCampusScope(parent);
+        }
+        return;
+      }
       if (event.key === "Escape") {
+        if (target?.closest(".study-path") && cancelCampusNavigation()) {
+          event.preventDefault();
+          return;
+        }
         const popup =
           target?.closest<HTMLDetailsElement>("details[open]") ??
           document.querySelector<HTMLDetailsElement>(
@@ -5256,8 +5336,11 @@ export function Workspace() {
     returnToDetails,
     collapseInspector,
     collapseNavigation,
+    campusScope,
+    cancelCampusNavigation,
   ]);
   const load = (next: WorkspaceShot) => {
+    cancelCampusNavigation();
     inspectionFocus.current = null;
     setAirflowOrigin(null);
     setReturningFromAirflow(false);
@@ -6418,6 +6501,11 @@ export function Workspace() {
         ).filter(([available]) => available)
       : [];
   const scenePath = getPath(state);
+  const upperPath = campusScope
+    ? campusPath(campusScope)
+    : state.level === "room"
+      ? campusPath(campusRoomId).slice(0, -1)
+      : [];
   return (
     <div
       className="mirage-workspace workspace-ui"
@@ -6426,6 +6514,7 @@ export function Workspace() {
       data-layer={layer}
       data-workspace-view={workspaceEntry.id}
       data-scene-level={state.level}
+      data-campus-scope={campusScope ?? undefined}
       data-selection={selected}
       data-time={state.time}
       data-playing={state.playing}
@@ -6444,19 +6533,48 @@ export function Workspace() {
         </a>
         <nav className="study-path" aria-label="空间路径">
           <div>
-            {scenePath.map((item, i) => (
-              <span key={item}>
-                {i > 0 && <i aria-hidden="true">/</i>}
+            {upperPath.map((node, index) => (
+              <span key={node.id}>
+                {index > 0 && <i aria-hidden="true">/</i>}
                 <button
                   aria-current={
-                    i === scenePath.length - 1 ? "location" : undefined
+                    node.id === campusScope ? "location" : undefined
                   }
-                  onClick={() => selectObject(item, true)}
+                  disabled={!campusScope && !ready}
+                  onClick={() => navigateCampus(node.id)}
                 >
-                  {entityById(item)?.name ?? item}
+                  {node.name}
                 </button>
               </span>
             ))}
+            {!campusScope &&
+              scenePath.map((item, i) => (
+                <span key={item}>
+                  {(i > 0 || upperPath.length > 0) && (
+                    <i aria-hidden="true">/</i>
+                  )}
+                  <button
+                    aria-current={
+                      i === scenePath.length - 1 ? "location" : undefined
+                    }
+                    ref={item === campusRoomId ? roomPathButton : undefined}
+                    onClick={() => {
+                      if (item === campusRoomId && cancelCampusNavigation())
+                        return;
+                      selectObject(item, true);
+                    }}
+                  >
+                    {entityById(item)?.name ?? item}
+                  </button>
+                </span>
+              ))}
+            <span className="campus-navigation-status" role="status">
+              {campusLoadStatus === "loading"
+                ? "正在载入园区空间…"
+                : campusLoadStatus === "failed"
+                  ? "园区载入失败，请刷新重试"
+                  : null}
+            </span>
           </div>
         </nav>
         <div className="study-clock" role="group" aria-label="模拟时钟">
@@ -6480,7 +6598,11 @@ export function Workspace() {
           <button
             ref={analysisOpener}
             className="study-clock-action"
-            onClick={analyze}
+            onClick={() => {
+              cancelCampusNavigation();
+              analyze();
+            }}
+            hidden={!!campusScope}
             aria-label="打开时间分析"
             aria-pressed={review.analysis}
             title="查看所选对象的曲线与事件"
@@ -6488,7 +6610,11 @@ export function Workspace() {
             分析
           </button>
         </div>
-        <details className="workspace-shots" ref={tourMenu}>
+        <details
+          className="workspace-shots"
+          ref={tourMenu}
+          hidden={!!campusScope}
+        >
           <summary>
             演示
             {tour.mode !== "manual" && (
@@ -6570,6 +6696,10 @@ export function Workspace() {
         </details>
       </header>
       <main
+        hidden={!!campusScope}
+        inert={!!campusScope}
+        onClickCapture={cancelCampusNavigation}
+        onChangeCapture={cancelCampusNavigation}
         className={`study-workspace ${nav ? "has-nav" : ""} ${inspector ? "has-inspector" : ""} ${review.analysis ? "has-analysis" : ""}`}
       >
         <aside
@@ -7254,7 +7384,7 @@ export function Workspace() {
               className={`study-resource-list ${roomResourceList && rows.length > 1 ? "is-room-browser" : ""} ${query.trim() || filter !== "all" ? "is-search" : ""}`}
               key={`${state.level}:${state.deviceId}`}
               onScroll={(event) => {
-                if (roomResourceList && nav)
+                if (roomResourceList && nav && !campusScope)
                   roomResourceScroll.current = event.currentTarget.scrollTop;
               }}
             >
@@ -7621,6 +7751,7 @@ export function Workspace() {
             </nav>
           </div>
           <ReviewScene
+            suspended={!!campusScope}
             captureTaskView={captureTaskView}
             taskReturn={
               (returningFromAirflow && airflowOrigin) ||
@@ -11357,6 +11488,13 @@ export function Workspace() {
           </aside>
         )}
       </main>
+      {CampusWorkspace && (
+        <CampusWorkspace
+          scopeId={campusScope}
+          readings={spatial.readings}
+          onEnter={navigateCampus}
+        />
+      )}
     </div>
   );
 }
