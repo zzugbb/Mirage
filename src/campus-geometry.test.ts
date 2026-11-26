@@ -5,6 +5,7 @@ import {
   campusById,
   campusChildren,
   campusFloorPlan,
+  campusSitePlan,
 } from "./campus-layout.ts";
 import { createCampusGeometry } from "./scene/campus-geometry.ts";
 
@@ -385,4 +386,97 @@ test("二层室内铺面由门口经过柜间再沿柜前连续铺开", () => {
       ({ serviceAisle }) => !serviceAisle,
     ),
   );
+});
+
+test("园区防撞柱避开步行入口，维护场坪的周转箱落在划线后方", () => {
+  const site = campusById("campus-01")!;
+  const { plan, marks, labelObstacles } = createCampusGeometry(
+    site,
+    campusChildren(site.id),
+  );
+  const building = marks.find(({ child }) => child.id === "building-a")!;
+  const access = new Box3().setFromObject(building.access!);
+  const posts = labelObstacles.filter(
+    (item): item is Mesh =>
+      item instanceof Mesh && item.name === "campus-entrance-bollard",
+  );
+  assert.equal(posts.length, 2);
+  const xSpans = posts.map((post) => new Box3().setFromObject(post));
+  assert.ok(xSpans.some((post) => post.max.x < access.min.x));
+  assert.ok(xSpans.some((post) => post.min.x > access.max.x));
+  assert.ok(
+    xSpans.every(
+      (post) => post.min.z > access.min.z && post.max.z < access.max.z,
+    ),
+  );
+  const yard = marks.find(({ child }) => child.id === "outdoor-yard")!;
+  const footprint = new Box3().setFromObject(yard.pick);
+  const { access: driveway } = campusSitePlan(site.id)!.zones.find(
+    ({ id }) => id === yard.child.id,
+  )!;
+  const crates = plan.getObjectsByProperty("name", "campus-yard-transit-crate");
+  assert.equal(crates.length, 2);
+  for (const crate of crates) {
+    assert.equal(crate.parent, yard.pick.parent);
+    const bounds = new Box3().setFromObject(crate);
+    assert.ok(
+      bounds.min.x >= footprint.min.x && bounds.max.x <= footprint.max.x,
+    );
+    assert.ok(bounds.min.z >= footprint.min.z);
+    assert.ok(bounds.max.z < driveway.center[1] - driveway.depth / 2);
+  }
+});
+
+test("巡检陈设在现有墙面和台面内，沿用原楼层与区域身份", () => {
+  const building = campusById("building-a")!;
+  const { plan, marks, arrangeFloors } = createCampusGeometry(
+    building,
+    campusChildren(building.id),
+  );
+  const low = marks.find(({ child }) => child.id === "floor-a-01")!.pick
+    .parent!;
+  const upper = marks.find(({ child }) => child.id === "floor-a-02")!;
+  const high = upper.pick.parent!;
+  const beam = plan.getObjectByName("building-rear-section-beam")!;
+  const shelf = high.getObjectByName("floor-power-inspection-shelf")!;
+  const aisle = high.getObjectByName("floor-service-aisle")!;
+  const top = low.getObjectByName("floor-staging-worktop")!;
+  const crates = low.getObjectsByProperty("name", "floor-staging-case");
+  assert.equal(crates.length, 2);
+  const topBounds = new Box3().setFromObject(top);
+  for (const crate of crates) {
+    assert.equal(crate.parent, top.parent);
+    const bounds = new Box3().setFromObject(crate);
+    assert.ok(Math.abs(bounds.min.y - topBounds.max.y) < 1e-6);
+    assert.ok(bounds.min.x > topBounds.min.x && bounds.max.x < topBounds.max.x);
+    assert.ok(bounds.min.z > topBounds.min.z && bounds.max.z < topBounds.max.z);
+  }
+  for (const level of [low, high]) {
+    const rail = new Box3().setFromObject(
+      level.getObjectByName("floor-corridor-wall-guard")!,
+    );
+    const corridor = new Box3().setFromObject(
+      level.getObjectByName("floor-corridor")!,
+    );
+    assert.ok(rail.max.z < corridor.min.z);
+  }
+  const shelfBounds = new Box3().setFromObject(shelf);
+  const passage = campusFloorPlan(upper.child.id)!.areas[0];
+  assert.ok(shelfBounds.min.x > passage.access.x + passage.doorway.width / 2);
+  for (const x of [shelfBounds.min.x, shelfBounds.max.x]) {
+    for (const z of [shelfBounds.min.z, shelfBounds.max.z]) {
+      const ray = new Raycaster(
+        new Vector3(x, shelfBounds.max.y, z),
+        new Vector3(0, -1, 0),
+      );
+      assert.equal(ray.intersectObject(aisle).length, 0);
+    }
+  }
+  assert.ok(new Box3().setFromObject(beam).max.y < upper.child.origin[1]);
+  arrangeFloors!(true);
+  plan.updateMatrixWorld(true);
+  assert.equal(beam.parent!.visible, false);
+  assert.ok(new Box3().setFromObject(shelf).min.y > shelfBounds.min.y);
+  arrangeFloors!(false);
+  assert.equal(beam.parent!.visible, true);
 });

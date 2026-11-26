@@ -637,16 +637,29 @@ function buildingEntrance(
     return [light, light, light, 255];
   });
   labelObstacles.push(access);
+  const postGeometry = new THREE.CylinderGeometry(0.059, 0.063, 0.9, 16);
+  const postFinish = new THREE.MeshStandardMaterial({
+    color: "#687876",
+    roughness: 0.54,
+    metalness: 0.3,
+  });
+  const postCollar = new THREE.CylinderGeometry(0.061, 0.061, 0.09, 16);
+  const collarFinish = new THREE.MeshStandardMaterial({
+    color: "#b0a27b",
+    roughness: 0.77,
+  });
   for (const side of [-1, 1]) {
-    const curb = slab(
-      (side * (width + edging)) / 2,
-      edging,
-      0,
-      pavingEnd,
-      "#aba798",
-      0.007,
-    );
-    labelObstacles.push(curb);
+    const x = (side * (width + edging)) / 2;
+    const curb = slab(x, edging, 0, pavingEnd, "#aba798", 0.007);
+    const z = roadDistance * 0.64;
+    const base = pavingHeight(z) + 0.006;
+    const post = new THREE.Mesh(postGeometry, postFinish);
+    post.name = "campus-entrance-bollard";
+    post.position.set(x, base + 0.45, z);
+    const collar = new THREE.Mesh(postCollar, collarFinish);
+    collar.position.set(x, base + 0.74, z);
+    portal.add(post, collar);
+    labelObstacles.push(curb, post);
   }
   slab(0, width, 0, 0.175, "#96988b", 0.009);
 
@@ -1255,6 +1268,51 @@ function backupHousing(
   }
 }
 
+const yardLevel = 0.021;
+
+function yardTransitCrate(
+  group: THREE.Group,
+  x: number,
+  z: number,
+  width: number,
+  depth: number,
+  height: number,
+) {
+  const body = box(
+    group,
+    [width - 0.105, height - 0.13, depth - 0.105],
+    [x, yardLevel + (height + 0.13) / 2, z],
+    "#858275",
+  );
+  body.name = "campus-yard-transit-crate";
+  for (const side of [-1, 1]) {
+    const edgeX = x + (side * (width - 0.078)) / 2;
+    box(group, [0.078, 0.13, depth], [edgeX, yardLevel + 0.065, z], "#616a61");
+    for (const end of [-1, 1]) {
+      const edgeZ = z + (end * (depth - 0.078)) / 2;
+      box(
+        group,
+        [0.078, height, 0.078],
+        [edgeX, yardLevel + height / 2, edgeZ],
+        "#68716b",
+      );
+    }
+    box(
+      group,
+      [width - 0.157, 0.12, 0.045],
+      [x, yardLevel + height * 0.43, z + (side * (depth - 0.062)) / 2],
+      "#6f756c",
+    );
+  }
+  const lid = box(
+    group,
+    [width, 0.084, depth],
+    [x, yardLevel + height + 0.042, z],
+    "#949287",
+  );
+  return [body, lid];
+}
+
 function outdoorEquipment(
   group: THREE.Group,
   kind: "heat" | "backup" | "yard",
@@ -1308,6 +1366,15 @@ function outdoorEquipment(
       [0, 0.08, -depth / 2 + 0.24],
       "#77848b",
     );
+    // 周转箱沿背边摆放，给接入道口、周转标线和场坪中部留空。
+    for (const [x, span, size, height] of [
+      [width * 0.12, 1.9, 1.44, 1.06],
+      [width * 0.34, 1.62, 1.3, 0.88],
+    ]) {
+      const z = -depth / 2 + 1.64;
+      contactShadow(group, shadow, span + 0.22, size + 0.29, [x, 0.023, z]);
+      labelObstacles.push(...yardTransitCrate(group, x, z, span, size, height));
+    }
   }
 }
 
@@ -1719,14 +1786,14 @@ function floorStair(
 function buildingSection(
   plan: THREE.Group,
   building: CampusNode,
-  stories: number,
+  floors: CampusNode[],
 ) {
   const section = new THREE.Group();
   section.name = "building-section";
   plan.add(section);
   const [width, height, depth] = building.size;
   const entrance = campusBuildingEntrance(building.id);
-  facadeElevations(section, width, height, depth, stories, entrance);
+  facadeElevations(section, width, height, depth, floors.length, entrance);
   box(
     section,
     [width - 0.14, 0.638, 0.24],
@@ -1773,6 +1840,17 @@ function buildingSection(
         "#a19d8f",
       );
   }
+  // 保留后跨的梁柱连接，剖开近侧后仍能读出两层的结构关系。
+  for (const level of floors) {
+    const elevation = level.origin[1];
+    if (elevation <= 0) continue;
+    box(
+      section,
+      [width - 0.86, 0.34, 0.42],
+      [0, elevation - 0.46, -depth / 2 + 0.62],
+      "#969588",
+    ).name = "building-rear-section-beam";
+  }
   box(
     section,
     [width - 0.85, 0.38, 0.44],
@@ -1818,6 +1896,12 @@ function floorEnvelope(
   );
   box(plan, [width - 0.42, 0.14, 0.035], [0, 0.1, back + 0.087], "#7f8a8e");
   box(plan, [width - 0.38, 0.046, 0.194], [0, 1.293, back], section);
+  box(
+    plan,
+    [width - 0.72, 0.132, 0.069],
+    [0, 0.54, back + floorRearWallThickness / 2 - 0.004],
+    "#78858a",
+  ).name = "floor-corridor-wall-guard";
   for (const side of [-1, 1]) {
     const x = side * (width / 2 - 0.1);
     if (front)
@@ -1842,6 +1926,29 @@ function floorEnvelope(
         section,
       );
   }
+}
+
+function floorDoorLight(
+  group: THREE.Group,
+  x: number,
+  y: number,
+  wallFace: number,
+  width: number,
+) {
+  const body = box(
+    group,
+    [width, 0.13, 0.126],
+    [x, y, wallFace - 0.057],
+    "#596c72",
+  );
+  body.name = "floor-corridor-door-light";
+  box(
+    group,
+    [width - 0.115, 0.052, 0.019],
+    [x, y - 0.022, wallFace - 0.121],
+    "#c8c8b5",
+  );
+  return body;
 }
 
 function floorPlaque(
@@ -2156,6 +2263,34 @@ function floorCableTray(
   return rails;
 }
 
+function floorPowerInspectionShelf(
+  group: THREE.Group,
+  x: number,
+  wall: number,
+) {
+  const width = 2.3;
+  const depth = 0.59;
+  const top = box(
+    group,
+    [width, 0.065, depth],
+    [x, 0.975, wall + depth / 2 - 0.01],
+    "#7e8884",
+  );
+  top.name = "floor-power-inspection-shelf";
+  for (const side of [-1, 1]) {
+    const bracketX = x + side * (width / 2 - 0.23);
+    box(group, [0.12, 0.37, 0.045], [bracketX, 0.746, wall + 0.019], "#647173");
+    const brace = box(
+      group,
+      [0.055, 0.051, 0.52],
+      [bracketX, 0.792, wall + 0.23],
+      "#657173",
+    );
+    brace.rotation.x = -0.68;
+  }
+  return top;
+}
+
 function floorBench(
   group: THREE.Group,
   x: number,
@@ -2171,6 +2306,63 @@ function floorBench(
     [x, height + 0.0065, z],
     staging ? "#939084" : "#655f52",
   );
+  worktop.name = staging ? "floor-staging-worktop" : "floor-repair-worktop";
+  const surface = height + 0.05;
+  const details = [worktop];
+  if (staging) {
+    for (const [offset, span, tall] of [
+      [-0.91, 0.94, 0.43],
+      [0.28, 0.73, 0.32],
+    ]) {
+      const body = box(
+        group,
+        [span, tall, depth * 0.7],
+        [x + offset, surface + tall / 2, z],
+        "#77796b",
+      );
+      body.name = "floor-staging-case";
+      const lid = box(
+        group,
+        [span + 0.024, 0.045, depth * 0.7 + 0.024],
+        [x + offset, surface + tall + 0.0225, z],
+        "#686e66",
+      );
+      for (const end of [-1, 1])
+        box(
+          group,
+          [0.055, 0.11, 0.035],
+          [
+            x + offset + (end * span) / 3,
+            surface + tall - 0.035,
+            z + depth * 0.355,
+          ],
+          "#a3a39a",
+        );
+      details.push(body, lid);
+    }
+  } else {
+    box(
+      group,
+      [width * 0.76, 0.025, depth * 0.38],
+      [x, surface + 0.0125, z + depth * 0.16],
+      "#647872",
+    ).name = "floor-repair-mat";
+    const organizer = box(
+      group,
+      [width * 0.66, 0.23, depth * 0.16],
+      [x + width * 0.08, surface + 0.115, z - depth * 0.24],
+      "#626f71",
+    );
+    organizer.name = "floor-repair-organizer";
+    for (const offset of [-0.23, 0, 0.23])
+      box(
+        group,
+        [0.024, 0.066, depth * 0.15],
+        [x + width * (0.08 + offset), surface + 0.247, z - depth * 0.24],
+        "#778584",
+      );
+    details.push(organizer);
+  }
   const legs = height - 0.087;
   for (const side of [-1, 1])
     for (const end of [-1, 1])
@@ -2213,7 +2405,7 @@ function floorBench(
         "#a4a69b",
       );
   }
-  return worktop;
+  return details;
 }
 
 const floorCabinets = {
@@ -2735,13 +2927,10 @@ export function createCampusGeometry(
     front.group.name = "upper-floor-section-front";
     plan.add(front.group);
   }
-  const section = building
-    ? buildingSection(plan, scope, children.length)
-    : null;
+  const section = building ? buildingSection(plan, scope, children) : null;
   const sitePlan = campusSitePlan(scope.id);
   const labelObstacles: CampusLabelObstacle[] = [];
   const siteAccess = new Map<string, ReturnType<typeof siteSurface>>();
-  const yardLevel = 0.021;
   const pavingThickness = 0.09;
   const outdoorPaving = site
     ? {
@@ -3095,6 +3284,15 @@ export function createCampusGeometry(
           interiorWallColor,
         );
         floorDoor(group, doorway, room);
+        labelObstacles.push(
+          floorDoorLight(
+            group,
+            doorway.x,
+            (openingTop + wallTop) / 2 + 0.03,
+            wallZ - wallDepth / 2,
+            doorway.width * 0.57,
+          ),
+        );
         const plaqueWidth = 1.48;
         const jamb = doorway.width / 2 + 0.18 + plaqueWidth / 2;
         const preferredSide = tray && tray.center[0] > doorway.x ? -1 : 1;
@@ -3114,10 +3312,25 @@ export function createCampusGeometry(
               side === 1 ? "wall" : "reverse",
             ),
           );
-        if (tray)
+        if (tray) {
+          const inspectionX = w / 2 - 3.21;
           labelObstacles.push(
             ...floorCableTray(group, tray, doorway.z + 0.095),
+            floorPowerInspectionShelf(
+              group,
+              inspectionX,
+              wallZ + wallDepth / 2,
+            ),
+            floorPlaque(
+              group,
+              "floor-power-layout-holder",
+              "柜列布置",
+              [inspectionX, 1.53, wallZ + wallDepth / 2 + 0.011],
+              [0.88, 0.59],
+              "wall",
+            ),
           );
+        }
         const { fromZ, x } = area.access;
         access = floorApproach(
           plan,
@@ -3187,19 +3400,22 @@ export function createCampusGeometry(
                 0.054,
                 z + 0.054,
               ]);
-            labelObstacles.push(
-              furniture
-                ? floorBench(
-                    group,
-                    x,
-                    z,
-                    pitch - 0.07,
-                    depth,
-                    height,
-                    kind === "staging",
-                  )
-                : floorCabinet(group, kind, x, z, pitch - 0.07, depth, height),
-            );
+            if (furniture)
+              labelObstacles.push(
+                ...floorBench(
+                  group,
+                  x,
+                  z,
+                  pitch - 0.07,
+                  depth,
+                  height,
+                  kind === "staging",
+                ),
+              );
+            else
+              labelObstacles.push(
+                floorCabinet(group, kind, x, z, pitch - 0.07, depth, height),
+              );
           }
         }
       } else {
