@@ -186,18 +186,24 @@ function siteSurface(
   return box(plan, [width, 0.026, depth], [center[0], y, center[1]], color);
 }
 
+type CampusLabelObstacle =
+  THREE.Mesh | { frame: THREE.Group; bounds: THREE.Box3 };
+
 function outdoorEquipment(
   group: THREE.Group,
   kind: "heat" | "backup" | "yard",
   width: number,
   depth: number,
   shadow: THREE.MeshBasicMaterial,
+  labelObstacles: CampusLabelObstacle[],
 ) {
   if (kind === "heat") {
     for (const z of [-2.4, 2.4]) {
       contactShadow(group, shadow, 4.55, 3.65, [-0.51, 0.024, z + 0.12]);
-      box(group, [3.9, 0.12, 2.9], [-0.6, 0.08, z], "#8d9ca5");
-      box(group, [3.5, 1.65, 2.45], [-0.6, 0.95, z], "#82919c");
+      labelObstacles.push(
+        box(group, [3.9, 0.12, 2.9], [-0.6, 0.08, z], "#8d9ca5"),
+        box(group, [3.5, 1.65, 2.45], [-0.6, 0.95, z], "#82919c"),
+      );
       box(group, [0.06, 1.08, 2.14], [1.165, 0.99, z], "#303f49");
       for (let line = -4; line <= 4; line++)
         box(
@@ -213,6 +219,7 @@ function outdoorEquipment(
         );
         grille.position.set(x, 1.82, z);
         group.add(grille);
+        labelObstacles.push(grille);
         const guard = new THREE.MeshStandardMaterial({
           color: "#738b95",
           roughness: 0.52,
@@ -233,8 +240,10 @@ function outdoorEquipment(
     }
   } else if (kind === "backup") {
     contactShadow(group, shadow, 6.55, 4.2, [-0.16, 0.024, 0.13]);
-    box(group, [5.8, 0.18, 3.4], [-0.26, 0.12, 0], "#7d8991");
-    box(group, [5.3, 2.24, 2.75], [-0.26, 1.3, 0], "#7c8585");
+    labelObstacles.push(
+      box(group, [5.8, 0.18, 3.4], [-0.26, 0.12, 0], "#7d8991"),
+      box(group, [5.3, 2.24, 2.75], [-0.26, 1.3, 0], "#7c8585"),
+    );
     const end = 2.4;
     box(group, [0.06, 1.35, 1.8], [end, 1.33, 0], "#3d4a50");
     for (let i = -3; i <= 3; i++)
@@ -271,6 +280,7 @@ export function createCampusGeometry(
   const building = scope.kind === "building";
   const floorPlan = campusFloorPlan(scope.id);
   const sitePlan = campusSitePlan(scope.id);
+  const labelObstacles: CampusLabelObstacle[] = [];
   const siteAccess = new Map<string, ReturnType<typeof siteSurface>>();
   const slab = box(
     plan,
@@ -312,6 +322,7 @@ export function createCampusGeometry(
       );
       if (buildingId) siteAccess.set(buildingId, entranceSurface);
     }
+    labelObstacles.push(...siteAccess.values());
     const treeShadow = contactMaterial(true);
     for (const [x, z] of [
       [-26.7, -14.1],
@@ -367,11 +378,13 @@ export function createCampusGeometry(
     const entrance = scope.parent && campusBuildingEntrance(scope.parent);
     if (scope.origin[1] === 0 && entrance) {
       const [edge, , z] = entrance.point;
-      box(
-        plan,
-        [0.64, 0.04, entrance.width],
-        [edge + 0.32, 0.023, z],
-        "#73999d",
+      labelObstacles.push(
+        box(
+          plan,
+          [0.64, 0.04, entrance.width],
+          [edge + 0.32, 0.023, z],
+          "#73999d",
+        ),
       );
     }
   }
@@ -393,12 +406,16 @@ export function createCampusGeometry(
         "#495f68",
         0.008,
       );
-      outdoorEquipment(group, zone.kind, w, d, shadow);
+      outdoorEquipment(group, zone.kind, w, d, shadow, labelObstacles);
     } else if (site || building) {
       if (building) {
-        group.add(
-          createCampusGeometry(child, campusChildren(child.id), shadow).plan,
+        const floor = createCampusGeometry(
+          child,
+          campusChildren(child.id),
+          shadow,
         );
+        group.add(floor.plan);
+        labelObstacles.push(...floor.labelObstacles);
         box(group, [w, 0.4, d], [0, -0.44, 0], "#3a5564");
         pick = box(group, [w, 0.58, d], [0, -0.24, 0], "#6ec9d1");
       } else {
@@ -406,11 +423,13 @@ export function createCampusGeometry(
         facade(group, w, h, d, campusChildren(child.id).length);
         const entrance = campusBuildingEntrance(child.id);
         if (entrance)
-          box(
-            group,
-            [0.07, 2.6, entrance.width],
-            [entrance.point[0] - 0.04, 1.3, entrance.point[2]],
-            "#203a47",
+          labelObstacles.push(
+            box(
+              group,
+              [0.07, 2.6, entrance.width],
+              [entrance.point[0] - 0.04, 1.3, entrance.point[2]],
+              "#203a47",
+            ),
           );
         for (const x of [-9, 3, 9])
           box(group, [4.2, 0.52, 2.1], [x, h + 0.46, -4], "#607689");
@@ -450,6 +469,13 @@ export function createCampusGeometry(
           [x, 0.065, (fromZ + toZ + 0.2) / 2],
           "#517780",
         );
+        labelObstacles.push(access, {
+          frame: group,
+          bounds: new THREE.Box3(
+            new THREE.Vector3(sides[1], 0, doorway.z - 0.08),
+            new THREE.Vector3(sides[2], 0.6, doorway.z + 0.08),
+          ),
+        });
         for (const item of equipment) {
           const height = Math.min(
             item.height,
@@ -472,11 +498,13 @@ export function createCampusGeometry(
               0.054,
               z + 0.06,
             ]);
-            box(
-              group,
-              [pitch - 0.07, height, item.depth],
-              [x, height / 2 + 0.05, z],
-              color,
+            labelObstacles.push(
+              box(
+                group,
+                [pitch - 0.07, height, item.depth],
+                [x, height / 2 + 0.05, z],
+                color,
+              ),
             );
             if (item.kind !== "bench")
               box(
@@ -550,5 +578,5 @@ export function createCampusGeometry(
       ),
     };
   });
-  return { plan, marks };
+  return { plan, marks, labelObstacles };
 }

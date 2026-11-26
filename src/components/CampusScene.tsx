@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { placeFlowLabel } from "../airflow-label-layout";
 import {
   campusChildren,
   type CampusNode,
@@ -81,12 +82,17 @@ export function CampusScene({
     const fill = new THREE.DirectionalLight("#a5bfda", 0.56);
     fill.position.set(24, 12, -17);
     scene.add(fill);
-    const { plan, marks } = createCampusGeometry(
+    const { plan, marks, labelObstacles } = createCampusGeometry(
       scope,
       campusChildren(scope.id),
     );
     scene.add(plan);
     const planBounds = new THREE.Box3().setFromObject(plan);
+    const obstacleBounds = labelObstacles.map((obstacle) =>
+      obstacle instanceof THREE.Mesh
+        ? new THREE.Box3().setFromObject(obstacle)
+        : obstacle.bounds.clone().applyMatrix4(obstacle.frame.matrixWorld),
+    );
     const grid = new THREE.GridHelper(200, 50, "#385266", "#2a4355");
     grid.material.transparent = true;
     grid.material.opacity = 0.18;
@@ -143,6 +149,61 @@ export function CampusScene({
       boxes.set(node, { width: node.offsetWidth, height: node.offsetHeight });
       node.hidden = true;
     }
+    const viewCorners = Array.from({ length: 8 }, () => new THREE.Vector3());
+    const screenCorner = new THREE.Vector3();
+    const projectLabelObstacles = (width: number, height: number) => {
+      const nearZ = -camera.near;
+      return obstacleBounds.flatMap(({ min, max }) => {
+        let left = Infinity;
+        let right = -Infinity;
+        let top = Infinity;
+        let bottom = -Infinity;
+        let inFront = 0;
+        const include = (point: THREE.Vector3) => {
+          const p = point.applyMatrix4(camera.projectionMatrix);
+          const x = ((p.x + 1) * width) / 2;
+          const y = ((1 - p.y) * height) / 2;
+          left = Math.min(left, x);
+          right = Math.max(right, x);
+          top = Math.min(top, y);
+          bottom = Math.max(bottom, y);
+        };
+        for (const [i, corner] of viewCorners.entries()) {
+          corner
+            .set(
+              i & 1 ? max.x : min.x,
+              i & 2 ? max.y : min.y,
+              i & 4 ? max.z : min.z,
+            )
+            .applyMatrix4(camera.matrixWorldInverse);
+          if (corner.z <= nearZ) {
+            inFront++;
+            include(screenCorner.copy(corner));
+          }
+        }
+        if (!inFront) return [];
+        // 近裁面切过设备时，只投影可见一侧及其在裁面上的边。
+        if (inFront < viewCorners.length) {
+          for (const edge of [1, 2, 4]) {
+            for (const [i, start] of viewCorners.entries()) {
+              if (i & edge) continue;
+              const end = viewCorners[i | edge];
+              const startVisible = start.z <= nearZ;
+              const endVisible = end.z <= nearZ;
+              if (startVisible === endVisible) continue;
+              include(
+                screenCorner
+                  .copy(start)
+                  .lerp(end, (nearZ - start.z) / (end.z - start.z)),
+              );
+            }
+          }
+        }
+        return left < width && right > 0 && top < height && bottom > 0
+          ? [{ left, right, top, bottom }]
+          : [];
+      });
+    };
     const render = () => {
       renderer.render(scene, camera);
       const rect = host.getBoundingClientRect();
@@ -164,6 +225,13 @@ export function CampusScene({
             bottom: box.bottom - rect.top,
           };
         });
+      occupied.push(...projectLabelObstacles(rect.width, rect.height));
+      const viewport = {
+        left: 0,
+        top: 0,
+        right: rect.width,
+        bottom: rect.height,
+      };
       const active = marks.find(({ child }) => child.id === selected);
       for (const mark of active
         ? [active, ...marks.filter((item) => item !== active)]
@@ -186,29 +254,58 @@ export function CampusScene({
           offset.multiplyScalar(
             (width * Math.abs(offset.x) + height * Math.abs(offset.y)) / 2 + 4,
           );
-          node.style.translate = `${offset.x}px ${offset.y}px`;
         }
-        const label = {
+        const preferred = {
           left: x + offset.x - width / 2,
           right: x + offset.x + width / 2,
           top: y + offset.y - height * labelLift,
           bottom: y + offset.y + height * (1 - labelLift),
         };
-        node.hidden =
-          Math.abs(projected.z) > 1 ||
-          label.left < 8 ||
-          label.top < 8 ||
-          label.right > rect.width - 8 ||
-          label.bottom > rect.height - 8 ||
-          occupied.some(
+        let label: typeof preferred | null = null;
+        if (
+          Math.abs(projected.z) <= 1 &&
+          x >= 0 &&
+          x <= rect.width &&
+          y >= 0 &&
+          y <= rect.height &&
+          !blocked(mark.child.id, mark.point)
+        ) {
+          const collision = occupied.find(
             (box) =>
-              label.left < box.right + 4 &&
-              label.right > box.left - 4 &&
-              label.top < box.bottom + 4 &&
-              label.bottom > box.top - 4,
-          ) ||
-          blocked(mark.child.id, mark.point);
-        if (!node.hidden) occupied.push(label);
+              preferred.left < box.right + 4 &&
+              preferred.right > box.left - 4 &&
+              preferred.top < box.bottom + 4 &&
+              preferred.bottom > box.top - 4,
+          );
+          if (
+            !collision &&
+            preferred.left >= 8 &&
+            preferred.top >= 8 &&
+            preferred.right <= rect.width - 8 &&
+            preferred.bottom <= rect.height - 8
+          ) {
+            label = preferred;
+          } else {
+            const args = [
+              x + offset.x,
+              preferred.top + height / 2,
+              width,
+              height,
+              viewport,
+              occupied,
+              offset.x < 0,
+            ] as const;
+            label =
+              placeFlowLabel(...args) ??
+              (collision && placeFlowLabel(...args, collision)) ??
+              null;
+          }
+        }
+        node.hidden = !label;
+        if (label) {
+          occupied.push(label);
+          node.style.translate = `${label.left - (x - width / 2)}px ${label.top - (y - height * labelLift)}px`;
+        }
         node.style.left = `${(projected.x + 1) * 50}%`;
         node.style.top = `${(1 - projected.y) * 50}%`;
       }
