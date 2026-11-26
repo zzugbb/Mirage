@@ -35,6 +35,7 @@ export function CampusWorkspace({
   const [panel, setPanel] = useState<"resources" | "details">("resources");
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const previousScope = useRef<string | null>(null);
+  const focusFrame = useRef(0);
   const cameras = useRef(new Map<string, CampusCamera>());
   const scrollPositions = useRef(new Map<string, number>());
   const root = useRef<HTMLElement>(null);
@@ -69,11 +70,11 @@ export function CampusWorkspace({
           `[data-campus-resource="${fromChild.id}"]`,
         )
       : null;
-    const frame = requestAnimationFrame(() => {
+    focusFrame.current = requestAnimationFrame(() => {
       row?.scrollIntoView({ block: "nearest" });
       (row ?? resourcesHeading.current)?.focus({ preventScroll: true });
     });
-    return () => cancelAnimationFrame(frame);
+    return () => cancelAnimationFrame(focusFrame.current);
   }, [scopeId]);
 
   useLayoutEffect(() => {
@@ -179,8 +180,9 @@ export function CampusWorkspace({
     target.kind === "floor" ? campusChildren(target.id) : [];
   const choosePanel = (next: "resources" | "details") => {
     const origin = document.activeElement;
+    cancelAnimationFrame(focusFrame.current);
     setPanel(next);
-    requestAnimationFrame(() => {
+    focusFrame.current = requestAnimationFrame(() => {
       if (
         document.activeElement !== origin &&
         document.activeElement !== document.body
