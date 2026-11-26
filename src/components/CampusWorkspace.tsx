@@ -35,7 +35,8 @@ export function CampusWorkspace({
   const [panel, setPanel] = useState<"resources" | "details">("resources");
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const previousScope = useRef<string | null>(null);
-  const focusFrame = useRef(0);
+  const panelFocusFrame = useRef(0);
+  const scopeFocus = useRef<{ row: HTMLButtonElement | null } | null>(null);
   const cameras = useRef(new Map<string, CampusCamera>());
   const scrollPositions = useRef(new Map<string, number>());
   const root = useRef<HTMLElement>(null);
@@ -70,11 +71,11 @@ export function CampusWorkspace({
           `[data-campus-resource="${fromChild.id}"]`,
         )
       : null;
-    focusFrame.current = requestAnimationFrame(() => {
-      row?.scrollIntoView({ block: "nearest" });
-      (row ?? resourcesHeading.current)?.focus({ preventScroll: true });
-    });
-    return () => cancelAnimationFrame(focusFrame.current);
+    scopeFocus.current = { row: row ?? null };
+    return () => {
+      scopeFocus.current = null;
+      cancelAnimationFrame(panelFocusFrame.current);
+    };
   }, [scopeId]);
 
   useLayoutEffect(() => {
@@ -94,6 +95,17 @@ export function CampusWorkspace({
       return () => node.removeEventListener("scroll", remember);
     });
     return () => cleanup.forEach((remove) => remove?.());
+  }, [scopeId, targetId, panel]);
+
+  useLayoutEffect(() => {
+    const pending = scopeFocus.current;
+    if (!pending || panel !== "resources") return;
+    const { row } = pending;
+    if (row && row.dataset.campusResource !== targetId) return;
+    scopeFocus.current = null;
+    // 等资源栏及原选中项就绪，在下一次按键前交还焦点。
+    row?.scrollIntoView({ block: "nearest" });
+    (row ?? resourcesHeading.current)?.focus({ preventScroll: true });
   }, [scopeId, targetId, panel]);
 
   useLayoutEffect(() => {
@@ -180,9 +192,9 @@ export function CampusWorkspace({
     target.kind === "floor" ? campusChildren(target.id) : [];
   const choosePanel = (next: "resources" | "details") => {
     const origin = document.activeElement;
-    cancelAnimationFrame(focusFrame.current);
+    cancelAnimationFrame(panelFocusFrame.current);
     setPanel(next);
-    focusFrame.current = requestAnimationFrame(() => {
+    panelFocusFrame.current = requestAnimationFrame(() => {
       if (
         document.activeElement !== origin &&
         document.activeElement !== document.body
