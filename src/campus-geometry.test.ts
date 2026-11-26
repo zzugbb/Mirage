@@ -1,6 +1,14 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { Box3, InstancedMesh, Mesh, Raycaster, Vector3 } from "three";
+import {
+  Box3,
+  InstancedMesh,
+  Mesh,
+  MeshStandardMaterial,
+  Raycaster,
+  Vector3,
+  type BufferGeometry,
+} from "three";
 import {
   campusById,
   campusChildren,
@@ -212,6 +220,49 @@ test("楼层室内地坪共用灰底和分格，门洞接入面顺接走廊与�
   }
 });
 
+test("外露楼板各块的混凝土分缝取同一坐标，只用于顶面", () => {
+  const building = campusById("building-a")!;
+  const { plan, arrangeFloors } = createCampusGeometry(
+    building,
+    campusChildren(building.id),
+  );
+  const decks = plan
+    .getObjectsByProperty("name", "floor-deck")
+    .filter(
+      (deck): deck is Mesh<BufferGeometry, MeshStandardMaterial[]> =>
+        deck instanceof Mesh && Array.isArray(deck.material),
+    );
+  assert.ok(
+    decks.some((deck) => deck.parent?.name === "upper-floor-section-front"),
+  );
+  arrangeFloors!(true);
+  plan.updateMatrixWorld(true);
+  for (const deck of decks) {
+    const { position, normal, uv } = deck.geometry.attributes;
+    const bounds = new Box3().setFromObject(deck);
+    const center = bounds.getCenter(new Vector3());
+    const top = new Raycaster(
+      new Vector3(center.x, bounds.max.y + 0.4, center.z),
+      new Vector3(0, -1, 0),
+    ).intersectObject(deck)[0];
+    const side = new Raycaster(
+      new Vector3(center.x, center.y, bounds.max.z + 0.4),
+      new Vector3(0, 0, -1),
+    ).intersectObject(deck)[0];
+    assert.equal(top.face?.materialIndex, 1);
+    assert.equal(side.face?.materialIndex, 0);
+    assert.notEqual(deck.material[0].map, deck.material[1].map);
+    for (let i = 0; i < position.count; i++) {
+      if (normal.getY(i) < 0.5) continue;
+      const point = deck.localToWorld(
+        new Vector3().fromBufferAttribute(position, i),
+      );
+      assert.ok(Math.abs(uv.getX(i) * 8 - point.x) < 1e-5);
+      assert.ok(Math.abs(uv.getY(i) * 8 + point.z) < 1e-5);
+    }
+  }
+});
+
 test("两层导向贴靠实体，运维陈设与供配电桥架避开登记入口", () => {
   for (const id of ["floor-a-01", "floor-a-02"]) {
     const floor = campusById(id)!;
@@ -388,7 +439,7 @@ test("二层室内铺面由门口经过柜间再沿柜前连续铺开", () => {
   );
 });
 
-test("园区防撞柱避开步行入口，维护场坪的周转箱落在划线后方", () => {
+test("园区护柱避开步行入口，场坪泊位向道口开放且周转箱留在道口外", () => {
   const site = campusById("campus-01")!;
   const { plan, marks, labelObstacles } = createCampusGeometry(
     site,
@@ -414,6 +465,19 @@ test("园区防撞柱避开步行入口，维护场坪的周转箱落在划线�
   const { access: driveway } = campusSitePlan(site.id)!.zones.find(
     ({ id }) => id === yard.child.id,
   )!;
+  const stop = new Box3().setFromObject(
+    plan.getObjectByName("campus-yard-bay-stop")!,
+  );
+  const lines = plan.getObjectsByProperty("name", "campus-yard-bay-line");
+  assert.equal(lines.length, 3);
+  assert.ok(driveway.center[0] < footprint.min.x);
+  for (const line of lines) {
+    const bounds = new Box3().setFromObject(line);
+    assert.ok(bounds.min.x > footprint.min.x);
+    assert.ok(Math.abs(bounds.max.x - stop.min.x) < 1e-6);
+    assert.ok(bounds.min.z > driveway.center[1] - driveway.depth / 2);
+    assert.ok(bounds.max.z < driveway.center[1] + driveway.depth / 2);
+  }
   const crates = plan.getObjectsByProperty("name", "campus-yard-transit-crate");
   assert.equal(crates.length, 2);
   for (const crate of crates) {

@@ -728,6 +728,7 @@ function pavementPaint(
   mark.rotation.x = -Math.PI / 2;
   mark.position.set(...center);
   parent.add(mark);
+  return mark;
 }
 
 function siteLandscape(plan: THREE.Group) {
@@ -1315,13 +1316,13 @@ function yardTransitCrate(
 
 function outdoorEquipment(
   group: THREE.Group,
-  kind: "heat" | "backup" | "yard",
+  zone: NonNullable<ReturnType<typeof campusSitePlan>>["zones"][number],
   width: number,
   depth: number,
   shadow: THREE.MeshBasicMaterial,
   labelObstacles: CampusLabelObstacle[],
 ) {
-  if (kind === "heat") {
+  if (zone.kind === "heat") {
     for (const z of [-2.4, 2.4]) {
       contactShadow(group, shadow, 4.55, 3.65, [-0.51, 0.024, z + 0.12]);
       labelObstacles.push(
@@ -1329,7 +1330,7 @@ function outdoorEquipment(
       );
       coolingHousing(group, z, labelObstacles);
     }
-  } else if (kind === "backup") {
+  } else if (zone.kind === "backup") {
     contactShadow(group, shadow, 6.55, 4.2, [-0.16, 0.024, 0.13]);
     labelObstacles.push(
       outdoorPlinth(group, [5.8, 0.19, 3.4], [-0.26, 0.115, 0]),
@@ -1343,23 +1344,28 @@ function outdoorEquipment(
       polygonOffsetFactor: -1,
       polygonOffsetUnits: -2,
     });
-    const lineStart = 0.35 - depth * 0.29;
-    const lineEnd = depth * 0.315 - 0.04;
-    for (const x of [-width * 0.32, 0, width * 0.32])
+    const towardRoad = Math.sign(zone.access.center[0] - group.position.x);
+    const openEnd = towardRoad * width * 0.32;
+    const closedEnd = -towardRoad * width * 0.36;
+    const bayWidth = zone.access.depth / 2 - 0.08;
+    const stripe = 0.08;
+    const stripeY = yardLevel + 0.0008;
+    // 开口朝向接入道口，两条泊位和道路使用同一通行轴线。
+    for (const z of [-bayWidth, 0, bayWidth])
       pavementPaint(
         group,
-        [x, 0.0218, (lineStart + lineEnd) / 2],
-        0.08,
-        lineEnd - lineStart,
+        [(openEnd + closedEnd) / 2, stripeY, z],
+        Math.abs(closedEnd - openEnd) - stripe,
+        stripe,
         paint,
-      );
+      ).name = "campus-yard-bay-line";
     pavementPaint(
       group,
-      [0, 0.0218, depth * 0.315],
-      width * 0.64 + 0.08,
-      0.08,
+      [closedEnd, stripeY, 0],
+      stripe,
+      bayWidth * 2 + stripe,
       paint,
-    );
+    ).name = "campus-yard-bay-stop";
     box(
       group,
       [width * 0.84, 0.14, 0.14],
@@ -1448,11 +1454,24 @@ function floorFinishes() {
   return { map: createRoomFloorMap(8, 8, 0.014), roughness: 0.98 };
 }
 
-function floorConcreteFinish() {
-  const map = surfaceTexture((u, v, grain) => {
-    const shade = 232 + (concreteSurface(u, v, grain) - 232) * 0.43;
-    return [shade, shade, shade, 255];
-  });
+function floorConcreteFinish(jointed = false) {
+  const size = jointed ? 512 : 128;
+  const map = surfaceTexture(
+    (u, v, grain) => {
+      let shade = 232 + (concreteSurface(u, v, grain) - 232) * 0.43;
+      if (jointed) {
+        // 楼板顶面的 UV 以 8 米为周期，保留 4 米一道的细缝。
+        const joint = Math.min(
+          Math.abs(u * 2 - Math.round(u * 2)),
+          Math.abs(v * 2 - Math.round(v * 2)),
+        );
+        shade -= 31 * (1 - THREE.MathUtils.smoothstep(joint, 0.0035, 0.0105));
+      }
+      return [shade, shade, shade, 255];
+    },
+    size,
+    size,
+  );
   map.wrapS = map.wrapT = THREE.RepeatWrapping;
   return { map, roughness: 0.96 };
 }
@@ -1542,7 +1561,13 @@ function floorDeck(
   stair?: FloorStair,
   front?: FloorFront,
   finish?: ReturnType<typeof floorFinishes>,
+  topMap?: THREE.Texture,
 ) {
+  const finishParams = { color, roughness: 0.85, ...finish };
+  const body = new THREE.MeshStandardMaterial(finishParams);
+  const materials = topMap
+    ? [body, new THREE.MeshStandardMaterial({ ...finishParams, map: topMap })]
+    : body;
   const place = (
     x1: number,
     x2: number,
@@ -1550,13 +1575,19 @@ function floorDeck(
     z2: number,
     frame = parent,
   ) => {
-    const deck = box(
-      frame,
-      [x2 - x1, thickness, z2 - z1],
-      [(x1 + x2) / 2, y, (z1 + z2) / 2],
-      color,
-      finish,
-    );
+    const geometry = new THREE.BoxGeometry(x2 - x1, thickness, z2 - z1);
+    if (topMap) {
+      // BoxGeometry 的第三组为 +Y 顶面，其他面沿用断面材质。
+      const { start, count } = geometry.groups[2];
+      const end = start + count;
+      geometry.clearGroups();
+      geometry.addGroup(0, start, 0);
+      geometry.addGroup(start, count, 1);
+      geometry.addGroup(end, geometry.index!.count - end, 0);
+    }
+    const deck = new THREE.Mesh(geometry, materials);
+    deck.position.set((x1 + x2) / 2, y, (z1 + z2) / 2);
+    frame.add(deck);
     deck.name = "floor-deck";
     if (finish) floorSurfaceUV(deck);
   };
@@ -3035,6 +3066,7 @@ export function createCampusGeometry(
       upstairs ? floorPlan.stair : undefined,
       front,
       floorConcreteFinish(),
+      floorConcreteFinish(true).map,
     );
     const { center, width, depth } = floorPlan.corridor;
     const corridor = box(
@@ -3127,7 +3159,7 @@ export function createCampusGeometry(
         outdoorPaving,
         pavingThickness,
       );
-      outdoorEquipment(group, zone.kind, w, d, shadow, labelObstacles);
+      outdoorEquipment(group, zone, w, d, shadow, labelObstacles);
     } else if (site || building) {
       if (building) {
         const floor = createCampusGeometry(
@@ -3313,7 +3345,8 @@ export function createCampusGeometry(
             ),
           );
         if (tray) {
-          const inspectionX = w / 2 - 3.21;
+          // 从半剖正面能在两组柜列之间看到贴墙台面。
+          const inspectionX = 1;
           labelObstacles.push(
             ...floorCableTray(group, tray, doorway.z + 0.095),
             floorPowerInspectionShelf(
