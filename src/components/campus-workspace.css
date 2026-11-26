@@ -106,7 +106,6 @@
 }
 .campus-scene-labels span {
   position: absolute;
-  transform: translate(-50%, -125%);
   padding: 5px 8px;
   border: 1px solid #425e6d;
   border-radius: 6px;

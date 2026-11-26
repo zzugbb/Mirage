@@ -99,6 +99,8 @@ export function CampusScene({
       ).map((element) => [element.dataset.spaceLabel, element]),
     );
     const projected = new THREE.Vector3();
+    const outward = new THREE.Vector3();
+    const offset = new THREE.Vector2();
     const sight = new THREE.Raycaster();
     const sightDirection = new THREE.Vector3();
     const ownership = new Map<THREE.Object3D, string>();
@@ -133,8 +135,10 @@ export function CampusScene({
     let near: CampusCamera["near"];
     let interacting = false;
     let selected = selectedId;
+    const labelLift = scope.kind === "floor" ? 0.5 : 1.25;
     const boxes = new Map<HTMLElement, { width: number; height: number }>();
     for (const node of labelElements.values()) {
+      node.style.transform = `translate(-50%, ${-labelLift * 100}%)`;
       node.hidden = false;
       boxes.set(node, { width: node.offsetWidth, height: node.offsetHeight });
       node.hidden = true;
@@ -170,11 +174,25 @@ export function CampusScene({
         const x = ((projected.x + 1) * rect.width) / 2;
         const y = ((1 - projected.y) * rect.height) / 2;
         const { width, height } = boxes.get(node)!;
+        offset.set(0, 0);
+        if (mark.labelOutward) {
+          outward.copy(mark.labelOutward).project(camera);
+          offset
+            .set(
+              (outward.x - projected.x) * rect.width,
+              (projected.y - outward.y) * rect.height,
+            )
+            .normalize();
+          offset.multiplyScalar(
+            (width * Math.abs(offset.x) + height * Math.abs(offset.y)) / 2 + 4,
+          );
+          node.style.translate = `${offset.x}px ${offset.y}px`;
+        }
         const label = {
-          left: x - width / 2,
-          right: x + width / 2,
-          top: y - height * 1.25,
-          bottom: y - height * 0.25,
+          left: x + offset.x - width / 2,
+          right: x + offset.x + width / 2,
+          top: y + offset.y - height * labelLift,
+          bottom: y + offset.y + height * (1 - labelLift),
         };
         node.hidden =
           Math.abs(projected.z) > 1 ||
@@ -366,7 +384,6 @@ export function CampusScene({
       const id = match && ownership.get(match.object);
       if (id) select.current(id);
     };
-    const workspace = host.closest<HTMLElement>(".campus-workspace");
     const keydown = (event: KeyboardEvent) => {
       if (
         !near ||
@@ -385,7 +402,7 @@ export function CampusScene({
       returnFromNear();
       nearButton.current?.focus({ preventScroll: true });
     };
-    workspace?.addEventListener("keydown", keydown);
+    window.addEventListener("keydown", keydown);
     const update = () => {
       if (interacting) setPreset(null);
       render();
@@ -427,7 +444,7 @@ export function CampusScene({
     return () => {
       remember();
       observer.disconnect();
-      workspace?.removeEventListener("keydown", keydown);
+      window.removeEventListener("keydown", keydown);
       runtime.current = null;
       unavailableFocus.current = null;
       controls.dispose();

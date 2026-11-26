@@ -385,6 +385,7 @@ export function createCampusGeometry(
     let pick: THREE.Mesh<THREE.BoxGeometry, THREE.MeshStandardMaterial>;
     let access = siteAccess.get(child.id);
     const zone = sitePlan?.zones.find(({ id }) => id === child.id);
+    const area = floorPlan?.areas.find(({ id }) => id === child.id);
     if (zone) {
       pick = siteSurface(
         group,
@@ -420,7 +421,6 @@ export function createCampusGeometry(
       pick.material.depthWrite = false;
     } else {
       const room = child.kind === "room";
-      const area = floorPlan?.areas.find(({ id }) => id === child.id);
       pick = box(group, [w, 0.1, d], [0, 0, 0], room ? "#2d4651" : "#354754");
       const wall = "#718391";
       box(group, [w, 0.6, 0.16], [0, 0.3, d / 2], wall);
@@ -493,11 +493,44 @@ export function createCampusGeometry(
     }
     const border = outline(pick, "#9ae1e7");
     border.visible = false;
+    // 楼层名称沿柜列或工作台的外缘取空段，保留设备与通道的轮廓。
+    const labelHeight = area ? 0.66 : 1.05;
+    let labelDepth = 0;
+    if (area) {
+      let front = 0;
+      let rear = 0;
+      for (const { center, depth } of area.equipment) {
+        front = Math.max(front, center[1] + depth / 2);
+        rear = Math.min(rear, center[1] - depth / 2);
+      }
+      labelDepth =
+        front <= -rear
+          ? d / 2 - Math.min(1, (d / 2 - front) / 2)
+          : (rear - d / 2) / 2;
+    }
+    // 靠通道一侧的名称贴在门洞到边墙的空段。
+    let labelX = 0;
+    if (area && labelDepth < 0) {
+      const { x, width } = area.doorway;
+      const side = x <= 0 ? 1 : -1;
+      const openingEdge = x + (side * width) / 2;
+      const wallEdge = (side * w) / 2;
+      labelX = (openingEdge + wallEdge) / 2;
+    }
     return {
       child,
       pick,
       border,
       access,
+      labelOutward: area
+        ? group.localToWorld(
+            new THREE.Vector3(
+              labelX,
+              labelHeight,
+              labelDepth + Math.sign(labelDepth),
+            ),
+          )
+        : undefined,
       point: group.localToWorld(
         building
           ? new THREE.Vector3(
@@ -506,10 +539,14 @@ export function createCampusGeometry(
               d / 2 - 1.1,
             )
           : zone?.kind === "heat"
-            ? new THREE.Vector3(-0.6, 1.77, 2.4)
+            ? new THREE.Vector3(w * 0.32, 0.08, -d / 2 + 0.5)
             : zone?.kind === "backup"
               ? new THREE.Vector3(-0.26, 2.42, 0)
-              : new THREE.Vector3(0, zone ? 0.04 : site ? h + 0.8 : 1.05, 0),
+              : new THREE.Vector3(
+                  labelX,
+                  zone ? 0.04 : site ? h + 0.8 : labelHeight,
+                  labelDepth,
+                ),
       ),
     };
   });

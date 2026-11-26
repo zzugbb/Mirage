@@ -44,6 +44,7 @@ export function CampusWorkspace({
   const resourcesHeading = useRef<HTMLHeadingElement>(null);
   const details = useRef<HTMLElement>(null);
   const evidenceHeading = useRef<HTMLHeadingElement>(null);
+  const definition = useRef<HTMLDetailsElement>(null);
   const focusEvidenceFor = useRef<string | null>(null);
   const scope = scopeId ? campusById(scopeId) : undefined;
   const children = scope ? campusChildren(scope.id) : [];
@@ -104,6 +105,32 @@ export function CampusWorkspace({
       heading?.checkVisibility()
     )
       heading.focus({ preventScroll: true });
+  }, [scopeId, targetId]);
+
+  useLayoutEffect(() => {
+    if (!scopeId || !targetId) return;
+    const closeDefinition = (event: KeyboardEvent) => {
+      const disclosure = definition.current;
+      if (
+        event.key !== "Escape" ||
+        event.defaultPrevented ||
+        event.isComposing ||
+        event.repeat ||
+        event.altKey ||
+        event.ctrlKey ||
+        event.metaKey ||
+        !disclosure?.open ||
+        !disclosure.checkVisibility()
+      )
+        return;
+      event.preventDefault();
+      setExpanded((current) => ({ ...current, [targetId]: false }));
+      if (disclosure.contains(document.activeElement))
+        disclosure.querySelector("summary")?.focus();
+    };
+    // 点击空白画布后焦点可能回到文档，仍先处理当前可见的说明。
+    window.addEventListener("keydown", closeDefinition, true);
+    return () => window.removeEventListener("keydown", closeDefinition, true);
   }, [scopeId, targetId]);
 
   useLayoutEffect(() => {
@@ -401,15 +428,10 @@ export function CampusWorkspace({
             </section>
           )}
           <details
+            ref={definition}
             className="campus-definition"
             key={target.id}
             open={expanded[target.id] ?? false}
-            onKeyDown={(event) => {
-              if (event.key !== "Escape" || !expanded[target.id]) return;
-              event.preventDefault();
-              setExpanded((current) => ({ ...current, [target.id]: false }));
-              event.currentTarget.querySelector("summary")?.focus();
-            }}
           >
             <summary
               onClick={(event) => {
