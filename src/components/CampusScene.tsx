@@ -31,6 +31,7 @@ type LabelLayout = "static" | "moving" | "settling";
 
 const labelSettleDelay = 150;
 const labelSettleStep = 6;
+const campusSampleBudget = 3_250_000;
 
 function shiftLabel(rect: LabelRect, x: number, y: number): LabelRect {
   return {
@@ -39,6 +40,101 @@ function shiftLabel(rect: LabelRect, x: number, y: number): LabelRect {
     top: rect.top + y,
     bottom: rect.bottom + y,
   };
+}
+
+function placeOutdoorLabel(
+  preferred: LabelRect,
+  radius: number,
+  available: (box: LabelRect) => boolean,
+) {
+  // 先尝试同一设施周围的空白，避免名称飘到另一处场坪。
+  for (let distance = 12; distance <= radius; distance += 12) {
+    for (let step = 0; step < 16; step++) {
+      const angle = (step * Math.PI) / 8;
+      const box = shiftLabel(
+        preferred,
+        Math.cos(angle) * distance,
+        Math.sin(angle) * distance,
+      );
+      if (available(box)) return box;
+    }
+  }
+  return null;
+}
+
+function projectBuildingFootprint(
+  corners: THREE.Vector3[],
+  camera: THREE.PerspectiveCamera,
+  width: number,
+  height: number,
+) {
+  if (!corners.length) return undefined;
+  const view = corners.map((point) =>
+    point.clone().applyMatrix4(camera.matrixWorldInverse),
+  );
+  const near = -camera.near;
+  const visible = view.filter((point) => point.z <= near);
+  if (!visible.length) return undefined;
+  if (visible.length < view.length) {
+    for (const axis of [1, 2, 4]) {
+      for (const [index, start] of view.entries()) {
+        if (index & axis) continue;
+        const end = view[index | axis];
+        const startVisible = start.z <= near;
+        const endVisible = end.z <= near;
+        if (startVisible === endVisible) continue;
+        visible.push(
+          start.clone().lerp(end, (near - start.z) / (end.z - start.z)),
+        );
+      }
+    }
+  }
+  const points = visible
+    .map((point) => {
+      point.applyMatrix4(camera.projectionMatrix);
+      return new THREE.Vector2(
+        ((point.x + 1) * width) / 2,
+        ((1 - point.y) * height) / 2,
+      );
+    })
+    .sort((a, b) => a.x - b.x || a.y - b.y);
+  const outerEdge = (points: THREE.Vector2[]) => {
+    const edge: THREE.Vector2[] = [];
+    for (const point of points) {
+      while (edge.length >= 2) {
+        const a = edge[edge.length - 2];
+        const b = edge[edge.length - 1];
+        if ((b.x - a.x) * (point.y - a.y) > (b.y - a.y) * (point.x - a.x))
+          break;
+        edge.pop();
+      }
+      edge.push(point);
+    }
+    return edge.slice(0, -1);
+  };
+  const outline = [...outerEdge(points), ...outerEdge(points.reverse())];
+  if (outline.length < 3) return undefined;
+
+  // 沿建筑的投影轮廓避让，斜视时楼体两侧的空白仍可使用。
+  const axes = [
+    new THREE.Vector2(1, 0),
+    new THREE.Vector2(0, 1),
+    ...outline.map((point, index) => {
+      const next = outline[(index + 1) % outline.length];
+      return new THREE.Vector2(next.y - point.y, point.x - next.x);
+    }),
+  ];
+  const intervals = axes.map(({ x, y }) => {
+    const projected = outline.map((point) => point.x * x + point.y * y);
+    return { x, y, min: Math.min(...projected), max: Math.max(...projected) };
+  });
+  return ({ left, right, top, bottom }: LabelRect) =>
+    intervals.every(({ x, y, min, max }) => {
+      const padding = 4 * (Math.abs(x) + Math.abs(y));
+      const start = x * (x < 0 ? right : left) + y * (y < 0 ? bottom : top);
+      const end = x * (x < 0 ? left : right) + y * (y < 0 ? top : bottom);
+      return start < max + padding && end > min - padding;
+    });
 }
 
 export function CampusScene({
@@ -81,7 +177,8 @@ export function CampusScene({
       return;
     }
     setError(false);
-    renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+    const devicePixelRatio = Math.min(2, window.devicePixelRatio || 1);
+    renderer.setPixelRatio(devicePixelRatio);
     renderer.domElement.dataset.campusCanvas = scope.id;
     host.append(renderer.domElement);
     const scene = new THREE.Scene();
@@ -101,6 +198,33 @@ export function CampusScene({
       scope,
       campusChildren(scope.id),
     );
+    if (scope.kind === "campus") {
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFShadowMap;
+      renderer.shadowMap.autoUpdate = false;
+      renderer.shadowMap.needsUpdate = true;
+      light.position.multiplyScalar(2);
+      light.castShadow = true;
+      light.shadow.intensity = 0.56;
+      light.shadow.mapSize.set(2048, 2048);
+      light.shadow.bias = -0.00018;
+      light.shadow.normalBias = 0.037;
+      light.shadow.radius = 2;
+      const sun = light.shadow.camera;
+      sun.left = -42;
+      sun.right = 42;
+      sun.top = 38;
+      sun.bottom = -38;
+      sun.far = 150;
+      sun.updateProjectionMatrix();
+      plan.traverse((object) => {
+        if (object instanceof THREE.Mesh && !object.material.transparent) {
+          // 与路面贴合的标线只接收阴影。
+          object.castShadow = !object.material.polygonOffset;
+          object.receiveShadow = true;
+        }
+      });
+    }
     scene.add(plan);
     const planBounds = new THREE.Box3().setFromObject(plan);
     const obstacleBounds = labelObstacles.map((obstacle) =>
@@ -113,6 +237,19 @@ export function CampusScene({
     grid.material.opacity = 0.18;
     grid.position.y = -0.39;
     scene.add(grid);
+    const building = marks.find(({ child }) => child.kind === "building");
+    const buildingCorners = building
+      ? Array.from({ length: 8 }, (_, corner) => {
+          const [width, height, depth] = building.child.size;
+          return building.pick.localToWorld(
+            new THREE.Vector3(
+              ((corner & 1 ? 1 : -1) * width) / 2,
+              ((corner & 2 ? 1 : -1) * height) / 2,
+              ((corner & 4 ? 1 : -1) * depth) / 2,
+            ),
+          );
+        })
+      : [];
     const labelElements = new Map(
       Array.from(
         labels.current?.querySelectorAll<HTMLElement>("[data-space-label]") ??
@@ -245,6 +382,12 @@ export function CampusScene({
           };
         });
       occupied.push(...projectLabelObstacles(rect.width, rect.height));
+      const buildingFootprint = projectBuildingFootprint(
+        buildingCorners,
+        camera,
+        rect.width,
+        rect.height,
+      );
       const viewport = {
         left: 0,
         top: 0,
@@ -256,7 +399,7 @@ export function CampusScene({
         box.top >= 8 &&
         box.right <= viewport.right - 8 &&
         box.bottom <= viewport.bottom - 8;
-      const findCollision = (box: LabelRect) =>
+      const findOccupied = (box: LabelRect) =>
         occupied.find(
           (other) =>
             box.left < other.right + 4 &&
@@ -270,6 +413,11 @@ export function CampusScene({
         : marks) {
         const node = labelElements.get(mark.child.id);
         if (!node) continue;
+        const outdoor = mark.child.kind === "outdoor";
+        const available = (box: LabelRect) =>
+          insideViewport(box) &&
+          !findOccupied(box) &&
+          !(outdoor && buildingFootprint?.(box));
         projected.copy(mark.point).project(camera);
         const x = ((projected.x + 1) * rect.width) / 2;
         const y = ((1 - projected.y) * rect.height) / 2;
@@ -295,12 +443,7 @@ export function CampusScene({
         ) {
           if (layout === "moving") {
             // 镜头连续转动时保留相对锚点的位置，遇到遮挡立即让开。
-            if (
-              previous &&
-              insideViewport(previous) &&
-              !findCollision(previous)
-            )
-              label = previous;
+            if (previous && available(previous)) label = previous;
           } else {
             offset.set(0, 0);
             if (mark.labelOutward) {
@@ -317,10 +460,17 @@ export function CampusScene({
               );
             }
             const preferred = shiftLabel(anchor, offset.x, offset.y);
-            const collision = findCollision(preferred);
-            if (!collision && insideViewport(preferred)) {
+            if (available(preferred)) {
               label = preferred;
+            } else if (outdoor) {
+              // 近看时设备本身占据更多画幅，为所选设施保留较大的避让范围。
+              const radius =
+                near?.id === mark.child.id
+                  ? Math.max(96, Math.min(rect.width, rect.height) * 0.36)
+                  : 96;
+              label = placeOutdoorLabel(preferred, radius, available);
             } else {
+              const collision = findOccupied(preferred);
               const args = [
                 x + offset.x,
                 preferred.top + height / 2,
@@ -337,9 +487,13 @@ export function CampusScene({
             }
           }
         }
+        if (!label) revealAfter.delete(node);
         if (layout === "settling" && label) {
-          const ready = revealAfter.get(node) ?? now;
+          const ready =
+            revealAfter.get(node) ?? (previous ? now : now + labelSettleDelay);
           if (ready > now) {
+            // 刚避让的标签在镜头短暂停顿时也要等到落位稳定。
+            revealAfter.set(node, ready);
             nextLayout = Math.min(nextLayout, ready - now);
             label = null;
           } else if (previous) {
@@ -349,7 +503,7 @@ export function CampusScene({
             if (distance > labelSettleStep) {
               const step = labelSettleStep / distance;
               const next = shiftLabel(previous, dx * step, dy * step);
-              if (insideViewport(next) && !findCollision(next)) {
+              if (available(next)) {
                 label = next;
                 nextLayout = Math.min(nextLayout, 16);
               } else {
@@ -390,7 +544,7 @@ export function CampusScene({
     const render = (layout: "static" | "moving" = "static") => {
       stopLabelSettle();
       renderer.render(scene, camera);
-      if (layout === "static") revealAfter.clear();
+      revealAfter.clear();
       layoutLabels(layout);
       if (layout === "moving")
         labelTimer = window.setTimeout(settleLabels, labelSettleDelay);
@@ -412,7 +566,11 @@ export function CampusScene({
             ).normalize()
           : (scope.kind === "building"
               ? new THREE.Vector3(0.46, 0.29, 1)
-              : new THREE.Vector3(0.72, 0.74, 0.97)
+              : new THREE.Vector3(
+                  0.72,
+                  scope.kind === "campus" && view === "overview" ? 0.56 : 0.74,
+                  0.97,
+                )
             ).normalize();
       const right = new THREE.Vector3(0, 1, 0).cross(direction).normalize();
       const up = new THREE.Vector3().crossVectors(direction, right);
@@ -475,6 +633,16 @@ export function CampusScene({
     const resize = () => {
       const { width, height } = host.getBoundingClientRect();
       if (!width || !height) return;
+      if (scope.kind === "campus") {
+        // 远处叶片经常小于一个像素，额外采样在大画幅下按像素预算收敛。
+        const foliageSamples = Math.sqrt(campusSampleBudget / (width * height));
+        const pixelRatio = Math.max(
+          devicePixelRatio,
+          Math.min(2, foliageSamples),
+        );
+        if (renderer.getPixelRatio() !== pixelRatio)
+          renderer.setPixelRatio(pixelRatio);
+      }
       renderer.setSize(width, height, false);
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
@@ -504,7 +672,13 @@ export function CampusScene({
             pick.material.emissive.set(active ? "#194d53" : "#000000");
             pick.material.emissiveIntensity = 0.4;
           }
-          access?.material.color.set(active ? "#83bdc2" : "#517780");
+          const [paving, selectedPaving] =
+            child.kind === "building"
+              ? ["#aaa797", "#9cada4"]
+              : child.kind === "outdoor"
+                ? ["#797d74", "#839e9a"]
+                : ["#76938f", "#8cb8b6"];
+          access?.material.color.set(active ? selectedPaving : paving);
         }
         if (near && id === scope.id) {
           returnFromNear();
@@ -619,6 +793,7 @@ export function CampusScene({
     const restored = () => {
       if (document.activeElement !== unavailableStatus.current)
         unavailableFocus.current = null;
+      if (scope.kind === "campus") renderer.shadowMap.needsUpdate = true;
       setError(false);
     };
     renderer.domElement.addEventListener("webglcontextlost", lost);
@@ -645,17 +820,25 @@ export function CampusScene({
           object instanceof THREE.Mesh || object instanceof THREE.LineSegments
         ))
           return;
+        if (object instanceof THREE.InstancedMesh) object.dispose();
         object.geometry.dispose();
         const objectMaterials = Array.isArray(object.material)
           ? object.material
           : [object.material];
         objectMaterials.forEach((material) => materials.add(material));
       });
+      const maps = new Set<THREE.Texture>();
       for (const material of materials) {
-        if (material instanceof THREE.MeshBasicMaterial)
-          material.map?.dispose();
+        if (
+          (material instanceof THREE.MeshBasicMaterial ||
+            material instanceof THREE.MeshStandardMaterial) &&
+          material.map
+        )
+          maps.add(material.map);
         material.dispose();
       }
+      for (const map of maps) map.dispose();
+      light.shadow.dispose();
       renderer.dispose();
       renderer.forceContextLoss();
       renderer.domElement.remove();
