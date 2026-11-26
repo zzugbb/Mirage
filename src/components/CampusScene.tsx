@@ -188,18 +188,31 @@ export function CampusScene({
     controls.maxPolarAngle = Math.PI / 2.15;
     controls.minDistance = 12;
     controls.maxDistance = Math.max(...scope.size) * 4.5;
-    scene.add(new THREE.HemisphereLight("#d7e6f3", "#586675", 1.68));
-    const light = new THREE.DirectionalLight("#e8eef7", 2.7);
+    const outdoor = scope.kind === "campus";
+    scene.add(
+      new THREE.HemisphereLight(
+        outdoor ? "#d7e6f3" : "#eef1f3",
+        outdoor ? "#586675" : "#687075",
+        1.68,
+      ),
+    );
+    const light = new THREE.DirectionalLight(
+      outdoor ? "#e8eef7" : "#f6f5f3",
+      2.7,
+    );
     light.position.set(-18, 32, 23);
     scene.add(light);
-    const fill = new THREE.DirectionalLight("#a5bfda", 0.56);
+    const fill = new THREE.DirectionalLight(
+      outdoor ? "#a5bfda" : "#e0e8ec",
+      0.56,
+    );
     fill.position.set(24, 12, -17);
     scene.add(fill);
     const { plan, marks, labelObstacles, arrangeFloors } = createCampusGeometry(
       scope,
       campusChildren(scope.id),
     );
-    if (scope.kind === "campus") {
+    if (outdoor) {
       renderer.shadowMap.enabled = true;
       renderer.shadowMap.type = THREE.PCFShadowMap;
       renderer.shadowMap.autoUpdate = false;
@@ -584,7 +597,7 @@ export function CampusScene({
               : new THREE.Vector3(0, 1, 0.08)
             ).normalize()
           : (scope.kind === "building"
-              ? new THREE.Vector3(0.4, 0.135, 1)
+              ? new THREE.Vector3(0.31, 0.115, 1)
               : new THREE.Vector3(
                   0.72,
                   scope.kind === "campus" && view === "overview" ? 0.56 : 0.74,
@@ -689,17 +702,17 @@ export function CampusScene({
         for (const { child, pick, border, access } of marks) {
           const active = child.id === id;
           border.visible = active;
-          if (child.kind !== "building" && child.kind !== "floor") {
+          if (child.kind === "outdoor") {
             pick.material.emissive.set(active ? "#194d53" : "#000000");
             pick.material.emissiveIntensity = 0.4;
           }
-          const [paving, selectedPaving] =
-            child.kind === "building"
-              ? ["#aaa797", "#9cada4"]
-              : child.kind === "outdoor"
-                ? ["#797d74", "#839e9a"]
-                : ["#76938f", "#8cb8b6"];
-          access?.material.color.set(active ? selectedPaving : paving);
+          if (outdoor && access) {
+            const [paving, selectedPaving] =
+              child.kind === "building"
+                ? ["#aaa797", "#9cada4"]
+                : ["#797d74", "#839e9a"];
+            access.material.color.set(active ? selectedPaving : paving);
+          }
         }
         if (near && id === scope.id) {
           returnFromNear();

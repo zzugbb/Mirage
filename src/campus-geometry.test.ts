@@ -22,11 +22,24 @@ test("A 栋半剖保留实际标高，分层复原完整二层楼板与标签位
   assert.equal(upper.pick.parent!.position.y, upper.child.origin[1]);
   assert.ok(section.visible && !front.group.visible);
   assert.ok(sectionZ < upper.child.size[2] / 2 && upper.pick.scale.z < 1);
+  const ray = new Raycaster(new Vector3(), new Vector3(0, -1, 0), 0, 1);
+  const roofAtCut = () => {
+    plan.updateMatrixWorld(true);
+    ray.ray.origin.set(0, upper.pick.parent!.position.y + 0.6, front.edge + 1);
+    const opaque: Mesh[] = [];
+    upper.pick.parent!.traverseVisible((object) => {
+      if (object instanceof Mesh && !object.material.transparent)
+        opaque.push(object);
+    });
+    return ray.intersectObjects(opaque).length;
+  };
+  assert.equal(roofAtCut(), 0);
 
   arrangeFloors!(true);
   assert.ok(!section.visible && front.group.visible);
   assert.equal(upper.pick.scale.z, 1);
   assert.ok(upper.point.y > sectionY && upper.point.z > sectionZ);
+  assert.ok(roofAtCut() > 0);
 
   arrangeFloors!(false);
   assert.ok(section.visible && !front.group.visible);
@@ -57,18 +70,64 @@ test("楼梯两段共用转折平台，二层登记楼梯井在实绘楼板留�
   const {
     center: [x, z],
   } = campusFloorPlan(upstairs.child.id)!.stair;
-  const decks: Mesh[] = [];
+  const solids: Mesh[] = [];
   upstairs.pick.parent!.traverseVisible((object) => {
-    if (object instanceof Mesh && object.name === "floor-deck")
-      decks.push(object);
+    if (object instanceof Mesh && !object.material.transparent)
+      solids.push(object);
   });
   const down = new Vector3(0, -1, 0);
   const hitDeck = (x: number) =>
-    new Raycaster(new Vector3(x, upperTop + 1, z), down).intersectObjects(
-      decks,
-    );
+    new Raycaster(
+      new Vector3(x, upperTop + 0.02, z),
+      down,
+      0,
+      0.39,
+    ).intersectObjects(solids);
   assert.equal(hitDeck(x).length, 0);
   assert.ok(hitDeck(x + 1.5).length);
+});
+
+test("楼层室内地坪共用灰底和分格，门洞接入面顺接走廊与房间", () => {
+  for (const id of ["floor-a-01", "floor-a-02"]) {
+    const { corridor, areas } = campusFloorPlan(id)!;
+    const { plan, marks } = createCampusGeometry(
+      campusById(id)!,
+      campusChildren(id),
+    );
+    plan.updateMatrixWorld(true);
+    const passage = plan.getObjectByName("floor-corridor")!;
+    const passageTop = new Box3().setFromObject(passage).max.y;
+    const stair = new Box3().setFromObject(
+      plan.getObjectByName("floor-stair-approach")!,
+    );
+    assert.ok(
+      Math.abs(stair.min.z - (corridor.center[1] + corridor.depth / 2)) < 1e-6,
+    );
+    assert.ok(Math.abs(stair.max.y - passageTop) < 1e-6);
+    const finish = marks[0].pick.material;
+    assert.ok(finish.map);
+    for (const { child, pick, access } of marks) {
+      const area = areas.find(({ id }) => id === child.id)!;
+      assert.equal(pick.material.color.getHex(), finish.color.getHex());
+      assert.equal(pick.material.map, finish.map);
+      const ramp = new Box3().setFromObject(access!);
+      const floor = new Box3().setFromObject(pick);
+      assert.ok(Math.abs(ramp.min.z - stair.min.z) < 1e-6);
+      assert.ok(Math.abs(ramp.max.z - floor.min.z) < 1e-6);
+      assert.ok(Math.abs(ramp.max.x - ramp.min.x - area.doorway.width) < 1e-6);
+      const probe = (z: number) =>
+        new Raycaster(
+          new Vector3(area.access.x, 1, z),
+          new Vector3(0, -1, 0),
+        ).intersectObject(access!)[0].point.y;
+      assert.ok(Math.abs(probe(ramp.min.z + 0.001) - passageTop) < 1e-4);
+      assert.ok(Math.abs(probe(ramp.max.z - 0.001) - floor.max.y) < 1e-4);
+      if (child.kind === "room") {
+        assert.ok(pick.parent!.getObjectByName("entrance-leaf"));
+        assert.ok(pick.parent!.getObjectByName("entrance-head"));
+      }
+    }
+  }
 });
 
 test("两层导向贴靠实体，运维陈设与供配电桥架避开登记入口", () => {

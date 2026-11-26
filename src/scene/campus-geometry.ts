@@ -9,6 +9,9 @@ import {
 } from "../campus-layout.ts";
 import { createCampusTrees } from "./campus-trees.ts";
 import { floorGrilleRows, floorGrilleSettings } from "../floor-grilles.ts";
+import { entranceFixture, entranceOpening } from "../entrance.ts";
+import { buildEntrance } from "./entrance.ts";
+import { createRoomFloorMap } from "./room-surfaces.ts";
 
 function box(
   parent: THREE.Group,
@@ -1316,13 +1319,15 @@ function exposedFloorStructure(
   front?: FloorFront,
 ) {
   // 分层图显示楼板截面和外围框架的断面。
+  const thickness = front ? 0.28 : 0.54;
+  const borderY = -thickness + 0.09;
   floorDeck(
     level,
     width - 0.56,
     depth - 0.56,
-    -0.285,
-    0.54,
-    "#85867b",
+    -0.015 - thickness / 2,
+    thickness,
+    "#858b8b",
     stair,
     front,
   );
@@ -1333,39 +1338,43 @@ function exposedFloorStructure(
     box(
       level,
       [0.32, 0.2, edge - start],
-      [side * (width / 2 - 0.31), -0.45, (start + edge) / 2],
-      "#a1a092",
+      [side * (width / 2 - 0.31), borderY, (start + edge) / 2],
+      "#9a9f9e",
     );
     if (front)
       box(
         front.group,
         [0.32, 0.2, end - edge],
-        [side * (width / 2 - 0.31), -0.45, (edge + end) / 2],
-        "#a1a092",
+        [side * (width / 2 - 0.31), borderY, (edge + end) / 2],
+        "#9a9f9e",
       );
     box(
       side > 0 && front ? front.group : level,
       [width - 0.3, 0.2, 0.32],
-      [0, -0.45, side * (depth / 2 - 0.31)],
-      "#a1a092",
+      [0, borderY, side * (depth / 2 - 0.31)],
+      "#9a9f9e",
     );
   }
   if (front)
-    box(level, [width - 0.3, 0.42, 0.29], [0, -0.32, edge - 0.147], "#a6a295");
+    box(
+      level,
+      [width - 0.56, 0.064, 0.07],
+      [0, -0.249, edge - 0.027],
+      "#677274",
+    ).name = "floor-section-edge";
   for (const x of [-width / 2 + 0.46, width / 2 - 0.46])
     box(level, [0.42, 1.34, 0.42], [x, 0.62, -depth / 2 + 0.47], "#ada99a");
 }
 
+// 按机房当前取景校准楼层灯光下的可见墙面与地砖。
+const floorFinishColor = "#848e92";
+const corridorFinishColor = "#8b9599";
+const interiorWallColor = "#a0a8ac";
+const floorFinishHeight = 0.05;
+const corridorFinishHeight = 0.033;
+
 function floorFinishes() {
-  const map = surfaceTexture((u, v, grain) => {
-    const light = 242 + (grain - 0.5) * 14 + Math.sin(u * 14 + v * 23) * 4;
-    const tileEdge = Math.min((u * 10) % 1, (v * 10) % 1);
-    const seam = 1 - THREE.MathUtils.smoothstep(tileEdge, 0.01, 0.095);
-    const shade = light - seam * 19;
-    return [shade, shade, shade, 255];
-  });
-  map.wrapS = map.wrapT = THREE.RepeatWrapping;
-  return { map, roughness: 0.94 };
+  return { map: createRoomFloorMap(8, 8), roughness: 0.98 };
 }
 
 type FloorStair = NonNullable<ReturnType<typeof campusFloorPlan>>["stair"];
@@ -1439,10 +1448,11 @@ function floorStair(
   stair: FloorStair,
   corridorEdge: number,
   upper: boolean,
+  finish: ReturnType<typeof floorFinishes>,
 ) {
   const { left, right, near, far } = stairOpening(stair);
   const [x] = stair.center;
-  const surface = 0.033;
+  const surface = corridorFinishHeight;
   const turn = far - 1.08;
   const run = turn - near;
   const rise = stair.rise / 2;
@@ -1467,25 +1477,28 @@ function floorStair(
       depth: flightWidth,
       bevelEnabled: false,
     }),
-    new THREE.MeshStandardMaterial({ color: "#a3a294", roughness: 0.94 }),
+    new THREE.MeshStandardMaterial({ color: "#929a9d", roughness: 0.94 }),
   );
   flight.name = upper ? "stair-upper-flight" : "stair-lower-flight";
   flight.position.set(center + (direction * flightWidth) / 2, startY, startZ);
   flight.rotation.y = (-direction * Math.PI) / 2;
   plan.add(flight);
 
-  box(
+  const approach = box(
     plan,
     [stair.width, 0.055, near - corridorEdge],
     [x, surface - 0.0275, (near + corridorEdge) / 2],
-    "#aaa99b",
+    corridorFinishColor,
+    finish,
   );
+  approach.name = "floor-stair-approach";
+  surfaceUV(approach, stair.width, near - corridorEdge);
   if (!upper)
     box(
       plan,
       [stair.width, 0.21, far - turn],
       [x, surface + rise - 0.105, (far + turn) / 2],
-      "#a3a294",
+      "#929a9d",
     ).name = "stair-turn-landing";
 
   const rail = "#5c6c6d";
@@ -1639,8 +1652,8 @@ function floorEnvelope(
   const back = -depth / 2 + 0.1;
   const end = depth / 2 - 0.1;
   const cut = front?.edge ?? end;
-  box(plan, [width - 0.38, 1.27, 0.17], [0, 0.6475, back], "#b4b4a7");
-  box(plan, [width - 0.42, 0.14, 0.035], [0, 0.092, back + 0.087], "#777f76");
+  box(plan, [width - 0.38, 1.27, 0.17], [0, 0.6475, back], interiorWallColor);
+  box(plan, [width - 0.42, 0.14, 0.035], [0, 0.1, back + 0.087], "#7f8a8e");
   box(plan, [width - 0.38, 0.046, 0.194], [0, 1.293, back], section);
   for (const side of [-1, 1]) {
     const x = side * (width / 2 - 0.1);
@@ -1754,6 +1767,15 @@ function floorToolCabinet(group: THREE.Group, item: FloorEquipment) {
   box(group, [width - 0.1, 0.09, depth - 0.075], [x, 0.095, z], "#535f59");
   const pitch = width / 3;
   const front = z + depth / 2;
+  floorBayCorners(
+    group,
+    x,
+    front + 0.64,
+    width + 0.18,
+    1.12,
+    "#9aa4a6",
+    "floor-tool-access",
+  );
   for (const bay of [-1, 0, 1]) {
     const column = x + bay * pitch;
     const sections = bay < 1 ? 1 : 3;
@@ -1775,6 +1797,33 @@ function floorToolCabinet(group: THREE.Group, item: FloorEquipment) {
     }
   }
   return casework;
+}
+
+function floorBayCorners(
+  group: THREE.Group,
+  x: number,
+  z: number,
+  width: number,
+  depth: number,
+  color: string,
+  name: string,
+) {
+  const marks = new THREE.Group();
+  marks.name = name;
+  marks.position.set(x, floorFinishHeight + 0.003, z);
+  group.add(marks);
+  for (const side of [-1, 1])
+    for (const end of [-1, 1]) {
+      const edgeX = side * (width / 2 - 0.025);
+      const edgeZ = end * (depth / 2 - 0.035);
+      box(marks, [0.26, 0.004, 0.036], [edgeX - side * 0.12, 0, edgeZ], color);
+      box(
+        marks,
+        [0.036, 0.004, 0.16],
+        [edgeX - side * 0.009, 0, edgeZ - end * 0.1],
+        color,
+      );
+    }
 }
 
 function floorServiceCart(group: THREE.Group, item: FloorEquipment) {
@@ -1839,24 +1888,7 @@ function floorServiceCart(group: THREE.Group, item: FloorEquipment) {
     "#4f5a52",
   );
 
-  const marking = "#b9a779";
-  for (const side of [-1, 1])
-    for (const end of [-1, 1]) {
-      const edgeX = x + side * (width / 2 - 0.025);
-      const edgeZ = z + end * (depth / 2 - 0.035);
-      box(
-        group,
-        [0.26, 0.005, 0.036],
-        [edgeX - side * 0.12, 0.054, edgeZ],
-        marking,
-      );
-      box(
-        group,
-        [0.036, 0.005, 0.16],
-        [edgeX - side * 0.009, 0.054, edgeZ - end * 0.1],
-        marking,
-      );
-    }
+  floorBayCorners(group, x, z, width, depth, "#b9a779", "floor-cart-parking");
   const sign = floorPlaque(
     group,
     "floor-cart-bay",
@@ -1880,14 +1912,27 @@ function floorCableTray(
     depth,
   } = tray;
   const rails = [-1, 1].map((side) => {
+    const lineZ = z + side * (depth / 2 - 0.021);
     const rail = box(
       group,
       [width, 0.088, 0.042],
-      [x, height, z + side * (depth / 2 - 0.021)],
+      [x, height, lineZ],
       "#788581",
       { metalness: 0.26, roughness: 0.68 },
     );
     rail.name = "floor-tray-rail";
+    for (const end of [-1, 1]) {
+      box(
+        group,
+        [0.045, 0.103, 0.054],
+        [x + end * (width / 2 - 0.012), height, lineZ],
+        "#657477",
+        {
+          metalness: 0.27,
+          roughness: 0.7,
+        },
+      ).name = "floor-tray-end";
+    }
     return rail;
   });
   const spacing = 0.29;
@@ -1917,12 +1962,20 @@ function floorCableTray(
   const armDepth = z + depth / 2 - wallFace;
   for (const fraction of [-0.46, -0.23, 0, 0.23, 0.46]) {
     const supportX = x + fraction * width;
-    box(
+    const plate = box(
       group,
-      [0.11, 0.34, 0.045],
-      [supportX, height - 0.17, wallFace + 0.017],
-      "#707e77",
+      [0.15, 0.34, 0.045],
+      [supportX, height - 0.17, wallFace + 0.02],
+      "#6f7c7f",
     );
+    plate.name = "floor-tray-mount";
+    for (const level of [-0.282, -0.056])
+      box(
+        group,
+        [0.032, 0.032, 0.017],
+        [supportX + 0.05, height + level, wallFace + 0.047],
+        "#9aa6a9",
+      );
     box(
       group,
       [0.082, 0.061, armDepth],
@@ -2033,6 +2086,16 @@ function floorCabinet(
     [x, base + feet / 2, z],
     "#49504b",
   );
+  if (kind !== "rack") {
+    for (const side of [-1, 1])
+      box(
+        group,
+        [0.104, feet, 0.085],
+        [x + side * (width / 2 - 0.062), base + feet / 2, front - 0.045],
+        "#707b7d",
+        { metalness: 0.23, roughness: 0.72 },
+      ).name = "floor-cabinet-foot";
+  }
   box(
     group,
     [width - 0.09, height * 0.83, 0.037],
@@ -2067,8 +2130,27 @@ function floorCabinet(
   return body;
 }
 
-function floorDoor(group: THREE.Group, x: number, z: number, width: number) {
-  const height = 2.3;
+function floorDoor(
+  group: THREE.Group,
+  { x, z, width }: FloorArea["doorway"],
+  room: boolean,
+) {
+  const sill = box(
+    group,
+    [width - 0.012, 0.02, 0.258],
+    [x, floorFinishHeight - 0.007, z],
+    "#949fa1",
+    { metalness: 0.17, roughness: 0.8 },
+  );
+  sill.name = "floor-door-sill";
+  if (room) {
+    const fixture = new THREE.Group();
+    fixture.position.set(x, entranceFixture.position[1], z);
+    group.add(fixture);
+    buildEntrance(fixture);
+    return;
+  }
+  const height = supportDoorHeight;
   const frame = "#607779";
   for (const side of [-1, 1])
     box(
@@ -2078,7 +2160,6 @@ function floorDoor(group: THREE.Group, x: number, z: number, width: number) {
       frame,
     );
   box(group, [width + 0.146, 0.084, 0.238], [x, height + 0.054, z], frame);
-  box(group, [width - 0.018, 0.018, 0.21], [x, 0.049, z], "#939f9b");
   const leaf = new THREE.Group();
   leaf.position.set(x - width / 2 + 0.025, 0.052, z + 0.084);
   leaf.rotation.y = -Math.PI / 2;
@@ -2100,6 +2181,43 @@ function floorDoor(group: THREE.Group, x: number, z: number, width: number) {
   box(leaf, [0.14, 0.027, 0.048], [leafWidth - 0.15, 1.01, -0.048], "#a6aaa1", {
     metalness: 0.27,
   });
+}
+
+const supportDoorHeight = 2.3;
+
+function floorApproach(
+  plan: THREE.Group,
+  x: number,
+  width: number,
+  start: number,
+  end: number,
+  finish: ReturnType<typeof floorFinishes>,
+) {
+  const thickness = 0.034;
+  const length = end - start;
+  const access = box(
+    plan,
+    [width, thickness, length],
+    [
+      x,
+      (corridorFinishHeight + floorFinishHeight - thickness) / 2,
+      (start + end) / 2,
+    ],
+    corridorFinishColor,
+    finish,
+  );
+  const positions = access.geometry.getAttribute("position");
+  for (let i = 0; i < positions.count; i++)
+    positions.setY(
+      i,
+      positions.getY(i) +
+        (positions.getZ(i) / length) *
+          (floorFinishHeight - corridorFinishHeight),
+    );
+  access.geometry.computeVertexNormals();
+  access.name = "floor-door-approach";
+  surfaceUV(access, width, length);
+  return access;
 }
 
 function floorGrilleBands(group: THREE.Group) {
@@ -2147,7 +2265,7 @@ export function createCampusGeometry(
           edge:
             Math.max(
               ...children.map((child) => child.origin[2] + child.size[2] / 2),
-            ) + 0.64,
+            ) + 0.22,
           group: new THREE.Group(),
         }
       : undefined;
@@ -2202,19 +2320,33 @@ export function createCampusGeometry(
     : undefined;
   if (siteGround)
     siteGround.map.wrapS = siteGround.map.wrapT = THREE.RepeatWrapping;
-  const slab = box(
-    plan,
-    [
-      width + (building ? 1.5 : 0),
-      site ? 0.12 : 0.3,
-      depth + (building ? 1.5 : 0),
-    ],
-    [0, site ? -0.11 : building ? -0.7 : -0.2, 0],
-    site ? "#666754" : building ? "#62675f" : "#85877d",
-    siteGround,
-  );
-  if (site) surfaceUV(slab, width, depth);
-  if (!site) outline(slab, building ? "#78847f" : "#777f78");
+  if (!partOfBuilding) {
+    if (floorPlan) {
+      floorDeck(
+        plan,
+        width,
+        depth,
+        -0.2,
+        0.3,
+        "#81878a",
+        upstairs ? floorPlan.stair : undefined,
+      );
+    } else {
+      const slab = box(
+        plan,
+        [
+          width + (building ? 1.5 : 0),
+          site ? 0.12 : 0.3,
+          depth + (building ? 1.5 : 0),
+        ],
+        [0, site ? -0.11 : building ? -0.7 : -0.2, 0],
+        site ? "#666754" : building ? "#62675f" : "#85877d",
+        siteGround,
+      );
+      if (site) surfaceUV(slab, width, depth);
+      else outline(slab, building ? "#78847f" : "#777f78");
+    }
+  }
   if (sitePlan) {
     siteRoads(plan, sitePlan);
     siteLandscape(plan);
@@ -2253,7 +2385,7 @@ export function createCampusGeometry(
       scope.size[2] - 0.06,
       -0.0255,
       0.075,
-      "#747d77",
+      "#838a8c",
       upstairs ? floorPlan.stair : undefined,
       front,
       { map: screed, roughness: 0.96 },
@@ -2262,10 +2394,11 @@ export function createCampusGeometry(
     const corridor = box(
       plan,
       [width, 0.025, depth],
-      [center[0], 0.0205, center[1]],
-      "#b1b1a6",
+      [center[0], corridorFinishHeight - 0.0125, center[1]],
+      corridorFinishColor,
       floorFinish ?? undefined,
     );
+    corridor.name = "floor-corridor";
     surfaceUV(corridor, width, depth);
     box(
       plan,
@@ -2273,7 +2406,13 @@ export function createCampusGeometry(
       [center[0], 0.03, center[1] - depth / 2 + 0.102],
       "#838c84",
     );
-    floorStair(plan, floorPlan.stair, center[1] + depth / 2, upstairs);
+    floorStair(
+      plan,
+      floorPlan.stair,
+      center[1] + depth / 2,
+      upstairs,
+      floorFinish!,
+    );
     const entrance =
       scope.origin[1] === 0 && scope.parent
         ? campusBuildingEntrance(scope.parent)
@@ -2292,14 +2431,16 @@ export function createCampusGeometry(
     );
     if (entrance) {
       const [edge, , z] = entrance.point;
-      labelObstacles.push(
-        box(
-          plan,
-          [0.64, 0.04, entrance.width],
-          [edge + 0.32, 0.023, z],
-          "#73999d",
-        ),
+      const threshold = box(
+        plan,
+        [0.64, 0.04, entrance.width],
+        [edge + 0.32, corridorFinishHeight - 0.02, z],
+        "#98a1a4",
+        floorFinish!,
       );
+      threshold.name = "floor-building-threshold";
+      surfaceUV(threshold, 0.64, entrance.width);
+      labelObstacles.push(threshold);
     }
   }
   const marks = children.map((child, index) => {
@@ -2368,11 +2509,11 @@ export function createCampusGeometry(
         group,
         [w, 0.1, d],
         [0, 0, 0],
-        room ? "#7a8583" : upstairs ? "#8f9184" : "#a49f8b",
+        floorFinishColor,
         floorFinish ?? undefined,
       );
+      pick.name = "floor-room-finish";
       surfaceUV(pick, w, d);
-      const wall = "#b8b7aa";
       const cutWall = (
         width: number,
         depth: number,
@@ -2380,23 +2521,42 @@ export function createCampusGeometry(
         z: number,
         height = 0.72,
       ) => {
-        box(group, [width, height, depth], [x, 0.05 + height / 2, z], wall);
+        const longX = width > depth;
+        const wall = box(
+          group,
+          [width, height, depth],
+          [x, floorFinishHeight + height / 2, z],
+          interiorWallColor,
+        );
+        wall.name = "floor-interior-wall";
         box(
           group,
-          [width, 0.035, depth + (width > depth ? 0.04 : 0)],
+          [width + (longX ? 0 : 0.04), 0.035, depth + (longX ? 0.04 : 0)],
           [x, 0.0675 + height, z],
-          "#98988d",
+          "#949c9e",
         );
-        if (width > depth) {
-          for (const side of [-1, 1]) {
-            box(
-              group,
-              [width - 0.037, 0.13, 0.022],
-              [x, 0.115, z + side * (depth / 2 + 0.009)],
-              "#78857e",
-            );
-          }
-          if (height > 1) {
+        for (const side of [-1, 1]) {
+          box(
+            group,
+            longX ? [width - 0.037, 0.12, 0.022] : [0.022, 0.12, depth - 0.037],
+            longX
+              ? [x, 0.11, z + side * (depth / 2 + 0.009)]
+              : [x + side * (width / 2 + 0.009), 0.11, z],
+            "#828e93",
+          );
+        }
+        if (longX && height > 1) {
+          if (room) {
+            for (let joint = -w / 2 + 0.3; joint < w / 2; joint += 1.4) {
+              if (Math.abs(joint - x) >= width / 2 - 0.035) continue;
+              box(
+                group,
+                [0.009, height - 0.19, 0.008],
+                [joint, height / 2 + 0.096, z + depth / 2 + 0.0035],
+                "#8b969a",
+              );
+            }
+          } else {
             const seams = Math.ceil(width / 2.9);
             for (let i = 1; i < seams; i++)
               box(
@@ -2407,7 +2567,7 @@ export function createCampusGeometry(
                   height / 2 + 0.096,
                   z + depth / 2 + 0.004,
                 ],
-                "#a1a298",
+                "#9ca4a6",
               );
           }
         }
@@ -2417,6 +2577,12 @@ export function createCampusGeometry(
       cutWall(0.17, d - 0.18, w / 2, 0);
       if (area) {
         const { doorway, equipment, tray } = area;
+        const wallZ = -d / 2;
+        const wallDepth = room ? 0.16 : 0.19;
+        const openingTop = room
+          ? entranceOpening.top
+          : floorFinishHeight + supportDoorHeight;
+        const wallTop = 2.69;
         if (room) floorGrilleBands(group);
         const sides = [
           -w / 2,
@@ -2426,15 +2592,21 @@ export function createCampusGeometry(
         ];
         for (const i of [0, 2]) {
           const span = sides[i + 1] - sides[i];
-          cutWall(span, 0.19, sides[i] + span / 2, doorway.z, 2.64);
+          cutWall(
+            span,
+            wallDepth,
+            sides[i] + span / 2,
+            wallZ,
+            wallTop - floorFinishHeight,
+          );
         }
         box(
           group,
-          [doorway.width, 0.296, 0.184],
-          [doorway.x, 2.544, doorway.z],
-          wall,
+          [doorway.width, wallTop - openingTop, wallDepth - 0.001],
+          [doorway.x, (openingTop + wallTop) / 2, wallZ],
+          interiorWallColor,
         );
-        floorDoor(group, doorway.x, doorway.z, doorway.width);
+        floorDoor(group, doorway, room);
         const plaqueWidth = 1.48;
         const jamb = doorway.width / 2 + 0.18 + plaqueWidth / 2;
         const preferredSide = tray && tray.center[0] > doorway.x ? -1 : 1;
@@ -2449,7 +2621,7 @@ export function createCampusGeometry(
               group,
               "floor-door-plaque",
               child.name,
-              [plaqueX, 1.68, doorway.z + side * 0.108],
+              [plaqueX, 1.68, wallZ + side * (wallDepth / 2 + 0.013)],
               [plaqueWidth, 0.37],
               side === 1 ? "wall" : "reverse",
             ),
@@ -2458,18 +2630,20 @@ export function createCampusGeometry(
           labelObstacles.push(
             ...floorCableTray(group, tray, doorway.z + 0.095),
           );
-        const { fromZ, toZ, x } = area.access;
-        access = box(
+        const { fromZ, x } = area.access;
+        access = floorApproach(
           plan,
-          [Math.min(doorway.width, 0.92), 0.018, toZ - fromZ + 0.16],
-          [x, 0.0445, (fromZ + toZ + 0.16) / 2],
-          "#999b91",
+          x,
+          doorway.width,
+          fromZ + floorPlan!.corridor.depth / 2,
+          child.origin[2] + wallZ,
+          floorFinish!,
         );
         labelObstacles.push(access, {
           frame: group,
           bounds: new THREE.Box3(
             new THREE.Vector3(sides[1], 0, doorway.z - 0.13),
-            new THREE.Vector3(sides[2], 2.4, doorway.z + 0.13),
+            new THREE.Vector3(sides[2], openingTop, doorway.z + 0.13),
           ),
         });
         for (const item of equipment) {
@@ -2489,6 +2663,15 @@ export function createCampusGeometry(
           const count =
             furniture || kind === "rack" ? 1 : Math.ceil(width / 0.88);
           if (count > 1) {
+            floorBayCorners(
+              group,
+              center[0],
+              center[1] + depth / 2 + 0.86,
+              width + 0.14,
+              1.44,
+              "#879498",
+              "floor-service-area",
+            );
             labelObstacles.push(
               floorPlaque(
                 group,
@@ -2525,7 +2708,7 @@ export function createCampusGeometry(
           }
         }
       } else {
-        box(group, [w, 0.6, 0.16], [0, 0.3, -d / 2], wall);
+        box(group, [w, 0.6, 0.16], [0, 0.3, -d / 2], interiorWallColor);
       }
     }
     const border = outline(pick, "#9ae1e7");

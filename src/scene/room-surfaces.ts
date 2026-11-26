@@ -47,8 +47,8 @@ export function roomFloorGeometry(
   return geometry;
 }
 
-/** 连续地面保持安装高度；接缝仅表达分格，不模拟可拆地板或架空层。 */
-export function createRoomFloor(width: number, depth: number) {
+/** 共用样板机房与楼层预览的地面分格。 */
+export function createRoomFloorMap(width: number, depth: number) {
   const settings = definition.rendering.floor;
   const size = settings.textureSize;
   const pixels = new Uint8Array(size * size * 4);
@@ -80,13 +80,19 @@ export function createRoomFloor(width: number, depth: number) {
   map.magFilter = THREE.LinearFilter;
   map.anisotropy = 8;
   map.needsUpdate = true;
+  return map;
+}
+
+/** 连续地面保持安装高度；接缝仅表达分格，不模拟可拆地板或架空层。 */
+export function createRoomFloor(width: number, depth: number) {
+  const settings = definition.rendering.floor;
   const floor = new THREE.Mesh(
     roomFloorGeometry(width, depth, settings.thickness),
     new THREE.MeshStandardMaterial({
       color: settings.color,
       roughness: settings.roughness,
       metalness: settings.metalness,
-      map,
+      map: createRoomFloorMap(width, depth),
     }),
   );
   floor.name = "room-floor";
