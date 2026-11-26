@@ -16,6 +16,8 @@ import {
   campusSitePlan,
 } from "./campus-layout.ts";
 import { createCampusGeometry } from "./scene/campus-geometry.ts";
+import definition from "../assets/public/scenes/room-01.json" with { type: "json" };
+import { entranceOpening } from "./entrance.ts";
 
 test("A 栋半剖保留实际标高，分层复原完整二层楼板与标签位置", () => {
   const building = campusById("building-a")!;
@@ -216,6 +218,61 @@ test("楼层室内地坪共用灰底和分格，门洞接入面顺接走廊与�
         assert.ok(pick.parent!.getObjectByName("entrance-leaf"));
         assert.ok(pick.parent!.getObjectByName("entrance-head"));
       }
+    }
+  }
+});
+
+test("首层机房预览沿用机房地坪、门洞两侧收边、柜位和桥架坐标", () => {
+  const floor = campusById("floor-a-01")!;
+  const { plan, marks } = createCampusGeometry(floor, campusChildren(floor.id));
+  const room = marks.find(({ child }) => child.kind === "room")!;
+  const group = room.pick.parent!;
+  plan.updateMatrixWorld(true);
+  const floorY = definition.rendering.floor.surfaceY;
+  assert.ok(
+    Math.abs(new Box3().setFromObject(room.pick).max.y - floorY) < 1e-6,
+  );
+  const skirting = group.getObjectsByProperty("name", "room-wall-base-back");
+  assert.equal(skirting.length, 2);
+  const [left, right] = skirting.map((part) => new Box3().setFromObject(part));
+  assert.ok(
+    Math.abs(left.max.x - room.child.origin[0] - entranceOpening.left) < 1e-6,
+  );
+  assert.ok(
+    Math.abs(right.min.x - room.child.origin[0] - entranceOpening.right) < 1e-6,
+  );
+  assert.ok([left, right].every(({ min }) => Math.abs(min.y - floorY) < 1e-6));
+
+  const cabinets = group.getObjectsByProperty("name", "floor-rack");
+  assert.equal(cabinets.length, definition.installation.racks.length);
+  for (const [
+    i,
+    {
+      position: [x, , z],
+    },
+  ] of definition.installation.racks.entries()) {
+    const cabinet = cabinets[i] as Mesh;
+    const size = new Box3().setFromObject(cabinet).getSize(new Vector3());
+    assert.deepEqual([cabinet.position.x, cabinet.position.z], [x, z]);
+    assert.ok(Math.abs(size.x - definition.rack.size[0]) < 1e-6);
+    assert.ok(Math.abs(size.z - definition.rack.size[2]) < 1e-6);
+  }
+  for (const { id, kind, position } of definition.room.fixtures) {
+    if (
+      kind !== "cable-tray" &&
+      kind !== "exit-sign" &&
+      kind !== "emergency-light"
+    )
+      continue;
+    const fixture = group.getObjectByName(`floor-${id}`)!;
+    assert.deepEqual(fixture.position.toArray(), position);
+    if (kind === "cable-tray") {
+      assert.ok(
+        fixture.getObjectByName("tray-ladder") instanceof InstancedMesh,
+      );
+      assert.ok(
+        fixture.getObjectByName("tray-supports") instanceof InstancedMesh,
+      );
     }
   }
 });

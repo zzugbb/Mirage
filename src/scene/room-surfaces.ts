@@ -4,6 +4,51 @@ import {
 } from "../floor-grilles.ts";
 import * as THREE from "three";
 import definition from "../../assets/public/scenes/room-01.json" with { type: "json" };
+import { entranceOpening } from "../entrance.ts";
+
+export const roomWallThickness = 0.16;
+export const roomFloorSurfaceY = definition.rendering.floor.surfaceY;
+
+/** 实际后墙与左墙内侧的收边，门洞留空。 */
+export function addRoomWallBase(
+  backWall: THREE.Group,
+  sideWall: THREE.Group,
+  color = "#68757b",
+) {
+  const [width, , depth] = definition.room.size;
+  const material = new THREE.MeshStandardMaterial({
+    color,
+    roughness: 0.94,
+  });
+  const height = 0.12;
+  const thickness = 0.024;
+  const inset = roomWallThickness / 2 + thickness / 2 - 0.002;
+  const y = roomFloorSurfaceY + height / 2;
+  const back = -depth / 2 + inset;
+  const left = -width / 2 + inset;
+  for (const [start, end] of [
+    [left + thickness / 2, entranceOpening.left],
+    [entranceOpening.right, width / 2],
+  ]) {
+    const base = new THREE.Mesh(
+      new THREE.BoxGeometry(end - start, height, thickness),
+      material,
+    );
+    base.name = "room-wall-base-back";
+    base.position.set((start + end) / 2, y, back);
+    base.receiveShadow = true;
+    backWall.add(base);
+  }
+  const start = -depth / 2 + roomWallThickness / 2;
+  const side = new THREE.Mesh(
+    new THREE.BoxGeometry(thickness, height, depth / 2 - start),
+    material,
+  );
+  side.name = "room-wall-base-left";
+  side.position.set(left, y, (start + depth / 2) / 2);
+  side.receiveShadow = true;
+  sideWall.add(side);
+}
 
 /** 薄地面为格栅留出浅凹开口；不建立架空地板或送风风腔。 */
 export function roomFloorGeometry(
@@ -48,31 +93,22 @@ export function roomFloorGeometry(
 }
 
 /** 共用样板机房与楼层预览的地面分格。 */
-export function createRoomFloorMap(
-  width: number,
-  depth: number,
-  jointShoulder = 0,
-) {
+export function createRoomFloorMap(width: number, depth: number) {
   const settings = definition.rendering.floor;
   const size = settings.textureSize;
   const pixels = new Uint8Array(size * size * 4);
   const halfGap = (settings.gap / settings.tileSize) * size * 0.5;
-  const shoulderPixels = (jointShoulder / settings.tileSize) * size;
   let seed = 4217;
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
       // 像素覆盖率柔化纹理边界；mipmap 让远景细缝逐渐融入表面。
       const edge = Math.min(x + 0.5, y + 0.5, size - x - 0.5, size - y - 0.5);
       const coverage = THREE.MathUtils.clamp(halfGap + 0.5 - edge, 0, 1);
-      const shoulder = shoulderPixels
-        ? 1 -
-          THREE.MathUtils.smoothstep(edge, halfGap, halfGap + shoulderPixels)
-        : 0;
       seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
       const grain = (seed >>> 24) % settings.grainRange;
       const value = Math.round(
         THREE.MathUtils.lerp(
-          settings.tileValue - grain - 24 * shoulder,
+          settings.tileValue - grain,
           settings.seamValue,
           coverage,
         ),

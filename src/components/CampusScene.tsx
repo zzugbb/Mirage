@@ -599,16 +599,19 @@ export function CampusScene({
               : new THREE.Vector3(0, 1, 0.08)
             ).normalize()
           : (scope.kind === "building"
-              ? new THREE.Vector3(0.31, 0.115, 1)
-              : new THREE.Vector3(
-                  0.72,
-                  scope.kind === "campus" && view === "overview" ? 0.56 : 0.74,
-                  0.97,
-                )
+              ? new THREE.Vector3(0.31, 0.14, 1)
+              : scope.kind === "floor" && view === "overview"
+                ? new THREE.Vector3(0.44, 0.7, 1)
+                : new THREE.Vector3(
+                    0.72,
+                    outdoor && view === "overview" ? 0.56 : 0.74,
+                    0.97,
+                  )
             ).normalize();
       const right = new THREE.Vector3(0, 1, 0).cross(direction).normalize();
       const up = new THREE.Vector3().crossVectors(direction, right);
       const tangent = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+      const horizontalFit = !outdoor && view === "overview" ? 0.92 : 0.84;
       const { min, max } = bounds;
       bounds.getCenter(controls.target);
       if (view === "overview") controls.target.addScaledVector(up, -1.35);
@@ -623,7 +626,7 @@ export function CampusScene({
               relative.dot(direction) +
                 Math.max(
                   Math.abs(relative.dot(right)) /
-                    (tangent * camera.aspect * 0.84),
+                    (tangent * camera.aspect * horizontalFit),
                   Math.abs(relative.dot(up)) / (tangent * 0.76),
                 ),
             );

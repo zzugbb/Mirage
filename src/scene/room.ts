@@ -7,7 +7,11 @@ import {
 import { buildRoomFixtures } from "./fixtures.ts";
 import * as THREE from "three";
 import definition from "../../assets/public/scenes/room-01.json" with { type: "json" };
-import { createRoomFloor } from "./room-surfaces.ts";
+import {
+  addRoomWallBase,
+  createRoomFloor,
+  roomWallThickness,
+} from "./room-surfaces.ts";
 import {
   leftWallId,
   leftWallColumnCenters,
@@ -69,8 +73,13 @@ export function buildRoomShell(
   };
   const leftWall = structure(leftWallId);
   // 左墙窗洞：上下梁与四个立柱围出三扇玻璃窗。
-  surface(leftWall, [0.16, 0.95, depth], [left, 0.475, 0], "wall");
-  surface(leftWall, [0.16, 1.25, depth], [left, height - 0.625, 0], "wall");
+  surface(leftWall, [roomWallThickness, 0.95, depth], [left, 0.475, 0], "wall");
+  surface(
+    leftWall,
+    [roomWallThickness, 1.25, depth],
+    [left, height - 0.625, 0],
+    "wall",
+  );
   // 保留立柱各自的安装参照面，避免墙面合批丢失具名几何与中心。
   const columns = new THREE.Group();
   columns.name = "room-left-columns";
@@ -102,22 +111,23 @@ export function buildRoomShell(
     rightSpan = width / 2 - entranceOpening.right;
   surface(
     backWall,
-    [leftSpan, height, 0.16],
+    [leftSpan, height, roomWallThickness],
     [left + leftSpan / 2, height / 2, back],
     "wall",
   );
   surface(
     backWall,
-    [rightSpan, height, 0.16],
+    [rightSpan, height, roomWallThickness],
     [width / 2 - rightSpan / 2, height / 2, back],
     "wall",
   );
   surface(
     backWall,
-    [doorW, height - doorH, 0.16],
+    [doorW, height - doorH, roomWallThickness],
     [doorX, doorH + (height - doorH) / 2, back],
     "wall",
   );
+  addRoomWallBase(backWall, leftWall);
   // 门洞内只保留过梁上的墙缝，不能让竖向装饰条悬在通行开口中。
   for (let x = left + 0.3; x < width / 2; x += 1.4) {
     const aboveDoor = x > entranceOpening.left && x < entranceOpening.right;
