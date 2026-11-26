@@ -23,23 +23,26 @@ export function RangeViewActions({
       <div>
         <button
           data-range-view="front"
-          disabled={!ready}
+          aria-disabled={!ready}
           aria-pressed={active === "front"}
-          onClick={() => onView("front")}
+          onClick={() => ready && onView("front")}
         >
           前侧观察范围
         </button>
         <button
           data-range-view="rear"
-          disabled={!ready}
+          aria-disabled={!ready}
           aria-pressed={active === "rear"}
-          onClick={() => onView("rear")}
+          onClick={() => ready && onView("rear")}
         >
           后侧观察范围
         </button>
       </div>
       {active && (
-        <button disabled={!ready} onClick={() => onView("return")}>
+        <button
+          aria-disabled={!ready}
+          onClick={() => ready && onView("return")}
+        >
           ← 返回范围观察前视角
         </button>
       )}

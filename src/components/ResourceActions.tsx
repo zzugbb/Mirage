@@ -179,9 +179,13 @@ export function ResourceActions({
             </button>
           ) : (
             <button
-              disabled={!ready}
+              aria-disabled={!ready}
               onClick={() =>
-                onDeviceStructure({ type: "explode", amount: expanded ? 0 : 1 })
+                ready &&
+                onDeviceStructure({
+                  type: "explode",
+                  amount: expanded ? 0 : 1,
+                })
               }
             >
               {progress || (expanded ? restoreLabel : expandLabel)}

@@ -9,6 +9,8 @@ import {
 import { deviceById, rackForDevice } from "../installation";
 import { unitLabel } from "../catalog";
 import type { SpatialReading } from "../spatial";
+import { useResultFocusFallback } from "../use-result-focus-fallback";
+import { FocusedResultList } from "./FocusedResultList";
 
 export function AlarmQueue({
   readings,
@@ -55,6 +57,7 @@ export function AlarmQueue({
     if (button) button.scrollIntoView({ block: "nearest" });
     else host.current.scrollTop = 0;
   }, [visible, restoreRevision, scroll]);
+  const watchResult = useResultFocusFallback(search);
   return (
     <section className="alarm-queue" aria-label="当前告警设备">
       <div className="alarm-queue-search">
@@ -120,9 +123,9 @@ export function AlarmQueue({
           </p>
         )}
       </div>
-      <div
+      <FocusedResultList
         className="alarm-queue-list"
-        ref={host}
+        listRef={host}
         onScroll={(event) => {
           scroll.current = event.currentTarget.scrollTop;
         }}
@@ -141,6 +144,7 @@ export function AlarmQueue({
               。
             </p>
             <button
+              ref={watchResult}
               disabled={!ready}
               onClick={() => onPreview(returned.id, returned)}
             >
@@ -155,6 +159,7 @@ export function AlarmQueue({
             className={selected === device.id ? "selected" : ""}
           >
             <button
+              ref={watchResult}
               className="alarm-queue-preview"
               data-alarm-id={device.id}
               aria-pressed={selected === device.id}
@@ -176,6 +181,7 @@ export function AlarmQueue({
             )}
             {selected === device.id && (
               <button
+                ref={watchResult}
                 className="alarm-queue-details"
                 onClick={() => onPreview(device.id)}
               >
@@ -191,6 +197,7 @@ export function AlarmQueue({
               : "当前有效读数中没有活动告警"}
             {queue.all.length > 0 && (query || severity !== "all") && (
               <button
+                ref={watchResult}
                 onClick={() => {
                   search.current?.focus();
                   onQuery("");
@@ -210,7 +217,7 @@ export function AlarmQueue({
             台读数缺失、过期或离线，不能据此判定正常。机柜是汇总，部件是模型评估；均不重复计数。这里不执行告警确认或消除。
           </p>
         </details>
-      </div>
+      </FocusedResultList>
     </section>
   );
 }

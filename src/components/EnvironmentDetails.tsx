@@ -116,7 +116,7 @@ export function EnvironmentDetails({
                   {derived
                     ? value === null
                       ? "暂不推导"
-                      : "同次采样推导"
+                      : `同次采样推导 · t+${observation.temperature.observedAt}s`
                     : channel.quality === "valid"
                       ? `采样 t+${channel.observedAt}s`
                       : environmentQuality[channel.quality]}

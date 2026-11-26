@@ -1,5 +1,5 @@
 import { metricAttentionColor } from "../status";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, type RefCallback } from "react";
 import type { AppState } from "../domain";
 import { deviceById, rackForDevice } from "../installation";
 import { categoryNames, modelForDevice, unitLabel } from "../catalog";
@@ -19,6 +19,7 @@ export function RackInstallation({
   filtered,
   ready,
   visible,
+  resultRef,
   onPick,
   onFocus,
   onDetails,
@@ -37,6 +38,7 @@ export function RackInstallation({
   filtered: boolean;
   ready: boolean;
   visible: boolean;
+  resultRef?: RefCallback<HTMLButtonElement>;
   onPick: (id: string) => void;
   onFocus: (id: string) => void;
   onBlanking: (first: number, last: number, scroll: number) => void;
@@ -242,6 +244,7 @@ export function RackInstallation({
             return matches.has(segment.id) ? (
               <button
                 key={segment.id}
+                ref={resultRef}
                 className={`rack-installation-device ${state.trayExtended && state.deviceId === segment.id ? "is-extracted" : ""}`}
                 style={style}
                 data-device={segment.id}
@@ -287,7 +290,9 @@ export function RackInstallation({
             ),
           )}
         </div>
-        <p className="rack-installation-boundary">U 位示意 · 容量未定义</p>
+        <p className="rack-installation-boundary">
+          U 位容量见「总览」的空间核查
+        </p>
       </div>
       <footer className="rack-installation-selection">
         {selection ? (

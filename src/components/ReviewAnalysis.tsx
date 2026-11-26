@@ -2,7 +2,7 @@ import { TimeComparison } from "./TimeComparison";
 import { budgetRatio } from "../power-budget";
 import { PeakSourceProcess, peakNames } from "./PeakSourceProcess";
 import type { PeakProcessState } from "../peak-provenance";
-import { useState, type Ref, type ReactNode } from "react";
+import { useState, type RefObject, type ReactNode } from "react";
 import type { ReviewEvent, ReviewMetric, ReviewPoint } from "../review-model";
 import { qualityNames } from "../status";
 import { ReviewTrend } from "./ReviewTrend";
@@ -17,6 +17,7 @@ export function ReviewAnalysis({
   events,
   eventHeading,
   time,
+  cycle,
   component,
   powerOnly = false,
   cooling,
@@ -35,8 +36,9 @@ export function ReviewAnalysis({
   labels: Record<ReviewMetric, string>;
   histories: Record<ReviewMetric, ReviewPoint[]>;
   events: ReviewEvent[];
-  eventHeading: Ref<HTMLHeadingElement>;
+  eventHeading: RefObject<HTMLHeadingElement | null>;
   time: number;
+  cycle: number;
   component: boolean;
   powerOnly?: boolean;
   cooling?: ReviewPoint[];
@@ -49,6 +51,12 @@ export function ReviewAnalysis({
   const [inspection, setInspection] = useState<number | null>(null);
   const [showBudget, setShowBudget] = useState(false);
   const [referenceTime, setReferenceTime] = useState<number | null>(null);
+  const [previousCycle, setPreviousCycle] = useState(cycle);
+  if (previousCycle !== cycle) {
+    setPreviousCycle(cycle);
+    setInspection(null);
+    setReferenceTime(null);
+  }
   const cursor = Math.min(time, inspection ?? time);
   const series: {
     metric: TrendMetric;

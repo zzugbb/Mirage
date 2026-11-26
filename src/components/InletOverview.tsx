@@ -10,6 +10,8 @@ import {
 import { temperatureColor } from "../scene/metric-color";
 import type { SpatialReading } from "../spatial";
 import { clearSearchOnEscape } from "../search-keyboard";
+import { useResultFocusFallback } from "../use-result-focus-fallback";
+import { FocusedResultList } from "./FocusedResultList";
 
 const valueText = (value: number | null) =>
   value === null ? "—" : `${value.toFixed(1)} °C`;
@@ -91,6 +93,7 @@ export function InletOverview({
       return;
     focusedRevision.current = restoreRevision;
     host.current.scrollTop = scroll.current;
+    if (document.activeElement?.closest(".study-layer-control nav")) return;
     const target =
       host.current.querySelector<HTMLElement>(
         '.inlet-device-list button[aria-pressed="true"]',
@@ -101,6 +104,7 @@ export function InletOverview({
     target?.focus({ preventScroll: true });
     if (restoreRevision) target?.scrollIntoView({ block: "nearest" });
   }, [visible, ready, scroll, restoreRevision, selected, current.rack.id]);
+  const watchResult = useResultFocusFallback(search);
   const rackGrid = (
     <>
       <div className="inlet-profile-legend">
@@ -242,10 +246,11 @@ export function InletOverview({
           <strong>{scope === "room" ? "整间机房" : current.rack.name}</strong>
           <span>{rows.length} 台匹配</span>
         </div>
-        <div className="inlet-device-list">
+        <FocusedResultList className="inlet-device-list">
           {rows.map((row) => (
             <button
               key={row.id}
+              ref={watchResult}
               aria-pressed={selected === row.id}
               aria-label={`预览 ${row.name} 进风`}
               data-inlet-id={row.id}
@@ -283,11 +288,12 @@ export function InletOverview({
               </span>
             </button>
           ))}
-        </div>
+        </FocusedResultList>
         {!rows.length && (
           <p role="status">
             当前范围没有匹配设备。调整范围或
             <button
+              ref={watchResult}
               onClick={() => {
                 search.current?.focus();
                 onQuery("");

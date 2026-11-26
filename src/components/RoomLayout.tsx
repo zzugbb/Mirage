@@ -29,6 +29,7 @@ const scopes = {
 } satisfies Record<RoomLayoutScope, { name: string; hint: string }>;
 
 export function RoomLayout({
+  analysis,
   selected,
   deviceId,
   query,
@@ -54,6 +55,7 @@ export function RoomLayout({
   boundaryOpen,
   onBoundaryOpen,
 }: {
+  analysis: boolean;
   selected: string;
   deviceId: string;
   query: string;
@@ -591,19 +593,23 @@ export function RoomLayout({
                 <button disabled={!ready} onClick={() => onLocate(current.id)}>
                   定位此处
                 </button>
-                <button
-                  className={
-                    current.id === selected
-                      ? "study-open-current-details"
-                      : undefined
-                  }
-                  data-layout-point-details={
-                    current.kind === "rack" ? undefined : current.id
-                  }
-                  onClick={() => onDetails(current.id)}
-                >
-                  详情
-                </button>
+                {(current.kind !== "rack" ||
+                  current.id !== selected ||
+                  analysis) && (
+                  <button
+                    className={
+                      current.id === selected
+                        ? "study-open-current-details"
+                        : undefined
+                    }
+                    data-layout-point-details={
+                      current.kind === "rack" ? undefined : current.id
+                    }
+                    onClick={() => onDetails(current.id)}
+                  >
+                    详情
+                  </button>
+                )}
                 {current.kind === "rack" && (
                   <button
                     data-enter-layout-rack={current.id}

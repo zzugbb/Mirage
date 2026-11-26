@@ -76,6 +76,12 @@ export function NetworkOverview({
     if (!visible || !ready || !restorePending.current || !host.current) return;
     restorePending.current = false;
     host.current.scrollTop = scroll.current;
+    const active = document.activeElement;
+    if (
+      host.current.contains(active) ||
+      active?.closest(".study-layer-control nav")
+    )
+      return;
     const entry =
       [
         ...host.current.querySelectorAll<HTMLElement>("[data-network-focus]"),

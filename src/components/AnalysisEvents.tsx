@@ -1,8 +1,9 @@
-import type { Ref } from "react";
+import type { RefObject } from "react";
 import { eventsBySource } from "../review-model";
 import type { ReviewEvent } from "../review-model";
 import { deviceById, rackForDevice } from "../installation";
 import { unitLabel } from "../catalog";
+import { useResultFocusFallback } from "../use-result-focus-fallback";
 
 const changes = {
   input: "输入",
@@ -23,7 +24,7 @@ export function AnalysisEvents({
   ready,
 }: {
   title: string;
-  headingRef: Ref<HTMLHeadingElement>;
+  headingRef: RefObject<HTMLHeadingElement | null>;
   events: ReviewEvent[];
   time: number;
   onSeek: (time: number) => void;
@@ -31,9 +32,11 @@ export function AnalysisEvents({
   onViewDeviceAirflow: (id: string) => void;
   ready: boolean;
 }) {
+  const watchEvent = useResultFocusFallback(headingRef);
   const row = (event: ReviewEvent) => (
     <button
       key={event.id}
+      ref={watchEvent}
       className="analysis-event"
       data-event-kind={event.kind}
       aria-pressed={event.time === time}
@@ -72,7 +75,12 @@ export function AnalysisEvents({
           const latest = history[history.length - 1];
           const device = deviceById(source);
           return (
-            <details key={source} className="event-source" data-source={source}>
+            <details
+              key={source}
+              ref={watchEvent}
+              className="event-source"
+              data-source={source}
+            >
               <summary>
                 <strong>{device?.name ?? "公共冷却输入"}</strong>
                 <span>

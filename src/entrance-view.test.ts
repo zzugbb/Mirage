@@ -592,3 +592,40 @@ test("门上标志与应急灯贴合内墙，两个核对范围的尺寸线取�
   );
   close(lights.paths[0][0].distanceTo(lights.paths[0][1]), lights.measure);
 });
+
+test("出口字面、应急灯盖板和镜片共用各自开口，前方射线不穿过重叠封面", () => {
+  for (const [sign, surfaces] of [
+    [true, ["exit-sign-face"]],
+    [
+      false,
+      [
+        "emergency-light-cover",
+        "emergency-light-lens-left",
+        "emergency-light-lens-right",
+      ],
+    ],
+  ] as const) {
+    const root = new Group();
+    buildEntranceLighting(root, sign);
+    root.updateMatrixWorld(true);
+    for (const name of surfaces) {
+      const face = root.getObjectByName(name)!;
+      const point = face.localToWorld(new Vector3(0.004, 0.002, 0));
+      const normal = new Vector3(0, 0, 1).transformDirection(face.matrixWorld);
+      const ray = new Raycaster(
+        point.clone().addScaledVector(normal, 0.5),
+        normal.negate(),
+        0,
+        0.52,
+      );
+      assert.deepEqual(
+        [
+          ...new Set(
+            ray.intersectObject(root).map(({ object }) => object.name),
+          ),
+        ],
+        [name],
+      );
+    }
+  }
+});

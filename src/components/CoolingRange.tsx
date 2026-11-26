@@ -16,6 +16,7 @@ import { unitLabel } from "../catalog";
 import { lifecycleNames, qualityNames } from "../status";
 import type { SpatialReading } from "../spatial";
 import { clearSearchOnEscape } from "../search-keyboard";
+import { useResultFocusFallback } from "../use-result-focus-fallback";
 
 export function CoolingRange({
   value,
@@ -77,6 +78,7 @@ export function CoolingRange({
       target?.scrollIntoView({ block: "nearest" });
     setRowMissing(!!position.focusKey && !button);
   });
+  const watchResult = useResultFocusFallback(search);
   const visit = (
     id: string,
     rackId: string,
@@ -134,6 +136,7 @@ export function CoolingRange({
           匹配 {matching} 台设备
           {singleRack && value.rackId !== singleRack.id && (
             <button
+              ref={watchResult}
               onClick={() => {
                 onChange({
                   ...value,
@@ -221,6 +224,7 @@ export function CoolingRange({
                   return (
                     <div className="cooling-range-device" key={device.id}>
                       <button
+                        ref={watchResult}
                         aria-pressed={device.id === value.selectedDeviceId}
                         data-cooling-action={device.id + ":preview"}
                         onClick={() => visit(device.id, rack.id)}
@@ -240,6 +244,7 @@ export function CoolingRange({
                         </span>
                       </button>
                       <button
+                        ref={watchResult}
                         disabled={!ready}
                         data-cooling-action={device.id + ":installation"}
                         aria-label={`定位 ${device.name} 安装位`}
@@ -250,6 +255,7 @@ export function CoolingRange({
                         安装位
                       </button>
                       <button
+                        ref={watchResult}
                         disabled={!ready}
                         data-cooling-action={device.id + ":airflow"}
                         aria-label={`查看 ${device.name}气流`}
@@ -269,6 +275,7 @@ export function CoolingRange({
       {!matching && (
         <p>
           <button
+            ref={watchResult}
             onClick={() => {
               search.current?.focus();
               changeQuery("", "all");

@@ -1,3 +1,4 @@
+import { type CSSProperties } from "react";
 import { StudyReturns, type StudyReturn } from "./components/StudyReturns";
 import { clearSearchOnEscape } from "./search-keyboard";
 import { grilleSeatInspection } from "./grille-seat";
@@ -73,6 +74,7 @@ import {
   verticalStorageStations,
 } from "./compact-drive-bays";
 import { useDismissibleMenu } from "./use-dismissible-menu";
+import { useResultFocusFallback } from "./use-result-focus-fallback";
 import {
   StructureTools,
   type StructureTool,
@@ -269,6 +271,7 @@ import { InletOverview } from "./components/InletOverview";
 import { NetworkOverview } from "./components/NetworkOverview";
 import { environmentProbe } from "./environment-monitoring";
 import { EnvironmentDetails } from "./components/EnvironmentDetails";
+import { EnvironmentCoverage } from "./components/EnvironmentCoverage";
 import {
   RackSpaceInspector,
   type SpaceFormSnapshot,
@@ -328,7 +331,6 @@ import type { Action } from "./domain";
 import {
   createWorkspace,
   reviewTransition,
-  reviewLayers,
   reviewHistories,
   reviewCoolingHistories,
   reviewEvents,
@@ -389,6 +391,7 @@ import {
   networkContextIncludes,
   networkDeviceId,
   networkLinkById,
+  networkLinksFor,
   supportsNetworkPatch,
   type NetworkLink,
   networkMarkers,
@@ -428,7 +431,9 @@ import { InletAssessment } from "./components/InletAssessment";
 import { ReviewAnalysis } from "./components/ReviewAnalysis";
 import type { PresentationPhase, SceneFeedback } from "./mechanics";
 import {
+  activeWorkspaceEntry,
   navigationViews,
+  workspaceEntries,
   resourceViews,
   type ResourceView,
   workspacePreset,
@@ -436,7 +441,7 @@ import {
   visibleResourceRows,
   resourceRowText,
 } from "./workspace-presets";
-import type { WorkspaceShot } from "./workspace-presets";
+import type { WorkspaceShot, WorkspaceView } from "./workspace-presets";
 import { tourSteps } from "./tour";
 import { simulationClock } from "./time-comparison";
 import { scenario } from "./simulation";
@@ -496,6 +501,14 @@ function reducer(
     ? workspacePreset(state, action.shot)
     : reviewTransition(state, action);
 }
+
+type EnvironmentCoverageVisit = {
+  id: string;
+  query: string;
+  scroll: number;
+  inspector: boolean;
+  camera: TaskViewMemory | null;
+};
 
 type PanelRegisterOrigin = {
   selected: string;
@@ -937,8 +950,16 @@ export function Workspace() {
     () => matchMedia("(min-width: 1100px)").matches,
   );
   const navigationRef = useRef<HTMLElement>(null);
+  const navigationHeading = useRef<HTMLHeadingElement>(null);
+  const focusNavigationHeading = () => {
+    requestAnimationFrame(() =>
+      navigationHeading.current?.focus({ preventScroll: true }),
+    );
+  };
   const resourceSearch = useRef<HTMLInputElement>(null);
+  const watchResourceResult = useResultFocusFallback(resourceSearch);
   const navigationOpenerRef = useRef<HTMLButtonElement>(null);
+  const spaceNavigationEntry = useRef<HTMLElement | null>(null);
   const previousNav = useRef(nav);
   const restoreNavigationOpener = useRef(false);
   const collapseNavigation = useCallback(() => {
@@ -950,8 +971,33 @@ export function Workspace() {
     if (previousNav.current === nav) return;
     previousNav.current = nav;
     if (nav) {
-      if (!skipNavigationSearch.current)
-        navigationRef.current?.querySelector("input")?.focus();
+      if (!skipNavigationSearch.current) {
+        const navigation = navigationRef.current;
+        const space = navigation?.querySelector<HTMLElement>(
+          ".rack-space-inspector",
+        );
+        const entry = spaceNavigationEntry.current;
+        const bounds = space?.getBoundingClientRect();
+        const position = entry?.getBoundingClientRect();
+        if (
+          entry &&
+          space?.contains(entry) &&
+          bounds &&
+          position?.height &&
+          position.top < bounds.bottom &&
+          position.bottom > bounds.top &&
+          !entry.matches(":disabled")
+        ) {
+          const offset = space.scrollTop;
+          entry.focus({ preventScroll: true });
+          if (position.top >= bounds.top && position.bottom <= bounds.bottom)
+            space.scrollTop = offset;
+        } else if (space?.scrollTop)
+          navigation
+            ?.querySelector<HTMLElement>(".study-panel-heading h2")
+            ?.focus({ preventScroll: true });
+        else navigation?.querySelector("input")?.focus();
+      }
       skipNavigationSearch.current = false;
     } else {
       if (
@@ -1379,6 +1425,9 @@ export function Workspace() {
       : null;
   const [query, setQuery] = useState("");
   const [rackView, setRackView] = useState<ResourceView>("installation");
+  const roomPresentations = useRef<
+    Partial<Record<WorkspaceView, ResourceView>>
+  >({});
   const views = navigationViews(state.level, layer);
   const [alarmQuery, setAlarmQuery] = useState("");
   const [alarmSeverity, setAlarmSeverity] = useState<AlarmSeverity>("all");
@@ -1389,6 +1438,7 @@ export function Workspace() {
         filter: AlarmSeverity;
         scroll: number;
         inspector: boolean;
+        retainedAt?: string;
       })
     | null
   >(null);
@@ -1515,6 +1565,7 @@ export function Workspace() {
     resourceQuery: string;
     resourceFilter: ResourceFilter;
     onlyAlarms: boolean;
+    retainedAt?: string;
   } | null>(null);
   const [inletAirflowReturning, setInletAirflowReturning] = useState(false);
   const [inletReturning, setInletReturning] = useState(false);
@@ -1672,7 +1723,6 @@ export function Workspace() {
     )
       setSpaceVisit(null);
   }, [spaceVisit, spaceReturning, selected, state.deviceId]);
-  const [spaceMode, setSpaceMode] = useState<"units" | "aisles">("units");
   const [aisleQuery, setAisleQuery] = useState("");
   const [aisleCommand, setAisleCommand] = useState<{
     rackId: string | null;
@@ -1788,6 +1838,8 @@ export function Workspace() {
   const [resourceFilter, setFilter] = useState<ResourceFilter>("all");
   const filter = state.level === "device" ? "all" : resourceFilter;
   const [onlyAlarms, setOnlyAlarms] = useState(false);
+  const alarmResultRef =
+    state.level === "rack" && onlyAlarms ? watchResourceResult : undefined;
   const roomAlarms = state.level === "room" && layer === "alarms";
   const navigationView = roomAlarms
     ? onlyAlarms
@@ -1796,10 +1848,34 @@ export function Workspace() {
     : views.includes(rackView)
       ? rackView
       : views[0];
-  const roomAisles =
+  const workspaceEntry = activeWorkspaceEntry(
+    state.level,
+    layer,
+    navigationView,
+  );
+  const resourcePresentations =
+    state.level === "room" && workspaceEntry.roomResources
+      ? workspaceEntry.roomResources
+      : views;
+  const probeRosterActive =
     state.level === "room" &&
-    navigationView === "space" &&
-    spaceMode === "aisles";
+    layer === "environment" &&
+    navigationView === "probes";
+  const [probeRosterQuery, setProbeRosterQuery] = useState("");
+  const probeRosterScroll = useRef(0);
+  const [probeRosterVisit, setProbeRosterVisit] =
+    useState<EnvironmentCoverageVisit | null>(null);
+  const [probeRosterReturn, setProbeRosterReturn] =
+    useState<EnvironmentCoverageVisit | null>(null);
+  const finishProbeRosterRestore = useCallback(
+    () => setProbeRosterReturn(null),
+    [],
+  );
+  useEffect(() => {
+    if (probeRosterReturn && (!nav || !probeRosterActive))
+      setProbeRosterReturn(null);
+  }, [probeRosterReturn, nav, probeRosterActive]);
+  const roomAisles = state.level === "room" && navigationView === "aisles";
   const [metric, setMetric] = useState<"temperature" | "power">("temperature");
   const [sourceCheck, setSourceCheck] = useState<SourceCheck | null>(null);
   const [sourceVisit, setSourceVisit] = useState<
@@ -1861,6 +1937,20 @@ export function Workspace() {
   const analysisOpener = useRef<HTMLButtonElement>(null);
   const stageAccessRef = useRef<HTMLDivElement>(null);
   const panelFocus = useRef<"heading" | "opener" | null>(null);
+  const inspectionFocus = useRef<{
+    origin: HTMLElement;
+    preferDetails: boolean;
+    destination?: HTMLElement;
+  } | null>(null);
+  const rememberInspectionFocus = useCallback((preferDetails = false) => {
+    const origin = document.activeElement;
+    if (!(origin instanceof HTMLElement) || !origin.matches("button, summary"))
+      return;
+    inspectionFocus.current = {
+      origin,
+      preferDetails: preferDetails || !navigationRef.current?.contains(origin),
+    };
+  }, []);
   const focusAfterTaskEnd = useRef(false);
   const endTask = (finish: () => void) => {
     focusAfterTaskEnd.current = true;
@@ -1911,13 +2001,17 @@ export function Workspace() {
     const medium = matchMedia("(min-width: 601px) and (max-width: 1099px)");
     let frame = 0;
     let wasMedium = medium.matches;
-    let displaced: HTMLElement | null = null;
+    let displaced: HTMLElement | SVGElement | null = null;
+    const isFocusTarget = (
+      target: EventTarget | null,
+    ): target is HTMLElement | SVGElement =>
+      target instanceof HTMLElement || target instanceof SVGElement;
     // 某些控件会在媒体查询的 change 回调之前失焦。
     const rememberDisplacedFocus = (event: FocusEvent) => {
       if (
         medium.matches !== wasMedium &&
         !event.relatedTarget &&
-        event.target instanceof HTMLElement
+        isFocusTarget(event.target)
       )
         displaced = event.target;
     };
@@ -1927,11 +2021,13 @@ export function Workspace() {
       const focused = active === document.body ? displaced : active;
       displaced = null;
       wasMedium = medium.matches;
-      if (!(focused instanceof HTMLElement)) return;
+      if (!isFocusTarget(focused)) return;
       const fromDetails = inspectorRef.current?.contains(focused);
       const fromStage = stageAccessRef.current?.contains(focused);
       const fromResources = navigationRef.current?.contains(focused);
-      if (!fromDetails && !fromStage && !fromResources) return;
+      const environmentPreview = focused.dataset.environmentPreview;
+      if (!fromDetails && !fromStage && !fromResources && !environmentPreview)
+        return;
       frame = requestAnimationFrame(() => {
         const current = document.activeElement;
         if (current !== focused && current !== document.body) return;
@@ -1944,6 +2040,17 @@ export function Workspace() {
           return;
         }
         const panel = inspectorRef.current;
+        if (environmentPreview) {
+          const preview = (
+            fromDetails ? stageRef.current : panel
+          )?.querySelector<HTMLElement>(
+            `[data-environment-preview="${environmentPreview}"]`,
+          );
+          if (preview?.getClientRects().length) {
+            preview.focus();
+            return;
+          }
+        }
         const other = fromDetails ? stageAccessRef.current : panel;
         const returnControl =
           focused.closest(".study-return-controls") &&
@@ -2100,6 +2207,14 @@ export function Workspace() {
   const entity = entityById(selected)!;
   const fixture = fixtureById(selected);
   const environment = environmentProbe(selected);
+  useEffect(() => {
+    if (
+      probeRosterVisit &&
+      (state.level !== "room" || layer !== "environment" || !environment)
+    )
+      setProbeRosterVisit(null);
+  }, [probeRosterVisit, state.level, layer, environment]);
+
   const round =
     state.level === "room" && layer === "overview"
       ? environmentRoundFor(selected)
@@ -2288,6 +2403,44 @@ export function Workspace() {
     !review.pendingEndpoint &&
     !!feedback?.settled &&
     feedback.key === presentationKey(state);
+  useLayoutEffect(() => {
+    const handoff = inspectionFocus.current;
+    if (!handoff) return;
+    const { origin, destination, preferDetails } = handoff;
+    const active = document.activeElement;
+    if (
+      active !== document.body &&
+      active !== origin &&
+      active !== destination
+    ) {
+      inspectionFocus.current = null;
+      return;
+    }
+    const visible = (element?: HTMLElement | null): element is HTMLElement =>
+      !!element?.getClientRects().length;
+    const originVisible = visible(origin);
+    if (originVisible && !origin.matches(":disabled")) {
+      if (active === document.body && ready) origin.focus();
+    } else if (!originVisible || ready) {
+      const detailHeading = inspectorRef.current?.querySelector<HTMLElement>(
+        ".study-panel-heading h2",
+      );
+      const headings = preferDetails
+        ? [detailHeading, navigationHeading.current]
+        : [navigationHeading.current, detailHeading];
+      const target = [
+        ...headings,
+        inspectorOpener.current,
+        analysisOpener.current,
+        navigationOpenerRef.current,
+      ].find(visible);
+      if (target && target !== active) {
+        target.focus({ preventScroll: true });
+        handoff.destination = target;
+      }
+    }
+    if (ready) inspectionFocus.current = null;
+  });
   useEffect(() => {
     if (!registerReturn || !ready) return;
     if (registerReturn.selected === selected) {
@@ -2681,20 +2834,35 @@ export function Workspace() {
     rackView,
     selected,
   ]);
+  const inletCoolingDetour =
+    inletAirflowVisit &&
+    coolingVisit?.deviceId === inletAirflowVisit.id &&
+    (atCoolingProbe || !!activeCoolingDrain);
+  const activeInletAirflowVisit =
+    inletAirflowVisit &&
+    (!ready ||
+      inletAirflowReturning ||
+      inletCoolingDetour ||
+      inletAirflowVisit.retainedAt === selected ||
+      inletAirflowIncludes(inletAirflowVisit.id, selected, state.deviceId))
+      ? inletAirflowVisit
+      : null;
   useEffect(() => {
-    if (
-      inletAirflowVisit &&
-      !inletAirflowReturning &&
-      ready &&
-      !inletAirflowIncludes(inletAirflowVisit.id, selected, state.deviceId)
-    )
+    if (!inletAirflowVisit || inletAirflowReturning || !ready) return;
+    if (!activeInletAirflowVisit) {
       setInletAirflowVisit(null);
+    } else if (
+      inletAirflowVisit.retainedAt &&
+      inletAirflowVisit.retainedAt !== selected
+    ) {
+      setInletAirflowVisit({ ...inletAirflowVisit, retainedAt: undefined });
+    }
   }, [
     inletAirflowVisit,
+    activeInletAirflowVisit,
     inletAirflowReturning,
     ready,
     selected,
-    state.deviceId,
   ]);
   useEffect(() => {
     if (
@@ -2728,22 +2896,32 @@ export function Workspace() {
     setInletAirflowVisit(null);
     setInletAirflowReturning(false);
   }, [inletAirflowVisit, inletAirflowReturning, ready, state.level, selected]);
+  const activeAlarmVisit =
+    alarmVisit &&
+    (!ready ||
+      alarmReturning ||
+      alarmVisit.retainedAt === selected ||
+      activeInletAirflowVisit?.id === alarmVisit.id ||
+      alarmVisitIncludes(alarmVisit, selected, state.deviceId))
+      ? alarmVisit
+      : null;
   const alarmQueueVisible = navigationView === "alarms";
   const inspectedAlarm =
-    alarmQueueVisible && alarmVisit?.id === selected ? alarmVisit : null;
+    alarmQueueVisible && activeAlarmVisit?.id === selected
+      ? activeAlarmVisit
+      : null;
   const alarmSample =
     alarmQueueVisible && entity.kind === "device"
       ? spatial.samples.get(selected)
       : undefined;
   useEffect(() => {
-    if (
-      alarmVisit &&
-      !alarmReturning &&
-      ready &&
-      !alarmVisitIncludes(alarmVisit, selected, state.deviceId)
-    )
+    if (!alarmVisit || alarmReturning || !ready) return;
+    if (!activeAlarmVisit) {
       setAlarmVisit(null);
-  }, [alarmVisit, alarmReturning, ready, selected, state.deviceId]);
+    } else if (alarmVisit.retainedAt && alarmVisit.retainedAt !== selected) {
+      setAlarmVisit({ ...alarmVisit, retainedAt: undefined });
+    }
+  }, [alarmVisit, activeAlarmVisit, alarmReturning, ready, selected]);
   useEffect(() => {
     if (
       !alarmReturning ||
@@ -2934,7 +3112,6 @@ export function Workspace() {
       return;
     }
     setRackView("space");
-    setSpaceMode("units");
     setComparisonRack(range.rackId);
     setComparisonStart(range.first);
     comparisonScroll.current = comparisonVisit.scroll;
@@ -3102,7 +3279,6 @@ export function Workspace() {
     state.level === "room" &&
     layer === "overview" &&
     navigationView === "space" &&
-    spaceMode === "units" &&
     roomCapacityRange?.rackId === selected
       ? roomCapacityRange
       : null;
@@ -3113,20 +3289,30 @@ export function Workspace() {
     (navigationView === "space" || comparisonVisit || blankingVisit)
       ? spaceRange
       : null);
+  const stageDetailsAvailable = !review.analysis || !!capacityRange;
   useEffect(() => {
     if (!rangeReturning.current || rangeView || !ready) return;
     rangeReturning.current = false;
     const entry = rangeEntry.current;
-    if (entry?.isConnected && entry.getClientRects().length)
-      entry.focus({ preventScroll: true });
-    else {
-      const side = entry?.dataset.rangeView;
-      const panel = nav ? navigationRef.current : inspectorRef.current;
-      const action = panel?.querySelector<HTMLElement>(
-        side ? `[data-range-view="${side}"]` : '[aria-label="观察范围分段"]',
-      );
-      (action ?? navigationOpenerRef.current)?.focus({ preventScroll: true });
-    }
+    const side = entry?.dataset.rangeView;
+    const navigation = navigationRef.current;
+    const action = navigation?.querySelector<HTMLElement>(
+      side ? `[data-range-view="${side}"]` : '[aria-label="观察范围分段"]',
+    );
+    const disclosure = navigation?.querySelector<HTMLElement>(
+      ".range-segments-disclosure > summary",
+    );
+    const heading = inspectorRef.current?.querySelector<HTMLElement>(
+      ".study-panel-heading h2",
+    );
+    const target = [
+      entry,
+      action,
+      disclosure,
+      heading,
+      navigationOpenerRef.current,
+    ].find((control) => control?.getClientRects().length);
+    target?.focus({ preventScroll: true });
   }, [rangeView, ready]);
   useEffect(() => {
     if (!blankingVisit) return;
@@ -3208,6 +3394,7 @@ export function Workspace() {
     setQuery(id);
     setFilter("all");
     setOnlyAlarms(false);
+    panelFocus.current = "heading";
     pick(id);
     control({ type: "layer", layer: "overview" });
     control({ type: "analysis", value: false });
@@ -3229,6 +3416,7 @@ export function Workspace() {
     state.level === "room" && layer === "overview" && !activeNetworkLink;
   const roomResourceList =
     browsingRoom && (rackView === "list" || rackView === "installation");
+  const roomResourceScroll = useRef(0);
   const roomLayoutDevices =
     browsingRoom && rackView === "layout" && layoutScope === "equipment";
   const roomDevice =
@@ -3410,6 +3598,7 @@ export function Workspace() {
   );
   const selectObject = useCallback(
     (id: string, enter = false) => {
+      if (enter) rememberInspectionFocus();
       setAirflowVisit(null);
       setPowerLinkId((current) =>
         powerContextIncludes(id, state.deviceId, current) ? current : null,
@@ -3454,17 +3643,25 @@ export function Workspace() {
       inspectingInletPair,
       review.analysis,
       rememberRoomSearch,
+      rememberInspectionFocus,
     ],
   );
   const pick = useCallback(
     (id: string, enter = false, keepNavigation = false) => {
       selectObject(id, enter);
+      rememberInspectionFocus(true);
       setInspector(true);
       if (!keepNavigation && matchMedia("(max-width: 1099px)").matches)
         setNav(false);
     },
-    [selectObject],
+    [selectObject, rememberInspectionFocus],
   );
+  const openDeviceInspection = (id: string) => {
+    rememberInspectionFocus(true);
+    dispatch({ type: "navigate", level: "device", id });
+    setInspector(true);
+    if (matchMedia("(max-width: 1099px)").matches) setNav(false);
+  };
   const showEntranceView = (view: EntranceView | null) => {
     if (view === "heads" || view === "head-boundary") {
       if (selected !== emergencyLight.id) pick(emergencyLight.id);
@@ -3482,6 +3679,7 @@ export function Workspace() {
       showDetails = true,
     } = {},
   ) => {
+    rememberInspectionFocus(showDetails);
     setAirflowVisit(null);
     setNetworkLinkId((current) =>
       networkContextIncludes(id, state.deviceId, current) ? current : null,
@@ -3574,11 +3772,11 @@ export function Workspace() {
   ) => {
     const powerCabinet = id === powerSettings.sourceId;
     if (
-      !layoutVisit?.resourceList &&
       layoutVisit?.id === id &&
-      layoutVisit.query === layoutQuery &&
-      layoutVisit.roster?.source === roster?.source &&
-      layoutVisit.roster?.query === roster?.query
+      (layoutVisit.resourceList ||
+        (layoutVisit.query === layoutQuery &&
+          layoutVisit.roster?.source === roster?.source &&
+          layoutVisit.roster?.query === roster?.query))
     )
       return;
     setLayoutVisit({
@@ -3700,8 +3898,7 @@ export function Workspace() {
     if (aisleVisit.service || aisleVisit.frontService) {
       setPduInspection(null);
       setPowerLinkId(null);
-      setRackView("space");
-      setSpaceMode("aisles");
+      setRackView("aisles");
       setQuery(aisleVisit.resourceQuery);
       setFilter(aisleVisit.filter);
       setOnlyAlarms(aisleVisit.onlyAlarms);
@@ -3747,7 +3944,7 @@ export function Workspace() {
     pduInspection,
     state.deviceId,
   ]);
-  const rememberFacilityList = (id: string, scroll: number) => {
+  const rememberRoomResourceList = (id: string, scroll: number) => {
     setLayoutVisit({
       id,
       layer,
@@ -3763,7 +3960,7 @@ export function Workspace() {
     setLayoutReturning(false);
   };
   const locateFacilityFromList = (id: string, button: HTMLButtonElement) => {
-    rememberFacilityList(
+    rememberRoomResourceList(
       id,
       button.closest(".study-resource-list")?.scrollTop ?? 0,
     );
@@ -3780,6 +3977,41 @@ export function Workspace() {
     });
     control({ type: "analysis", value: false });
     focus(id);
+  };
+  const inspectEnvironmentRoster = (id: string) => {
+    if (!ready) return;
+    setProbeRosterVisit({
+      id,
+      query: probeRosterQuery,
+      scroll: probeRosterScroll.current,
+      inspector: probeRosterVisit?.inspector ?? inspector,
+      camera: probeRosterVisit
+        ? probeRosterVisit.camera
+        : (captureTaskView.current?.("room") ?? null),
+    });
+    setEnvironmentComparisonOpen(false);
+    setEnvironmentPairVisit(null);
+    focus(id, { showDetails: false });
+    openObjectDetails();
+  };
+  const returnEnvironmentRoster = () => {
+    if (!probeRosterVisit || !ready) return;
+    const origin = probeRosterVisit;
+    setProbeRosterVisit(null);
+    setProbeRosterReturn(origin);
+    setEnvironmentPairVisit(null);
+    setEnvironmentReturn(null);
+    setEnvironmentComparisonOpen(false);
+    control({ type: "pick", id: origin.id });
+    control({ type: "analysis", value: false });
+    setRackView("probes");
+    setProbeRosterQuery(origin.query);
+    probeRosterScroll.current = origin.scroll;
+    skipNavigationSearch.current = !nav;
+    setNav(true);
+    setInspector(
+      origin.inspector && !matchMedia("(max-width: 1099px)").matches,
+    );
   };
   const openLayoutInstallation = (id: string) => {
     // 从服务范围继续查看关联设备时，布置图的起点仍是制冷单元。
@@ -3852,7 +4084,7 @@ export function Workspace() {
   };
   const beginAlarmInspection = (
     id: string,
-    action: "preview" | "installation" | "internal" | "analysis",
+    action: "preview" | "installation" | "internal" | "analysis" | "inlet",
     previous?: AlarmVisit,
   ) => {
     const reading = spatial.readings.get(id);
@@ -3889,6 +4121,25 @@ export function Workspace() {
           ?.querySelector<HTMLElement>(".study-identity h1")
           ?.focus(),
       );
+    } else if (action === "inlet") {
+      const rackId = rackForDevice(id).id;
+      const target = roomAirflowTarget(id, state.deviceId);
+      setRackView("inlet");
+      setInletScope("rack");
+      setInletRack(rackId);
+      setInletSelection(id);
+      setInletFilter("all");
+      setInletQuery(id);
+      setSliceControls((current) =>
+        alignAirflowSlice(current, target?.rowId ?? null),
+      );
+      setOnlyAlarms(false);
+      setMetric("temperature");
+      control({ type: "room-inlet", id });
+      skipNavigationSearch.current = !nav;
+      setNav(true);
+      if (matchMedia("(max-width: 1099px)").matches) setInspector(false);
+      focusNavigationHeading();
     } else if (action === "analysis") {
       pick(id);
       jumpToEvents.current = true;
@@ -3903,11 +4154,7 @@ export function Workspace() {
       setRackView("installation");
       if (!reading?.alarm) setOnlyAlarms(false);
       if (action === "installation") focus(id, { installation: true });
-      else {
-        dispatch({ type: "navigate", level: "device", id });
-        setInspector(true);
-        if (matchMedia("(max-width: 1099px)").matches) setNav(false);
-      }
+      else openDeviceInspection(id);
     }
   };
   const openFeeders = (pduId = feeders.first) => {
@@ -3920,6 +4167,11 @@ export function Workspace() {
     setPowerLinkId(null);
     setNav(true);
     if (matchMedia("(max-width: 1099px)").matches) setInspector(false);
+  };
+  const clearPowerOverviewInspection = () => {
+    setPowerOverviewVisit(null);
+    setPowerOverviewReturning(false);
+    setFeederRestore(null);
   };
   const inspectPowerOverview = (
     id: string,
@@ -3972,11 +4224,7 @@ export function Workspace() {
       if (action === "installation") {
         if (rackById(id)) pick(id, true);
         else focus(id, { installation: true });
-      } else {
-        dispatch({ type: "navigate", level: "device", id });
-        setInspector(true);
-        if (matchMedia("(max-width: 1099px)").matches) setNav(false);
-      }
+      } else openDeviceInspection(id);
     }
   };
   const startStructureTool = (tool: StructureTool) => {
@@ -4218,6 +4466,13 @@ export function Workspace() {
     setNetworkLinkId(id);
     if (!id) setNetworkMapVisit(null);
   };
+  const clearNetworkInspection = () => {
+    changeNetworkTrace(null);
+    setNetworkMapReturning(false);
+    setPortCheck(null);
+    setPortVisit(null);
+    setPortReturning(false);
+  };
   const locateNetworkInput = (input: PowerLink) => {
     if (!supplyBranch || !ready) return;
     setNetworkMapVisit(
@@ -4250,11 +4505,27 @@ export function Workspace() {
     if (state.level !== "room")
       control({ type: "open-resource", id: "room-01" });
   };
+  const clearCoolingInspection = () => {
+    setAirflowVisit(null);
+    setAirflowResponse(null);
+    setCoolingVisit(null);
+    setCoolingReturning(false);
+  };
+  const clearInletInspection = () => {
+    setInletInspection(null);
+    setInletReturning(false);
+    setInletPair(null);
+    setInletSession(false);
+    if (inletAirflowVisit) {
+      setInletAirflowVisit(null);
+      setInletAirflowReturning(false);
+      clearCoolingInspection();
+    }
+  };
   const returnInletAirflow = () => {
     if (!inletAirflowVisit || !ready || inletAirflowReturning) return;
     setInletAirflowReturning(true);
-    setAirflowVisit(null);
-    setAirflowResponse(null);
+    clearCoolingInspection();
     control({ type: "room-inlet", id: inletAirflowVisit.id });
   };
   useEffect(() => {
@@ -4406,7 +4677,7 @@ export function Workspace() {
     if (!ready) return;
     if (!layoutVisit) {
       if (roomResourceList)
-        rememberFacilityList(
+        rememberRoomResourceList(
           trayId,
           navigationRef.current?.querySelector(".study-resource-list")
             ?.scrollTop ?? 0,
@@ -4987,10 +5258,12 @@ export function Workspace() {
     collapseNavigation,
   ]);
   const load = (next: WorkspaceShot) => {
+    inspectionFocus.current = null;
     setAirflowOrigin(null);
     setReturningFromAirflow(false);
     roomSearchOrigin.current = null;
     roomSearchFocus.current = null;
+    roomResourceScroll.current = 0;
     setSmokeVisit(null);
     setSmokeReturning(false);
     setSmokeRestore(false);
@@ -5041,6 +5314,10 @@ export function Workspace() {
     setInspectionDevice(null);
     setEnvironmentComparisonOpen(false);
     setEnvironmentPairVisit(null);
+    setProbeRosterQuery("");
+    probeRosterScroll.current = 0;
+    setProbeRosterVisit(null);
+    setProbeRosterReturn(null);
     setGrilleVisit(null);
     setGrilleReturning(false);
     setGrilleRack({});
@@ -5065,6 +5342,7 @@ export function Workspace() {
     setPeakReturning(false);
     peakReturnFocus.current = null;
     setExpanded([]);
+    roomPresentations.current = {};
     setRackView("installation");
     setBlankingVisit(null);
     setBlankingRestore(null);
@@ -5072,7 +5350,6 @@ export function Workspace() {
     setSpaceVisit(null);
     setSpaceReturning(false);
     setSpaceRestore(null);
-    setSpaceMode("units");
     setAisleQuery("");
     setAisleReturning(false);
     setAisleVisit(null);
@@ -5237,6 +5514,7 @@ export function Workspace() {
         }
         ready={ready}
         onLocate={() => {
+          panelFocus.current = "heading";
           if (atCoolingProbe) {
             showAirflow(coolingProbe.device.id);
             return;
@@ -5272,7 +5550,7 @@ export function Workspace() {
     if (!linked) return;
     if (!layoutVisit) {
       if (roomResourceList)
-        rememberFacilityList(
+        rememberRoomResourceList(
           linked.probe.id,
           navigationRef.current?.querySelector(".study-resource-list")
             ?.scrollTop ?? 0,
@@ -5551,10 +5829,14 @@ export function Workspace() {
       setAirflowVisit(null);
       setAirflowResponse(null);
     }
-    if (layoutVisit.id === powerSettings.sourceId) {
-      setPowerOverviewVisit(null);
-      setFeederRestore(null);
+    if (layoutVisit.resourceList) {
+      clearNetworkInspection();
+      setPowerLinkId(null);
+      setPduInspection(null);
+      setPendingNetworkOutlet(null);
     }
+    if (layoutVisit.resourceList || layoutVisit.id === powerSettings.sourceId)
+      clearPowerOverviewInspection();
     // 先退出当前设施核对，再恢复布置图选择。
     if (
       state.level !== "room" ||
@@ -5602,7 +5884,13 @@ export function Workspace() {
       }
       onOpenFeeders={
         state.level === "room" && !(nav && navigationView === "feeders")
-          ? openFeeders
+          ? (pduId) => {
+              if (roomResourceList && !layoutVisit)
+                rememberRoomResourceList(selected, roomResourceScroll.current);
+              skipNavigationSearch.current = !nav;
+              openFeeders(pduId);
+              focusNavigationHeading();
+            }
           : undefined
       }
       pduInspection={pduInspection}
@@ -5838,7 +6126,15 @@ export function Workspace() {
       end: {
         label: "结束服务范围检视往返",
         disabled: coolingReturning,
-        onClick: () => setCoolingVisit(null),
+        onClick: () => {
+          // 只结束当前核对，仍可从关联设施返回上游进风名单。
+          if (inletCoolingDetour && inletAirflowVisit)
+            setInletAirflowVisit({
+              ...inletAirflowVisit,
+              retainedAt: selected,
+            });
+          setCoolingVisit(null);
+        },
       },
     });
   }
@@ -5848,6 +6144,14 @@ export function Workspace() {
       label: `← 返回起点 · ${environmentProbe(pairedEnvironment.firstId)!.fixture.name}`,
       disabled: !ready,
       onReturn: returnEnvironmentPair,
+    });
+  }
+  if (probeRosterVisit) {
+    taskReturns.push({
+      group: "机房环境测点往返",
+      label: `← 返回测点名单 · ${environmentProbe(probeRosterVisit.id)!.fixture.name}`,
+      disabled: !ready,
+      onReturn: returnEnvironmentRoster,
     });
   }
   if (powerOverviewVisit) {
@@ -5890,7 +6194,7 @@ export function Workspace() {
     });
   }
   if (
-    inletAirflowVisit ||
+    activeInletAirflowVisit ||
     inletInspection ||
     inletPair ||
     (inletSession && state.level !== "room")
@@ -5900,12 +6204,18 @@ export function Workspace() {
       label: "← 返回机房进风对照",
       disabled: !ready || inletReturning || inletAirflowReturning,
       escapeReturns: true,
-      onReturn: inletAirflowVisit ? returnInletAirflow : returnInletOverview,
-      end: inletAirflowVisit
+      onReturn: activeInletAirflowVisit
+        ? returnInletAirflow
+        : returnInletOverview,
+      end: activeInletAirflowVisit
         ? {
             label: "结束气流往返",
             disabled: inletAirflowReturning,
-            onClick: () => setInletAirflowVisit(null),
+            onClick: () => {
+              if (activeAlarmVisit?.id === activeInletAirflowVisit.id)
+                setAlarmVisit({ ...activeAlarmVisit, retainedAt: selected });
+              setInletAirflowVisit(null);
+            },
           }
         : undefined,
     });
@@ -5925,12 +6235,13 @@ export function Workspace() {
       },
     });
   }
-  if (alarmVisit) {
+  if (activeAlarmVisit) {
     taskReturns.push({
       group: "告警排查往返",
-      label: `← 返回告警列表 · ${deviceById(alarmVisit.id)?.name}`,
+      label: `← 返回告警列表 · ${deviceById(activeAlarmVisit.id)?.name}`,
       disabled: !ready || alarmReturning,
       onReturn: () => {
+        clearInletInspection();
         setAlarmReturning(true);
         if (state.level !== "room")
           control({ type: "open-resource", id: "room-01" });
@@ -5973,6 +6284,139 @@ export function Workspace() {
       onReturn: () => selectObject("room-01", true),
     });
   }
+  const chooseResourcePresentation = (view: ResourceView) => {
+    takeover();
+    if (state.level === "room" && view !== "list")
+      roomPresentations.current[workspaceEntry.id] = view;
+    setRackView(view);
+    if (view === "probes" && !environment) {
+      selectObject("room-01");
+      control({ type: "analysis", value: false });
+    }
+    if (probeRosterActive && view !== "probes") {
+      setProbeRosterVisit(null);
+      if (view === "inlet" && environment) selectObject("room-01", true);
+    }
+    if (view === "feeders") openFeeders();
+    if (view === "power") setPowerRestore(0);
+    if (roomAlarms) {
+      setAlarmRestore(0);
+      setOnlyAlarms(view === "alarms");
+      setAlarmVisit(null);
+    }
+    if (view === "layout") {
+      setShowFixtureRoster(false);
+      setLayoutRestore(0);
+      if (!layoutVisit?.resourceList) {
+        setLayoutVisit(null);
+        setLayoutReturning(false);
+      }
+    } else if (view === "space") {
+      setSpaceVisit(null);
+      setSpaceRestore(null);
+    } else if (view === "inlet") {
+      if (selectedRackId) {
+        setInletSelection(selected);
+        setInletRack(selectedRackId);
+      }
+      const target = roomAirflowTarget(selected, state.deviceId);
+      setSliceControls((current) =>
+        alignAirflowSlice(current, target?.rowId ?? null),
+      );
+    }
+  };
+  const chooseWorkspaceEntry = (entry: (typeof workspaceEntries)[number]) => {
+    if (state.level === "room") {
+      if (entry.id === "space") setLayoutRestore(0);
+      if (entry.id === "alarms") setAlarmRestore(0);
+      if (entry.id === "power") {
+        setPowerRestore(0);
+        setFeederRestore(null);
+      }
+      if (!nav) {
+        skipNavigationSearch.current = true;
+        setNav(true);
+      }
+    }
+    if (entry.id === workspaceEntry.id) return;
+    control({ type: "layer", layer: entry.layer });
+    if (state.level !== "device") {
+      setRackView(
+        (state.level === "room"
+          ? (roomPresentations.current[entry.id] ?? entry.roomResources?.[0])
+          : undefined) ?? navigationViews(state.level, entry.layer)[0],
+      );
+    }
+    if (state.level === "room") {
+      setAlarmVisit(null);
+      setAlarmReturning(false);
+      setLayoutVisit(null);
+      setLayoutReturning(false);
+      clearInletInspection();
+      if (workspaceEntry.id === "airflow" && !inletAirflowVisit)
+        clearCoolingInspection();
+      if (workspaceEntry.id === "network") clearNetworkInspection();
+      if (workspaceEntry.id === "power") clearPowerOverviewInspection();
+      if (entry.id === "network" && selectedRackId)
+        setNetworkMapRack(selectedRackId);
+    }
+    setOnlyAlarms(entry.id === "alarms");
+    setMetric(entry.id === "power" ? "power" : "temperature");
+  };
+  const openRoomTopic = (view: "space" | "network" | "probes" | "power") => {
+    if (!ready) return;
+    const layers = {
+      space: "overview",
+      network: "overview",
+      probes: "environment",
+      power: "power",
+    } as const;
+    const entry = activeWorkspaceEntry("room", layers[view], view);
+    chooseWorkspaceEntry(entry);
+    rememberRoomResourceList(selected, roomResourceScroll.current);
+    setRackView(view);
+    switch (view) {
+      case "space":
+        setComparisonRack(selected);
+        setComparisonQuery(rackById(selected)?.name ?? "");
+        setComparisonRow("all");
+        setComparisonStart(null);
+        break;
+      case "network":
+        setNetworkMapScope("rack");
+        setNetworkMapRole("all");
+        setNetworkMapQuery(deviceById(selected) ? selected : "");
+        break;
+      case "probes":
+        setProbeRosterQuery(entity.name);
+        break;
+      case "power":
+        setPowerScope("rack");
+        setPowerFilter("all");
+        setPowerQuery(deviceById(selected) ? selected : "");
+        break;
+    }
+    if (matchMedia("(max-width: 1099px)").matches) setInspector(false);
+    focusNavigationHeading();
+  };
+  const roomTopicLinks =
+    state.level === "room" &&
+    workspaceEntry.id === "overview" &&
+    !review.analysis
+      ? (
+          [
+            [entity.kind === "rack", "space", "核对柜内容量"],
+            [
+              !!selectedRackId &&
+                networkLinksFor(selected, state.deviceId).length > 0,
+              "network",
+              "查看网络接入",
+            ],
+            [!!selectedRackId, "power", "查看所选用电"],
+            [!!environment, "probes", "查看环境测点"],
+          ] as const
+        ).filter(([available]) => available)
+      : [];
   const scenePath = getPath(state);
   return (
     <div
@@ -5980,6 +6424,7 @@ export function Workspace() {
       style={workspaceColors}
       data-analysis={review.analysis}
       data-layer={layer}
+      data-workspace-view={workspaceEntry.id}
       data-scene-level={state.level}
       data-selection={selected}
       data-time={state.time}
@@ -6134,82 +6579,44 @@ export function Workspace() {
           aria-label="资源导航"
           onPointerDownCapture={takeover}
           onKeyDownCapture={takeover}
+          onFocusCapture={(event) => {
+            if (event.target.closest(".rack-space-inspector"))
+              spaceNavigationEntry.current = event.target;
+          }}
         >
           <div className="study-panel-heading">
-            <h2>
+            <h2 ref={navigationHeading} tabIndex={-1}>
               {alarmQueueVisible
                 ? "机房告警"
                 : state.level === "device"
                   ? "设备部件"
                   : state.level === "rack"
                     ? "机柜资源"
-                    : "机房资源"}
+                    : workspaceEntry.id === "overview"
+                      ? "机房资源"
+                      : `机房${workspaceEntry.name}`}
             </h2>
             <button aria-label="收起资源导航" onClick={collapseNavigation}>
               ×
             </button>
           </div>
-          {views.length > 1 && (
+          {resourcePresentations.length > 1 && (
             <div
               className={`rack-navigation-view ${state.level === "room" ? "is-room" : ""}`}
               role="group"
               aria-label="资源呈现"
             >
-              {views.map((view) => (
+              {resourcePresentations.map((view) => (
                 <button
                   key={view}
                   aria-pressed={navigationView === view}
-                  onClick={() => {
-                    takeover();
-                    setRackView(view);
-                    if (view === "feeders") {
-                      openFeeders();
-                    }
-                    if (roomAlarms) {
-                      setOnlyAlarms(view === "alarms");
-                      setAlarmVisit(null);
-                    }
-                    if (view === "layout") {
-                      setShowFixtureRoster(false);
-                      setLayoutVisit(null);
-                      setLayoutReturning(false);
-                    } else if (view === "space") {
-                      setSpaceVisit(null);
-                      setSpaceRestore(null);
-                    } else if (view === "inlet") {
-                      if (selectedRackId) {
-                        setInletSelection(selected);
-                        setInletRack(selectedRackId);
-                      }
-                      const target = roomAirflowTarget(
-                        selected,
-                        state.deviceId,
-                      );
-                      setSliceControls((current) =>
-                        alignAirflowSlice(current, target?.rowId ?? null),
-                      );
-                    }
-                  }}
+                  onClick={() => chooseResourcePresentation(view)}
                 >
-                  {resourceViews[view]}
+                  {state.level === "room" && view === "space"
+                    ? "U 位容量"
+                    : resourceViews[view]}
                 </button>
               ))}
-            </div>
-          )}
-          {state.level === "room" && navigationView === "space" && (
-            <div className="space-mode" role="group" aria-label="空间核查范围">
-              <button
-                aria-pressed={spaceMode === "units"}
-                onClick={() => setSpaceMode("units")}
-              >
-                U 位容量
-              </button>
-              <button
-                aria-pressed={spaceMode === "aisles"}
-                onClick={() => setSpaceMode("aisles")}
-              >
-                排间通道
-              </button>
             </div>
           )}
           {!alarmQueueVisible &&
@@ -6424,6 +6831,7 @@ export function Workspace() {
             />
           ) : state.level === "room" && navigationView === "layout" ? (
             <RoomLayout
+              analysis={review.analysis}
               selected={selected}
               deviceId={state.deviceId}
               query={layoutQuery}
@@ -6505,8 +6913,10 @@ export function Workspace() {
                 if (crossing?.kind === "rear-wall") requestCrossing(null);
                 setLayoutScope(scope);
                 setLayoutCrossing(null);
-                setLayoutVisit(null);
-                setLayoutReturning(false);
+                if (!layoutVisit?.resourceList) {
+                  setLayoutVisit(null);
+                  setLayoutReturning(false);
+                }
                 setLayoutRestore(0);
                 layoutScroll.current = 0;
               }}
@@ -6533,6 +6943,19 @@ export function Workspace() {
                 selectObject(id);
                 openObjectDetails();
               }}
+            />
+          ) : probeRosterActive ? (
+            <EnvironmentCoverage
+              time={state.time}
+              query={probeRosterQuery}
+              selected={selected}
+              ready={ready}
+              visible={nav}
+              returningId={probeRosterReturn?.id}
+              scroll={probeRosterScroll}
+              onQuery={setProbeRosterQuery}
+              onInspect={inspectEnvironmentRoster}
+              onRestored={finishProbeRosterRestore}
             />
           ) : state.level === "room" && navigationView === "inlet" ? (
             <InletOverview
@@ -6572,6 +6995,7 @@ export function Workspace() {
                 setInletPair(null);
                 setRackView("installation");
                 control({ type: "analysis", value: false });
+                panelFocus.current = "heading";
                 showAirflow(id);
               }}
               scope={inletScope}
@@ -6599,11 +7023,8 @@ export function Workspace() {
                 beginInletInspection(id);
                 setInletSelection(id);
                 inletSlice.current = sliceControls;
-                if (internal) {
-                  dispatch({ type: "navigate", level: "device", id });
-                  setInspector(true);
-                  if (matchMedia("(max-width: 1099px)").matches) setNav(false);
-                } else if (rackById(id)) pick(id, true);
+                if (internal) openDeviceInspection(id);
+                else if (rackById(id)) pick(id, true);
                 else focus(id, { installation: true });
               }}
               onAnalyze={() => {
@@ -6689,6 +7110,7 @@ export function Workspace() {
               expandedId={comparisonRack}
               selected={selected}
               scroll={comparisonScroll}
+              visible={nav}
               range={roomCapacityRange}
               onStart={setComparisonStart}
               restoreFocus={comparisonFocus && nav}
@@ -6756,7 +7178,6 @@ export function Workspace() {
                 setQuery(spaceRangeLabel(range));
                 setFilter("all");
                 setOnlyAlarms(false);
-                openObjectDetails();
               }}
               onDevice={inspectRangeDevice}
               queryMessage={
@@ -6774,6 +7195,7 @@ export function Workspace() {
             />
           ) : state.level === "rack" && navigationView === "installation" ? (
             <RackInstallation
+              resultRef={alarmResultRef}
               restoreBlanking={blankingRestore}
               onBlankingFocus={finishBlankingFocus}
               onBlanking={(first, last, scroll) => {
@@ -6831,6 +7253,10 @@ export function Workspace() {
             <div
               className={`study-resource-list ${roomResourceList && rows.length > 1 ? "is-room-browser" : ""} ${query.trim() || filter !== "all" ? "is-search" : ""}`}
               key={`${state.level}:${state.deviceId}`}
+              onScroll={(event) => {
+                if (roomResourceList && nav)
+                  roomResourceScroll.current = event.currentTarget.scrollTop;
+              }}
             >
               {unitQuery && (
                 <section className="study-unit-query" aria-label="U 位安装核对">
@@ -6976,6 +7402,7 @@ export function Workspace() {
                           key={row.id}
                         >
                           <button
+                            ref={alarmResultRef}
                             className="study-resource-text"
                             aria-pressed={selected === row.id}
                             title={[
@@ -7044,6 +7471,7 @@ export function Workspace() {
                             aria-label={`${row.name}操作`}
                           >
                             <button
+                              ref={alarmResultRef}
                               disabled={
                                 !ready ||
                                 (!unitQuery &&
@@ -7103,6 +7531,7 @@ export function Workspace() {
                               )}
                             {!locateOnly && (
                               <button
+                                ref={alarmResultRef}
                                 disabled={!ready}
                                 aria-label={`${resourceOpenLabel(state, row.id)} · ${row.name}`}
                                 onClick={() => selectObject(row.id, true)}
@@ -7124,7 +7553,9 @@ export function Workspace() {
                       : "当前范围没有活动告警"
                     : "没有匹配的资源"}
                   <button
+                    ref={alarmResultRef}
                     onClick={() => {
+                      resourceSearch.current?.focus();
                       setOnlyAlarms(false);
                       setQuery("");
                       setFilter("all");
@@ -7150,7 +7581,9 @@ export function Workspace() {
           className="study-stage"
           aria-label="三维工作区"
         >
-          <div className="study-layer-control">
+          <div
+            className={`study-layer-control${state.level === "room" ? " is-room" : ""}`}
+          >
             {!nav && (
               <button
                 ref={navigationOpenerRef}
@@ -7164,31 +7597,27 @@ export function Workspace() {
               </button>
             )}
             <nav aria-label="观察视图">
-              {reviewLayers.map((l) => (
-                <button
-                  key={l.id}
-                  aria-pressed={layer === l.id}
-                  onClick={() => {
-                    if (l.id === layer) return;
-                    control({ type: "layer", layer: l.id });
-                    if (state.level !== "device")
-                      setRackView(navigationViews(state.level, l.id)[0]);
-                    if (
-                      l.id === "alarms" &&
-                      selected === "room-01" &&
-                      state.level === "room" &&
-                      !review.analysis
-                    ) {
-                      setRackView("list");
-                      setNav(true);
-                    }
-                    setOnlyAlarms(l.id === "alarms");
-                    setMetric(l.id === "power" ? "power" : "temperature");
-                  }}
-                >
-                  {l.name}
-                </button>
-              ))}
+              {workspaceEntries
+                .filter(
+                  (entry) => state.level === "room" || entry.id === entry.layer,
+                )
+                .map((entry) => {
+                  const description =
+                    state.level === "room"
+                      ? (entry.roomDescription ?? entry.description)
+                      : entry.description;
+                  return (
+                    <button
+                      key={entry.id}
+                      title={description}
+                      aria-description={description}
+                      aria-pressed={workspaceEntry.id === entry.id}
+                      onClick={() => chooseWorkspaceEntry(entry)}
+                    >
+                      {entry.name}
+                    </button>
+                  );
+                })}
             </nav>
           </div>
           <ReviewScene
@@ -7204,6 +7633,7 @@ export function Workspace() {
               (comparisonReturning && comparisonVisit) ||
               (smokeReturning && smokeVisit) ||
               environmentReturn ||
+              probeRosterReturn ||
               (powerOverviewReturning && powerOverviewVisit) ||
               (inletReturning && inletInspection) ||
               (inletAirflowReturning && inletAirflowVisit) ||
@@ -7363,6 +7793,7 @@ export function Workspace() {
             inletViewCommand={inletViewCommand}
             onInletViewChange={setInletView}
             onInletView={requestInletView}
+            probeRosterActive={probeRosterActive}
             environmentPair={pairedEnvironment}
             environmentPairMetric={environmentPairMetric}
             environmentView={environmentView}
@@ -7507,10 +7938,10 @@ export function Workspace() {
             compactTools
             access={
               (!inspector || nav) &&
-              (!review.analysis || taskReturns.length > 0) && (
+              (stageDetailsAvailable || taskReturns.length > 0) && (
                 <div className="study-stage-access" ref={stageAccessRef}>
                   <StudyReturns actions={taskReturns} onEnd={endTask} />
-                  {!review.analysis && (
+                  {stageDetailsAvailable && (
                     <button
                       ref={inspectorOpener}
                       className="study-show-detail"
@@ -8447,7 +8878,13 @@ export function Workspace() {
                 ×
               </button>
             </div>
-            {capacityRange && !review.analysis ? (
+            {probeRosterActive && selected === "room-01" && !review.analysis ? (
+              <div className="study-identity">
+                <small>01 号机房 · 模拟</small>
+                <h1>环境测点</h1>
+                <span>选择测点可核对采样与露点来源。</span>
+              </div>
+            ) : capacityRange && !review.analysis ? (
               <div className="study-identity capacity-identity">
                 <small>机柜容量核对</small>
                 <h1>{resource?.name ?? entity.name}</h1>
@@ -8504,6 +8941,22 @@ export function Workspace() {
                   )}
                 </span>
               </div>
+            )}
+            {roomTopicLinks.length > 0 && (
+              <details className="room-topic-links">
+                <summary>相关核对</summary>
+                <div>
+                  {roomTopicLinks.map(([, view, label]) => (
+                    <button
+                      key={view}
+                      disabled={!ready}
+                      onClick={() => openRoomTopic(view)}
+                    >
+                      {label} ↗
+                    </button>
+                  ))}
+                </div>
+              </details>
             )}
             {networkTrace && !portOwnsTrace && !review.analysis && (
               <NetworkTrace
@@ -9765,6 +10218,11 @@ export function Workspace() {
                       min="0"
                       max={scenario.duration}
                       value={state.time}
+                      style={
+                        {
+                          "--study-time-progress": `${(state.time / scenario.duration) * 100}%`,
+                        } as CSSProperties
+                      }
                       onChange={(e) =>
                         dispatch({ type: "seek", time: Number(e.target.value) })
                       }
@@ -9807,7 +10265,20 @@ export function Workspace() {
                     onSeek={(time) => dispatch({ type: "seek", time })}
                     onPreview={pick}
                     onLocate={focus}
-                    onClose={() => setEnvironmentPairVisit(null)}
+                    onClose={() => {
+                      if (
+                        state.level === "room" &&
+                        selected !== pairedEnvironment.firstId
+                      )
+                        focus(selected, {
+                          revealStage: false,
+                          showDetails: false,
+                        });
+                      else if (environmentView)
+                        requestEnvironmentView("return");
+                      panelFocus.current = "heading";
+                      setEnvironmentPairVisit(null);
+                    }}
                   />
                 ) : environment && fixture ? (
                   <EnvironmentDetails
@@ -9855,12 +10326,13 @@ export function Workspace() {
                   />
                 ) : (
                   <ReviewAnalysis
-                    key={`${state.replayCycle}:${revision}`}
+                    key={revision}
+                    cycle={state.replayCycle}
                     evidence={
                       <>
                         {inletId && !pairedInlet && (
                           <InletAssessment
-                            key={`${inletId}:${state.replayCycle}:${revision}`}
+                            key={inletId}
                             headingRef={inletHeading}
                             processState={
                               inletProcessReview?.key === inletProcessKey
@@ -9931,7 +10403,8 @@ export function Workspace() {
                 {airflowInspector}
                 {probeAirflowComparison}
               </>
-            ) : capacityRange ? null : (
+            ) : capacityRange ||
+              (probeRosterActive && selected === "room-01") ? null : (
               <>
                 {probeRackInspection}
                 {coolingProbeCheck}
@@ -9980,6 +10453,14 @@ export function Workspace() {
                       </button>
                       {(alarmSample || inspectedAlarm) && (
                         <>
+                          <button
+                            disabled={!ready}
+                            onClick={() =>
+                              beginAlarmInspection(selected, "inlet")
+                            }
+                          >
+                            查看进风
+                          </button>
                           <button
                             disabled={!ready}
                             onClick={() =>

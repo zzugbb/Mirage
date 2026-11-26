@@ -15,7 +15,7 @@ import { sceneLabels } from "./scene-labels.ts";
 import { devices } from "./installation.ts";
 import { airflowSnapshot } from "./airflow.ts";
 
-test("五个工作区视图职责分开，气流不落入功耗、温度染色或告警标记", () => {
+test("五个三维图层职责分开，气流不落入功耗、温度染色或告警标记", () => {
   assert.deepEqual(
     reviewLayers.map((item) => item.id),
     ["overview", "environment", "airflow", "power", "alarms"],

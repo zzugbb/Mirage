@@ -1,6 +1,7 @@
 import { useMemo, useRef } from "react";
 import { budgetProcess, type BudgetReview } from "../budget-process";
 import { sourceValue } from "../reading-sources";
+import { useResultFocusFallback } from "../use-result-focus-fallback";
 export function BudgetProcess({
   sourceId,
   time,
@@ -16,6 +17,7 @@ export function BudgetProcess({
 }) {
   const summary = useRef<HTMLElement>(null),
     horizon = state.origin ?? time;
+  const watchProcess = useResultFocusFallback(summary);
   const events = useMemo(
     () => budgetProcess(sourceId, horizon)!,
     [sourceId, horizon],
@@ -42,71 +44,76 @@ export function BudgetProcess({
       }}
     >
       <summary ref={summary}>预算口径过程 · {events.length - 1} 次变化</summary>
-      <p>
-        {state.origin === null
-          ? `截至 t+${time}s 已发生记录`
-          : `核对基准 t+${state.origin}s · 保留当时记录`}
-        。场景与当前汇总跟随 t+{time}s。
-      </p>
-      {state.origin !== null && (
-        <button
-          onClick={() => {
-            onSeek(state.origin!);
-            onChange({ ...state, origin: null });
-            summary.current?.focus({ preventScroll: true });
-          }}
-        >
-          返回预算核对前 {state.origin}s
-        </button>
-      )}
-      <ol aria-label="预算口径变化记录">
-        {events.map((event) => (
-          <li key={event.time}>
-            <strong>
-              {event.time}s · {event.before ? "计入条件变化" : "初始口径"}
-            </strong>
-            {event.changed.map((row) => (
-              <small key={row.id}>
-                {row.name}：{row.before} → {row.after}
-              </small>
+      {state.open && (
+        <div ref={watchProcess}>
+          <p>
+            {state.origin === null
+              ? `截至 t+${time}s 已发生记录`
+              : `核对基准 t+${state.origin}s · 保留当时记录`}
+            。场景与当前汇总跟随 t+{time}s。
+          </p>
+          {state.origin !== null && (
+            <button
+              onClick={() => {
+                onSeek(state.origin!);
+                onChange({ ...state, origin: null });
+                summary.current?.focus({ preventScroll: true });
+              }}
+            >
+              返回预算核对前 {state.origin}s
+            </button>
+          )}
+          <ol aria-label="预算口径变化记录">
+            {events.map((event) => (
+              <li key={event.time}>
+                <strong>
+                  {event.time}s · {event.before ? "计入条件变化" : "初始口径"}
+                </strong>
+                {event.changed.map((row) => (
+                  <small key={row.id}>
+                    {row.name}：{row.before} → {row.after}
+                  </small>
+                ))}
+                <div className="budget-process-points">
+                  {[event.before, event.after]
+                    .filter((v) => v !== null)
+                    .map((point) => {
+                      const b = point.budget;
+                      return (
+                        <button
+                          key={point.time}
+                          ref={watchProcess}
+                          onClick={() => seek(point.time)}
+                          aria-label={`回看预算口径 ${point.time}s`}
+                        >
+                          <span>
+                            {point.time}s ↗ · 计入 {b.observed.count}/
+                            {b.configured.count} 台
+                          </span>
+                          <span>
+                            {sourceValue(b.value, "power")} /{" "}
+                            {sourceValue(
+                              b.observed.missing ? null : b.observed.watts,
+                              "power",
+                            )}
+                          </span>
+                          <b>
+                            {b.ratio === null
+                              ? "—"
+                              : `${(b.ratio * 100).toFixed(1)}%`}
+                          </b>
+                        </button>
+                      );
+                    })}
+                </div>
+              </li>
             ))}
-            <div className="budget-process-points">
-              {[event.before, event.after]
-                .filter((v) => v !== null)
-                .map((point) => {
-                  const b = point.budget;
-                  return (
-                    <button
-                      key={point.time}
-                      onClick={() => seek(point.time)}
-                      aria-label={`回看预算口径 ${point.time}s`}
-                    >
-                      <span>
-                        {point.time}s ↗ · 计入 {b.observed.count}/
-                        {b.configured.count} 台
-                      </span>
-                      <span>
-                        {sourceValue(b.value, "power")} /{" "}
-                        {sourceValue(
-                          b.observed.missing ? null : b.observed.watts,
-                          "power",
-                        )}
-                      </span>
-                      <b>
-                        {b.ratio === null
-                          ? "—"
-                          : `${(b.ratio * 100).toFixed(1)}%`}
-                      </b>
-                    </button>
-                  );
-                })}
-            </div>
-          </li>
-        ))}
-      </ol>
-      <small>
-        只记录计入条件变化。回看保留镜头与结构，切换范围或重播清除基准。
-      </small>
+          </ol>
+          <small>
+            只记录计入条件变化。回看保留镜头与结构，切换范围或重播清除基准。
+          </small>
+        </div>
+      )}
     </details>
   );
 }

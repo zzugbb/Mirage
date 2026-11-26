@@ -79,6 +79,7 @@ import { SliceEvidenceGeometry } from "../scene/slice-evidence";
 import type { SliceDeviceInspection } from "../slice-device";
 import {
   environmentObservation,
+  environmentProbes,
   environmentValue,
   environmentQuality,
 } from "../environment-monitoring";
@@ -231,6 +232,7 @@ export function ReviewScene({
   inletViewCommand,
   onInletViewChange,
   onInletView,
+  probeRosterActive,
   environmentPair,
   environmentPairMetric,
   environmentView,
@@ -298,6 +300,7 @@ export function ReviewScene({
   inletViewCommand: InletViewCommand | null;
   onInletViewChange: (inspection: InletInspection | null) => void;
   onInletView: (action: InletViewCommand["action"]) => void;
+  probeRosterActive: boolean;
   environmentPair: EnvironmentPair | null;
   environmentPairMetric: EnvironmentMetric;
   environmentView: EnvironmentInspection | null;
@@ -645,7 +648,9 @@ export function ReviewScene({
     layer === "environment" && state.level === "room"
       ? environmentObservation(selectedId, state.time)
       : null;
-  const ambientSelected = !!ambient;
+  const environmentPointView = !!ambient || probeRosterActive;
+  const coveragePoints =
+    probeRosterActive && !environmentPair ? environmentProbes : [];
   const environmentMarkers =
     environmentPair && state.level === "room" && layer === "environment"
       ? environmentPairMarkers(
@@ -659,7 +664,7 @@ export function ReviewScene({
       (layer === "environment" ||
         (layer === "airflow" && airflowWorkspace.sliceEnabled)) &&
       state.level === "room" &&
-      !ambientSelected
+      !environmentPointView
         ? sliceControls.orientation === "horizontal"
           ? temperatureSlice(readings, sliceControls.height)
           : verticalTemperatureSlice(
@@ -673,7 +678,7 @@ export function ReviewScene({
       sliceControls,
       layer,
       state.level,
-      ambientSelected,
+      environmentPointView,
       airflowWorkspace.sliceEnabled,
     ],
   );
@@ -1009,7 +1014,7 @@ export function ReviewScene({
       ? sliceSettings.vertical.distance
       : sliceSettings.height;
   const presentation = reviewPresentation(
-    ambientSelected ? "overview" : layer,
+    environmentPointView ? "overview" : layer,
     state.level,
   );
   const model = modelForDevice(state.deviceId);
@@ -1476,11 +1481,11 @@ export function ReviewScene({
   }, [tourShot?.revision, retry]);
   useEffect(() => {
     dataGeometry.current?.update(
-      ambientSelected || inletView
+      environmentPointView || inletView
         ? []
         : reviewSpatialMarks(state, layer, readings),
     );
-  }, [state, layer, readings, retry, ambientSelected, inletView]);
+  }, [state, layer, readings, retry, environmentPointView, inletView]);
   const maintenanceControls = useRef<HTMLDivElement>(null);
   const maintenanceFocus = useRef<
     "entry" | "view" | "previous" | "next" | "origin" | null
@@ -2065,7 +2070,7 @@ export function ReviewScene({
       ? [alarmDevice]
       : frontService ||
           rearService ||
-          ambientSelected ||
+          environmentPointView ||
           !sliceVisible ||
           layerPose ||
           dimmPose ||
@@ -2104,7 +2109,8 @@ export function ReviewScene({
   const labelKey =
     layer +
     (inletView?.devices.map((device) => device.id).join(":") ?? "") +
-    environmentMarkers.map((marker) => marker.id).join(":") +
+    environmentMarkers.map(({ id }) => `pair-${id}`).join(":") +
+    coveragePoints.map(({ fixtureId }) => `coverage-${fixtureId}`).join(":") +
     (maintenanceView?.view ?? "") +
     (entranceView?.view ?? "") +
     (entranceView?.markers.map((marker) => marker.id).join(":") ?? "") +
@@ -2297,8 +2303,8 @@ export function ReviewScene({
                 : `${model.name} / ${representation}`}
           </span>
           <strong>
-            {ambientSelected
-              ? "环境点位 · 温湿度模拟"
+            {environmentPointView
+              ? "固定环境测点 · 模拟"
               : slice
                 ? slice.orientation === "horizontal"
                   ? "进风温度水平切片 · 局部插值"
@@ -2309,7 +2315,7 @@ export function ReviewScene({
           </strong>
           {state.level !== "device" &&
             !visibleAirflow &&
-            !ambientSelected &&
+            !environmentPointView &&
             layer !== "alarms" && (
               <div className="review-scene-readings" aria-label="场景运行读数">
                 <span>
@@ -2349,8 +2355,8 @@ export function ReviewScene({
             <p>
               {inletView
                 ? "柜前实线与虚线分别标出所查和基准设备的安装跨度。标签沿用当前共享时刻的整机进风模拟，无效状态不显示旧值；两台设备之间没有新增供风关系或温度插值。"
-                : ambientSelected
-                  ? "固定探头的环境温湿度，只代表安装位置；与设备进风分开，不生成整间机房温湿度场。选择返回设备进风可继续核对温度切片。"
+                : environmentPointView
+                  ? "温湿度与露点对应固定探头的安装位置。资源栏的进风对照可继续核对温度切片。"
                   : slice
                     ? `${slice.orientation === "horizontal" ? "水平切片估计当前高度的进风温度。" : `垂直切片显示${sliceRow!.name}正面 ${sliceSettings.height.min.toFixed(2)}–${sliceSettings.height.max.toFixed(2)} 米高度的进风差异，滑杆调整离柜距离；标签取切面纵向最高估计。俯视时切面呈侧边，可切到前视观察。`}色条仍对应逐台设备。输入为同一时间的有效模拟读数；代表位置按U位中心假设，非独立环境测点。最近位置离线、过期或超出插值范围时留空；不推断机柜排风或整间机房温度。`
                     : presentation.description}
@@ -2399,21 +2405,45 @@ export function ReviewScene({
               </button>
             );
           })}
+          {coveragePoints.map(({ fixture }) => (
+            <div
+              key={fixture.id}
+              hidden
+              aria-hidden="true"
+              data-anchor={`coverage-${fixture.id}`}
+              data-hotspot="bounds"
+              data-anchor-kind="position"
+              data-anchor-object={fixture.id}
+              data-anchor-position={fixture.position.join(",")}
+              className={`review-flow-anchor review-environment-coverage-anchor${selectedId === fixture.id ? " selected" : ""}`}
+            >
+              <b>{fixture.name}</b>
+            </div>
+          ))}
           {environmentMarkers.map((marker) => (
-            <button
+            <div
               key={marker.id}
               hidden
               data-anchor={`pair-${marker.id}`}
               data-anchor-kind="position"
               data-anchor-position={marker.position.join(",")}
               className="review-flow-anchor review-environment-pair-anchor"
-              onClick={() => onSelect(marker.id)}
-              aria-label={`预览对照测点 ${marker.name}`}
-              aria-pressed={selectedId === marker.id}
+              data-selected={selectedId === marker.id}
             >
               <b>{marker.title}</b>
-              <small>{marker.value}</small>
-            </button>
+              <small id={`scene-environment-reading-${marker.id}`}>
+                {marker.value}
+              </small>
+              <button
+                type="button"
+                className="environment-pair-scene-preview"
+                data-environment-preview={marker.id}
+                onClick={() => onSelect(marker.id)}
+                aria-label={`预览对照测点 ${marker.name}`}
+                aria-describedby={`scene-environment-reading-${marker.id}`}
+                aria-pressed={selectedId === marker.id}
+              />
+            </div>
           ))}
           {entranceView?.markers.map((marker) => (
             <div
@@ -2600,6 +2630,7 @@ export function ReviewScene({
             !entranceView &&
             !leakView &&
             !crossing &&
+            !coveragePoints.length &&
             !environmentMarkers.length && (
               <button
                 hidden
@@ -2820,6 +2851,7 @@ export function ReviewScene({
           leakView ||
           crossing ||
           selectedFixture ||
+          coveragePoints.length > 0 ||
           airflow ||
           frontService ||
           maintenance.length > 0 ||
@@ -2837,6 +2869,9 @@ export function ReviewScene({
             {environmentMarkers.map((marker) => (
               <line key={marker.id} data-flow-line={`pair-${marker.id}`} />
             ))}
+            {coveragePoints.map(({ fixtureId }) => (
+              <line key={fixtureId} data-flow-line={`coverage-${fixtureId}`} />
+            ))}
             {entranceView?.markers.map((marker) => (
               <line key={marker.id} data-flow-line={marker.id} />
             ))}
@@ -2850,6 +2885,7 @@ export function ReviewScene({
               !entranceView &&
               !leakView &&
               !crossing &&
+              !coveragePoints.length &&
               !environmentMarkers.length && (
                 <line data-flow-line={selectedFixture.id} />
               )}
@@ -3287,7 +3323,9 @@ export function ReviewScene({
                 </>
               )}
             </div>
-          ) : inletView ? null : ambientSelected ? (
+          ) : inletView ||
+            (probeRosterActive &&
+              !environmentPair) ? null : environmentPointView ? (
             <div className="environment-scene-key">
               <strong>
                 {environmentPair

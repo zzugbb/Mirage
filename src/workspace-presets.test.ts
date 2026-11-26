@@ -1,6 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  activeWorkspaceEntry,
+  workspaceEntries,
   workspacePreset,
   navigationViews,
   visibleResourceRows,
@@ -86,9 +88,14 @@ test("三层资源入口按观察视图收敛，默认清单也属于可见入�
     "list",
     "layout",
     "space",
+    "aisles",
     "network",
   ]);
-  assert.deepEqual(navigationViews("room", "environment"), ["inlet", "list"]);
+  assert.deepEqual(navigationViews("room", "environment"), [
+    "inlet",
+    "probes",
+    "list",
+  ]);
   assert.deepEqual(navigationViews("room", "power"), [
     "power",
     "feeders",
@@ -110,4 +117,34 @@ test("三层资源入口按观察视图收敛，默认清单也属于可见入�
     );
     assert.deepEqual(navigationViews("device", layer), ["list"]);
   }
+});
+
+test("机房七个入口按任务组织，空间与网络仍使用同一总览图层", () => {
+  assert.deepEqual(
+    workspaceEntries.map(({ name }) => name),
+    ["总览", "空间", "温度", "制冷", "用电", "网络", "告警"],
+  );
+  for (const resource of ["layout", "space", "aisles"] as const) {
+    const entry = activeWorkspaceEntry("room", "overview", resource);
+    assert.equal(entry.id, "space");
+    assert.equal(entry.layer, "overview");
+    assert.deepEqual(entry.roomResources, ["layout", "space", "aisles"]);
+  }
+  assert.equal(
+    activeWorkspaceEntry("room", "overview", "network").id,
+    "network",
+  );
+  assert.equal(activeWorkspaceEntry("room", "overview", "list").id, "overview");
+  assert.equal(
+    activeWorkspaceEntry("rack", "overview", "space").id,
+    "overview",
+  );
+  assert.equal(
+    activeWorkspaceEntry("device", "overview", "network").id,
+    "overview",
+  );
+  assert.equal(
+    activeWorkspaceEntry("room", "environment", "probes").id,
+    "environment",
+  );
 });

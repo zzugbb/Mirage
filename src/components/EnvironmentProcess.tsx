@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   environmentProcess,
   environmentProcessNames,
 } from "../environment-monitoring";
 import { trendMetricNames } from "../trend-geometry";
+import { useResultFocusFallback } from "../use-result-focus-fallback";
 
 export function EnvironmentProcess({
   id,
@@ -15,8 +16,24 @@ export function EnvironmentProcess({
   onSeek: (time: number) => void;
 }) {
   const events = useMemo(() => environmentProcess(id, time), [id, time]);
-  const [origin, setOrigin] = useState<number | null>(null);
+  const [origin, setOrigin] = useState<{
+    time: number;
+    eventTime: number;
+  } | null>(null);
   const [metric, setMetric] = useState("all");
+  const filter = useRef<HTMLSelectElement>(null);
+  const list = useRef<HTMLOListElement>(null);
+  const restoreEvent = useRef<number | null>(null);
+  useLayoutEffect(() => {
+    const at = restoreEvent.current;
+    if (at === null) return;
+    restoreEvent.current = null;
+    const entry = list.current?.querySelector<HTMLButtonElement>(
+      `[data-environment-event="${at}"]`,
+    );
+    (entry ?? filter.current)?.focus();
+  }, [origin, time]);
+  const watchEvent = useResultFocusFallback(filter);
   const visible = events.filter((event) =>
     event.changes.some(
       (change) => metric === "all" || change.metric === metric,
@@ -32,6 +49,7 @@ export function EnvironmentProcess({
         <label>
           查看{" "}
           <select
+            ref={filter}
             aria-label="数据过程指标"
             value={metric}
             onChange={(e) => setMetric(e.target.value)}
@@ -45,25 +63,30 @@ export function EnvironmentProcess({
         {origin !== null && (
           <button
             onClick={() => {
-              onSeek(origin);
+              restoreEvent.current = origin.eventTime;
+              onSeek(origin.time);
               setOrigin(null);
             }}
           >
-            返回 t+{origin}s
+            返回 t+{origin.time}s
           </button>
         )}
       </div>
-      <ol aria-label="数据质量变化记录">
+      <ol ref={list} aria-label="数据质量变化记录">
         {visible
           .slice()
           .reverse()
           .map((event) => (
             <li key={event.time}>
               <button
+                ref={watchEvent}
+                data-environment-event={event.time}
                 aria-label={`回看数据变化 t+${event.time}s`}
                 aria-current={time === event.time ? "true" : undefined}
                 onClick={() => {
-                  setOrigin((current) => current ?? time);
+                  setOrigin(
+                    (current) => current ?? { time, eventTime: event.time },
+                  );
                   onSeek(event.time);
                 }}
               >

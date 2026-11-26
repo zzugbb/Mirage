@@ -7,6 +7,7 @@ import {
   type roomRackCapacity,
 } from "../rack-space";
 import { spaceRangeLabel } from "../space-inspection";
+import { clearSearchOnEscape } from "../search-keyboard";
 
 export function RoomSpaceComparison({
   comparison,
@@ -20,6 +21,7 @@ export function RoomSpaceComparison({
   onRestored,
   selected,
   scroll,
+  visible,
   onSize,
   onRow,
   onQuery,
@@ -38,6 +40,7 @@ export function RoomSpaceComparison({
   onRestored: () => void;
   selected: string;
   scroll: RefObject<number>;
+  visible: boolean;
   onSize: (size: number) => void;
   onRow: (rowId: string) => void;
   onQuery: (query: string) => void;
@@ -53,8 +56,9 @@ export function RoomSpaceComparison({
     search.current?.focus({ preventScroll: true });
   };
   useLayoutEffect(() => {
-    if (container.current) container.current.scrollTop = scroll.current;
-  }, [scroll]);
+    if (visible && container.current)
+      container.current.scrollTop = scroll.current;
+  }, [scroll, visible]);
   useLayoutEffect(() => {
     const panel = container.current;
     const button = entry.current;
@@ -71,7 +75,7 @@ export function RoomSpaceComparison({
       className="rack-space-inspector room-space-comparison"
       aria-label="机房 U 位容量核对"
       onScroll={(e) => {
-        scroll.current = e.currentTarget.scrollTop;
+        if (visible) scroll.current = e.currentTarget.scrollTop;
       }}
       onFocusCapture={(e) => {
         if (e.target.matches(":focus-visible"))
@@ -90,13 +94,7 @@ export function RoomSpaceComparison({
           placeholder="机柜编号，如 B03"
           value={query}
           onChange={(e) => onQuery(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Escape" && query) {
-              e.preventDefault();
-              e.stopPropagation();
-              clear();
-            }
-          }}
+          onKeyDown={(event) => clearSearchOnEscape(event, clear)}
         />
         {query && (
           <button type="button" aria-label="清除机柜容量查找" onClick={clear}>

@@ -92,6 +92,7 @@ export function EnvironmentPairAnalysis({
             <button
               key={probe.fixtureId}
               className={index ? "pair-reference" : "pair-primary"}
+              data-environment-preview={probe.fixtureId}
               aria-label={`预览对照测点 ${probe.fixture.name}`}
               aria-describedby={`pair-reading-${probe.fixtureId}`}
               aria-pressed={selected === probe.fixtureId}
@@ -103,10 +104,9 @@ export function EnvironmentPairAnalysis({
                 <small>{probe.fixture.location}</small>
                 <b>{environmentValue(reading.value, unit)}</b>
                 <small>
-                  {reading.status} ·{" "}
-                  {reading.observedAt === null
-                    ? "无可用采样"
-                    : `采样 t+${reading.observedAt}s`}
+                  {reading.status}
+                  {reading.observedAt !== null &&
+                    ` · 采样 t+${reading.observedAt}s`}
                 </small>
               </span>
             </button>

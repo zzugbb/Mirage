@@ -5,7 +5,9 @@ import { coolingRackPeaks, probeAirflowForInput } from "../cooling-probe";
 import type { EnvironmentRound } from "../environment-rounds";
 import { sourceValue } from "../reading-sources";
 import type { SpatialReading } from "../spatial";
+import { useResultFocusFallback } from "../use-result-focus-fallback";
 import { ConnectionSection } from "./ConnectionSection";
+import { FocusedResultList } from "./FocusedResultList";
 
 export type ProbeInputCheck = { rackId: string; included: boolean };
 
@@ -48,6 +50,8 @@ export function ProbeRackInlets({
     [probeId, checkedRack],
   );
   const members = useRef<HTMLDivElement>(null);
+  const activeFilter = useRef<HTMLButtonElement>(null);
+  const watchResult = useResultFocusFallback(activeFilter);
   useEffect(() => {
     if (!ready || !restore.current) return;
     const button = members.current?.querySelector<HTMLButtonElement>(
@@ -115,6 +119,9 @@ export function ProbeRackInlets({
                   {[true, false].map((included) => (
                     <button
                       key={String(included)}
+                      ref={
+                        included === check.included ? activeFilter : undefined
+                      }
                       aria-pressed={included === check.included}
                       onClick={() => onCheck({ rackId: rack.id, included })}
                     >
@@ -124,10 +131,11 @@ export function ProbeRackInlets({
                     </button>
                   ))}
                 </div>
-                <div className="probe-input-list">
+                <FocusedResultList className="probe-input-list">
                   {visible.map((input) => (
                     <div className="probe-input-row" key={input.id}>
                       <button
+                        ref={watchResult}
                         data-probe-input={input.id}
                         aria-current={input.id === visitedDevice || undefined}
                         disabled={!ready}
@@ -156,6 +164,7 @@ export function ProbeRackInlets({
                       </button>
                       {airflowIds.has(input.id) && (
                         <button
+                          ref={watchResult}
                           className="probe-input-airflow"
                           disabled={!ready}
                           onClick={() => onAirflow(rack.id, input.id)}
@@ -173,7 +182,7 @@ export function ProbeRackInlets({
                         : "本柜配置设备均有有效进风。"}
                     </p>
                   )}
-                </div>
+                </FocusedResultList>
               </div>
             )}
           </div>

@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import {
   dewPoint,
   environmentComparison,
+  environmentCoverage,
+  environmentDewPointState,
   environmentProcess,
   environmentDewPoint,
   environmentHistories,
@@ -232,6 +234,7 @@ test("对照逐指标隔离缺失、不同步、过期和离线，不使用最�
     )!;
     assert.equal(rows[1].delta, null);
     assert.equal(rows[2].delta, null);
+    assert.equal(rows[2].right.status, time === 52 ? "采样不同步" : "不可推导");
     assert.equal(rows[0].delta === null, time === 100);
     if (time === 52) {
       assert.notEqual(rows[1].right.value, null);
@@ -244,4 +247,28 @@ test("对照逐指标隔离缺失、不同步、过期和离线，不使用最�
         (row) => row.delta !== null,
       ),
     );
+});
+
+test("机房覆盖按同一共享时刻分开统计温度、湿度和可推导露点", () => {
+  for (const [time, expected, humidity, dewPoint] of [
+    [12, [2, 1, 1], "missing", "unavailable"],
+    [40, [2, 2, 2], "valid", "derived"],
+    [52, [2, 2, 1], "valid", "unsynchronized"],
+    [60, [2, 1, 1], "stale", "unavailable"],
+    [100, [1, 1, 1], "offline", "unavailable"],
+    [112, [2, 2, 2], "valid", "derived"],
+  ] as const) {
+    const { rows, counts } = environmentCoverage(time);
+    assert.deepEqual(
+      rows.map(({ fixture }) => fixture.id),
+      ["environment-01", "environment-02"],
+    );
+    assert.deepEqual(Object.values(counts), expected);
+    assert.ok(rows.every(({ observation }) => observation.time === time));
+    const second = rows[1].observation;
+    assert.equal(second.humidity.quality, humidity);
+    assert.equal(environmentDewPointState(second), dewPoint);
+    if (dewPoint === "derived")
+      assert.equal(second.temperature.observedAt, second.humidity.observedAt);
+  }
 });

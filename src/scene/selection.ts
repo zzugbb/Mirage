@@ -10,6 +10,7 @@ export class SelectionCorners extends THREE.LineSegments<
   positions = new Float32Array(8 * 3 * 2 * 3);
   private center = new THREE.Vector3();
   private size = new THREE.Vector3();
+  private meshBox = new THREE.Box3();
   private lastKey = "";
   private started = 0;
   constructor() {
@@ -32,6 +33,20 @@ export class SelectionCorners extends THREE.LineSegments<
     );
     this.raycast = () => {};
     this.visible = false;
+  }
+  // 柜名精灵和已隐藏的结构不属于当前可见柜体的外廓。
+  setRackBox(rack: THREE.Object3D) {
+    rack.updateWorldMatrix(true, true);
+    this.box.makeEmpty();
+    rack.traverseVisible((object) => {
+      if (!(object instanceof THREE.Mesh)) return;
+      if (!object.geometry.boundingBox) object.geometry.computeBoundingBox();
+      this.box.union(
+        this.meshBox
+          .copy(object.geometry.boundingBox!)
+          .applyMatrix4(object.matrixWorld),
+      );
+    });
   }
   // 装机角标取安装模型的外廓，中心随实际机箱移动。隐藏的展开部件不参与取界。
   setInstalledBox(

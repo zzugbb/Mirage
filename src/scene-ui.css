@@ -87,6 +87,7 @@
   position: absolute;
   inset: 0;
   pointer-events: none;
+  object-fit: cover;
 }
 .review-scene-caption {
   position: absolute;

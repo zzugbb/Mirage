@@ -103,6 +103,38 @@ test("两块面板逐孔拾取命中登记实例，切换对端与清除只影�
   );
 });
 
+test("配线架字面和各孔口拼成单层正面，斜视不会同时命中重合箱面", () => {
+  const [width, height, depth] = panelSettings.size;
+  for (const panel of patchPanels) {
+    const group = new THREE.Group();
+    group.name = panel.id;
+    buildPatchPanel(group, panel.name);
+    group.updateMatrixWorld(true);
+    const look = new THREE.Vector3(-0.4, -0.1, -1).normalize();
+    const samples = [
+      [width / 2 - 0.012, height / 2 - 0.012, "panel-print"],
+      ...panelPortNumbers.map((port) => {
+        const [x, y] = panelPortCenter(port);
+        return [x, y, "panel-apertures"] as const;
+      }),
+    ] as const;
+    for (const [x, y, mesh] of samples) {
+      const front = new THREE.Vector3(x, y, depth / 2);
+      const ray = new THREE.Raycaster(
+        front.clone().addScaledVector(look, -1),
+        look,
+      );
+      const hits = ray
+        .intersectObject(group)
+        .filter(({ point }) => Math.abs(point.z - front.z) < 0.002);
+      assert.deepEqual(
+        [...new Set(hits.map(({ object }) => object.name))],
+        [mesh],
+      );
+    }
+  }
+});
+
 test("三段线槽和两块面板均可按端接登记起查，当侧优先且不扩展到邻柜", async () => {
   const { racewayRegisterStart, racewayConnections, racewayPanels } =
     await import("./panel-raceway.ts");

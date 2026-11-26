@@ -290,6 +290,7 @@ export function RackSpaceInspector({
               key={d.id}
               disabled={!ready}
               data-space-device={d.id}
+              data-current-segment={d.id === segmentId || undefined}
               onClick={() => onDevice(d.id, "list")}
               aria-label={`查看冲突设备 ${d.name}`}
             >

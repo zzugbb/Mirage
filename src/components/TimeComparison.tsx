@@ -3,6 +3,7 @@ import { compareTimes } from "../time-comparison";
 import type { ReviewPoint } from "../review-model";
 import type { TrendMetric } from "../trend-geometry";
 import { qualityNames } from "../status";
+import { useResultFocusFallback } from "../use-result-focus-fallback";
 
 export function TimeComparison({
   series,
@@ -22,6 +23,7 @@ export function TimeComparison({
   component: boolean;
 }) {
   const start = useRef<HTMLButtonElement>(null);
+  const watchReference = useResultFocusFallback(start);
   const unit = (metric: TrendMetric) =>
     metric === "power" ? "W" : metric === "cooling" ? "%" : "°C";
   const value = (n: number | null) => (n === null ? "—" : n.toFixed(1));
@@ -43,6 +45,7 @@ export function TimeComparison({
         </button>
         {reference !== null && (
           <button
+            ref={watchReference}
             onClick={() => {
               onReference(null);
               start.current?.focus();
@@ -59,6 +62,7 @@ export function TimeComparison({
             差值为后者减基准
           </p>
           <button
+            ref={watchReference}
             onClick={() => {
               onSeek(reference);
               start.current?.focus({ preventScroll: true });

@@ -144,6 +144,7 @@ import {
 import { InspectionBackdrop } from "./inspection-backdrop";
 import { InstallationScene } from "./installation";
 import {
+  rackById,
   rackForDevice,
   deviceById,
   deviceHeight,
@@ -207,6 +208,8 @@ export type TaskViewMemory = ObservationMemory & {
   level: AppState["level"];
   range?: RangeObservation;
 };
+const minimumNearPlane = 0.01;
+
 export class SceneEngine {
   renderer = new THREE.WebGLRenderer({
     antialias: true,
@@ -231,7 +234,7 @@ export class SceneEngine {
   private roomBackdrop = createBackdrop();
   private skyLight = new THREE.HemisphereLight("#faf9f5", "#343333", 0.45);
 
-  camera = new THREE.PerspectiveCamera(40, 1, 0.01, 150);
+  camera = new THREE.PerspectiveCamera(40, 1, minimumNearPlane, 150);
   controls: OrbitControls;
   models = buildModels();
   private dockSweep = 0;
@@ -239,7 +242,7 @@ export class SceneEngine {
   private lastDialDraw = 0;
   private inspectionBackdrop = new InspectionBackdrop();
   private roomGround = new THREE.Group();
-  private roomTransition?: HTMLCanvasElement;
+  private scopeTransition?: HTMLCanvasElement;
   studioOrigin: TaskViewMemory | null = null;
   private keyLight = new THREE.DirectionalLight("#fff9f0", 1.6);
   unitRange: RackUnitRange | null = null;
@@ -265,8 +268,8 @@ export class SceneEngine {
     targetId: string;
     previous: ObservationMemory & { aspect: number };
   } | null = null;
-  unitGuide = new RackUnitGuide((label) =>
-    text(new THREE.Group(), label, [0, 0, 0], 0.075),
+  unitGuide = new RackUnitGuide((label, detailedRange) =>
+    text(new THREE.Group(), label, [0, 0, 0], detailedRange ? 0.17 : 0.075),
   );
   telemetry = new TelemetryOverlay();
   signals = new SpatialSignals();
@@ -298,10 +301,12 @@ export class SceneEngine {
   targetPosition = new THREE.Vector3();
   targetLook = new THREE.Vector3();
   moving = true;
-  pointerStart = new THREE.Vector2();
+  private pointerStart: { id: number; x: number; y: number } | null = null;
+  private pickClicks = 0;
   raycaster = new THREE.Raycaster();
   private rackHint = document.createElement("span");
-  reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  private motionPreference = matchMedia("(prefers-reduced-motion: reduce)");
+  reducedMotion = this.motionPreference.matches;
   onInspectPanelPort?: (target: PanelPort) => void;
   onSelect: (id: string, enter?: boolean) => void;
   onError: (message: string) => void;
@@ -467,7 +472,11 @@ export class SceneEngine {
     this.guides.frustumCulled = false;
     this.models.server.add(this.guides);
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
-    this.controls.enableDamping = true;
+    this.controls.enableDamping = !this.reducedMotion;
+    this.motionPreference.addEventListener(
+      "change",
+      this.updateMotionPreference,
+    );
     this.controls.dampingFactor = 0.08;
     this.controls.maxPolarAngle = Math.PI / 2 - 0.03;
     this.controls.minDistance = 0.35;
@@ -483,6 +492,10 @@ export class SceneEngine {
     this.resize();
     this.renderer.domElement.addEventListener("pointerdown", this.pointerDown);
     this.renderer.domElement.addEventListener("pointerup", this.pointerUp);
+    this.renderer.domElement.addEventListener(
+      "pointercancel",
+      this.pointerCancel,
+    );
     this.renderer.domElement.addEventListener("dblclick", this.doubleClick);
     this.renderer.domElement.addEventListener("pointermove", this.hover);
     this.renderer.domElement.addEventListener(
@@ -2062,6 +2075,7 @@ export class SceneEngine {
   }
   contextLost = (event: Event) => {
     this.hideRackHint();
+    this.clearScopeTransition();
     event.preventDefault();
     this.contextAvailable = false;
     this.loop.setEnabled(false);
@@ -2284,9 +2298,25 @@ export class SceneEngine {
           ? this.models.server
           : (this.models.facilities.get(id) ?? this.models.parts.get(id));
   }
-  // 保留进入前的一帧作短过渡，随后整柜在新工位继续靠近；快照不接收操作。
-  private fadeRoomView() {
-    this.roomTransition?.remove();
+  private updateMotionPreference = () => {
+    this.reducedMotion = this.motionPreference.matches;
+    this.controls.enableDamping = !this.reducedMotion;
+    if (this.reducedMotion) {
+      this.controls.autoRotate = false;
+      this.clearScopeTransition();
+    }
+    this.invalidate();
+  };
+  private clearScopeTransition() {
+    const snapshot = this.scopeTransition;
+    if (!snapshot) return;
+    this.scopeTransition = undefined;
+    for (const animation of snapshot.getAnimations()) animation.cancel();
+    snapshot.remove();
+  }
+  // 用切换前的一帧衔接机房和检视台，保留选中位置的参照。
+  private fadeScopeView() {
+    this.clearScopeTransition();
     if (
       !this.contextAvailable ||
       this.paused ||
@@ -2305,28 +2335,26 @@ export class SceneEngine {
     snapshot.className = "inspection-transition";
     snapshot.setAttribute("aria-hidden", "true");
     source.after(snapshot);
-    this.roomTransition = snapshot;
+    this.scopeTransition = snapshot;
     const fade = snapshot.animate([{ opacity: 1 }, { opacity: 0 }], {
-      duration: 280,
-      easing: "ease-out",
+      duration: 220,
+      easing: "cubic-bezier(0.2, 0.65, 0.3, 1)",
       fill: "forwards",
     });
     fade.onfinish = () => {
-      snapshot.remove();
-      if (this.roomTransition === snapshot) this.roomTransition = undefined;
+      if (this.scopeTransition === snapshot) this.clearScopeTransition();
     };
   }
   update(state: AppState) {
     this.invalidate();
     if (state.level !== "room" && this.roomViewMemory)
       this.clearRoomViewMemory();
-    if (this.state.level === "room" && state.level !== "room") {
+    const fromRoom = this.state.level === "room";
+    const toRoom = state.level === "room";
+    if (fromRoom && !toRoom) {
       this.studioOrigin = this.captureTaskView("room");
-      this.fadeRoomView();
-    } else if (state.level === "room") {
-      this.roomTransition?.remove();
-      if (state.selected !== "room-01") this.studioOrigin = null;
-    }
+    } else if (toRoom && state.selected !== "room-01") this.studioOrigin = null;
+    if (fromRoom !== toRoom) this.fadeScopeView();
     const deviceChanged = state.deviceId !== this.state.deviceId;
     if (deviceChanged) {
       this.installDevice(state);
@@ -2573,11 +2601,33 @@ export class SceneEngine {
     this.controls.minAzimuthAngle = this.interior ? -0.65 : -Infinity;
     this.controls.maxAzimuthAngle = this.interior ? 0.65 : Infinity;
     if (this.interior) {
+      const [width, height, depth] = definition.room.size;
+      const edge = definition.room.wallThickness / 2;
       this.targetLook.set(0, 0.85, 0);
-      const fit = Math.max(1, 1.4 / Math.max(0.4, this.camera.aspect));
-      this.targetPosition.set(8.8 * fit, 8.5 * fit, 12 * fit);
+      const direction = new THREE.Vector3(8.8, 7.65, 12).normalize();
+      const points: number[][] = [];
+      for (const x of [-width / 2 - edge, width / 2 + edge]) {
+        for (const z of [-depth / 2 - edge, depth / 2 + edge]) {
+          points.push([x, -0.21 - this.targetLook.y, z]);
+          // 只纳入两面墙的三个顶部角点，避免将敞开侧当成整面墙取景。
+          if (x < 0 || z < 0) points.push([x, height - this.targetLook.y, z]);
+        }
+      }
+      const viewportHeight = this.host.clientHeight;
+      const headingInset = viewportHeight ? 76 / viewportHeight : 0;
+      const distance = pointsFrameDistance(
+        points,
+        direction.toArray(),
+        this.camera.aspect,
+        cameraMinimumDistance.room,
+        headingInset,
+        0.06,
+      );
+      this.targetPosition
+        .copy(this.targetLook)
+        .addScaledVector(direction, distance);
       this.controls.minDistance = 0.8;
-      this.controls.maxDistance = 45;
+      this.controls.maxDistance = Math.max(45, distance);
       this.moving = true;
       this.invalidate();
       return;
@@ -2762,7 +2812,7 @@ export class SceneEngine {
         ? Math.min(
             cameraMinimumDistance.device,
             Math.max(
-              this.camera.near * 4,
+              minimumNearPlane * 4,
               bounds.getSize(new THREE.Vector3()).length(),
             ),
           )
@@ -2849,7 +2899,7 @@ export class SceneEngine {
       (r, point) => Math.max(r, point.distanceTo(center)),
       0,
     );
-    const orbitMinimum = Math.max(minimum, radius + 2 * this.camera.near);
+    const orbitMinimum = Math.max(minimum, radius + 2 * minimumNearPlane);
     const points = framingPoints.map((point) => point.sub(center).toArray());
     const distance = points.length
       ? pointsFrameDistance(
@@ -3008,32 +3058,55 @@ export class SceneEngine {
   }
   pointerDown = (event: PointerEvent) => {
     this.hideRackHint();
-    this.pointerStart.set(event.clientX, event.clientY);
+    this.pointerStart =
+      event.isPrimary && event.button === 0
+        ? { id: event.pointerId, x: event.clientX, y: event.clientY }
+        : null;
+  };
+  private trackPointer(event: PointerEvent) {
+    const start = this.pointerStart;
+    if (
+      start?.id === event.pointerId &&
+      Math.hypot(start.x - event.clientX, start.y - event.clientY) >= 5
+    )
+      this.pointerStart = null;
+  }
+  pointerCancel = (event: PointerEvent) => {
+    if (!event.isPrimary) return;
+    this.pointerStart = null;
+    this.pickClicks = 0;
   };
   pointerUp = (event: PointerEvent) => {
-    if (
-      this.pointerStart.distanceTo(
-        new THREE.Vector2(event.clientX, event.clientY),
-      ) < 5
-    ) {
-      const surface = this.pickSurface(event);
-      if (
-        surface?.panelPort &&
-        (surface.id === this.state.selected ||
-          this.models.fixtures
-            .get(surface.id)
-            ?.getObjectByName("panel-port-outline")?.visible) &&
-        !this.moving &&
-        this.onInspectPanelPort
-      ) {
-        this.onInspectPanelPort({
-          panelId: surface.id,
-          port: surface.panelPort,
-        });
-      } else if (surface) this.onSelect(surface.id);
+    this.trackPointer(event);
+    const clicked =
+      this.pointerStart?.id === event.pointerId && event.button === 0;
+    this.pointerStart = null;
+    if (!clicked) {
+      this.pickClicks = 0;
+      return;
     }
+    this.pickClicks = Math.min(this.pickClicks + 1, 2);
+    const surface = this.pickSurface(event);
+    if (
+      surface?.panelPort &&
+      (surface.id === this.state.selected ||
+        this.models.fixtures
+          .get(surface.id)
+          ?.getObjectByName("panel-port-outline")?.visible) &&
+      !this.moving &&
+      this.onInspectPanelPort
+    ) {
+      this.onInspectPanelPort({
+        panelId: surface.id,
+        port: surface.panelPort,
+      });
+    } else if (surface) this.onSelect(surface.id);
   };
   doubleClick = (event: MouseEvent) => {
+    // 双击间隔由浏览器判定，两次抬起都需通过拖动阈值。
+    const clickedTwice = this.pickClicks === 2;
+    this.pickClicks = 0;
+    if (!clickedTwice) return;
     const id = this.pick(event);
     if (id) this.onSelect(id, true);
   };
@@ -3041,6 +3114,7 @@ export class SceneEngine {
     this.rackHint.hidden = true;
   };
   hover = (event: PointerEvent) => {
+    this.trackPointer(event);
     const surface = this.pickSurface(event);
     this.renderer.domElement.style.cursor = surface ? "pointer" : "grab";
     if (
@@ -3523,6 +3597,19 @@ export class SceneEngine {
       this.controls.update();
       this.adaptDeviceOrbit();
     }
+    // 机房远景使用更大的近裁面，给毫米级装配面留出深度精度。
+    const projectionNear =
+      this.state.level === "room"
+        ? THREE.MathUtils.clamp(
+            this.camera.position.distanceTo(this.controls.target) * 0.025,
+            minimumNearPlane,
+            0.65,
+          )
+        : minimumNearPlane;
+    if (Math.abs(projectionNear - this.camera.near) > 1e-6) {
+      this.camera.near = projectionNear;
+      this.camera.updateProjectionMatrix();
+    }
     this.pduMountWindow.update(this.models.rack, this.powerObservation?.mount);
     const observedPowerRack =
       this.powerObservation &&
@@ -3747,6 +3834,8 @@ export class SceneEngine {
           this.models.selection.box.setFromObject(selectedScope.selectedBranch);
         else if (selectedScope)
           scopeBounds(this.models.selection.box, selectedScope);
+        else if (rackById(this.state.selected))
+          this.models.selection.setRackBox(object);
         else
           this.models.selection.box.setFromObject(
             this.storageContactGuide.memberFor(this.state.selected) ?? object,
@@ -3812,6 +3901,14 @@ export class SceneEngine {
           x > this.host.clientWidth ||
           y < 0 ||
           y > this.host.clientHeight;
+        if (!hidden && anchorObject && element.dataset.hotspot === "bounds") {
+          this.anchorBounds.setFromObject(anchorObject);
+          this.projectHotspotBounds(
+            element,
+            this.host.clientWidth,
+            this.host.clientHeight,
+          );
+        }
         if (!hidden && element.dataset.patchDevice) {
           // 两端保留安装简模的整机占位，短标排在其投影轮廓外。
           this.anchorBounds.setFromObject(
@@ -4053,7 +4150,11 @@ export class SceneEngine {
     this.controls.removeEventListener("change", this.invalidate);
     this.controls.removeEventListener("change", this.hideRackHint);
     this.controls.dispose();
-    this.roomTransition?.remove();
+    this.motionPreference.removeEventListener(
+      "change",
+      this.updateMotionPreference,
+    );
+    this.clearScopeTransition();
     this.pipeline.dispose();
     this.surface.dispose();
     this.signals.dispose();
@@ -4062,6 +4163,7 @@ export class SceneEngine {
     const canvas = this.renderer.domElement;
     canvas.removeEventListener("pointerdown", this.pointerDown);
     canvas.removeEventListener("pointerup", this.pointerUp);
+    canvas.removeEventListener("pointercancel", this.pointerCancel);
     canvas.removeEventListener("dblclick", this.doubleClick);
     canvas.removeEventListener("pointermove", this.hover);
     canvas.removeEventListener("pointerleave", this.hideRackHint);

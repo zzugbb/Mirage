@@ -12,6 +12,8 @@ import { budgetAttentionStyle } from "../status";
 import { sourceValue } from "../reading-sources";
 import type { SpatialReading } from "../spatial";
 import { clearSearchOnEscape } from "../search-keyboard";
+import { useResultFocusFallback } from "../use-result-focus-fallback";
+import { FocusedResultList } from "./FocusedResultList";
 
 export function PowerOverview({
   readings,
@@ -83,6 +85,7 @@ export function PowerOverview({
     button?.focus({ preventScroll: true });
     button?.scrollIntoView({ block: "nearest" });
   }, [visible, restoreRevision, scroll]);
+  const watchResult = useResultFocusFallback(search);
   const rackGrid = (
     <div className="power-rack-grid" role="group" aria-label="功耗对照机柜">
       {all.map((item) => (
@@ -211,7 +214,7 @@ export function PowerOverview({
           <strong>{scope === "room" ? "整间机房" : current.rack.name}</strong>
           <small>{rows.length} 台匹配</small>
         </div>
-        <div className="power-overview-devices">
+        <FocusedResultList className="power-overview-devices">
           {rows.map((row) => {
             const ratio = budgetRatio(row.value, row.budget);
             const reading = readings.get(row.id);
@@ -222,6 +225,7 @@ export function PowerOverview({
             return (
               <button
                 key={row.id}
+                ref={watchResult}
                 data-power-id={row.id}
                 title={budgetStateText(reading?.budgetState, ratio)}
                 aria-pressed={selected === row.id}
@@ -274,11 +278,12 @@ export function PowerOverview({
               </button>
             );
           })}
-        </div>
+        </FocusedResultList>
         {!rows.length && (
           <p role="status">
             当前范围没有匹配设备；可调整范围或
             <button
+              ref={watchResult}
               onClick={() => {
                 search.current?.focus();
                 onQuery("");

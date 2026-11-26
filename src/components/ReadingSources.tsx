@@ -4,6 +4,8 @@ import { budgetRatio } from "../power-budget";
 import { PowerBudgetSummary } from "./PowerBudgetSummary";
 import { useEffect, useRef } from "react";
 import { clearSearchOnEscape } from "../search-keyboard";
+import { useResultFocusFallback } from "../use-result-focus-fallback";
+import { FocusedResultList } from "./FocusedResultList";
 import {
   matchingSourceRows,
   sourceValue,
@@ -42,6 +44,7 @@ export function ReadingSources({
   const root = useRef<HTMLElement>(null);
   const heading = useRef<HTMLButtonElement>(null);
   const search = useRef<HTMLInputElement>(null);
+  const watchResult = useResultFocusFallback(search);
   const opened = !!check;
   useEffect(() => {
     if (opened) {
@@ -166,7 +169,7 @@ export function ReadingSources({
               </button>
             )}
           </label>
-          <div
+          <FocusedResultList
             className="reading-source-list"
             tabIndex={0}
             aria-label="汇总输入设备名单"
@@ -175,6 +178,7 @@ export function ReadingSources({
               rows.map((row) => (
                 <button
                   key={row.id}
+                  ref={watchResult}
                   className="reading-source-row"
                   data-source-device={row.id}
                   aria-label={`预览汇总输入 ${row.name}，${row.reason}`}
@@ -218,7 +222,7 @@ export function ReadingSources({
                     : "当前没有有效输入，汇总为空缺，不按零计。"}
               </p>
             )}
-          </div>
+          </FocusedResultList>
           <small className="reading-source-caption">
             {current.group === "included"
               ? `按读数从高到低排列${sources.metric === "power" ? ` · 含 ${sources.zeroCount} 台有效零值` : ""}`

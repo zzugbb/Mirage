@@ -53,10 +53,10 @@ export const reviewLayers = [
   },
   {
     id: "airflow",
-    name: "气流",
-    description: "代表送回风路径、端点与输入对照",
+    name: "制冷",
+    description: "制冷服务范围与送回风路径",
   },
-  { id: "power", name: "功耗", description: "设备输入功耗与预算占比" },
+  { id: "power", name: "用电", description: "设备功耗与配电出线" },
   {
     id: "alarms",
     name: "告警",

@@ -133,6 +133,21 @@ export const environmentChannelText = (
   channel.value === null
     ? environmentQuality[channel.quality]
     : environmentValue(channel.value, unit);
+/** 分母为已登记测点数；各项分别统计当前可读值。 */
+export function environmentCoverage(time: number) {
+  const rows = environmentProbes.map(({ fixture }) => ({
+    fixture,
+    observation: environmentObservation(fixture.id, time)!,
+  }));
+  const counts = { ambientTemperature: 0, humidity: 0, dewPoint: 0 };
+  for (const { observation } of rows) {
+    if (observation.temperature.value !== null) counts.ambientTemperature++;
+    if (observation.humidity.value !== null) counts.humidity++;
+    if (observation.dewPoint.value !== null) counts.dewPoint++;
+  }
+  return { rows, counts };
+}
+
 const historyCache = new Map<
   string,
   Record<EnvironmentMetric, ReviewPoint[]>
@@ -172,6 +187,20 @@ export function environmentHistories(id: string) {
 
 export type EnvironmentProcessState =
   DataQuality | "derived" | "unsynchronized" | "unavailable";
+export function environmentDewPointState(
+  observation: NonNullable<ReturnType<typeof environmentObservation>>,
+) {
+  if (observation.dewPoint.value !== null) return "derived";
+  const { temperature, humidity } = observation;
+  if (
+    temperature.quality === "valid" &&
+    humidity.quality === "valid" &&
+    temperature.observedAt !== humidity.observedAt
+  )
+    return "unsynchronized";
+  return "unavailable";
+}
+
 export const environmentProcessNames: Record<EnvironmentProcessState, string> =
   {
     ...environmentQuality,
@@ -201,14 +230,7 @@ export function environmentProcess(
     const current: Record<EnvironmentMetric, EnvironmentProcessState> = {
       ambientTemperature: reading.temperature.quality,
       humidity: reading.humidity.quality,
-      dewPoint:
-        reading.dewPoint.value !== null
-          ? "derived"
-          : reading.temperature.quality === "valid" &&
-              reading.humidity.quality === "valid" &&
-              reading.temperature.observedAt !== reading.humidity.observedAt
-            ? "unsynchronized"
-            : "unavailable",
+      dewPoint: environmentDewPointState(reading),
     };
     const changes = (Object.keys(current) as EnvironmentMetric[])
       .filter((metric) => previous?.[metric] !== current[metric])
@@ -245,7 +267,10 @@ export function environmentComparison(
             reading.dewPoint.value === null
               ? null
               : reading.temperature.observedAt,
-          status: reading.dewPoint.value === null ? "不可推导" : "推导值",
+          status:
+            reading.dewPoint.value === null
+              ? environmentProcessNames[environmentDewPointState(reading)]
+              : "推导值",
         };
       const source =
         metric === "humidity" ? reading.humidity : reading.temperature;

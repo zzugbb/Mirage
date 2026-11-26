@@ -88,3 +88,33 @@ test("前后视括线随相机换边，侧视保留方向，隐藏期间不生�
     assert.deepEqual(new THREE.Raycaster().intersectObject(child), []);
   }
 });
+
+test("同一 U 位范围在进柜时放大字标，回到机房时恢复", () => {
+  const markers: { detailed: boolean; sprite: THREE.Sprite }[] = [];
+  const guide = new RackUnitGuide((label, detailed) => {
+    assert.equal(label, "U3–4");
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial());
+    markers.push({ detailed, sprite });
+    return sprite;
+  });
+  const state = { ...createState(), selected: "rack-a01" };
+  const range = { rackId: "rack-a01", first: 3, last: 4 };
+  const camera = new THREE.Vector3(0, 3, 5);
+
+  guide.update(state, camera, false, range);
+  guide.update({ ...state, level: "rack" }, camera, false, range);
+  guide.update(state, camera, false, range);
+
+  assert.deepEqual(
+    markers.map(({ detailed, sprite }) => [
+      detailed,
+      sprite.material.depthTest,
+    ]),
+    [
+      [false, true],
+      [true, true],
+      [false, true],
+    ],
+  );
+  assert.ok(markers[1].sprite.position.x > markers[0].sprite.position.x);
+});

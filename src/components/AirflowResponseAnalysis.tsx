@@ -68,9 +68,10 @@ export function AirflowResponseAnalysis({
       <ReviewAnalysis
         evidence={
           <AirflowIntervalReview
-            key={`${target.id}:${cycle}`}
+            key={target.id}
             target={target}
             time={time}
+            cycle={cycle}
             onSeek={onSeek}
           />
         }
@@ -81,6 +82,7 @@ export function AirflowResponseAnalysis({
         events={events}
         eventHeading={heading}
         time={time}
+        cycle={cycle}
         component={false}
         ready={ready}
         onSeek={onSeek}

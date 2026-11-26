@@ -8,9 +8,36 @@ import {
 } from "../patch-panels.ts";
 import { panelEntryPlacement } from "../panel-raceway.ts";
 
+const corners = (width: number, height: number, x = 0, y = 0) => [
+  new THREE.Vector2(x - width / 2, y - height / 2),
+  new THREE.Vector2(x + width / 2, y - height / 2),
+  new THREE.Vector2(x + width / 2, y + height / 2),
+  new THREE.Vector2(x - width / 2, y + height / 2),
+];
+
+function withoutPanelFront(geometry: THREE.BufferGeometry) {
+  const front = s.size[2] / 2;
+  const positions = geometry.getAttribute("position");
+  const previous = geometry.getIndex();
+  const indices: number[] = [];
+  for (let i = 0; i < (previous?.count ?? positions.count); i += 3) {
+    const triangle = previous
+      ? [previous.getX(i), previous.getX(i + 1), previous.getX(i + 2)]
+      : [i, i + 1, i + 2];
+    if (
+      !triangle.every(
+        (vertex) => Math.abs(positions.getZ(vertex) - front) < 1e-6,
+      )
+    )
+      indices.push(...triangle);
+  }
+  geometry.setIndex(indices);
+  geometry.clearGroups();
+  return geometry;
+}
+
 // 编号印在对应孔位上方，与面板共同受深度遮挡。
-function printFace(root: THREE.Group, code: string) {
-  if (typeof document === "undefined") return;
+function faceTexture(code: string) {
   const canvas = document.createElement("canvas");
   canvas.width = 1024;
   canvas.height = Math.round((canvas.width * s.size[1]) / s.size[0]);
@@ -48,11 +75,39 @@ function printFace(root: THREE.Group, code: string) {
   }
   const map = new THREE.CanvasTexture(canvas);
   map.colorSpace = THREE.SRGBColorSpace;
+  return map;
+}
+
+function printFace(root: THREE.Group, code: string) {
+  const [width, height, depth] = s.size;
+  const [openingWidth, openingHeight] = s.apertureSize;
+  const shape = new THREE.Shape(corners(width, height));
+  for (const port of panelPortNumbers) {
+    const [x, y] = panelPortCenter(port);
+    shape.holes.push(
+      new THREE.Path(corners(openingWidth, openingHeight, x, y).reverse()),
+    );
+  }
+  const geometry = new THREE.ShapeGeometry(shape);
+  const positions = geometry.getAttribute("position");
+  const uv = geometry.getAttribute("uv");
+  for (let i = 0; i < positions.count; i++)
+    uv.setXY(
+      i,
+      0.5 + positions.getX(i) / width,
+      0.5 + positions.getY(i) / height,
+    );
+  const map = typeof document === "undefined" ? null : faceTexture(code);
   const plate = new THREE.Mesh(
-    new THREE.PlaneGeometry(s.size[0], s.size[1]),
-    new THREE.MeshStandardMaterial({ map, roughness: 0.72 }),
+    geometry,
+    new THREE.MeshStandardMaterial({
+      map,
+      color: map ? "#ffffff" : "#444f55",
+      roughness: 0.72,
+    }),
   );
-  plate.position.z = s.size[2] / 2 + 0.0002;
+  plate.name = "panel-print";
+  plate.position.z = depth / 2;
   root.add(plate);
 }
 
@@ -65,7 +120,7 @@ export function buildPatchPanel(root: THREE.Group, code: string) {
     roughness: 0.65,
   });
   const body = new THREE.Mesh(
-    new THREE.BoxGeometry(width, height - recess, depth),
+    withoutPanelFront(new THREE.BoxGeometry(width, height - recess, depth)),
     caseMaterial,
   );
   body.name = "panel-case";
@@ -87,10 +142,12 @@ export function buildPatchPanel(root: THREE.Group, code: string) {
       ),
     );
     const top = new THREE.Mesh(
-      new THREE.ExtrudeGeometry(shape, {
-        depth: recess,
-        bevelEnabled: false,
-      }).rotateX(-Math.PI / 2),
+      withoutPanelFront(
+        new THREE.ExtrudeGeometry(shape, {
+          depth: recess,
+          bevelEnabled: false,
+        }).rotateX(-Math.PI / 2),
+      ),
       caseMaterial,
     );
     top.name = "panel-top-inlet";
@@ -100,13 +157,6 @@ export function buildPatchPanel(root: THREE.Group, code: string) {
   printFace(root, code);
   const [w, h, d] = s.bezelSize;
   const [iw, ih] = s.apertureSize;
-  const corners = (width: number, height: number) =>
-    [
-      [-1, -1],
-      [1, -1],
-      [1, 1],
-      [-1, 1],
-    ].map(([a, b]) => new THREE.Vector2((a * width) / 2, (b * height) / 2));
   const rim = new THREE.Shape(corners(w, h));
   rim.holes.push(new THREE.Path(corners(iw, ih).reverse()));
   // 孔框前伸，深色孔面留在框内；实例编号与面板正面的印字共用顺序。
@@ -129,11 +179,7 @@ export function buildPatchPanel(root: THREE.Group, code: string) {
       const [x, y] = panelPortCenter(n);
       batch.setMatrixAt(
         n - 1,
-        new THREE.Matrix4().makeTranslation(
-          x,
-          y,
-          depth / 2 + (name === "panel-apertures" ? 0.0006 : 0),
-        ),
+        new THREE.Matrix4().makeTranslation(x, y, depth / 2),
       );
     }
     root.add(batch);

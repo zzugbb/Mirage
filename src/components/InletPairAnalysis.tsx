@@ -1,6 +1,6 @@
 import type { InletDifferenceReview } from "../inlet-difference";
 import { InletDifferenceProcess } from "./InletDifferenceProcess";
-import { useMemo, useState, type Ref } from "react";
+import { useMemo, useState, type RefObject } from "react";
 import { inletHistory, inletPairSnapshot } from "../inlet-pair";
 import { reviewEvents } from "../review-model";
 import { ReviewTrend } from "./ReviewTrend";
@@ -33,7 +33,7 @@ export function InletPairAnalysis({
   cycle: number;
   selectedId: string | null;
   ready: boolean;
-  eventHeading: Ref<HTMLHeadingElement>;
+  eventHeading: RefObject<HTMLHeadingElement | null>;
   onSeek: (time: number) => void;
   onPreview: (id: string) => void;
   onLocate: (id: string) => void;

@@ -72,10 +72,9 @@ export function EnvironmentComparison({
                       )}
                     </span>
                     <small>
-                      {reading.status} ·{" "}
-                      {reading.observedAt === null
-                        ? "无可用采样"
-                        : `采样 t+${reading.observedAt}s`}
+                      {reading.status}
+                      {reading.observedAt !== null &&
+                        ` · 采样 t+${reading.observedAt}s`}
                     </small>
                   </div>
                 ))}

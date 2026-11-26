@@ -38,9 +38,9 @@ export function RangeSegments({
         逐段观察 · 从高 U 到低 U
         <select
           aria-label="观察范围分段"
-          disabled={!ready}
+          aria-disabled={!ready}
           value={current?.id ?? ""}
-          onChange={(event) => onSegment(event.target.value || null)}
+          onChange={(event) => ready && onSegment(event.target.value || null)}
         >
           <option value="">整个核查范围</option>
           {segments.map((segment, i) => (
@@ -54,8 +54,10 @@ export function RangeSegments({
         <>
           <div className="range-segment-step">
             <button
-              disabled={!ready || index === 0}
-              onClick={() => onSegment(segments[index - 1].id)}
+              aria-disabled={!ready || index === 0}
+              onClick={() =>
+                ready && index > 0 && onSegment(segments[index - 1].id)
+              }
             >
               上一段
             </button>
@@ -63,8 +65,12 @@ export function RangeSegments({
               {index + 1} / {segments.length}
             </span>
             <button
-              disabled={!ready || index === segments.length - 1}
-              onClick={() => onSegment(segments[index + 1].id)}
+              aria-disabled={!ready || index === segments.length - 1}
+              onClick={() =>
+                ready &&
+                index < segments.length - 1 &&
+                onSegment(segments[index + 1].id)
+              }
             >
               下一段
             </button>

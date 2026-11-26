@@ -70,8 +70,10 @@ export class RackUnitGuide extends THREE.Group {
   private label: THREE.Sprite | null = null;
   private key = "";
   private rear = false;
-  private makeLabel: (label: string) => THREE.Sprite;
-  constructor(makeLabel: (label: string) => THREE.Sprite) {
+  private makeLabel: (label: string, detailedRange: boolean) => THREE.Sprite;
+  constructor(
+    makeLabel: (label: string, detailedRange: boolean) => THREE.Sprite,
+  ) {
     super();
     this.makeLabel = makeLabel;
     this.name = "rack-unit-guide";
@@ -88,9 +90,11 @@ export class RackUnitGuide extends THREE.Group {
     const span = rackUnitSpan(state, range);
     this.visible = !!span && !inspecting;
     if (!span || inspecting) return;
+    const detailedRange =
+      state.level === "rack" && span.id.startsWith("range:");
     const dz = camera.z - span.rack.position[2];
     if (Math.abs(dz) > 0.2) this.rear = dz < 0;
-    const key = `${span.rack.id}:${span.id}:${this.rear}`;
+    const key = `${span.rack.id}:${span.id}:${this.rear}:${detailedRange}`;
     if (this.key === key) return;
     this.key = key;
     this.position.fromArray(span.rack.position);
@@ -116,11 +120,16 @@ export class RackUnitGuide extends THREE.Group {
       this.label.material.map?.dispose();
       this.label.material.dispose();
     }
-    this.label = this.makeLabel(span.label);
+    this.label = this.makeLabel(span.label, detailedRange);
     this.label.material.depthTest = true;
     this.label.material.depthWrite = false;
+    if (detailedRange) this.label.material.toneMapped = false;
     this.label.raycast = () => {};
-    this.label.position.set(x + side * 0.13, (span.top + span.bottom) / 2, z);
+    this.label.position.set(
+      x + side * (detailedRange ? 0.23 : 0.13),
+      (span.top + span.bottom) / 2,
+      z,
+    );
     this.add(this.label);
     this.userData.span = span.label;
     this.userData.deviceId = span.id;
