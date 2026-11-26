@@ -273,3 +273,56 @@ test("两层导向贴靠实体，运维陈设与供配电桥架避开登记入�
     }
   }
 });
+
+test("二层柜体在登记外廓内保留各自的门板、百叶和落地安装脚", () => {
+  const floor = campusById("floor-a-02")!;
+  const { plan, marks } = createCampusGeometry(floor, campusChildren(floor.id));
+  plan.updateMatrixWorld(true);
+  const { pick } = marks[0];
+  const area = campusFloorPlan(floor.id)!.areas[0];
+  const cabinets = pick.parent!.children.filter(
+    ({ name }) => name === "floor-power-enclosure",
+  );
+  const countFeature = (cabinet: (typeof cabinets)[number], name: string) =>
+    cabinet.children.filter((part) => part.name === name).length;
+  const findCabinets = (kind: string) =>
+    cabinets.filter((cabinet) => cabinet.getObjectByName(`floor-${kind}`));
+  const floorY = new Box3().setFromObject(pick).max.y;
+  for (const row of area.equipment) {
+    const count = Math.ceil(row.width / 0.88);
+    const pitch = row.width / count;
+    const units = findCabinets(row.kind);
+    assert.equal(units.length, count);
+    for (const [i, cabinet] of units.entries()) {
+      const center = cabinet.getWorldPosition(new Vector3());
+      const bounds = new Box3().setFromObject(cabinet);
+      const x =
+        pick.parent!.position.x + row.center[0] + (i - (count - 1) / 2) * pitch;
+      assert.ok(Math.abs(center.x - x) < 1e-6);
+      assert.ok(Math.abs(bounds.max.x - bounds.min.x - (pitch - 0.07)) < 1e-6);
+      assert.ok(Math.abs(bounds.max.y - floorY - row.height) < 1e-6);
+      assert.ok(Math.abs(bounds.min.z - (center.z - row.depth / 2)) < 1e-6);
+      assert.ok(bounds.max.z <= center.z + row.depth / 2 + 1e-6);
+      const feet = cabinet.children.filter(
+        ({ name }) => name === "floor-cabinet-foot",
+      );
+      assert.equal(feet.length, 4);
+      for (const foot of feet)
+        assert.ok(
+          Math.abs(new Box3().setFromObject(foot).min.y - floorY) < 1e-6,
+        );
+
+      if (row.kind === "ups") {
+        assert.equal(countFeature(cabinet, "floor-ups-display"), 1);
+        const vent = cabinet.getObjectByName("floor-cabinet-louvers");
+        assert.ok(vent instanceof InstancedMesh && vent.count === 8);
+      } else if (row.kind === "battery") {
+        assert.equal(countFeature(cabinet, "floor-battery-module"), 4);
+        assert.equal(countFeature(cabinet, "floor-cabinet-pull"), 4);
+      } else {
+        assert.equal(countFeature(cabinet, "floor-switchgear-door"), 3);
+        assert.equal(countFeature(cabinet, "floor-switchgear-meter"), 1);
+      }
+    }
+  }
+});

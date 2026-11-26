@@ -2218,10 +2218,238 @@ function floorBench(
 
 const floorCabinets = {
   rack: { body: "#39474b", door: "#27383f", accent: "#718185" },
-  ups: { body: "#64727a", door: "#3a4b52", accent: "#819594" },
-  battery: { body: "#686e65", door: "#4f5d55", accent: "#b4b39d" },
-  switchgear: { body: "#a5a699", door: "#858a80", accent: "#586660" },
+  ups: { body: "#64727a", door: "#485960", accent: "#7b8a8e" },
+  battery: { body: "#626b63", door: "#525f56", accent: "#8e988b" },
+  switchgear: { body: "#969b91", door: "#a7aa9d", accent: "#717e78" },
 } as const;
+
+type PowerCabinetKind = Exclude<keyof typeof floorCabinets, "rack">;
+
+function powerCabinetPull(
+  group: THREE.Group,
+  x: number,
+  y: number,
+  front: number,
+  length: number,
+  vertical = false,
+) {
+  const mount = "#3e4848";
+  for (const side of [-1, 1]) {
+    const offset = (side * (length - 0.02)) / 2;
+    box(
+      group,
+      [0.024, 0.024, 0.021],
+      [x + (vertical ? 0 : offset), y + (vertical ? offset : 0), front - 0.022],
+      mount,
+    );
+  }
+  box(
+    group,
+    vertical ? [0.021, length, 0.014] : [length, 0.021, 0.014],
+    [x, y, front - 0.008],
+    "#8e9a99",
+    { roughness: 0.53, metalness: 0.28 },
+  ).name = "floor-cabinet-pull";
+}
+
+function powerCabinetVent(
+  group: THREE.Group,
+  front: number,
+  y: number,
+  width: number,
+  height: number,
+  count: number,
+) {
+  box(group, [width, height, 0.012], [0, y, front - 0.029], "#303c3c").name =
+    "floor-cabinet-vent";
+  const louvers = new THREE.InstancedMesh(
+    new THREE.BoxGeometry(width - 0.038, (height / count) * 0.42, 0.016),
+    new THREE.MeshStandardMaterial({ color: "#6c8182", roughness: 0.71 }),
+    count,
+  );
+  const offset = new THREE.Vector3(0, 0, front - 0.016);
+  const tilt = new THREE.Quaternion().setFromAxisAngle(
+    new THREE.Vector3(1, 0, 0),
+    -0.39,
+  );
+  const scale = new THREE.Vector3(1, 1, 1);
+  const matrix = new THREE.Matrix4();
+  for (let i = 0; i < count; i++) {
+    offset.y = y + ((i - (count - 1) / 2) * (height - 0.012)) / count;
+    louvers.setMatrixAt(i, matrix.compose(offset, tilt, scale));
+  }
+  louvers.instanceMatrix.needsUpdate = true;
+  louvers.name = "floor-cabinet-louvers";
+  group.add(louvers);
+}
+
+function floorPowerCabinet(
+  group: THREE.Group,
+  kind: PowerCabinetKind,
+  x: number,
+  z: number,
+  width: number,
+  depth: number,
+  height: number,
+): CampusLabelObstacle {
+  const cabinet = new THREE.Group();
+  cabinet.name = "floor-power-enclosure";
+  cabinet.position.set(x, floorFinishHeight, z);
+  group.add(cabinet);
+  const palette = floorCabinets[kind];
+  const front = depth / 2;
+  const foot = 0.059;
+  const crown = 0.035;
+  const caseHeight = height - foot - crown;
+  const mid = foot + caseHeight / 2;
+  const caseSetback = 0.074;
+  box(
+    cabinet,
+    [width, caseHeight, depth - caseSetback],
+    [0, mid, -caseSetback / 2],
+    palette.body,
+  ).name = `floor-${kind}`;
+  box(
+    cabinet,
+    [width, crown, depth - 0.006],
+    [0, height - crown / 2, 0],
+    palette.accent,
+  ).name = "floor-cabinet-crown";
+  box(
+    cabinet,
+    [width - 0.095, 0.042, depth - 0.11],
+    [0, 0.021, -0.014],
+    "#3d4744",
+  );
+  box(
+    cabinet,
+    [width - 0.11, 0.058, 0.055],
+    [0, 0.035, front - 0.065],
+    "#485350",
+  ).name = "floor-cabinet-toe";
+  for (const side of [-1, 1]) {
+    const edgeX = side * (width / 2 - 0.026);
+    box(
+      cabinet,
+      [0.052, caseHeight, 0.062],
+      [edgeX, mid, front - 0.043],
+      palette.body,
+    ).name = "floor-cabinet-frame";
+    for (const end of [-1, 1]) {
+      const footX = side * (width / 2 - 0.088);
+      const footZ = end * (depth / 2 - 0.082);
+      box(cabinet, [0.105, foot, 0.106], [footX, foot / 2, footZ], "#6e797a", {
+        metalness: 0.23,
+      }).name = "floor-cabinet-foot";
+    }
+  }
+  const doorWidth = width - 0.13;
+  box(
+    cabinet,
+    [width - 0.105, caseHeight - 0.054, 0.023],
+    [0, mid, front - 0.068],
+    "#33403e",
+  );
+  const door = (bottom: number, top: number, color: string = palette.door) =>
+    box(
+      cabinet,
+      [doorWidth, (top - bottom) * height, 0.04],
+      [0, ((top + bottom) / 2) * height, front - 0.052],
+      color,
+    );
+  const panel = (
+    w: number,
+    h: number,
+    xp: number,
+    yp: number,
+    color: string,
+    relief = 0,
+  ) =>
+    box(
+      cabinet,
+      [w, h, 0.012],
+      [xp, yp * height, front - 0.027 + relief],
+      color,
+    );
+
+  if (kind === "ups") {
+    door(0.075, 0.947);
+    panel(doorWidth * 0.83, height * 0.182, -0.013, 0.786, "#323f46");
+    panel(
+      doorWidth * 0.63,
+      height * 0.102,
+      -0.013,
+      0.797,
+      "#596e74",
+      0.006,
+    ).name = "floor-ups-display";
+    for (const offset of [-0.07, 0, 0.07])
+      panel(0.035, 0.017, offset - 0.013, 0.719, "#819092", 0.004);
+    powerCabinetVent(
+      cabinet,
+      front,
+      height * 0.23,
+      doorWidth * 0.84,
+      height * 0.222,
+      8,
+    );
+    powerCabinetPull(
+      cabinet,
+      doorWidth * 0.365,
+      height * 0.502,
+      front,
+      0.17,
+      true,
+    );
+  } else if (kind === "battery") {
+    door(0.888, 0.947, "#798579");
+    for (let tier = 0; tier < 4; tier++) {
+      const bottom = 0.139 + tier * 0.178;
+      const color = tier % 2 ? "#556258" : palette.door;
+      door(bottom, bottom + 0.164, color).name = "floor-battery-module";
+      powerCabinetPull(
+        cabinet,
+        0,
+        (bottom + 0.093) * height,
+        front,
+        doorWidth * 0.45,
+      );
+      panel(
+        doorWidth * 0.17,
+        0.022,
+        -doorWidth * 0.329,
+        bottom + 0.13,
+        "#a1a699",
+      );
+    }
+    door(0.061, 0.102, "#65716b");
+  } else {
+    door(0.718, 0.951, "#aeb0a3").name = "floor-switchgear-door";
+    door(0.462, 0.703).name = "floor-switchgear-door";
+    door(0.076, 0.447).name = "floor-switchgear-door";
+    panel(doorWidth * 0.66, height * 0.087, -0.035, 0.827, "#5a6867").name =
+      "floor-switchgear-meter";
+    panel(doorWidth * 0.4, height * 0.052, -0.035, 0.827, "#7d8c8c", 0.006);
+    panel(doorWidth * 0.39, height * 0.089, -0.044, 0.598, "#626d67");
+    panel(doorWidth * 0.24, 0.027, -0.044, 0.212, "#8e9788");
+    for (const level of [0.225, 0.588, 0.831])
+      powerCabinetPull(
+        cabinet,
+        doorWidth * 0.385,
+        level * height,
+        front,
+        0.092,
+        true,
+      );
+  }
+  return {
+    frame: cabinet,
+    bounds: new THREE.Box3(
+      new THREE.Vector3(-width / 2, 0, -depth / 2),
+      new THREE.Vector3(width / 2, height, depth / 2),
+    ),
+  };
+}
 
 function floorCabinet(
   group: THREE.Group,
@@ -2232,7 +2460,9 @@ function floorCabinet(
   depth: number,
   height: number,
 ) {
-  const palette = floorCabinets[kind];
+  if (kind !== "rack")
+    return floorPowerCabinet(group, kind, x, z, width, depth, height);
+  const palette = floorCabinets.rack;
   const base = 0.05;
   const feet = 0.055;
   const front = z + depth / 2;
@@ -2249,16 +2479,6 @@ function floorCabinet(
     [x, base + feet / 2, z],
     "#49504b",
   );
-  if (kind !== "rack") {
-    for (const side of [-1, 1])
-      box(
-        group,
-        [0.104, feet, 0.085],
-        [x + side * (width / 2 - 0.062), base + feet / 2, front - 0.045],
-        "#707b7d",
-        { metalness: 0.23, roughness: 0.72 },
-      ).name = "floor-cabinet-foot";
-  }
   box(
     group,
     [width - 0.09, height * 0.83, 0.037],
@@ -2272,23 +2492,8 @@ function floorCabinet(
       [x + offset, base + height * y, front + 0.036],
       color,
     );
-  if (kind === "battery") {
-    for (const y of [0.27, 0.43, 0.59, 0.75]) {
-      face(width * 0.73, 0.024, y, "#38413c");
-      face(width * 0.21, 0.04, y - 0.034, palette.accent);
-    }
-  } else if (kind === "switchgear") {
-    for (const y of [0.36, 0.65]) {
-      face(width * 0.76, 0.024, y, "#57605b");
-      face(width * 0.24, height * 0.082, y + 0.066, "#536661");
-    }
-    face(width * 0.33, 0.061, 0.83, "#bcc0ae");
-  } else {
-    const lines =
-      kind === "rack" ? [0.2, 0.41, 0.62, 0.79] : [0.21, 0.24, 0.27];
-    for (const y of lines) face(width * 0.62, 0.025, y, palette.accent);
-    if (kind === "ups") face(width * 0.42, height * 0.105, 0.73, "#617d7c");
-  }
+  for (const y of [0.2, 0.41, 0.62, 0.79])
+    face(width * 0.62, 0.025, y, palette.accent);
   face(0.03, height * 0.11, 0.56, palette.accent, width * 0.38);
   return body;
 }
