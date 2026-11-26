@@ -208,9 +208,12 @@ export function CampusScene({
     );
     fill.position.set(24, 12, -17);
     scene.add(fill);
+    const children = campusChildren(scope.id);
+    const sampleDetails =
+      outdoor || children.some(({ kind }) => kind === "room");
     const { plan, marks, labelObstacles, arrangeFloors } = createCampusGeometry(
       scope,
-      campusChildren(scope.id),
+      children,
     );
     if (outdoor) {
       renderer.shadowMap.enabled = true;
@@ -672,13 +675,10 @@ export function CampusScene({
     const resize = () => {
       const { width, height } = host.getBoundingClientRect();
       if (!width || !height) return;
-      if (scope.kind === "campus") {
-        // 远处叶片经常小于一个像素，额外采样在大画幅下按像素预算收敛。
-        const foliageSamples = Math.sqrt(campusSampleBudget / (width * height));
-        const pixelRatio = Math.max(
-          devicePixelRatio,
-          Math.min(2, foliageSamples),
-        );
+      if (sampleDetails) {
+        // 远处叶片与机房预览的墙脚细边共用画布的额外采样预算。
+        const samples = Math.sqrt(campusSampleBudget / (width * height));
+        const pixelRatio = Math.max(devicePixelRatio, Math.min(2, samples));
         if (renderer.getPixelRatio() !== pixelRatio)
           renderer.setPixelRatio(pixelRatio);
       }
