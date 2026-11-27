@@ -7,6 +7,7 @@ import {
   MeshStandardMaterial,
   Raycaster,
   Vector3,
+  type BoxGeometry,
   type BufferGeometry,
 } from "three";
 import {
@@ -438,7 +439,7 @@ test("二层柜体在登记外廓内保留各自的门板、百叶和落地安�
   }
 });
 
-test("二层室内铺面由门口经过柜间再沿柜前连续铺开", () => {
+test("二层室内铺面由门口经柜前和低压柜外侧连续铺到巡检台", () => {
   const floor = campusById("floor-a-02")!;
   const { plan, marks } = createCampusGeometry(floor, campusChildren(floor.id));
   plan.updateMatrixWorld(true);
@@ -486,6 +487,20 @@ test("二层室内铺面由门口经过柜间再沿柜前连续铺开", () => {
     assert.ok(probe(x, front + 0.65));
   }
   const [width, , depth] = marks[0].child.size;
+  const lowVoltage = area.equipment.find(({ kind }) => kind === "switchgear")!;
+  const shelf = group.getObjectByName(
+    "floor-power-inspection-shelf",
+  ) as Mesh<BoxGeometry>;
+  const shelfFront = shelf.position.z + shelf.geometry.parameters.depth / 2;
+  const cabinetEdge = lowVoltage.center[0] + lowVoltage.width / 2;
+  const sideRoute = (cabinetEdge + width / 2) / 2;
+  for (let x = lowVoltage.center[0]; x < sideRoute; x += 0.2)
+    assert.ok(probe(x, front + 0.65));
+  for (let z = shelfFront + 0.24; z <= front + 0.65; z += 0.2)
+    assert.ok(probe(sideRoute, z));
+  assert.equal(probe(cabinetEdge, lowVoltage.center[1]), undefined);
+  assert.equal(probe(sideRoute, shelfFront), undefined);
+  assert.equal(probe(width / 2 - 0.15, lowVoltage.center[1]), undefined);
   for (let x = -width / 2 + 0.19; x < width / 2; x += 0.37) {
     for (let z = -depth / 2 + 0.23; z < depth / 2; z += 0.39) {
       const hits = positionRay(x, z).intersectObjects(

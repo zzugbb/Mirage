@@ -1650,6 +1650,7 @@ function floorDeck(
 }
 
 const stairRailColor = "#5c6c6d";
+const stairConcreteColor = "#a6ada9";
 const stairRailTop = 0.95;
 const stairFootThickness = 0.014;
 type StairRailPoint = readonly [x: number, z: number];
@@ -1757,18 +1758,18 @@ function floorStair(
     depth: flightWidth,
     bevelEnabled: false,
   });
-  // 用同一几何的倒角面表现踏步前缘，避免在踏面上叠贴薄片。
+  // 以同一几何上的亮踏面和深立面读出梯段，避免在踏面上叠贴薄片。
   const normals = geometry.getAttribute("normal");
   const tones = new Float32Array(normals.count * 3);
   for (let i = 0; i < normals.count; i++) {
-    const nose = normals.getX(i) < -0.12 && normals.getY(i) > 0.2;
-    tones.fill(nose ? 0.62 : 1, i * 3, i * 3 + 3);
+    const riser = normals.getX(i) < -0.12 && normals.getY(i) < 0.2;
+    tones.fill(riser ? 0.52 : 1, i * 3, i * 3 + 3);
   }
   geometry.setAttribute("color", new THREE.BufferAttribute(tones, 3));
   const flight = new THREE.Mesh(
     geometry,
     new THREE.MeshStandardMaterial({
-      color: "#929a9d",
+      color: stairConcreteColor,
       roughness: 0.94,
       vertexColors: true,
     }),
@@ -1796,7 +1797,7 @@ function floorStair(
     platform,
     [stair.width, 0.21, far - turn],
     [x, landingY - 0.105, (far + turn) / 2],
-    "#929a9d",
+    stairConcreteColor,
   ).name = upper ? "stair-upper-turn-landing" : "stair-turn-landing";
   stairGuard(
     platform,
@@ -2881,6 +2882,7 @@ function floorServiceAisle(
   floor: THREE.Mesh<THREE.BoxGeometry, THREE.MeshStandardMaterial>,
   area: FloorArea,
   finish: ReturnType<typeof floorFinishes>,
+  shelf?: ReturnType<typeof floorPowerInspectionShelf>,
 ) {
   const { equipment, doorway, serviceAisle } = area;
   if (!serviceAisle) return;
@@ -2905,14 +2907,35 @@ function floorServiceAisle(
   const turnStart = doorway.z + (rear - doorway.z) * 0.19;
   const turnEnd = doorway.z + (rear - doorway.z) * 0.47;
   const stop = front + serviceAisle.frontDepth;
+  const { width, depth } = floor.geometry.parameters;
+  const outside = right + 0.18;
+  const aisleEdge = outside + serviceAisle.accessWidth;
+  let rightSide = [
+    [right, front],
+    [right, stop],
+  ];
+  if (shelf && aisleEdge < width / 2 - 0.17) {
+    const shelfSize = shelf.geometry.parameters;
+    const end = shelf.position.z + shelfSize.depth / 2 + 0.18;
+    const aisleCenter = (outside + aisleEdge) / 2;
+    if (
+      end < front &&
+      Math.abs(aisleCenter - shelf.position.x) < shelfSize.width / 2
+    )
+      rightSide = [
+        [outside, front],
+        [outside, end],
+        [aisleEdge, end],
+        [aisleEdge, stop],
+      ];
+  }
   const points = [
     [doorway.x - half, doorway.z],
     [doorway.x + half, doorway.z],
     [doorway.x + half, turnStart],
     [gap + half, turnEnd],
     [gap + half, front],
-    [right, front],
-    [right, stop],
+    ...rightSide,
     [left, stop],
     [left, front],
     [gap - half, front],
@@ -2947,7 +2970,6 @@ function floorServiceAisle(
   }
   floor.geometry.setIndex(sides);
   floor.geometry.clearGroups();
-  const { width, depth } = floor.geometry.parameters;
   const [start, ...boundary] = points;
   addSurface(
     [
@@ -3463,16 +3485,19 @@ export function createCampusGeometry(
               side === 1 ? "wall" : "reverse",
             ),
           );
+        let inspectionShelf:
+          ReturnType<typeof floorPowerInspectionShelf> | undefined;
         if (tray) {
           // 台面沿后墙靠右布置，离开大多数半剖方位的柜列投影。
           const inspectionX = w / 2 - 1.55;
+          inspectionShelf = floorPowerInspectionShelf(
+            group,
+            inspectionX,
+            wallZ + wallDepth / 2,
+          );
           labelObstacles.push(
             ...floorCableTray(group, tray, doorway.z + 0.095),
-            floorPowerInspectionShelf(
-              group,
-              inspectionX,
-              wallZ + wallDepth / 2,
-            ),
+            inspectionShelf,
             floorPlaque(
               group,
               "floor-power-layout-holder",
@@ -3501,7 +3526,7 @@ export function createCampusGeometry(
             new THREE.Vector3(sides[2], openingTop, doorway.z + 0.13),
           ),
         });
-        floorServiceAisle(group, pick, area, floorFinish!);
+        floorServiceAisle(group, pick, area, floorFinish!, inspectionShelf);
         for (const item of equipment) {
           const { kind, width, height, depth, center, name } = item;
           if (kind === "tools" || kind === "cart") {

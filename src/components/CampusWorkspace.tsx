@@ -322,7 +322,7 @@ export function CampusWorkspace({
           <h1 id="campus-stage-title">{scope.name}</h1>
           <span>
             {scope.kind === "building"
-              ? "建筑剖面与分层 · 标高见依据"
+              ? "左侧楼梯经平台连接 01、02 层"
               : "原创样板 · 米制坐标"}
           </span>
         </div>
@@ -423,7 +423,7 @@ export function CampusWorkspace({
               {floorArea.serviceAisle && (
                 <p>
                   从楼梯井沿走廊到入口。室内经 UPS 与电池柜之间通往柜前，
-                  巡检台在后墙右端。
+                  再沿低压配电柜外侧到后墙巡检台。
                 </p>
               )}
               {floorArea.tray && <p>沿墙桥架为样板布置，接线与回路待核实。</p>}
