@@ -23,6 +23,7 @@ export function AlarmQueue({
   visible,
   scroll,
   restoreRevision,
+  inspecting,
   returned,
   onSelect,
   onPreview,
@@ -37,14 +38,18 @@ export function AlarmQueue({
   visible: boolean;
   scroll: RefObject<number>;
   restoreRevision: number;
+  inspecting: AlarmVisit | null;
   returned: AlarmVisit | null;
   onSelect: (id: string) => void;
   onPreview: (id: string, previous?: AlarmVisit) => void;
 }) {
   const queue = alarmQueue(readings, query, severity);
   const host = useRef<HTMLDivElement>(null);
-  const returnedRow =
-    returned && queue.rows.some((row) => row.device.id === returned.id);
+  const visit = returned ?? inspecting;
+  const followup =
+    visit && !queue.rows.some((row) => row.device.id === visit.id)
+      ? visit
+      : null;
   const search = useRef<HTMLInputElement>(null);
   useLayoutEffect(() => {
     if (!visible || !host.current) return;
@@ -130,23 +135,26 @@ export function AlarmQueue({
           scroll.current = event.currentTarget.scrollTop;
         }}
       >
-        {returned && !returnedRow && (
-          <div className="alarm-queue-followup">
-            <strong>{deviceById(returned.id)?.name}</strong>
+        {followup && (
+          <div
+            className="alarm-queue-followup"
+            data-reviewing={!returned || undefined}
+          >
+            <strong>{deviceById(followup.id)?.name}</strong>
             <small>
-              {rackForDevice(returned.id).name} · {unitLabel(returned.id)}
+              {rackForDevice(followup.id).name} · {unitLabel(followup.id)}
             </small>
             <p>
-              {alarmVisitLabel(returned)}。
-              {alarmCurrentStatus(readings.get(returned.id))}
-              {queue.all.some((row) => row.device.id === returned.id) &&
+              {alarmVisitLabel(followup)}。
+              {alarmCurrentStatus(readings.get(followup.id))}
+              {queue.all.some((row) => row.device.id === followup.id) &&
                 "，未匹配当前筛选"}
               。
             </p>
             <button
               ref={watchResult}
               disabled={!ready}
-              onClick={() => onPreview(returned.id, returned)}
+              onClick={() => onPreview(followup.id, followup)}
             >
               继续排查
             </button>
@@ -190,11 +198,12 @@ export function AlarmQueue({
             )}
           </article>
         ))}
-        {!queue.rows.length && (!returned || queue.all.length > 0) && (
-          <p className="study-empty">
-            {queue.all.length
-              ? "没有匹配的告警设备"
-              : "当前有效读数中没有活动告警"}
+        {!queue.rows.length && (!followup || queue.all.length > 0) && (
+          <p className={followup ? undefined : "study-empty"}>
+            {!followup &&
+              (queue.all.length
+                ? "没有匹配的告警设备"
+                : "当前有效读数中没有活动告警")}
             {queue.all.length > 0 && (query || severity !== "all") && (
               <button
                 ref={watchResult}

@@ -2976,7 +2976,7 @@ export function Workspace() {
     setMetric("temperature");
     setRackView("list");
     setOnlyAlarms(true);
-    skipNavigationSearch.current = true;
+    skipNavigationSearch.current = !nav;
     setNav(true);
     if (matchMedia("(max-width: 1099px)").matches) setInspector(false);
     else setInspector(alarmVisit.inspector);
@@ -2987,7 +2987,7 @@ export function Workspace() {
     setAlarmRestore((value) => value + 1);
     setAlarmReturning(false);
     setAlarmVisit(null);
-  }, [alarmReturning, alarmVisit, state.level, ready, review.pendingId]);
+  }, [alarmReturning, alarmVisit, state.level, ready, review.pendingId, nav]);
   useEffect(() => {
     if (
       !layoutReturning ||
@@ -6834,6 +6834,7 @@ export function Workspace() {
               visible={nav}
               scroll={alarmScroll}
               restoreRevision={alarmRestore}
+              inspecting={inspectedAlarm}
               returned={alarmReturned}
               onSelect={(id) => {
                 selectObject(id);
