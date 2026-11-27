@@ -2942,10 +2942,17 @@ export function Workspace() {
     alarmQueueVisible && activeAlarmVisit?.id === selected
       ? activeAlarmVisit
       : null;
+  const reviewingAlarm = review.analysis && !!inspectedAlarm;
   const alarmSample =
     alarmQueueVisible && entity.kind === "device"
       ? spatial.samples.get(selected)
       : undefined;
+  const alarmAssessment =
+    alarmSample && reading ? inletAssessment(reading, alarmSample) : null;
+  const showAlarmActions = !!(
+    (alarmAssessment && reading?.alarm) ||
+    inspectedAlarm
+  );
   useEffect(() => {
     if (!alarmVisit || alarmReturning || !ready) return;
     if (!activeAlarmVisit) {
@@ -6701,6 +6708,7 @@ export function Workspace() {
         onClickCapture={cancelCampusNavigation}
         onChangeCapture={cancelCampusNavigation}
         className={`study-workspace ${nav ? "has-nav" : ""} ${inspector ? "has-inspector" : ""} ${review.analysis ? "has-analysis" : ""}`}
+        data-alarm-review={reviewingAlarm || undefined}
       >
         <aside
           ref={navigationRef}
@@ -10459,6 +10467,7 @@ export function Workspace() {
                   <ReviewAnalysis
                     key={revision}
                     cycle={state.replayCycle}
+                    evidenceFirst={reviewingAlarm}
                     evidence={
                       <>
                         {inletId && !pairedInlet && (
@@ -10556,23 +10565,22 @@ export function Workspace() {
                           : "设备进风温度持续超限"
                         : alarmCurrentStatus(reading)}
                     </h2>
-                    {((alarmSample && reading) ||
-                      (inspectedAlarm &&
-                        reading?.alarm !== inspectedAlarm.severity)) && (
-                      <p>
-                        {inspectedAlarm &&
-                          reading?.alarm !== inspectedAlarm.severity &&
-                          `${alarmVisitLabel(inspectedAlarm)}。`}
-                        {alarmSample &&
-                          reading &&
-                          inletAssessment(reading, alarmSample).detail}
-                      </p>
+                    {inspectedAlarm &&
+                      reading?.alarm !== inspectedAlarm.severity && (
+                        <p>{alarmVisitLabel(inspectedAlarm)}。</p>
+                      )}
+                    {alarmAssessment?.activeBasis && (
+                      <p>{alarmAssessment.activeBasis}</p>
                     )}
-                    <div className="study-alarm-actions">
+                    {alarmAssessment && <p>{alarmAssessment.detail}</p>}
+                    <div
+                      className="study-alarm-actions"
+                      data-device-actions={showAlarmActions || undefined}
+                    >
                       <button
-                        disabled={(!!alarmSample || !!inspectedAlarm) && !ready}
+                        disabled={showAlarmActions && !ready}
                         onClick={() => {
-                          if (alarmSample || inspectedAlarm)
+                          if (showAlarmActions)
                             beginAlarmInspection(selected, "analysis");
                           else {
                             jumpToEvents.current = true;
@@ -10582,7 +10590,7 @@ export function Workspace() {
                       >
                         回看告警过程
                       </button>
-                      {(alarmSample || inspectedAlarm) && (
+                      {showAlarmActions && (
                         <>
                           <button
                             disabled={!ready}
@@ -11164,9 +11172,11 @@ export function Workspace() {
                         time={state.time}
                         compact
                       />
-                      <button onClick={analyze}>
-                        分析曲线与事件 <span>↗</span>
-                      </button>
+                      {!(showAlarmActions && !component) && (
+                        <button onClick={analyze}>
+                          分析曲线与事件 <span>↗</span>
+                        </button>
+                      )}
                     </section>
                     {state.level === "device" &&
                       !activePair &&

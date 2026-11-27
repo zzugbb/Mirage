@@ -7,7 +7,7 @@ export function inletAssessment(
   reading: SpatialReading,
   sample: SimulationSnapshot,
 ) {
-  const inactive = { since: null, confirmed: null };
+  const inactive = { since: null, confirmed: null, activeBasis: null };
   if (reading.quality !== "valid" || reading.temperature === null) {
     const stopped =
       reading.lifecycle === "stopped" && reading.quality === "valid";
@@ -26,18 +26,23 @@ export function inletAssessment(
   }
   const { alarm, pending } = sample;
   const status = alarm && !alarm.active ? "已恢复" : sample.temperatureStatus;
+  const change = sample.events.findLast(
+    (event) => event.entityId === reading.id && event.time === alarm?.changedAt,
+  );
   if (pending)
     return {
       status,
+      activeBasis:
+        alarm?.active && change
+          ? `第 ${change.time} 秒${change.title}。${change.detail}`
+          : null,
       detail: `${pending.label} · 已持续 ${pending.elapsed} / ${pending.required} 秒`,
       since: sample.observedAt - pending.elapsed,
       confirmed: null,
     };
-  const change = sample.events.findLast(
-    (event) => event.entityId === reading.id && event.time === alarm?.changedAt,
-  );
   return {
     status,
+    activeBasis: null,
     detail: change
       ? `第 ${change.time} 秒，${change.detail}`
       : "当前进风未触发告警持续条件。",

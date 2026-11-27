@@ -12,6 +12,7 @@ import { AnalysisEvents } from "./AnalysisEvents";
 export function ReviewAnalysis({
   peakProcess,
   evidence,
+  evidenceFirst = false,
   labels,
   histories,
   events,
@@ -28,6 +29,7 @@ export function ReviewAnalysis({
   onSeek,
 }: {
   evidence?: ReactNode;
+  evidenceFirst?: boolean;
   peakProcess?: {
     state: PeakProcessState;
     onChange: (state: PeakProcessState) => void;
@@ -83,6 +85,7 @@ export function ReviewAnalysis({
   return (
     <section className="review-analysis" aria-label="时间分析">
       <div className="review-analysis-body">
+        {evidenceFirst && evidence}
         <div className="review-comparison">
           {series.map(({ metric, label, points }) => {
             const point = points[cursor],
@@ -218,7 +221,7 @@ export function ReviewAnalysis({
             }}
           />
         )}
-        {evidence}
+        {!evidenceFirst && evidence}
         <AnalysisEvents
           title={
             cooling

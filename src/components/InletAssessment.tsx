@@ -30,7 +30,10 @@ export function InletAssessment({
   onAirflow: () => void;
   onLocate: () => void;
 }) {
-  const { status, detail, since, confirmed } = inletAssessment(reading, sample);
+  const { status, activeBasis, detail, since, confirmed } = inletAssessment(
+    reading,
+    sample,
+  );
   return (
     <section
       ref={headingRef}
@@ -44,6 +47,7 @@ export function InletAssessment({
         </strong>
         <span>{status}</span>
       </header>
+      {activeBasis && <p>{activeBasis}</p>}
       <p>{detail}</p>
       <InletProcess
         reviewState={processState}
