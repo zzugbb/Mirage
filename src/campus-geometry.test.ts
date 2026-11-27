@@ -26,6 +26,8 @@ test("A 栋半剖保留实际标高，分层复原完整二层楼板与标签位
     campusChildren(building.id),
   );
   const upper = marks.find(({ child }) => child.id === "floor-a-02")!;
+  const lower = marks.find(({ child }) => child.id === "floor-a-01")!;
+  assert.equal(upper.labelPoint.x, lower.labelPoint.x);
   const front = upper.floorFront!;
   const section = plan.getObjectByName("building-section")!;
   const sectionY = upper.point.y;
@@ -443,8 +445,23 @@ test("二层室内铺面由门口经过柜间再沿柜前连续铺开", () => {
   const area = campusFloorPlan(floor.id)!.areas[0];
   const { pick } = marks[0];
   const group = pick.parent!;
-  const aisle = group.getObjectByName("floor-service-aisle") as Mesh;
+  const aisle = group.getObjectByName("floor-service-aisle") as Mesh<
+    BufferGeometry,
+    MeshStandardMaterial
+  >;
   const surround = group.getObjectByName("floor-room-finish-surround") as Mesh;
+  for (const name of [
+    "floor-stair-approach",
+    "floor-corridor",
+    "floor-door-approach",
+  ]) {
+    const { material } = plan.getObjectByName(name) as Mesh<
+      BufferGeometry,
+      MeshStandardMaterial
+    >;
+    assert.ok(material.color.equals(aisle.material.color));
+    assert.equal(material.map, aisle.material.map);
+  }
   const ups = area.equipment.find(({ kind }) => kind === "ups")!;
   const battery = area.equipment.find(({ kind }) => kind === "battery")!;
   const gap =

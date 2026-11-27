@@ -1487,6 +1487,7 @@ function exposedFloorStructure(
 // 按机房当前取景校准楼层灯光下的可见墙面与地砖。
 const floorFinishColor = "#848e92";
 const corridorFinishColor = "#8b9599";
+const serviceAisleFinishColor = "#979f9e";
 const interiorWallColor = "#a0a8ac";
 const floorFinishHeight = 0.05;
 const corridorFinishHeight = 0.033;
@@ -1724,6 +1725,7 @@ function floorStair(
   upper: boolean,
   partOfBuilding: boolean,
   finish: ReturnType<typeof floorFinishes>,
+  approachColor: string,
   labelObstacles: CampusLabelObstacle[],
 ) {
   const { left, right, near, far } = stairOpening(stair);
@@ -1780,7 +1782,7 @@ function floorStair(
     plan,
     [stair.width, 0.055, near - corridorEdge],
     [x, surface - 0.0275, (near + corridorEdge) / 2],
-    corridorFinishColor,
+    approachColor,
     finish,
   );
   approach.name = "floor-stair-approach";
@@ -2069,7 +2071,8 @@ function floorPlaque(
       ctx.fillStyle = ink;
       ctx.textBaseline = "middle";
       ctx.textAlign = "center";
-      ctx.font = `600 ${Math.round(h * (destinations ? 0.64 : 0.55))}px sans-serif`;
+      const titleScale = destinations || placement === "ground" ? 0.64 : 0.55;
+      ctx.font = `600 ${Math.round(h * titleScale)}px sans-serif`;
       ctx.fillText(title, w * (destinations ? 0.155 : 0.5), h * 0.53, w * 0.85);
       if (destinations) {
         ctx.beginPath();
@@ -2849,6 +2852,7 @@ function floorApproach(
   end: number,
   finish: ReturnType<typeof floorFinishes>,
   thresholdY: number,
+  color: string,
 ) {
   const thickness = 0.034;
   const length = end - start;
@@ -2856,7 +2860,7 @@ function floorApproach(
     plan,
     [width, thickness, length],
     [x, (corridorFinishHeight + thresholdY - thickness) / 2, (start + end) / 2],
-    corridorFinishColor,
+    color,
     finish,
   );
   const positions = access.geometry.getAttribute("position");
@@ -2959,7 +2963,10 @@ function floorServiceAisle(
   );
   addSurface(
     points,
-    new THREE.MeshStandardMaterial({ ...finish, color: "#8b9598" }),
+    new THREE.MeshStandardMaterial({
+      ...finish,
+      color: serviceAisleFinishColor,
+    }),
     "floor-service-aisle",
   );
 }
@@ -3025,6 +3032,11 @@ export function createCampusGeometry(
   const site = scope.kind === "campus";
   const building = scope.kind === "building";
   const floorPlan = campusFloorPlan(scope.id);
+  const corridorColor = floorPlan?.areas.some(
+    ({ serviceAisle }) => serviceAisle,
+  )
+    ? serviceAisleFinishColor
+    : corridorFinishColor;
   let stairLanding: THREE.Group | undefined;
   const floorFinish = floorPlan && floorFinishes();
   const wallContact = floorPlan && floorContactFinish();
@@ -3158,7 +3170,7 @@ export function createCampusGeometry(
       plan,
       [width, 0.025, depth],
       [center[0], corridorFinishHeight - 0.0125, center[1]],
-      corridorFinishColor,
+      corridorColor,
       floorFinish ?? undefined,
     );
     corridor.name = "floor-corridor";
@@ -3170,7 +3182,7 @@ export function createCampusGeometry(
       plan,
       [width, 0.025, corridorBack - wallFace],
       [center[0], corridorFinishHeight - 0.0125, (corridorBack + wallFace) / 2],
-      corridorFinishColor,
+      corridorColor,
       floorFinish!,
     );
     edgeFill.name = "floor-corridor-wall-edge";
@@ -3191,6 +3203,7 @@ export function createCampusGeometry(
       upstairs,
       partOfBuilding,
       floorFinish!,
+      corridorColor,
       labelObstacles,
     );
     const entrance =
@@ -3224,7 +3237,7 @@ export function createCampusGeometry(
       labelObstacles.push(threshold);
     }
   }
-  const marks = children.map((child, index) => {
+  const marks = children.map((child) => {
     const group = new THREE.Group();
     group.position.set(...child.origin);
     group.rotation.y = child.yaw;
@@ -3463,9 +3476,9 @@ export function createCampusGeometry(
             floorPlaque(
               group,
               "floor-power-layout-holder",
-              "柜列布置",
+              "巡检台",
               [inspectionX, 1.53, wallZ + wallDepth / 2 + 0.011],
-              [0.88, 0.59],
+              [1.6, 0.8],
               "wall",
             ),
           );
@@ -3479,6 +3492,7 @@ export function createCampusGeometry(
           child.origin[2] + wallZ,
           floorFinish!,
           room ? roomFloorSurfaceY : floorFinishHeight,
+          corridorColor,
         );
         labelObstacles.push(access, {
           frame: group,
@@ -3525,7 +3539,7 @@ export function createCampusGeometry(
                 "floor-cabinet-group-mark",
                 name.replace(/\s*柜列$/u, ""),
                 [center[0], 0.053, center[1] + depth / 2 + 0.7],
-                [2, 0.55],
+                [2, 0.78],
                 "ground",
               ),
             );
@@ -3599,8 +3613,13 @@ export function createCampusGeometry(
       const wallEdge = (side * w) / 2;
       labelX = (openingEdge + wallEdge) / 2;
     }
+    if (area?.serviceAisle) {
+      // 把辅助区标签移到侧墙外，给走廊、通道和墙边巡检台留出画面。
+      labelX = w / 2 + 0.6;
+      labelDepth = 0;
+    }
     const labelPoint = building
-      ? new THREE.Vector3(w * (index % 2 ? 0.43 : 0.26), 0.04, d / 2 - 0.5)
+      ? new THREE.Vector3(w * 0.43, 0.04, d / 2 - 0.5)
       : zone?.kind === "heat"
         ? new THREE.Vector3(w * 0.32, 0.08, -d / 2 + 0.5)
         : zone?.kind === "backup"
@@ -3620,11 +3639,13 @@ export function createCampusGeometry(
       labelPoint,
       labelOutward: area
         ? group.localToWorld(
-            new THREE.Vector3(
-              labelX,
-              labelHeight,
-              labelDepth + Math.sign(labelDepth),
-            ),
+            area.serviceAisle
+              ? new THREE.Vector3(labelX + 1, labelHeight, labelDepth)
+              : new THREE.Vector3(
+                  labelX,
+                  labelHeight,
+                  labelDepth + Math.sign(labelDepth),
+                ),
           )
         : undefined,
       point: group.localToWorld(labelPoint.clone()),

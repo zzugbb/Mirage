@@ -595,22 +595,22 @@ export function CampusScene({
       const bounds = target
         ? new THREE.Box3().setFromObject(target)
         : planBounds;
-      const direction =
-        view === "top"
-          ? (scope.kind === "building"
-              ? new THREE.Vector3(0.06, 0.25, 1)
-              : new THREE.Vector3(0, 1, 0.08)
-            ).normalize()
-          : (scope.kind === "building"
-              ? new THREE.Vector3(0.31, 0.14, 1)
-              : scope.kind === "floor" && view === "overview"
-                ? new THREE.Vector3(0.44, 0.7, 1)
-                : new THREE.Vector3(
-                    0.72,
-                    outdoor && view === "overview" ? 0.56 : 0.74,
-                    0.97,
-                  )
-            ).normalize();
+      const direction = new THREE.Vector3(
+        0.72,
+        outdoor && view === "overview" ? 0.56 : 0.74,
+        0.97,
+      );
+      if (view === "top") {
+        if (scope.kind === "building") direction.set(0.06, 0.25, 1);
+        else direction.set(0, 1, 0.08);
+      } else if (scope.kind === "building") {
+        // 露出上段楼梯，同时给桥架与柜顶保留画面间距。
+        direction.set(0.31, 0.116, 1);
+      } else if (scope.kind === "floor" && view === "overview") {
+        if (scope.id === "floor-a-02") direction.set(-0.2, 1.38, 1);
+        else direction.set(0.44, 0.7, 1);
+      }
+      direction.normalize();
       const right = new THREE.Vector3(0, 1, 0).cross(direction).normalize();
       const up = new THREE.Vector3().crossVectors(direction, right);
       const tangent = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
